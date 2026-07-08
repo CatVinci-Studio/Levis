@@ -5,8 +5,8 @@
 <h1 align="center">Levis</h1>
 
 <p align="center">
-  <strong>A Markdown editor — with an AI agent that quietly joins in.</strong><br>
-  Write in a clean, distraction-free canvas; the agent helps only when it should, never in your way.
+  <strong>A WYSIWYG Markdown editor — with an AI agent that quietly joins in.</strong><br>
+  What you see is what you get; the agent helps only when it should, never in your way.
 </p>
 
 <p align="center">
@@ -24,13 +24,13 @@
 
 ## What it is
 
-Levis is a Markdown editor first. Headings, bold/italic, math, and other syntax render live instead of showing raw symbols — the markup only reappears when you click into it, Typora-style.
+Levis is a WYSIWYG Markdown editor first — what you see is what you get, no raw syntax cluttering the page.
 
 An AI agent can join in alongside your writing — completing a sentence, catching a grammar slip, answering a question about the document — but it stays out of the way until it's actually useful. No mandatory sign-in, no chat window forced open, no rewriting your document behind your back.
 
 ## Why
 
-- **Distraction-free by default.** No raw `**`/`#`/`$...$` clutter — see it rendered, edit it in place.
+- **WYSIWYG by default.** No raw `**`/`#`/`$...$` clutter — see it rendered, edit it in place.
 - **The agent participates, it doesn't take over.** Inline completion and grammar checks are quiet suggestions, not interruptions; ask it something about your document only when you want to.
 - **Bring your own model.** Sign in with ChatGPT (Codex) or Claude, paste a plain OpenAI API key, or point it at any OpenAI-compatible endpoint (local models included).
 - **Rich content that just works.** Tables, task lists, fenced code with a language picker and syntax highlighting, inline/block KaTeX math with a live preview while typing, and Mermaid diagrams rendered in place.
