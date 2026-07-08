@@ -5,8 +5,8 @@
 <h1 align="center">Levis</h1>
 
 <p align="center">
-  <strong>A Typora-style WYSIWYG Markdown editor with a built-in AI writing assistant.</strong><br>
-  Write in a clean, distraction-free canvas — the raw syntax only shows up when your cursor is on it.
+  <strong>A Markdown editor — with an AI agent that quietly joins in.</strong><br>
+  Write in a clean, distraction-free canvas; the agent helps only when it should, never in your way.
 </p>
 
 <p align="center">
@@ -24,13 +24,15 @@
 
 ## What it is
 
-A cross-platform desktop Markdown editor built with [Milkdown](https://milkdown.dev/) (a ProseMirror-based editor framework), React, and [Tauri 2](https://tauri.app/). Headings, bold/italic, math, and other syntax render live instead of showing raw symbols — the markup only reappears when you click into it, Typora-style. An optional AI assistant can complete sentences as you type, flag grammar issues, and answer questions about the document you have open.
+Levis is a Markdown editor first. Headings, bold/italic, math, and other syntax render live instead of showing raw symbols — the markup only reappears when you click into it, Typora-style.
+
+An AI agent can join in alongside your writing — completing a sentence, catching a grammar slip, answering a question about the document — but it stays out of the way until it's actually useful. No mandatory sign-in, no chat window forced open, no rewriting your document behind your back.
 
 ## Why
 
 - **Distraction-free by default.** No raw `**`/`#`/`$...$` clutter — see it rendered, edit it in place.
-- **Bring your own model.** Sign in with ChatGPT (Codex) or Claude, paste a plain OpenAI API key, or point it at any OpenAI-compatible endpoint (local models included) — pick per-provider model, test the connection, done.
-- **An agent that reads your document.** Ask questions about what you're writing; on the Codex provider it can search the document via real tool calls instead of guessing.
+- **The agent participates, it doesn't take over.** Inline completion and grammar checks are quiet suggestions, not interruptions; ask it something about your document only when you want to.
+- **Bring your own model.** Sign in with ChatGPT (Codex) or Claude, paste a plain OpenAI API key, or point it at any OpenAI-compatible endpoint (local models included).
 - **Rich content that just works.** Tables, task lists, fenced code with a language picker and syntax highlighting, inline/block KaTeX math with a live preview while typing, and Mermaid diagrams rendered in place.
 - **Typewriter mode.** Keeps your current line pinned near the center of the screen instead of drifting to the bottom.
 - **Local-only credentials.** OAuth tokens and API keys are written to the OS app-config directory, never bundled or synced anywhere.
