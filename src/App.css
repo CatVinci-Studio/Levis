@@ -1,0 +1,243 @@
+:root {
+  --font-sans:
+    -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", Inter,
+    system-ui, sans-serif;
+
+  --bg: #fbfaf8;
+  --editor-text: #2b2b2b;
+  --editor-muted: #7a7a7a;
+  --editor-accent: #3a6bd6;
+  --editor-border: #e4e1db;
+  --editor-quote-border: #d8d4cc;
+  --editor-code-bg: #f1efe9;
+
+  --sidebar-bg: #f4f2ee;
+  --sidebar-text: #4a4a4a;
+  --sidebar-hover: #e9e6df;
+  --sidebar-active: #e3e0f5;
+  --sidebar-active-text: #2b2b2b;
+  --border-color: #e4e1db;
+
+  color: var(--editor-text);
+  background-color: var(--bg);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark palette applies when the system prefers dark (and the user hasn't
+   forced light mode in Settings), or when the user has explicitly forced
+   dark mode in Settings regardless of the system preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1e1e1e;
+    --editor-text: #d8d6d0;
+    --editor-muted: #8c8c8c;
+    --editor-accent: #6c9bf7;
+    --editor-border: #333230;
+    --editor-quote-border: #3a3936;
+    --editor-code-bg: #2a2a28;
+
+    --sidebar-bg: #191919;
+    --sidebar-text: #b8b6b0;
+    --sidebar-hover: #272725;
+    --sidebar-active: #2e2c3d;
+    --sidebar-active-text: #f0efe9;
+    --border-color: #2c2b28;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1e1e1e;
+  --editor-text: #d8d6d0;
+  --editor-muted: #8c8c8c;
+  --editor-accent: #6c9bf7;
+  --editor-border: #333230;
+  --editor-quote-border: #3a3936;
+  --editor-code-bg: #2a2a28;
+
+  --sidebar-bg: #191919;
+  --sidebar-text: #b8b6b0;
+  --sidebar-hover: #272725;
+  --sidebar-active: #2e2c3d;
+  --sidebar-active-text: #f0efe9;
+  --border-color: #2c2b28;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+}
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: margin-right 0.15s ease;
+}
+
+.sidebar-collapsed {
+  margin-right: -240px;
+}
+
+.sidebar-header {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.sidebar-body-flush {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.text-button {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.text-button:hover {
+  background: var(--sidebar-hover);
+}
+
+.sidebar-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.sidebar-tab {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 4px;
+  font-size: 12px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-tab:hover {
+  background: var(--sidebar-hover);
+}
+
+.sidebar-tab-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+}
+
+.main-pane {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.floating-toolbar {
+  position: absolute;
+  /* Vertically centers with the macOS traffic-light buttons. */
+  top: 2px;
+  right: 14px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.word-count {
+  font-size: 12px;
+  color: var(--editor-muted);
+  white-space: nowrap;
+  min-width: 1px;
+  padding: 0 4px;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--editor-muted);
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.icon-button:hover {
+  background: var(--editor-code-bg);
+}
+
+.editor-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.editor-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+.editor-content.typewriter-active {
+  padding-top: 42vh;
+  padding-bottom: 42vh;
+}
+
+.source-view {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+  border: none;
+  outline: none;
+  resize: none;
+  background: var(--bg);
+  color: var(--editor-text);
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+}

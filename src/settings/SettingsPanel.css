@@ -1,0 +1,230 @@
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.settings-panel {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  padding: 0 2rem 4rem;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2.5rem 0 1.5rem;
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.settings-close-button {
+  font-size: 22px;
+  line-height: 1;
+  padding: 8px;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-tab {
+  padding: 8px 18px;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+}
+
+.settings-tab:hover {
+  background: var(--sidebar-hover);
+}
+
+.settings-tab-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+}
+
+.settings-body {
+  padding-top: 1.5rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+}
+
+.settings-row > *:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-toggle-row {
+  cursor: pointer;
+}
+
+.settings-row-label {
+  color: var(--editor-text);
+  font-size: 15px;
+}
+
+.settings-row-hint {
+  color: var(--editor-muted);
+  font-size: 12.5px;
+  margin-top: 4px;
+  max-width: 360px;
+  overflow-wrap: break-word;
+}
+
+button.settings-inline-button {
+  width: auto;
+  margin-bottom: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.api-key-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.api-key-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--sidebar-bg);
+  color: var(--editor-text);
+  font-size: 14px;
+}
+
+.api-key-configured {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.settings-error {
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #c1495a 12%, transparent);
+  color: #c1495a;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.settings-row select {
+  background: var(--sidebar-bg);
+  color: var(--editor-text);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+.settings-section-label {
+  margin: 1.5rem 0 0.25rem;
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--editor-muted);
+}
+
+.settings-provider-panel {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 4px 16px;
+  margin: 10px 0;
+}
+
+.settings-provider-panel .settings-row {
+  border-bottom: none;
+}
+
+.settings-provider-panel .settings-row + .settings-field,
+.settings-provider-panel .settings-field + .settings-field {
+  border-top: 1px solid var(--border-color);
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.settings-field-label {
+  font-size: 14px;
+  color: var(--editor-text);
+  flex-shrink: 0;
+}
+
+.settings-text-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--editor-text);
+  font-size: 14px;
+}
+
+.custom-model-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-model-row select,
+.custom-model-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 0;
+}
+
+.settings-success {
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #5f8b4c 12%, transparent);
+  color: #5f8b4c;
+  font-size: 13px;
+}

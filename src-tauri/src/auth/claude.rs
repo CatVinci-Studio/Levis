@@ -1,0 +1,97 @@
+use aicompat::providers::anthropic::{self, ClaudeCredential};
+use aicompat::{run_pkce_login, PkceLoginRequest};
+use serde::Serialize;
+use std::fs;
+use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
+
+const LOGIN_TIMEOUT_SECS: u64 = 5 * 60;
+
+#[derive(Serialize)]
+pub struct ClaudeAuthStatus {
+    configured: bool,
+}
+
+fn auth_file_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("auth-claude.json"))
+}
+
+fn save_credential(app: &AppHandle, cred: &ClaudeCredential) -> Result<(), String> {
+    let path = auth_file_path(app)?;
+    let json = serde_json::to_string_pretty(cred).map_err(|e| e.to_string())?;
+    fs::write(&path, json).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn load_credential(app: &AppHandle) -> Result<Option<ClaudeCredential>, String> {
+    let path = auth_file_path(app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&text).map(Some).map_err(|e| e.to_string())
+}
+
+/// Runs the Claude (Anthropic Pro/Max) OAuth login, same shape as the Codex
+/// login but against Anthropic's own OAuth client - see levis-ai's
+/// providers::anthropic module for the reference this was verified against.
+#[tauri::command]
+pub async fn claude_login(app: AppHandle) -> Result<ClaudeAuthStatus, String> {
+    let (authorize_url, verifier, state) = anthropic::build_authorize_request()?;
+
+    let code = run_pkce_login(
+        &app,
+        PkceLoginRequest {
+            authorize_url,
+            callback_port: anthropic::CALLBACK_PORT,
+            response_html: aicompat::success_page_html("Claude", crate::app_identity::APP_NAME),
+            expected_state: state.clone(),
+            timeout_secs: LOGIN_TIMEOUT_SECS,
+        },
+    )
+    .await?;
+
+    let credential = anthropic::exchange_code(&code, &state, &verifier).await?;
+    save_credential(&app, &credential)?;
+
+    Ok(ClaudeAuthStatus { configured: true })
+}
+
+#[tauri::command]
+pub fn claude_auth_status(app: AppHandle) -> Result<ClaudeAuthStatus, String> {
+    Ok(ClaudeAuthStatus {
+        configured: load_credential(&app)?.is_some(),
+    })
+}
+
+#[tauri::command]
+pub fn claude_logout(app: AppHandle) -> Result<(), String> {
+    let path = auth_file_path(&app)?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Returns a valid access token, refreshing it first if it's expired or
+/// close to expiring.
+pub async fn get_valid_credential(app: &AppHandle) -> Result<String, String> {
+    let cred = load_credential(app)?.ok_or_else(|| "not logged in".to_string())?;
+
+    let expires_soon = cred.expires - aicompat::pkce::now_ms() < 60_000;
+    if !expires_soon {
+        return Ok(cred.access);
+    }
+
+    let refreshed = anthropic::refresh(&cred.refresh).await?;
+    let access = refreshed.access.clone();
+    save_credential(app, &refreshed)?;
+    Ok(access)
+}

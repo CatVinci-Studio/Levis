@@ -1,0 +1,302 @@
+.milkdown {
+  font-family: var(--font-sans);
+  font-size: 16.5px;
+  line-height: 1.75;
+  color: var(--editor-text);
+}
+
+.milkdown .ProseMirror {
+  outline: none;
+  min-height: calc(100vh - 6rem);
+}
+
+.ghost-text {
+  color: var(--editor-muted);
+  opacity: 0.65;
+  font-style: italic;
+  user-select: none;
+}
+
+.grammar-issue {
+  text-decoration: underline wavy #c1495a;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.mermaid-preview {
+  margin: 0.6em 0 1em;
+  padding: 1.1em;
+  border: 1px solid var(--editor-border);
+  border-radius: 10px;
+  background: var(--editor-code-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-preview svg {
+  max-width: 100%;
+}
+
+.milkdown img {
+  max-width: 100%;
+  display: block;
+  margin: 0.9em auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.milkdown img.ProseMirror-selectednode {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 3px;
+}
+
+.math-inline,
+.math-block {
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.math-source-hidden {
+  display: none;
+}
+
+.math-delimiter {
+  color: var(--editor-muted);
+  user-select: none;
+}
+
+.math-float-preview {
+  position: fixed;
+  z-index: 100;
+  max-width: 420px;
+  padding: 0.5em 0.7em;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+.math-inline-rendered {
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.heading-marker {
+  color: var(--editor-muted);
+  font-weight: 400;
+  user-select: none;
+}
+
+.mark-marker {
+  color: var(--editor-muted);
+  font-weight: 400;
+  font-style: normal;
+  user-select: none;
+}
+
+.math-block-rendered {
+  display: block;
+  cursor: pointer;
+  margin: 0.6em 0;
+  padding: 0.6em 0.9em;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.milkdown h1,
+.milkdown h2,
+.milkdown h3,
+.milkdown h4 {
+  font-weight: 650;
+  line-height: 1.3;
+  margin: 1.4em 0 0.5em;
+}
+
+.milkdown h1 { font-size: 1.9em; }
+.milkdown h2 { font-size: 1.5em; }
+.milkdown h3 { font-size: 1.25em; }
+.milkdown h4 { font-size: 1.1em; }
+
+.milkdown p {
+  margin: 0.6em 0;
+}
+
+.milkdown blockquote {
+  margin: 0.8em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--editor-quote-border);
+  color: var(--editor-muted);
+}
+
+.milkdown a {
+  color: var(--editor-accent);
+}
+
+.milkdown code {
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-variant-ligatures: normal;
+  font-feature-settings: "liga" 1, "calt" 1;
+  font-size: 0.9em;
+  background: var(--editor-code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.code-block-wrapper {
+  background: var(--editor-code-bg);
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  margin: 0.8em 0;
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.code-block-language-select {
+  font-size: 11.5px;
+  color: var(--editor-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.milkdown pre {
+  padding: 0.9em 1em;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.milkdown pre code {
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-variant-ligatures: normal;
+  font-feature-settings: "liga" 1, "calt" 1;
+  background: none;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Syntax highlighting tokens (via refractor/Prism token classes) */
+:root {
+  --token-string: #5f8b4c;
+  --token-number: #b0742d;
+  --token-keyword: #a15bbf;
+  --token-function: #3a6bd6;
+  --token-tag: #c1495a;
+}
+
+.milkdown .token.comment,
+.milkdown .token.prolog,
+.milkdown .token.doctype {
+  color: var(--editor-muted);
+  font-style: italic;
+}
+.milkdown .token.string,
+.milkdown .token.attr-value {
+  color: var(--token-string);
+}
+.milkdown .token.number,
+.milkdown .token.boolean,
+.milkdown .token.constant {
+  color: var(--token-number);
+}
+.milkdown .token.keyword,
+.milkdown .token.operator,
+.milkdown .token.rule {
+  color: var(--token-keyword);
+}
+.milkdown .token.function,
+.milkdown .token.class-name {
+  color: var(--token-function);
+}
+.milkdown .token.tag,
+.milkdown .token.selector,
+.milkdown .token.attr-name {
+  color: var(--token-tag);
+}
+.milkdown .token.punctuation {
+  color: var(--editor-muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --token-string: #8fc47a;
+    --token-number: #d6a35c;
+    --token-keyword: #c793e6;
+    --token-function: #6c9bf7;
+    --token-tag: #e08a97;
+  }
+}
+
+:root[data-theme="dark"] {
+  --token-string: #8fc47a;
+  --token-number: #d6a35c;
+  --token-keyword: #c793e6;
+  --token-function: #6c9bf7;
+  --token-tag: #e08a97;
+}
+
+.milkdown li[data-item-type="task"] {
+  list-style: none;
+  position: relative;
+  padding-left: 1.5em;
+}
+
+.milkdown li[data-item-type="task"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.4em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.5px solid var(--editor-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.milkdown li[data-item-type="task"][data-checked="true"]::before {
+  background: var(--editor-accent);
+  border-color: var(--editor-accent);
+}
+
+.milkdown li[data-item-type="task"][data-checked="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0.24em;
+  top: 0.55em;
+  width: 0.5em;
+  height: 0.24em;
+  border-left: 2px solid white;
+  border-bottom: 2px solid white;
+  transform: rotate(-45deg);
+  pointer-events: none;
+}
+
+.milkdown li[data-item-type="task"][data-checked="true"] > p {
+  color: var(--editor-muted);
+  text-decoration: line-through;
+}
+
+.milkdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+}
+
+.milkdown th,
+.milkdown td {
+  border: 1px solid var(--editor-border);
+  padding: 0.4em 0.7em;
+}

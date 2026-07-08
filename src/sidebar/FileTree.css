@@ -1,0 +1,49 @@
+.file-tree {
+  font-size: 13px;
+  color: var(--sidebar-text);
+  user-select: none;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.tree-row:hover {
+  background: var(--sidebar-hover);
+}
+
+.tree-row-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+}
+
+.tree-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  flex-shrink: 0;
+  transition: transform 0.12s ease;
+  opacity: 0.6;
+}
+
+.chevron-open {
+  transform: rotate(90deg);
+}
