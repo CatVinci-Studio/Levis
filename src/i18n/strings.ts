@@ -103,6 +103,11 @@ export const strings = {
     updateLater: "Later",
     updateDownloading: "Downloading update…",
     updateFailed: "Update failed:",
+    closePromptMessage: "This document has unsaved changes.",
+    closePromptSave: "Save",
+    closePromptDiscard: "Don't Save",
+    closePromptCancel: "Cancel",
+    unsavedIndicator: "Unsaved changes",
   },
   zh: {
     treeTab: "文件树",
@@ -206,6 +211,11 @@ export const strings = {
     updateLater: "稍后",
     updateDownloading: "正在下载更新…",
     updateFailed: "更新失败:",
+    closePromptMessage: "文档有未保存的更改。",
+    closePromptSave: "保存",
+    closePromptDiscard: "不保存",
+    closePromptCancel: "取消",
+    unsavedIndicator: "有未保存的更改",
   },
 } as const;
 

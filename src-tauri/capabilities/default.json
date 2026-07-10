@@ -8,6 +8,8 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-destroy",
+    "core:window:allow-close",
     "opener:default",
     "dialog:default",
     "updater:default",

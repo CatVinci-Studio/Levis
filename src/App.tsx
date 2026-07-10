@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
 import { EditorPane } from "./editor/EditorPane";
@@ -23,6 +24,10 @@ function App() {
   const { t, settings, setSettings } = useSettings();
   const [activePath, setActivePath] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  // What's on disk (or "" for a fresh draft) - dirtiness is divergence from
+  // this, and it's what the close-confirmation prompt keys off.
+  const [savedContent, setSavedContent] = useState("");
+  const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -35,9 +40,14 @@ function App() {
   const rootPath = activePath ? dirname(activePath) : null;
   const wordCount = useMemo(() => countWords(content), [content]);
 
+  const dirty = content !== savedContent;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
   const openFile = useCallback(async (path: string) => {
     const text = await invoke<string>("read_text_file", { path });
     setContent(text);
+    setSavedContent(text);
     setActivePath(path);
   }, []);
 
@@ -50,18 +60,23 @@ function App() {
     setContent(markdown);
   }, []);
 
-  const save = useCallback(async () => {
+  // Resolves true only when the document actually reached disk - the close
+  // prompt must not close the window when the save-as dialog was cancelled.
+  const save = useCallback(async (): Promise<boolean> => {
     // Draft never saved before: ask where to put it, then this document
     // graduates into a real file (the sidebar tree picks up its folder).
     if (!activePath) {
       const picked = await invoke<string | null>("save_file_dialog");
-      if (!picked) return;
+      if (!picked) return false;
       await invoke("write_text_file", { path: picked, contents: content });
       setActivePath(picked);
-      return;
+      setSavedContent(content);
+      return true;
     }
 
     await invoke("write_text_file", { path: activePath, contents: content });
+    setSavedContent(content);
+    return true;
   }, [activePath, content]);
 
   useEffect(() => {
@@ -100,9 +115,34 @@ function App() {
     });
   }, []);
 
+  // Files handed over by the OS (Finder "Open With" / double-click): each
+  // window claims at most one queued path when it mounts - see lib.rs's
+  // PendingOpenPaths for why this is a pull, not an event.
+  useEffect(() => {
+    void (async () => {
+      const pending = await invoke<string | null>("take_pending_open_path");
+      if (pending) await openFile(pending);
+    })();
+  }, [openFile]);
+
+  // Closing with unsaved changes swaps the native close for the
+  // save/discard/cancel prompt. Registered once; reads dirtiness through a
+  // ref so the listener doesn't churn on every keystroke.
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested((event) => {
+      if (!dirtyRef.current) return;
+      event.preventDefault();
+      setClosePromptOpen(true);
+    });
+    return () => {
+      void unlisten.then((f) => f());
+    };
+  }, []);
+
   useEffect(() => {
     const unlistenSettings = listen("menu-open-settings", () => setSettingsOpen(true));
     const unlistenOpenFile = listen("menu-open-file", () => void openFileDialog());
+    const unlistenSaveFile = listen("menu-save-file", () => void save());
     const unlistenSourceMode = listen("menu-toggle-source-mode", () => toggleSourceMode());
     const unlistenTypewriter = listen("menu-toggle-typewriter-mode", () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
@@ -111,11 +151,22 @@ function App() {
     return () => {
       void unlistenSettings.then((f) => f());
       void unlistenOpenFile.then((f) => f());
+      void unlistenSaveFile.then((f) => f());
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
     };
-  }, [openFileDialog, toggleSourceMode, settings.typewriterMode, setSettings]);
+  }, [openFileDialog, save, toggleSourceMode, settings.typewriterMode, setSettings]);
+
+  const closeSaving = useCallback(async () => {
+    setClosePromptOpen(false);
+    if (await save()) await getCurrentWindow().destroy();
+  }, [save]);
+
+  const closeDiscarding = useCallback(async () => {
+    setClosePromptOpen(false);
+    await getCurrentWindow().destroy();
+  }, []);
 
   return (
     <div className="app-shell">
@@ -154,6 +205,7 @@ function App() {
 
       <div className="main-pane">
         <div className="floating-toolbar">
+          {dirty && <span className="unsaved-dot" title={t.unsavedIndicator} />}
           <span className="word-count">
             {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
             {wordCount.words > 0 && wordCount.cjkChars > 0 && " · "}
@@ -179,6 +231,24 @@ function App() {
       </div>
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+
+      {closePromptOpen && (
+        <div className="close-prompt-overlay">
+          <div className="close-prompt">
+            <p>{t.closePromptMessage}</p>
+            <div className="close-prompt-buttons">
+              <button className="close-prompt-discard" onClick={() => void closeDiscarding()}>
+                {t.closePromptDiscard}
+              </button>
+              <div className="close-prompt-spacer" />
+              <button onClick={() => setClosePromptOpen(false)}>{t.closePromptCancel}</button>
+              <button className="close-prompt-primary" autoFocus onClick={() => void closeSaving()}>
+                {t.closePromptSave}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {appUpdate.status !== "idle" && (
         <div className="update-toast">

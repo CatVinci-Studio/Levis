@@ -174,6 +174,12 @@ export function hasPendingRunOpen(textBefore: string, char: string, minRung: num
  * Every autopair plugin calls this first from its handleTextInput.
  */
 export function redirectMisattributedInput(view: EditorView, from: number, to: number, text: string): boolean {
+  // During IME composition the intermediate text (e.g. pinyin) lives in the
+  // DOM ahead of the editor state, so from/selection routinely disagree for
+  // reasons that have nothing to do with WKWebView misattribution - and
+  // dispatching here aborts the composition, committing the raw letters
+  // alongside the text the IME inserts on its own.
+  if (view.composing) return false;
   if (from !== to) return false;
   const { state } = view;
   const sel = state.selection;
@@ -187,6 +193,18 @@ export function redirectMisattributedInput(view: EditorView, from: number, to: n
   const handled = view.someProp("handleTextInput", (f) => f(view, sel.from, sel.to, text, deflt));
   if (!handled) view.dispatch(deflt());
   return true;
+}
+
+/**
+ * Whether a keydown belongs to an active IME composition (candidate
+ * navigation, commit via Enter/Space, editing the preedit with Backspace).
+ * Every handleKeyDown in the editor must bail on these - intercepting them
+ * aborts the composition, which commits the raw preedit letters into the
+ * document on top of the text the IME then inserts. keyCode 229 covers
+ * WebKit's "processed by IME" keydowns where isComposing can lag.
+ */
+export function isImeKeyEvent(view: EditorView, event: KeyboardEvent): boolean {
+  return view.composing || event.isComposing || event.keyCode === 229;
 }
 
 function makeDelimiterEl(delimiter: string): HTMLElement {
@@ -472,9 +490,119 @@ function applyDeleteAction(view: EditorView, action: DeleteAction): void {
   else deleteDelimiter(view, action.start, action.node, action.drop);
 }
 
-export const enclosurePlugin = $prose(
-  () =>
-    new Plugin<DecorationSet>({
+/**
+ * IME counterpart to redirectMisattributedInput. The same WKWebView caret
+ * normalization that pulls plain keystrokes into an adjacent enclosure also
+ * pulls IME composition text in - but during composition nothing may
+ * dispatch (it would abort the preedit and commit the raw pinyin, see
+ * redirectMisattributedInput's guard). So the fix runs bracketed around the
+ * composition instead: at compositionstart, snapshot any enclosure the
+ * caret sits directly against; after compositionend, if the committed text
+ * ended up inside that node, move it back out to where the caret actually
+ * was. Every check below bails silently when the doc doesn't match the
+ * snapshot exactly - a missed relocation is far better than mangling text.
+ */
+interface CompositionAnchor {
+  side: "before" | "after";
+  nodeStart: number;
+  contentSize: number;
+}
+
+function snapshotAdjacentEnclosures(state: EditorState): CompositionAnchor[] {
+  const sel = state.selection;
+  if (!sel.empty) return [];
+  const $pos = sel.$from;
+  if (isEnclosureName($pos.parent.type.name)) return []; // genuinely composing inside - leave it there
+  const anchors: CompositionAnchor[] = [];
+  const before = $pos.nodeBefore;
+  if (before && isEnclosure(before) && !before.isBlock) {
+    anchors.push({ side: "after", nodeStart: sel.from - before.nodeSize, contentSize: before.content.size });
+  }
+  const after = $pos.nodeAfter;
+  if (after && isEnclosure(after) && !after.isBlock) {
+    anchors.push({ side: "before", nodeStart: sel.from, contentSize: after.content.size });
+  }
+  return anchors;
+}
+
+/**
+ * First line of defense, before the relocation fallback below: give WKWebView
+ * an unambiguous DOM caret position OUTSIDE the enclosure before the IME
+ * inserts anything. The normalization that pulls the preedit inside happens
+ * because the boundary position (between the delimiter widget and the
+ * neighboring text) is ambiguous; collapsing the DOM selection into the
+ * adjacent TEXT node at the same document position removes the ambiguity, so
+ * the whole composition renders in the paragraph from the first keystroke -
+ * no mid-composition bold styling, no post-commit relocation jump. Touching
+ * only the DOM selection is composition-safe: nothing is dispatched and no
+ * DOM is redrawn.
+ */
+function pinDomCaretForComposition(view: EditorView, anchors: CompositionAnchor[]): void {
+  if (anchors.length !== 1) return; // caret between two enclosures - no text node to anchor into
+  const bias = anchors[0].side === "after" ? 1 : -1; // lean away from the enclosure
+  const sel = view.state.selection;
+  let domPos: { node: globalThis.Node; offset: number };
+  try {
+    domPos = view.domAtPos(sel.from, bias);
+  } catch {
+    return;
+  }
+  if (domPos.node.nodeType !== Node.TEXT_NODE) return; // only a real text position is unambiguous
+  const root = view.root as { getSelection?: () => globalThis.Selection | null };
+  const domSel = root.getSelection ? root.getSelection() : null;
+  if (!domSel) return;
+  try {
+    domSel.collapse(domPos.node, domPos.offset);
+  } catch {
+    /* leave the fallback relocation to handle it */
+  }
+}
+
+function relocateComposedText(view: EditorView, anchors: CompositionAnchor[]): void {
+  const { state } = view;
+  const sel = state.selection;
+  if (!sel.empty) return;
+  const $pos = sel.$from;
+  const parent = $pos.parent;
+  if (!isEnclosureName(parent.type.name)) return; // the text landed where the caret was - nothing to do
+  const nodeStart = $pos.before($pos.depth);
+
+  for (const anchor of anchors) {
+    if (anchor.nodeStart !== nodeStart) continue;
+    const grown = parent.content.size - anchor.contentSize;
+    if (grown <= 0) continue;
+    const contentStart = nodeStart + 1;
+
+    if (anchor.side === "after") {
+      // Committed text is the tail of the content, caret right after it.
+      const from = contentStart + anchor.contentSize;
+      const to = contentStart + parent.content.size;
+      if (sel.from !== to) continue;
+      const text = parent.textBetween(anchor.contentSize, parent.content.size);
+      if (text.length !== grown) continue; // non-text content appeared - don't guess
+      const tr = state.tr.delete(from, to);
+      const insertAt = nodeStart + parent.nodeSize - grown; // right after the shrunk node
+      tr.insertText(text, insertAt);
+      tr.setSelection(TextSelection.create(tr.doc, insertAt + text.length));
+      view.dispatch(tr);
+    } else {
+      // Mirror case: text got prepended to the content.
+      const to = contentStart + grown;
+      if (sel.from !== to) continue;
+      const text = parent.textBetween(0, grown);
+      if (text.length !== grown) continue;
+      const tr = state.tr.delete(contentStart, to);
+      tr.insertText(text, nodeStart);
+      tr.setSelection(TextSelection.create(tr.doc, nodeStart + text.length));
+      view.dispatch(tr);
+    }
+    return;
+  }
+}
+
+export const enclosurePlugin = $prose(() => {
+  let compositionAnchors: CompositionAnchor[] = [];
+  return new Plugin<DecorationSet>({
       key: enclosureKey,
       state: {
         init: (_config, state) => buildDecorations(state),
@@ -494,7 +622,25 @@ export const enclosurePlugin = $prose(
         decorations(state) {
           return enclosureKey.getState(state);
         },
+        handleDOMEvents: {
+          compositionstart(view) {
+            compositionAnchors = snapshotAdjacentEnclosures(view.state);
+            if (compositionAnchors.length > 0) pinDomCaretForComposition(view, compositionAnchors);
+            return false;
+          },
+          compositionend(view) {
+            const anchors = compositionAnchors;
+            compositionAnchors = [];
+            if (anchors.length === 0) return false;
+            // prosemirror-view flushes the final composition change slightly
+            // after this event (scheduleComposeEnd ~20ms); relocate only once
+            // the committed text is actually in the state.
+            setTimeout(() => relocateComposedText(view, anchors), 30);
+            return false;
+          },
+        },
         handleKeyDown(view, event) {
+          if (isImeKeyEvent(view, event)) return false;
           const state = stateWithLiveSelection(view);
 
           if (event.key === "ArrowRight") {
@@ -532,5 +678,5 @@ export const enclosurePlugin = $prose(
           return false;
         },
       },
-    }),
-);
+    });
+});

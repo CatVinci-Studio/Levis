@@ -1,7 +1,7 @@
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import { findRunOpen, literalTextBefore, redirectMisattributedInput } from "./enclosure";
+import { findRunOpen, isImeKeyEvent, literalTextBefore, redirectMisattributedInput } from "./enclosure";
 
 const DOLLAR = "$";
 
@@ -41,6 +41,7 @@ export const mathAutopairPlugin = $prose(
     new Plugin({
       props: {
         handleTextInput(view, from, to, text) {
+          if (view.composing) return false; // dispatching mid-composition aborts the IME preedit
           if (from !== to) return false; // a real selection just gets replaced normally
           if (redirectMisattributedInput(view, from, to, text)) return true;
           if (text !== DOLLAR) return false;
@@ -105,7 +106,7 @@ export const mathAutopairPlugin = $prose(
           return true;
         },
         handleKeyDown(view, event) {
-          if (event.key !== "Enter") return false;
+          if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
           const { state } = view;
           const { $from, empty } = state.selection;
           if (!empty) return false;

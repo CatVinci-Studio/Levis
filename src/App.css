@@ -286,3 +286,72 @@ body {
   background: transparent;
   color: var(--editor-muted, inherit);
 }
+
+.unsaved-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--editor-accent);
+  flex-shrink: 0;
+}
+
+/* Save/Don't Save/Cancel prompt shown instead of closing a window whose
+   document has unsaved changes. */
+.close-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.close-prompt {
+  min-width: 320px;
+  max-width: 420px;
+  padding: 18px 20px;
+  border: 1px solid var(--editor-border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  font-size: 14px;
+}
+
+.close-prompt p {
+  margin: 0 0 16px;
+}
+
+.close-prompt-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-prompt-spacer {
+  flex: 1;
+}
+
+.close-prompt-buttons button {
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--editor-text);
+}
+
+.close-prompt-buttons button:hover {
+  background: var(--editor-code-bg);
+}
+
+.close-prompt-primary {
+  background: var(--editor-accent) !important;
+  border-color: var(--editor-accent) !important;
+  color: #fff !important;
+}
+
+.close-prompt-discard {
+  color: var(--danger) !important;
+}

@@ -2,6 +2,7 @@ import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
+import { isImeKeyEvent } from "./enclosure";
 
 const headingMarkerKey = new PluginKey("heading-marker");
 
@@ -69,7 +70,7 @@ export const headingMarkerPlugin = $prose(
           return headingMarkerKey.getState(state);
         },
         handleKeyDown(view, event) {
-          if (event.key !== "ArrowLeft") return false;
+          if (event.key !== "ArrowLeft" || isImeKeyEvent(view, event)) return false;
           const { state } = view;
           const { $from, empty } = state.selection;
           if (!empty) return false;

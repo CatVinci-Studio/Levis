@@ -4,6 +4,7 @@ import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import { invoke } from "@tauri-apps/api/core";
 import { countWords } from "../utils/word-count";
+import { isImeKeyEvent } from "../editor/enclosure";
 import { createDebouncedTask } from "./debounced-task";
 
 // Below this much existing content, there isn't enough context for a decent
@@ -101,6 +102,7 @@ export function createGhostTextPlugin(options: { enabled: () => boolean; provide
             return ghostTextKey.getState(state)?.decoration;
           },
           handleKeyDown(view, event) {
+            if (isImeKeyEvent(view, event)) return false;
             const state = ghostTextKey.getState(view.state);
             if (!state?.suggestion || event.key !== "Tab") return false;
             event.preventDefault();

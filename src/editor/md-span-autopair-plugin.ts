@@ -1,7 +1,7 @@
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import { findRunOpen, hasPendingRunOpen, literalTextBefore, redirectMisattributedInput } from "./enclosure";
+import { findRunOpen, hasPendingRunOpen, isImeKeyEvent, literalTextBefore, redirectMisattributedInput } from "./enclosure";
 
 interface SpanSpec {
   char: string;
@@ -72,6 +72,7 @@ export const mdSpanAutopairPlugin = $prose(
     new Plugin({
       props: {
         handleTextInput(view, from, to, text) {
+          if (view.composing) return false; // dispatching mid-composition aborts the IME preedit
           if (from !== to) return false;
           if (redirectMisattributedInput(view, from, to, text)) return true;
 
@@ -191,7 +192,7 @@ export const mdSpanAutopairPlugin = $prose(
           return true;
         },
         handleKeyDown(view, event) {
-          if (event.key !== "Enter") return false;
+          if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
           const { state } = view;
           const { $from, empty } = state.selection;
           if (!empty) return false;

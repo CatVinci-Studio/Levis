@@ -2,6 +2,7 @@ import { Plugin } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import { isInTable, selectedRect } from "@milkdown/kit/prose/tables";
+import { isImeKeyEvent } from "./enclosure";
 
 const ESCAPABLE_BLOCK_TYPES = new Set(["code_block", "math_block"]);
 
@@ -96,6 +97,7 @@ export const escapeTrailingBlockPlugin = $prose(
     new Plugin({
       props: {
         handleKeyDown(view, event) {
+          if (isImeKeyEvent(view, event)) return false;
           if (event.key === "Backspace") {
             return backspaceOutOfLeadingEmptyCodeBlock(view);
           }

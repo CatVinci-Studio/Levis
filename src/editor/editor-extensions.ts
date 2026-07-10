@@ -16,6 +16,7 @@ import { codeBlockLanguageView } from "./code-block-language-view";
 import { createMermaidPreviewPlugin } from "./mermaid-plugin";
 import { tabExtendPlugin } from "./tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
+import { pasteMarkdownSourcePlugin } from "./paste-markdown-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
@@ -60,8 +61,10 @@ export function withEditorExtensions(editor: Editor, settings: { readonly curren
       .use(codeBlockLanguageView)
       .use(createMermaidPreviewPlugin({ enabled: () => settings.current.enableMermaid }))
 
-      // Editing infrastructure.
+      // Editing infrastructure. pasteMarkdownSourcePlugin must precede
+      // clipboard: handlePaste props run in registration order.
       .use(history)
+      .use(pasteMarkdownSourcePlugin)
       .use(clipboard)
       .use(listener)
       .use(tabExtendPlugin)

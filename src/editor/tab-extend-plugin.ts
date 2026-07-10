@@ -1,6 +1,7 @@
 import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import { isInTable, selectedRect, addRowAfter, goToNextCell } from "@milkdown/kit/prose/tables";
+import { isImeKeyEvent } from "./enclosure";
 
 /**
  * Tab at the last cell of a table adds a new row and jumps into it (like
@@ -14,7 +15,7 @@ export const tabExtendPlugin = $prose(
     new Plugin({
       props: {
         handleKeyDown(view, event) {
-          if (event.key !== "Tab" || event.shiftKey) return false;
+          if (event.key !== "Tab" || event.shiftKey || isImeKeyEvent(view, event)) return false;
 
           const { state } = view;
           const { $from } = state.selection;
