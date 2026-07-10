@@ -183,6 +183,9 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* The overlay title bar hides the native drag area behind the webview,
+          so an explicit drag region is required for the window to be movable. */}
+      <div className="titlebar-drag-region" data-tauri-drag-region />
       <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
         {/* Contents only render while open - a collapsed sidebar is just
             shifted out of view via margin, not unmounted, so without this

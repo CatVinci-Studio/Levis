@@ -115,6 +115,19 @@ body {
   margin-left: -240px;
 }
 
+/* Invisible strip over the overlay title bar area that lets the window be
+   dragged. Below the floating toolbar (50) and every overlay, so it never
+   steals their clicks; editor text that scrolls under it trades click-through
+   for draggability, matching native hidden-titlebar apps. */
+.titlebar-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 40;
+}
+
 .sidebar-header {
   /* The overlay title bar floats the macOS traffic lights over the top-left
      corner of the content - the tabs must start below them. */
