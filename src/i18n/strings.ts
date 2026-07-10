@@ -98,6 +98,11 @@ export const strings = {
     agentProposalApply: "Apply",
     agentProposalApplied: "Applied",
     agentProposalFailed: "Couldn't apply - that text no longer matches a unique spot in the document.",
+    updateAvailable: "Update available:",
+    updateInstall: "Update & Restart",
+    updateLater: "Later",
+    updateDownloading: "Downloading update…",
+    updateFailed: "Update failed:",
   },
   zh: {
     treeTab: "文件树",
@@ -196,6 +201,11 @@ export const strings = {
     agentProposalApply: "应用",
     agentProposalApplied: "已应用",
     agentProposalFailed: "无法应用:这段文字在文档中已不存在或不唯一。",
+    updateAvailable: "有新版本:",
+    updateInstall: "更新并重启",
+    updateLater: "稍后",
+    updateDownloading: "正在下载更新…",
+    updateFailed: "更新失败:",
   },
 } as const;
 

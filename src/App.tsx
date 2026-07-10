@@ -8,6 +8,7 @@ import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { countWords } from "./utils/word-count";
 import { comboFromEvent } from "./utils/shortcuts";
+import { useAppUpdate } from "./utils/useAppUpdate";
 import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "./utils/events";
 import "./App.css";
 
@@ -27,6 +28,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceMode, setSourceMode] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const appUpdate = useAppUpdate();
 
   // The tree always mirrors the currently open file's folder; with no file
   // open there is nothing to show.
@@ -177,6 +179,35 @@ function App() {
       </div>
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+
+      {appUpdate.status !== "idle" && (
+        <div className="update-toast">
+          {appUpdate.status === "available" && (
+            <>
+              <span>
+                {t.updateAvailable} v{appUpdate.version}
+              </span>
+              <button className="update-toast-primary" onClick={() => void appUpdate.install()}>
+                {t.updateInstall}
+              </button>
+              <button className="update-toast-secondary" onClick={appUpdate.dismiss}>
+                {t.updateLater}
+              </button>
+            </>
+          )}
+          {appUpdate.status === "downloading" && <span>{t.updateDownloading}</span>}
+          {appUpdate.status === "error" && (
+            <>
+              <span>
+                {t.updateFailed} {appUpdate.error}
+              </span>
+              <button className="update-toast-secondary" onClick={appUpdate.dismiss}>
+                {t.updateLater}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

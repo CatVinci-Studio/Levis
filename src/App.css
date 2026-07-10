@@ -250,3 +250,39 @@ body {
   font-size: 14px;
   line-height: 1.7;
 }
+
+/* Bottom-right notice when a newer release exists - update runs only when
+   the user clicks, and the app relaunches itself afterwards. */
+.update-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  font-size: 13px;
+}
+
+.update-toast button {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.update-toast-primary {
+  background: var(--editor-accent);
+  color: #fff;
+}
+
+.update-toast-secondary {
+  background: transparent;
+  color: var(--editor-muted, inherit);
+}
