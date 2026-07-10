@@ -2,7 +2,7 @@ import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { Fragment } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
-import type { EditorState, Selection } from "@milkdown/kit/prose/state";
+import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import type { Node as ProseNode, ResolvedPos } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { spanDelimText } from "./md-span-schema";
@@ -114,6 +114,29 @@ export function literalTextBefore($pos: ResolvedPos): { text: string; from: numb
   return { text, from: $pos.start() + offset };
 }
 
+/** Mirror of literalTextBefore: the contiguous run of plain text directly
+ *  after $pos, stopping at any non-text inline node. */
+export function literalTextAfter($pos: ResolvedPos): { text: string } {
+  const parent = $pos.parent;
+  let offset = $pos.parentOffset;
+  let text = "";
+  while (offset < parent.content.size) {
+    const child = parent.childAfter(offset);
+    if (!child.node || !child.node.isText) break;
+    text += (child.node.text ?? "").slice(offset - child.offset);
+    offset = child.offset + child.node.nodeSize;
+  }
+  return { text };
+}
+
+/** The value a delimiter pair may enclose: non-empty, no whitespace at its
+ *  edges, no delimiter characters inside. Shared by every run-pairing rule
+ *  (findRunOpen / hasPendingRunOpen / findRunClose) so backward and forward
+ *  pairing can never disagree on what makes a valid enclosure. */
+function isValidRunValue(value: string, char: string): boolean {
+  return value.length > 0 && !/^\s|\s$/.test(value) && !value.includes(char);
+}
+
 /**
  * Looks for an unclosed opening run of exactly `rung` delimiter characters
  * in `textBefore` that the character being typed right now would complete -
@@ -135,8 +158,33 @@ export function findRunOpen(textBefore: string, char: string, rung: number): { o
   if (openIdx === -1) return null;
   if (body[openIdx - 1] === char || body[openIdx + rung] === char) return null; // embedded in a longer run
   const value = body.slice(openIdx + rung);
-  if (!value || /^\s|\s$/.test(value) || value.includes(char)) return null;
+  if (!isValidRunValue(value, char)) return null;
   return { openIdx, value };
+}
+
+/**
+ * Forward mirror of findRunOpen: the character being typed right now
+ * completes an OPENING run of exactly `rung` characters (the other rung - 1
+ * sit directly before the caret, typed just previously), and a closing run
+ * of exactly the same length already waits in the literal text ahead - the
+ * "add the delimiters around existing content, front first" direction.
+ * Runs must match in exact length: with "hello**" ahead, the first "*"
+ * typed in front stays literal (1 vs 2) and the second completes the pair.
+ * The cost of that determinism: with "hello*" ahead a single "*" pairs to
+ * italic immediately, even if the user meant to keep going to bold - an
+ * inherently ambiguous input either way.
+ */
+export function findRunClose(textBefore: string, textAfter: string, char: string, rung: number): { valueLen: number } | null {
+  const openStart = textBefore.length - (rung - 1);
+  if (openStart < 0) return null;
+  if (textBefore.slice(openStart) !== char.repeat(rung - 1)) return null;
+  if (textBefore[openStart - 1] === char) return null; // tail of a longer literal run
+  const closeIdx = textAfter.indexOf(char.repeat(rung));
+  if (closeIdx === -1) return null;
+  if (textAfter[closeIdx + rung] === char) return null; // part of a longer run ahead
+  const value = textAfter.slice(0, closeIdx);
+  if (!isValidRunValue(value, char)) return null;
+  return { valueLen: closeIdx };
 }
 
 /**
@@ -156,7 +204,7 @@ export function hasPendingRunOpen(textBefore: string, char: string, minRung: num
     if (openIdx === -1) continue;
     if (body[openIdx - 1] === char || body[openIdx + rung] === char) continue;
     const value = body.slice(openIdx + rung);
-    if (!value || /^\s|\s$/.test(value) || value.includes(char)) continue;
+    if (!isValidRunValue(value, char)) continue;
     return true;
   }
   return false;
@@ -428,6 +476,21 @@ function setCaret(view: EditorView, pos: number): void {
 }
 
 /**
+ * Collapse the transaction's selection to `pos` (resolved against the
+ * transaction's own, post-edit doc). Every enclosure-creating edit places
+ * the caret through this, keeping the placement convention in one place:
+ *   - opening a fresh empty shell         -> inside, at content start
+ *   - completing a pair around content
+ *     (forward pairing, Cmd+B on a caret) -> inside, at content start
+ *   - closing/converting behind the caret
+ *     (findRunOpen, typing the closer)    -> after the node
+ *   - wrapping a selection                -> after the node
+ */
+export function caretAt(tr: Transaction, pos: number): Transaction {
+  return tr.setSelection(TextSelection.create(tr.doc, pos));
+}
+
+/**
  * The editor state's selection can lag behind the real DOM caret: native
  * caret movement (the in-content steps deliberately left to the browser)
  * only reaches ProseMirror through an asynchronous selectionchange
@@ -443,7 +506,7 @@ function setCaret(view: EditorView, pos: number): void {
  * disagrees with the state, returns a state whose selection is corrected
  * to match.
  */
-function stateWithLiveSelection(view: EditorView): EditorState {
+export function stateWithLiveSelection(view: EditorView): EditorState {
   const { state } = view;
   if (!state.selection.empty) return state;
   // ShadowRoot.getSelection is nonstandard (Blink-only), hence the guard.

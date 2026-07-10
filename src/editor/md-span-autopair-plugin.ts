@@ -1,7 +1,17 @@
-import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import { findRunOpen, hasPendingRunOpen, isImeKeyEvent, literalTextBefore, redirectMisattributedInput } from "./enclosure";
+import {
+  caretAt,
+  findRunClose,
+  findRunOpen,
+  hasPendingRunOpen,
+  isImeKeyEvent,
+  literalTextAfter,
+  literalTextBefore,
+  redirectMisattributedInput,
+  stateWithLiveSelection,
+} from "./enclosure";
 
 interface SpanSpec {
   char: string;
@@ -104,7 +114,7 @@ export const mdSpanAutopairPlugin = $prose(
             }
 
             // Non-empty - already a valid node, just step past it.
-            view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, nodeEnd)));
+            view.dispatch(caretAt(state.tr, nodeEnd));
             return true;
           }
 
@@ -125,15 +135,13 @@ export const mdSpanAutopairPlugin = $prose(
               const rung = (before.attrs.rung as number) ?? spec.minRung;
               if (rung >= spec.maxRung) return false;
               const tr = state.tr.setNodeMarkup(nodeStart, undefined, { delim: spec.char, rung: rung + 1 });
-              tr.setSelection(TextSelection.create(tr.doc, nodeStart + 1));
-              view.dispatch(tr);
+              view.dispatch(caretAt(tr, nodeStart + 1));
               return true;
             }
             // Code span: the second "`" becomes the shell's literal content
             // (the "```" fence state - see codeFenceLanguage above).
             const tr = state.tr.insertText(spec.char, nodeStart + 1);
-            tr.setSelection(TextSelection.create(tr.doc, nodeStart + 2));
-            view.dispatch(tr);
+            view.dispatch(caretAt(tr, nodeStart + 2));
             return true;
           }
 
@@ -153,8 +161,7 @@ export const mdSpanAutopairPlugin = $prose(
                 ? state.schema.nodes.md_span.create({ delim: spec.char, rung }, state.schema.text(open.value))
                 : state.schema.nodes.md_code_span.create({}, state.schema.text(open.value));
             const tr = state.tr.replaceWith(absOpen, to, node);
-            tr.setSelection(TextSelection.create(tr.doc, absOpen + node.nodeSize));
-            view.dispatch(tr);
+            view.dispatch(caretAt(tr, absOpen + node.nodeSize));
             return true;
           }
 
@@ -164,14 +171,43 @@ export const mdSpanAutopairPlugin = $prose(
           // keystroke instead of spawning an unrelated fresh shell.
           if (hasPendingRunOpen(textBefore, spec.char, spec.minRung, spec.maxRung)) return false;
 
+          // Complete an opening run typed in FRONT of existing content whose
+          // matching closing run already sits ahead in the literal text -
+          // the forward mirror of the findRunOpen path above ("**" typed
+          // before "hello**" forms bold on the second "*"). The typed run's
+          // length picks the rung; see findRunClose for the exact-length
+          // matching rule.
+          let typedRun = 1;
+          while (typedRun - 1 < textBefore.length && textBefore[textBefore.length - typedRun] === spec.char) typedRun++;
+          if (typedRun >= spec.minRung && typedRun <= spec.maxRung) {
+            const { text: textAfter } = literalTextAfter($pos);
+            const close = findRunClose(textBefore, textAfter, spec.char, typedRun);
+            if (close) {
+              const openStart = from - (typedRun - 1);
+              const value = textAfter.slice(0, close.valueLen);
+              const node =
+                spec.nodeType === "md_span"
+                  ? state.schema.nodes.md_span.create({ delim: spec.char, rung: typedRun }, state.schema.text(value))
+                  : state.schema.nodes.md_code_span.create({}, state.schema.text(value));
+              const tr = state.tr.replaceWith(openStart, to + close.valueLen + typedRun, node);
+              view.dispatch(caretAt(tr, openStart + 1));
+              return true;
+            }
+          }
+
+          // With content still following the caret the character is being
+          // typed into the middle of existing text - never spawn a fresh
+          // empty shell there, keep it literal. (Closing/converting an
+          // opening run above still works mid-line.)
+          if ($pos.parentOffset !== parent.content.size) return false;
+
           if (spec.minRung === 1) {
             const node =
               spec.nodeType === "md_span"
                 ? state.schema.nodes.md_span.create({ delim: spec.char, rung: 1 })
                 : state.schema.nodes.md_code_span.create();
             const tr = state.tr.replaceWith(from, to, node);
-            tr.setSelection(TextSelection.create(tr.doc, from + 1));
-            view.dispatch(tr);
+            view.dispatch(caretAt(tr, from + 1));
             return true;
           }
 
@@ -187,13 +223,12 @@ export const mdSpanAutopairPlugin = $prose(
           const node = state.schema.nodes.md_span.create({ delim: spec.char, rung: spec.minRung });
           const tr = state.tr.delete(precedingStart, from);
           tr.replaceWith(precedingStart, precedingStart, node);
-          tr.setSelection(TextSelection.create(tr.doc, precedingStart + 1));
-          view.dispatch(tr);
+          view.dispatch(caretAt(tr, precedingStart + 1));
           return true;
         },
         handleKeyDown(view, event) {
           if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
-          const { state } = view;
+          const state = stateWithLiveSelection(view);
           const { $from, empty } = state.selection;
           if (!empty) return false;
           const parent = $from.parent;
@@ -208,8 +243,7 @@ export const mdSpanAutopairPlugin = $prose(
           const tr = state.tr
             .delete(paragraphPos + 1, paragraphPos + 1 + parent.content.size)
             .setNodeMarkup(paragraphPos, codeBlock, { language });
-          tr.setSelection(TextSelection.create(tr.doc, paragraphPos + 1));
-          view.dispatch(tr);
+          view.dispatch(caretAt(tr, paragraphPos + 1));
           event.preventDefault();
           return true;
         },

@@ -1,7 +1,16 @@
-import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import { findRunOpen, isImeKeyEvent, literalTextBefore, redirectMisattributedInput } from "./enclosure";
+import {
+  caretAt,
+  findRunClose,
+  findRunOpen,
+  isImeKeyEvent,
+  literalTextAfter,
+  literalTextBefore,
+  redirectMisattributedInput,
+  stateWithLiveSelection,
+} from "./enclosure";
 
 const DOLLAR = "$";
 
@@ -61,13 +70,12 @@ export const mathAutopairPlugin = $prose(
               // Empty pair, closed immediately - revert to literal "$$" rather
               // than leave an empty formula node rendering as a stray widget.
               const tr = state.tr.replaceWith(nodeStart, nodeEnd, state.schema.text("$$"));
-              tr.setSelection(TextSelection.create(tr.doc, nodeStart + 2));
-              view.dispatch(tr);
+              view.dispatch(caretAt(tr, nodeStart + 2));
               return true;
             }
 
             // Non-empty - leave it as a real node, step past it.
-            view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, nodeEnd)));
+            view.dispatch(caretAt(state.tr, nodeEnd));
             return true;
           }
 
@@ -79,8 +87,7 @@ export const mathAutopairPlugin = $prose(
           if (before && before.type.name === "math_inline" && before.content.size === 0) {
             const nodeStart = from - before.nodeSize;
             const tr = state.tr.replaceWith(nodeStart, from, state.schema.text("$$"));
-            tr.setSelection(TextSelection.create(tr.doc, nodeStart + 2));
-            view.dispatch(tr);
+            view.dispatch(caretAt(tr, nodeStart + 2));
             return true;
           }
 
@@ -93,21 +100,38 @@ export const mathAutopairPlugin = $prose(
             const node = mathInline.create({}, state.schema.text(open.value));
             const absOpen = runStart + open.openIdx;
             const tr = state.tr.replaceWith(absOpen, to, node);
-            tr.setSelection(TextSelection.create(tr.doc, absOpen + node.nodeSize));
-            view.dispatch(tr);
+            view.dispatch(caretAt(tr, absOpen + node.nodeSize));
             return true;
           }
+
+          // Complete a "$" typed in FRONT of existing content whose closing
+          // "$" already sits ahead in the literal text - the forward mirror
+          // of the findRunOpen path above.
+          const { text: textAfter } = literalTextAfter($pos);
+          const close = findRunClose(textBefore, textAfter, DOLLAR, 1);
+          if (close) {
+            const value = textAfter.slice(0, close.valueLen);
+            const node = state.schema.nodes.math_inline.create({}, state.schema.text(value));
+            const tr = state.tr.replaceWith(from, to + close.valueLen + 1, node);
+            view.dispatch(caretAt(tr, from + 1));
+            return true;
+          }
+
+          // With content still following the caret the "$" is being typed
+          // into the middle of existing text - keep it literal instead of
+          // spawning a fresh empty shell (converting an open run above
+          // still works mid-line).
+          if ($pos.parentOffset !== parent.content.size) return false;
 
           // Fresh "$" - open an empty math_inline node, cursor inside.
           const mathInline = state.schema.nodes.math_inline;
           const tr = state.tr.replaceWith(from, to, mathInline.create());
-          tr.setSelection(TextSelection.create(tr.doc, from + 1));
-          view.dispatch(tr);
+          view.dispatch(caretAt(tr, from + 1));
           return true;
         },
         handleKeyDown(view, event) {
           if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
-          const { state } = view;
+          const state = stateWithLiveSelection(view);
           const { $from, empty } = state.selection;
           if (!empty) return false;
           const parent = $from.parent;
@@ -123,8 +147,7 @@ export const mathAutopairPlugin = $prose(
             const tr = state.tr
               .delete(paragraphPos + 1, paragraphPos + 1 + parent.content.size)
               .setNodeMarkup(paragraphPos, state.schema.nodes.math_block);
-            tr.setSelection(TextSelection.create(tr.doc, paragraphPos + 1));
-            view.dispatch(tr);
+            view.dispatch(caretAt(tr, paragraphPos + 1));
             event.preventDefault();
             return true;
           }
@@ -144,8 +167,7 @@ export const mathAutopairPlugin = $prose(
           const tr = state.tr
             .delete(paragraphPos + 1, paragraphPos + 1 + paragraph.content.size)
             .setNodeMarkup(paragraphPos, mathBlock);
-          tr.setSelection(TextSelection.create(tr.doc, paragraphPos + 1));
-          view.dispatch(tr);
+          view.dispatch(caretAt(tr, paragraphPos + 1));
           event.preventDefault();
           return true;
         },
