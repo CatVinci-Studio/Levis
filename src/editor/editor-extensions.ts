@@ -2,6 +2,9 @@ import type { Editor } from "@milkdown/kit/core";
 import { history } from "@milkdown/kit/plugin/history";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { listener } from "@milkdown/kit/plugin/listener";
+import { $remark } from "@milkdown/kit/utils";
+import remarkCjkFriendly from "remark-cjk-friendly";
+import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethrough";
 import { commonmarkWithoutMarks, gfmWithoutStrikethrough } from "./reduced-presets";
 import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
 import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
@@ -44,6 +47,13 @@ export function withEditorExtensions(
       // stripped - those are node-based below.
       .use(commonmarkWithoutMarks)
       .use(gfmWithoutStrikethrough)
+
+      // CommonMark's emphasis flanking rules reject "**" next to CJK
+      // punctuation (e.g. 话说**“你好”**了 stays literal), which would also
+      // break reopening files whose bold was created here. This relaxes the
+      // rules for CJK - parse side only; serialization is unchanged.
+      .use($remark("remark-cjk-friendly", () => remarkCjkFriendly))
+      .use($remark("remark-cjk-friendly-gfm-strikethrough", () => remarkCjkFriendlyGfmStrikethrough))
 
       // Inline enclosures: bold/italic/strikethrough/highlight/inline code
       // as real nodes with synthesized, Typora-style delimiters.

@@ -44,6 +44,24 @@ declare module "mdast-util-to-markdown" {
 
 const EQUALS = 61; // "="
 
+/** Whether a code point is a CJK character (ideographs, kana, hangul, CJK
+ *  punctuation/fullwidth forms) - the neighbors that justify relaxing the
+ *  flanking rules above. Latin-range and general punctuation (including
+ *  curly quotes, which Chinese shares with English) stay strict. */
+function isCjkCode(code: number | null): boolean {
+  if (code === null) return false;
+  return (
+    (code >= 0x2e80 && code <= 0x303f) || // CJK radicals + CJK punctuation
+    (code >= 0x3040 && code <= 0x30ff) || // kana
+    (code >= 0x3400 && code <= 0x4dbf) || // CJK extension A
+    (code >= 0x4e00 && code <= 0x9fff) || // CJK unified ideographs
+    (code >= 0xac00 && code <= 0xd7af) || // hangul syllables
+    (code >= 0xf900 && code <= 0xfaff) || // CJK compatibility ideographs
+    (code >= 0xfe30 && code <= 0xfe4f) || // CJK compatibility forms
+    (code >= 0xff00 && code <= 0xffef) // fullwidth/halfwidth forms
+  );
+}
+
 const CONSTRUCTS_WITHOUT_HIGHLIGHT: ConstructName[] = [
   "autolink",
   "destinationLiteral",
@@ -149,8 +167,15 @@ export function highlightSyntax(): Extension {
       if (size !== 2) return nok(code); // require exactly 2, no "single =" form
       const token = effects.exit("highlightSequenceTemporary");
       const after = classifyCharacter(code);
-      token._open = !after || (after === 2 && Boolean(before));
-      token._close = !before || (before === 2 && Boolean(after));
+      // CJK relaxation, mirroring remark-cjk-friendly's treatment of
+      // emphasis: CommonMark-style flanking treats 中文标点 as punctuation
+      // and rejects "==“高亮”==吗", but a CJK character on either side is a
+      // clear word boundary in CJK prose, where spaces never appear. A
+      // delimiter touching one may open/close as long as it doesn't face
+      // whitespace.
+      const cjkAdjacent = isCjkCode(previous) || isCjkCode(code);
+      token._open = !after || (after === 2 && Boolean(before)) || (cjkAdjacent && after !== 1);
+      token._close = !before || (before === 2 && Boolean(after)) || (cjkAdjacent && before !== 1);
       return ok(code);
     }
   }
