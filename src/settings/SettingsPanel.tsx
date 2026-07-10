@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import {
   useSettings,
   BUILTIN_CONTENT_THEMES,
@@ -70,16 +73,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
           <div className="settings-content">
             {category === "general" && (
-              <div className="settings-row">
-                <span className="settings-row-label">{t.languageLabel}</span>
-                <select
-                  value={settings.language}
-                  onChange={(e) => setSettings({ language: e.target.value as Lang })}
-                >
-                  <option value="en">English</option>
-                  <option value="zh">中文</option>
-                </select>
-              </div>
+              <>
+                <div className="settings-row">
+                  <span className="settings-row-label">{t.languageLabel}</span>
+                  <select
+                    value={settings.language}
+                    onChange={(e) => setSettings({ language: e.target.value as Lang })}
+                  >
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                  </select>
+                </div>
+                <UpdateSection t={t} />
+              </>
             )}
 
             {category === "theme" && <ThemeSection t={t} />}
@@ -209,6 +215,79 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Current version + a manual "Check for Updates" button. The background
+ * check (useAppUpdate) is silent about being up to date and about errors;
+ * a manual check is the opposite - the user asked, so "already latest" and
+ * failures both get an explicit answer here.
+ */
+function UpdateSection({ t }: { t: Strings }) {
+  const [version, setVersion] = useState("");
+  const [phase, setPhase] = useState<"idle" | "checking" | "latest" | "available" | "downloading" | "error">("idle");
+  const [message, setMessage] = useState("");
+  const [update, setUpdate] = useState<Update | null>(null);
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion(""));
+  }, []);
+
+  async function checkNow() {
+    setPhase("checking");
+    setMessage("");
+    try {
+      const found = await check();
+      if (found) {
+        setUpdate(found);
+        setPhase("available");
+        setMessage(`${t.updateAvailable} v${found.version}`);
+      } else {
+        setPhase("latest");
+        setMessage(t.updateLatest);
+      }
+    } catch (err) {
+      setPhase("error");
+      setMessage(`${t.updateFailed} ${String(err)}`);
+    }
+  }
+
+  async function install() {
+    if (!update) return;
+    setPhase("downloading");
+    setMessage(t.updateDownloading);
+    try {
+      await update.downloadAndInstall();
+      await relaunch();
+    } catch (err) {
+      setPhase("error");
+      setMessage(`${t.updateFailed} ${String(err)}`);
+    }
+  }
+
+  return (
+    <div className="settings-row">
+      <div>
+        <div className="settings-row-label">
+          {t.updateVersionLabel} {version && `v${version}`}
+        </div>
+        {message && <div className={phase === "error" ? "settings-error" : "settings-row-hint"}>{message}</div>}
+      </div>
+      <div className="shortcut-row-controls">
+        {phase === "available" || phase === "downloading" ? (
+          <button className="text-button settings-inline-button" onClick={install} disabled={phase === "downloading"}>
+            {t.updateInstall}
+          </button>
+        ) : (
+          <button className="text-button settings-inline-button" onClick={checkNow} disabled={phase === "checking"}>
+            {phase === "checking" ? t.updateChecking : t.updateCheckButton}
+          </button>
+        )}
       </div>
     </div>
   );
