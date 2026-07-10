@@ -22,6 +22,13 @@
 
 ---
 
+> [!IMPORTANT]
+> **macOS: "Levis is damaged and can't be opened"** — the app is not signed yet (an Apple Developer membership isn't in the budget for now), so Gatekeeper flags the download. It's safe to run; clear the quarantine flag once and it opens normally:
+>
+> ```sh
+> xattr -cr /Applications/Levis.app
+> ```
+
 ## What it is
 
 Levis is a WYSIWYG Markdown editor with modern AI features built in — sentence completion, grammar checking, and asking questions about the document you have open.
