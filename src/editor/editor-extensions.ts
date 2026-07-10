@@ -18,6 +18,7 @@ import { createMermaidPreviewPlugin } from "./mermaid-plugin";
 import { tabExtendPlugin } from "./tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
 import { pasteMarkdownSourcePlugin } from "./paste-markdown-plugin";
+import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
 import { createImagePlugin } from "./image-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
@@ -75,6 +76,7 @@ export function withEditorExtensions(
       .use(createImagePlugin({ docPath: () => docPath.current }))
       .use(pasteMarkdownSourcePlugin)
       .use(clipboard)
+      .use(clipboardHistoryPlugin)
       .use(listener)
       .use(tabExtendPlugin)
       .use(escapeTrailingBlockPlugin)

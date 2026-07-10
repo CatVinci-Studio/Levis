@@ -82,6 +82,16 @@ function shouldCaptureFor(target: EventTarget | null): boolean {
   return target.closest(".milkdown, .source-view") !== null;
 }
 
+/** Copy/cut capture only applies to the source-mode textarea, where the DOM
+ *  selection IS the markdown source. In the WYSIWYG editor
+ *  `getSelection().toString()` drops hidden math source and the synthesized
+ *  delimiter widgets - clipboard-history-plugin.ts records the serialized
+ *  markdown from the editor state there instead. */
+function shouldCaptureTextOf(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest(".source-view") !== null;
+}
+
 /**
  * Installs the document-level capture listeners. Copy/cut snapshot the DOM
  * selection's text (the clipboardData of a copy event can't be read back);
@@ -89,7 +99,7 @@ function shouldCaptureFor(target: EventTarget | null): boolean {
  */
 export function installClipboardCapture(): () => void {
   const onCopyOrCut = (e: ClipboardEvent) => {
-    if (!shouldCaptureFor(e.target)) return;
+    if (!shouldCaptureTextOf(e.target)) return;
     const text = document.getSelection()?.toString();
     if (text) recordClipboardEntry(text);
   };
