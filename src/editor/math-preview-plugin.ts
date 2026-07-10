@@ -113,8 +113,24 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
           floatEl.style.display = "none";
           document.body.appendChild(floatEl);
 
-          function updateFloat(view: EditorView) {
+          // The preview APPEARS on a short delay and hides immediately.
+          // The selection can pass through a math node for a single update
+          // without the user ever being "in" it - WKWebView caret
+          // normalization around the delimiter widgets, autopair
+          // conversions, fast arrowing - and an undebounced show makes the
+          // box flash for a frame each time. While already visible, updates
+          // (typing inside the formula) stay synchronous.
+          let showTimer: number | null = null;
+          const cancelShow = () => {
+            if (showTimer !== null) {
+              window.clearTimeout(showTimer);
+              showTimer = null;
+            }
+          };
+
+          function updateFloat(view: EditorView, fromTimer = false) {
             if (!options.enabled()) {
+              cancelShow();
               floatEl.style.display = "none";
               return;
             }
@@ -122,7 +138,17 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             // Nothing to preview until there's actual source - an empty
             // shell would show a bare floating box.
             if (!found || !found.node.textContent.trim()) {
+              cancelShow();
               floatEl.style.display = "none";
+              return;
+            }
+            if (floatEl.style.display === "none" && !fromTimer) {
+              if (showTimer === null) {
+                showTimer = window.setTimeout(() => {
+                  showTimer = null;
+                  updateFloat(view, true);
+                }, 150);
+              }
               return;
             }
 
@@ -151,8 +177,11 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
           updateFloat(editorView);
 
           return {
-            update: updateFloat,
+            // Wrapped: the view-update callback's second argument is
+            // prevState, which must not land in updateFloat's fromTimer.
+            update: (view) => updateFloat(view),
             destroy() {
+              cancelShow();
               floatEl.remove();
             },
           };
