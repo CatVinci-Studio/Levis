@@ -2,7 +2,7 @@ import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
-import { isImeKeyEvent } from "./enclosure";
+import { isImeKeyEvent, stateWithLiveSelection } from "./enclosure";
 
 const headingMarkerKey = new PluginKey("heading-marker");
 
@@ -70,7 +70,26 @@ export const headingMarkerPlugin = $prose(
           return headingMarkerKey.getState(state);
         },
         handleKeyDown(view, event) {
-          if (event.key !== "ArrowLeft" || isImeKeyEvent(view, event)) return false;
+          if (isImeKeyEvent(view, event)) return false;
+
+          // Cmd+Backspace (macOS "delete to beginning of line"): with the
+          // revealed "# " widget sitting at the line start, WebKit's native
+          // line-start computation stalls against the non-editable element
+          // (the same stall the ArrowLeft case below works around), so the
+          // deletion silently does nothing. Perform it on the document
+          // directly.
+          if (event.key === "Backspace" && event.metaKey && !event.altKey && !event.ctrlKey) {
+            const state = stateWithLiveSelection(view);
+            const { $from, empty } = state.selection;
+            if ($from.parent.type.name !== "heading") return false;
+            if (!empty || $from.parentOffset === 0) return false;
+            event.preventDefault();
+            view.dispatch(view.state.tr.delete($from.start(), state.selection.from));
+            return true;
+          }
+
+          if (event.key !== "ArrowLeft") return false;
+          if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return false;
           const { state } = view;
           const { $from, empty } = state.selection;
           if (!empty) return false;

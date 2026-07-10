@@ -704,6 +704,11 @@ export const enclosurePlugin = $prose(() => {
         },
         handleKeyDown(view, event) {
           if (isImeKeyEvent(view, event)) return false;
+          // Modified keys are line/word-level commands (Cmd+Backspace =
+          // delete to line start, Alt+Arrow = word hop, Shift+Arrow =
+          // extend selection) - never reinterpret those as the single
+          // caret-phase steps below.
+          if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return false;
           const state = stateWithLiveSelection(view);
 
           if (event.key === "ArrowRight") {
