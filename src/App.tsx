@@ -4,6 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
+import { ClipboardHistory } from "./sidebar/ClipboardHistory";
+import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
@@ -13,7 +15,7 @@ import { useAppUpdate } from "./utils/useAppUpdate";
 import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "./utils/events";
 import "./App.css";
 
-type PanelMode = "tree" | "outline";
+type PanelMode = "tree" | "outline" | "clipboard";
 
 function dirname(path: string): string {
   const idx = path.lastIndexOf("/");
@@ -79,6 +81,15 @@ function App() {
     return true;
   }, [activePath, content]);
 
+  const toggleSourceMode = useCallback(() => {
+    setSourceMode((prev) => {
+      // Leaving source mode: force the WYSIWYG editor to remount so it picks
+      // up whatever was typed as raw text.
+      if (prev) setReloadKey((k) => k + 1);
+      return !prev;
+    });
+  }, []);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const isSave = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s";
@@ -100,20 +111,22 @@ function App() {
       } else if (combo === shortcuts.toggleFloatingChat) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent(TOGGLE_FLOATING_CHAT_EVENT));
+      } else if (combo === shortcuts.toggleSidebar) {
+        e.preventDefault();
+        setPanelOpen((v) => !v);
+      } else if (combo === shortcuts.toggleSourceMode) {
+        e.preventDefault();
+        toggleSourceMode();
+      } else if (combo === shortcuts.toggleTypewriterMode) {
+        e.preventDefault();
+        setSettings({ typewriterMode: !settings.typewriterMode });
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [save, settings]);
+  }, [save, settings, toggleSourceMode, setSettings]);
 
-  const toggleSourceMode = useCallback(() => {
-    setSourceMode((prev) => {
-      // Leaving source mode: force the WYSIWYG editor to remount so it picks
-      // up whatever was typed as raw text.
-      if (prev) setReloadKey((k) => k + 1);
-      return !prev;
-    });
-  }, []);
+  useEffect(() => installClipboardCapture(), []);
 
   // Files handed over by the OS (Finder "Open With" / double-click): each
   // window claims at most one queued path when it mounts - see lib.rs's
@@ -191,6 +204,12 @@ function App() {
                 >
                   {t.outlineTab}
                 </button>
+                <button
+                  className={`sidebar-tab ${panelMode === "clipboard" ? "sidebar-tab-active" : ""}`}
+                  onClick={() => setPanelMode("clipboard")}
+                >
+                  {t.clipboardTab}
+                </button>
               </div>
             </div>
             <div className="sidebar-body">
@@ -198,6 +217,7 @@ function App() {
                 <FileTree rootPath={rootPath} activePath={activePath} onFileSelect={openFile} />
               )}
               {panelMode === "outline" && <Outline content={content} />}
+              {panelMode === "clipboard" && <ClipboardHistory />}
             </div>
           </>
         )}

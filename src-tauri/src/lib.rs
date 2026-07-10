@@ -13,7 +13,7 @@ use auth::custom_endpoint::{
 use auth::openai_codex::{codex_auth_status, codex_login, codex_logout};
 use commands::fs::{
     list_dir, open_css_file_dialog, open_file_dialog, read_binary_file_base64, read_text_file, save_file_dialog,
-    write_text_file,
+    save_pasted_image, write_text_file,
 };
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -153,14 +153,16 @@ pub fn run() {
                 .select_all()
                 .build()?;
 
-            let toggle_source_mode_item = MenuItemBuilder::with_id(TOGGLE_SOURCE_MODE_ID, "Toggle Source Code Mode")
-                .accelerator("Cmd+/")
-                .build(app)?;
+            // No fixed accelerators on these - their shortcuts are
+            // user-configurable and handled by the frontend keydown
+            // dispatcher (App.tsx), which reads the current bindings from
+            // Settings. A native accelerator here would keep firing on the
+            // default combo even after the user rebinds it.
+            let toggle_source_mode_item =
+                MenuItemBuilder::with_id(TOGGLE_SOURCE_MODE_ID, "Toggle Source Code Mode").build(app)?;
             let toggle_typewriter_mode_item =
                 MenuItemBuilder::with_id(TOGGLE_TYPEWRITER_MODE_ID, "Toggle Typewriter Mode").build(app)?;
-            let toggle_sidebar_item = MenuItemBuilder::with_id(TOGGLE_SIDEBAR_ID, "Toggle Sidebar")
-                .accelerator("Cmd+\\")
-                .build(app)?;
+            let toggle_sidebar_item = MenuItemBuilder::with_id(TOGGLE_SIDEBAR_ID, "Toggle Sidebar").build(app)?;
 
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&toggle_source_mode_item)
@@ -229,6 +231,7 @@ pub fn run() {
             read_text_file,
             read_binary_file_base64,
             write_text_file,
+            save_pasted_image,
             save_theme_css,
             load_theme_css,
             delete_theme,

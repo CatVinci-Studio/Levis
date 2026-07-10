@@ -1,4 +1,4 @@
-import { type MouseEvent, useState } from "react";
+import { type MouseEvent, useEffect, useState } from "react";
 import {
   Editor,
   rootCtx,
@@ -40,7 +40,12 @@ import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
 import { useLatest } from "../utils/useLatest";
 import { useWindowEvent } from "../utils/useWindowEvent";
-import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "../utils/events";
+import {
+  TRIGGER_COMPLETION_EVENT,
+  TRIGGER_GRAMMAR_CHECK_EVENT,
+  TOGGLE_FLOATING_CHAT_EVENT,
+  INSERT_CLIPBOARD_TEXT_EVENT,
+} from "../utils/events";
 import { Milkdown, useEditor } from "@milkdown/react";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "katex/dist/katex.min.css";
@@ -48,11 +53,12 @@ import "./milkdown-theme.css";
 import "./content-themes.css";
 
 interface MilkdownEditorProps {
+  filePath: string | null;
   initialValue: string;
   onChange: (markdown: string) => void;
 }
 
-export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) {
+export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEditorProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { t, settings } = useSettings();
 
@@ -60,6 +66,7 @@ export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) 
   // plugins read this ref to see live settings instead of the value
   // captured at construction time.
   const settingsRef = useLatest(settings);
+  const filePathRef = useLatest(filePath);
 
   useEditor(
     (root) =>
@@ -74,12 +81,13 @@ export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) 
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => onChange(markdown));
         }),
         settingsRef,
+        filePathRef,
       ),
     [],
   );
 
   const run = useEditorRunner();
-  const { copyOrCut, paste, selectAll } = useEditorClipboard(run);
+  const { copyOrCut, paste, selectAll, insertText } = useEditorClipboard(run);
   const { triggerCompletion, triggerGrammarCheck } = useAiActions(run, () => settingsRef.current.aiProvider);
   const inlineChat = useInlineChat(run, () => ({
     applyStale: t.agentApplyStale,
@@ -92,6 +100,17 @@ export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) 
   useWindowEvent(TRIGGER_COMPLETION_EVENT, () => settings.enableCompletion && triggerCompletion());
   useWindowEvent(TRIGGER_GRAMMAR_CHECK_EVENT, () => settings.enableGrammarCheck && triggerGrammarCheck());
   useWindowEvent(TOGGLE_FLOATING_CHAT_EVENT, () => settings.enableAskAi && inlineChat.toggle());
+
+  // Clipboard-history panel clicks: carries the text as CustomEvent detail,
+  // so it can't go through useWindowEvent's payload-less handlers.
+  useEffect(() => {
+    const onInsert = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      if (typeof text === "string" && text) insertText(text);
+    };
+    window.addEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
+    return () => window.removeEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
+  }, [insertText]);
 
   function runTableCommand(command: (state: EditorState, dispatch: (tr: Transaction) => void) => boolean) {
     run((ctx) => {

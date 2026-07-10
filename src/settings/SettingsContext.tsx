@@ -5,9 +5,15 @@ import { strings, type Lang, type Strings } from "../i18n/strings";
 export type ThemeMode = "system" | "light" | "dark";
 export type AiProvider = "codex" | "claude" | "apikey" | "custom";
 
-/// Keyboard-triggerable AI actions. Each maps to a normalized combo string
+/// Keyboard-triggerable actions. Each maps to a normalized combo string
 /// (see ../utils/shortcuts) - empty string means "unbound".
-export type ShortcutAction = "triggerCompletion" | "triggerGrammarCheck" | "toggleFloatingChat";
+export type ShortcutAction =
+  | "triggerCompletion"
+  | "triggerGrammarCheck"
+  | "toggleFloatingChat"
+  | "toggleSidebar"
+  | "toggleSourceMode"
+  | "toggleTypewriterMode";
 
 export type Shortcuts = Record<ShortcutAction, string>;
 
@@ -15,6 +21,9 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
   triggerCompletion: "mod+shift+space",
   triggerGrammarCheck: "mod+shift+g",
   toggleFloatingChat: "mod+shift+k",
+  toggleSidebar: "mod+\\",
+  toggleSourceMode: "mod+/",
+  toggleTypewriterMode: "",
 };
 
 /// Built-in content themes only override `--editor-*` CSS variables (see

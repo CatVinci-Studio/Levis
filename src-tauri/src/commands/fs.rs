@@ -115,6 +115,62 @@ pub async fn read_binary_file_base64(path: String) -> Result<String, String> {
     Ok(STANDARD.encode(bytes))
 }
 
+#[derive(Serialize)]
+pub struct SavedImage {
+    /// What goes into the markdown: "assets/<name>" relative to the document,
+    /// or an absolute path for a draft that has no folder yet.
+    src: String,
+}
+
+/// Persists an image pasted into the editor. Saved documents get a Typora
+/// style `assets/` folder next to them and a relative src; unsaved drafts
+/// fall back to an assets folder in the app's data dir with an absolute src
+/// (still valid after the draft is saved elsewhere).
+#[tauri::command]
+pub async fn save_pasted_image(
+    app: tauri::AppHandle,
+    doc_path: Option<String>,
+    data_base64: String,
+    ext: String,
+) -> Result<SavedImage, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use tauri::Manager;
+
+    if !ext.chars().all(|c| c.is_ascii_alphanumeric()) || ext.is_empty() {
+        return Err("invalid extension".to_string());
+    }
+    let bytes = STANDARD.decode(&data_base64).map_err(|e| e.to_string())?;
+
+    let (dir, relative) = match doc_path.as_deref().map(Path::new).and_then(|p| p.parent()) {
+        Some(parent) => (parent.join("assets"), true),
+        None => (
+            app.path().app_data_dir().map_err(|e| e.to_string())?.join("assets"),
+            false,
+        ),
+    };
+    fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
+
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis();
+    let mut name = format!("image-{stamp}.{ext}");
+    let mut n = 1;
+    while dir.join(&name).exists() {
+        name = format!("image-{stamp}-{n}.{ext}");
+        n += 1;
+    }
+    let full = dir.join(&name);
+    fs::write(&full, bytes).await.map_err(|e| e.to_string())?;
+
+    let src = if relative {
+        format!("assets/{name}")
+    } else {
+        full.to_string_lossy().to_string()
+    };
+    Ok(SavedImage { src })
+}
+
 #[tauri::command]
 pub async fn write_text_file(path: String, contents: String) -> Result<(), String> {
     require_non_empty(&path)?;

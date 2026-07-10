@@ -24,7 +24,7 @@ export function EditorPane({ filePath, initialValue, onChange }: EditorPaneProps
       <div className={`editor-content ${settings.typewriterMode ? "typewriter-active" : ""}`}>
         <Suspense fallback={null}>
           <MilkdownProvider key={editorKey}>
-            <MilkdownEditor initialValue={initialValue} onChange={onChange} />
+            <MilkdownEditor filePath={filePath} initialValue={initialValue} onChange={onChange} />
           </MilkdownProvider>
         </Suspense>
       </div>

@@ -17,6 +17,7 @@ import { createMermaidPreviewPlugin } from "./mermaid-plugin";
 import { tabExtendPlugin } from "./tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
 import { pasteMarkdownSourcePlugin } from "./paste-markdown-plugin";
+import { createImagePlugin } from "./image-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
@@ -30,7 +31,11 @@ import type { Settings } from "../settings/SettingsContext";
  * at mount while several features (AI, math, mermaid, typewriter,
  * placeholder language) follow the current Settings values.
  */
-export function withEditorExtensions(editor: Editor, settings: { readonly current: Settings }): Editor {
+export function withEditorExtensions(
+  editor: Editor,
+  settings: { readonly current: Settings },
+  docPath: { readonly current: string | null },
+): Editor {
   return (
     editor
       // Markdown baseline: commonmark/GFM with bold/italic/strike marks
@@ -61,9 +66,11 @@ export function withEditorExtensions(editor: Editor, settings: { readonly curren
       .use(codeBlockLanguageView)
       .use(createMermaidPreviewPlugin({ enabled: () => settings.current.enableMermaid }))
 
-      // Editing infrastructure. pasteMarkdownSourcePlugin must precede
-      // clipboard: handlePaste props run in registration order.
+      // Editing infrastructure. handlePaste props run in registration
+      // order: images (binary, most specific) first, then markdown-source
+      // text, then milkdown's own clipboard plugin.
       .use(history)
+      .use(createImagePlugin({ docPath: () => docPath.current }))
       .use(pasteMarkdownSourcePlugin)
       .use(clipboard)
       .use(listener)

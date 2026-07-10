@@ -184,6 +184,27 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   setSettings={setSettings}
                   t={t}
                 />
+                <ShortcutRow
+                  label={t.shortcutToggleSidebar}
+                  action="toggleSidebar"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
+                <ShortcutRow
+                  label={t.shortcutToggleSourceMode}
+                  action="toggleSourceMode"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
+                <ShortcutRow
+                  label={t.shortcutToggleTypewriterMode}
+                  action="toggleTypewriterMode"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
               </>
             )}
           </div>
