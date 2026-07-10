@@ -18,7 +18,7 @@ use commands::fs::{
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::{Emitter, TitleBarStyle, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, WebviewUrl, WebviewWindowBuilder};
 
 const SETTINGS_MENU_ID: &str = "settings";
 const OPEN_FILE_ID: &str = "open-file";
@@ -34,12 +34,14 @@ static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
 
 fn open_new_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let id = WINDOW_COUNTER.fetch_add(1, Ordering::Relaxed);
-    WebviewWindowBuilder::new(app, format!("window-{id}"), WebviewUrl::App("index.html".into()))
+    let builder = WebviewWindowBuilder::new(app, format!("window-{id}"), WebviewUrl::App("index.html".into()))
         .title(app_identity::APP_NAME)
-        .inner_size(800.0, 600.0)
-        .title_bar_style(TitleBarStyle::Overlay)
-        .hidden_title(true)
-        .build()?;
+        .inner_size(800.0, 600.0);
+    // The overlay title bar (traffic lights floating over the content) is a
+    // macOS-only API - Linux/Windows don't compile these methods at all.
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    builder.build()?;
     Ok(())
 }
 
