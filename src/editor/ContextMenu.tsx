@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import "./ContextMenu.css";
 
 export interface ContextMenuItem {
@@ -15,29 +15,10 @@ interface ContextMenuProps {
 }
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onPointerDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    // Capture phase + next tick so the click that opened the menu doesn't also close it.
-    const id = setTimeout(() => {
-      document.addEventListener("mousedown", onPointerDown, true);
-      document.addEventListener("keydown", onKeyDown);
-    }, 0);
-    return () => {
-      clearTimeout(id);
-      document.removeEventListener("mousedown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
+  const ref = useCloseOnOutsideClick<HTMLDivElement>(onClose, true);
 
   return (
-    <div ref={ref} className="context-menu" style={{ left: x, top: y }}>
+    <div ref={ref} className="context-menu floating-surface" style={{ left: x, top: y }}>
       {items.map((item, i) =>
         item === "separator" ? (
           <div key={i} className="context-menu-separator" />

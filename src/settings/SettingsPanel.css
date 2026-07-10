@@ -1,64 +1,89 @@
 .settings-backdrop {
   position: fixed;
   inset: 0;
-  background: var(--bg);
+  background: rgba(0, 0, 0, 0.32);
   z-index: 100;
   display: flex;
+  align-items: center;
   justify-content: center;
-  overflow-y: auto;
 }
 
 .settings-panel {
   width: 100%;
-  max-width: 640px;
+  max-width: 760px;
+  height: 80vh;
+  max-height: 620px;
   display: flex;
   flex-direction: column;
-  padding: 0 2rem 4rem;
+  background: var(--bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
 }
 
 .settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2.5rem 0 1.5rem;
-  font-size: 22px;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 17px;
   font-weight: 650;
+  flex-shrink: 0;
 }
 
 .settings-close-button {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
-  padding: 8px;
+  padding: 6px;
 }
 
-.settings-tabs {
+.settings-layout {
   display: flex;
-  gap: 6px;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+  flex: 1;
+  min-height: 0;
 }
 
-.settings-tab {
-  padding: 8px 18px;
-  font-size: 14px;
+.settings-nav {
+  width: 170px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--border-color);
+  background: var(--sidebar-bg);
+  overflow-y: auto;
+}
+
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13.5px;
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
-  color: var(--editor-muted);
+  color: var(--sidebar-text, var(--editor-muted));
   cursor: pointer;
 }
 
-.settings-tab:hover {
+.settings-nav-item:hover {
   background: var(--sidebar-hover);
 }
 
-.settings-tab-active {
+.settings-nav-item-active {
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
 }
 
-.settings-body {
-  padding-top: 1.5rem;
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 2rem;
 }
 
 .settings-row {
@@ -98,6 +123,22 @@ button.settings-inline-button {
   margin-bottom: 0;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.shortcut-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shortcut-capture-button {
+  min-width: 120px;
+  text-align: center;
+}
+
+.shortcut-capture-active {
+  border-color: var(--sidebar-active, #3a6df0);
 }
 
 .api-key-input-row {

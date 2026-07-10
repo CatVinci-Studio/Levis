@@ -2,8 +2,8 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 /// Starts a localhost callback server on `port`, waits (up to `timeout_secs`)
-/// for the OAuth redirect to hit it, and returns the raw path+query string
-/// the provider redirected to (e.g. `/callback?code=...&state=...`).
+/// for the OAuth redirect to hit it, and returns the full callback URL the
+/// provider redirected to (e.g. `http://localhost:1455/auth/callback?code=...&state=...`).
 ///
 /// Shared by every OAuth provider - none of this is provider-specific.
 pub async fn wait_for_callback(port: u16, response_html: String, timeout_secs: u64) -> Result<String, String> {

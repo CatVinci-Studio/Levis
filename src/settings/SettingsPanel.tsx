@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettings, type AiProvider, type ThemeMode } from "./SettingsContext";
+import {
+  useSettings,
+  BUILTIN_CONTENT_THEMES,
+  type AiProvider,
+  type ShortcutAction,
+  type Shortcuts,
+  type UserThemeMeta,
+} from "./SettingsContext";
 import type { Lang, Strings } from "../i18n/strings";
+import { comboFromEvent, isBindableCombo, formatCombo } from "../utils/shortcuts";
+import { importThemeCss } from "../utils/theme-import";
 import "./SettingsPanel.css";
-
-interface AuthStatus {
-  configured: boolean;
-  account_id: string | null;
-}
-
-interface ClaudeAuthStatus {
-  configured: boolean;
-}
 
 interface CustomEndpointConfig {
   base_url: string;
@@ -23,11 +23,11 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type Tab = "interface" | "ai";
+type Category = "general" | "theme" | "markdown" | "ai" | "shortcuts";
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
-  const [tab, setTab] = useState<Tab>("interface");
+  const [category, setCategory] = useState<Category>("general");
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -36,6 +36,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  const categories: { id: Category; label: string }[] = [
+    { id: "general", label: t.navGeneral },
+    { id: "theme", label: t.navTheme },
+    { id: "markdown", label: t.navMarkdown },
+    { id: "ai", label: t.navAi },
+    { id: "shortcuts", label: t.navShortcuts },
+  ];
 
   return (
     <div className="settings-backdrop" onClick={onClose}>
@@ -47,35 +55,21 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </button>
         </div>
 
-        <div className="settings-tabs">
-          <button
-            className={`settings-tab ${tab === "interface" ? "settings-tab-active" : ""}`}
-            onClick={() => setTab("interface")}
-          >
-            {t.tabInterface}
-          </button>
-          <button
-            className={`settings-tab ${tab === "ai" ? "settings-tab-active" : ""}`}
-            onClick={() => setTab("ai")}
-          >
-            {t.tabAi}
-          </button>
-        </div>
+        <div className="settings-layout">
+          <nav className="settings-nav">
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                className={`settings-nav-item ${category === c.id ? "settings-nav-item-active" : ""}`}
+                onClick={() => setCategory(c.id)}
+              >
+                {c.label}
+              </button>
+            ))}
+          </nav>
 
-        <div className="settings-body">
-          {tab === "interface" && (
-            <>
-              <div className="settings-row">
-                <span className="settings-row-label">{t.themeLabel}</span>
-                <select
-                  value={settings.theme}
-                  onChange={(e) => setSettings({ theme: e.target.value as ThemeMode })}
-                >
-                  <option value="system">{t.themeSystem}</option>
-                  <option value="light">{t.themeLight}</option>
-                  <option value="dark">{t.themeDark}</option>
-                </select>
-              </div>
+          <div className="settings-content">
+            {category === "general" && (
               <div className="settings-row">
                 <span className="settings-row-label">{t.languageLabel}</span>
                 <select
@@ -86,64 +80,229 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   <option value="zh">中文</option>
                 </select>
               </div>
-            </>
-          )}
+            )}
 
-          {tab === "ai" && (
-            <>
-              <div className="settings-row">
-                <span className="settings-row-label">{t.providerLabel}</span>
-                <select
-                  value={settings.aiProvider}
-                  onChange={(e) => setSettings({ aiProvider: e.target.value as AiProvider })}
-                >
-                  <option value="codex">{t.providerCodex}</option>
-                  <option value="claude">{t.providerClaude}</option>
-                  <option value="apikey">{t.providerApiKey}</option>
-                  <option value="custom">{t.providerCustom}</option>
-                </select>
-              </div>
+            {category === "theme" && <ThemeSection t={t} />}
 
-              {settings.aiProvider === "codex" && <CodexProviderPanel t={t} />}
-              {settings.aiProvider === "claude" && <ClaudeProviderPanel t={t} />}
-              {settings.aiProvider === "apikey" && <ApiKeyProviderPanel t={t} />}
-              {settings.aiProvider === "custom" && <CustomProviderPanel t={t} />}
+            {category === "markdown" && (
+              <>
+                <ToggleRow
+                  label={t.enableMathLabel}
+                  hint={t.enableMathHint}
+                  checked={settings.enableMath}
+                  onChange={(v) => setSettings({ enableMath: v })}
+                />
+                <ToggleRow
+                  label={t.enableMermaidLabel}
+                  hint={t.enableMermaidHint}
+                  checked={settings.enableMermaid}
+                  onChange={(v) => setSettings({ enableMermaid: v })}
+                />
+              </>
+            )}
 
-              <div className="settings-section-label">{t.aiFeaturesLabel}</div>
-              <ToggleRow
-                label={t.aiCompletionLabel}
-                hint={t.aiCompletionHint}
-                checked={settings.enableCompletion}
-                onChange={(v) => setSettings({ enableCompletion: v })}
-              />
-              <ToggleRow
-                label={t.aiGrammarLabel}
-                hint={t.aiGrammarHint}
-                checked={settings.enableGrammarCheck}
-                onChange={(v) => setSettings({ enableGrammarCheck: v })}
-              />
-            </>
-          )}
+            {category === "ai" && (
+              <>
+                <div className="settings-row">
+                  <span className="settings-row-label">{t.providerLabel}</span>
+                  <select
+                    value={settings.aiProvider}
+                    onChange={(e) => setSettings({ aiProvider: e.target.value as AiProvider })}
+                  >
+                    <option value="codex">{t.providerCodex}</option>
+                    <option value="claude">{t.providerClaude}</option>
+                    <option value="apikey">{t.providerApiKey}</option>
+                    <option value="custom">{t.providerCustom}</option>
+                  </select>
+                </div>
+
+                {settings.aiProvider === "codex" && (
+                  <ProviderAuthPanel
+                    t={t}
+                    accountLabel={t.accountLabel}
+                    loginLabel={t.loginButton}
+                    statusCommand="codex_auth_status"
+                    loginCommand="codex_login"
+                    logoutCommand="codex_logout"
+                  />
+                )}
+                {settings.aiProvider === "claude" && (
+                  <ProviderAuthPanel
+                    t={t}
+                    accountLabel={t.claudeAccountLabel}
+                    loginLabel={t.claudeLoginButton}
+                    statusCommand="claude_auth_status"
+                    loginCommand="claude_login"
+                    logoutCommand="claude_logout"
+                  />
+                )}
+                {settings.aiProvider === "apikey" && <ApiKeyProviderPanel t={t} />}
+                {settings.aiProvider === "custom" && <CustomProviderPanel t={t} />}
+
+                <div className="settings-section-label">{t.aiFeaturesLabel}</div>
+                <ToggleRow
+                  label={t.aiCompletionLabel}
+                  hint={t.aiCompletionHint}
+                  checked={settings.enableCompletion}
+                  onChange={(v) => setSettings({ enableCompletion: v })}
+                />
+                <ToggleRow
+                  label={t.aiGrammarLabel}
+                  hint={t.aiGrammarHint}
+                  checked={settings.enableGrammarCheck}
+                  onChange={(v) => setSettings({ enableGrammarCheck: v })}
+                />
+                <ToggleRow
+                  label={t.aiAskLabel}
+                  hint={t.aiAskHint}
+                  checked={settings.enableAskAi}
+                  onChange={(v) => setSettings({ enableAskAi: v })}
+                />
+              </>
+            )}
+
+            {category === "shortcuts" && (
+              <>
+                <ShortcutRow
+                  label={t.shortcutTriggerCompletion}
+                  action="triggerCompletion"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
+                <ShortcutRow
+                  label={t.shortcutTriggerGrammarCheck}
+                  action="triggerGrammarCheck"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
+                <ShortcutRow
+                  label={t.shortcutToggleFloatingChat}
+                  action="toggleFloatingChat"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function CodexProviderPanel({ t }: { t: Strings }) {
-  const [status, setStatus] = useState<AuthStatus | null>(null);
+function basename(path: string): string {
+  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
+function ThemeSection({ t }: { t: Strings }) {
+  const { settings, setSettings } = useSettings();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // One step: pick a CSS file and it's imported and selected right away,
+  // named after the file. (A dark variant can still exist in the data model
+  // for themes that shipped one; imports are single-file.)
+  async function importTheme() {
+    const picked = await invoke<string | null>("open_css_file_dialog");
+    if (!picked) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const id = `user-${Date.now()}`;
+      const css = await importThemeCss(picked);
+      await invoke("save_theme_css", { id, variant: "light", css });
+      const meta: UserThemeMeta = { id, name: basename(picked).replace(/\.css$/i, ""), hasDark: false };
+      setSettings({ userThemes: [...settings.userThemes, meta], themeId: id });
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteCurrentTheme() {
+    const current = settings.userThemes.find((th) => th.id === settings.themeId);
+    if (!current) return;
+    await invoke("delete_theme", { id: current.id });
+    setSettings({
+      userThemes: settings.userThemes.filter((th) => th.id !== current.id),
+      themeId: "default",
+    });
+  }
+
+  const isUserThemeSelected = settings.userThemes.some((th) => th.id === settings.themeId);
+
+  return (
+    <div className="settings-provider-panel">
+      {error && <div className="settings-error">{error}</div>}
+      <div className="settings-row">
+        <div>
+          <div className="settings-row-label">{t.contentThemeLabel}</div>
+          <div className="settings-row-hint">{t.contentThemeHint}</div>
+        </div>
+        <div className="shortcut-row-controls">
+          <select value={settings.themeId} onChange={(e) => setSettings({ themeId: e.target.value })}>
+            {BUILTIN_CONTENT_THEMES.map((theme) => (
+              <option key={theme.id} value={theme.id}>
+                {theme.name}
+              </option>
+            ))}
+            {settings.userThemes.map((theme) => (
+              <option key={theme.id} value={theme.id}>
+                {theme.name}
+              </option>
+            ))}
+          </select>
+          {isUserThemeSelected && (
+            <button className="text-button settings-inline-button" onClick={deleteCurrentTheme}>
+              {t.themeDeleteButton}
+            </button>
+          )}
+          <button className="text-button settings-inline-button" onClick={importTheme} disabled={busy}>
+            {t.themeImportButton}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/// Shared shape for the Codex/Claude settings panels - both are a thin
+/// "configured?" flag behind a status/login/logout command trio, differing
+/// only in which commands and labels they use.
+function ProviderAuthPanel({
+  t,
+  accountLabel,
+  loginLabel,
+  statusCommand,
+  loginCommand,
+  logoutCommand,
+}: {
+  t: Strings;
+  accountLabel: string;
+  loginLabel: string;
+  statusCommand: string;
+  loginCommand: string;
+  logoutCommand: string;
+}) {
+  const [configured, setConfigured] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<AuthStatus>("codex_auth_status").then(setStatus);
-  }, []);
+    invoke<{ configured: boolean }>(statusCommand).then((s) => setConfigured(s.configured));
+  }, [statusCommand]);
 
   async function login() {
     setLoggingIn(true);
     setError(null);
     try {
-      setStatus(await invoke<AuthStatus>("codex_login"));
+      const status = await invoke<{ configured: boolean }>(loginCommand);
+      setConfigured(status.configured);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -152,8 +311,8 @@ function CodexProviderPanel({ t }: { t: Strings }) {
   }
 
   async function logout() {
-    await invoke("codex_logout");
-    setStatus({ configured: false, account_id: null });
+    await invoke(logoutCommand);
+    setConfigured(false);
   }
 
   return (
@@ -161,68 +320,18 @@ function CodexProviderPanel({ t }: { t: Strings }) {
       {error && <div className="settings-error">{error}</div>}
       <div className="settings-row">
         <div>
-          <div className="settings-row-label">{t.accountLabel}</div>
+          <div className="settings-row-label">{accountLabel}</div>
           <div className="settings-row-hint">
-            {loggingIn ? t.loggingIn : status?.configured ? t.accountConnectedAs : t.accountNotConnected}
+            {loggingIn ? t.loggingIn : configured ? t.accountConnectedAs : t.accountNotConnected}
           </div>
         </div>
-        {status?.configured ? (
+        {configured ? (
           <button className="text-button settings-inline-button" onClick={logout}>
             {t.logoutButton}
           </button>
         ) : (
           <button className="text-button settings-inline-button" onClick={login} disabled={loggingIn}>
-            {t.loginButton}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ClaudeProviderPanel({ t }: { t: Strings }) {
-  const [status, setStatus] = useState<ClaudeAuthStatus | null>(null);
-  const [loggingIn, setLoggingIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    invoke<ClaudeAuthStatus>("claude_auth_status").then(setStatus);
-  }, []);
-
-  async function login() {
-    setLoggingIn(true);
-    setError(null);
-    try {
-      setStatus(await invoke<ClaudeAuthStatus>("claude_login"));
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoggingIn(false);
-    }
-  }
-
-  async function logout() {
-    await invoke("claude_logout");
-    setStatus({ configured: false });
-  }
-
-  return (
-    <div className="settings-provider-panel">
-      {error && <div className="settings-error">{error}</div>}
-      <div className="settings-row">
-        <div>
-          <div className="settings-row-label">{t.claudeAccountLabel}</div>
-          <div className="settings-row-hint">
-            {loggingIn ? t.loggingIn : status?.configured ? t.accountConnectedAs : t.accountNotConnected}
-          </div>
-        </div>
-        {status?.configured ? (
-          <button className="text-button settings-inline-button" onClick={logout}>
-            {t.logoutButton}
-          </button>
-        ) : (
-          <button className="text-button settings-inline-button" onClick={login} disabled={loggingIn}>
-            {t.claudeLoginButton}
+            {loginLabel}
           </button>
         )}
       </div>
@@ -417,6 +526,64 @@ function CustomProviderPanel({ t }: { t: Strings }) {
         {config && (
           <button className="text-button settings-inline-button" onClick={clear}>
             {t.apiKeyClear}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ShortcutRow({
+  label,
+  action,
+  shortcuts,
+  setSettings,
+  t,
+}: {
+  label: string;
+  action: ShortcutAction;
+  shortcuts: Shortcuts;
+  setSettings: (patch: { shortcuts: Shortcuts }) => void;
+  t: Strings;
+}) {
+  const [recording, setRecording] = useState(false);
+  const combo = shortcuts[action];
+
+  useEffect(() => {
+    if (!recording) return;
+    function onKeyDown(e: KeyboardEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        setRecording(false);
+        return;
+      }
+      const captured = comboFromEvent(e);
+      if (!captured || !isBindableCombo(captured)) return;
+      setSettings({ shortcuts: { ...shortcuts, [action]: captured } });
+      setRecording(false);
+    }
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [recording, shortcuts, setSettings, action]);
+
+  function clear() {
+    setSettings({ shortcuts: { ...shortcuts, [action]: "" } });
+  }
+
+  return (
+    <div className="settings-row">
+      <span className="settings-row-label">{label}</span>
+      <div className="shortcut-row-controls">
+        <button
+          className={`text-button settings-inline-button shortcut-capture-button ${recording ? "shortcut-capture-active" : ""}`}
+          onClick={() => setRecording(true)}
+        >
+          {recording ? t.shortcutRecording : combo ? formatCombo(combo) : t.shortcutUnset}
+        </button>
+        {combo && !recording && (
+          <button className="text-button settings-inline-button" onClick={clear}>
+            {t.shortcutClear}
           </button>
         )}
       </div>

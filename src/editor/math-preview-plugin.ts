@@ -4,16 +4,9 @@ import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { cursorTouches } from "./enclosure";
 
 const mathPreviewKey = new PluginKey("math-preview");
-
-function makeDelimiterEl(delimiter: string): HTMLElement {
-  const span = document.createElement("span");
-  span.className = "math-delimiter";
-  span.textContent = delimiter;
-  span.contentEditable = "false";
-  return span;
-}
 
 function renderKatex(value: string, displayMode: boolean): string {
   try {
@@ -23,8 +16,9 @@ function renderKatex(value: string, displayMode: boolean): string {
   }
 }
 
-function buildDecorations(state: EditorState): DecorationSet {
-  const { selection } = state;
+function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
+  if (!enabled) return DecorationSet.empty;
+
   const decorations: Decoration[] = [];
 
   state.doc.descendants((node, pos) => {
@@ -32,23 +26,13 @@ function buildDecorations(state: EditorState): DecorationSet {
 
     const from = pos;
     const to = pos + node.nodeSize;
-    const cursorInside = selection.from <= to && selection.to >= from;
+    // While the cursor touches the node (inside or adjacent), enclosure.ts
+    // reveals the raw source with its synthesized $ / $$ delimiters - the
+    // KaTeX swap below must stay out of the way for exactly that range, so
+    // both sides share the same predicate.
+    if (cursorTouches(state.selection, from, to)) return;
+
     const displayMode = node.type.name === "math_block";
-
-    if (cursorInside) {
-      // Raw LaTeX source shows through for editing, but the $ / $$ wrapper
-      // is markdown syntax, not part of the node's own text - synthesize it
-      // so what you see while editing still looks like real markdown.
-      const delimiter = displayMode ? "$$" : "$";
-      decorations.push(
-        Decoration.widget(from + 1, () => makeDelimiterEl(delimiter), { side: -1 }),
-      );
-      decorations.push(
-        Decoration.widget(to - 1, () => makeDelimiterEl(delimiter), { side: 1 }),
-      );
-      return;
-    }
-
     const html = renderKatex(node.textContent, displayMode);
 
     decorations.push(Decoration.inline(from + 1, to - 1, { class: "math-source-hidden" }));
@@ -69,7 +53,7 @@ function buildDecorations(state: EditorState): DecorationSet {
           });
           return el;
         },
-        { side: 1 },
+        { side: -1 },
       ),
     );
   });
@@ -85,71 +69,94 @@ function findMathNodeAtSelection(
   state.doc.descendants((node, pos) => {
     if (found) return false;
     if (node.type.name !== "math_inline" && node.type.name !== "math_block") return;
-    const from = pos;
-    const to = pos + node.nodeSize;
+    // Content bounds, not the node's outer bounds - the floating preview
+    // should only follow while actually editing the source, not while
+    // merely adjacent to it.
+    const from = pos + 1;
+    const to = pos + node.nodeSize - 1;
     if (selection.from >= from && selection.to <= to) {
-      found = { node, from };
+      found = { node, from: pos };
     }
   });
   return found;
 }
 
 /**
- * Typora-style math rendering: math_inline/math_block nodes hold plain
- * LaTeX source text (edited like any other text), but whenever the cursor
- * isn't inside one, its source is hidden and a KaTeX-rendered widget is
- * shown in its place. Moving the cursor back in (or clicking the render)
- * reveals the source again. While the cursor IS inside one, a floating
- * live preview follows along above the source so you can see the rendered
- * result while typing it.
+ * Math-specific extras on top of the shared enclosure model (see
+ * enclosure.ts, which owns delimiter reveal and all cursor/key behavior):
+ * while the cursor is away from a math node, its raw LaTeX source is hidden
+ * and a KaTeX-rendered widget shown in its place (clicking the render puts
+ * the cursor back inside); while the cursor is inside one, a floating live
+ * preview follows along below the cursor so you can see the rendered result
+ * while typing it.
  */
-export const mathPreviewPlugin = $prose(
-  () =>
-    new Plugin<DecorationSet>({
-      key: mathPreviewKey,
-      state: {
-        init: (_config, state) => buildDecorations(state),
-        apply(tr, prev, _oldState, newState) {
-          if (!tr.docChanged && !tr.selectionSet) return prev;
-          return buildDecorations(newState);
+export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
+  return $prose(
+    () =>
+      new Plugin<DecorationSet>({
+        key: mathPreviewKey,
+        state: {
+          init: (_config, state) => buildDecorations(state, options.enabled()),
+          apply(tr, prev, _oldState, newState) {
+            if (!tr.docChanged && !tr.selectionSet) return prev;
+            return buildDecorations(newState, options.enabled());
+          },
         },
-      },
-      props: {
-        decorations(state) {
-          return mathPreviewKey.getState(state);
+        props: {
+          decorations(state) {
+            return mathPreviewKey.getState(state);
+          },
         },
-      },
-      view(editorView) {
-        const floatEl = document.createElement("div");
-        floatEl.className = "math-float-preview";
-        floatEl.style.display = "none";
-        document.body.appendChild(floatEl);
+        view(editorView) {
+          const floatEl = document.createElement("div");
+          floatEl.className = "math-float-preview";
+          floatEl.style.display = "none";
+          document.body.appendChild(floatEl);
 
-        function updateFloat(view: EditorView) {
-          const found = findMathNodeAtSelection(view.state);
-          if (!found) {
-            floatEl.style.display = "none";
-            return;
+          function updateFloat(view: EditorView) {
+            if (!options.enabled()) {
+              floatEl.style.display = "none";
+              return;
+            }
+            const found = findMathNodeAtSelection(view.state);
+            // Nothing to preview until there's actual source - an empty
+            // shell would show a bare floating box.
+            if (!found || !found.node.textContent.trim()) {
+              floatEl.style.display = "none";
+              return;
+            }
+
+            const displayMode = found.node.type.name === "math_block";
+            floatEl.innerHTML = renderKatex(found.node.textContent, displayMode);
+            floatEl.style.display = "block";
+
+            // Anchored below the cursor's current line (not the node's
+            // start), so it tracks along as you type a multi-line block, and
+            // matches how every other popup in this app (grammar fixes,
+            // inline chat) appears below rather than above. Then clamped to
+            // the viewport: pulled back from the right edge, and flipped
+            // above the cursor when it would run off the bottom.
+            const coords = view.coordsAtPos(view.state.selection.from);
+            floatEl.style.left = `${Math.max(4, coords.left)}px`;
+            floatEl.style.top = `${coords.bottom + 10}px`;
+            const rect = floatEl.getBoundingClientRect();
+            if (rect.right > window.innerWidth - 8) {
+              floatEl.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`;
+            }
+            if (rect.bottom > window.innerHeight - 8) {
+              floatEl.style.top = `${Math.max(8, coords.top - rect.height - 10)}px`;
+            }
           }
 
-          const displayMode = found.node.type.name === "math_block";
-          floatEl.innerHTML = renderKatex(found.node.textContent, displayMode);
-          floatEl.style.display = "block";
+          updateFloat(editorView);
 
-          const coords = view.coordsAtPos(found.from);
-          const rect = floatEl.getBoundingClientRect();
-          floatEl.style.left = `${Math.max(4, coords.left)}px`;
-          floatEl.style.top = `${coords.top - rect.height - 10}px`;
-        }
-
-        updateFloat(editorView);
-
-        return {
-          update: updateFloat,
-          destroy() {
-            floatEl.remove();
-          },
-        };
-      },
-    }),
-);
+          return {
+            update: updateFloat,
+            destroy() {
+              floatEl.remove();
+            },
+          };
+        },
+      }),
+  );
+}

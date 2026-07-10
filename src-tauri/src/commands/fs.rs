@@ -25,6 +25,23 @@ pub async fn open_file_dialog(app: tauri::AppHandle) -> Option<String> {
     .flatten()
 }
 
+/// Opens a native file picker for a CSS theme file (e.g. a Typora-compatible
+/// community theme).
+#[tauri::command]
+pub async fn open_css_file_dialog(app: tauri::AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .add_filter("CSS", &["css"])
+            .blocking_pick_file()
+            .map(|p| p.to_string())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /// Opens a native "Save As" dialog for a new, never-saved document.
 #[tauri::command]
 pub async fn save_file_dialog(app: tauri::AppHandle) -> Option<String> {
@@ -85,6 +102,17 @@ pub async fn list_dir(path: String) -> Result<Vec<DirEntryInfo>, String> {
 pub async fn read_text_file(path: String) -> Result<String, String> {
     require_non_empty(&path)?;
     fs::read_to_string(&path).await.map_err(|e| e.to_string())
+}
+
+/// Reads a file as base64 - used to inline a CSS theme's local font/image
+/// `url(...)` assets as data URIs, since a relative path in a `<style>` tag
+/// injected at runtime has no base to resolve against.
+#[tauri::command]
+pub async fn read_binary_file_base64(path: String) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    require_non_empty(&path)?;
+    let bytes = fs::read(&path).await.map_err(|e| e.to_string())?;
+    Ok(STANDARD.encode(bytes))
 }
 
 #[tauri::command]

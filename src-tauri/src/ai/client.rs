@@ -50,7 +50,13 @@ pub(crate) async fn call(
     }
 }
 
-const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete as the user types (like GitHub Copilot, but for prose). Continue the document naturally from exactly where the given text leaves off. Reply with ONLY the continuation text - no explanations, no markdown fences, no repeating the input. Keep it to a phrase or one short sentence.";
+// The completion contract, end to end:
+//   - context: the frontend sends the LAST 2000 characters of the document
+//     (ghost-text-plugin's MAX_CONTEXT_CHARS), and only once the document
+//     has at least 20 words/CJK chars of content.
+//   - length: capped by instruction to one sentence / ~25 words - inline
+//     ghost text is a nudge, not a paragraph generator.
+const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete as the user types (like GitHub Copilot, but for prose). Continue the document naturally from exactly where the given text leaves off. Reply with ONLY the continuation text - no explanations, no markdown fences, no repeating the input. Hard length limit: at most ONE sentence, and no more than about 25 words (or ~30 characters for CJK text). Prefer completing the current phrase or sentence over starting a new one.";
 
 #[tauri::command]
 pub async fn ai_complete(app: AppHandle, provider: String, context: String) -> Result<String, String> {
@@ -84,12 +90,4 @@ pub async fn ai_grammar_check(app: AppHandle, provider: String, paragraph: Strin
 
     let len = paragraph.chars().count();
     Ok(issues.into_iter().filter(|i| i.start < i.end && i.end <= len).collect())
-}
-
-/// Chat-style completion for the agent panel - same provider dispatch, but
-/// the caller supplies the full instructions/prompt (conversation context)
-/// rather than us hard-coding a single-purpose system prompt.
-#[tauri::command]
-pub async fn ai_chat(app: AppHandle, provider: String, instructions: String, message: String) -> Result<String, String> {
-    call(&app, &provider, instructions, message).await
 }

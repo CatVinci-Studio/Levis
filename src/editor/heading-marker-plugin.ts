@@ -1,9 +1,17 @@
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 
 const headingMarkerKey = new PluginKey("heading-marker");
+
+function makeMarkerEl(prefix: string): HTMLElement {
+  const span = document.createElement("span");
+  span.className = "heading-marker";
+  span.textContent = prefix;
+  span.contentEditable = "false";
+  return span;
+}
 
 function buildDecorations(state: EditorState): DecorationSet {
   const { selection } = state;
@@ -14,22 +22,25 @@ function buildDecorations(state: EditorState): DecorationSet {
 
     const from = pos;
     const to = pos + node.nodeSize;
-    const cursorInside = selection.from <= to && selection.to >= from;
+    // Content bounds, not the node's outer bounds - touching the boundary
+    // from outside (e.g. cursor just moved onto the next block) shouldn't
+    // count as "inside" the heading.
+    const cursorInside = selection.from <= to - 1 && selection.to >= from + 1;
     if (!cursorInside) return;
 
     const level = (node.attrs.level as number) ?? 1;
+    // A real widget element, not a CSS ::before on the heading: WKWebView
+    // (the Tauri webview) draws the caret for "start of text that carries
+    // ::before content" visually BEFORE the generated prefix, so the cursor
+    // appeared to sit in front of the "#" instead of after it. A real
+    // element gives the caret an unambiguous DOM position on each side, and
+    // ProseMirror canonicalizes the caret to the content side of a
+    // side: -1 widget.
     decorations.push(
-      Decoration.widget(
-        pos + 1,
-        () => {
-          const span = document.createElement("span");
-          span.className = "heading-marker";
-          span.textContent = "#".repeat(level) + " ";
-          span.contentEditable = "false";
-          return span;
-        },
-        { side: -1 },
-      ),
+      Decoration.widget(from + 1, () => makeMarkerEl("#".repeat(level) + " "), {
+        side: -1,
+        key: `hm${level}`,
+      }),
     );
   });
 
@@ -56,6 +67,22 @@ export const headingMarkerPlugin = $prose(
       props: {
         decorations(state) {
           return headingMarkerKey.getState(state);
+        },
+        handleKeyDown(view, event) {
+          if (event.key !== "ArrowLeft") return false;
+          const { state } = view;
+          const { $from, empty } = state.selection;
+          if (!empty) return false;
+          if ($from.parent.type.name !== "heading" || $from.parentOffset !== 0) return false;
+          // The revealed "# " prefix is a non-editable widget sitting between
+          // the caret and the start of the line, so native Left-arrow has no
+          // real text to move onto and stalls there. Hop to the end of the
+          // previous block explicitly.
+          const target = Selection.near(state.doc.resolve($from.before($from.depth)), -1);
+          if (target.from === state.selection.from) return false;
+          event.preventDefault();
+          view.dispatch(state.tr.setSelection(target));
+          return true;
         },
       },
     }),

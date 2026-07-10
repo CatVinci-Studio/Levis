@@ -1,5 +1,5 @@
 import { $nodeSchema, $remark, $inputRule } from "@milkdown/kit/utils";
-import { InputRule, textblockTypeInputRule } from "@milkdown/kit/prose/inputrules";
+import { InputRule } from "@milkdown/kit/prose/inputrules";
 import remarkMath from "remark-math";
 
 export const remarkMathPlugin = $remark("remark-math", () => remarkMath);
@@ -53,8 +53,10 @@ export const mathBlockSchema = $nodeSchema("math_block", () => ({
   },
 }));
 
-// Typing "$formula$" converts it to an inline math node as soon as the
-// closing $ is typed.
+// Fallback for "$formula$" arriving as a single bulk insertion (e.g. paste)
+// rather than character-by-character typing - the normal typing path is
+// math-autopair-plugin's "$" auto-pairing, which handles closing a pair one
+// keystroke at a time and never reaches this rule.
 export const mathInlineInputRule = $inputRule(
   (ctx) =>
     new InputRule(/(?<!\$)\$([^$\s](?:[^$]*[^$\s])?)\$$/, (state, match, start, end) => {
@@ -65,8 +67,3 @@ export const mathInlineInputRule = $inputRule(
     }),
 );
 
-// Typing "$$" then space/enter at the start of a line creates an empty
-// math_block, cursor inside it - mirrors how ``` creates a code block.
-export const mathBlockInputRule = $inputRule((ctx) =>
-  textblockTypeInputRule(/^\$\$[\s\n]$/, mathBlockSchema.type(ctx)),
-);

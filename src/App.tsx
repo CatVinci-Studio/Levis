@@ -7,10 +7,11 @@ import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { countWords } from "./utils/word-count";
-import { AgentPanel } from "./agent/AgentPanel";
+import { comboFromEvent } from "./utils/shortcuts";
+import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "./utils/events";
 import "./App.css";
 
-type PanelMode = "tree" | "outline" | "agent";
+type PanelMode = "tree" | "outline";
 
 function dirname(path: string): string {
   const idx = path.lastIndexOf("/");
@@ -38,10 +39,10 @@ function App() {
     setActivePath(path);
   }, []);
 
-  async function openFileDialog() {
+  const openFileDialog = useCallback(async () => {
     const picked = await invoke<string | null>("open_file_dialog");
     if (picked) await openFile(picked);
-  }
+  }, [openFile]);
 
   const handleChange = useCallback((markdown: string) => {
     setContent(markdown);
@@ -67,11 +68,26 @@ function App() {
       if (isSave) {
         e.preventDefault();
         void save();
+        return;
+      }
+
+      const combo = comboFromEvent(e);
+      if (!combo) return;
+      const { shortcuts } = settings;
+      if (combo === shortcuts.triggerCompletion) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(TRIGGER_COMPLETION_EVENT));
+      } else if (combo === shortcuts.triggerGrammarCheck) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(TRIGGER_GRAMMAR_CHECK_EVENT));
+      } else if (combo === shortcuts.toggleFloatingChat) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(TOGGLE_FLOATING_CHAT_EVENT));
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [save]);
+  }, [save, settings]);
 
   const toggleSourceMode = useCallback(() => {
     setSourceMode((prev) => {
@@ -84,6 +100,7 @@ function App() {
 
   useEffect(() => {
     const unlistenSettings = listen("menu-open-settings", () => setSettingsOpen(true));
+    const unlistenOpenFile = listen("menu-open-file", () => void openFileDialog());
     const unlistenSourceMode = listen("menu-toggle-source-mode", () => toggleSourceMode());
     const unlistenTypewriter = listen("menu-toggle-typewriter-mode", () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
@@ -91,14 +108,48 @@ function App() {
     const unlistenSidebar = listen("menu-toggle-sidebar", () => setPanelOpen((v) => !v));
     return () => {
       void unlistenSettings.then((f) => f());
+      void unlistenOpenFile.then((f) => f());
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
     };
-  }, [toggleSourceMode, settings.typewriterMode, setSettings]);
+  }, [openFileDialog, toggleSourceMode, settings.typewriterMode, setSettings]);
 
   return (
     <div className="app-shell">
+      <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
+        {/* Contents only render while open - a collapsed sidebar is just
+            shifted out of view via margin, not unmounted, so without this
+            its buttons/tree would stay in the tab order and Tab could land
+            focus on them from the editor. */}
+        {panelOpen && (
+          <>
+            <div className="sidebar-header">
+              <div className="sidebar-tabs">
+                <button
+                  className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
+                  onClick={() => setPanelMode("tree")}
+                >
+                  {t.treeTab}
+                </button>
+                <button
+                  className={`sidebar-tab ${panelMode === "outline" ? "sidebar-tab-active" : ""}`}
+                  onClick={() => setPanelMode("outline")}
+                >
+                  {t.outlineTab}
+                </button>
+              </div>
+            </div>
+            <div className="sidebar-body">
+              {panelMode === "tree" && rootPath && (
+                <FileTree rootPath={rootPath} activePath={activePath} onFileSelect={openFile} />
+              )}
+              {panelMode === "outline" && <Outline content={content} />}
+            </div>
+          </>
+        )}
+      </aside>
+
       <div className="main-pane">
         <div className="floating-toolbar">
           <span className="word-count">
@@ -124,41 +175,6 @@ function App() {
           />
         )}
       </div>
-
-      <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
-        <div className="sidebar-header">
-          <button className="text-button" onClick={openFileDialog}>
-            {t.openFile}
-          </button>
-          <div className="sidebar-tabs">
-            <button
-              className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
-              onClick={() => setPanelMode("tree")}
-            >
-              {t.treeTab}
-            </button>
-            <button
-              className={`sidebar-tab ${panelMode === "outline" ? "sidebar-tab-active" : ""}`}
-              onClick={() => setPanelMode("outline")}
-            >
-              {t.outlineTab}
-            </button>
-            <button
-              className={`sidebar-tab ${panelMode === "agent" ? "sidebar-tab-active" : ""}`}
-              onClick={() => setPanelMode("agent")}
-            >
-              {t.agentTab}
-            </button>
-          </div>
-        </div>
-        <div className={`sidebar-body ${panelMode === "agent" ? "sidebar-body-flush" : ""}`}>
-          {panelMode === "tree" && rootPath && (
-            <FileTree rootPath={rootPath} activePath={activePath} onFileSelect={openFile} />
-          )}
-          {panelMode === "outline" && <Outline content={content} />}
-          {panelMode === "agent" && <AgentPanel document={content} />}
-        </div>
-      </aside>
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>

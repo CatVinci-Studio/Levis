@@ -1,13 +1,20 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { Editor, rootCtx, defaultValueCtx, commandsCtx, editorViewCtx } from "@milkdown/kit/core";
+import { type MouseEvent, useState } from "react";
 import {
-  commonmark,
+  Editor,
+  rootCtx,
+  defaultValueCtx,
+  commandsCtx,
+  editorViewCtx,
+  editorViewOptionsCtx,
+  type CmdKey,
+} from "@milkdown/kit/core";
+import {
   wrapInBulletListCommand,
   wrapInOrderedListCommand,
   wrapInBlockquoteCommand,
   createCodeBlockCommand,
 } from "@milkdown/kit/preset/commonmark";
-import { gfm, insertTableCommand } from "@milkdown/kit/preset/gfm";
+import { insertTableCommand } from "@milkdown/kit/preset/gfm";
 import {
   isInTable,
   addRowAfter,
@@ -19,35 +26,26 @@ import {
   deleteTable,
   setCellAttr,
 } from "@milkdown/kit/prose/tables";
-import { AllSelection } from "@milkdown/kit/prose/state";
-import { history } from "@milkdown/kit/plugin/history";
-import { clipboard } from "@milkdown/kit/plugin/clipboard";
-import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
-import { taskListClickPlugin } from "./task-list-plugin";
-import { syntaxHighlightPlugin } from "./syntax-highlight-plugin";
-import { codeBlockLanguageView } from "./code-block-language-view";
-import { createGhostTextPlugin } from "./ghost-text-plugin";
-import { createGrammarCheckPlugin } from "./grammar-check-plugin";
-import { mermaidPreviewPlugin } from "./mermaid-plugin";
-import { tabExtendPlugin } from "./tab-extend-plugin";
-import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
-import { createTypewriterPlugin } from "./typewriter-plugin";
-import {
-  remarkMathPlugin,
-  mathInlineSchema,
-  mathBlockSchema,
-  mathInlineInputRule,
-  mathBlockInputRule,
-} from "./math-schema";
-import { mathPreviewPlugin } from "./math-preview-plugin";
-import { headingMarkerPlugin } from "./heading-marker-plugin";
-import { markMarkerPlugin } from "./mark-marker-plugin";
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import { listenerCtx } from "@milkdown/kit/plugin/listener";
+import { withEditorExtensions } from "./editor-extensions";
+import { GrammarPopover } from "../ai/GrammarPopover";
+import { InlineChatBar } from "../ai/InlineChatBar";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { useEditorRunner } from "./useEditorRunner";
+import { useEditorClipboard } from "./useEditorClipboard";
+import { useAiActions } from "../ai/useAiActions";
+import { useInlineChat } from "../ai/useInlineChat";
+import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
-import { Milkdown, useEditor, useInstance } from "@milkdown/react";
+import { useLatest } from "../utils/useLatest";
+import { useWindowEvent } from "../utils/useWindowEvent";
+import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "../utils/events";
+import { Milkdown, useEditor } from "@milkdown/react";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "katex/dist/katex.min.css";
 import "./milkdown-theme.css";
+import "./content-themes.css";
 
 interface MilkdownEditorProps {
   initialValue: string;
@@ -55,131 +53,106 @@ interface MilkdownEditorProps {
 }
 
 export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) {
-  const [loading, getEditor] = useInstance();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { t, settings } = useSettings();
 
-  // The editor plugin chain below is only built once (empty deps), so the
-  // ghost-text plugin reads this ref to see live settings instead of the
-  // value captured at construction time.
-  const settingsRef = useRef(settings);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
+  // The editor plugin chain below is only built once (empty deps), so
+  // plugins read this ref to see live settings instead of the value
+  // captured at construction time.
+  const settingsRef = useLatest(settings);
 
   useEditor(
     (root) =>
-      Editor.make()
-        .config((ctx) => {
+      withEditorExtensions(
+        Editor.make().config((ctx) => {
           ctx.set(rootCtx, root);
           ctx.set(defaultValueCtx, initialValue);
+          // Typora-compatible themes style their content under `#write` -
+          // aliasing it here lets most community Typora themes' CSS apply
+          // directly to our content with no rewriting.
+          ctx.set(editorViewOptionsCtx, { attributes: { id: "write" } });
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => onChange(markdown));
-        })
-        .use(commonmark)
-        .use(gfm)
-        .use(tabExtendPlugin)
-        .use(escapeTrailingBlockPlugin)
-        .use(history)
-        .use(clipboard)
-        .use(listener)
-        .use(taskListClickPlugin)
-        .use(syntaxHighlightPlugin)
-        .use(codeBlockLanguageView)
-        .use(
-          createGhostTextPlugin({
-            enabled: () => settingsRef.current.enableCompletion,
-            provider: () => settingsRef.current.aiProvider,
-          }),
-        )
-        .use(
-          createGrammarCheckPlugin({
-            enabled: () => settingsRef.current.enableGrammarCheck,
-            provider: () => settingsRef.current.aiProvider,
-          }),
-        )
-        .use(mermaidPreviewPlugin)
-        .use(remarkMathPlugin)
-        .use(mathInlineSchema)
-        .use(mathBlockSchema)
-        .use(mathInlineInputRule)
-        .use(mathBlockInputRule)
-        .use(mathPreviewPlugin)
-        .use(headingMarkerPlugin)
-        .use(markMarkerPlugin)
-        .use(createTypewriterPlugin({ enabled: () => settingsRef.current.typewriterMode })),
+        }),
+        settingsRef,
+      ),
     [],
   );
 
-  function runTableCommand(command: (state: any, dispatch: any) => boolean) {
-    if (loading) return;
-    getEditor().action((ctx) => {
+  const run = useEditorRunner();
+  const { copyOrCut, paste, selectAll } = useEditorClipboard(run);
+  const { triggerCompletion, triggerGrammarCheck } = useAiActions(run, () => settingsRef.current.aiProvider);
+  const inlineChat = useInlineChat(run, () => ({
+    applyStale: t.agentApplyStale,
+    proposalFailed: t.agentProposalFailed,
+  }));
+  const grammar = useGrammarPopover(run);
+
+  // Shortcuts respect the same feature toggles as the context menu items -
+  // a feature turned off in Settings is off through every entry point.
+  useWindowEvent(TRIGGER_COMPLETION_EVENT, () => settings.enableCompletion && triggerCompletion());
+  useWindowEvent(TRIGGER_GRAMMAR_CHECK_EVENT, () => settings.enableGrammarCheck && triggerGrammarCheck());
+  useWindowEvent(TOGGLE_FLOATING_CHAT_EVENT, () => settings.enableAskAi && inlineChat.toggle());
+
+  function runTableCommand(command: (state: EditorState, dispatch: (tr: Transaction) => void) => boolean) {
+    run((ctx) => {
       const view = ctx.get(editorViewCtx);
       command(view.state, view.dispatch);
       view.focus();
     });
   }
 
-  function runCommand(key: any) {
-    if (loading) return;
-    getEditor().action((ctx) => {
+  // CmdKey<any>: the preset command keys vary in payload type (some
+  // unknown, some undefined) and all are called here without a payload.
+  function runCommand(key: CmdKey<any>) {
+    run((ctx) => {
       ctx.get(commandsCtx).call(key);
       ctx.get(editorViewCtx).focus();
     });
   }
 
   function insertTable() {
-    if (loading) return;
-    getEditor().action((ctx) => {
+    run((ctx) => {
       ctx.get(commandsCtx).call(insertTableCommand.key, { row: 3, col: 3 });
-    });
-  }
-
-  function copyOrCut(cut: boolean) {
-    if (loading) return;
-    getEditor().action((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const { state } = view;
-      const text = state.doc.textBetween(state.selection.from, state.selection.to, "\n");
-      void (async () => {
-        if (text) await navigator.clipboard.writeText(text);
-        if (cut) view.dispatch(view.state.tr.deleteSelection());
-        view.focus();
-      })();
-    });
-  }
-
-  function pasteFromClipboard() {
-    if (loading) return;
-    getEditor().action((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      void (async () => {
-        const text = await navigator.clipboard.readText();
-        if (text) view.dispatch(view.state.tr.insertText(text));
-        view.focus();
-      })();
-    });
-  }
-
-  function selectAll() {
-    if (loading) return;
-    getEditor().action((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
-      view.focus();
     });
   }
 
   function onContextMenu(e: MouseEvent) {
     e.preventDefault();
+    // macOS WebKit selects the word under the pointer while handling a right
+    // click in editable content - inside the engine, before any DOM event,
+    // so it can't be prevented. But by the time contextmenu fires, only the
+    // DOM selection has moved; ProseMirror's state still holds the real
+    // selection (its readback is async). Pushing the state's selection back
+    // into the DOM here undoes the word-select before it's ever painted or
+    // read back, so AI context capture and the completion cursor never see it.
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const { anchor, head } = view.state.selection;
+      try {
+        const a = view.domAtPos(anchor);
+        const h = view.domAtPos(head);
+        window.getSelection()?.setBaseAndExtent(a.node, a.offset, h.node, h.offset);
+      } catch {
+        // Selection not representable in the DOM right now - leave it alone.
+      }
+    });
     setMenu({ x: e.clientX, y: e.clientY });
   }
 
   function buildMenuItems(): (ContextMenuItem | "separator")[] {
+    // Each AI item is only offered while its feature is enabled in Settings.
+    const aiItems: ContextMenuItem[] = [
+      ...(settings.enableAskAi ? [{ label: t.askAi, onSelect: inlineChat.toggle }] : []),
+      ...(settings.enableCompletion ? [{ label: t.triggerCompletion, onSelect: triggerCompletion }] : []),
+      ...(settings.enableGrammarCheck ? [{ label: t.triggerGrammarCheck, onSelect: triggerGrammarCheck }] : []),
+    ];
+
     const clipboardItems: (ContextMenuItem | "separator")[] = [
       { label: t.cut, onSelect: () => copyOrCut(true) },
       { label: t.copy, onSelect: () => copyOrCut(false) },
-      { label: t.paste, onSelect: pasteFromClipboard },
+      { label: t.paste, onSelect: paste },
       { label: t.selectAll, onSelect: selectAll },
+      ...(aiItems.length > 0 ? (["separator", ...aiItems] as (ContextMenuItem | "separator")[]) : []),
     ];
 
     const insertItems: (ContextMenuItem | "separator")[] = [
@@ -190,9 +163,7 @@ export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) 
       { label: t.insertTable, onSelect: insertTable },
     ];
 
-    if (loading) return [...clipboardItems, "separator", ...insertItems];
-
-    const inTable = getEditor().action((ctx) => isInTable(ctx.get(editorViewCtx).state));
+    const inTable = run((ctx) => isInTable(ctx.get(editorViewCtx).state)) ?? false;
     if (!inTable) {
       return [...clipboardItems, "separator", ...insertItems];
     }
@@ -216,9 +187,42 @@ export function MilkdownEditor({ initialValue, onChange }: MilkdownEditorProps) 
   }
 
   return (
-    <div onContextMenu={onContextMenu}>
+    <div onContextMenu={onContextMenu} onMouseOver={grammar.onMouseOver} onMouseOut={grammar.onMouseOut}>
       <Milkdown />
       {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenuItems()} onClose={() => setMenu(null)} />}
+      {grammar.popover && (
+        <GrammarPopover
+          info={grammar.popover}
+          applyLabel={t.grammarApply}
+          onApply={grammar.applyFix}
+          onMouseEnter={grammar.cancelHide}
+          onMouseLeave={grammar.hide}
+        />
+      )}
+      {inlineChat.chatInfo && (
+        <InlineChatBar
+          x={inlineChat.chatInfo.x}
+          y={inlineChat.chatInfo.y}
+          document={inlineChat.chatInfo.document}
+          selectedText={inlineChat.chatInfo.selectedText}
+          provider={settingsRef.current.aiProvider}
+          labels={{
+            placeholder: t.agentInputPlaceholder,
+            send: t.agentSend,
+            thinking: t.agentThinking,
+            selectionHint: t.inlineChatSelectionHint,
+            replaceSelection: t.agentReplaceSelection,
+            insertAtCursor: t.agentInsertAtCursor,
+            replaceDocument: t.agentReplaceDocument,
+            proposalTitle: t.agentProposalTitle,
+            proposalApply: t.agentProposalApply,
+            proposalApplied: t.agentProposalApplied,
+          }}
+          onApply={inlineChat.applyResult}
+          onApplyProposal={inlineChat.applyProposal}
+          onClose={inlineChat.close}
+        />
+      )}
     </div>
   );
 }

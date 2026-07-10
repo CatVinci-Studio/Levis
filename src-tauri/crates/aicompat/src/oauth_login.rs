@@ -24,13 +24,14 @@ pub async fn run_pkce_login(app: &AppHandle, req: PkceLoginRequest) -> Result<St
         .open_url(req.authorize_url, None::<String>)
         .map_err(|e| e.to_string())?;
 
-    let callback_path_and_query = callback_task.await?;
+    // `wait_for_callback` already hands back a full absolute URL (the
+    // plugin round-trips the browser's real `window.location.href` through
+    // a `Full-Url` header), so this must be parsed as-is - prepending
+    // another `http://localhost:{port}` here previously produced a
+    // malformed double URL and an "invalid port number" parse error.
+    let callback_url = callback_task.await?;
 
-    let full_url = url::Url::parse(&format!(
-        "http://localhost:{}{}",
-        req.callback_port, callback_path_and_query
-    ))
-    .map_err(|e| e.to_string())?;
+    let full_url = url::Url::parse(&callback_url).map_err(|e| e.to_string())?;
     let params: HashMap<_, _> = full_url.query_pairs().collect();
 
     let returned_state = params.get("state").map(|s| s.as_ref());

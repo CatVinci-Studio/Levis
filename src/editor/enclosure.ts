@@ -1,0 +1,536 @@
+import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
+import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Fragment } from "@milkdown/kit/prose/model";
+import { $prose } from "@milkdown/kit/utils";
+import type { EditorState, Selection } from "@milkdown/kit/prose/state";
+import type { Node as ProseNode, ResolvedPos } from "@milkdown/kit/prose/model";
+import type { EditorView } from "@milkdown/kit/prose/view";
+import { spanDelimText } from "./md-span-schema";
+
+/**
+ * Shared model for every delimiter-enclosed syntax construct - bold/italic/
+ * strikethrough/highlight (md_span), inline code (md_code_span), and math
+ * (math_inline/math_block). All of them are real ProseMirror nodes whose
+ * content is real, always-editable text; the wrapping markdown delimiters
+ * ("**", "~~", "==", "`", "$", "$$") are NOT characters in the document -
+ * they're derived from the node type/attrs and synthesized as non-editable
+ * widget decorations. This module is the single owner of how the cursor and
+ * editing keys interact with that synthesized syntax.
+ *
+ * The cursor has three phases relative to an enclosure, and Left/Right move
+ * exactly one phase per press, so the delimiter behaves like a single
+ * editable pseudo-character even though it occupies no document position:
+ *
+ *   away:      ... text | *hello*        delimiters hidden (or, for math,
+ *                                        the KaTeX render shown instead)
+ *   adjacent:  ... text |*hello*         cursor at the node's outer boundary;
+ *              ... text *hello*|         delimiters revealed, cursor visually
+ *                                        outside them
+ *   inside:    ... text *|hello*         cursor within the content; normal
+ *                                        text editing applies
+ *
+ * Editing the delimiters themselves maps onto this model as deletion and
+ * re-creation rather than character mutation:
+ *
+ *   - Backspace in the "adjacent after" position deletes the CLOSING
+ *     delimiter: the node unwraps into literal text that still carries its
+ *     opening delimiter ("*hello*" -> "*hello"), exactly like erasing the
+ *     last character of hand-typed markdown.
+ *   - Backspace at the very start of the content deletes the OPENING
+ *     delimiter ("*|hello*" -> "|hello*"); Delete (forward) mirrors both.
+ *   - Typing the delimiter character again re-forms the node from that
+ *     literal text (see findRunOpen below + the autopair plugins), so a
+ *     deleted delimiter is always recoverable by just retyping it.
+ *   - Backspace/Delete on an EMPTY shell removes the whole pair at once,
+ *     like erasing an auto-closed bracket.
+ *
+ * Why every boundary crossing is intercepted in handleKeyDown instead of
+ * left to the browser: the synthesized delimiters aren't real text, so
+ * native caret movement either stalls against them or - in WKWebView, the
+ * Tauri webview - gets silently normalized to the wrong side of the node
+ * element. The same normalization also mis-attributes text typed at a
+ * boundary to the node's content; redirectMisattributedInput below is the
+ * counterpart guard for that, called by the autopair plugins.
+ *
+ * Division of labor across the feature's files:
+ *   - *-schema.ts:          node shape, markdown parse/serialize
+ *   - *-autopair-plugin.ts: what typing a delimiter character does (open /
+ *     upgrade / close / convert literal text), via the helpers exported here
+ *   - enclosure.ts:         cursor phases, delimiter reveal, delimiter
+ *     deletion - everything selection- and key-driven, uniformly
+ *   - math-preview-plugin.ts: math-only extras (KaTeX render while away,
+ *     floating live preview while inside)
+ */
+
+const enclosureKey = new PluginKey("enclosure");
+
+const ENCLOSURE_NODES = new Set(["md_span", "md_code_span", "math_inline", "math_block"]);
+
+export function isEnclosureName(name: string): boolean {
+  return ENCLOSURE_NODES.has(name);
+}
+
+export function isEnclosure(node: ProseNode): boolean {
+  return ENCLOSURE_NODES.has(node.type.name);
+}
+
+/** The literal delimiter text an enclosure node's syntax is rendered as. */
+export function enclosureDelimText(node: ProseNode): string {
+  if (node.type.name === "math_inline") return "$";
+  if (node.type.name === "math_block") return "$$";
+  return spanDelimText(node);
+}
+
+/**
+ * Whether the selection is inside OR immediately adjacent to the node's
+ * outer bounds. Adjacency counts as "touching" so the delimiters stay
+ * revealed while the cursor sits just outside them - the intermediate phase
+ * that makes them addressable (and deletable) at all. Both the reveal
+ * decorations here and math-preview's "render KaTeX instead" check must use
+ * this same predicate or the two representations would overlap.
+ */
+export function cursorTouches(selection: Selection, from: number, to: number): boolean {
+  return selection.from <= to && selection.to >= from;
+}
+
+/**
+ * The contiguous run of plain text directly before $pos within its parent,
+ * stopping at any non-text inline node. Backward-pairing must only ever
+ * look at this run: parent.textContent-based slicing counts characters
+ * while document positions count node boundaries too, so the two drift
+ * apart as soon as the paragraph contains any enclosure node - and pairing
+ * across an existing node would be wrong anyway.
+ */
+export function literalTextBefore($pos: ResolvedPos): { text: string; from: number } {
+  const parent = $pos.parent;
+  let offset = $pos.parentOffset;
+  let text = "";
+  while (offset > 0) {
+    const child = parent.childBefore(offset);
+    if (!child.node || !child.node.isText) break;
+    text = (child.node.text ?? "").slice(0, offset - child.offset) + text;
+    offset = child.offset;
+  }
+  return { text, from: $pos.start() + offset };
+}
+
+/**
+ * Looks for an unclosed opening run of exactly `rung` delimiter characters
+ * in `textBefore` that the character being typed right now would complete -
+ * requiring the previously-typed part of the closing run (rung - 1 literal
+ * characters) to sit directly before the caret. Both runs must be exact
+ * (not the tail of a longer run), and the enclosed value must be non-empty
+ * with no whitespace at its edges and no delimiter characters inside. This
+ * is what lets literal "**hello"-looking text - left by deleting a
+ * delimiter, a paste, or an abandoned edit - re-form into a real node when
+ * its closing delimiter is (re)typed.
+ */
+export function findRunOpen(textBefore: string, char: string, rung: number): { openIdx: number; value: string } | null {
+  const closerStart = textBefore.length - (rung - 1);
+  if (closerStart < 0) return null;
+  if (textBefore.slice(closerStart) !== char.repeat(rung - 1)) return null;
+  if (textBefore[closerStart - 1] === char) return null; // tail of a longer literal run - not this rung's closer
+  const body = textBefore.slice(0, closerStart);
+  const openIdx = body.lastIndexOf(char.repeat(rung));
+  if (openIdx === -1) return null;
+  if (body[openIdx - 1] === char || body[openIdx + rung] === char) return null; // embedded in a longer run
+  const value = body.slice(openIdx + rung);
+  if (!value || /^\s|\s$/.test(value) || value.includes(char)) return null;
+  return { openIdx, value };
+}
+
+/**
+ * Whether an opening run longer than the characters typed so far is waiting
+ * for more closing characters - e.g. "**hello" with one "*" just typed. In
+ * that case the typed character must stay literal (building up the closing
+ * run one keystroke at a time) instead of opening a fresh unrelated shell,
+ * or the multi-character closer could never be typed at all.
+ */
+export function hasPendingRunOpen(textBefore: string, char: string, minRung: number, maxRung: number): boolean {
+  let trailing = 0;
+  while (trailing < textBefore.length && textBefore[textBefore.length - 1 - trailing] === char) trailing++;
+  for (let rung = Math.max(minRung, 2); rung <= maxRung; rung++) {
+    if (trailing >= rung - 1) continue; // this keystroke already completes that rung (findRunOpen's case)
+    const body = textBefore.slice(0, textBefore.length - trailing);
+    const openIdx = body.lastIndexOf(char.repeat(rung));
+    if (openIdx === -1) continue;
+    if (body[openIdx - 1] === char || body[openIdx + rung] === char) continue;
+    const value = body.slice(openIdx + rung);
+    if (!value || /^\s|\s$/.test(value) || value.includes(char)) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * WKWebView (the Tauri webview) normalizes a caret sitting just outside an
+ * inline element's boundary to just inside it, so text typed right after
+ * exiting an enclosure - editor selection in the paragraph - arrives
+ * attributed to a position inside the node's content, silently pulling the
+ * input (and the cursor) back in. When the reported input position is
+ * inside an enclosure but the editor's actual selection is not, re-route
+ * the input through the full handler chain at the real caret position (so
+ * a delimiter character still gets its normal autopair treatment there).
+ * Every autopair plugin calls this first from its handleTextInput.
+ */
+export function redirectMisattributedInput(view: EditorView, from: number, to: number, text: string): boolean {
+  if (from !== to) return false;
+  const { state } = view;
+  const sel = state.selection;
+  if (!sel.empty) return false;
+  const $typed = state.doc.resolve(from);
+  if (!isEnclosureName($typed.parent.type.name)) return false;
+  const nodeStart = $typed.before($typed.depth);
+  const nodeEnd = $typed.after($typed.depth);
+  if (sel.from > nodeStart && sel.from < nodeEnd) return false; // genuinely typing inside
+  const deflt = () => state.tr.insertText(text, sel.from, sel.to);
+  const handled = view.someProp("handleTextInput", (f) => f(view, sel.from, sel.to, text, deflt));
+  if (!handled) view.dispatch(deflt());
+  return true;
+}
+
+function makeDelimiterEl(delimiter: string): HTMLElement {
+  const span = document.createElement("span");
+  span.className = "enclosure-delimiter";
+  span.textContent = delimiter;
+  span.contentEditable = "false";
+  return span;
+}
+
+function buildDecorations(state: EditorState): DecorationSet {
+  const decorations: Decoration[] = [];
+
+  state.doc.descendants((node, pos) => {
+    if (!isEnclosure(node)) return;
+    const from = pos;
+    const to = pos + node.nodeSize;
+    if (!cursorTouches(state.selection, from, to)) return;
+
+    // Real widget elements, not CSS ::before/::after pseudo-content:
+    // WKWebView draws the caret on the wrong visual side of generated
+    // content, while real elements give it an unambiguous DOM position on
+    // each side. Widgets at these positions used to trap native left/right
+    // movement, but handleKeyDown below hops the caret across every
+    // boundary itself, so native navigation never has to cross them.
+    //
+    // For INLINE enclosures the widgets sit OUTSIDE the node (at from/to in
+    // the parent paragraph), not inside it at the content edges. WebKit
+    // cannot compute a caret rectangle for a position whose only neighbor
+    // is contentEditable=false content - the DOM selection is correct but
+    // the caret gets PAINTED at the start of the line (typing still lands
+    // at the right document position, which is how you can tell it apart
+    // from a logical-position bug). prosemirror-view works around exactly
+    // this (#1165) by inserting an <img class="ProseMirror-separator">
+    // anchor when a textblock's last child is uneditable - but it only
+    // looks at the textblock's direct children, so the widgets must live
+    // in the paragraph itself, not be tucked inside the enclosure node,
+    // for that workaround to engage.
+    //
+    // math_block is the exception: it's a block node, so its "$$" fences
+    // render as whole lines above/below the source via CSS generated
+    // content (.math-block-revealed), not as inline widgets - inline
+    // widgets would squeeze the fences and the source onto one line, and
+    // the content area must keep a real line box of its own so the caret
+    // has somewhere to sit even while the block is empty.
+    const delim = enclosureDelimText(node);
+    if (node.isBlock) {
+      decorations.push(Decoration.node(from, to, { class: "math-block-revealed" }));
+    } else {
+      // side: 1 on the opener / side: -1 on the closer keeps the caret at
+      // the node's outer boundary visually OUTSIDE the delimiters (the
+      // "adjacent" phase in the diagram above), and makes text typed there
+      // land outside the enclosure too.
+      decorations.push(Decoration.widget(from, () => makeDelimiterEl(delim), { side: 1, key: `enc-open:${delim}` }));
+      decorations.push(Decoration.widget(to, () => makeDelimiterEl(delim), { side: -1, key: `enc-close:${delim}` }));
+    }
+  });
+
+  return DecorationSet.create(state.doc, decorations);
+}
+
+/**
+ * Pure decision logic below (computeArrowRight / computeArrowLeft /
+ * computeBackspace / computeDelete): given only an EditorState, each either
+ * returns null ("not our concern, let the default/native behavior run") or
+ * describes exactly what should happen. None of them touch a view or
+ * dispatch a transaction - that's left to the thin plugin wiring at the
+ * bottom, which is what makes these directly unit-testable against a plain
+ * prosemirror-state EditorState with no browser/DOM involved at all (see
+ * enclosure.test.ts). Given how many of this feature's bugs have turned out
+ * to be off-by-one position math, that direct testability is the point.
+ */
+
+export interface ArrowMove {
+  pos: number;
+}
+
+/**
+ * Right arrow, one phase at a time (see the phase diagram at the top of
+ * this file): inside-at-end -> adjacent-after; adjacent-before ->
+ * inside-at-start; and the "pin" case, which forces the single native
+ * character-step that would otherwise land adjacent-before to go through
+ * us instead (see the module doc comment on why WKWebView can't be trusted
+ * to land there on its own).
+ */
+export function computeArrowRight(state: EditorState): ArrowMove | null {
+  const sel = state.selection;
+  if (!sel.empty) return null;
+  const $pos = sel.$from;
+  const pos = sel.from;
+  const parent = $pos.parent;
+
+  if (isEnclosureName(parent.type.name) && parent.content.size > 0 && $pos.parentOffset === parent.content.size) {
+    return { pos: $pos.after($pos.depth) };
+  }
+
+  const next = $pos.nodeAfter;
+  if (next && isEnclosure(next) && next.content.size > 0) {
+    return { pos: pos + 1 };
+  }
+
+  if (next?.isText) {
+    const upcoming = state.doc.resolve(pos + 1).nodeAfter;
+    if (upcoming && isEnclosure(upcoming) && upcoming.content.size > 0) {
+      return { pos: pos + 1 };
+    }
+  }
+
+  // Leaving adjacent-after, moving further away: the position immediately
+  // after an enclosure is exactly as ambiguous for WKWebView as the one
+  // immediately before it (see the module doc comment) - a widget sits
+  // right on the other side of this position too, so this step is taken
+  // over rather than ever handed to native movement, symmetric with the
+  // "entering" and "pin" cases above.
+  const prev = $pos.nodeBefore;
+  if (prev && isEnclosure(prev) && next?.isText) {
+    return { pos: pos + 1 };
+  }
+
+  return null;
+}
+
+/** Mirror of computeArrowRight - see its comment for the phase reasoning. */
+export function computeArrowLeft(state: EditorState): ArrowMove | null {
+  const sel = state.selection;
+  if (!sel.empty) return null;
+  const $pos = sel.$from;
+  const pos = sel.from;
+  const parent = $pos.parent;
+
+  if (isEnclosureName(parent.type.name) && parent.content.size > 0 && $pos.parentOffset === 0) {
+    return { pos: $pos.before($pos.depth) };
+  }
+
+  const prev = $pos.nodeBefore;
+  if (prev && isEnclosure(prev) && prev.content.size > 0) {
+    return { pos: pos - 1 };
+  }
+
+  if (prev?.isText) {
+    const upcoming = state.doc.resolve(pos - 1).nodeBefore;
+    if (upcoming && isEnclosure(upcoming) && upcoming.content.size > 0) {
+      return { pos: pos - 1 };
+    }
+  }
+
+  // Leaving adjacent-before, moving further away - mirror of the
+  // ArrowRight case above.
+  const next = $pos.nodeAfter;
+  if (next && isEnclosure(next) && prev?.isText) {
+    return { pos: pos - 1 };
+  }
+
+  return null;
+}
+
+export type DeleteAction =
+  | { kind: "deleteShell"; start: number; node: ProseNode }
+  | { kind: "deleteDelimiter"; start: number; node: ProseNode; drop: "opening" | "closing" };
+
+/**
+ * Backspace deletes whichever delimiter is immediately to its left: the
+ * opening one if the cursor is at the very start of the content, the
+ * closing one if the cursor is adjacent right after the node. An empty
+ * shell is removed whole either way. Math blocks are excluded from the
+ * "delete opening delimiter" case - their multi-line source doesn't unwrap
+ * into a paragraph sensibly, so they keep the block-level default instead.
+ */
+export function computeBackspace(state: EditorState): DeleteAction | null {
+  const sel = state.selection;
+  if (!sel.empty) return null;
+  const $pos = sel.$from;
+  const pos = sel.from;
+  const parent = $pos.parent;
+
+  if (isEnclosureName(parent.type.name)) {
+    const start = $pos.before($pos.depth);
+    if (parent.content.size === 0) return { kind: "deleteShell", start, node: parent };
+    if ($pos.parentOffset === 0 && parent.type.name !== "math_block") {
+      return { kind: "deleteDelimiter", start, node: parent, drop: "opening" };
+    }
+    return null;
+  }
+
+  const prev = $pos.nodeBefore;
+  if (prev && isEnclosure(prev) && !prev.isBlock) {
+    const start = pos - prev.nodeSize;
+    if (prev.content.size === 0) return { kind: "deleteShell", start, node: prev };
+    return { kind: "deleteDelimiter", start, node: prev, drop: "closing" };
+  }
+  return null;
+}
+
+/** Mirror of computeBackspace, deleting to the right instead of the left. */
+export function computeDelete(state: EditorState): DeleteAction | null {
+  const sel = state.selection;
+  if (!sel.empty) return null;
+  const $pos = sel.$from;
+  const pos = sel.from;
+  const parent = $pos.parent;
+
+  if (isEnclosureName(parent.type.name)) {
+    const start = $pos.before($pos.depth);
+    if (parent.content.size === 0) return { kind: "deleteShell", start, node: parent };
+    if ($pos.parentOffset === parent.content.size && parent.type.name !== "math_block") {
+      return { kind: "deleteDelimiter", start, node: parent, drop: "closing" };
+    }
+    return null;
+  }
+
+  const next = $pos.nodeAfter;
+  if (next && isEnclosure(next) && !next.isBlock) {
+    if (next.content.size === 0) return { kind: "deleteShell", start: pos, node: next };
+    return { kind: "deleteDelimiter", start: pos, node: next, drop: "opening" };
+  }
+  return null;
+}
+
+function setCaret(view: EditorView, pos: number): void {
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+}
+
+/**
+ * The editor state's selection can lag behind the real DOM caret: native
+ * caret movement (the in-content steps deliberately left to the browser)
+ * only reaches ProseMirror through an asynchronous selectionchange
+ * readback, so a keystroke arriving shortly after one - key repeat, fast
+ * arrowing - runs against a state.selection that's one or more steps
+ * behind where the caret actually sits. prosemirror-view's own keydown
+ * path has the same gap (its forceFlush only runs flushes that are
+ * already scheduled). Every decision this plugin makes is position math
+ * around the caret, so a stale position makes a boundary crossing that
+ * should have been intercepted silently fall through to native movement -
+ * which is exactly the movement that misbehaves next to the delimiter
+ * widgets. This reads the caret straight out of the DOM and, when it
+ * disagrees with the state, returns a state whose selection is corrected
+ * to match.
+ */
+function stateWithLiveSelection(view: EditorView): EditorState {
+  const { state } = view;
+  if (!state.selection.empty) return state;
+  // ShadowRoot.getSelection is nonstandard (Blink-only), hence the guard.
+  const root = view.root as { getSelection?: () => globalThis.Selection | null };
+  const domSel = root.getSelection ? root.getSelection() : null;
+  if (!domSel || domSel.rangeCount === 0 || !domSel.isCollapsed || !domSel.anchorNode) return state;
+  let pos: number;
+  try {
+    pos = view.posAtDOM(domSel.anchorNode, domSel.anchorOffset);
+  } catch {
+    return state;
+  }
+  if (pos < 0 || pos > state.doc.content.size || pos === state.selection.from) return state;
+  const $pos = state.doc.resolve(pos);
+  return state.apply(state.tr.setSelection(TextSelection.between($pos, $pos)));
+}
+
+/** Remove an empty shell entirely, like erasing an auto-closed bracket pair. */
+function deleteShell(view: EditorView, start: number, node: ProseNode): void {
+  const tr = view.state.tr.delete(start, start + node.nodeSize);
+  tr.setSelection(TextSelection.create(tr.doc, start));
+  view.dispatch(tr);
+}
+
+/**
+ * Delete one of a node's delimiters: the wrapper is no longer closed, so
+ * the node unwraps into literal text that still carries the delimiter that
+ * was NOT deleted ("*hello*" minus its closer -> literal "*hello"). Inner
+ * nodes in the content survive as nodes. Retyping the deleted delimiter
+ * re-forms the enclosure via the autopair plugins' findRunOpen path.
+ */
+function deleteDelimiter(view: EditorView, start: number, node: ProseNode, drop: "opening" | "closing"): void {
+  const { state } = view;
+  const delimText = state.schema.text(enclosureDelimText(node));
+  const frag =
+    drop === "closing" ? Fragment.from(delimText).append(node.content) : node.content.append(Fragment.from(delimText));
+  const tr = state.tr.replaceWith(start, start + node.nodeSize, frag);
+  tr.setSelection(TextSelection.create(tr.doc, drop === "closing" ? start + frag.size : start));
+  view.dispatch(tr);
+}
+
+function applyDeleteAction(view: EditorView, action: DeleteAction): void {
+  if (action.kind === "deleteShell") deleteShell(view, action.start, action.node);
+  else deleteDelimiter(view, action.start, action.node, action.drop);
+}
+
+export const enclosurePlugin = $prose(
+  () =>
+    new Plugin<DecorationSet>({
+      key: enclosureKey,
+      state: {
+        init: (_config, state) => buildDecorations(state),
+        apply(tr, prev, _oldState, newState) {
+          if (!tr.docChanged && !tr.selectionSet) return prev;
+          return buildDecorations(newState);
+        },
+      },
+      view(editorView) {
+        // Dev-only escape hatch: WKWebView/caret bugs in this feature keep
+        // needing to be poked at from a console, and the EditorView isn't
+        // reachable from the DOM otherwise.
+        if (import.meta.env.DEV) (window as unknown as { __pmView?: EditorView }).__pmView = editorView;
+        return {};
+      },
+      props: {
+        decorations(state) {
+          return enclosureKey.getState(state);
+        },
+        handleKeyDown(view, event) {
+          const state = stateWithLiveSelection(view);
+
+          if (event.key === "ArrowRight") {
+            const move = computeArrowRight(state);
+            if (!move) return false;
+            event.preventDefault();
+            setCaret(view, move.pos);
+            return true;
+          }
+
+          if (event.key === "ArrowLeft") {
+            const move = computeArrowLeft(state);
+            if (!move) return false;
+            event.preventDefault();
+            setCaret(view, move.pos);
+            return true;
+          }
+
+          if (event.key === "Backspace") {
+            const action = computeBackspace(state);
+            if (!action) return false;
+            event.preventDefault();
+            applyDeleteAction(view, action);
+            return true;
+          }
+
+          if (event.key === "Delete") {
+            const action = computeDelete(state);
+            if (!action) return false;
+            event.preventDefault();
+            applyDeleteAction(view, action);
+            return true;
+          }
+
+          return false;
+        },
+      },
+    }),
+);

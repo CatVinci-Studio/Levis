@@ -1,0 +1,144 @@
+/* A slim, cursor-anchored inline chat bar - modeled on the inline "Cmd+K"
+   style assistant popups in editors like VS Code (Claude Code's inline
+   chat), not a persistent panel. Appears just below the cursor, closes on
+   Escape/outside click, and doesn't survive being closed. */
+
+.inline-chat {
+  position: fixed;
+  z-index: 220;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+}
+
+.inline-chat-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+}
+
+.inline-chat-selection-hint {
+  font-size: 11px;
+  color: var(--editor-muted);
+  padding: 0 4px 4px;
+}
+
+.inline-chat-input {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--editor-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+}
+
+.inline-chat-send {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--editor-accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.inline-chat-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.inline-chat-messages {
+  margin-top: 6px;
+  padding: 8px 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The confirmation step for AI edits: apply buttons under the latest reply.
+   Nothing touches the document until one of these is clicked. */
+.inline-chat-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.inline-chat-action {
+  padding: 4px 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--editor-text);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.inline-chat-action:hover {
+  background: var(--editor-border);
+}
+
+.inline-chat-action-primary {
+  background: var(--editor-accent);
+  border-color: var(--editor-accent);
+  color: #fff;
+}
+
+.inline-chat-action-primary:hover {
+  background: var(--editor-accent);
+  opacity: 0.9;
+}
+
+/* One propose_edit tool call from the agent: what it wants to replace (del)
+   and with what (ins), plus the Apply button that actually performs it. */
+.agent-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.agent-proposal-title {
+  font-size: 11px;
+  color: var(--editor-muted);
+}
+
+.agent-proposal-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-proposal-diff del {
+  background: rgba(220, 38, 38, 0.1);
+  text-decoration: line-through;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.agent-proposal-diff ins {
+  background: rgba(22, 163, 74, 0.12);
+  text-decoration: none;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.agent-proposal button {
+  align-self: flex-start;
+}
+
+.agent-proposal button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

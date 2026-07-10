@@ -3,10 +3,6 @@
   min-width: 170px;
   max-height: min(70vh, 480px);
   overflow-y: auto;
-  background: var(--bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   padding: 4px;
   z-index: 200;
   font-size: 13px;
@@ -29,7 +25,7 @@
 }
 
 .context-menu-item-danger {
-  color: #c1495a;
+  color: var(--danger);
 }
 
 .context-menu-separator {

@@ -1,0 +1,32 @@
+.grammar-popover {
+  position: fixed;
+  z-index: 210;
+  max-width: 320px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.grammar-popover-issue {
+  color: var(--editor-muted);
+  margin-bottom: 6px;
+}
+
+.grammar-popover-suggestion {
+  font-weight: 600;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.grammar-popover-apply {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 5px;
+  background: var(--editor-accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.grammar-popover-apply:hover {
+  opacity: 0.9;
+}

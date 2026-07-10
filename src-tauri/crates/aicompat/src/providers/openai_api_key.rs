@@ -1,7 +1,7 @@
 use crate::responses_api::{extract_response_text, ResponsesRequest};
 
 const PUBLIC_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
-const PUBLIC_API_MODEL: &str = "gpt-4o-mini";
+const PUBLIC_API_MODEL: &str = "gpt-5-nano";
 
 /// Standard public OpenAI Responses API, authenticated with a plain user
 /// API key rather than Codex OAuth - the fallback path for users who'd

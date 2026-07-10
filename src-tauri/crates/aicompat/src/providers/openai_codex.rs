@@ -1,6 +1,6 @@
 use crate::agent::{AgentTurn, StepResult, ToolSpec};
 use crate::pkce::{decode_base64url, generate_pkce, generate_state, now_ms};
-use crate::responses_api::{extract_response_text, ResponsesRequest};
+use crate::responses_api::{read_streamed_output, text_from_streamed_output, ResponsesRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -136,7 +136,7 @@ pub async fn call_completion(
     instructions: String,
     user_text: String,
 ) -> Result<String, String> {
-    let body = ResponsesRequest::new(COMPLETION_MODEL, instructions, user_text);
+    let body = ResponsesRequest::new(COMPLETION_MODEL, instructions, user_text).streaming();
 
     let client = reqwest::Client::new();
     let res = client
@@ -150,7 +150,8 @@ pub async fn call_completion(
         .await
         .map_err(|e| e.to_string())?;
 
-    extract_response_text(res, "Codex").await
+    let output = read_streamed_output(res, "Codex").await?;
+    Ok(text_from_streamed_output(&output))
 }
 
 fn turn_to_input_item(turn: &AgentTurn) -> Value {
@@ -206,7 +207,7 @@ pub async fn agent_step(
     let body = json!({
         "model": COMPLETION_MODEL,
         "store": false,
-        "stream": false,
+        "stream": true,
         "instructions": instructions,
         "input": input,
         "tools": tool_schemas,
@@ -227,14 +228,7 @@ pub async fn agent_step(
         .await
         .map_err(|e| e.to_string())?;
 
-    if !res.status().is_success() {
-        let status = res.status();
-        let text = res.text().await.unwrap_or_default();
-        return Err(format!("Codex request failed ({status}): {text}"));
-    }
-
-    let parsed: Value = res.json().await.map_err(|e| e.to_string())?;
-    let output = parsed.get("output").and_then(|o| o.as_array()).cloned().unwrap_or_default();
+    let output = read_streamed_output(res, "Codex").await?;
 
     let mut tool_calls = Vec::new();
     let mut text_parts = Vec::new();

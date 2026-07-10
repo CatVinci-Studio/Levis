@@ -1,7 +1,7 @@
 .milkdown {
-  font-family: var(--font-sans);
+  font-family: var(--editor-font, var(--font-sans));
   font-size: 16.5px;
-  line-height: 1.75;
+  line-height: 1.8;
   color: var(--editor-text);
 }
 
@@ -17,10 +17,19 @@
   user-select: none;
 }
 
+.empty-doc-placeholder::before {
+  position: absolute;
+  color: var(--editor-muted);
+  opacity: 0.65;
+  pointer-events: none;
+  height: 0;
+  content: attr(data-placeholder);
+}
+
 .grammar-issue {
   text-decoration: underline wavy #c1495a;
   text-underline-offset: 3px;
-  cursor: help;
+  cursor: pointer;
 }
 
 .mermaid-preview {
@@ -62,7 +71,28 @@
   display: none;
 }
 
-.math-delimiter {
+/* Synthesized delimiters ("**", "~~", "==", "`", "$", "$$") revealed while
+   the cursor touches an enclosure node - see enclosure.ts. */
+.enclosure-delimiter {
+  color: var(--editor-muted);
+  font-weight: 400;
+  font-style: normal;
+  text-decoration: none;
+  user-select: none;
+}
+
+/* Block math edits like a fenced block: while the cursor touches it
+   (enclosure.ts adds .math-block-revealed), the "$$" fences render as
+   whole lines above/below the source, leaving the source area its own
+   line(s) for the cursor - even when the block is still empty. */
+.math-block {
+  white-space: pre-wrap;
+}
+
+.math-block-revealed::before,
+.math-block-revealed::after {
+  content: "$$";
+  display: block;
   color: var(--editor-muted);
   user-select: none;
 }
@@ -90,11 +120,32 @@
   user-select: none;
 }
 
-.mark-marker {
-  color: var(--editor-muted);
-  font-weight: 400;
-  font-style: normal;
-  user-select: none;
+/* md_span covers bold/italic/bold+italic/strikethrough/highlight - all real,
+   always-editable nodes (see md-span-schema.ts). The styling here always
+   applies regardless of cursor position; only the delimiter reveal below is
+   cursor-dependent. */
+.md-span[data-delim="*"][data-rung="1"] {
+  font-style: italic;
+}
+
+.md-span[data-delim="*"][data-rung="2"] {
+  font-weight: 650;
+}
+
+.md-span[data-delim="*"][data-rung="3"] {
+  font-weight: 650;
+  font-style: italic;
+}
+
+.md-span[data-delim="~"] {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.md-span[data-delim="="] {
+  background: var(--editor-highlight-bg);
+  border-radius: 3px;
+  padding: 0 0.15em;
 }
 
 .math-block-rendered {
@@ -118,23 +169,63 @@
 }
 
 .milkdown h1 { font-size: 1.9em; }
-.milkdown h2 { font-size: 1.5em; }
-.milkdown h3 { font-size: 1.25em; }
-.milkdown h4 { font-size: 1.1em; }
+
+.milkdown h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.milkdown h3 {
+  font-size: 1.25em;
+  padding-left: 0.6em;
+  border-left: 4px solid var(--editor-accent);
+}
+
+.milkdown h4 {
+  font-size: 1.1em;
+}
+
+.milkdown h4::before {
+  content: "";
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  margin-right: 0.5em;
+  border-radius: 50%;
+  background: var(--editor-accent);
+  vertical-align: middle;
+}
 
 .milkdown p {
-  margin: 0.6em 0;
+  margin: 0.75em 0;
 }
 
 .milkdown blockquote {
-  margin: 0.8em 0;
-  padding-left: 1em;
-  border-left: 3px solid var(--editor-quote-border);
+  margin: 0.9em 0;
+  padding: 0.7em 1em;
+  border-left: 4px solid var(--editor-quote-border);
+  border-radius: 0 6px 6px 0;
+  background: var(--editor-code-bg);
   color: var(--editor-muted);
 }
 
 .milkdown a {
   color: var(--editor-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.milkdown a:hover {
+  text-decoration: underline;
+}
+
+.milkdown hr {
+  margin: 1.6em 0;
+  height: 0;
+  border: none;
+  border-top: 2px solid var(--editor-accent);
+  opacity: 0.6;
 }
 
 .milkdown code {
@@ -293,10 +384,20 @@
   border-collapse: collapse;
   width: 100%;
   margin: 0.8em 0;
+  font-size: 0.95em;
 }
 
 .milkdown th,
 .milkdown td {
-  border: 1px solid var(--editor-border);
-  padding: 0.4em 0.7em;
+  padding: 0.5em 0.8em;
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.milkdown thead th {
+  border-bottom: 2px solid var(--editor-border);
+  text-align: left;
+}
+
+.milkdown tbody tr:last-child td {
+  border-bottom: none;
 }

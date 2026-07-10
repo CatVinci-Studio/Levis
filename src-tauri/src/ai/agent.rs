@@ -1,71 +1,26 @@
-use aicompat::agent::{AgentTurn, StepResult, ToolSpec};
+use crate::ai::tools::{self, ToolContext};
+use aicompat::agent::{run_agent_loop, AgentTurn};
 use aicompat::providers::openai_codex;
-use serde_json::json;
 use tauri::AppHandle;
 
-const SEARCH_TOOL_NAME: &str = "search_document";
 const MAX_STEPS: usize = 6;
 
-const AGENT_INSTRUCTIONS_PREFIX: &str = "You are a helpful writing assistant embedded in a markdown editor. The user is asking about the document they currently have open (given below). Use the search_document tool if you need to locate something specific in a long document rather than guessing. Be concise.";
+const AGENT_INSTRUCTIONS_PREFIX: &str = "You are a helpful writing assistant embedded in a markdown editor. The user is asking about the document they currently have open (given below). Be concise.";
 
-fn search_tool_spec() -> ToolSpec {
-    ToolSpec {
-        name: SEARCH_TOOL_NAME,
-        description: "Search the current document for a query string (case-insensitive). Returns matching lines with their line numbers.",
-        parameters: json!({
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Text to search for in the document"
-                }
-            },
-            "required": ["query"],
-        }),
-    }
-}
-
-fn execute_search(document: &str, arguments: &str) -> String {
-    let query = serde_json::from_str::<serde_json::Value>(arguments)
-        .ok()
-        .and_then(|v| v.get("query").and_then(|q| q.as_str()).map(|s| s.to_string()))
-        .unwrap_or_default();
-
-    if query.trim().is_empty() {
-        return "No query provided.".to_string();
-    }
-
-    let query_lower = query.to_lowercase();
-    let matches: Vec<String> = document
-        .lines()
-        .enumerate()
-        .filter(|(_, line)| line.to_lowercase().contains(&query_lower))
-        .map(|(i, line)| format!("{}: {}", i + 1, line))
-        .take(20)
-        .collect();
-
-    if matches.is_empty() {
-        format!("No matches found for \"{query}\".")
-    } else {
-        matches.join("\n")
-    }
-}
-
-fn turn_to_plain_text(turn: &AgentTurn) -> Option<String> {
-    match turn {
-        AgentTurn::User { text } => Some(format!("User: {text}")),
-        AgentTurn::Assistant { text } => Some(format!("Assistant: {text}")),
-        _ => None,
-    }
-}
+/// Only appended for providers that actually run the tool loop (codex) -
+/// telling a tool-less provider to call tools would just confuse it.
+const AGENT_TOOL_INSTRUCTIONS: &str = "Use the search_document tool to locate something specific in a long document rather than guessing. When the user asks you to change, rewrite, or fix part of the document, call propose_edit (once per distinct edit) with the exact current text and its replacement - the user reviews and applies each proposal themselves, so don't also paste the full rewritten text into your reply.";
 
 /// Sends one user message and runs the conversation forward, returning the
 /// new turns produced (the user's own turn, any tool calls/results, and the
 /// final assistant reply) for the frontend to append to its history.
 ///
-/// Tool calling (search_document) only runs for the "codex" provider, which
-/// is the one that actually supports it end to end right now - the others
-/// just get a flattened-history chat completion.
+/// Tool calling only runs for the "codex" provider, which is the one that
+/// actually supports it end to end right now - the others just get a
+/// flattened-history chat completion. The orchestration loop itself
+/// (`run_agent_loop`) and the tool implementations (`crate::ai::tools`) don't
+/// know that - adding tool-calling support for another provider is just
+/// wiring up its own `step` closure the way `codex_step` does below.
 #[tauri::command]
 pub async fn ai_agent_message(
     app: AppHandle,
@@ -74,66 +29,66 @@ pub async fn ai_agent_message(
     history: Vec<AgentTurn>,
     message: String,
 ) -> Result<Vec<AgentTurn>, String> {
-    let instructions = format!("{AGENT_INSTRUCTIONS_PREFIX}\n\n---document---\n{document}");
-    let user_turn = AgentTurn::User { text: message };
-
     if provider != "codex" {
-        let mut transcript: Vec<String> = history.iter().filter_map(turn_to_plain_text).collect();
-        if let Some(t) = turn_to_plain_text(&user_turn) {
-            transcript.push(t);
-        }
-        let text = crate::ai::client::call(&app, &provider, instructions, transcript.join("\n\n")).await?;
-        return Ok(vec![user_turn, AgentTurn::Assistant { text }]);
+        let instructions = format!("{AGENT_INSTRUCTIONS_PREFIX}\n\n---document---\n{document}");
+        return flattened_chat_turn(&app, &provider, &instructions, history, message).await;
     }
+
+    let instructions = format!("{AGENT_INSTRUCTIONS_PREFIX} {AGENT_TOOL_INSTRUCTIONS}\n\n---document---\n{document}");
 
     let (access_token, account_id) = crate::auth::openai_codex::get_valid_credential(&app).await?;
-    let tools = vec![search_tool_spec()];
+    let tools = tools::builtin_tools();
+    let tool_specs = tools::tool_specs(&tools);
+    let tool_ctx = ToolContext { document: &document };
 
-    let mut turns = history;
-    turns.push(user_turn.clone());
-    let mut new_turns = vec![user_turn];
+    let codex_step = |turns: Vec<AgentTurn>| {
+        let instructions = instructions.clone();
+        let tool_specs = tool_specs.clone();
+        let access_token = access_token.clone();
+        let account_id = account_id.clone();
+        async move {
+            openai_codex::agent_step(
+                &access_token,
+                &account_id,
+                crate::app_identity::ORIGINATOR,
+                &instructions,
+                &turns,
+                &tool_specs,
+            )
+            .await
+        }
+    };
 
-    for _ in 0..MAX_STEPS {
-        let step = openai_codex::agent_step(
-            &access_token,
-            &account_id,
-            crate::app_identity::ORIGINATOR,
-            &instructions,
-            &turns,
-            &tools,
-        )
-        .await?;
+    run_agent_loop(history, message, MAX_STEPS, codex_step, |name, arguments| {
+        tools::execute(&tools, &tool_ctx, name, arguments)
+    })
+    .await
+}
 
-        match step {
-            StepResult::Done(text) => {
-                let turn = AgentTurn::Assistant { text };
-                new_turns.push(turn);
-                break;
-            }
-            StepResult::ToolCalls(calls) => {
-                for call in calls {
-                    let AgentTurn::ToolCall { call_id, name, arguments } = &call else {
-                        continue;
-                    };
-                    turns.push(call.clone());
-                    new_turns.push(call.clone());
-
-                    let output = if name == SEARCH_TOOL_NAME {
-                        execute_search(&document, arguments)
-                    } else {
-                        format!("Unknown tool: {name}")
-                    };
-
-                    let result_turn = AgentTurn::ToolResult {
-                        call_id: call_id.clone(),
-                        output,
-                    };
-                    turns.push(result_turn.clone());
-                    new_turns.push(result_turn);
-                }
-            }
+/// Providers without tool-calling support get the conversation flattened
+/// into a single plain-text turn and answered with one non-agentic
+/// completion call.
+async fn flattened_chat_turn(
+    app: &AppHandle,
+    provider: &str,
+    instructions: &str,
+    history: Vec<AgentTurn>,
+    message: String,
+) -> Result<Vec<AgentTurn>, String> {
+    fn turn_to_plain_text(turn: &AgentTurn) -> Option<String> {
+        match turn {
+            AgentTurn::User { text } => Some(format!("User: {text}")),
+            AgentTurn::Assistant { text } => Some(format!("Assistant: {text}")),
+            _ => None,
         }
     }
 
-    Ok(new_turns)
+    let user_turn = AgentTurn::User { text: message };
+    let mut transcript: Vec<String> = history.iter().filter_map(turn_to_plain_text).collect();
+    if let Some(t) = turn_to_plain_text(&user_turn) {
+        transcript.push(t);
+    }
+
+    let text = crate::ai::client::call(app, provider, instructions.to_string(), transcript.join("\n\n")).await?;
+    Ok(vec![user_turn, AgentTurn::Assistant { text }])
 }

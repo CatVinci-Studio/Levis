@@ -1,0 +1,111 @@
+/* Built-in content themes - each only overrides the editor-content CSS
+   variables (--editor-*), never the app chrome (--bg, --sidebar-*), so
+   switching themes only reskins the writing area, not the whole app shell.
+   Scoped by `data-content-theme`, set by SettingsContext; combined with the
+   existing `data-theme` (light/dark) attribute the same way milkdown-theme.css
+   already does for syntax-highlight token colors. */
+
+/* Paper - warm, cream, serif-leaning */
+
+[data-content-theme="paper"] {
+  --editor-bg: #faf6ee;
+  --editor-text: #2b2620;
+  --editor-muted: #8a7f6d;
+  --editor-border: #e4dcc8;
+  --editor-quote-border: #b5652f;
+  --editor-accent: #b5652f;
+  --editor-code-bg: #f1e9d8;
+  --editor-font: Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-content-theme="paper"] {
+    --editor-bg: #1f1b16;
+    --editor-text: #e8ddc9;
+    --editor-muted: #9c8f77;
+    --editor-border: #3a3226;
+    --editor-quote-border: #d98b52;
+    --editor-accent: #d98b52;
+    --editor-code-bg: #2b241c;
+  }
+}
+
+:root[data-theme="dark"][data-content-theme="paper"] {
+  --editor-bg: #1f1b16;
+  --editor-text: #e8ddc9;
+  --editor-muted: #9c8f77;
+  --editor-border: #3a3226;
+  --editor-quote-border: #d98b52;
+  --editor-accent: #d98b52;
+  --editor-code-bg: #2b241c;
+}
+
+/* Slate - cool, minimal, blue accent */
+
+[data-content-theme="slate"] {
+  --editor-bg: #f7f8fa;
+  --editor-text: #1c2128;
+  --editor-muted: #6e7681;
+  --editor-border: #d8dee4;
+  --editor-quote-border: #3568d4;
+  --editor-accent: #3568d4;
+  --editor-code-bg: #eef1f5;
+  --editor-font: -apple-system, "Inter", "PingFang SC", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-content-theme="slate"] {
+    --editor-bg: #0d1117;
+    --editor-text: #e6edf3;
+    --editor-muted: #8b949e;
+    --editor-border: #30363d;
+    --editor-quote-border: #6ea8fe;
+    --editor-accent: #6ea8fe;
+    --editor-code-bg: #161b22;
+  }
+}
+
+:root[data-theme="dark"][data-content-theme="slate"] {
+  --editor-bg: #0d1117;
+  --editor-text: #e6edf3;
+  --editor-muted: #8b949e;
+  --editor-border: #30363d;
+  --editor-quote-border: #6ea8fe;
+  --editor-accent: #6ea8fe;
+  --editor-code-bg: #161b22;
+}
+
+/* Forest - low-saturation green, easy on the eyes */
+
+[data-content-theme="forest"] {
+  --editor-bg: #f5f7f2;
+  --editor-text: #22301f;
+  --editor-muted: #6f7d68;
+  --editor-border: #dbe3d3;
+  --editor-quote-border: #4c7a4c;
+  --editor-accent: #4c7a4c;
+  --editor-code-bg: #e9efe3;
+  --editor-font: -apple-system, "Inter", "PingFang SC", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-content-theme="forest"] {
+    --editor-bg: #141a12;
+    --editor-text: #dce8d6;
+    --editor-muted: #8ea184;
+    --editor-border: #2a3526;
+    --editor-quote-border: #79b579;
+    --editor-accent: #79b579;
+    --editor-code-bg: #1c2419;
+  }
+}
+
+:root[data-theme="dark"][data-content-theme="forest"] {
+  --editor-bg: #141a12;
+  --editor-text: #dce8d6;
+  --editor-muted: #8ea184;
+  --editor-border: #2a3526;
+  --editor-quote-border: #79b579;
+  --editor-accent: #79b579;
+  --editor-code-bg: #1c2419;
+}
