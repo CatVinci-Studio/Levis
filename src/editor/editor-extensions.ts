@@ -5,6 +5,7 @@ import { listener } from "@milkdown/kit/plugin/listener";
 import { commonmarkWithoutMarks, gfmWithoutStrikethrough } from "./reduced-presets";
 import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
 import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
+import { formatShortcutPlugin } from "./format-shortcut-plugin";
 import { enclosurePlugin } from "./enclosure";
 import { remarkMathPlugin, mathInlineSchema, mathBlockSchema, mathInlineInputRule } from "./math-schema";
 import { mathAutopairPlugin } from "./math-autopair-plugin";
@@ -49,6 +50,7 @@ export function withEditorExtensions(
       .use(mdSpanSchema)
       .use(mdCodeSpanSchema)
       .use(mdSpanAutopairPlugin)
+      .use(formatShortcutPlugin)
       .use(enclosurePlugin)
 
       // Math: $/$$ enclosures sharing the same model, plus KaTeX rendering.
