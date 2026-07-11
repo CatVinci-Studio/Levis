@@ -24,6 +24,7 @@ use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 const SETTINGS_MENU_ID: &str = "settings";
 const OPEN_FILE_ID: &str = "open-file";
 const SAVE_FILE_ID: &str = "save-file";
+const EXPORT_PDF_ID: &str = "export-pdf";
 const QUIT_ID: &str = "quit";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
@@ -140,8 +141,16 @@ pub fn run() {
 
             let open_file_item = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…").accelerator("Cmd+O").build(app)?;
             let save_file_item = MenuItemBuilder::with_id(SAVE_FILE_ID, "Save").accelerator("Cmd+S").build(app)?;
+            let export_pdf_item = MenuItemBuilder::with_id(EXPORT_PDF_ID, "Export as PDF…")
+                .accelerator("Cmd+P")
+                .build(app)?;
 
-            let file_menu = SubmenuBuilder::new(app, "File").item(&open_file_item).item(&save_file_item).build()?;
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&open_file_item)
+                .item(&save_file_item)
+                .separator()
+                .item(&export_pdf_item)
+                .build()?;
 
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .undo()
@@ -202,6 +211,8 @@ pub fn run() {
                     let _ = app_handle.emit("menu-open-file", ());
                 } else if id == SAVE_FILE_ID {
                     emit_to_focused(app_handle, "menu-save-file");
+                } else if id == EXPORT_PDF_ID {
+                    emit_to_focused(app_handle, "menu-export-pdf");
                 } else if id == QUIT_ID {
                     // close() (not destroy()) so each frontend gets its
                     // close-requested prompt; the app exits once the last

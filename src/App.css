@@ -476,3 +476,31 @@ body {
   color: var(--sidebar-text);
   opacity: 0.65;
 }
+
+/* Menu > File > Export as PDF just calls window.print() (App.tsx's
+   menu-export-pdf listener) - WKWebView's system print panel already has
+   "Save as PDF" built in, so this only needs to hide everything but the
+   document content and let it flow across pages instead of scrolling. */
+@media print {
+  .sidebar,
+  .titlebar-drag-region,
+  .floating-toolbar,
+  .close-prompt-overlay,
+  .update-toast {
+    display: none !important;
+  }
+
+  .app-shell,
+  .main-pane,
+  .editor-scroll {
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Typewriter mode's huge vertical padding (centering the cursor line) is
+     meaningless on a printed page and would waste most of it. */
+  .editor-content,
+  .editor-content.typewriter-active {
+    padding: 0;
+  }
+}

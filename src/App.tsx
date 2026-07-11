@@ -156,6 +156,11 @@ function App() {
     const unlistenSettings = listen("menu-open-settings", () => setSettingsOpen(true));
     const unlistenOpenFile = listen("menu-open-file", () => void openFileDialog());
     const unlistenSaveFile = listen("menu-save-file", () => void save());
+    // Hands off to the system print panel (WKWebView on macOS supports
+    // window.print() natively), which has "Save as PDF" built in - no PDF
+    // rendering of our own needed. .printable-content in App.css hides
+    // everything but the editor content while the panel is open.
+    const unlistenExportPdf = listen("menu-export-pdf", () => window.print());
     const unlistenSourceMode = listen("menu-toggle-source-mode", () => toggleSourceMode());
     const unlistenTypewriter = listen("menu-toggle-typewriter-mode", () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
@@ -165,6 +170,7 @@ function App() {
       void unlistenSettings.then((f) => f());
       void unlistenOpenFile.then((f) => f());
       void unlistenSaveFile.then((f) => f());
+      void unlistenExportPdf.then((f) => f());
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());

@@ -10,6 +10,19 @@
   min-height: calc(100vh - 6rem);
 }
 
+@media print {
+  /* Otherwise every printout gets a near-full blank page after the content. */
+  .milkdown .ProseMirror {
+    min-height: 0;
+  }
+
+  /* Editor-only chrome (code-block-language-view.ts's language picker) -
+     not part of the document, shouldn't end up baked into the PDF. */
+  .code-block-header {
+    display: none;
+  }
+}
+
 .ghost-text {
   color: var(--editor-muted);
   opacity: 0.65;
