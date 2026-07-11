@@ -32,6 +32,19 @@
   cursor: pointer;
 }
 
+.frontmatter-block {
+  margin: 0 0 1.2em;
+  padding: 0.7em 1em;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  background: var(--editor-code-bg);
+  color: var(--editor-muted);
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .mermaid-source-hidden {
   display: none;
 }

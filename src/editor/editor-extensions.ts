@@ -6,6 +6,7 @@ import { $remark } from "@milkdown/kit/utils";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethrough";
 import { commonmarkWithoutMarks, gfmWithoutStrikethrough } from "./reduced-presets";
+import { remarkFrontmatterPlugin, frontmatterSchema } from "./frontmatter-schema";
 import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
 import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
 import { formatShortcutPlugin } from "./format-shortcut-plugin";
@@ -48,6 +49,11 @@ export function withEditorExtensions(
       // stripped - those are node-based below.
       .use(commonmarkWithoutMarks)
       .use(gfmWithoutStrikethrough)
+
+      // Leading "---\n...\n---" block, parsed before anything else gets a
+      // chance to misread its "---" lines as setext headings.
+      .use(remarkFrontmatterPlugin)
+      .use(frontmatterSchema)
 
       // CommonMark's emphasis flanking rules reject "**" next to CJK
       // punctuation (e.g. 话说**“你好”**了 stays literal), which would also
