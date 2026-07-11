@@ -8,7 +8,10 @@ import remarkFrontmatter from "remark-frontmatter";
  * h2). remark-frontmatter's own syntax extension only matches at the very
  * start of the document, so no extra positional enforcement is needed here.
  */
-export const remarkFrontmatterPlugin = $remark("remark-frontmatter", () => remarkFrontmatter);
+// The explicit "yaml" preset matters: $remark defaults omitted options to
+// {}, which remark-frontmatter reads as a matter definition and throws
+// "Missing `type` in matter" on every parse - blanking the whole editor.
+export const remarkFrontmatterPlugin = $remark("remark-frontmatter", () => remarkFrontmatter, "yaml");
 
 /**
  * Deliberately plain: raw text content, no language selector or collapse
