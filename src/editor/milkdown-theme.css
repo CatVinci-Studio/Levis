@@ -32,7 +32,12 @@
   cursor: pointer;
 }
 
+.mermaid-source-hidden {
+  display: none;
+}
+
 .mermaid-preview {
+  cursor: pointer;
   margin: 0.6em 0 1em;
   padding: 1.1em;
   border: 1px solid var(--editor-border);
