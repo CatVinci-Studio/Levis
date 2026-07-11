@@ -406,3 +406,63 @@
 .milkdown tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* table-hover-view.ts wraps the table in this to anchor the add-row/
+   add-column affordances, which only appear while the pointer is over the
+   table (or the button itself, so moving toward it doesn't dismiss it). */
+.table-wrapper {
+  position: relative;
+  margin: 0.8em 0;
+}
+
+.table-wrapper table {
+  margin: 0;
+}
+
+.table-add-row-btn,
+.table-add-col-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--editor-border);
+  border-radius: 5px;
+  background: var(--editor-bg, #fff);
+  color: var(--editor-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.table-wrapper:hover .table-add-row-btn,
+.table-wrapper:hover .table-add-col-btn,
+.table-add-row-btn:hover,
+.table-add-col-btn:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.table-add-row-btn:hover,
+.table-add-col-btn:hover {
+  color: var(--editor-accent);
+  border-color: var(--editor-accent);
+}
+
+.table-add-row-btn {
+  left: 0;
+  right: 0;
+  bottom: -11px;
+  height: 16px;
+  width: 100%;
+}
+
+.table-add-col-btn {
+  top: 0;
+  bottom: 0;
+  right: -11px;
+  width: 16px;
+  height: 100%;
+}
