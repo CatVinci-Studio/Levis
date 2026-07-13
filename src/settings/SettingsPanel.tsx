@@ -7,6 +7,7 @@ import {
   useSettings,
   BUILTIN_CONTENT_THEMES,
   type AiProvider,
+  type NewDocumentMode,
   type ShortcutAction,
   type Shortcuts,
   type UserThemeMeta,
@@ -82,6 +83,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   >
                     <option value="en">English</option>
                     <option value="zh">中文</option>
+                  </select>
+                </div>
+                <div className="settings-row">
+                  <div>
+                    <div className="settings-row-label">{t.newDocumentModeLabel}</div>
+                    <div className="settings-row-hint">{t.newDocumentModeHint}</div>
+                  </div>
+                  <select
+                    value={settings.newDocumentMode}
+                    onChange={(e) => setSettings({ newDocumentMode: e.target.value as NewDocumentMode })}
+                  >
+                    <option value="window">{t.newDocumentModeWindow}</option>
+                    <option value="tab">{t.newDocumentModeTab}</option>
                   </select>
                 </div>
                 <UpdateSection t={t} />

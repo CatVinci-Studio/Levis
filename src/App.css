@@ -126,6 +126,23 @@ body {
   right: 0;
   height: 28px;
   z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Only rendered when there's a single tab (no tab bar to show it in) -
+   centered like a native window title, small enough to clear the
+   traffic-light buttons on the left. */
+.titlebar-filename {
+  font-size: 12px;
+  color: var(--editor-muted);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
 }
 
 .sidebar-header {
@@ -215,6 +232,124 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* Only rendered when Settings > General > "Open Documents In" is set to
+   tabs - window-mode users never see this, so it's zero visual change for
+   the default. padding-top clears the fixed titlebar-drag-region (28px,
+   z-index 40): its own top strip must stay fully below y=28 or its clicks
+   would be swallowed by the drag region instead of reaching the tabs. */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 30px 10px 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  /* Pill drags must never read as a text selection (see TabBar.tsx's
+     mousedown preventDefault - this is the belt to that suspender). */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A pill arriving in the bar (a merge landing, the incoming preview
+   appearing, a new tab) grows into its slot, pushing its neighbors aside
+   smoothly, instead of popping in at full width. */
+@keyframes tab-pill-enter {
+  from {
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+  }
+}
+
+.tab-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  overflow: hidden;
+  animation: tab-pill-enter 160ms ease;
+}
+
+.tab-pill:hover {
+  background: var(--sidebar-hover);
+}
+
+.tab-pill-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+}
+
+/* An incoming tab riding this bar mid-drag (TabBar.tsx's previewTab):
+   looks like the real, active tab it's about to become. No grow-in - it
+   appears 1:1 in place of the floating pill it replaces, and a mid-growth
+   width would skew the clamp/slot math that positions it (visible as
+   wobble when hugging the bar's edges). */
+.tab-pill-preview {
+  pointer-events: none;
+  animation: none;
+}
+
+/* The cursor-following visual while a tab is dragged past the threshold is
+   NOT an element here - it's its own tiny OS window (public/dragpill.html,
+   lib.rs show_drag_pill), since nothing inside this webview can be painted
+   beyond the window's edge. The source pill stays in place, dimmed. */
+
+.tab-pill-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-pill-dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.tab-pill-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.tab-pill-close:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.tab-bar-add {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--editor-muted);
+  font-size: 15px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.tab-bar-add:hover {
+  background: var(--sidebar-hover);
 }
 
 .floating-toolbar {

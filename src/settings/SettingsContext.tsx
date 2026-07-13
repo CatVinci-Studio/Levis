@@ -4,6 +4,7 @@ import { strings, type Lang, type Strings } from "../i18n/strings";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type AiProvider = "codex" | "claude" | "apikey" | "custom";
+export type NewDocumentMode = "window" | "tab";
 
 /// Keyboard-triggerable actions. Each maps to a normalized combo string
 /// (see ../utils/shortcuts) - empty string means "unbound".
@@ -62,6 +63,12 @@ export interface Settings {
   /// Either a `BuiltinContentThemeId` or a `UserThemeMeta.id`.
   themeId: string;
   userThemes: UserThemeMeta[];
+  /// "window" (default): opening another document spawns a new OS window,
+  /// unchanged from the original behavior. "tab": opening another document
+  /// opens a tab in the current window instead. Mirrored to Rust (see the
+  /// effect below) because window-vs-tab has to be decided in Rust, before
+  /// any webview - let alone its localStorage - exists.
+  newDocumentMode: NewDocumentMode;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -77,6 +84,7 @@ const DEFAULT_SETTINGS: Settings = {
   shortcuts: DEFAULT_SHORTCUTS,
   themeId: "default",
   userThemes: [],
+  newDocumentMode: "window",
 };
 
 const STORAGE_KEY = "catvinci-settings";
@@ -120,6 +128,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    void invoke("set_new_document_mode", { mode: settings.newDocumentMode });
+  }, [settings.newDocumentMode]);
 
   useEffect(() => {
     const root = document.documentElement;
