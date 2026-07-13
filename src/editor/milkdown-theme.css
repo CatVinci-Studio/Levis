@@ -262,6 +262,56 @@
   color: var(--editor-muted);
 }
 
+/* GitHub-style alerts (github-alert-plugin.ts): a blockquote led by
+   [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION] gets the
+   matching accent on its border and a badge in place of the marker.
+   Accent values are GitHub's own; dark variants near the token colors
+   at the end of this file. */
+.milkdown {
+  --md-alert-note: #0969da;
+  --md-alert-tip: #1a7f37;
+  --md-alert-important: #8250df;
+  --md-alert-warning: #9a6700;
+  --md-alert-caution: #cf222e;
+}
+
+.milkdown blockquote.md-alert-note {
+  --md-alert-accent: var(--md-alert-note);
+}
+.milkdown blockquote.md-alert-tip {
+  --md-alert-accent: var(--md-alert-tip);
+}
+.milkdown blockquote.md-alert-important {
+  --md-alert-accent: var(--md-alert-important);
+}
+.milkdown blockquote.md-alert-warning {
+  --md-alert-accent: var(--md-alert-warning);
+}
+.milkdown blockquote.md-alert-caution {
+  --md-alert-accent: var(--md-alert-caution);
+}
+
+.milkdown blockquote.md-alert {
+  border-left-color: var(--md-alert-accent);
+}
+
+.md-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: 600;
+  color: var(--md-alert-accent);
+}
+
+.md-alert-title svg {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.md-alert-marker-hidden {
+  display: none;
+}
+
 .milkdown a {
   color: var(--editor-accent);
   font-weight: 600;
@@ -380,6 +430,13 @@
     --token-function: #6c9bf7;
     --token-tag: #e08a97;
   }
+  :root:not([data-theme="light"]) .milkdown {
+    --md-alert-note: #4493f8;
+    --md-alert-tip: #3fb950;
+    --md-alert-important: #ab7df8;
+    --md-alert-warning: #d29922;
+    --md-alert-caution: #f85149;
+  }
 }
 
 :root[data-theme="dark"] {
@@ -388,6 +445,14 @@
   --token-keyword: #c793e6;
   --token-function: #6c9bf7;
   --token-tag: #e08a97;
+}
+
+:root[data-theme="dark"] .milkdown {
+  --md-alert-note: #4493f8;
+  --md-alert-tip: #3fb950;
+  --md-alert-important: #ab7df8;
+  --md-alert-warning: #d29922;
+  --md-alert-caution: #f85149;
 }
 
 .milkdown li[data-item-type="task"] {

@@ -7,6 +7,7 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethrough";
 import { commonmarkWithoutMarks, gfmWithoutStrikethrough } from "./reduced-presets";
 import { remarkFrontmatterPlugin, frontmatterSchema } from "./frontmatter-schema";
+import { createGithubAlertPlugin } from "./github-alert-plugin";
 import { rawHtmlSchema } from "./raw-html-schema";
 import { createRawHtmlPreviewPlugin } from "./raw-html-preview-plugin";
 import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
@@ -62,6 +63,10 @@ export function withEditorExtensions(
       // tags renders while the cursor is elsewhere.
       .use(rawHtmlSchema)
       .use(createRawHtmlPreviewPlugin())
+
+      // GitHub-style alerts: > [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING]
+      // / [!CAUTION] blockquotes render as colored callouts with a badge.
+      .use(createGithubAlertPlugin())
 
       // CommonMark's emphasis flanking rules reject "**" next to CJK
       // punctuation (e.g. 话说**“你好”**了 stays literal), which would also
