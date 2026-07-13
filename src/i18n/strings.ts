@@ -133,6 +133,13 @@ export const strings = {
     clipboardClear: "Clear",
     clipboardCopy: "Copy",
     clipboardInsertHint: "Click to insert at the cursor",
+    exportNeedsWysiwyg: "HTML export uses the rendered view. Leave Source Code Mode first, then export again.",
+    pandocMissingTitle: "Pandoc Required",
+    pandocMissingMessage:
+      "Exporting to this format requires Pandoc, a free document converter. Install it with Homebrew (brew install pandoc) or download it from pandoc.org, then export again.",
+    pandocMissingDownload: "Open pandoc.org",
+    exportFailedTitle: "Export Failed",
+    exportFailed: "Export failed:",
   },
   zh: {
     treeTab: "文件树",
@@ -266,6 +273,13 @@ export const strings = {
     clipboardClear: "清空",
     clipboardCopy: "复制",
     clipboardInsertHint: "点击插入到光标处",
+    exportNeedsWysiwyg: "HTML 导出基于渲染后的视图。请先退出源码模式，再重新导出。",
+    pandocMissingTitle: "需要 Pandoc",
+    pandocMissingMessage:
+      "导出此格式需要 Pandoc（免费的文档转换工具）。可通过 Homebrew 安装（brew install pandoc），或从 pandoc.org 下载安装后重新导出。",
+    pandocMissingDownload: "打开 pandoc.org",
+    exportFailedTitle: "导出失败",
+    exportFailed: "导出失败：",
   },
 } as const;
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { ask, message } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
@@ -86,6 +87,24 @@ function basename(path: string): string {
   const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return idx >= 0 ? path.slice(idx + 1) : path;
 }
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// File > Export entries beyond PDF/HTML convert through a user-installed
+// pandoc; keys are pandoc writer names, matching the menu ids in lib.rs.
+const PANDOC_FORMATS: Record<string, { ext: string; label: string }> = {
+  docx: { ext: "docx", label: "Word" },
+  odt: { ext: "odt", label: "OpenDocument" },
+  rtf: { ext: "rtf", label: "RTF" },
+  epub: { ext: "epub", label: "EPUB" },
+  latex: { ext: "tex", label: "LaTeX" },
+  mediawiki: { ext: "wiki", label: "MediaWiki" },
+  rst: { ext: "rst", label: "reStructuredText" },
+  textile: { ext: "textile", label: "Textile" },
+  opml: { ext: "opml", label: "OPML" },
+};
 
 function App() {
   const { t, settings, setSettings } = useSettings();
@@ -222,6 +241,99 @@ function App() {
     updateTab(tabId, { savedContent: tab.content });
     return true;
   }, [updateTab, saveTabAs]);
+
+  // Serializes the active tab's live editor DOM - what you see is what
+  // exports - with every stylesheet inlined so the file is self-contained.
+  // Relative image paths (assets/...) are kept as-is, like Typora's HTML
+  // export next to the document.
+  const exportHtml = useCallback(async () => {
+    const tab = tabsRef.current.find((t) => t.id === activeTabId);
+    if (!tab) return;
+    const editor = document.querySelector('[data-active-tab="true"] .milkdown');
+    if (!editor) {
+      await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
+      return;
+    }
+    const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : t.untitledTab;
+    const picked = await invoke<string | null>("export_save_dialog", {
+      defaultName: `${base}.html`,
+      filterName: "HTML",
+      ext: "html",
+    });
+    if (!picked) return;
+    const clone = editor.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"));
+    let css = "";
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        css += Array.from(sheet.cssRules)
+          .map((rule) => rule.cssText)
+          .join("\n");
+        css += "\n";
+      } catch {
+        // Cross-origin sheet (none in practice) - skip.
+      }
+    }
+    // Same ancestor classes as the app so theme selectors keep applying,
+    // plus overrides freeing the page from the app's fixed-viewport layout.
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(base)}</title>
+<style>${css}</style>
+<style>.app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } .editor-content { padding: 2rem 0; }</style>
+</head>
+<body class="${document.body.className}">
+<div class="app-shell"><div class="main-pane"><div class="editor-scroll"><div class="editor-content">${clone.outerHTML}</div></div></div></div>
+</body>
+</html>`;
+    await invoke("write_text_file", { path: picked, contents: html });
+    void invoke("reveal_in_dir", { path: picked });
+  }, [activeTabId, t]);
+
+  const exportViaPandoc = useCallback(
+    async (format: string) => {
+      const info = PANDOC_FORMATS[format];
+      const tab = tabsRef.current.find((t) => t.id === activeTabId);
+      if (!info || !tab) return;
+      const pandoc = await invoke<string | null>("detect_pandoc");
+      if (!pandoc) {
+        // Typora's model: guide the user to install pandoc rather than
+        // bundling the ~180MB GPL binary in the app.
+        const goInstall = await ask(t.pandocMissingMessage, {
+          title: t.pandocMissingTitle,
+          okLabel: t.pandocMissingDownload,
+          cancelLabel: t.closePromptCancel,
+        });
+        if (goInstall) void invoke("open_pandoc_install_page");
+        return;
+      }
+      const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : t.untitledTab;
+      const picked = await invoke<string | null>("export_save_dialog", {
+        defaultName: `${base}.${info.ext}`,
+        filterName: info.label,
+        ext: info.ext,
+      });
+      if (!picked) return;
+      try {
+        // tab.content, not the file on disk - unsaved edits export too.
+        await invoke("export_via_pandoc", {
+          pandocPath: pandoc,
+          markdown: tab.content,
+          outputPath: picked,
+          format,
+          resourceDir: tab.path ? dirname(tab.path) : null,
+          title: base,
+        });
+        void invoke("reveal_in_dir", { path: picked });
+      } catch (err) {
+        await message(`${t.exportFailed} ${String(err)}`, { title: t.exportFailedTitle, kind: "error" });
+      }
+    },
+    [activeTabId, t],
+  );
 
   const toggleSourceMode = useCallback(() => {
     const tab = tabsRef.current.find((t) => t.id === activeTabId);
@@ -563,6 +675,9 @@ function App() {
     // rendering of our own needed. .printable-content in App.css hides
     // everything but the editor content while the panel is open.
     const unlistenExportPdf = listen("menu-export-pdf", () => window.print());
+    const unlistenExportHtml = listen("menu-export-html", () => void exportHtml());
+    // Payload is the pandoc writer name (docx, epub, ...) from the menu id.
+    const unlistenExportPandoc = listen<string>("menu-export-pandoc", (event) => void exportViaPandoc(event.payload));
     const unlistenSourceMode = listen("menu-toggle-source-mode", () => toggleSourceMode());
     const unlistenTypewriter = listen("menu-toggle-typewriter-mode", () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
@@ -575,11 +690,13 @@ function App() {
       void unlistenSaveFile.then((f) => f());
       void unlistenSaveFileAs.then((f) => f());
       void unlistenExportPdf.then((f) => f());
+      void unlistenExportHtml.then((f) => f());
+      void unlistenExportPandoc.then((f) => f());
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
     };
-  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings]);
+  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);
 
   const closeSaving = useCallback(async () => {
     const tabId = closePromptTabId;
@@ -688,7 +805,11 @@ function App() {
             state - only the active one is ever unmounted-on-purpose (via
             reloadKey, when leaving source mode). */}
         {tabs.map((tab) => (
-          <div key={tab.id} style={{ display: tab.id === activeTabId ? "contents" : "none" }}>
+          <div
+            key={tab.id}
+            data-active-tab={tab.id === activeTabId}
+            style={{ display: tab.id === activeTabId ? "contents" : "none" }}
+          >
             {tab.sourceMode ? (
               <textarea
                 className="source-view"

@@ -16,6 +16,9 @@ use commands::fs::{
     save_pasted_image, write_text_file,
 };
 use commands::cli::{cli_command_status, install_cli_command};
+use commands::export::{
+    detect_pandoc, export_save_dialog, export_via_pandoc, open_pandoc_install_page, reveal_in_dir,
+};
 use commands::prefs::{get_new_document_mode, set_new_document_mode};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::collections::HashMap;
@@ -33,6 +36,10 @@ const RECENT_CLEAR_ID: &str = "recent-clear";
 /// Menu ids of File > Open Recent entries carry their path: "recent:<path>".
 const RECENT_PREFIX: &str = "recent:";
 const EXPORT_PDF_ID: &str = "export-pdf";
+const EXPORT_HTML_ID: &str = "export-html";
+/// Menu ids of pandoc-backed File > Export entries carry the pandoc writer
+/// name: "export-pandoc:<format>".
+const EXPORT_PANDOC_PREFIX: &str = "export-pandoc:";
 const QUIT_ID: &str = "quit";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
@@ -143,8 +150,12 @@ fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
 /// manager-wide `Emitter::emit`; only `emit_to`/`emit_filter` actually
 /// target a specific webview).
 fn emit_to_focused(app: &tauri::AppHandle, event: &str) {
+    emit_to_focused_payload(app, event, ());
+}
+
+fn emit_to_focused_payload<S: serde::Serialize + Clone>(app: &tauri::AppHandle, event: &str, payload: S) {
     if let Some((label, _)) = app.webview_windows().iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
-        let _ = app.emit_to(EventTarget::webview_window(label), event, ());
+        let _ = app.emit_to(EventTarget::webview_window(label), event, payload);
     }
 }
 
@@ -691,9 +702,31 @@ pub fn run() {
             let save_file_as_item = MenuItemBuilder::with_id(SAVE_FILE_AS_ID, "Save As…")
                 .accelerator("Cmd+Shift+S")
                 .build(app)?;
-            let export_pdf_item = MenuItemBuilder::with_id(EXPORT_PDF_ID, "Export as PDF…")
+            let export_pdf_item = MenuItemBuilder::with_id(EXPORT_PDF_ID, "PDF…")
                 .accelerator("Cmd+P")
                 .build(app)?;
+            let export_html_item = MenuItemBuilder::with_id(EXPORT_HTML_ID, "HTML…").build(app)?;
+            let mut export_menu_builder = SubmenuBuilder::new(app, "Export")
+                .item(&export_pdf_item)
+                .item(&export_html_item)
+                .separator();
+            // Everything below converts through a user-installed pandoc
+            // (commands/export.rs) - same format list Typora offers.
+            for (format, label) in [
+                ("docx", "Word (.docx)…"),
+                ("odt", "OpenDocument (.odt)…"),
+                ("rtf", "RTF…"),
+                ("epub", "EPUB…"),
+                ("latex", "LaTeX…"),
+                ("mediawiki", "MediaWiki…"),
+                ("rst", "reStructuredText…"),
+                ("textile", "Textile…"),
+                ("opml", "OPML…"),
+            ] {
+                let item = MenuItemBuilder::with_id(format!("{EXPORT_PANDOC_PREFIX}{format}"), label).build(app)?;
+                export_menu_builder = export_menu_builder.item(&item);
+            }
+            let export_menu = export_menu_builder.build()?;
 
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&new_file_item)
@@ -703,7 +736,7 @@ pub fn run() {
                 .item(&save_file_item)
                 .item(&save_file_as_item)
                 .separator()
-                .item(&export_pdf_item)
+                .item(&export_menu)
                 .build()?;
 
             app.manage(RecentMenu(Mutex::new(Some(open_recent_menu))));
@@ -790,6 +823,11 @@ pub fn run() {
                     queue_paths_to_open(app_handle, vec![path]);
                 } else if id == EXPORT_PDF_ID {
                     emit_to_focused(app_handle, "menu-export-pdf");
+                } else if id == EXPORT_HTML_ID {
+                    emit_to_focused(app_handle, "menu-export-html");
+                } else if id.as_ref().starts_with(EXPORT_PANDOC_PREFIX) {
+                    let format = id.as_ref()[EXPORT_PANDOC_PREFIX.len()..].to_string();
+                    emit_to_focused_payload(app_handle, "menu-export-pandoc", format);
                 } else if id == QUIT_ID {
                     // close() (not destroy()) so each frontend gets its
                     // close-requested prompt; the app exits once the last
@@ -849,7 +887,12 @@ pub fn run() {
             fetch_custom_models,
             test_custom_endpoint,
             cli_command_status,
-            install_cli_command
+            install_cli_command,
+            detect_pandoc,
+            export_via_pandoc,
+            export_save_dialog,
+            open_pandoc_install_page,
+            reveal_in_dir
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

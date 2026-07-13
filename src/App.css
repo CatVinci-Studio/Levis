@@ -619,10 +619,19 @@ body {
 @media print {
   .sidebar,
   .titlebar-drag-region,
+  .tab-bar,
   .floating-toolbar,
   .close-prompt-overlay,
   .update-toast {
     display: none !important;
+  }
+
+  /* Keep indivisible blocks off page seams. */
+  pre,
+  blockquote,
+  table,
+  img {
+    break-inside: avoid;
   }
 
   .app-shell,
