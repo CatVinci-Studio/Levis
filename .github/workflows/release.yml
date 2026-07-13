@@ -68,3 +68,38 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Points the Homebrew cask (CatVinci-Studio/homebrew-tap) at the DMG this
+  # release just published, so `brew install --cask catvinci-studio/tap/levis`
+  # always serves the newest version. Pushes via a write deploy key on the
+  # tap repo (GITHUB_TOKEN can't push to another repository).
+  update-homebrew-tap:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Update cask version and sha256
+        env:
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          if [ -z "$TAP_DEPLOY_KEY" ]; then
+            echo "TAP_DEPLOY_KEY not set - skipping tap update"
+            exit 0
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          curl -fsSL -o levis.dmg \
+            "https://github.com/CatVinci-Studio/Levis/releases/download/${GITHUB_REF_NAME}/Levis_${VERSION}_aarch64.dmg"
+          SHA=$(sha256sum levis.dmg | cut -d' ' -f1)
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          printf '%s\n' "$TAP_DEPLOY_KEY" > ~/.ssh/tap_key
+          chmod 600 ~/.ssh/tap_key
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key"
+          git clone git@github.com:CatVinci-Studio/homebrew-tap.git
+          cd homebrew-tap
+          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/levis.rb
+          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/levis.rb
+          git -c user.name="github-actions[bot]" \
+              -c user.email="github-actions[bot]@users.noreply.github.com" \
+              commit -am "levis ${VERSION}"
+          git push
