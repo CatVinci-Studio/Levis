@@ -145,6 +145,7 @@ function App() {
       return;
     }
     const text = await invoke<string>("read_text_file", { path });
+    void invoke("add_recent_file", { path }); // feeds File > Open Recent
     const newTab = { ...makeBlankTab(), path, content: text, savedContent: text };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newTab.id);
@@ -159,6 +160,7 @@ function App() {
       // "window" mode: replace the active tab's document in place, same as
       // this app has always worked for a single document per window.
       const text = await invoke<string>("read_text_file", { path });
+      void invoke("add_recent_file", { path });
       updateTab(activeTabId, { path, content: text, savedContent: text });
     },
     [settings.newDocumentMode, activeTabId, openPathInTab, updateTab],
@@ -197,22 +199,29 @@ function App() {
   // Resolves true only when the document actually reached disk - the close
   // prompt must not close the window (or remove the tab) when a save-as
   // dialog was cancelled.
+  // Always asks where to write, regardless of whether the document already
+  // has a path - File > Save As…, and the "first save of a draft" case.
+  const saveTabAs = useCallback(async (tabId: string): Promise<boolean> => {
+    const tab = tabsRef.current.find((t) => t.id === tabId);
+    if (!tab) return false;
+    const picked = await invoke<string | null>("save_file_dialog");
+    if (!picked) return false;
+    await invoke("write_text_file", { path: picked, contents: tab.content });
+    void invoke("add_recent_file", { path: picked });
+    updateTab(tabId, { path: picked, savedContent: tab.content });
+    return true;
+  }, [updateTab]);
+
   const saveTab = useCallback(async (tabId: string): Promise<boolean> => {
     const tab = tabsRef.current.find((t) => t.id === tabId);
     if (!tab) return false;
     // Draft never saved before: ask where to put it, then this document
     // graduates into a real file (the sidebar tree picks up its folder).
-    if (!tab.path) {
-      const picked = await invoke<string | null>("save_file_dialog");
-      if (!picked) return false;
-      await invoke("write_text_file", { path: picked, contents: tab.content });
-      updateTab(tabId, { path: picked, savedContent: tab.content });
-      return true;
-    }
+    if (!tab.path) return saveTabAs(tabId);
     await invoke("write_text_file", { path: tab.path, contents: tab.content });
     updateTab(tabId, { savedContent: tab.content });
     return true;
-  }, [updateTab]);
+  }, [updateTab, saveTabAs]);
 
   const toggleSourceMode = useCallback(() => {
     const tab = tabsRef.current.find((t) => t.id === activeTabId);
@@ -543,8 +552,12 @@ function App() {
 
   useEffect(() => {
     const unlistenSettings = listen("menu-open-settings", () => setSettingsOpen(true));
+    // Only arrives in tab mode - in window mode the Rust menu handler opens
+    // a fresh window itself instead of emitting this.
+    const unlistenNewFile = listen("menu-new-file", () => addBlankTab());
     const unlistenOpenFile = listen("menu-open-file", () => void openFileDialog());
     const unlistenSaveFile = listen("menu-save-file", () => void saveTab(activeTabId));
+    const unlistenSaveFileAs = listen("menu-save-file-as", () => void saveTabAs(activeTabId));
     // Hands off to the system print panel (WKWebView on macOS supports
     // window.print() natively), which has "Save as PDF" built in - no PDF
     // rendering of our own needed. .printable-content in App.css hides
@@ -557,14 +570,16 @@ function App() {
     const unlistenSidebar = listen("menu-toggle-sidebar", () => setPanelOpen((v) => !v));
     return () => {
       void unlistenSettings.then((f) => f());
+      void unlistenNewFile.then((f) => f());
       void unlistenOpenFile.then((f) => f());
       void unlistenSaveFile.then((f) => f());
+      void unlistenSaveFileAs.then((f) => f());
       void unlistenExportPdf.then((f) => f());
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
     };
-  }, [openFileDialog, saveTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings]);
+  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings]);
 
   const closeSaving = useCallback(async () => {
     const tabId = closePromptTabId;

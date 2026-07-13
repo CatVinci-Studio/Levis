@@ -21,12 +21,17 @@ use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder};
 use tauri::{Emitter, EventTarget, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 const SETTINGS_MENU_ID: &str = "settings";
+const NEW_FILE_ID: &str = "new-file";
 const OPEN_FILE_ID: &str = "open-file";
 const SAVE_FILE_ID: &str = "save-file";
+const SAVE_FILE_AS_ID: &str = "save-file-as";
+const RECENT_CLEAR_ID: &str = "recent-clear";
+/// Menu ids of File > Open Recent entries carry their path: "recent:<path>".
+const RECENT_PREFIX: &str = "recent:";
 const EXPORT_PDF_ID: &str = "export-pdf";
 const QUIT_ID: &str = "quit";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
@@ -141,6 +146,53 @@ fn emit_to_focused(app: &tauri::AppHandle, event: &str) {
     if let Some((label, _)) = app.webview_windows().iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
         let _ = app.emit_to(EventTarget::webview_window(label), event, ());
     }
+}
+
+/// Handle to the File > Open Recent submenu, kept so add_recent_file can
+/// rebuild its entries at runtime without touching the rest of the menu.
+struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
+
+fn abbreviate_home(path: &str) -> String {
+    if let Ok(home) = std::env::var("HOME") {
+        if let Some(rest) = path.strip_prefix(&home) {
+            return format!("~{rest}");
+        }
+    }
+    path.to_string()
+}
+
+/// Replace the Open Recent submenu's entries with `list` (most recent
+/// first). Menus may only be mutated on the main thread, and the caller
+/// may be a command on any thread - hence the hop.
+pub(crate) fn rebuild_recent_menu(app: &tauri::AppHandle, list: Vec<String>) {
+    let app = app.clone();
+    let _ = app.clone().run_on_main_thread(move || {
+        let Some(state) = app.try_state::<RecentMenu>() else { return };
+        let guard = state.0.lock().unwrap();
+        let Some(submenu) = guard.as_ref() else { return };
+        if let Ok(items) = submenu.items() {
+            for item in items {
+                let _ = submenu.remove(&item);
+            }
+        }
+        if list.is_empty() {
+            if let Ok(item) = MenuItemBuilder::with_id("recent-none", "No Recent Files").enabled(false).build(&app) {
+                let _ = submenu.append(&item);
+            }
+            return;
+        }
+        for path in &list {
+            if let Ok(item) = MenuItemBuilder::with_id(format!("{RECENT_PREFIX}{path}"), abbreviate_home(path)).build(&app) {
+                let _ = submenu.append(&item);
+            }
+        }
+        if let Ok(sep) = PredefinedMenuItem::separator(&app) {
+            let _ = submenu.append(&sep);
+        }
+        if let Ok(item) = MenuItemBuilder::with_id(RECENT_CLEAR_ID, "Clear Menu").build(&app) {
+            let _ = submenu.append(&item);
+        }
+    });
 }
 
 fn build_window(app: &tauri::AppHandle, label: &str, position: Option<(f64, f64)>) -> tauri::Result<()> {
@@ -630,18 +682,32 @@ pub fn run() {
                 .item(&quit_item)
                 .build()?;
 
+            let new_file_item = MenuItemBuilder::with_id(NEW_FILE_ID, "New File").accelerator("Cmd+N").build(app)?;
             let open_file_item = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…").accelerator("Cmd+O").build(app)?;
+            // Built empty here; rebuild_recent_menu below fills it from the
+            // persisted list and keeps it current as files are opened.
+            let open_recent_menu = SubmenuBuilder::new(app, "Open Recent").build()?;
             let save_file_item = MenuItemBuilder::with_id(SAVE_FILE_ID, "Save").accelerator("Cmd+S").build(app)?;
+            let save_file_as_item = MenuItemBuilder::with_id(SAVE_FILE_AS_ID, "Save As…")
+                .accelerator("Cmd+Shift+S")
+                .build(app)?;
             let export_pdf_item = MenuItemBuilder::with_id(EXPORT_PDF_ID, "Export as PDF…")
                 .accelerator("Cmd+P")
                 .build(app)?;
 
             let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&new_file_item)
                 .item(&open_file_item)
+                .item(&open_recent_menu)
+                .separator()
                 .item(&save_file_item)
+                .item(&save_file_as_item)
                 .separator()
                 .item(&export_pdf_item)
                 .build()?;
+
+            app.manage(RecentMenu(Mutex::new(Some(open_recent_menu))));
+            rebuild_recent_menu(app.handle(), commands::recents::read_recent_files(app.handle()));
 
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .undo()
@@ -698,10 +764,30 @@ pub fn run() {
                 let id = event.id();
                 if id == SETTINGS_MENU_ID {
                     let _ = app_handle.emit("menu-open-settings", ());
+                } else if id == NEW_FILE_ID {
+                    // Honors the same Settings choice as opening files: a
+                    // new tab in the focused window in tab mode, a fresh
+                    // window otherwise (or when there's no window at all).
+                    if app_handle.webview_windows().is_empty()
+                        || commands::prefs::read_new_document_mode(app_handle) != "tab"
+                    {
+                        let _ = open_new_window(app_handle);
+                    } else {
+                        emit_to_focused(app_handle, "menu-new-file");
+                    }
                 } else if id == OPEN_FILE_ID {
                     let _ = app_handle.emit("menu-open-file", ());
                 } else if id == SAVE_FILE_ID {
                     emit_to_focused(app_handle, "menu-save-file");
+                } else if id == SAVE_FILE_AS_ID {
+                    emit_to_focused(app_handle, "menu-save-file-as");
+                } else if id == RECENT_CLEAR_ID {
+                    commands::recents::clear_recent_files(app_handle);
+                } else if id.as_ref().starts_with(RECENT_PREFIX) {
+                    // Routes through the same queue as Finder/CLI opens, so
+                    // it lands as a tab or a window per the user's setting.
+                    let path = id.as_ref()[RECENT_PREFIX.len()..].to_string();
+                    queue_paths_to_open(app_handle, vec![path]);
                 } else if id == EXPORT_PDF_ID {
                     emit_to_focused(app_handle, "menu-export-pdf");
                 } else if id == QUIT_ID {
@@ -733,6 +819,7 @@ pub fn run() {
             start_floating_tab_drag,
             get_new_document_mode,
             set_new_document_mode,
+            commands::recents::add_recent_file,
             open_file_dialog,
             open_css_file_dialog,
             save_file_dialog,
