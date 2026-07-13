@@ -15,6 +15,7 @@ use commands::fs::{
     list_dir, open_css_file_dialog, open_file_dialog, read_binary_file_base64, read_text_file, save_file_dialog,
     save_pasted_image, write_text_file,
 };
+use commands::cli::{cli_command_status, install_cli_command};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
@@ -114,6 +115,8 @@ pub fn run() {
             // path (macOS uses the Opened run-event instead, handled below).
             let arg_paths: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with('-')).collect();
             queue_paths_to_open(app.handle(), arg_paths);
+
+            commands::cli::try_silent_install();
 
             let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "Settings…")
                 .accelerator("Cmd+,")
@@ -262,7 +265,9 @@ pub fn run() {
             custom_endpoint_status,
             clear_custom_endpoint,
             fetch_custom_models,
-            test_custom_endpoint
+            test_custom_endpoint,
+            cli_command_status,
+            install_cli_command
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

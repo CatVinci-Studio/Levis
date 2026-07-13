@@ -85,6 +85,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   </select>
                 </div>
                 <UpdateSection t={t} />
+                <CliCommandSection t={t} />
               </>
             )}
 
@@ -288,6 +289,55 @@ function UpdateSection({ t }: { t: Strings }) {
             {phase === "checking" ? t.updateChecking : t.updateCheckButton}
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Startup already tries a silent, non-privileged install (works when
+ * /usr/local/bin happens to be user-writable, e.g. via Homebrew). This row
+ * is for the common case where that silently failed: it shows current
+ * status and, on click, retries through an admin-privileged prompt.
+ */
+function CliCommandSection({ t }: { t: Strings }) {
+  const [installed, setInstalled] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "installing" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    invoke<boolean>("cli_command_status").then(setInstalled);
+  }, []);
+
+  async function install() {
+    setPhase("installing");
+    setError(null);
+    try {
+      await invoke("install_cli_command");
+      setInstalled(true);
+      setPhase("idle");
+    } catch (err) {
+      setPhase("error");
+      setError(String(err));
+    }
+  }
+
+  return (
+    <div className="settings-row">
+      <div>
+        <div className="settings-row-label">{t.cliCommandLabel}</div>
+        <div className="settings-row-hint">{t.cliCommandHint}</div>
+        {error && <div className="settings-error">{t.cliCommandFailed} {error}</div>}
+      </div>
+      <div className="shortcut-row-controls">
+        {!error && <span className="settings-row-hint">{installed ? t.cliCommandInstalled : t.cliCommandNotInstalled}</span>}
+        <button className="text-button settings-inline-button" onClick={install} disabled={phase === "installing"}>
+          {phase === "installing"
+            ? t.cliCommandInstalling
+            : installed
+              ? t.cliCommandReinstallButton
+              : t.cliCommandInstallButton}
+        </button>
       </div>
     </div>
   );
