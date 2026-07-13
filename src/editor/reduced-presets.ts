@@ -16,6 +16,8 @@ import {
   inlineCodeInputRule,
   inlineCodeKeymap,
   toggleInlineCodeCommand,
+  htmlSchema,
+  htmlAttr,
 } from "@milkdown/kit/preset/commonmark";
 import {
   gfm,
@@ -34,6 +36,16 @@ import {
 // keymaps, and toggle commands removed; everything else each preset
 // provides (paragraphs, headings, lists, code blocks, tables, task lists,
 // footnotes, links, images, ...) is untouched.
+//
+// htmlSchema/htmlAttr are excluded too: raw-html-schema.ts replaces it with
+// a real-text node (stock's is an attrs-based atom whose toDOM just echoes
+// the tag text back as a string) so a whitelist of common tags can actually
+// render - see raw-html-preview-plugin.ts. Milkdown's parser matches mdast
+// node types by "first schema whose match() returns true, by registration
+// order" (@milkdown/transformer's ParserState#matchTarget) with no parent
+// context available to disambiguate, so excluding the stock schema outright
+// is the only way to guarantee the replacement wins, rather than hoping
+// registration order works out.
 //
 // $markSchema/$nodeSchema (and some other composable pieces) return
 // array-like tuples that get spread apart by the presets' own internal
@@ -57,6 +69,8 @@ const excludedCommonmarkPieces = [
   inlineCodeInputRule,
   inlineCodeKeymap,
   toggleInlineCodeCommand,
+  htmlSchema,
+  htmlAttr,
 ].flat();
 
 const excludedGfmPieces = [strikethroughSchema, strikethroughAttr, strikethroughInputRule, strikethroughKeymap, toggleStrikethroughCommand].flat();

@@ -7,6 +7,8 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethrough";
 import { commonmarkWithoutMarks, gfmWithoutStrikethrough } from "./reduced-presets";
 import { remarkFrontmatterPlugin, frontmatterSchema } from "./frontmatter-schema";
+import { rawHtmlSchema } from "./raw-html-schema";
+import { createRawHtmlPreviewPlugin } from "./raw-html-preview-plugin";
 import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
 import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
 import { formatShortcutPlugin } from "./format-shortcut-plugin";
@@ -54,6 +56,12 @@ export function withEditorExtensions(
       // chance to misread its "---" lines as setext headings.
       .use(remarkFrontmatterPlugin)
       .use(frontmatterSchema)
+
+      // Raw HTML: parses to real text (replacing stock htmlSchema, excluded
+      // in reduced-presets.ts) so it stays editable; a whitelist of common
+      // tags renders while the cursor is elsewhere.
+      .use(rawHtmlSchema)
+      .use(createRawHtmlPreviewPlugin())
 
       // CommonMark's emphasis flanking rules reject "**" next to CJK
       // punctuation (e.g. 话说**“你好”**了 stays literal), which would also
