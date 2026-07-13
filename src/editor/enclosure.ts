@@ -471,6 +471,56 @@ export function computeDelete(state: EditorState): DeleteAction | null {
   return null;
 }
 
+/**
+ * Backspace/Delete on a RANGE selection that exactly spans an enclosure
+ * node's content (selecting all of "hello" in "*hello*" and pressing either
+ * key) must not remove the wrapper in the same step - erasing the content
+ * should leave an empty, still-bold shell with the cursor inside it, exactly
+ * like the empty-shell state computeBackspace/computeDelete already produce
+ * for the collapsed-cursor case. A second keypress against that now-empty
+ * shell hits the ordinary `content.size === 0` branch in those functions and
+ * removes the pair. Two shapes both count as "spans the content": a
+ * selection resolved strictly inside the node (both ends share it as their
+ * .parent), and one taken from just outside it at the node's own outer
+ * bounds (double-click "select word" routinely lands here, since the
+ * delimiters are synthesized decorations with no real character of their
+ * own to anchor a selection endpoint just inside them).
+ */
+export function computeRangeDeleteInEnclosure(state: EditorState): { node: ProseNode; nodeStart: number } | null {
+  const sel = state.selection;
+  if (sel.empty) return null;
+  const { from, to } = sel;
+  const $from = state.doc.resolve(from);
+  const $to = state.doc.resolve(to);
+
+  if ($from.parent === $to.parent && isEnclosureName($from.parent.type.name)) {
+    const parent = $from.parent;
+    const nodeStart = $from.before($from.depth);
+    const contentStart = nodeStart + 1;
+    const contentEnd = contentStart + parent.content.size;
+    if (parent.content.size > 0 && from === contentStart && to === contentEnd) {
+      return { node: parent, nodeStart };
+    }
+    return null;
+  }
+
+  const node = state.doc.nodeAt(from);
+  if (node && isEnclosure(node) && node.content.size > 0 && to === from + node.nodeSize) {
+    return { node, nodeStart: from };
+  }
+
+  return null;
+}
+
+/** Apply computeRangeDeleteInEnclosure's result: strip the node's content,
+ *  leave the (now empty) node in place, caret inside it. */
+function emptyEnclosureContent(view: EditorView, node: ProseNode, nodeStart: number): void {
+  const contentStart = nodeStart + 1;
+  const tr = view.state.tr.delete(contentStart, contentStart + node.content.size);
+  tr.setSelection(TextSelection.create(tr.doc, contentStart));
+  view.dispatch(tr);
+}
+
 function setCaret(view: EditorView, pos: number): void {
   view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
 }
@@ -725,6 +775,15 @@ export const enclosurePlugin = $prose(() => {
             event.preventDefault();
             setCaret(view, move.pos);
             return true;
+          }
+
+          if (event.key === "Backspace" || event.key === "Delete") {
+            const rangeAction = computeRangeDeleteInEnclosure(state);
+            if (rangeAction) {
+              event.preventDefault();
+              emptyEnclosureContent(view, rangeAction.node, rangeAction.nodeStart);
+              return true;
+            }
           }
 
           if (event.key === "Backspace") {
