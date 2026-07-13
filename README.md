@@ -42,6 +42,14 @@ Levis is a WYSIWYG Markdown editor with AI assistance delivered as a plugin — 
 
 ## Install
 
+macOS (Apple Silicon) via [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask catvinci-studio/tap/levis
+```
+
+Or grab an installer from [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest):
+
 | Platform | Installer |
 |---|---|
 | macOS (Apple Silicon) | `Levis_X.Y.Z_aarch64.dmg` |
