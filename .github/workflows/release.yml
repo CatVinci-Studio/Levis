@@ -62,6 +62,9 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Levis ${{ github.ref_name }}"
-          releaseDraft: true
+          # Publish immediately on tag - a draft release's latest.json is
+          # invisible to the in-app updater, so drafts left unpublished
+          # silently stall every user on the previous version.
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
