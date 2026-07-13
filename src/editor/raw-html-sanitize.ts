@@ -13,7 +13,29 @@
  */
 
 const CONTAINER_TAGS = new Set(["p", "div", "span", "center", "h1", "h2", "h3", "h4", "h5", "h6"]);
-const WHITELISTED_TAGS = new Set([...CONTAINER_TAGS, "img", "br", "strong", "em", "b", "i", "a"]);
+// Inline-level tags: a fragment made only of these (plus text) renders as
+// an inline widget that stays in the surrounding line, instead of a block.
+const INLINE_TAGS = new Set([
+  "span",
+  "img",
+  "br",
+  "strong",
+  "em",
+  "b",
+  "i",
+  "a",
+  "sub",
+  "sup",
+  "u",
+  "s",
+  "del",
+  "ins",
+  "mark",
+  "kbd",
+  "code",
+  "small",
+]);
+const WHITELISTED_TAGS = new Set([...CONTAINER_TAGS, ...INLINE_TAGS]);
 // Dropped along with their children - the actual attack surface, distinct
 // from "just not in the whitelist" (which unwraps instead, keeping content).
 const DANGEROUS_TAGS = new Set(["script", "style", "iframe", "object", "embed", "form"]);
@@ -99,7 +121,7 @@ function cleanNode(node: ChildNode, out: HTMLElement): void {
   out.appendChild(clean);
 }
 
-export function renderWhitelistedHtml(raw: string): string | null {
+export function renderWhitelistedHtml(raw: string): { html: string; inline: boolean } | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
@@ -112,5 +134,9 @@ export function renderWhitelistedHtml(raw: string): string | null {
 
   const wrapper = document.createElement("div");
   for (const child of Array.from(body.childNodes)) cleanNode(child, wrapper);
-  return wrapper.innerHTML;
+  // Inline iff nothing block-level survived at the top: the widget then
+  // flows with the line it sits in (GitHub renders e.g. a lone <img> or
+  // <kbd>x</kbd> inline, not as its own paragraph).
+  const inline = Array.from(wrapper.children).every((el) => INLINE_TAGS.has(el.tagName.toLowerCase()));
+  return { html: wrapper.innerHTML, inline };
 }
