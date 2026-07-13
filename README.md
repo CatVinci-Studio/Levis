@@ -23,7 +23,7 @@
 ---
 
 > [!IMPORTANT]
-> **macOS: "Levis is damaged and can't be opened"** — the app is not signed yet (an Apple Developer membership isn't in the budget for now), so Gatekeeper flags the download. It's safe to run; clear the quarantine flag once and it opens normally:
+> We're still saving up for an Apple Developer membership, so macOS may report **"Levis is damaged and can't be opened"**. The app itself is safe and open source — run this once in a terminal and it opens normally:
 >
 > ```sh
 > xattr -cr /Applications/Levis.app
@@ -35,11 +35,8 @@ Levis is a WYSIWYG Markdown editor with modern AI features built in — sentence
 
 ## Why
 
-Modern WYSIWYG Markdown editors tend to focus on content alone, without much in the way of modern writing assistance. A few problems stand out:
-
-1. Editors like Typora use a lot of memory and feel slow.
+1. Editors like Typora use a lot of memory, feel slow, and aren't open source.
 2. Writing Markdown directly in VS Code or Neovim usually means a split preview pane rather than true WYSIWYG, which adds friction and makes it harder to stay focused.
-3. Some AI agents have a very heavy presence while you edit, and end up getting in the way of your own judgment about your writing.
 
 Levis is a WYSIWYG Markdown editor with AI assistance delivered as a plugin — there when it helps, invisible otherwise.
 
@@ -50,8 +47,6 @@ Levis is a WYSIWYG Markdown editor with AI assistance delivered as a plugin — 
 | macOS (Apple Silicon) | `Levis_X.Y.Z_aarch64.dmg` |
 | Windows | `Levis_X.Y.Z_x64-setup.exe` (NSIS) · `_x64_en-US.msi` (WiX) |
 | Linux | `Levis_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Levis-X.Y.Z-1.x86_64.rpm` |
-
-→ Get the latest at [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest). Builds are unsigned for now — first launch may need a right-click → Open on macOS, or "More info → Run anyway" on Windows SmartScreen.
 
 ## Quick start
 
