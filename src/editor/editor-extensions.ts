@@ -10,6 +10,7 @@ import { remarkFrontmatterPlugin, frontmatterSchema } from "./frontmatter-schema
 import { createGithubAlertPlugin } from "./github-alert-plugin";
 import { rawHtmlSchema } from "./raw-html-schema";
 import { createRawHtmlPreviewPlugin } from "./raw-html-preview-plugin";
+import { brToHardbreakPlugin } from "./br-hardbreak-plugin";
 import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
 import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
 import { formatShortcutPlugin } from "./format-shortcut-plugin";
@@ -64,6 +65,7 @@ export function withEditorExtensions(
       // tags renders while the cursor is elsewhere.
       .use(rawHtmlSchema)
       .use(createRawHtmlPreviewPlugin())
+      .use(brToHardbreakPlugin)
 
       // GitHub-style alerts: > [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING]
       // / [!CAUTION] blockquotes render as colored callouts with a badge.
