@@ -861,8 +861,6 @@ function App() {
           {activeDirty && <span className="unsaved-dot" title={t.unsavedIndicator} />}
           <span className="word-count">
             {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
-            {wordCount.words > 0 && wordCount.cjkChars > 0 && " · "}
-            {wordCount.cjkChars > 0 && `${wordCount.cjkChars} ${t.charsUnit}`}
           </span>
         </div>
 

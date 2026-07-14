@@ -7,10 +7,12 @@ import { countWords } from "../utils/word-count";
 import { isImeKeyEvent } from "../editor/enclosure";
 import { createDebouncedTask } from "./debounced-task";
 
-// Below this much text before the cursor, there isn't enough context for a
+// Below this many words before the cursor, there isn't enough context for a
 // decent suggestion (and it's more likely to feel intrusive on a near-empty
-// doc).
-const MIN_CONTEXT_UNITS = 20;
+// doc). Word count comes from Intl.Segmenter, so CJK text is measured in
+// segmented words, not characters - this is lower than the old char-based
+// threshold to trigger at roughly the same amount of text.
+const MIN_CONTEXT_UNITS = 12;
 const DEBOUNCE_MS = 450;
 const MAX_CONTEXT_CHARS = 2000;
 // Look-ahead after the cursor: enough for the model to splice into what
@@ -178,8 +180,8 @@ export function createGhostTextPlugin(options: {
               // stays quiet. Manual trigger (triggerGhostTextNow) still
               // works - that's an explicit ask, not a typing side-effect.
               if (after.trim()) return;
-              const { words, cjkChars } = countWords(before);
-              if (words + cjkChars < MIN_CONTEXT_UNITS) return;
+              const { words } = countWords(before);
+              if (words < MIN_CONTEXT_UNITS) return;
 
               debounced.schedule(async (isCurrent) => {
                 let suggestion: string;
