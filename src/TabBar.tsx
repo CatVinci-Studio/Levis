@@ -2,7 +2,9 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 
 interface TabInfo {
   id: string;
-  path: string | null;
+  // Display name, computed by App (filename, "Untitled", or the bundled
+  // showcase document's localized title).
+  title: string;
   dirty: boolean;
 }
 
@@ -26,12 +28,6 @@ interface TabBarProps {
   // tabs sliding out of its way, exactly like a within-bar reorder. On
   // release it becomes the real tab in that same slot.
   previewTab: { title: string; dirty: boolean; x: number } | null;
-  untitledLabel: string;
-}
-
-function basename(path: string): string {
-  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx >= 0 ? path.slice(idx + 1) : path;
 }
 
 // How far a tab must be dragged vertically, away from the bar, before it
@@ -54,7 +50,6 @@ export function TabBar({
   onDetach,
   onReorder,
   previewTab,
-  untitledLabel,
 }: TabBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -228,7 +223,6 @@ export function TabBar({
           onDetach={onDetach}
           onReorder={onReorder}
           captureFlip={captureFlip}
-          untitledLabel={untitledLabel}
         />
       ))}
       {previewTab && (
@@ -259,7 +253,6 @@ function TabPill({
   onDetach,
   onReorder,
   captureFlip,
-  untitledLabel,
 }: {
   tab: TabInfo;
   tabIds: string[];
@@ -269,7 +262,6 @@ function TabPill({
   onDetach: (id: string) => void;
   onReorder: (id: string, index: number) => void;
   captureFlip: () => void;
-  untitledLabel: string;
 }) {
   const elRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<{
@@ -282,7 +274,7 @@ function TabPill({
     rects: PillRect[];
     gap: number;
   } | null>(null);
-  const title = tab.path ? basename(tab.path) : untitledLabel;
+  const title = tab.title;
 
   const pillNode = (id: string): HTMLElement | null =>
     elRef.current?.parentElement?.querySelector<HTMLElement>(`[data-flip-id="${CSS.escape(id)}"]`) ?? null;

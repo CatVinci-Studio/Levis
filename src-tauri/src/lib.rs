@@ -45,6 +45,7 @@ const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
 const TOGGLE_SIDEBAR_ID: &str = "toggle-sidebar";
 const NEW_WINDOW_ID: &str = "new-window";
+const HELP_SHOWCASE_ID: &str = "help-showcase";
 
 /// Each new window is a fresh, independent instance of the whole SPA (its
 /// own React tree, own in-memory document state) - just like opening a new
@@ -78,6 +79,18 @@ struct DetachedTab {
     saved_content: String,
 }
 struct PendingDetachedTabs(Mutex<HashMap<String, DetachedTab>>);
+
+/// Help > Feature Showcase clicked while no window could receive the event:
+/// the fresh window spawned for it drains this flag on mount, same
+/// queue-then-drain reasoning as PendingOpenPaths (an emit would fire before
+/// the new webview mounts its listeners). The showcase document itself is
+/// bundled in the frontend (src/help/), so a flag is all Rust needs to carry.
+static PENDING_SHOW_HELP: AtomicBool = AtomicBool::new(false);
+
+#[tauri::command]
+fn take_pending_show_help() -> bool {
+    PENDING_SHOW_HELP.swap(false, Ordering::Relaxed)
+}
 
 #[tauri::command]
 fn take_pending_open_path(pending: State<PendingOpenPaths>) -> Option<String> {
@@ -786,7 +799,7 @@ pub fn run() {
                 .bring_all_to_front()
                 .build()?;
 
-            let help_menu = SubmenuBuilder::new(app, "Help").text("help", "Levis Help").build()?;
+            let help_menu = SubmenuBuilder::new(app, "Help").text(HELP_SHOWCASE_ID, "Feature Showcase").build()?;
 
             let menu = MenuBuilder::new(app)
                 .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])
@@ -843,6 +856,16 @@ pub fn run() {
                     let _ = app_handle.emit("menu-toggle-sidebar", ());
                 } else if id == NEW_WINDOW_ID {
                     let _ = open_new_window(app_handle);
+                } else if id == HELP_SHOWCASE_ID {
+                    // The showcase opens as a tab in the focused window; with
+                    // no window to receive it (macOS keeps the app alive
+                    // windowless), spawn one that drains the flag on mount.
+                    if app_handle.webview_windows().iter().any(|(label, _)| *label != DRAG_PILL_LABEL) {
+                        emit_to_focused(app_handle, "menu-open-help");
+                    } else {
+                        PENDING_SHOW_HELP.store(true, Ordering::Relaxed);
+                        let _ = open_new_window(app_handle);
+                    }
                 }
             });
 
@@ -851,6 +874,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             take_pending_open_path,
             take_pending_open_paths,
+            take_pending_show_help,
             take_detached_tab,
             list_window_bounds,
             start_window_drag_tracking,

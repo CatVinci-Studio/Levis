@@ -15,6 +15,9 @@ import { countWords } from "./utils/word-count";
 import { comboFromEvent } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "./utils/events";
+import type { Strings } from "./i18n/strings";
+import showcaseEn from "./help/feature-showcase.en.md?raw";
+import showcaseZh from "./help/feature-showcase.zh.md?raw";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard";
@@ -56,6 +59,18 @@ interface DocTab {
   savedContent: string;
   sourceMode: boolean;
   reloadKey: number;
+  // The bundled Help > Feature Showcase document: still a pathless draft
+  // (edits never touch disk; Save goes through Save As), but titled after
+  // itself instead of "Untitled", and deduped so Help focuses the existing
+  // tab rather than opening another copy.
+  showcase?: boolean;
+}
+
+// A tab's display name everywhere one is shown (tab pill, title strip,
+// detached-drag pill, export default filename).
+function tabTitle(tab: DocTab, t: Strings): string {
+  if (tab.path) return basename(tab.path);
+  return tab.showcase ? t.showcaseTab : t.untitledTab;
 }
 
 function makeBlankTab(): DocTab {
@@ -208,6 +223,21 @@ function App() {
     setActiveTabId(blank.id);
   }, []);
 
+  // Help > Feature Showcase: the bundled demo document (per UI language),
+  // opened as a clean pathless draft - play with it freely, close without
+  // saving. savedContent === content so it starts non-dirty.
+  const openShowcaseTab = useCallback(() => {
+    const existing = tabsRef.current.find((tab) => tab.showcase);
+    if (existing) {
+      setActiveTabId(existing.id);
+      return;
+    }
+    const content = settings.language === "zh" ? showcaseZh : showcaseEn;
+    const tab = { ...makeBlankTab(), content, savedContent: content, showcase: true };
+    setTabs((prev) => [...prev, tab]);
+    setActiveTabId(tab.id);
+  }, [settings.language]);
+
   const handleChange = useCallback(
     (tabId: string, markdown: string) => {
       updateTab(tabId, { content: markdown });
@@ -254,7 +284,7 @@ function App() {
       await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
       return;
     }
-    const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : t.untitledTab;
+    const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : tabTitle(tab, t);
     const picked = await invoke<string | null>("export_save_dialog", {
       defaultName: `${base}.html`,
       filterName: "HTML",
@@ -310,7 +340,7 @@ function App() {
         if (goInstall) void invoke("open_pandoc_install_page");
         return;
       }
-      const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : t.untitledTab;
+      const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : tabTitle(tab, t);
       const picked = await invoke<string | null>("export_save_dialog", {
         defaultName: `${base}.${info.ext}`,
         filterName: info.label,
@@ -410,7 +440,7 @@ function App() {
           path: tab.path,
           content: tab.content,
           savedContent: tab.savedContent,
-          title: tab.path ? basename(tab.path) : t.untitledTab,
+          title: tabTitle(tab, t),
           dirty: tab.content !== tab.savedContent,
           destroySource: false,
         });
@@ -419,7 +449,7 @@ function App() {
       }
       removeTab(id);
     },
-    [removeTab, t.untitledTab],
+    [removeTab, t],
   );
 
   // Single-tab windows have no tab bar to drag a pill out of (showTabBar
@@ -466,7 +496,7 @@ function App() {
         path: tab.path,
         content: tab.content,
         savedContent: tab.savedContent,
-        title: tab.path ? basename(tab.path) : t.untitledTab,
+        title: tabTitle(tab, t),
         dirty: tab.content !== tab.savedContent,
         destroySource: true,
       });
@@ -556,6 +586,14 @@ function App() {
       );
       if (detached) {
         updateTab(activeTabId, detached);
+        return;
+      }
+      // Help > Feature Showcase clicked with no window open: this window
+      // was spawned to show it, so the bundled document rides the blank
+      // initial tab instead of opening next to it.
+      if (await invoke<boolean | null>("take_pending_show_help")) {
+        const content = settings.language === "zh" ? showcaseZh : showcaseEn;
+        updateTab(activeTabId, { content, savedContent: content, showcase: true });
         return;
       }
       if (settings.newDocumentMode === "tab") {
@@ -683,6 +721,7 @@ function App() {
       setSettings({ typewriterMode: !settings.typewriterMode }),
     );
     const unlistenSidebar = listen("menu-toggle-sidebar", () => setPanelOpen((v) => !v));
+    const unlistenHelp = listen("menu-open-help", () => openShowcaseTab());
     return () => {
       void unlistenSettings.then((f) => f());
       void unlistenNewFile.then((f) => f());
@@ -695,8 +734,9 @@ function App() {
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
+      void unlistenHelp.then((f) => f());
     };
-  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);
+  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, openShowcaseTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);
 
   const closeSaving = useCallback(async () => {
     const tabId = closePromptTabId;
@@ -733,7 +773,7 @@ function App() {
             gesture (see the onMoved effect), so knowing which document is
             in which window while dragging actually matters. */}
         {!showTabBar && (
-          <span className="titlebar-filename">{activeTab.path ? basename(activeTab.path) : t.untitledTab}</span>
+          <span className="titlebar-filename">{tabTitle(activeTab, t)}</span>
         )}
       </div>
       <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
@@ -779,7 +819,7 @@ function App() {
       <div className="main-pane">
         {showTabBar && (
           <TabBar
-            tabs={tabs.map((tab) => ({ id: tab.id, path: tab.path, dirty: tab.content !== tab.savedContent }))}
+            tabs={tabs.map((tab) => ({ id: tab.id, title: tabTitle(tab, t), dirty: tab.content !== tab.savedContent }))}
             activeTabId={activeTabId}
             onActivate={setActiveTabId}
             onClose={requestCloseTab}
@@ -787,7 +827,6 @@ function App() {
             onDetach={handleTabDetach}
             onReorder={reorderTab}
             previewTab={dragHoverPreview}
-            untitledLabel={t.untitledTab}
           />
         )}
 
