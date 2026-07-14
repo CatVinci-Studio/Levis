@@ -20,7 +20,10 @@ use commands::cli::{cli_command_status, install_cli_command};
 use commands::export::{
     detect_pandoc, export_save_dialog, export_via_pandoc, open_pandoc_install_page, reveal_in_dir,
 };
-use commands::prefs::{get_new_document_mode, set_new_document_mode};
+use commands::prefs::{
+    get_new_document_mode, get_restore_session_on_startup, set_new_document_mode, set_restore_session_on_startup,
+};
+use commands::session::{update_session_paths, SessionTabsState};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -677,11 +680,31 @@ pub fn run() {
         .manage(PendingOpenPaths(Mutex::new(Vec::new())))
         .manage(PendingDetachedTabs(Mutex::new(HashMap::new())))
         .manage(DragTrackers(Mutex::new(std::collections::HashSet::new())))
+        .manage(SessionTabsState(Mutex::new(HashMap::new())))
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                let app = window.app_handle();
+                if let Some(state) = app.try_state::<SessionTabsState>() {
+                    commands::session::forget_window(app, window.label(), &state);
+                }
+            }
+        })
         .setup(|app| {
             // Windows/Linux hand an associated file over as a plain argv
             // path (macOS uses the Opened run-event instead, handled below).
+            // With no file to open, fall back to restoring last session's
+            // documents (unless the user turned that off in Settings) -
+            // this is also what makes an app-update relaunch (which passes
+            // no args at all) reopen whatever was open before the update.
             let arg_paths: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with('-')).collect();
-            queue_paths_to_open(app.handle(), arg_paths);
+            let startup_paths = if !arg_paths.is_empty() {
+                arg_paths
+            } else if commands::prefs::read_restore_session_on_startup(app.handle()) {
+                commands::session::read_session_paths(app.handle())
+            } else {
+                Vec::new()
+            };
+            queue_paths_to_open(app.handle(), startup_paths);
 
             commands::cli::try_silent_install();
 
@@ -889,6 +912,9 @@ pub fn run() {
             start_floating_tab_drag,
             get_new_document_mode,
             set_new_document_mode,
+            get_restore_session_on_startup,
+            set_restore_session_on_startup,
+            update_session_paths,
             commands::recents::add_recent_file,
             open_file_dialog,
             open_css_file_dialog,

@@ -107,6 +107,12 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     <option value="tab">{t.newDocumentModeTab}</option>
                   </select>
                 </div>
+                <ToggleRow
+                  label={t.restoreSessionLabel}
+                  hint={t.restoreSessionHint}
+                  checked={settings.restoreSessionOnStartup}
+                  onChange={(v) => setSettings({ restoreSessionOnStartup: v })}
+                />
                 <UpdateSection t={t} />
                 <CliCommandSection t={t} />
               </>

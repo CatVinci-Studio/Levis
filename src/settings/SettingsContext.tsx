@@ -94,6 +94,12 @@ export interface Settings {
   /// effect below) because window-vs-tab has to be decided in Rust, before
   /// any webview - let alone its localStorage - exists.
   newDocumentMode: NewDocumentMode;
+  /// Whether startup reopens last session's documents (default) or starts
+  /// blank. Mirrored to Rust (see the effect below) because the decision is
+  /// made in setup(), before any webview - let alone its localStorage -
+  /// exists; this is also what lets an app-update relaunch (which starts
+  /// with no file arguments at all) reopen whatever was open before it.
+  restoreSessionOnStartup: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -116,6 +122,7 @@ const DEFAULT_SETTINGS: Settings = {
   themeId: "default",
   userThemes: [],
   newDocumentMode: "window",
+  restoreSessionOnStartup: true,
 };
 
 const STORAGE_KEY = "catvinci-settings";
@@ -163,6 +170,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void invoke("set_new_document_mode", { mode: settings.newDocumentMode });
   }, [settings.newDocumentMode]);
+
+  useEffect(() => {
+    void invoke("set_restore_session_on_startup", { enabled: settings.restoreSessionOnStartup });
+  }, [settings.restoreSessionOnStartup]);
 
   // An unparseable proxy is rejected by the backend (and requests fall back
   // to a direct connection), so a half-typed host while editing the setting

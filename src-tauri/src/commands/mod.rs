@@ -3,4 +3,5 @@ pub mod export;
 pub mod fs;
 pub mod prefs;
 pub mod recents;
+pub mod session;
 pub mod themes;

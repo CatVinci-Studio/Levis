@@ -182,6 +182,18 @@ function App() {
   const anyDirtyRef = useRef(anyDirty);
   anyDirtyRef.current = anyDirty;
 
+  // Reports this window's on-disk tab paths to Rust so a relaunch (an app
+  // update, a crash, or just quitting and reopening) can restore what was
+  // open - see commands/session.rs. Untitled/unsaved tabs have no path and
+  // are simply skipped; keyed on the joined path list (not `tabs` itself) so
+  // content edits don't spam the round trip.
+  const sessionPathsKey = tabs.map((tab) => tab.path ?? "").join("\n");
+  useEffect(() => {
+    const paths = tabs.filter((tab) => tab.path).map((tab) => tab.path as string);
+    void invoke("update_session_paths", { paths });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionPathsKey]);
+
   // Nothing to switch between with a single tab, regardless of
   // newDocumentMode - the setting only decides how NEW documents open, not
   // whether the bar shows. A single-tab window stays draggable-to-merge via
