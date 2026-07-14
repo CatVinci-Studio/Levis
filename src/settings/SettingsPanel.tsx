@@ -10,11 +10,13 @@ import {
   type AiProvider,
   type CompletionTone,
   type NewDocumentMode,
+  type ProxyType,
   type ShortcutAction,
   type Shortcuts,
   type UserThemeMeta,
 } from "./SettingsContext";
 import type { Lang, Strings } from "../i18n/strings";
+import type { AgentSkill } from "../ai/types";
 import { comboFromEvent, isBindableCombo, formatCombo } from "../utils/shortcuts";
 import { importThemeCss } from "../utils/theme-import";
 import "./SettingsPanel.css";
@@ -27,11 +29,13 @@ interface CustomEndpointConfig {
 
 interface SettingsPanelProps {
   onClose: () => void;
+  /** Opens a document in the editor - the agent.md "edit" button uses it. */
+  onOpenFile: (path: string) => void;
 }
 
-type Category = "general" | "theme" | "markdown" | "ai" | "shortcuts";
+type Category = "general" | "theme" | "markdown" | "ai" | "agent" | "shortcuts";
 
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
 
@@ -48,6 +52,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     { id: "theme", label: t.navTheme },
     { id: "markdown", label: t.navMarkdown },
     { id: "ai", label: t.navAi },
+    { id: "agent", label: t.navAgent },
     { id: "shortcuts", label: t.navShortcuts },
   ];
 
@@ -126,6 +131,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
             {category === "ai" && (
               <>
+                <div className="settings-section-label">{t.aiAccountLabel}</div>
                 <div className="settings-row">
                   <span className="settings-row-label">{t.providerLabel}</span>
                   <select
@@ -162,6 +168,40 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 {settings.aiProvider === "apikey" && <ApiKeyProviderPanel t={t} />}
                 {settings.aiProvider === "custom" && <CustomProviderPanel t={t} />}
 
+                <div className="settings-section-label">{t.proxyLabel}</div>
+                <div className="settings-field-stack">
+                  <div className="settings-row-hint">{t.proxyHint}</div>
+                  <div className="settings-proxy-row">
+                    <select
+                      value={settings.proxyType}
+                      onChange={(e) => setSettings({ proxyType: e.target.value as ProxyType })}
+                    >
+                      <option value="none">{t.proxyTypeNone}</option>
+                      <option value="http">HTTP</option>
+                      <option value="https">HTTPS</option>
+                      <option value="socks5">SOCKS5</option>
+                    </select>
+                    {settings.proxyType !== "none" && (
+                      <>
+                        <input
+                          type="text"
+                          className="settings-text-input settings-proxy-host"
+                          placeholder={t.proxyHostPlaceholder}
+                          value={settings.proxyHost}
+                          onChange={(e) => setSettings({ proxyHost: e.target.value })}
+                        />
+                        <input
+                          type="text"
+                          className="settings-text-input settings-proxy-port"
+                          placeholder={t.proxyPortPlaceholder}
+                          value={settings.proxyPort}
+                          onChange={(e) => setSettings({ proxyPort: e.target.value })}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 <div className="settings-section-label">{t.aiFeaturesLabel}</div>
                 <ToggleRow
                   label={t.aiCompletionLabel}
@@ -170,35 +210,22 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   onChange={(v) => setSettings({ enableCompletion: v })}
                 />
                 {settings.enableCompletion && (
-                  <>
-                    <div className="settings-row">
-                      <div>
-                        <div className="settings-row-label">{t.completionToneLabel}</div>
-                        <div className="settings-row-hint">{t.completionToneHint}</div>
-                      </div>
-                      <select
-                        value={settings.completionTone}
-                        onChange={(e) => setSettings({ completionTone: e.target.value as CompletionTone })}
-                      >
-                        {COMPLETION_TONES.map((tone) => (
-                          <option key={tone} value={tone}>
-                            {t[`completionTone_${tone}` as keyof Strings]}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-row-label">{t.completionToneLabel}</div>
+                      <div className="settings-row-hint">{t.completionToneHint}</div>
                     </div>
-                    <div className="settings-field-stack">
-                      <label className="settings-field-label">{t.completionPromptLabel}</label>
-                      <div className="settings-row-hint">{t.completionPromptHint}</div>
-                      <textarea
-                        className="settings-text-input settings-textarea"
-                        rows={2}
-                        placeholder={t.completionPromptPlaceholder}
-                        value={settings.completionCustomPrompt}
-                        onChange={(e) => setSettings({ completionCustomPrompt: e.target.value })}
-                      />
-                    </div>
-                  </>
+                    <select
+                      value={settings.completionTone}
+                      onChange={(e) => setSettings({ completionTone: e.target.value as CompletionTone })}
+                    >
+                      {COMPLETION_TONES.map((tone) => (
+                        <option key={tone} value={tone}>
+                          {t[`completionTone_${tone}` as keyof Strings]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
                 <ToggleRow
                   label={t.aiGrammarLabel}
@@ -206,6 +233,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   checked={settings.enableGrammarCheck}
                   onChange={(v) => setSettings({ enableGrammarCheck: v })}
                 />
+              </>
+            )}
+
+            {category === "agent" && (
+              <>
                 <ToggleRow
                   label={t.aiAskLabel}
                   hint={t.aiAskHint}
@@ -221,6 +253,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                       onChange={(v) => setSettings({ enableWebSearch: v })}
                     />
                     <AgentWorkspaceSection t={t} />
+                    <AgentSystemPromptSection t={t} onOpenFile={onOpenFile} onClose={onClose} />
+                    <AgentSkillsSection t={t} />
                   </>
                 )}
               </>
@@ -483,11 +517,13 @@ function ThemeSection({ t }: { t: Strings }) {
 /// this section just explains the .levis/ convention and opens the global
 /// folder. The full write-up lives in Help > AI Agent Guide.
 function AgentWorkspaceSection({ t }: { t: Strings }) {
+  const { settings } = useSettings();
   const [error, setError] = useState<string | null>(null);
 
   async function openFolder() {
     try {
-      await invoke("open_global_agent_dir");
+      // Language picks the starter agent.md template on first use.
+      await invoke("open_global_agent_dir", { lang: settings.language });
     } catch (err) {
       setError(String(err));
     }
@@ -505,6 +541,94 @@ function AgentWorkspaceSection({ t }: { t: Strings }) {
           {t.agentWorkspaceOpenButton}
         </button>
       </div>
+    </>
+  );
+}
+
+/// The GLOBAL agent.md - the standing instructions in every chat's system
+/// prompt. Levis IS a markdown editor, so the button just opens the file as
+/// a document (creating an empty starter on first use) instead of embedding
+/// a bespoke editor here. A document folder's .levis/agent.md layers on top
+/// and stays file-managed.
+function AgentSystemPromptSection({ t, onOpenFile, onClose }: { t: Strings; onOpenFile: (path: string) => void; onClose: () => void }) {
+  const { settings } = useSettings();
+  const [error, setError] = useState<string | null>(null);
+
+  async function editAgentMd() {
+    try {
+      // Language picks the starter agent.md template on first use.
+      const path = await invoke<string>("ensure_global_agent_md", { lang: settings.language });
+      onClose(); // the editor is behind the settings panel
+      onOpenFile(path);
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  return (
+    <>
+      <div className="settings-section-label">{t.agentSystemPromptLabel}</div>
+      <div className="settings-row">
+        <div>
+          <div className="settings-row-hint settings-workspace-hint">{t.agentSystemPromptHint}</div>
+          {error && <div className="settings-error">{error}</div>}
+        </div>
+        <button className="text-button settings-inline-button" onClick={editAgentMd}>
+          {t.agentSystemPromptEdit}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/// The GLOBAL skill list, plus an import button that copies a .md skill
+/// file into the global skills folder. Per-document .levis/skills still
+/// layer on top when chatting - this section only manages the global set.
+function AgentSkillsSection({ t }: { t: Strings }) {
+  const [skills, setSkills] = useState<AgentSkill[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // docPath null = the global layer only, which is exactly what's editable here.
+  useEffect(() => {
+    invoke<{ skills: AgentSkill[] } | null>("load_agent_workspace", { docPath: null })
+      .then((ws) => setSkills(ws?.skills ?? []))
+      .catch(() => {});
+  }, []);
+
+  async function importSkill() {
+    try {
+      const updated = await invoke<AgentSkill[] | null>("import_agent_skill");
+      if (updated) setSkills(updated);
+      setError(null);
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  return (
+    <>
+      <div className="settings-section-label">{t.agentSkillsLabel}</div>
+      <div className="settings-row">
+        <div>
+          <div className="settings-row-hint settings-workspace-hint">{t.agentSkillsHint}</div>
+          {error && <div className="settings-error">{error}</div>}
+        </div>
+        <button className="text-button settings-inline-button" onClick={importSkill}>
+          {t.agentSkillsImport}
+        </button>
+      </div>
+      {skills.length === 0 ? (
+        <div className="settings-row-hint">{t.agentSkillsEmpty}</div>
+      ) : (
+        <div className="settings-skill-list">
+          {skills.map((skill) => (
+            <div key={skill.name} className="settings-skill-item">
+              <span className="settings-skill-name">/{skill.name}</span>
+              <span className="settings-skill-desc">{skill.description || skill.prompt}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

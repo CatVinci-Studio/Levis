@@ -887,7 +887,7 @@ function App() {
         ))}
       </div>
 
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onOpenFile={(path) => void openFile(path)} />}
 
       {closePromptOpen && (
         <div className="close-prompt-overlay">

@@ -197,6 +197,11 @@ button.settings-inline-button {
   color: var(--editor-muted);
 }
 
+/* The first section of a page shouldn't float 1.5rem below the top edge. */
+.settings-section-label:first-child {
+  margin-top: 0;
+}
+
 .settings-provider-panel {
   background: var(--sidebar-bg);
   border: 1px solid var(--border-color);
@@ -246,6 +251,52 @@ button.settings-inline-button {
   flex-direction: column;
   gap: 6px;
   padding: 10px 0 14px;
+}
+
+/* Proxy setting: type select + host + port on one line. */
+.settings-proxy-row {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-proxy-host {
+  flex: 1;
+}
+
+.settings-proxy-port {
+  flex: 0 0 72px;
+}
+
+/* Global skills as read-only rows: /name + description. Managed as files -
+   this list is a mirror, plus the import button above it. */
+.settings-skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+}
+
+.settings-skill-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--sidebar-hover);
+  min-width: 0;
+}
+
+.settings-skill-name {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.settings-skill-desc {
+  color: var(--editor-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-textarea {

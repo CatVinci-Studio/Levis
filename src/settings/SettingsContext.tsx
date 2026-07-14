@@ -5,6 +5,7 @@ import { strings, type Lang, type Strings } from "../i18n/strings";
 export type ThemeMode = "system" | "light" | "dark";
 export type AiProvider = "codex" | "claude" | "apikey" | "custom";
 export type NewDocumentMode = "window" | "tab";
+export type ProxyType = "none" | "http" | "https" | "socks5";
 
 /// Keyboard-triggerable actions. Each maps to a normalized combo string
 /// (see ../utils/shortcuts) - empty string means "unbound".
@@ -66,10 +67,15 @@ export interface Settings {
   aiProvider: AiProvider;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
-  /// Free-text extra instructions appended to the completion prompt.
-  completionCustomPrompt: string;
   /// Offer OpenAI's server-side web search to the chat agent (codex only).
   enableWebSearch: boolean;
+  /// Proxy all AI provider requests route through, as type + host + port
+  /// ("none" or an empty host means direct connection). Mirrored to Rust as
+  /// a URL (see the effect below) because requests are sent from Rust, which
+  /// can't read localStorage.
+  proxyType: ProxyType;
+  proxyHost: string;
+  proxyPort: string;
   typewriterMode: boolean;
   shortcuts: Shortcuts;
   /// Either a `BuiltinContentThemeId` or a `UserThemeMeta.id`.
@@ -93,8 +99,10 @@ const DEFAULT_SETTINGS: Settings = {
   enableMermaid: true,
   aiProvider: "codex",
   completionTone: "default",
-  completionCustomPrompt: "",
   enableWebSearch: false,
+  proxyType: "none",
+  proxyHost: "",
+  proxyPort: "",
   typewriterMode: false,
   shortcuts: DEFAULT_SHORTCUTS,
   themeId: "default",
@@ -147,6 +155,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void invoke("set_new_document_mode", { mode: settings.newDocumentMode });
   }, [settings.newDocumentMode]);
+
+  // An unparseable proxy is rejected by the backend (and requests fall back
+  // to a direct connection), so a half-typed host while editing the setting
+  // can't wedge anything.
+  useEffect(() => {
+    const host = settings.proxyHost.trim();
+    const port = settings.proxyPort.trim();
+    const proxy =
+      settings.proxyType !== "none" && host ? `${settings.proxyType}://${host}${port ? `:${port}` : ""}` : null;
+    invoke("set_ai_proxy", { proxy }).catch(() => {});
+  }, [settings.proxyType, settings.proxyHost, settings.proxyPort]);
 
   useEffect(() => {
     const root = document.documentElement;
