@@ -251,15 +251,43 @@ const AGENT_MD_TEMPLATE_ZH: &str = "\
 -->
 ";
 
+const AGENT_MD_TEMPLATE_JA: &str = "\
+<!--
+このファイルはAIチャットAgent（設定 > Agent）をカスタマイズします。
+
+このようなコメントブロックの外に書かれた内容は、すべての文書に
+ついて、すべての会話のシステムプロンプトに追加されます。コメン
+トは取り除かれ、モデルに送信されることはないので、この説明はそ
+のまま残しておいて構いません。
+
+ここに書くとよい内容：
+
+  文体    例：短い文を好む。ビジネス用語を避ける。
+  言語    例：常に日本語で返信する。
+  用語    例：製品名は「Levis」と表記し、「levis」とは書かない。
+  背景    例：SF小説を書いている。語り手はMira。
+
+プロジェクトごとの指示：文書のそばに .levis/agent.md を置くと、
+そのフォルダの文書にのみ、このグローバルファイルの上に重ねて適
+用されます。
+再利用可能なskillは skills/*.md に置きます（チャットで /名前 と
+入力して呼び出します）。
+-->
+";
+
 /// Guarantees the global agent dir exists with its starter files; returns
-/// it. `lang` is the frontend's UI language ("zh" or anything else = en),
-/// and only matters the one time the starter template is written.
+/// it. `lang` is the frontend's UI language ("zh", "ja", or anything else =
+/// en), and only matters the one time the starter template is written.
 fn ensure_global_layer(app: &AppHandle, lang: Option<&str>) -> Result<PathBuf, String> {
     let dir = global_agent_dir(app)?;
     std::fs::create_dir_all(dir.join("skills")).map_err(|e| e.to_string())?;
     let agent_md = dir.join("agent.md");
     if !agent_md.exists() {
-        let template = if lang == Some("zh") { AGENT_MD_TEMPLATE_ZH } else { AGENT_MD_TEMPLATE_EN };
+        let template = match lang {
+            Some("zh") => AGENT_MD_TEMPLATE_ZH,
+            Some("ja") => AGENT_MD_TEMPLATE_JA,
+            _ => AGENT_MD_TEMPLATE_EN,
+        };
         std::fs::write(&agent_md, template).map_err(|e| e.to_string())?;
     }
     Ok(dir)

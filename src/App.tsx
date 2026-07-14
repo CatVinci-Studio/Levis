@@ -19,8 +19,10 @@ import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_
 import type { Strings } from "./i18n/strings";
 import markdownGuideEn from "./help/markdown-guide.en.md?raw";
 import markdownGuideZh from "./help/markdown-guide.zh.md?raw";
+import markdownGuideJa from "./help/markdown-guide.ja.md?raw";
 import agentGuideEn from "./help/agent-guide.en.md?raw";
 import agentGuideZh from "./help/agent-guide.zh.md?raw";
+import agentGuideJa from "./help/agent-guide.ja.md?raw";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard" | "chat";
@@ -74,8 +76,14 @@ interface DocTab {
 type HelpDoc = "markdown" | "agent";
 
 function helpDocContent(doc: HelpDoc, lang: string): string {
-  if (doc === "agent") return lang === "zh" ? agentGuideZh : agentGuideEn;
-  return lang === "zh" ? markdownGuideZh : markdownGuideEn;
+  if (doc === "agent") {
+    if (lang === "zh") return agentGuideZh;
+    if (lang === "ja") return agentGuideJa;
+    return agentGuideEn;
+  }
+  if (lang === "zh") return markdownGuideZh;
+  if (lang === "ja") return markdownGuideJa;
+  return markdownGuideEn;
 }
 
 // A tab's display name everywhere one is shown (tab pill, title strip,

@@ -91,6 +91,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   >
                     <option value="en">English</option>
                     <option value="zh">中文</option>
+                    <option value="ja">日本語</option>
                   </select>
                 </div>
                 <div className="settings-row">
