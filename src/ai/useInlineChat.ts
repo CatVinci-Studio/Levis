@@ -19,6 +19,15 @@ export interface InlineChatInfo {
 /** Where an AI reply gets applied to the document. */
 export type ApplyTarget = "selection" | "cursor" | "document";
 
+/**
+ * Models are told to write valid markdown, but some still bullet lists with
+ * typographic dots - as plain text those survive the markdown parse and land
+ * verbatim in the document. Rewrite them to `-` so lists arrive as lists.
+ */
+function normalizeAiMarkdown(text: string): string {
+  return text.replace(/^(\s*)[•●◦·]\s+/gm, "$1- ");
+}
+
 /** User-facing error strings, passed as a getter so they follow the live language setting. */
 export interface InlineChatMessages {
   applyStale: string;
@@ -79,8 +88,9 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
   const close = useCallback(() => setChatInfo(null), []);
 
   const applyResult = useCallback(
-    (text: string, target: ApplyTarget): string | null => {
+    (rawText: string, target: ApplyTarget): string | null => {
       if (!chatInfo) return null;
+      const text = normalizeAiMarkdown(rawText);
       let error: string | null = null;
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
@@ -140,7 +150,7 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
-        const text = proposal.text ?? "";
+        const text = normalizeAiMarkdown(proposal.text ?? "");
         let parsed;
         try {
           parsed = ctx.get(parserCtx)(text);
@@ -154,7 +164,20 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
           view.dispatch(tr.scrollIntoView());
         };
 
-        if (proposal.action === "append") {
+        if (proposal.action === "replace_selection") {
+          // Targets the selection captured when the chat opened - same
+          // bounds and same staleness rule as the free-text apply path.
+          if (!chatInfo?.range) return;
+          const { from, to } = chatInfo.range;
+          const stillThere =
+            to <= state.doc.content.size &&
+            state.doc.textBetween(from, to, " ") === (chatInfo.selectedText ?? "");
+          if (!stillThere) {
+            error = messages().applyStale;
+            return;
+          }
+          insertAt(from, to);
+        } else if (proposal.action === "append") {
           insertAt(state.doc.content.size, state.doc.content.size);
         } else {
           const range = findUniqueTextRange(state.doc, proposal.anchor ?? "");

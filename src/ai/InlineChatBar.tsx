@@ -58,7 +58,7 @@ function parseProposal(argumentsJson: string): EditProposal | null {
     if (!EDIT_ACTIONS.includes(action)) return null;
     const anchor = typeof parsed.anchor === "string" && parsed.anchor ? parsed.anchor : undefined;
     const text = typeof parsed.text === "string" ? parsed.text : undefined;
-    if (action !== "append" && !anchor) return null;
+    if (action !== "append" && action !== "replace_selection" && !anchor) return null;
     if (action !== "delete" && text === undefined) return null;
     return { action, anchor, text };
   } catch {
@@ -67,12 +67,21 @@ function parseProposal(argumentsJson: string): EditProposal | null {
 }
 
 /**
- * Models sometimes wrap a requested rewrite in a markdown code fence -
- * unwrap it so applying inserts the content, not a code block.
+ * Best-effort recovery of the intended content from a free-text reply (the
+ * fallback path when the model edited without the propose_edit tool).
+ * Models tend to wrap the requested rewrite in a markdown code fence, often
+ * with a line of preamble around it - unwrap the fence so applying inserts
+ * the content, not a code block plus chatter.
  */
 function extractReplacement(text: string): string {
-  const fenced = /^```[^\n]*\n([\s\S]*?)\n?```\s*$/.exec(text.trim());
-  return fenced ? fenced[1] : text.trim();
+  const trimmed = text.trim();
+  const wholeFence = /^```[^\n]*\n([\s\S]*?)\n?```\s*$/.exec(trimmed);
+  if (wholeFence) return wholeFence[1];
+  // Exactly one fenced block inside prose ("Sure, here's the new version:
+  // ```...```") - the block is the payload, the prose is commentary.
+  const fences = [...trimmed.matchAll(/```[^\n]*\n([\s\S]*?)\n?```/g)];
+  if (fences.length === 1) return fences[0][1];
+  return trimmed;
 }
 
 /**
@@ -181,6 +190,19 @@ export function InlineChatBar({
   const proposalCallIds = new Set(
     history.flatMap((turn) => (turn.kind === "ToolCall" && turn.name === "propose_edit" ? [turn.call_id] : [])),
   );
+  // Whether the latest exchange (everything after the last user turn)
+  // produced proposal cards. If so, they are the apply path - the free-text
+  // apply buttons below would just paste the model's commentary.
+  let lastUserIndex = -1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].kind === "User") {
+      lastUserIndex = i;
+      break;
+    }
+  }
+  const lastExchangeHasProposal = history
+    .slice(lastUserIndex + 1)
+    .some((turn) => turn.kind === "ToolCall" && turn.name === "propose_edit");
 
   function applyProposal(callId: string, proposal: EditProposal) {
     const err = onApplyProposal(proposal);
@@ -196,12 +218,10 @@ export function InlineChatBar({
     if (!message) return;
     setInput("");
     setApplyError(null);
-    // The rewrite note keeps replies applyable: without it, models wrap the
-    // revised text in commentary ("Sure, here's a better version: ..."),
-    // and the apply buttons would paste that chatter into the document.
-    const tagged = selectedText
-      ? `<selected-text>\n${selectedText}\n</selected-text>\n\n${message}\n\n(If this asks you to rewrite or modify the selected text and you are not using an edit tool, reply with ONLY the replacement text - no commentary, no quotes, no code fences.)`
-      : message;
+    // Rewrites of the selection come back as replace_selection tool calls
+    // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs) - the tag
+    // here just carries the selection as context.
+    const tagged = selectedText ? `<selected-text>\n${selectedText}\n</selected-text>\n\n${message}` : message;
     // Attachments ride inside this one message, ahead of the request text.
     const attachmentBlocks = attachments
       .map((f) => `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`)
@@ -334,10 +354,13 @@ export function InlineChatBar({
               if (!proposal) return <AgentTurnView key={i} turn={turn} />;
               const applied = appliedProposals.has(turn.call_id);
               // What the diff shows depends on the action: replace/delete
-              // strike the anchor; anything with new text inserts it. An
-              // insert's anchor is untouched context, so it renders as
-              // plain text rather than a deletion.
-              const showsDeletion = proposal.action === "replace" || proposal.action === "delete";
+              // strike the anchor (replace_selection strikes the captured
+              // selection - it carries no anchor); anything with new text
+              // inserts it. An insert's anchor is untouched context, so it
+              // renders as plain text rather than a deletion.
+              const showsDeletion =
+                proposal.action === "replace" || proposal.action === "delete" || proposal.action === "replace_selection";
+              const struck = proposal.action === "replace_selection" ? (selectedText ?? undefined) : proposal.anchor;
               return (
                 <div key={i} className="agent-proposal">
                   <div className="agent-proposal-title">
@@ -345,8 +368,7 @@ export function InlineChatBar({
                   </div>
                   <div className="agent-proposal-diff">
                     {proposal.action === "insert_before" && <ins>{proposal.text}</ins>}
-                    {proposal.anchor !== undefined &&
-                      (showsDeletion ? <del>{proposal.anchor}</del> : <span>{proposal.anchor}</span>)}
+                    {struck !== undefined && (showsDeletion ? <del>{struck}</del> : <span>{struck}</span>)}
                     {proposal.action !== "insert_before" && proposal.text !== undefined && <ins>{proposal.text}</ins>}
                   </div>
                   <button
@@ -365,7 +387,7 @@ export function InlineChatBar({
           {busy && <div className="agent-thinking">{labels.thinking}</div>}
           {error && <div className="agent-error">{error}</div>}
           {applyError && <div className="agent-error">{applyError}</div>}
-          {lastReply && !busy && (
+          {lastReply && !busy && !lastExchangeHasProposal && (
             <div className="inline-chat-actions">
               {selectedText ? (
                 <button className="inline-chat-action inline-chat-action-primary" onClick={() => apply("selection")}>

@@ -3,14 +3,22 @@
  * src-tauri/src/ai/tools.rs - the backend validates proposals against the
  * same list, so the two must stay in sync.
  */
-export type EditAction = "replace" | "insert_before" | "insert_after" | "delete" | "append";
+export type EditAction = "replace" | "replace_selection" | "insert_before" | "insert_after" | "delete" | "append";
 
-export const EDIT_ACTIONS: readonly EditAction[] = ["replace", "insert_before", "insert_after", "delete", "append"];
+export const EDIT_ACTIONS: readonly EditAction[] = [
+  "replace",
+  "replace_selection",
+  "insert_before",
+  "insert_after",
+  "delete",
+  "append",
+];
 
 /** A validated propose_edit payload: what to do, where, and with what text. */
 export interface EditProposal {
   action: EditAction;
-  /** Exact document text the edit targets; absent only for `append`. */
+  /** Exact document text the edit targets; absent for `append` and
+   *  `replace_selection` (the latter targets the captured selection). */
   anchor?: string;
   /** New markdown content; absent only for `delete`. */
   text?: string;

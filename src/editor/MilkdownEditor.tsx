@@ -260,6 +260,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
             proposalApplied: t.agentProposalApplied,
             actionNames: {
               replace: t.agentActionReplace,
+              replace_selection: t.agentActionReplaceSelection,
               insert_before: t.agentActionInsertBefore,
               insert_after: t.agentActionInsertAfter,
               delete: t.agentActionDelete,

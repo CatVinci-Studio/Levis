@@ -60,10 +60,20 @@ const PROPOSE_EDIT_TOOL_NAME: &str = "propose_edit";
 /// `EditAction` in src/ai/types.ts - adding one here without teaching
 /// useInlineChat.applyProposal about it produces proposals that validate but
 /// can't be applied.
-const EDIT_ACTIONS: [&str; 5] = ["replace", "insert_before", "insert_after", "delete", "append"];
+const EDIT_ACTIONS: [&str; 6] = [
+    "replace",
+    "replace_selection",
+    "insert_before",
+    "insert_after",
+    "delete",
+    "append",
+];
 
 fn needs_anchor(action: &str) -> bool {
-    action != "append"
+    // replace_selection targets the user's captured selection, so there is
+    // no anchor to locate (and the selection may not be unique in the
+    // document anyway - that's the point of having the action).
+    action != "append" && action != "replace_selection"
 }
 
 fn needs_text(action: &str) -> bool {
@@ -234,7 +244,7 @@ pub fn builtin_tools(has_skills: bool, has_root: bool) -> Vec<Tool> {
         Tool {
             spec: ToolSpec {
                 name: PROPOSE_EDIT_TOOL_NAME,
-                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once.",
+                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `replace_selection` swaps the user's currently selected text (the <selected-text> block in their message; no `anchor` needed) for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once. `text` must be valid markdown: `-` or `1.` for lists (never `•` or other bullet symbols), `#` for headings.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
