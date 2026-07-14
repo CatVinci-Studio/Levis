@@ -2,8 +2,8 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 
 interface TabInfo {
   id: string;
-  // Display name, computed by App (filename, "Untitled", or the bundled
-  // showcase document's localized title).
+  // Display name, computed by App (filename, "Untitled", or a bundled
+  // Help document's localized title).
   title: string;
   dirty: boolean;
 }

@@ -16,8 +16,10 @@ import { comboFromEvent } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "./utils/events";
 import type { Strings } from "./i18n/strings";
-import showcaseEn from "./help/feature-showcase.en.md?raw";
-import showcaseZh from "./help/feature-showcase.zh.md?raw";
+import markdownGuideEn from "./help/markdown-guide.en.md?raw";
+import markdownGuideZh from "./help/markdown-guide.zh.md?raw";
+import agentGuideEn from "./help/agent-guide.en.md?raw";
+import agentGuideZh from "./help/agent-guide.zh.md?raw";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard";
@@ -59,18 +61,29 @@ interface DocTab {
   savedContent: string;
   sourceMode: boolean;
   reloadKey: number;
-  // The bundled Help > Feature Showcase document: still a pathless draft
-  // (edits never touch disk; Save goes through Save As), but titled after
-  // itself instead of "Untitled", and deduped so Help focuses the existing
-  // tab rather than opening another copy.
-  showcase?: boolean;
+  // A bundled Help menu document: still a pathless draft (edits never touch
+  // disk; Save goes through Save As), but titled after itself instead of
+  // "Untitled", and deduped per doc so Help focuses the existing tab rather
+  // than opening another copy.
+  helpDoc?: HelpDoc;
+}
+
+// Mirrors the doc ids Rust puts in its Help menu ids (lib.rs
+// HELP_DOC_PREFIX) - they arrive here as the menu-open-help payload.
+type HelpDoc = "markdown" | "agent";
+
+function helpDocContent(doc: HelpDoc, lang: string): string {
+  if (doc === "agent") return lang === "zh" ? agentGuideZh : agentGuideEn;
+  return lang === "zh" ? markdownGuideZh : markdownGuideEn;
 }
 
 // A tab's display name everywhere one is shown (tab pill, title strip,
 // detached-drag pill, export default filename).
 function tabTitle(tab: DocTab, t: Strings): string {
   if (tab.path) return basename(tab.path);
-  return tab.showcase ? t.showcaseTab : t.untitledTab;
+  if (tab.helpDoc === "markdown") return t.markdownGuideTab;
+  if (tab.helpDoc === "agent") return t.agentGuideTab;
+  return t.untitledTab;
 }
 
 function makeBlankTab(): DocTab {
@@ -223,20 +236,23 @@ function App() {
     setActiveTabId(blank.id);
   }, []);
 
-  // Help > Feature Showcase: the bundled demo document (per UI language),
-  // opened as a clean pathless draft - play with it freely, close without
-  // saving. savedContent === content so it starts non-dirty.
-  const openShowcaseTab = useCallback(() => {
-    const existing = tabsRef.current.find((tab) => tab.showcase);
-    if (existing) {
-      setActiveTabId(existing.id);
-      return;
-    }
-    const content = settings.language === "zh" ? showcaseZh : showcaseEn;
-    const tab = { ...makeBlankTab(), content, savedContent: content, showcase: true };
-    setTabs((prev) => [...prev, tab]);
-    setActiveTabId(tab.id);
-  }, [settings.language]);
+  // Help menu docs (Markdown Guide / AI Agent Guide): bundled documents (per
+  // UI language), opened as clean pathless drafts - play with them freely,
+  // close without saving. savedContent === content so they start non-dirty.
+  const openHelpTab = useCallback(
+    (doc: HelpDoc) => {
+      const existing = tabsRef.current.find((tab) => tab.helpDoc === doc);
+      if (existing) {
+        setActiveTabId(existing.id);
+        return;
+      }
+      const content = helpDocContent(doc, settings.language);
+      const tab = { ...makeBlankTab(), content, savedContent: content, helpDoc: doc };
+      setTabs((prev) => [...prev, tab]);
+      setActiveTabId(tab.id);
+    },
+    [settings.language],
+  );
 
   const handleChange = useCallback(
     (tabId: string, markdown: string) => {
@@ -588,12 +604,13 @@ function App() {
         updateTab(activeTabId, detached);
         return;
       }
-      // Help > Feature Showcase clicked with no window open: this window
-      // was spawned to show it, so the bundled document rides the blank
+      // A Help menu doc clicked with no window open: this window was
+      // spawned to show it, so the bundled document rides the blank
       // initial tab instead of opening next to it.
-      if (await invoke<boolean | null>("take_pending_show_help")) {
-        const content = settings.language === "zh" ? showcaseZh : showcaseEn;
-        updateTab(activeTabId, { content, savedContent: content, showcase: true });
+      const helpDoc = await invoke<string | null>("take_pending_show_help");
+      if (helpDoc === "markdown" || helpDoc === "agent") {
+        const content = helpDocContent(helpDoc, settings.language);
+        updateTab(activeTabId, { content, savedContent: content, helpDoc });
         return;
       }
       if (settings.newDocumentMode === "tab") {
@@ -721,7 +738,9 @@ function App() {
       setSettings({ typewriterMode: !settings.typewriterMode }),
     );
     const unlistenSidebar = listen("menu-toggle-sidebar", () => setPanelOpen((v) => !v));
-    const unlistenHelp = listen("menu-open-help", () => openShowcaseTab());
+    const unlistenHelp = listen<string>("menu-open-help", (event) => {
+      if (event.payload === "markdown" || event.payload === "agent") openHelpTab(event.payload);
+    });
     return () => {
       void unlistenSettings.then((f) => f());
       void unlistenNewFile.then((f) => f());
@@ -736,7 +755,7 @@ function App() {
       void unlistenSidebar.then((f) => f());
       void unlistenHelp.then((f) => f());
     };
-  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, openShowcaseTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);
+  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, openHelpTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);
 
   const closeSaving = useCallback(async () => {
     const tabId = closePromptTabId;

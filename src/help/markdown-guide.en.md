@@ -1,4 +1,4 @@
-# Levis Feature Showcase
+# Levis Markdown Guide
 
 Welcome! This built-in document demonstrates the Markdown rendering Levis supports. It is just an unsaved draft — feel free to edit and experiment, then close it without saving.
 
