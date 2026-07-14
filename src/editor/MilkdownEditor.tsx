@@ -25,6 +25,8 @@ import {
   deleteColumn,
   deleteTable,
   setCellAttr,
+  CellSelection,
+  selectionCell,
 } from "@milkdown/kit/prose/tables";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
@@ -139,6 +141,33 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     });
   }
 
+  // Grows the selection to the whole row/column of the current cell - both
+  // as its own menu action and as the first step of column alignment.
+  function selectTableLine(kind: "row" | "column") {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const $cell = selectionCell(view.state);
+      if (!$cell) return;
+      const selection = kind === "row" ? CellSelection.rowSelection($cell) : CellSelection.colSelection($cell);
+      view.dispatch(view.state.tr.setSelection(selection));
+      view.focus();
+    });
+  }
+
+  // Markdown table alignment is a per-COLUMN property (the `:---:` marker
+  // row), so aligning just the clicked cell serialized to something other
+  // than what the editor showed - align the whole column instead.
+  function alignTableColumn(alignment: "left" | "center" | "right") {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const $cell = selectionCell(view.state);
+      if (!$cell) return;
+      view.dispatch(view.state.tr.setSelection(CellSelection.colSelection($cell)));
+      setCellAttr("alignment", alignment)(view.state, view.dispatch);
+      view.focus();
+    });
+  }
+
   // CmdKey<any>: the preset command keys vary in payload type (some
   // unknown, some undefined) and all are called here without a payload.
   function runCommand(key: CmdKey<any>) {
@@ -209,9 +238,12 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     return [
       ...clipboardItems,
       "separator",
-      { label: t.alignLeft, onSelect: () => runTableCommand(setCellAttr("alignment", "left")) },
-      { label: t.alignCenter, onSelect: () => runTableCommand(setCellAttr("alignment", "center")) },
-      { label: t.alignRight, onSelect: () => runTableCommand(setCellAttr("alignment", "right")) },
+      { label: t.alignLeft, onSelect: () => alignTableColumn("left") },
+      { label: t.alignCenter, onSelect: () => alignTableColumn("center") },
+      { label: t.alignRight, onSelect: () => alignTableColumn("right") },
+      "separator",
+      { label: t.selectRow, onSelect: () => selectTableLine("row") },
+      { label: t.selectColumn, onSelect: () => selectTableLine("column") },
       "separator",
       { label: t.insertRowAbove, onSelect: () => runTableCommand(addRowBefore) },
       { label: t.insertRowBelow, onSelect: () => runTableCommand(addRowAfter) },
