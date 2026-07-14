@@ -16,12 +16,14 @@ export interface GrammarPopoverInfo {
 interface GrammarPopoverProps {
   info: GrammarPopoverInfo;
   applyLabel: string;
+  /** Why the last Apply click did nothing (stale text) - shown in place of the button. */
+  error: string | null;
   onApply: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
 
-export function GrammarPopover({ info, applyLabel, onApply, onMouseEnter, onMouseLeave }: GrammarPopoverProps) {
+export function GrammarPopover({ info, applyLabel, error, onApply, onMouseEnter, onMouseLeave }: GrammarPopoverProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(rootRef, info.x, info.y);
   return (
@@ -34,9 +36,13 @@ export function GrammarPopover({ info, applyLabel, onApply, onMouseEnter, onMous
     >
       <div className="grammar-popover-issue">{info.issue}</div>
       <div className="grammar-popover-suggestion">{info.suggestion}</div>
-      <button className="grammar-popover-apply" onClick={onApply}>
-        {applyLabel}
-      </button>
+      {error ? (
+        <div className="grammar-popover-error">{error}</div>
+      ) : (
+        <button className="grammar-popover-apply" onClick={onApply}>
+          {applyLabel}
+        </button>
+      )}
     </div>
   );
 }

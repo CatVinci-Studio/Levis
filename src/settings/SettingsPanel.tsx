@@ -9,6 +9,7 @@ import {
   COMPLETION_TONES,
   type AiProvider,
   type CompletionTone,
+  type GrammarStrictness,
   type NewDocumentMode,
   type ProxyType,
   type ShortcutAction,
@@ -233,6 +234,22 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   checked={settings.enableGrammarCheck}
                   onChange={(v) => setSettings({ enableGrammarCheck: v })}
                 />
+                {settings.enableGrammarCheck && (
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-row-label">{t.grammarStrictnessLabel}</div>
+                      <div className="settings-row-hint">{t.grammarStrictnessHint}</div>
+                    </div>
+                    <select
+                      value={settings.grammarStrictness}
+                      onChange={(e) => setSettings({ grammarStrictness: e.target.value as GrammarStrictness })}
+                    >
+                      <option value="typos">{t.grammarStrictnessTypos}</option>
+                      <option value="standard">{t.grammarStrictnessStandard}</option>
+                      <option value="strict">{t.grammarStrictnessStrict}</option>
+                    </select>
+                  </div>
+                )}
               </>
             )}
 

@@ -30,7 +30,8 @@ export function useAiActions(run: EditorRunner, getSettings: () => Settings): Ai
   const triggerGrammarCheck = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      triggerGrammarCheckNow(view, getSettings().aiProvider).catch((err) => alert(String(err?.message ?? err)));
+      const { aiProvider, grammarStrictness } = getSettings();
+      triggerGrammarCheckNow(view, aiProvider, grammarStrictness).catch((err) => alert(String(err?.message ?? err)));
     });
   }, [run, getSettings]);
 

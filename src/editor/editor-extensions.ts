@@ -127,6 +127,7 @@ export function withEditorExtensions(
         createGrammarCheckPlugin({
           enabled: () => settings.current.enableGrammarCheck,
           provider: () => settings.current.aiProvider,
+          strictness: () => settings.current.grammarStrictness,
         }),
       )
   );

@@ -30,3 +30,8 @@
 .grammar-popover-apply:hover {
   opacity: 0.9;
 }
+
+.grammar-popover-error {
+  font-size: 12px;
+  color: var(--danger, #dc2626);
+}

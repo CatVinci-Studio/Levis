@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState, type MouseEvent } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
+import type { Decoration } from "@milkdown/kit/prose/view";
 import { grammarKey, type GrammarDecorationSpec } from "./grammar-check-plugin";
+import { findUniqueTextRange } from "./doc-text";
 import type { GrammarPopoverInfo } from "./GrammarPopover";
 import type { EditorRunner } from "../editor/useEditorRunner";
 
@@ -10,8 +12,9 @@ import type { EditorRunner } from "../editor/useEditorRunner";
  * hides it on a short delay so the pointer can travel into the popover
  * itself (cancelHide keeps it open while hovered).
  */
-export function useGrammarPopover(run: EditorRunner) {
+export function useGrammarPopover(run: EditorRunner, getStaleMessage: () => string) {
   const [popover, setPopover] = useState<GrammarPopoverInfo | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const onMouseOver = useCallback(
@@ -28,6 +31,7 @@ export function useGrammarPopover(run: EditorRunner) {
         if (!deco) return;
         const spec = deco.spec as GrammarDecorationSpec;
         const rect = target.getBoundingClientRect();
+        setApplyError(null);
         setPopover({
           x: rect.left,
           y: rect.bottom + 6,
@@ -54,25 +58,51 @@ export function useGrammarPopover(run: EditorRunner) {
     if (hideTimer.current) clearTimeout(hideTimer.current);
   }, []);
 
-  const hide = useCallback(() => setPopover(null), []);
+  const hide = useCallback(() => {
+    setPopover(null);
+    setApplyError(null);
+  }, []);
 
   const applyFix = useCallback(() => {
     if (!popover) return;
-    const { from, to, suggestion, original } = popover;
+    const { suggestion, original } = popover;
+    let applied = false;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
+      const { state } = view;
+
+      // The hover-time from/to go stale the moment the document is edited,
+      // so re-resolve the target now. First choice: the live decoration for
+      // this issue - the plugin maps decorations through edits and drops the
+      // ones whose text changed, so a surviving one is trustworthy.
+      const live = (grammarKey.getState(state)?.find() ?? []).find((deco: Decoration) => {
+        const spec = deco.spec as GrammarDecorationSpec;
+        return spec.original === original && spec.suggestion === suggestion;
+      });
+      let range = live ? { from: live.from, to: live.to } : null;
+
+      // No live decoration (e.g. it was cleared with the whole set) - the
+      // text itself is still a valid target if it occurs exactly once.
+      if (!range && original) range = findUniqueTextRange(state.doc, original);
+
       // Last line of defense against replacing the wrong text: the range
-      // must still say exactly what the model was fixing (decorations map
-      // through edits, but a mapped-astray range would otherwise duplicate
-      // or clobber text on apply).
-      if (original !== undefined && view.state.doc.textBetween(from, to) !== original) {
+      // must still say exactly what the model was fixing.
+      if (!range || (original !== undefined && state.doc.textBetween(range.from, range.to) !== original)) {
         return;
       }
-      view.dispatch(view.state.tr.insertText(suggestion, from, to));
+      view.dispatch(state.tr.insertText(suggestion, range.from, range.to));
       view.focus();
+      applied = true;
     });
-    setPopover(null);
-  }, [popover, run]);
+    if (applied) {
+      setPopover(null);
+      setApplyError(null);
+    } else {
+      // Leave the popover up with an explanation - a silently dead Apply
+      // button reads as a broken feature.
+      setApplyError(getStaleMessage());
+    }
+  }, [popover, run, getStaleMessage]);
 
-  return { popover, onMouseOver, onMouseOut, cancelHide, hide, applyFix };
+  return { popover, applyError, onMouseOver, onMouseOut, cancelHide, hide, applyFix };
 }

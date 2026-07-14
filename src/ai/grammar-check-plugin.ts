@@ -42,7 +42,7 @@ function paragraphUnchanged(view: EditorView, contentStart: number, text: string
 /// manual "trigger grammar check" entry points (e.g. a context menu item).
 /// Unlike the silent auto-trigger path, this throws on failure so the caller
 /// can surface the error to the user.
-export async function triggerGrammarCheckNow(view: EditorView, provider: string): Promise<void> {
+export async function triggerGrammarCheckNow(view: EditorView, provider: string, strictness: string): Promise<void> {
   const { $from } = view.state.selection;
   const para = $from.parent;
   if (!para.isTextblock) throw new Error("Place the cursor in a paragraph first.");
@@ -51,7 +51,7 @@ export async function triggerGrammarCheckNow(view: EditorView, provider: string)
   if (!text.trim()) throw new Error("This paragraph is empty.");
 
   const contentStart = $from.start($from.depth);
-  const issues = await invoke<GrammarIssue[]>("ai_grammar_check", { provider, paragraph: text });
+  const issues = await invoke<GrammarIssue[]>("ai_grammar_check", { provider, paragraph: text, strictness });
   if (!paragraphUnchanged(view, contentStart, text)) {
     throw new Error("The paragraph changed while checking - try again.");
   }
@@ -78,7 +78,13 @@ export interface GrammarDecorationSpec {
 function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentStart: number): Decoration[] {
   const text = para.textContent;
   const decorations: Decoration[] = [];
-  for (const issue of issues) {
+  // Left-to-right with overlaps dropped: stacked highlights on the same text
+  // render as one visual range whose hover popover only ever shows found[0],
+  // so the extra issues would be unreachable noise anyway.
+  const ordered = [...issues].sort((a, b) => a.start - b.start);
+  let lastEnd = -1;
+  for (const issue of ordered) {
+    if (issue.start < lastEnd) continue;
     // Backend offsets count Unicode scalars; JS strings (and ProseMirror
     // text offsets) count UTF-16 units.
     const start16 = scalarToUtf16Offset(text, issue.start);
@@ -87,6 +93,7 @@ function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentSta
     const from = textOffsetToDocPos(para, contentStart, start16);
     const to = textOffsetToDocPos(para, contentStart, end16);
     if (from === null || to === null || from >= to) continue; // range the model made up - drop it
+    lastEnd = issue.end;
     decorations.push(
       Decoration.inline(
         from,
@@ -99,7 +106,11 @@ function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentSta
   return decorations;
 }
 
-export function createGrammarCheckPlugin(options: { enabled: () => boolean; provider: () => string }) {
+export function createGrammarCheckPlugin(options: {
+  enabled: () => boolean;
+  provider: () => string;
+  strictness: () => string;
+}) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
 
   return $prose(
@@ -153,6 +164,7 @@ export function createGrammarCheckPlugin(options: { enabled: () => boolean; prov
                   issues = await invoke<GrammarIssue[]>("ai_grammar_check", {
                     provider: options.provider(),
                     paragraph: text,
+                    strictness: options.strictness(),
                   });
                 } catch (err) {
                   // Not logged in, offline, or bad model output - stays quiet in

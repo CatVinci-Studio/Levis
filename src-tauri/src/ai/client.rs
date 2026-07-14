@@ -95,7 +95,17 @@ pub async fn ai_complete(
     call(&app, &provider, instructions, user_text).await
 }
 
-const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Find grammar mistakes, typos, or awkward phrasing. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. `suggestion` replaces `original` exactly - it must not repeat surrounding text that is outside the span. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
+const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"context\": \"the span plus a few words of surrounding paragraph text on each side, copied verbatim - REQUIRED whenever the span's text occurs more than once in the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. `suggestion` replaces `original` exactly - it must not repeat surrounding text that is outside the span. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
+
+/// The scope limit appended per strictness level - what the check is allowed
+/// to report. Unknown/absent values fall back to "standard".
+fn strictness_instructions(strictness: Option<&str>) -> &'static str {
+    match strictness {
+        Some("typos") => "Scope: report ONLY unambiguous typos, misspellings and wrong characters you are certain about. Do not report grammar, phrasing or style.",
+        Some("strict") => "Scope: report typos, grammar mistakes, and additionally redundancy, ambiguity and unclear phrasing worth tightening.",
+        _ => "Scope: report typos and clear grammar mistakes. Do not report stylistic preferences or optional rephrasing.",
+    }
+}
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GrammarIssue {
@@ -109,6 +119,11 @@ pub struct GrammarIssue {
     /// and what the frontend re-verifies at apply time.
     #[serde(default)]
     original: Option<String>,
+    /// The span plus a little verbatim surrounding text - disambiguates
+    /// which occurrence is meant when `original` repeats in the paragraph.
+    /// Never sent to the frontend; only used to repair offsets here.
+    #[serde(default, skip_serializing)]
+    context: Option<String>,
 }
 
 fn extract_json_array(text: &str) -> Option<&str> {
@@ -136,6 +151,26 @@ fn unique_char_range(haystack: &str, needle: &str) -> Option<(usize, usize)> {
     Some((start, start + needle.chars().count()))
 }
 
+/// Char range of `needle` located through `context`: the context must occur
+/// exactly once in the paragraph and contain the needle - that pins down
+/// which occurrence of a repeated span the model meant.
+fn context_char_range(haystack: &str, needle: &str, context: &str) -> Option<(usize, usize)> {
+    if needle.is_empty() || context.len() <= needle.len() {
+        return None;
+    }
+    let (context_start, _) = {
+        let mut it = haystack.match_indices(context);
+        let first = it.next()?;
+        if it.next().is_some() {
+            return None;
+        }
+        first
+    };
+    let byte_start = context_start + context.find(needle)?;
+    let start = haystack[..byte_start].chars().count();
+    Some((start, start + needle.chars().count()))
+}
+
 /// Keeps only issues whose span is verifiably correct: the model's `original`
 /// quote is the ground truth. Offsets that disagree with the quote are
 /// repaired by relocating the quote (applying a fix with a misplaced span is
@@ -152,7 +187,13 @@ fn validate_issues(issues: Vec<GrammarIssue>, paragraph: &str) -> Vec<GrammarIss
             match (&issue.original, span) {
                 (Some(original), Some(span)) if *original == span => Some(issue),
                 (Some(original), _) => {
-                    let (start, end) = unique_char_range(paragraph, original)?;
+                    // Offsets disagree with the quote - relocate the quote,
+                    // falling back to the model's `context` when the quote
+                    // alone is ambiguous (repeated text).
+                    let (start, end) = unique_char_range(paragraph, original).or_else(|| {
+                        let context = issue.context.as_deref()?;
+                        context_char_range(paragraph, original, context)
+                    })?;
                     issue.start = start;
                     issue.end = end;
                     Some(issue)
@@ -170,8 +211,17 @@ fn validate_issues(issues: Vec<GrammarIssue>, paragraph: &str) -> Vec<GrammarIss
 }
 
 #[tauri::command]
-pub async fn ai_grammar_check(app: AppHandle, provider: String, paragraph: String) -> Result<Vec<GrammarIssue>, String> {
-    let raw = call(&app, &provider, GRAMMAR_INSTRUCTIONS.to_string(), paragraph.clone()).await?;
+pub async fn ai_grammar_check(
+    app: AppHandle,
+    provider: String,
+    paragraph: String,
+    strictness: Option<String>,
+) -> Result<Vec<GrammarIssue>, String> {
+    let instructions = format!(
+        "{GRAMMAR_INSTRUCTIONS}\n\n{}",
+        strictness_instructions(strictness.as_deref())
+    );
+    let raw = call(&app, &provider, instructions, paragraph.clone()).await?;
     let json_slice = extract_json_array(&raw).ok_or_else(|| "no JSON array in model response".to_string())?;
     let issues: Vec<GrammarIssue> = serde_json::from_str(json_slice).map_err(|e| e.to_string())?;
     Ok(validate_issues(issues, &paragraph))
@@ -188,6 +238,7 @@ mod tests {
             issue: "test".to_string(),
             suggestion: "x".to_string(),
             original: original.map(|s| s.to_string()),
+            context: None,
         }
     }
 
@@ -213,6 +264,25 @@ mod tests {
         // unambiguously (or at all) - nothing trustworthy to apply.
         assert!(validate_issues(vec![issue(1, 3, Some("ab"))], "ab ab").is_empty());
         assert!(validate_issues(vec![issue(0, 2, Some("zz"))], "abcdef").is_empty());
+    }
+
+    #[test]
+    fn context_disambiguates_repeated_span() {
+        // Offsets disagree with the quote and the quote appears twice; the
+        // model's context pins the second occurrence.
+        let mut with_context = issue(1, 3, Some("ab"));
+        with_context.context = Some("cd ab ef".to_string());
+        let out = validate_issues(vec![with_context], "ab cd ab ef");
+        assert_eq!(out.len(), 1);
+        assert_eq!((out[0].start, out[0].end), (6, 8));
+    }
+
+    #[test]
+    fn ambiguous_context_is_dropped() {
+        // The context itself repeats too - still nothing trustworthy.
+        let mut with_context = issue(1, 3, Some("ab"));
+        with_context.context = Some("ab cd".to_string());
+        assert!(validate_issues(vec![with_context], "ab cd ab cd").is_empty());
     }
 
     #[test]

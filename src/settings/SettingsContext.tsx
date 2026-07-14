@@ -46,6 +46,10 @@ export type CompletionTone = "default" | "formal" | "casual" | "academic" | "con
 
 export const COMPLETION_TONES: CompletionTone[] = ["default", "formal", "casual", "academic", "concise"];
 
+export type GrammarStrictness = "typos" | "standard" | "strict";
+
+export const GRAMMAR_STRICTNESS_LEVELS: GrammarStrictness[] = ["typos", "standard", "strict"];
+
 /// A user-imported (Typora-style) theme. The actual CSS lives on disk under
 /// the app's theme directory (see ../utils/theme-import and the Rust
 /// save_theme_css/load_theme_css commands) - only small metadata is kept
@@ -61,6 +65,9 @@ export interface Settings {
   theme: ThemeMode;
   enableCompletion: boolean;
   enableGrammarCheck: boolean;
+  /// How aggressive the grammar check is - from confident typos only up to
+  /// style and clarity nits. Sent with every ai_grammar_check request.
+  grammarStrictness: GrammarStrictness;
   enableAskAi: boolean;
   enableMath: boolean;
   enableMermaid: boolean;
@@ -94,6 +101,7 @@ const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   enableCompletion: true,
   enableGrammarCheck: true,
+  grammarStrictness: "standard",
   enableAskAi: true,
   enableMath: true,
   enableMermaid: true,

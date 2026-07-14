@@ -99,7 +99,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   // Owned here, not by the chat bar, so closing/reopening the bar continues
   // the same conversation ("New chat" inside the bar is what clears it).
   const conversation = useAgentConversation(filePath, settings.aiProvider, settings.enableWebSearch);
-  const grammar = useGrammarPopover(run);
+  const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
 
   // Shortcuts respect the same feature toggles as the context menu items -
   // a feature turned off in Settings is off through every entry point.
@@ -232,6 +232,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
         <GrammarPopover
           info={grammar.popover}
           applyLabel={t.grammarApply}
+          error={grammar.applyError}
           onApply={grammar.applyFix}
           onMouseEnter={grammar.cancelHide}
           onMouseLeave={grammar.hide}
