@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useAgentConversation } from "./useAgentConversation";
+import type { AgentConversation } from "./useAgentConversation";
+import { listConversations, type ChatHistoryEntry } from "./chat-history";
 import { AgentTurnView } from "./AgentTurnView";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
@@ -13,6 +14,11 @@ export interface InlineChatLabels {
   placeholder: string;
   send: string;
   thinking: string;
+  /** The button that clears the persisted conversation and starts fresh. */
+  newChat: string;
+  /** Tooltip of the history button; the list restores past conversations. */
+  history: string;
+  historyEmpty: string;
   /** Tooltip of the "+" attach-file button. */
   attachFile: string;
   selectionHint: string;
@@ -33,8 +39,8 @@ interface InlineChatBarProps {
   selectedText: string | null;
   /** The document's path - resolves the agent workspace (skills, files). */
   docPath: string | null;
-  provider: string;
-  webSearch: boolean;
+  /** Conversation state owned by the editor, so it survives the bar closing. */
+  conversation: AgentConversation;
   labels: InlineChatLabels;
   /** Writes an AI reply into the document; returns an error string to show, or null on success. */
   onApply: (text: string, target: ApplyTarget) => string | null;
@@ -100,8 +106,7 @@ export function InlineChatBar({
   document,
   selectedText,
   docPath,
-  provider,
-  webSearch,
+  conversation,
   labels,
   onApply,
   onApplyProposal,
@@ -113,7 +118,10 @@ export function InlineChatBar({
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedProposals, setAppliedProposals] = useState<ReadonlySet<string>>(new Set());
-  const { history, busy, error, send } = useAgentConversation(document, docPath, provider, webSearch);
+  const { history, busy, error, send, reset, restore } = conversation;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Read fresh on each open - other windows/tabs may have chatted meanwhile.
+  const pastConversations = historyOpen ? listConversations() : [];
 
   // Skills come from the agent workspace on disk (global dir + the document
   // folder's .levis/skills). Loaded fresh each time the chat opens, so
@@ -140,7 +148,24 @@ export function InlineChatBar({
   }
   const rootRef = useCloseOnOutsideClick<HTMLDivElement>(onClose);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const pos = useViewportClamp(rootRef, x, y);
+
+  // The input grows with its content (Shift+Enter newlines) up to the CSS
+  // max-height, then scrolls - a fixed single row just scrolled horizontally
+  // out of view.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
+
+  // Reopening with a persisted conversation should land at its latest
+  // exchange, not its beginning.
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+  }, []);
 
   // Skill picker: open while the input is a single /token still being typed
   // (no space yet), filtered by that prefix. Purely derived from the input,
@@ -188,7 +213,7 @@ export function InlineChatBar({
       .map((f) => `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`)
       .join("\n\n");
     setAttachments([]);
-    await send(attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged);
+    await send(document, attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged);
     requestAnimationFrame(() => {
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     });
@@ -199,6 +224,24 @@ export function InlineChatBar({
     const err = onApply(extractReplacement(lastReply.text), target);
     if (err) setApplyError(err);
     else onClose();
+  }
+
+  function startNewChat() {
+    reset();
+    setAppliedProposals(new Set());
+    setApplyError(null);
+    inputRef.current?.focus();
+  }
+
+  function restoreConversation(entry: ChatHistoryEntry) {
+    restore(entry);
+    setAppliedProposals(new Set());
+    setApplyError(null);
+    setHistoryOpen(false);
+    inputRef.current?.focus();
+    requestAnimationFrame(() => {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    });
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -255,7 +298,15 @@ export function InlineChatBar({
           <button className="inline-chat-attach" title={labels.attachFile} onClick={attachFile}>
             +
           </button>
+          <button
+            className={`inline-chat-attach ${historyOpen ? "inline-chat-attach-active" : ""}`}
+            title={labels.history}
+            onClick={() => setHistoryOpen((open) => !open)}
+          >
+            🕘
+          </button>
           <textarea
+            ref={inputRef}
             className="inline-chat-input"
             rows={1}
             placeholder={labels.placeholder}
@@ -272,6 +323,30 @@ export function InlineChatBar({
           </button>
         </div>
       </div>
+      {historyOpen && (
+        <div className="inline-chat-skill-menu floating-surface">
+          {pastConversations.length === 0 && (
+            <div className="inline-chat-history-empty">{labels.historyEmpty}</div>
+          )}
+          {pastConversations.map((entry) => (
+            <button
+              key={entry.id}
+              className="inline-chat-skill-item"
+              // mousedown, not click: keeps focus in the textarea.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                restoreConversation(entry);
+              }}
+            >
+              <span className="inline-chat-history-title">{entry.title || "…"}</span>
+              <span className="inline-chat-skill-preview">
+                {new Date(entry.updatedAt).toLocaleString()}
+                {entry.docPath ? ` · ${entry.docPath.split("/").pop()}` : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       {matchingSkills.length > 0 && (
         <div className="inline-chat-skill-menu floating-surface">
           {matchingSkills.map((skill, i) => (
@@ -292,6 +367,13 @@ export function InlineChatBar({
       )}
       {(history.length > 0 || busy || error) && (
         <div className="inline-chat-messages floating-surface" ref={listRef}>
+          {history.length > 0 && (
+            <div className="inline-chat-messages-header">
+              <button className="inline-chat-newchat" onClick={startNewChat}>
+                {labels.newChat}
+              </button>
+            </div>
+          )}
           {history.map((turn, i) => {
             if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
               const proposal = parseProposal(turn.arguments);

@@ -35,6 +35,7 @@ import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
+import { useAgentConversation } from "../ai/useAgentConversation";
 import { useInlineChat } from "../ai/useInlineChat";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
@@ -93,6 +94,9 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     applyStale: t.agentApplyStale,
     proposalFailed: t.agentProposalFailed,
   }));
+  // Owned here, not by the chat bar, so closing/reopening the bar continues
+  // the same conversation ("New chat" inside the bar is what clears it).
+  const conversation = useAgentConversation(filePath, settings.aiProvider, settings.enableWebSearch);
   const grammar = useGrammarPopover(run);
 
   // Shortcuts respect the same feature toggles as the context menu items -
@@ -225,12 +229,14 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
           document={inlineChat.chatInfo.document}
           selectedText={inlineChat.chatInfo.selectedText}
           docPath={filePath}
-          provider={settingsRef.current.aiProvider}
-          webSearch={settingsRef.current.enableWebSearch}
+          conversation={conversation}
           labels={{
             placeholder: t.agentInputPlaceholder,
             send: t.agentSend,
             thinking: t.agentThinking,
+            newChat: t.agentNewChat,
+            history: t.agentHistory,
+            historyEmpty: t.agentHistoryEmpty,
             attachFile: t.agentAttachFile,
             selectionHint: t.inlineChatSelectionHint,
             replaceSelection: t.agentReplaceSelection,

@@ -16,9 +16,12 @@
   padding: 6px;
 }
 
+/* flex-end, not center: the input grows with multi-line content (see the
+   auto-resize effect in InlineChatBar.tsx), and the buttons should stay
+   anchored next to the last line, like every multi-line chat input. */
 .inline-chat-input-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
 }
 
@@ -44,9 +47,25 @@
   line-height: 1;
 }
 
-.inline-chat-attach:hover {
+.inline-chat-attach:hover,
+.inline-chat-attach-active {
   background: var(--editor-border);
   color: var(--editor-text);
+}
+
+/* History entries reuse the skill-item row; only their text parts differ. */
+.inline-chat-history-title {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-chat-history-empty {
+  font-size: 12px;
+  color: var(--editor-muted);
+  padding: 5px 8px;
 }
 
 .inline-chat-attachments {
@@ -128,7 +147,11 @@
   color: var(--editor-text);
   font: inherit;
   font-size: 13px;
+  line-height: 1.5;
   padding: 4px 6px;
+  /* Grows with content via the auto-resize effect, up to ~6 lines. */
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .inline-chat-send {
@@ -155,6 +178,36 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* Slim sticky strip at the top of the history: the conversation persists
+   across close/reopen now, so this is where a fresh one starts. Negative
+   margins cancel the panel's padding so the strip hugs its edges; inherited
+   background keeps scrolled messages from showing through it. */
+.inline-chat-messages-header {
+  position: sticky;
+  top: -8px;
+  margin: -8px -10px -2px;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: flex-end;
+  background: inherit;
+  z-index: 1;
+}
+
+.inline-chat-newchat {
+  border: none;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.inline-chat-newchat:hover {
+  background: var(--editor-border);
+  color: var(--editor-text);
 }
 
 /* The confirmation step for AI edits: apply buttons under the latest reply.
