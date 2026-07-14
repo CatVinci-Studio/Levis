@@ -91,13 +91,31 @@ fn parse_skill_file(file_stem: &str, content: &str) -> AgentSkill {
     }
 }
 
+/// Strips `<!-- -->` comments from agent.md content before it goes anywhere
+/// near a prompt: the starter template is written entirely in comments, and
+/// users get a natural way to annotate their instructions. An unterminated
+/// comment swallows the rest of the file, matching how HTML would parse it.
+fn strip_html_comments(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find("<!--") {
+        out.push_str(&rest[..start]);
+        match rest[start..].find("-->") {
+            Some(end) => rest = &rest[start + end + 3..],
+            None => return out,
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Reads one layer (global dir or a workspace's .levis dir): its agent.md
 /// and every skill under skills/. Missing files/dirs are just empty layers,
 /// never errors - most folders won't have any configuration.
 fn read_layer(dir: &Path) -> (Option<String>, Vec<AgentSkill>) {
     let instructions = std::fs::read_to_string(dir.join("agent.md"))
         .ok()
-        .map(|s| s.trim().to_string())
+        .map(|s| strip_html_comments(&s).trim().to_string())
         .filter(|s| !s.is_empty());
 
     let mut skills = Vec::new();
@@ -164,30 +182,149 @@ pub async fn load_agent_workspace(app: AppHandle, doc_path: Option<String>) -> A
 /// folder on first use) and reveals it in the file manager - the Settings
 /// "open folder" button.
 #[tauri::command]
-pub async fn open_global_agent_dir(app: AppHandle) -> Result<(), String> {
+pub async fn open_global_agent_dir(app: AppHandle, lang: Option<String>) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
 
-    let dir = global_agent_dir(&app)?;
-    let skills = dir.join("skills");
-    std::fs::create_dir_all(&skills).map_err(|e| e.to_string())?;
-
-    let agent_md = dir.join("agent.md");
-    if !agent_md.exists() {
-        std::fs::write(
-            &agent_md,
-            "<!-- Instructions here are added to every AI chat (all documents). -->\n",
-        )
-        .map_err(|e| e.to_string())?;
-    }
-
+    let dir = ensure_global_layer(&app, lang.as_deref())?;
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|e| e.to_string())
 }
 
+/// Creates the global agent dir if needed (skills/ folder plus a starter
+/// agent.md, same shape `open_global_agent_dir` guarantees) and returns the
+/// agent.md path. Backs the Settings "edit system prompt" button, which
+/// opens that file in the editor itself - Levis IS a markdown editor, so
+/// there's no bespoke textarea for it.
+#[tauri::command]
+pub fn ensure_global_agent_md(app: AppHandle, lang: Option<String>) -> Result<String, String> {
+    Ok(ensure_global_layer(&app, lang.as_deref())?
+        .join("agent.md")
+        .to_string_lossy()
+        .to_string())
+}
+
+/// The starter agent.md: a how-to written entirely in HTML comments, which
+/// `read_layer` strips before anything reaches the model - so the template
+/// teaches without polluting the system prompt, and users can keep using
+/// comments to annotate their own instructions. One per UI language; the
+/// frontend passes its language setting along (Rust can't read it itself).
+const AGENT_MD_TEMPLATE_EN: &str = "\
+<!--
+This file customizes the AI chat agent (Settings > Agent).
+
+Everything OUTSIDE comment blocks like this one is added to every
+conversation's system prompt, for all documents. Comments are stripped
+and never sent to the model, so this guide is safe to keep.
+
+Things worth writing here:
+
+  Style        e.g.  Prefer short sentences. Avoid business jargon.
+  Language     e.g.  Always reply in Chinese.
+  Terminology  e.g.  The product is spelled \"Levis\", never \"levis\".
+  Background   e.g.  I am writing a sci-fi novel; the narrator is Mira.
+
+Per-project instructions: put a .levis/agent.md next to your documents -
+it is layered on top of this global file for those documents only.
+Reusable skills go in skills/*.md (invoked with /name in the chat).
+-->
+";
+
+const AGENT_MD_TEMPLATE_ZH: &str = "\
+<!--
+这个文件用于定制 AI 对话 Agent（设置 > Agent）。
+
+写在注释块（比如这一段）之外的所有内容，都会加入每次对话的系统
+提示词，对所有文档生效。注释会被剥离、永远不会发给模型，所以这
+份说明可以一直留着。
+
+适合写在这里的内容：
+
+  文风    例如：多用短句，避免商业行话。
+  语言    例如：始终用中文回复。
+  术语    例如：产品名写作 “Levis”，不要写成 “levis”。
+  背景    例如：我在写一部科幻小说，叙述者叫 Mira。
+
+按项目定制：在文档旁边放一个 .levis/agent.md——它会叠加在这份
+全局文件之上，只对那个文件夹里的文档生效。
+可复用的 skill 放在 skills/*.md（在对话里用 /名字 调用）。
+-->
+";
+
+/// Guarantees the global agent dir exists with its starter files; returns
+/// it. `lang` is the frontend's UI language ("zh" or anything else = en),
+/// and only matters the one time the starter template is written.
+fn ensure_global_layer(app: &AppHandle, lang: Option<&str>) -> Result<PathBuf, String> {
+    let dir = global_agent_dir(app)?;
+    std::fs::create_dir_all(dir.join("skills")).map_err(|e| e.to_string())?;
+    let agent_md = dir.join("agent.md");
+    if !agent_md.exists() {
+        let template = if lang == Some("zh") { AGENT_MD_TEMPLATE_ZH } else { AGENT_MD_TEMPLATE_EN };
+        std::fs::write(&agent_md, template).map_err(|e| e.to_string())?;
+    }
+    Ok(dir)
+}
+
+/// Copies a user-picked .md skill file into the global skills folder and
+/// returns the refreshed global skill list (None if the dialog was
+/// cancelled). The file is stored under the skill's resolved name, so
+/// re-importing an updated copy replaces the old one instead of piling up.
+#[tauri::command]
+pub async fn import_agent_skill(app: AppHandle) -> Result<Option<Vec<AgentSkill>>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = {
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            app.dialog().file().add_filter("Markdown", &["md"]).blocking_pick_file()
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    };
+    let Some(src) = picked.map(|p| p.to_string()) else {
+        return Ok(None);
+    };
+
+    let content = std::fs::read_to_string(&src).map_err(|e| e.to_string())?;
+    let stem = Path::new(&src)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("skill")
+        .to_string();
+    let skill = parse_skill_file(&stem, &content);
+    if skill.prompt.is_empty() {
+        return Err("That file has no skill content.".to_string());
+    }
+
+    let global_dir = global_agent_dir(&app)?;
+    let skills_dir = global_dir.join("skills");
+    std::fs::create_dir_all(&skills_dir).map_err(|e| e.to_string())?;
+    std::fs::write(skills_dir.join(format!("{}.md", skill.name)), &content).map_err(|e| e.to_string())?;
+
+    let (_, skills) = read_layer(&global_dir);
+    Ok(Some(skills))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strips_comments_leaving_instructions() {
+        let text = "<!-- how-to guide -->\nReply in Chinese.\n<!-- note to self -->";
+        assert_eq!(strip_html_comments(text).trim(), "Reply in Chinese.");
+    }
+
+    #[test]
+    fn comment_only_templates_yield_nothing() {
+        // The starter templates must contribute zero prompt content.
+        assert!(strip_html_comments(AGENT_MD_TEMPLATE_EN).trim().is_empty());
+        assert!(strip_html_comments(AGENT_MD_TEMPLATE_ZH).trim().is_empty());
+    }
+
+    #[test]
+    fn unterminated_comment_swallows_rest() {
+        assert_eq!(strip_html_comments("keep <!-- open forever"), "keep ");
+    }
 
     #[test]
     fn parses_frontmatter_skill() {

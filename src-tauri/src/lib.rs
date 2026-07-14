@@ -4,7 +4,7 @@ mod auth;
 mod commands;
 
 use ai::agent::ai_agent_message;
-use ai::client::{ai_complete, ai_grammar_check};
+use ai::client::{ai_complete, ai_grammar_check, set_ai_proxy};
 use auth::api_key::{api_key_status, clear_api_key, set_api_key};
 use auth::claude::{claude_auth_status, claude_login, claude_logout};
 use auth::custom_endpoint::{
@@ -910,8 +910,11 @@ pub fn run() {
             ai_complete,
             ai_grammar_check,
             ai_agent_message,
+            set_ai_proxy,
             crate::ai::workspace::load_agent_workspace,
             crate::ai::workspace::open_global_agent_dir,
+            crate::ai::workspace::ensure_global_agent_md,
+            crate::ai::workspace::import_agent_skill,
             pick_attachment_file,
             set_api_key,
             api_key_status,
