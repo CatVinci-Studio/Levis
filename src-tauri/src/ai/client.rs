@@ -63,7 +63,7 @@ pub async fn ai_complete(app: AppHandle, provider: String, context: String) -> R
     call(&app, &provider, COMPLETION_INSTRUCTIONS.to_string(), context).await
 }
 
-const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Find grammar mistakes, typos, or awkward phrasing. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. If there are no issues, respond with exactly: []";
+const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Find grammar mistakes, typos, or awkward phrasing. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. `suggestion` replaces `original` exactly - it must not repeat surrounding text that is outside the span. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GrammarIssue {
@@ -71,6 +71,12 @@ pub struct GrammarIssue {
     end: usize,
     issue: String,
     suggestion: String,
+    /// The span's exact text as the model saw it. Models routinely get char
+    /// offsets wrong (especially in CJK text) while quoting the span itself
+    /// correctly, so this is the ground truth offsets are checked against -
+    /// and what the frontend re-verifies at apply time.
+    #[serde(default)]
+    original: Option<String>,
 }
 
 fn extract_json_array(text: &str) -> Option<&str> {
@@ -82,12 +88,110 @@ fn extract_json_array(text: &str) -> Option<&str> {
     Some(&text[start..=end])
 }
 
+/// Char range (in Unicode scalar values) of `needle` in `haystack`, but only
+/// when it occurs exactly once - an ambiguous match can't be trusted to be
+/// the span the model meant.
+fn unique_char_range(haystack: &str, needle: &str) -> Option<(usize, usize)> {
+    if needle.is_empty() {
+        return None;
+    }
+    let mut it = haystack.match_indices(needle);
+    let (byte_start, _) = it.next()?;
+    if it.next().is_some() {
+        return None;
+    }
+    let start = haystack[..byte_start].chars().count();
+    Some((start, start + needle.chars().count()))
+}
+
+/// Keeps only issues whose span is verifiably correct: the model's `original`
+/// quote is the ground truth. Offsets that disagree with the quote are
+/// repaired by relocating the quote (applying a fix with a misplaced span is
+/// what used to duplicate text); issues whose quote can't be located exactly
+/// once are dropped. `original` is filled in on every surviving issue so the
+/// frontend can re-verify before applying.
+fn validate_issues(issues: Vec<GrammarIssue>, paragraph: &str) -> Vec<GrammarIssue> {
+    let chars: Vec<char> = paragraph.chars().collect();
+    issues
+        .into_iter()
+        .filter_map(|mut issue| {
+            let offsets_valid = issue.start < issue.end && issue.end <= chars.len();
+            let span: Option<String> = offsets_valid.then(|| chars[issue.start..issue.end].iter().collect());
+            match (&issue.original, span) {
+                (Some(original), Some(span)) if *original == span => Some(issue),
+                (Some(original), _) => {
+                    let (start, end) = unique_char_range(paragraph, original)?;
+                    issue.start = start;
+                    issue.end = end;
+                    Some(issue)
+                }
+                // Legacy shape (no `original`): trust in-bounds offsets and
+                // record the span they cover for the frontend's apply check.
+                (None, Some(span)) => {
+                    issue.original = Some(span);
+                    Some(issue)
+                }
+                (None, None) => None,
+            }
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub async fn ai_grammar_check(app: AppHandle, provider: String, paragraph: String) -> Result<Vec<GrammarIssue>, String> {
     let raw = call(&app, &provider, GRAMMAR_INSTRUCTIONS.to_string(), paragraph.clone()).await?;
     let json_slice = extract_json_array(&raw).ok_or_else(|| "no JSON array in model response".to_string())?;
     let issues: Vec<GrammarIssue> = serde_json::from_str(json_slice).map_err(|e| e.to_string())?;
+    Ok(validate_issues(issues, &paragraph))
+}
 
-    let len = paragraph.chars().count();
-    Ok(issues.into_iter().filter(|i| i.start < i.end && i.end <= len).collect())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn issue(start: usize, end: usize, original: Option<&str>) -> GrammarIssue {
+        GrammarIssue {
+            start,
+            end,
+            issue: "test".to_string(),
+            suggestion: "x".to_string(),
+            original: original.map(|s| s.to_string()),
+        }
+    }
+
+    #[test]
+    fn keeps_issue_when_offsets_match_quote() {
+        let out = validate_issues(vec![issue(2, 4, Some("cd"))], "abcdef");
+        assert_eq!(out.len(), 1);
+        assert_eq!((out[0].start, out[0].end), (2, 4));
+    }
+
+    #[test]
+    fn repairs_wrong_offsets_from_quote_cjk() {
+        // The model quoted the right span but miscounted CJK offsets - the
+        // pre-fix behavior applied these bad offsets and duplicated text.
+        let out = validate_issues(vec![issue(1, 3, Some("语法检查"))], "中文语法检查测试");
+        assert_eq!(out.len(), 1);
+        assert_eq!((out[0].start, out[0].end), (2, 6));
+    }
+
+    #[test]
+    fn drops_issue_when_relocation_is_ambiguous_or_absent() {
+        // Offsets disagree with the quote, and the quote can't be relocated
+        // unambiguously (or at all) - nothing trustworthy to apply.
+        assert!(validate_issues(vec![issue(1, 3, Some("ab"))], "ab ab").is_empty());
+        assert!(validate_issues(vec![issue(0, 2, Some("zz"))], "abcdef").is_empty());
+    }
+
+    #[test]
+    fn legacy_issue_without_quote_gets_span_recorded() {
+        let out = validate_issues(vec![issue(2, 4, None)], "abcdef");
+        assert_eq!(out[0].original.as_deref(), Some("cd"));
+    }
+
+    #[test]
+    fn drops_legacy_issue_with_out_of_bounds_offsets() {
+        assert!(validate_issues(vec![issue(4, 2, None)], "abcdef").is_empty());
+        assert!(validate_issues(vec![issue(0, 99, None)], "abcdef").is_empty());
+    }
 }

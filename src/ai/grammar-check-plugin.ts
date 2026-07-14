@@ -5,17 +5,36 @@ import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import { invoke } from "@tauri-apps/api/core";
 import { createDebouncedTask } from "./debounced-task";
-import { textOffsetToDocPos } from "./doc-text";
+import { scalarToUtf16Offset, textOffsetToDocPos } from "./doc-text";
 
 export const grammarKey = new PluginKey("grammar-check");
 const DEBOUNCE_MS = 1500;
 const MIN_PARAGRAPH_CHARS = 12;
 
 interface GrammarIssue {
+  /** Unicode-scalar offsets into the checked paragraph (backend-verified). */
   start: number;
   end: number;
   issue: string;
   suggestion: string;
+  /** Exact text of the span - re-verified before decorating and applying. */
+  original?: string;
+}
+
+/**
+ * The checked paragraph, as it was at request time. The response is only
+ * usable if the paragraph still reads exactly the same - an IME composition
+ * (view.composing suppresses rescheduling) or fast typing can change it
+ * while the request is in flight, and applying offsets computed against the
+ * old text is how fixes used to land beside the text they meant to replace.
+ */
+function paragraphUnchanged(view: EditorView, contentStart: number, text: string): boolean {
+  try {
+    const $pos = view.state.doc.resolve(contentStart);
+    return $pos.parent.isTextblock && $pos.parent.textContent === text;
+  } catch {
+    return false; // position no longer exists
+  }
 }
 
 /// Runs a grammar check right now on the paragraph the cursor is in,
@@ -33,6 +52,9 @@ export async function triggerGrammarCheckNow(view: EditorView, provider: string)
 
   const contentStart = $from.start($from.depth);
   const issues = await invoke<GrammarIssue[]>("ai_grammar_check", { provider, paragraph: text });
+  if (!paragraphUnchanged(view, contentStart, text)) {
+    throw new Error("The paragraph changed while checking - try again.");
+  }
   if (!issues?.length) throw new Error("No issues found.");
 
   view.dispatch(
@@ -49,20 +71,28 @@ export async function triggerGrammarCheckNow(view: EditorView, provider: string)
 export interface GrammarDecorationSpec {
   issue: string;
   suggestion: string;
+  /** What the highlighted range must still say for Apply to act (see useGrammarPopover). */
+  original?: string;
 }
 
 function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentStart: number): Decoration[] {
+  const text = para.textContent;
   const decorations: Decoration[] = [];
   for (const issue of issues) {
-    const from = textOffsetToDocPos(para, contentStart, issue.start);
-    const to = textOffsetToDocPos(para, contentStart, issue.end);
+    // Backend offsets count Unicode scalars; JS strings (and ProseMirror
+    // text offsets) count UTF-16 units.
+    const start16 = scalarToUtf16Offset(text, issue.start);
+    const end16 = scalarToUtf16Offset(text, issue.end);
+    if (issue.original !== undefined && text.slice(start16, end16) !== issue.original) continue;
+    const from = textOffsetToDocPos(para, contentStart, start16);
+    const to = textOffsetToDocPos(para, contentStart, end16);
     if (from === null || to === null || from >= to) continue; // range the model made up - drop it
     decorations.push(
       Decoration.inline(
         from,
         to,
         { class: "grammar-issue" },
-        { issue: issue.issue, suggestion: issue.suggestion } satisfies GrammarDecorationSpec,
+        { issue: issue.issue, suggestion: issue.suggestion, original: issue.original } satisfies GrammarDecorationSpec,
       ),
     );
   }
@@ -81,8 +111,18 @@ export function createGrammarCheckPlugin(options: { enabled: () => boolean; prov
           apply(tr, prev) {
             const meta = tr.getMeta(grammarKey) as DecorationSet | undefined;
             if (meta) return meta;
-            if (tr.docChanged) return prev.map(tr.mapping, tr.doc);
-            return prev;
+            if (!tr.docChanged) return prev;
+            // Mapping keeps positions in step with the edit; on top of that,
+            // any highlight whose text no longer says what the issue was
+            // about is done - applying a suggestion (or typing inside the
+            // range) must clear its underline, not leave it hanging on the
+            // corrected text.
+            const mapped = prev.map(tr.mapping, tr.doc);
+            const stale = mapped.find().filter((deco) => {
+              const spec = deco.spec as GrammarDecorationSpec;
+              return spec.original !== undefined && tr.doc.textBetween(deco.from, deco.to) !== spec.original;
+            });
+            return stale.length > 0 ? mapped.remove(stale) : mapped;
           },
         },
         props: {
@@ -123,6 +163,8 @@ export function createGrammarCheckPlugin(options: { enabled: () => boolean; prov
                 }
                 if (!isCurrent()) return;
                 if (!view.hasFocus()) return;
+                if (view.composing) return; // mid-IME - offsets would go stale the moment it commits
+                if (!paragraphUnchanged(view, contentStart, text)) return;
                 if (!issues?.length) return;
 
                 view.dispatch(

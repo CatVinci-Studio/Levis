@@ -9,6 +9,8 @@ export interface GrammarPopoverInfo {
   to: number;
   issue: string;
   suggestion: string;
+  /** Exact text the range must still contain for Apply to act. */
+  original?: string;
 }
 
 interface GrammarPopoverProps {

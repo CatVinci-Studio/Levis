@@ -35,6 +35,7 @@ export function useGrammarPopover(run: EditorRunner) {
           to: deco.to,
           issue: spec.issue,
           suggestion: spec.suggestion,
+          original: spec.original,
         });
       });
     },
@@ -57,9 +58,16 @@ export function useGrammarPopover(run: EditorRunner) {
 
   const applyFix = useCallback(() => {
     if (!popover) return;
-    const { from, to, suggestion } = popover;
+    const { from, to, suggestion, original } = popover;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
+      // Last line of defense against replacing the wrong text: the range
+      // must still say exactly what the model was fixing (decorations map
+      // through edits, but a mapped-astray range would otherwise duplicate
+      // or clobber text on apply).
+      if (original !== undefined && view.state.doc.textBetween(from, to) !== original) {
+        return;
+      }
       view.dispatch(view.state.tr.insertText(suggestion, from, to));
       view.focus();
     });
