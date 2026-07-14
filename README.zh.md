@@ -11,7 +11,8 @@
 
 <p align="center">
   <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><strong>下载</strong></a> ·
-  <a href="./README.md">English</a>
+  <a href="./README.md">English</a> ·
+  <a href="./README.ja.md">日本語</a>
 </p>
 
 <p align="center">
