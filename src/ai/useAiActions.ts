@@ -21,8 +21,8 @@ export function useAiActions(run: EditorRunner, getSettings: () => Settings): Ai
   const triggerCompletion = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      const { aiProvider, completionTone, completionCustomPrompt } = getSettings();
-      const style = buildCompletionStyle(completionTone, completionCustomPrompt);
+      const { aiProvider, completionTone } = getSettings();
+      const style = buildCompletionStyle(completionTone);
       triggerGhostTextNow(view, aiProvider, style).catch((err) => alert(String(err?.message ?? err)));
     });
   }, [run, getSettings]);

@@ -120,7 +120,7 @@ export function withEditorExtensions(
         createGhostTextPlugin({
           enabled: () => settings.current.enableCompletion,
           provider: () => settings.current.aiProvider,
-          style: () => buildCompletionStyle(settings.current.completionTone, settings.current.completionCustomPrompt),
+          style: () => buildCompletionStyle(settings.current.completionTone),
         }),
       )
       .use(

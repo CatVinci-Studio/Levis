@@ -11,11 +11,9 @@ const TONE_DIRECTIVES: Record<CompletionTone, string | null> = {
 };
 
 /**
- * The user's completion style preferences (tone preset + free-text custom
- * instructions from Settings) flattened into one directive string for the
+ * The user's completion tone preference as a directive string for the
  * backend to append to the completion prompt, or null when nothing is set.
  */
-export function buildCompletionStyle(tone: CompletionTone, customPrompt: string): string | null {
-  const parts = [TONE_DIRECTIVES[tone], customPrompt.trim() || null].filter((p): p is string => p !== null);
-  return parts.length > 0 ? parts.join(" ") : null;
+export function buildCompletionStyle(tone: CompletionTone): string | null {
+  return TONE_DIRECTIVES[tone];
 }
