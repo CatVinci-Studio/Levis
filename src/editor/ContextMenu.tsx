@@ -1,4 +1,5 @@
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
+import { useViewportClamp } from "../utils/useViewportClamp";
 import "./ContextMenu.css";
 
 export interface ContextMenuItem {
@@ -16,9 +17,10 @@ interface ContextMenuProps {
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useCloseOnOutsideClick<HTMLDivElement>(onClose, true);
+  const pos = useViewportClamp(ref, x, y);
 
   return (
-    <div ref={ref} className="context-menu floating-surface" style={{ left: x, top: y }}>
+    <div ref={ref} className="context-menu floating-surface" style={pos}>
       {items.map((item, i) =>
         item === "separator" ? (
           <div key={i} className="context-menu-separator" />
