@@ -113,8 +113,8 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   checked={settings.restoreSessionOnStartup}
                   onChange={(v) => setSettings({ restoreSessionOnStartup: v })}
                 />
-                <UpdateSection t={t} />
                 <CliCommandSection t={t} />
+                <UpdateSection t={t} />
               </>
             )}
 
