@@ -7,6 +7,7 @@ import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
 import { ClipboardHistory } from "./sidebar/ClipboardHistory";
 import { ChatHistory } from "./sidebar/ChatHistory";
+import { TreeTabIcon, OutlineTabIcon, ClipboardTabIcon, ChatTabIcon } from "./sidebar/icons";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
@@ -828,26 +829,34 @@ function App() {
                 <button
                   className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
                   onClick={() => setPanelMode("tree")}
+                  title={t.treeTab}
+                  aria-label={t.treeTab}
                 >
-                  {t.treeTab}
+                  <TreeTabIcon />
                 </button>
                 <button
                   className={`sidebar-tab ${panelMode === "outline" ? "sidebar-tab-active" : ""}`}
                   onClick={() => setPanelMode("outline")}
+                  title={t.outlineTab}
+                  aria-label={t.outlineTab}
                 >
-                  {t.outlineTab}
+                  <OutlineTabIcon />
                 </button>
                 <button
                   className={`sidebar-tab ${panelMode === "clipboard" ? "sidebar-tab-active" : ""}`}
                   onClick={() => setPanelMode("clipboard")}
+                  title={t.clipboardTab}
+                  aria-label={t.clipboardTab}
                 >
-                  {t.clipboardTab}
+                  <ClipboardTabIcon />
                 </button>
                 <button
                   className={`sidebar-tab ${panelMode === "chat" ? "sidebar-tab-active" : ""}`}
                   onClick={() => setPanelMode("chat")}
+                  title={t.chatTab}
+                  aria-label={t.chatTab}
                 >
-                  {t.chatTab}
+                  <ChatTabIcon />
                 </button>
               </div>
             </div>

@@ -205,16 +205,15 @@ body {
 .sidebar-tab {
   flex: 1;
   min-width: 0;
-  padding: 5px 4px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
   border: none;
   border-radius: 5px;
   background: transparent;
   color: var(--editor-muted);
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .sidebar-tab:hover {
