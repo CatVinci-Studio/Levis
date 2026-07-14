@@ -61,7 +61,7 @@ fn credential_from_token(token: TokenResponse) -> ClaudeCredential {
 }
 
 pub async fn exchange_code(code: &str, state: &str, verifier: &str) -> Result<ClaudeCredential, String> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(TOKEN_URL)
         .json(&serde_json::json!({
@@ -86,7 +86,7 @@ pub async fn exchange_code(code: &str, state: &str, verifier: &str) -> Result<Cl
 }
 
 pub async fn refresh(refresh_token: &str) -> Result<ClaudeCredential, String> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(TOKEN_URL)
         .json(&serde_json::json!({
@@ -164,7 +164,7 @@ pub async fn call_completion(access_token: &str, instructions: String, user_text
         }],
     };
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(MESSAGES_URL)
         .bearer_auth(access_token)

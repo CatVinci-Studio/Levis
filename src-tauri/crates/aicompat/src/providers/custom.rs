@@ -62,7 +62,7 @@ pub async fn call_completion(
         ],
     };
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let mut req = client.post(chat_completions_url(base_url)).json(&body);
     if let Some(key) = api_key {
         req = req.bearer_auth(key);
@@ -98,7 +98,7 @@ struct ModelListResponse {
 /// as the "test connection" check - if this succeeds, the endpoint is
 /// reachable and credentials work.
 pub async fn list_models(base_url: &str, api_key: Option<&str>) -> Result<Vec<String>, String> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let mut req = client.get(models_url(base_url));
     if let Some(key) = api_key {
         req = req.bearer_auth(key);

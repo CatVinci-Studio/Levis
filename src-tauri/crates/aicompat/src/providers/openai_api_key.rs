@@ -9,7 +9,7 @@ const PUBLIC_API_MODEL: &str = "gpt-5-nano";
 pub async fn call_completion(api_key: &str, instructions: String, user_text: String) -> Result<String, String> {
     let body = ResponsesRequest::new(PUBLIC_API_MODEL, instructions, user_text);
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(PUBLIC_RESPONSES_URL)
         .bearer_auth(api_key)

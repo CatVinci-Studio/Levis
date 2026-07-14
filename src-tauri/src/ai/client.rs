@@ -59,6 +59,15 @@ pub(crate) async fn call(
 //     cursor, not from wherever the document happens to end.
 //   - length: capped by instruction to one sentence / ~25 words - inline
 //     ghost text is a nudge, not a paragraph generator.
+/// Mirrors the frontend's proxy setting into aicompat's shared HTTP client.
+/// Settings live in the frontend's localStorage, which Rust can't read (same
+/// mirroring precedent as commands::prefs), so the frontend re-sends this on
+/// startup and on every change. Rejects unparseable proxy URLs.
+#[tauri::command]
+pub fn set_ai_proxy(proxy: Option<String>) -> Result<(), String> {
+    aicompat::http::set_proxy(proxy)
+}
+
 const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete at the user's cursor (like GitHub Copilot, but for prose). The input marks the insertion point: the text inside <text-before-cursor> ends exactly at the cursor, and the text inside <text-after-cursor> starts exactly at the cursor (it may be empty). Write ONLY the text to insert at the cursor: it must continue seamlessly from the exact end of the before-text, and where after-text exists it must lead into it naturally without repeating any of it. No explanations, no markdown fences, no repeating the input. Hard length limit: at most ONE sentence, and no more than about 25 words (or ~30 characters for CJK text). Prefer completing the current phrase or sentence over starting a new one.";
 
 #[tauri::command]

@@ -84,7 +84,7 @@ fn credential_from_token(token: TokenResponse) -> Result<CodexCredential, String
 }
 
 pub async fn exchange_code(code: &str, verifier: &str) -> Result<CodexCredential, String> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(TOKEN_URL)
         .form(&[
@@ -108,7 +108,7 @@ pub async fn exchange_code(code: &str, verifier: &str) -> Result<CodexCredential
 }
 
 pub async fn refresh(refresh_token: &str) -> Result<CodexCredential, String> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(TOKEN_URL)
         .form(&[
@@ -138,7 +138,7 @@ pub async fn call_completion(
 ) -> Result<String, String> {
     let body = ResponsesRequest::new(COMPLETION_MODEL, instructions, user_text).streaming();
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(CODEX_RESPONSES_URL)
         .bearer_auth(access_token)
@@ -223,7 +223,7 @@ pub async fn agent_step(
         "text": {"verbosity": "low"},
     });
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let res = client
         .post(CODEX_RESPONSES_URL)
         .bearer_auth(access_token)
