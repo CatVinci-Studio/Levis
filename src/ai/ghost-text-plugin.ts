@@ -53,7 +53,7 @@ function completionContext(view: EditorView, cursorPos: number): { before: strin
 /// uses - for manual "trigger completion" entry points (e.g. a context menu
 /// item). Unlike the silent auto-trigger path, this throws on failure so the
 /// caller can surface the error to the user.
-export async function triggerGhostTextNow(view: EditorView, provider: string): Promise<void> {
+export async function triggerGhostTextNow(view: EditorView, provider: string, style: string | null): Promise<void> {
   const { selection } = view.state;
   if (!selection.empty) throw new Error("Place the cursor where you want the suggestion first.");
 
@@ -65,7 +65,7 @@ export async function triggerGhostTextNow(view: EditorView, provider: string): P
   const cursorPos = selection.from;
   const { before, after } = completionContext(view, cursorPos);
 
-  const raw = await invoke<string>("ai_complete", { provider, before, after });
+  const raw = await invoke<string>("ai_complete", { provider, before, after, style });
   const suggestion = raw ? tidySuggestion(before, raw) : raw;
   if (!suggestion?.trim()) throw new Error("The model returned an empty suggestion.");
   if (view.state.selection.from !== cursorPos) return; // cursor moved while we were waiting
@@ -106,7 +106,12 @@ interface GhostState {
   from: number;
 }
 
-export function createGhostTextPlugin(options: { enabled: () => boolean; provider: () => string }) {
+export function createGhostTextPlugin(options: {
+  enabled: () => boolean;
+  provider: () => string;
+  /** User style directive for the completion prompt, null when unset. */
+  style: () => string | null;
+}) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
 
   return $prose(
@@ -166,6 +171,13 @@ export function createGhostTextPlugin(options: { enabled: () => boolean; provide
 
               const cursorPos = selection.from;
               const { before, after } = completionContext(view, cursorPos);
+              // The cursor is at the end of its own paragraph, but the
+              // document keeps going right after it (e.g. editing mid-
+              // document) - a suggestion here would be inserted ahead of
+              // content that already continues the thought, so auto-trigger
+              // stays quiet. Manual trigger (triggerGhostTextNow) still
+              // works - that's an explicit ask, not a typing side-effect.
+              if (after.trim()) return;
               const { words, cjkChars } = countWords(before);
               if (words + cjkChars < MIN_CONTEXT_UNITS) return;
 
@@ -176,6 +188,7 @@ export function createGhostTextPlugin(options: { enabled: () => boolean; provide
                     provider: options.provider(),
                     before,
                     after,
+                    style: options.style(),
                   });
                 } catch (err) {
                   // Not logged in, offline, or request failed - stays quiet in the

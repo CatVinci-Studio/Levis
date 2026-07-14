@@ -12,7 +12,8 @@ use auth::custom_endpoint::{
 };
 use auth::openai_codex::{codex_auth_status, codex_login, codex_logout};
 use commands::fs::{
-    list_dir, open_css_file_dialog, open_file_dialog, read_binary_file_base64, read_text_file, save_file_dialog,
+    list_dir, open_css_file_dialog, open_file_dialog, pick_attachment_file, read_binary_file_base64, read_text_file,
+    save_file_dialog,
     save_pasted_image, write_text_file,
 };
 use commands::cli::{cli_command_status, install_cli_command};
@@ -45,7 +46,9 @@ const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
 const TOGGLE_SIDEBAR_ID: &str = "toggle-sidebar";
 const NEW_WINDOW_ID: &str = "new-window";
-const HELP_SHOWCASE_ID: &str = "help-showcase";
+/// Help menu ids carry the bundled doc they open: "help-doc:<doc>", where
+/// <doc> is the frontend's HelpDoc id ("markdown" | "agent").
+const HELP_DOC_PREFIX: &str = "help-doc:";
 
 /// Each new window is a fresh, independent instance of the whole SPA (its
 /// own React tree, own in-memory document state) - just like opening a new
@@ -80,16 +83,16 @@ struct DetachedTab {
 }
 struct PendingDetachedTabs(Mutex<HashMap<String, DetachedTab>>);
 
-/// Help > Feature Showcase clicked while no window could receive the event:
-/// the fresh window spawned for it drains this flag on mount, same
-/// queue-then-drain reasoning as PendingOpenPaths (an emit would fire before
-/// the new webview mounts its listeners). The showcase document itself is
-/// bundled in the frontend (src/help/), so a flag is all Rust needs to carry.
-static PENDING_SHOW_HELP: AtomicBool = AtomicBool::new(false);
+/// A Help menu doc clicked while no window could receive the event: the
+/// fresh window spawned for it drains this on mount, same queue-then-drain
+/// reasoning as PendingOpenPaths (an emit would fire before the new webview
+/// mounts its listeners). The docs themselves are bundled in the frontend
+/// (src/help/), so the doc id is all Rust needs to carry.
+static PENDING_SHOW_HELP: Mutex<Option<String>> = Mutex::new(None);
 
 #[tauri::command]
-fn take_pending_show_help() -> bool {
-    PENDING_SHOW_HELP.swap(false, Ordering::Relaxed)
+fn take_pending_show_help() -> Option<String> {
+    PENDING_SHOW_HELP.lock().unwrap().take()
 }
 
 #[tauri::command]
@@ -799,7 +802,10 @@ pub fn run() {
                 .bring_all_to_front()
                 .build()?;
 
-            let help_menu = SubmenuBuilder::new(app, "Help").text(HELP_SHOWCASE_ID, "Feature Showcase").build()?;
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .text(format!("{HELP_DOC_PREFIX}markdown"), "Markdown Guide")
+                .text(format!("{HELP_DOC_PREFIX}agent"), "AI Agent Guide")
+                .build()?;
 
             let menu = MenuBuilder::new(app)
                 .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])
@@ -856,14 +862,16 @@ pub fn run() {
                     let _ = app_handle.emit("menu-toggle-sidebar", ());
                 } else if id == NEW_WINDOW_ID {
                     let _ = open_new_window(app_handle);
-                } else if id == HELP_SHOWCASE_ID {
-                    // The showcase opens as a tab in the focused window; with
+                } else if id.as_ref().starts_with(HELP_DOC_PREFIX) {
+                    // A help doc opens as a tab in the focused window; with
                     // no window to receive it (macOS keeps the app alive
-                    // windowless), spawn one that drains the flag on mount.
+                    // windowless), spawn one that drains the pending doc on
+                    // mount.
+                    let doc = id.as_ref()[HELP_DOC_PREFIX.len()..].to_string();
                     if app_handle.webview_windows().iter().any(|(label, _)| *label != DRAG_PILL_LABEL) {
-                        emit_to_focused(app_handle, "menu-open-help");
+                        emit_to_focused_payload(app_handle, "menu-open-help", doc);
                     } else {
-                        PENDING_SHOW_HELP.store(true, Ordering::Relaxed);
+                        *PENDING_SHOW_HELP.lock().unwrap() = Some(doc);
                         let _ = open_new_window(app_handle);
                     }
                 }
@@ -902,6 +910,9 @@ pub fn run() {
             ai_complete,
             ai_grammar_check,
             ai_agent_message,
+            crate::ai::workspace::load_agent_workspace,
+            crate::ai::workspace::open_global_agent_dir,
+            pick_attachment_file,
             set_api_key,
             api_key_status,
             clear_api_key,

@@ -16,6 +16,24 @@ export interface EditProposal {
   text?: string;
 }
 
+/**
+ * One skill from the agent workspace (global dir or the document folder's
+ * .levis/skills/*.md files) - see src-tauri/src/ai/workspace.rs. The
+ * frontend only needs name/description for the /name picker; the prompt is
+ * used when the user forces a skill manually.
+ */
+export interface AgentSkill {
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+/** A file attached to an outgoing chat message via the "+" button. */
+export interface ChatAttachment {
+  name: string;
+  content: string;
+}
+
 export type AgentTurn =
   | { kind: "User"; text: string }
   | { kind: "Assistant"; text: string }

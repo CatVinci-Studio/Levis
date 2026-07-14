@@ -12,15 +12,110 @@
 
 .inline-chat-bar {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
   padding: 6px;
 }
 
+.inline-chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Inside the opaque card (not a bare floating sibling - that let the
+   document text show through behind it). */
 .inline-chat-selection-hint {
   font-size: 11px;
   color: var(--editor-muted);
-  padding: 0 4px 4px;
+  padding: 2px 6px 4px;
+}
+
+/* The "+" attach-file button, kept as quiet as the input itself. */
+.inline-chat-attach {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.inline-chat-attach:hover {
+  background: var(--editor-border);
+  color: var(--editor-text);
+}
+
+.inline-chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 4px 6px;
+}
+
+.inline-chat-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--editor-muted);
+}
+
+.inline-chat-attachment-remove {
+  border: none;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+}
+
+/* Skill picker: opens while the input holds a /prefix being typed. */
+.inline-chat-skill-menu {
+  margin-top: 6px;
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.inline-chat-skill-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--editor-text);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  min-width: 0;
+}
+
+.inline-chat-skill-item-active,
+.inline-chat-skill-item:hover {
+  background: var(--editor-border);
+}
+
+.inline-chat-skill-name {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.inline-chat-skill-preview {
+  color: var(--editor-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .inline-chat-input {

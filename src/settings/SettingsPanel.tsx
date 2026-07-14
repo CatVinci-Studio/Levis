@@ -6,7 +6,9 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import {
   useSettings,
   BUILTIN_CONTENT_THEMES,
+  COMPLETION_TONES,
   type AiProvider,
+  type CompletionTone,
   type NewDocumentMode,
   type ShortcutAction,
   type Shortcuts,
@@ -167,6 +169,37 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   checked={settings.enableCompletion}
                   onChange={(v) => setSettings({ enableCompletion: v })}
                 />
+                {settings.enableCompletion && (
+                  <>
+                    <div className="settings-row">
+                      <div>
+                        <div className="settings-row-label">{t.completionToneLabel}</div>
+                        <div className="settings-row-hint">{t.completionToneHint}</div>
+                      </div>
+                      <select
+                        value={settings.completionTone}
+                        onChange={(e) => setSettings({ completionTone: e.target.value as CompletionTone })}
+                      >
+                        {COMPLETION_TONES.map((tone) => (
+                          <option key={tone} value={tone}>
+                            {t[`completionTone_${tone}` as keyof Strings]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="settings-field-stack">
+                      <label className="settings-field-label">{t.completionPromptLabel}</label>
+                      <div className="settings-row-hint">{t.completionPromptHint}</div>
+                      <textarea
+                        className="settings-text-input settings-textarea"
+                        rows={2}
+                        placeholder={t.completionPromptPlaceholder}
+                        value={settings.completionCustomPrompt}
+                        onChange={(e) => setSettings({ completionCustomPrompt: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
                 <ToggleRow
                   label={t.aiGrammarLabel}
                   hint={t.aiGrammarHint}
@@ -179,6 +212,17 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   checked={settings.enableAskAi}
                   onChange={(v) => setSettings({ enableAskAi: v })}
                 />
+                {settings.enableAskAi && (
+                  <>
+                    <ToggleRow
+                      label={t.webSearchLabel}
+                      hint={t.webSearchHint}
+                      checked={settings.enableWebSearch}
+                      onChange={(v) => setSettings({ enableWebSearch: v })}
+                    />
+                    <AgentWorkspaceSection t={t} />
+                  </>
+                )}
               </>
             )}
 
@@ -432,6 +476,36 @@ function ThemeSection({ t }: { t: Strings }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/// The agent workspace is configured through files, not settings controls -
+/// this section just explains the .levis/ convention and opens the global
+/// folder. The full write-up lives in Help > AI Agent Guide.
+function AgentWorkspaceSection({ t }: { t: Strings }) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function openFolder() {
+    try {
+      await invoke("open_global_agent_dir");
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  return (
+    <>
+      <div className="settings-section-label">{t.agentWorkspaceLabel}</div>
+      <div className="settings-row">
+        <div>
+          <div className="settings-row-hint settings-workspace-hint">{t.agentWorkspaceHint}</div>
+          {error && <div className="settings-error">{error}</div>}
+        </div>
+        <button className="text-button settings-inline-button" onClick={openFolder}>
+          {t.agentWorkspaceOpenButton}
+        </button>
+      </div>
+    </>
   );
 }
 

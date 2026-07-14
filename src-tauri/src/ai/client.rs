@@ -62,13 +62,28 @@ pub(crate) async fn call(
 const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete at the user's cursor (like GitHub Copilot, but for prose). The input marks the insertion point: the text inside <text-before-cursor> ends exactly at the cursor, and the text inside <text-after-cursor> starts exactly at the cursor (it may be empty). Write ONLY the text to insert at the cursor: it must continue seamlessly from the exact end of the before-text, and where after-text exists it must lead into it naturally without repeating any of it. No explanations, no markdown fences, no repeating the input. Hard length limit: at most ONE sentence, and no more than about 25 words (or ~30 characters for CJK text). Prefer completing the current phrase or sentence over starting a new one.";
 
 #[tauri::command]
-pub async fn ai_complete(app: AppHandle, provider: String, before: String, after: String) -> Result<String, String> {
+pub async fn ai_complete(
+    app: AppHandle,
+    provider: String,
+    before: String,
+    after: String,
+    style: Option<String>,
+) -> Result<String, String> {
     // No whitespace between the tags and the text - the before-text must end
     // exactly at the cursor for "continue from the exact end" to mean
     // anything.
     let user_text =
         format!("<text-before-cursor>{before}</text-before-cursor>\n<text-after-cursor>{after}</text-after-cursor>");
-    call(&app, &provider, COMPLETION_INSTRUCTIONS.to_string(), user_text).await
+    // The user's tone/style preferences (from Settings) ride along after the
+    // base contract so they can shape the wording without being able to
+    // override the format and length rules above them.
+    let instructions = match style.as_deref().map(str::trim) {
+        Some(style) if !style.is_empty() => format!(
+            "{COMPLETION_INSTRUCTIONS}\n\nStyle preferences from the user (follow them where they don't conflict with the rules above): {style}"
+        ),
+        _ => COMPLETION_INSTRUCTIONS.to_string(),
+    };
+    call(&app, &provider, instructions, user_text).await
 }
 
 const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Find grammar mistakes, typos, or awkward phrasing. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. `suggestion` replaces `original` exactly - it must not repeat surrounding text that is outside the span. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";

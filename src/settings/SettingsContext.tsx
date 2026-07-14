@@ -39,6 +39,12 @@ export const BUILTIN_CONTENT_THEMES: { id: BuiltinContentThemeId; name: string }
   { id: "forest", name: "Forest" },
 ];
 
+/// Tone presets for AI completion - resolved to an English style directive
+/// appended to the completion prompt (see ../ai/completion-style).
+export type CompletionTone = "default" | "formal" | "casual" | "academic" | "concise";
+
+export const COMPLETION_TONES: CompletionTone[] = ["default", "formal", "casual", "academic", "concise"];
+
 /// A user-imported (Typora-style) theme. The actual CSS lives on disk under
 /// the app's theme directory (see ../utils/theme-import and the Rust
 /// save_theme_css/load_theme_css commands) - only small metadata is kept
@@ -58,6 +64,12 @@ export interface Settings {
   enableMath: boolean;
   enableMermaid: boolean;
   aiProvider: AiProvider;
+  /// Tone preset for inline completion suggestions.
+  completionTone: CompletionTone;
+  /// Free-text extra instructions appended to the completion prompt.
+  completionCustomPrompt: string;
+  /// Offer OpenAI's server-side web search to the chat agent (codex only).
+  enableWebSearch: boolean;
   typewriterMode: boolean;
   shortcuts: Shortcuts;
   /// Either a `BuiltinContentThemeId` or a `UserThemeMeta.id`.
@@ -80,6 +92,9 @@ const DEFAULT_SETTINGS: Settings = {
   enableMath: true,
   enableMermaid: true,
   aiProvider: "codex",
+  completionTone: "default",
+  completionCustomPrompt: "",
+  enableWebSearch: false,
   typewriterMode: false,
   shortcuts: DEFAULT_SHORTCUTS,
   themeId: "default",

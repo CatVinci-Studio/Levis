@@ -200,9 +200,16 @@ pub async fn agent_step(
     instructions: &str,
     history: &[AgentTurn],
     tools: &[ToolSpec],
+    web_search: bool,
 ) -> Result<StepResult, String> {
     let input: Vec<Value> = history.iter().map(turn_to_input_item).collect();
-    let tool_schemas: Vec<Value> = tools.iter().map(tool_to_schema).collect();
+    let mut tool_schemas: Vec<Value> = tools.iter().map(tool_to_schema).collect();
+    // OpenAI's server-side web search: unlike function tools it runs inside
+    // the response (search calls surface as ignored `web_search_call` output
+    // items), so no loop changes are needed - just offering it is enough.
+    if web_search {
+        tool_schemas.push(json!({"type": "web_search"}));
+    }
 
     let body = json!({
         "model": COMPLETION_MODEL,

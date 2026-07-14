@@ -88,7 +88,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
 
   const run = useEditorRunner();
   const { copyOrCut, paste, selectAll, insertText } = useEditorClipboard(run);
-  const { triggerCompletion, triggerGrammarCheck } = useAiActions(run, () => settingsRef.current.aiProvider);
+  const { triggerCompletion, triggerGrammarCheck } = useAiActions(run, () => settingsRef.current);
   const inlineChat = useInlineChat(run, () => ({
     applyStale: t.agentApplyStale,
     proposalFailed: t.agentProposalFailed,
@@ -224,11 +224,14 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
           y={inlineChat.chatInfo.y}
           document={inlineChat.chatInfo.document}
           selectedText={inlineChat.chatInfo.selectedText}
+          docPath={filePath}
           provider={settingsRef.current.aiProvider}
+          webSearch={settingsRef.current.enableWebSearch}
           labels={{
             placeholder: t.agentInputPlaceholder,
             send: t.agentSend,
             thinking: t.agentThinking,
+            attachFile: t.agentAttachFile,
             selectionHint: t.inlineChatSelectionHint,
             replaceSelection: t.agentReplaceSelection,
             insertAtCursor: t.agentInsertAtCursor,

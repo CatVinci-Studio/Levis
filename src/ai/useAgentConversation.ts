@@ -6,7 +6,7 @@ import type { AgentTurn } from "./types";
 /// (see InlineChatBar) against the `ai_agent_message` backend command -
 /// pulled out on its own so any other agent surface added later can reuse
 /// the same history bookkeeping instead of reimplementing it.
-export function useAgentConversation(document: string, provider: string) {
+export function useAgentConversation(document: string, docPath: string | null, provider: string, webSearch: boolean) {
   const [history, setHistory] = useState<AgentTurn[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +20,10 @@ export function useAgentConversation(document: string, provider: string) {
       const newTurns = await invoke<AgentTurn[]>("ai_agent_message", {
         provider,
         document,
+        docPath,
         history,
         message: trimmed,
+        webSearch,
       });
       setHistory((prev) => [...prev, ...newTurns]);
     } catch (err) {

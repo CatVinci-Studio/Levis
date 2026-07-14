@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useAgentConversation } from "./useAgentConversation";
 import { AgentTurnView } from "./AgentTurnView";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
 import type { ApplyTarget } from "./useInlineChat";
-import { EDIT_ACTIONS, type EditAction, type EditProposal } from "./types";
+import { EDIT_ACTIONS, type AgentSkill, type ChatAttachment, type EditAction, type EditProposal } from "./types";
 import "./AgentTurnView.css";
 import "./InlineChatBar.css";
 
@@ -12,6 +13,8 @@ export interface InlineChatLabels {
   placeholder: string;
   send: string;
   thinking: string;
+  /** Tooltip of the "+" attach-file button. */
+  attachFile: string;
   selectionHint: string;
   replaceSelection: string;
   insertAtCursor: string;
@@ -28,7 +31,10 @@ interface InlineChatBarProps {
   y: number;
   document: string;
   selectedText: string | null;
+  /** The document's path - resolves the agent workspace (skills, files). */
+  docPath: string | null;
   provider: string;
+  webSearch: boolean;
   labels: InlineChatLabels;
   /** Writes an AI reply into the document; returns an error string to show, or null on success. */
   onApply: (text: string, target: ApplyTarget) => string | null;
@@ -66,6 +72,20 @@ function extractReplacement(text: string): string {
   return fenced ? fenced[1] : text.trim();
 }
 
+/**
+ * Resolves a leading /name skill invocation: the skill's prompt becomes the
+ * message body, with whatever followed the name appended as extra input.
+ * A slash token that doesn't name a skill is left alone - it might just be
+ * text that starts with a slash.
+ */
+function resolveSkillMessage(message: string, skills: AgentSkill[]): string {
+  const m = /^\/(\S+)\s*([\s\S]*)$/.exec(message);
+  if (!m) return message;
+  const skill = skills.find((s) => s.name === m[1]);
+  if (!skill) return message;
+  return m[2] ? `${skill.prompt}\n\n${m[2]}` : skill.prompt;
+}
+
 /// A cursor-anchored inline assistant bar - invoked via shortcut or the
 /// context menu, styled after VS Code's inline Claude Code chat: a single
 /// input + send button, not a persistent panel. If text was selected at
@@ -79,19 +99,62 @@ export function InlineChatBar({
   y,
   document,
   selectedText,
+  docPath,
   provider,
+  webSearch,
   labels,
   onApply,
   onApplyProposal,
   onClose,
 }: InlineChatBarProps) {
   const [input, setInput] = useState("");
+  const [skillIndex, setSkillIndex] = useState(0);
+  const [skills, setSkills] = useState<AgentSkill[]>([]);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedProposals, setAppliedProposals] = useState<ReadonlySet<string>>(new Set());
-  const { history, busy, error, send } = useAgentConversation(document, provider);
+  const { history, busy, error, send } = useAgentConversation(document, docPath, provider, webSearch);
+
+  // Skills come from the agent workspace on disk (global dir + the document
+  // folder's .levis/skills). Loaded fresh each time the chat opens, so
+  // editing a skill file takes effect on the next chat without a restart.
+  useEffect(() => {
+    let cancelled = false;
+    invoke<{ skills: AgentSkill[] } | null>("load_agent_workspace", { docPath })
+      .then((ws) => {
+        if (!cancelled && ws?.skills) setSkills(ws.skills);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [docPath]);
+
+  async function attachFile() {
+    try {
+      const file = await invoke<ChatAttachment | null>("pick_attachment_file");
+      if (file) setAttachments((prev) => [...prev, file]);
+    } catch (err) {
+      setApplyError(String(err));
+    }
+  }
   const rootRef = useCloseOnOutsideClick<HTMLDivElement>(onClose);
   const listRef = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(rootRef, x, y);
+
+  // Skill picker: open while the input is a single /token still being typed
+  // (no space yet), filtered by that prefix. Purely derived from the input,
+  // so it closes itself once the name is completed or the slash is deleted.
+  const skillQuery = /^\/(\S*)$/.exec(input);
+  const matchingSkills = skillQuery
+    ? skills.filter((s) => s.name.toLowerCase().startsWith(skillQuery[1].toLowerCase()))
+    : [];
+  const activeSkillIndex = Math.min(skillIndex, Math.max(0, matchingSkills.length - 1));
+
+  function pickSkill(skill: AgentSkill) {
+    setInput(`/${skill.name} `);
+    setSkillIndex(0);
+  }
 
   const lastReply = [...history].reverse().find((turn) => turn.kind === "Assistant");
   // propose_edit calls render as proposal cards; their paired tool results
@@ -110,7 +173,7 @@ export function InlineChatBar({
   }
 
   async function submit() {
-    const message = input.trim();
+    const message = resolveSkillMessage(input.trim(), skills);
     if (!message) return;
     setInput("");
     setApplyError(null);
@@ -120,7 +183,12 @@ export function InlineChatBar({
     const tagged = selectedText
       ? `<selected-text>\n${selectedText}\n</selected-text>\n\n${message}\n\n(If this asks you to rewrite or modify the selected text and you are not using an edit tool, reply with ONLY the replacement text - no commentary, no quotes, no code fences.)`
       : message;
-    await send(tagged);
+    // Attachments ride inside this one message, ahead of the request text.
+    const attachmentBlocks = attachments
+      .map((f) => `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`)
+      .join("\n\n");
+    setAttachments([]);
+    await send(attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged);
     requestAnimationFrame(() => {
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     });
@@ -134,6 +202,21 @@ export function InlineChatBar({
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
+    // While the skill picker is open, the navigation keys drive it instead
+    // of the chat (Enter completes the skill name rather than sending).
+    if (matchingSkills.length > 0) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const delta = e.key === "ArrowDown" ? 1 : -1;
+        setSkillIndex((activeSkillIndex + delta + matchingSkills.length) % matchingSkills.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        pickSkill(matchingSkills[activeSkillIndex]);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void submit();
@@ -143,21 +226,64 @@ export function InlineChatBar({
 
   return (
     <div ref={rootRef} className="inline-chat" style={pos}>
-      {selectedText && <div className="inline-chat-selection-hint">{labels.selectionHint}</div>}
+      {/* The hint lives inside the opaque card - as a bare sibling it floated
+          directly over the document text. */}
       <div className="inline-chat-bar floating-surface">
-        <textarea
-          className="inline-chat-input"
-          rows={1}
-          placeholder={labels.placeholder}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          autoFocus
-        />
-        <button className="inline-chat-send" onClick={submit} disabled={busy || !input.trim()}>
-          {labels.send}
-        </button>
+        {selectedText && <div className="inline-chat-selection-hint">{labels.selectionHint}</div>}
+        {attachments.length > 0 && (
+          <div className="inline-chat-attachments">
+            {attachments.map((file, i) => (
+              <span key={i} className="inline-chat-attachment">
+                {file.name}
+                <button
+                  className="inline-chat-attachment-remove"
+                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="inline-chat-input-row">
+          <button className="inline-chat-attach" title={labels.attachFile} onClick={attachFile}>
+            +
+          </button>
+          <textarea
+            className="inline-chat-input"
+            rows={1}
+            placeholder={labels.placeholder}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setSkillIndex(0);
+            }}
+            onKeyDown={onKeyDown}
+            autoFocus
+          />
+          <button className="inline-chat-send" onClick={submit} disabled={busy || !input.trim()}>
+            {labels.send}
+          </button>
+        </div>
       </div>
+      {matchingSkills.length > 0 && (
+        <div className="inline-chat-skill-menu floating-surface">
+          {matchingSkills.map((skill, i) => (
+            <button
+              key={skill.name}
+              className={`inline-chat-skill-item ${i === activeSkillIndex ? "inline-chat-skill-item-active" : ""}`}
+              // mousedown, not click: keeps focus in the textarea.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pickSkill(skill);
+              }}
+            >
+              <span className="inline-chat-skill-name">/{skill.name}</span>
+              <span className="inline-chat-skill-preview">{skill.description || skill.prompt}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {(history.length > 0 || busy || error) && (
         <div className="inline-chat-messages floating-surface" ref={listRef}>
           {history.map((turn, i) => {

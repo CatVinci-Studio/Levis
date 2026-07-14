@@ -2,8 +2,9 @@ import { useCallback } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { triggerGhostTextNow } from "./ghost-text-plugin";
 import { triggerGrammarCheckNow } from "./grammar-check-plugin";
+import { buildCompletionStyle } from "./completion-style";
 import type { EditorRunner } from "../editor/useEditorRunner";
-import type { AiProvider } from "../settings/SettingsContext";
+import type { Settings } from "../settings/SettingsContext";
 
 export interface AiActions {
   triggerCompletion: () => void;
@@ -16,20 +17,22 @@ export interface AiActions {
  * their own. `getProvider` is a getter, not a value, so the actions built
  * once here always use the provider currently selected in settings.
  */
-export function useAiActions(run: EditorRunner, getProvider: () => AiProvider): AiActions {
+export function useAiActions(run: EditorRunner, getSettings: () => Settings): AiActions {
   const triggerCompletion = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      triggerGhostTextNow(view, getProvider()).catch((err) => alert(String(err?.message ?? err)));
+      const { aiProvider, completionTone, completionCustomPrompt } = getSettings();
+      const style = buildCompletionStyle(completionTone, completionCustomPrompt);
+      triggerGhostTextNow(view, aiProvider, style).catch((err) => alert(String(err?.message ?? err)));
     });
-  }, [run, getProvider]);
+  }, [run, getSettings]);
 
   const triggerGrammarCheck = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      triggerGrammarCheckNow(view, getProvider()).catch((err) => alert(String(err?.message ?? err)));
+      triggerGrammarCheckNow(view, getSettings().aiProvider).catch((err) => alert(String(err?.message ?? err)));
     });
-  }, [run, getProvider]);
+  }, [run, getSettings]);
 
   return { triggerCompletion, triggerGrammarCheck };
 }

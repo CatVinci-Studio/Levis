@@ -31,6 +31,7 @@ import { createImagePlugin } from "./image-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
+import { buildCompletionStyle } from "../ai/completion-style";
 import { createGrammarCheckPlugin } from "../ai/grammar-check-plugin";
 import { strings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
@@ -119,6 +120,7 @@ export function withEditorExtensions(
         createGhostTextPlugin({
           enabled: () => settings.current.enableCompletion,
           provider: () => settings.current.aiProvider,
+          style: () => buildCompletionStyle(settings.current.completionTone, settings.current.completionCustomPrompt),
         }),
       )
       .use(
