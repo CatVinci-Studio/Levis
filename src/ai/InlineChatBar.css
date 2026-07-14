@@ -120,6 +120,12 @@
   word-break: break-word;
 }
 
+/* Untouched anchor context around an insertion - present but not changing. */
+.agent-proposal-diff span {
+  opacity: 0.65;
+  padding: 2px 5px;
+}
+
 .agent-proposal-diff del {
   background: rgba(220, 38, 38, 0.1);
   text-decoration: line-through;

@@ -236,6 +236,13 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
             proposalTitle: t.agentProposalTitle,
             proposalApply: t.agentProposalApply,
             proposalApplied: t.agentProposalApplied,
+            actionNames: {
+              replace: t.agentActionReplace,
+              insert_before: t.agentActionInsertBefore,
+              insert_after: t.agentActionInsertAfter,
+              delete: t.agentActionDelete,
+              append: t.agentActionAppend,
+            },
           }}
           onApply={inlineChat.applyResult}
           onApplyProposal={inlineChat.applyProposal}

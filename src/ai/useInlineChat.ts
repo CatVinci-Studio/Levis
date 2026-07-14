@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
 import { Slice } from "@milkdown/kit/prose/model";
 import { findUniqueTextRange } from "./doc-text";
+import type { EditProposal } from "./types";
 import type { EditorRunner } from "../editor/useEditorRunner";
 
 export interface InlineChatInfo {
@@ -110,19 +111,45 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
   );
 
   /**
-   * Applies one propose_edit tool call from the agent: locate the quoted
-   * snippet in the document (it must still match exactly once) and replace
-   * it. This is the other half of the backend's propose_edit tool - the
-   * model only ever proposes; this click is what actually edits.
+   * Applies one propose_edit tool call from the agent. Anchored actions
+   * locate the quoted snippet (it must still match exactly once - across
+   * paragraphs too, matching the plain-text view the model saw); `append`
+   * targets the document end. New text is parsed as markdown so formatted
+   * content lands rendered. This is the other half of the backend's
+   * propose_edit tool - the model only ever proposes; this click is what
+   * actually edits.
    */
   const applyProposal = useCallback(
-    (find: string, replace: string): string | null => {
+    (proposal: EditProposal): string | null => {
       let error: string | null = messages().proposalFailed;
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
-        const range = findUniqueTextRange(view.state.doc, find);
-        if (!range) return;
-        view.dispatch(view.state.tr.insertText(replace, range.from, range.to).scrollIntoView());
+        const { state } = view;
+        const text = proposal.text ?? "";
+        let parsed;
+        try {
+          parsed = ctx.get(parserCtx)(text);
+        } catch {
+          parsed = null;
+        }
+        const insertAt = (from: number, to: number) => {
+          const tr = parsed
+            ? state.tr.replaceRange(from, to, Slice.maxOpen(parsed.content))
+            : state.tr.insertText(text, from, to);
+          view.dispatch(tr.scrollIntoView());
+        };
+
+        if (proposal.action === "append") {
+          insertAt(state.doc.content.size, state.doc.content.size);
+        } else {
+          const range = findUniqueTextRange(state.doc, proposal.anchor ?? "");
+          if (!range) return;
+          if (proposal.action === "replace") insertAt(range.from, range.to);
+          else if (proposal.action === "insert_before") insertAt(range.from, range.from);
+          else if (proposal.action === "insert_after") insertAt(range.to, range.to);
+          else if (proposal.action === "delete") view.dispatch(state.tr.deleteRange(range.from, range.to).scrollIntoView());
+          else return;
+        }
         view.focus();
         error = null;
       });

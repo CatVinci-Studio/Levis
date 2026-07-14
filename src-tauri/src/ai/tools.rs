@@ -49,28 +49,55 @@ fn search_document(ctx: &ToolContext, arguments: &str) -> String {
 
 const PROPOSE_EDIT_TOOL_NAME: &str = "propose_edit";
 
+/// The edit operations the frontend knows how to apply. Kept in sync with
+/// `EditAction` in src/ai/types.ts - adding one here without teaching
+/// useInlineChat.applyProposal about it produces proposals that validate but
+/// can't be applied.
+const EDIT_ACTIONS: [&str; 5] = ["replace", "insert_before", "insert_after", "delete", "append"];
+
+fn needs_anchor(action: &str) -> bool {
+    action != "append"
+}
+
+fn needs_text(action: &str) -> bool {
+    action != "delete"
+}
+
 /// Doesn't modify anything itself - the document only ever changes through
 /// the user clicking Apply in the frontend. This validates the proposal
-/// (the `find` text must match the document exactly once, or the frontend
-/// couldn't locate it unambiguously) and tells the model what happens next.
+/// against the same rules the frontend applies with (known action, required
+/// fields present, `anchor` matching the document exactly once) so the model
+/// gets immediate feedback instead of the user getting a dead Apply button.
 fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
     let parsed: serde_json::Value = match serde_json::from_str(arguments) {
         Ok(v) => v,
-        Err(_) => return "Invalid arguments - expected JSON with `find` and `replace` strings.".to_string(),
+        Err(_) => return "Invalid arguments - expected JSON with an `action` string.".to_string(),
     };
-    let find = parsed.get("find").and_then(|v| v.as_str()).unwrap_or("");
-    if find.is_empty() {
-        return "Provide the exact document text to replace in `find`.".to_string();
-    }
-    if parsed.get("replace").and_then(|v| v.as_str()).is_none() {
-        return "Provide the replacement text in `replace`.".to_string();
+    let action = parsed.get("action").and_then(|v| v.as_str()).unwrap_or("");
+    if !EDIT_ACTIONS.contains(&action) {
+        return format!(
+            "Unknown action `{action}`. Use one of: {}.",
+            EDIT_ACTIONS.join(", ")
+        );
     }
 
-    match ctx.document.matches(find).count() {
-        0 => "No exact match for that text in the document. Quote it exactly as it appears, including punctuation and whitespace.".to_string(),
-        1 => "Edit proposed - the user now sees it with an Apply button. Don't repeat the full replacement text in your reply; just say briefly what you changed and why.".to_string(),
-        n => format!("That text appears {n} times in the document. Include more surrounding text in `find` so it matches exactly once."),
+    let anchor = parsed.get("anchor").and_then(|v| v.as_str()).unwrap_or("");
+    let has_text = parsed.get("text").and_then(|v| v.as_str()).is_some();
+    if needs_text(action) && !has_text {
+        return format!("`{action}` requires `text` - the new content.");
     }
+    if needs_anchor(action) {
+        if anchor.is_empty() {
+            return format!("`{action}` requires `anchor` - the exact document text the edit targets.");
+        }
+        match ctx.document.matches(anchor).count() {
+            0 => return "No exact match for `anchor` in the document. Quote it exactly as it appears, including punctuation and whitespace.".to_string(),
+            1 => {}
+            n => return format!("`anchor` appears {n} times in the document. Include more surrounding text so it matches exactly once."),
+        }
+    }
+
+    "Edit proposed - the user now sees it with an Apply button. Don't repeat the full text in your reply; just say briefly what you changed and why.".to_string()
 }
 
 /// The tools available to every agent conversation right now. Append here
@@ -97,20 +124,25 @@ pub fn builtin_tools() -> Vec<Tool> {
         Tool {
             spec: ToolSpec {
                 name: PROPOSE_EDIT_TOOL_NAME,
-                description: "Propose replacing one exact snippet of the document with new text. Nothing is modified directly: the user reviews the proposal and applies it with one click. `find` must be copied exactly from the document and must occur exactly once; call this once per distinct edit.",
+                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "find": {
+                        "action": {
                             "type": "string",
-                            "description": "The exact current document text to replace, quoted verbatim"
+                            "enum": EDIT_ACTIONS,
+                            "description": "What kind of edit this is"
                         },
-                        "replace": {
+                        "anchor": {
                             "type": "string",
-                            "description": "The text to replace it with"
+                            "description": "Exact existing document text the edit targets, quoted verbatim. Required for every action except `append`."
+                        },
+                        "text": {
+                            "type": "string",
+                            "description": "The new content (markdown). Required for every action except `delete`."
                         }
                     },
-                    "required": ["find", "replace"],
+                    "required": ["action"],
                 }),
             },
             run: propose_edit,

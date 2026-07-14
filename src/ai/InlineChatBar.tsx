@@ -4,6 +4,7 @@ import { AgentTurnView } from "./AgentTurnView";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
 import type { ApplyTarget } from "./useInlineChat";
+import { EDIT_ACTIONS, type EditAction, type EditProposal } from "./types";
 import "./AgentTurnView.css";
 import "./InlineChatBar.css";
 
@@ -18,6 +19,8 @@ export interface InlineChatLabels {
   proposalTitle: string;
   proposalApply: string;
   proposalApplied: string;
+  /** Human name of each propose_edit action, shown on the proposal card. */
+  actionNames: Record<EditAction, string>;
 }
 
 interface InlineChatBarProps {
@@ -29,22 +32,29 @@ interface InlineChatBarProps {
   labels: InlineChatLabels;
   /** Writes an AI reply into the document; returns an error string to show, or null on success. */
   onApply: (text: string, target: ApplyTarget) => string | null;
-  /** Applies one propose_edit tool call (find -> replace); same error contract as onApply. */
-  onApplyProposal: (find: string, replace: string) => string | null;
+  /** Applies one propose_edit tool call; same error contract as onApply. */
+  onApplyProposal: (proposal: EditProposal) => string | null;
   onClose: () => void;
 }
 
-/** A propose_edit tool call's arguments, or null if they don't parse. */
-function parseProposal(argumentsJson: string): { find: string; replace: string } | null {
+/**
+ * A propose_edit tool call's arguments as a validated EditProposal, or null
+ * if they don't parse or are missing what their action requires (same rules
+ * the backend tool validates against).
+ */
+function parseProposal(argumentsJson: string): EditProposal | null {
   try {
     const parsed = JSON.parse(argumentsJson);
-    if (typeof parsed.find === "string" && typeof parsed.replace === "string" && parsed.find) {
-      return { find: parsed.find, replace: parsed.replace };
-    }
+    const action = parsed.action as EditAction;
+    if (!EDIT_ACTIONS.includes(action)) return null;
+    const anchor = typeof parsed.anchor === "string" && parsed.anchor ? parsed.anchor : undefined;
+    const text = typeof parsed.text === "string" ? parsed.text : undefined;
+    if (action !== "append" && !anchor) return null;
+    if (action !== "delete" && text === undefined) return null;
+    return { action, anchor, text };
   } catch {
-    // fall through
+    return null;
   }
-  return null;
 }
 
 /**
@@ -90,8 +100,8 @@ export function InlineChatBar({
     history.flatMap((turn) => (turn.kind === "ToolCall" && turn.name === "propose_edit" ? [turn.call_id] : [])),
   );
 
-  function applyProposal(callId: string, find: string, replace: string) {
-    const err = onApplyProposal(find, replace);
+  function applyProposal(callId: string, proposal: EditProposal) {
+    const err = onApplyProposal(proposal);
     if (err) setApplyError(err);
     else {
       setApplyError(null);
@@ -155,17 +165,26 @@ export function InlineChatBar({
               const proposal = parseProposal(turn.arguments);
               if (!proposal) return <AgentTurnView key={i} turn={turn} />;
               const applied = appliedProposals.has(turn.call_id);
+              // What the diff shows depends on the action: replace/delete
+              // strike the anchor; anything with new text inserts it. An
+              // insert's anchor is untouched context, so it renders as
+              // plain text rather than a deletion.
+              const showsDeletion = proposal.action === "replace" || proposal.action === "delete";
               return (
                 <div key={i} className="agent-proposal">
-                  <div className="agent-proposal-title">{labels.proposalTitle}</div>
+                  <div className="agent-proposal-title">
+                    {labels.proposalTitle} · {labels.actionNames[proposal.action]}
+                  </div>
                   <div className="agent-proposal-diff">
-                    <del>{proposal.find}</del>
-                    <ins>{proposal.replace}</ins>
+                    {proposal.action === "insert_before" && <ins>{proposal.text}</ins>}
+                    {proposal.anchor !== undefined &&
+                      (showsDeletion ? <del>{proposal.anchor}</del> : <span>{proposal.anchor}</span>)}
+                    {proposal.action !== "insert_before" && proposal.text !== undefined && <ins>{proposal.text}</ins>}
                   </div>
                   <button
                     className="inline-chat-action inline-chat-action-primary"
                     disabled={applied}
-                    onClick={() => applyProposal(turn.call_id, proposal.find, proposal.replace)}
+                    onClick={() => applyProposal(turn.call_id, proposal)}
                   >
                     {applied ? labels.proposalApplied : labels.proposalApply}
                   </button>

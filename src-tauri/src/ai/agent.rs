@@ -5,11 +5,11 @@ use tauri::AppHandle;
 
 const MAX_STEPS: usize = 6;
 
-const AGENT_INSTRUCTIONS_PREFIX: &str = "You are a helpful writing assistant embedded in a markdown editor. The user is asking about the document they currently have open (given below). Be concise.";
+const AGENT_INSTRUCTIONS_PREFIX: &str = "You are a helpful writing assistant embedded in a markdown editor. The user is asking about the document they currently have open (given below). Be concise. Reply in the same language the user writes in.";
 
 /// Only appended for providers that actually run the tool loop (codex) -
 /// telling a tool-less provider to call tools would just confuse it.
-const AGENT_TOOL_INSTRUCTIONS: &str = "Use the search_document tool to locate something specific in a long document rather than guessing. When the user asks you to change, rewrite, or fix part of the document, call propose_edit (once per distinct edit) with the exact current text and its replacement - the user reviews and applies each proposal themselves, so don't also paste the full rewritten text into your reply.";
+const AGENT_TOOL_INSTRUCTIONS: &str = "Use the search_document tool to locate something specific in a long document rather than guessing. When the user asks you to change the document, call propose_edit (once per distinct edit) with the action that matches the intent - replace to swap existing text, insert_before/insert_after to add text next to existing text, delete to remove text, append to add text at the end of the document. `anchor` must be quoted verbatim from the document and occur exactly once. The user reviews and applies each proposal themselves, so don't also paste the full rewritten text into your reply.";
 
 /// Sends one user message and runs the conversation forward, returning the
 /// new turns produced (the user's own turn, any tool calls/results, and the
