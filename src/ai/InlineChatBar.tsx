@@ -202,6 +202,12 @@ export function InlineChatBar({
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
+    // Keys pressed while an IME composition is active belong to the IME
+    // (Enter confirms the composed characters, arrows navigate candidates) -
+    // acting on them here sent half-typed CJK messages. WebKit can also fire
+    // the confirming keydown just after compositionend with isComposing
+    // already false but the legacy keyCode still 229, so check both.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     // While the skill picker is open, the navigation keys drive it instead
     // of the chat (Enter completes the skill name rather than sending).
     if (matchingSkills.length > 0) {
