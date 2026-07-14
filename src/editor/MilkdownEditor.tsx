@@ -46,7 +46,9 @@ import {
   TRIGGER_GRAMMAR_CHECK_EVENT,
   TOGGLE_FLOATING_CHAT_EVENT,
   INSERT_CLIPBOARD_TEXT_EVENT,
+  RESTORE_CHAT_EVENT,
 } from "../utils/events";
+import type { ChatHistoryEntry } from "../ai/chat-history";
 import { Milkdown, useEditor } from "@milkdown/react";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "katex/dist/katex.min.css";
@@ -115,6 +117,19 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     window.addEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
     return () => window.removeEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
   }, [insertText]);
+
+  // Chat-history panel clicks: load the saved conversation as the live one
+  // and make sure the inline chat is open to show it.
+  useEffect(() => {
+    const onRestore = (e: Event) => {
+      const entry = (e as CustomEvent<ChatHistoryEntry>).detail;
+      if (!entry || !Array.isArray(entry.turns)) return;
+      conversation.restore(entry);
+      inlineChat.open();
+    };
+    window.addEventListener(RESTORE_CHAT_EVENT, onRestore);
+    return () => window.removeEventListener(RESTORE_CHAT_EVENT, onRestore);
+  }, [conversation.restore, inlineChat.open]);
 
   function runTableCommand(command: (state: EditorState, dispatch: (tr: Transaction) => void) => boolean) {
     run((ctx) => {
@@ -235,10 +250,8 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
             send: t.agentSend,
             thinking: t.agentThinking,
             newChat: t.agentNewChat,
-            history: t.agentHistory,
-            historyEmpty: t.agentHistoryEmpty,
             attachFile: t.agentAttachFile,
-            selectionHint: t.inlineChatSelectionHint,
+            selectedChars: t.chatSelectedChars,
             replaceSelection: t.agentReplaceSelection,
             insertAtCursor: t.agentInsertAtCursor,
             replaceDocument: t.agentReplaceDocument,

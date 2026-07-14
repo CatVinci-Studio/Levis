@@ -612,6 +612,72 @@ body {
   opacity: 0.65;
 }
 
+/* Chat-history sidebar panel - visually a sibling of the clipboard panel. */
+.chat-history {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+}
+
+.chat-history-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sidebar-text);
+  line-height: 1.45;
+}
+
+.chat-history-entry:hover {
+  background: var(--sidebar-hover);
+}
+
+.chat-history-entry-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chat-history-entry-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-history-entry-meta {
+  font-size: 11px;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-history-entry-delete {
+  border: none;
+  background: none;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.chat-history-entry:hover .chat-history-entry-delete {
+  opacity: 0.7;
+}
+
+.chat-history-entry-delete:hover {
+  opacity: 1 !important;
+}
+
 /* Menu > File > Export as PDF just calls window.print() (App.tsx's
    menu-export-pdf listener) - WKWebView's system print panel already has
    "Save as PDF" built in, so this only needs to hide everything but the

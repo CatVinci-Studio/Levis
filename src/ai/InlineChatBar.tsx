@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AgentConversation } from "./useAgentConversation";
-import { listConversations, type ChatHistoryEntry } from "./chat-history";
 import { AgentTurnView } from "./AgentTurnView";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
@@ -16,12 +15,10 @@ export interface InlineChatLabels {
   thinking: string;
   /** The button that clears the persisted conversation and starts fresh. */
   newChat: string;
-  /** Tooltip of the history button; the list restores past conversations. */
-  history: string;
-  historyEmpty: string;
   /** Tooltip of the "+" attach-file button. */
   attachFile: string;
-  selectionHint: string;
+  /** The selection chip's text; "{n}" is replaced with the char count. */
+  selectedChars: string;
   replaceSelection: string;
   insertAtCursor: string;
   replaceDocument: string;
@@ -118,10 +115,7 @@ export function InlineChatBar({
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [appliedProposals, setAppliedProposals] = useState<ReadonlySet<string>>(new Set());
-  const { history, busy, error, send, reset, restore } = conversation;
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // Read fresh on each open - other windows/tabs may have chatted meanwhile.
-  const pastConversations = historyOpen ? listConversations() : [];
+  const { history, busy, error, send, reset } = conversation;
 
   // Skills come from the agent workspace on disk (global dir + the document
   // folder's .levis/skills). Loaded fresh each time the chat opens, so
@@ -233,17 +227,6 @@ export function InlineChatBar({
     inputRef.current?.focus();
   }
 
-  function restoreConversation(entry: ChatHistoryEntry) {
-    restore(entry);
-    setAppliedProposals(new Set());
-    setApplyError(null);
-    setHistoryOpen(false);
-    inputRef.current?.focus();
-    requestAnimationFrame(() => {
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-    });
-  }
-
   function onKeyDown(e: React.KeyboardEvent) {
     // Keys pressed while an IME composition is active belong to the IME
     // (Enter confirms the composed characters, arrows navigate candidates) -
@@ -275,10 +258,7 @@ export function InlineChatBar({
 
   return (
     <div ref={rootRef} className="inline-chat" style={pos}>
-      {/* The hint lives inside the opaque card - as a bare sibling it floated
-          directly over the document text. */}
       <div className="inline-chat-bar floating-surface">
-        {selectedText && <div className="inline-chat-selection-hint">{labels.selectionHint}</div>}
         {attachments.length > 0 && (
           <div className="inline-chat-attachments">
             {attachments.map((file, i) => (
@@ -294,59 +274,33 @@ export function InlineChatBar({
             ))}
           </div>
         )}
-        <div className="inline-chat-input-row">
+        <textarea
+          ref={inputRef}
+          className="inline-chat-input"
+          rows={1}
+          placeholder={labels.placeholder}
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setSkillIndex(0);
+          }}
+          onKeyDown={onKeyDown}
+          autoFocus
+        />
+        <div className="inline-chat-toolbar">
           <button className="inline-chat-attach" title={labels.attachFile} onClick={attachFile}>
             +
           </button>
-          <button
-            className={`inline-chat-attach ${historyOpen ? "inline-chat-attach-active" : ""}`}
-            title={labels.history}
-            onClick={() => setHistoryOpen((open) => !open)}
-          >
-            🕘
-          </button>
-          <textarea
-            ref={inputRef}
-            className="inline-chat-input"
-            rows={1}
-            placeholder={labels.placeholder}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setSkillIndex(0);
-            }}
-            onKeyDown={onKeyDown}
-            autoFocus
-          />
+          {selectedText && (
+            <span className="inline-chat-selection-chip">
+              {labels.selectedChars.replace("{n}", String([...selectedText].length))}
+            </span>
+          )}
           <button className="inline-chat-send" onClick={submit} disabled={busy || !input.trim()}>
             {labels.send}
           </button>
         </div>
       </div>
-      {historyOpen && (
-        <div className="inline-chat-skill-menu floating-surface">
-          {pastConversations.length === 0 && (
-            <div className="inline-chat-history-empty">{labels.historyEmpty}</div>
-          )}
-          {pastConversations.map((entry) => (
-            <button
-              key={entry.id}
-              className="inline-chat-skill-item"
-              // mousedown, not click: keeps focus in the textarea.
-              onMouseDown={(e) => {
-                e.preventDefault();
-                restoreConversation(entry);
-              }}
-            >
-              <span className="inline-chat-history-title">{entry.title || "…"}</span>
-              <span className="inline-chat-skill-preview">
-                {new Date(entry.updatedAt).toLocaleString()}
-                {entry.docPath ? ` · ${entry.docPath.split("/").pop()}` : ""}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
       {matchingSkills.length > 0 && (
         <div className="inline-chat-skill-menu floating-surface">
           {matchingSkills.map((skill, i) => (

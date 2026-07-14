@@ -1,9 +1,12 @@
+import { useSyncExternalStore } from "react";
 import type { AgentTurn } from "./types";
 
 /**
  * Persisted agent conversations, so past chats can be reopened and continued
- * (the History button in InlineChatBar). Stored in localStorage: small,
- * synchronous, and survives restarts; capped so it can't grow unbounded.
+ * (the Chats sidebar panel). Stored in localStorage: small, synchronous, and
+ * survives restarts; capped so it can't grow unbounded. Kept as a small
+ * external store (same pattern as utils/clipboard-history.ts) so the sidebar
+ * list re-renders live as conversations are saved or deleted.
  */
 export interface ChatHistoryEntry {
   id: string;
@@ -19,17 +22,21 @@ const STORAGE_KEY = "levis-chat-history";
 const MAX_ENTRIES = 30;
 const MAX_TITLE_CHARS = 60;
 
+let entries: ChatHistoryEntry[] = load();
+const listeners = new Set<() => void>();
+
 function load(): ChatHistoryEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.sort((a, b) => b.updatedAt - a.updatedAt);
   } catch {
     return [];
   }
 }
 
-function store(entries: ChatHistoryEntry[]) {
+function store() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   } catch {
@@ -38,22 +45,45 @@ function store(entries: ChatHistoryEntry[]) {
   }
 }
 
-/** All saved conversations, most recently active first. */
-export function listConversations(): ChatHistoryEntry[] {
-  return load().sort((a, b) => b.updatedAt - a.updatedAt);
+function notify() {
+  for (const fn of listeners) fn();
+}
+
+function subscribe(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+// Other windows are their own SPA over the same localStorage - mirror their
+// writes into this window's list.
+window.addEventListener("storage", (e) => {
+  if (e.key !== STORAGE_KEY) return;
+  entries = load();
+  notify();
+});
+
+/** Reactive view of the saved conversations, most recently active first. */
+export function useChatHistory(): ChatHistoryEntry[] {
+  return useSyncExternalStore(subscribe, () => entries);
 }
 
 /** Inserts or updates one conversation, dropping the stalest beyond the cap. */
 export function saveConversation(entry: ChatHistoryEntry) {
-  const rest = load().filter((e) => e.id !== entry.id);
-  rest.sort((a, b) => b.updatedAt - a.updatedAt);
-  store([entry, ...rest].slice(0, MAX_ENTRIES));
+  entries = [entry, ...entries.filter((e) => e.id !== entry.id)].slice(0, MAX_ENTRIES);
+  store();
+  notify();
+}
+
+export function deleteConversation(id: string) {
+  entries = entries.filter((e) => e.id !== id);
+  store();
+  notify();
 }
 
 /**
  * A display title from the first user turn: the outgoing message carries
- * context wrappers (<selected-text>, <attached-file>) and an instruction
- * footnote that would drown out what the user actually asked.
+ * context wrappers (<selected-text>, <attached-file>) that would drown out
+ * what the user actually asked.
  */
 export function conversationTitle(turns: AgentTurn[]): string {
   const first = turns.find((t) => t.kind === "User");

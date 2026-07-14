@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
 import { ClipboardHistory } from "./sidebar/ClipboardHistory";
+import { ChatHistory } from "./sidebar/ChatHistory";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
@@ -22,7 +23,7 @@ import agentGuideEn from "./help/agent-guide.en.md?raw";
 import agentGuideZh from "./help/agent-guide.zh.md?raw";
 import "./App.css";
 
-type PanelMode = "tree" | "outline" | "clipboard";
+type PanelMode = "tree" | "outline" | "clipboard" | "chat";
 
 interface WindowBounds {
   label: string;
@@ -822,6 +823,12 @@ function App() {
                 >
                   {t.clipboardTab}
                 </button>
+                <button
+                  className={`sidebar-tab ${panelMode === "chat" ? "sidebar-tab-active" : ""}`}
+                  onClick={() => setPanelMode("chat")}
+                >
+                  {t.chatTab}
+                </button>
               </div>
             </div>
             <div className="sidebar-body">
@@ -830,6 +837,7 @@ function App() {
               )}
               {panelMode === "outline" && <Outline content={activeTab.content} />}
               {panelMode === "clipboard" && <ClipboardHistory />}
+              {panelMode === "chat" && <ChatHistory />}
             </div>
           </>
         )}

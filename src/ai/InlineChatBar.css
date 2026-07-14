@@ -16,21 +16,24 @@
   padding: 6px;
 }
 
-/* flex-end, not center: the input grows with multi-line content (see the
-   auto-resize effect in InlineChatBar.tsx), and the buttons should stay
-   anchored next to the last line, like every multi-line chat input. */
-.inline-chat-input-row {
+/* Input on top (grows with content via the auto-resize effect), tool row
+   below: attach button, the selection chip when text was selected, send. */
+.inline-chat-toolbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 6px;
 }
 
-/* Inside the opaque card (not a bare floating sibling - that let the
-   document text show through behind it). */
-.inline-chat-selection-hint {
+/* How much text rides along as context - quiet, not interactive. */
+.inline-chat-selection-chip {
   font-size: 11px;
   color: var(--editor-muted);
-  padding: 2px 6px 4px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The "+" attach-file button, kept as quiet as the input itself. */
@@ -47,25 +50,9 @@
   line-height: 1;
 }
 
-.inline-chat-attach:hover,
-.inline-chat-attach-active {
+.inline-chat-attach:hover {
   background: var(--editor-border);
   color: var(--editor-text);
-}
-
-/* History entries reuse the skill-item row; only their text parts differ. */
-.inline-chat-history-title {
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inline-chat-history-empty {
-  font-size: 12px;
-  color: var(--editor-muted);
-  padding: 5px 8px;
 }
 
 .inline-chat-attachments {
@@ -138,8 +125,7 @@
 }
 
 .inline-chat-input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   resize: none;
   border: none;
   outline: none;
@@ -156,6 +142,7 @@
 
 .inline-chat-send {
   flex-shrink: 0;
+  margin-left: auto;
   padding: 5px 12px;
   border: none;
   border-radius: 6px;

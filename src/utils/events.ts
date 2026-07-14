@@ -7,3 +7,7 @@ export const TOGGLE_FLOATING_CHAT_EVENT = "levis:toggle-floating-chat";
 
 /// detail: the markdown text to insert at the cursor (clipboard history panel).
 export const INSERT_CLIPBOARD_TEXT_EVENT = "levis:insert-clipboard-text";
+
+/// detail: a ChatHistoryEntry to load as the live conversation and open the
+/// inline chat on (chat history sidebar panel).
+export const RESTORE_CHAT_EVENT = "levis:restore-chat";

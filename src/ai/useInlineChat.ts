@@ -38,28 +38,43 @@ export interface InlineChatMessages {
 export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessages) {
   const [chatInfo, setChatInfo] = useState<InlineChatInfo | null>(null);
 
-  const toggle = useCallback(() => {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      setChatInfo((prev) => {
-        if (prev) return null; // already open - toggle closes it
-        const { selection } = view.state;
-        const coords = view.coordsAtPos(selection.from);
-        const selectedText = selection.empty
-          ? null
-          : view.state.doc.textBetween(selection.from, selection.to, " ");
-        const fullDocument = view.state.doc.textBetween(0, view.state.doc.content.size, "\n\n");
-        return {
-          x: coords.left,
-          y: coords.bottom + 6,
-          document: fullDocument,
-          selectedText,
-          range: selection.empty ? null : { from: selection.from, to: selection.to },
-          anchor: selection.from,
-        };
+  const openWith = useCallback(
+    (next: (prev: InlineChatInfo | null, computed: InlineChatInfo) => InlineChatInfo | null) => {
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        setChatInfo((prev) => {
+          const { selection } = view.state;
+          // Anchor at the selection's END: a big selection (select-all)
+          // should open the bar where the user last sees it, not at the
+          // document top.
+          const coords = view.coordsAtPos(selection.to);
+          const selectedText = selection.empty
+            ? null
+            : view.state.doc.textBetween(selection.from, selection.to, " ");
+          const fullDocument = view.state.doc.textBetween(0, view.state.doc.content.size, "\n\n");
+          return next(prev, {
+            x: coords.left,
+            y: coords.bottom + 6,
+            document: fullDocument,
+            selectedText,
+            range: selection.empty ? null : { from: selection.from, to: selection.to },
+            anchor: selection.from,
+          });
+        });
       });
-    });
-  }, [run]);
+    },
+    [run],
+  );
+
+  const toggle = useCallback(() => {
+    openWith((prev, computed) => (prev ? null : computed)); // already open - toggle closes it
+  }, [openWith]);
+
+  /** Opens the bar (or keeps it open) - for entry points like the chat
+   *  history panel where "toggle" would wrongly close an open bar. */
+  const open = useCallback(() => {
+    openWith((prev, computed) => prev ?? computed);
+  }, [openWith]);
 
   const close = useCallback(() => setChatInfo(null), []);
 
@@ -155,8 +170,8 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
       });
       return error;
     },
-    [run, messages],
+    [run, messages, chatInfo],
   );
 
-  return { chatInfo, toggle, close, applyResult, applyProposal };
+  return { chatInfo, toggle, open, close, applyResult, applyProposal };
 }
