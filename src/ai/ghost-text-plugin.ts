@@ -7,13 +7,46 @@ import { countWords } from "../utils/word-count";
 import { isImeKeyEvent } from "../editor/enclosure";
 import { createDebouncedTask } from "./debounced-task";
 
-// Below this much existing content, there isn't enough context for a decent
-// suggestion (and it's more likely to feel intrusive on a near-empty doc).
+// Below this much text before the cursor, there isn't enough context for a
+// decent suggestion (and it's more likely to feel intrusive on a near-empty
+// doc).
 const MIN_CONTEXT_UNITS = 20;
 const DEBOUNCE_MS = 450;
 const MAX_CONTEXT_CHARS = 2000;
+// Look-ahead after the cursor: enough for the model to splice into what
+// follows when completing mid-document, small enough not to dominate the
+// prompt.
+const MAX_AFTER_CONTEXT_CHARS = 500;
 
 export const ghostTextKey = new PluginKey("ghost-text");
+
+/**
+ * The completion context, split at the cursor - the model is told to write
+ * the text that belongs exactly between the two parts. Anchoring both sides
+ * to the cursor (rather than sending the document tail) is what keeps
+ * mid-document completions continuing from the cursor instead of from
+ * wherever the document ends.
+ */
+/**
+ * Models often start a continuation with a space out of English habit; after
+ * CJK text (or CJK punctuation) that space is wrong - CJK doesn't separate
+ * with spaces - so it's stripped. Latin before-text keeps the suggestion
+ * verbatim: a leading space there is usually a correct word boundary.
+ */
+function tidySuggestion(before: string, suggestion: string): string {
+  return /[一-鿿㐀-䶿　-〿＀-￯]$/.test(before)
+    ? suggestion.replace(/^[ \t]+/, "")
+    : suggestion;
+}
+
+function completionContext(view: EditorView, cursorPos: number): { before: string; after: string } {
+  const before = view.state.doc.textBetween(0, cursorPos, "\n\n");
+  const after = view.state.doc.textBetween(cursorPos, view.state.doc.content.size, "\n\n");
+  return {
+    before: before.slice(Math.max(0, before.length - MAX_CONTEXT_CHARS)),
+    after: after.slice(0, MAX_AFTER_CONTEXT_CHARS),
+  };
+}
 
 /// Runs a completion request right now at the cursor and shows it as ghost
 /// text, bypassing the debounce/word-count gating the typing-triggered path
@@ -29,13 +62,14 @@ export async function triggerGhostTextNow(view: EditorView, provider: string): P
     throw new Error("Move the cursor to the end of a paragraph first.");
   }
 
-  const fullText = view.state.doc.textBetween(0, view.state.doc.content.size, "\n\n");
   const cursorPos = selection.from;
-  const contextText = fullText.slice(Math.max(0, fullText.length - MAX_CONTEXT_CHARS));
+  const { before, after } = completionContext(view, cursorPos);
 
-  const suggestion = await invoke<string>("ai_complete", { provider, context: contextText });
+  const raw = await invoke<string>("ai_complete", { provider, before, after });
+  const suggestion = raw ? tidySuggestion(before, raw) : raw;
   if (!suggestion?.trim()) throw new Error("The model returned an empty suggestion.");
   if (view.state.selection.from !== cursorPos) return; // cursor moved while we were waiting
+  if (view.composing) return; // mid-IME - dispatching now would break the composition
 
   const decoration = Decoration.widget(
     cursorPos,
@@ -130,19 +164,18 @@ export function createGhostTextPlugin(options: { enabled: () => boolean; provide
               const atBlockEnd = $pos.parent.isTextblock && $pos.parentOffset === $pos.parent.content.size;
               if (!atBlockEnd) return;
 
-              const fullText = view.state.doc.textBetween(0, view.state.doc.content.size, "\n\n");
-              const { words, cjkChars } = countWords(fullText);
-              if (words + cjkChars < MIN_CONTEXT_UNITS) return;
-
               const cursorPos = selection.from;
-              const contextText = fullText.slice(Math.max(0, fullText.length - MAX_CONTEXT_CHARS));
+              const { before, after } = completionContext(view, cursorPos);
+              const { words, cjkChars } = countWords(before);
+              if (words + cjkChars < MIN_CONTEXT_UNITS) return;
 
               debounced.schedule(async (isCurrent) => {
                 let suggestion: string;
                 try {
                   suggestion = await invoke<string>("ai_complete", {
                     provider: options.provider(),
-                    context: contextText,
+                    before,
+                    after,
                   });
                 } catch (err) {
                   // Not logged in, offline, or request failed - stays quiet in the
@@ -152,8 +185,10 @@ export function createGhostTextPlugin(options: { enabled: () => boolean; provide
                   return;
                 }
                 if (!isCurrent()) return; // superseded by a newer trigger
+                suggestion = tidySuggestion(before, suggestion);
                 if (!suggestion?.trim()) return;
                 if (!view.hasFocus() || view.state.selection.from !== cursorPos) return;
+                if (view.composing) return; // mid-IME - dispatching now would break the composition
 
                 const decoration = Decoration.widget(
                   cursorPos,

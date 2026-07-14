@@ -51,16 +51,24 @@ pub(crate) async fn call(
 }
 
 // The completion contract, end to end:
-//   - context: the frontend sends the LAST 2000 characters of the document
-//     (ghost-text-plugin's MAX_CONTEXT_CHARS), and only once the document
-//     has at least 20 words/CJK chars of content.
+//   - context: the frontend sends the text around the CURSOR - up to the
+//     last 2000 chars before it and the first 500 after (ghost-text-plugin's
+//     MAX_CONTEXT_CHARS / MAX_AFTER_CONTEXT_CHARS), and only once there are
+//     at least 20 words/CJK chars before the cursor. Cursor-anchored, not
+//     document-anchored: completing mid-document must continue from the
+//     cursor, not from wherever the document happens to end.
 //   - length: capped by instruction to one sentence / ~25 words - inline
 //     ghost text is a nudge, not a paragraph generator.
-const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete as the user types (like GitHub Copilot, but for prose). Continue the document naturally from exactly where the given text leaves off. Reply with ONLY the continuation text - no explanations, no markdown fences, no repeating the input. Hard length limit: at most ONE sentence, and no more than about 25 words (or ~30 characters for CJK text). Prefer completing the current phrase or sentence over starting a new one.";
+const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete at the user's cursor (like GitHub Copilot, but for prose). The input marks the insertion point: the text inside <text-before-cursor> ends exactly at the cursor, and the text inside <text-after-cursor> starts exactly at the cursor (it may be empty). Write ONLY the text to insert at the cursor: it must continue seamlessly from the exact end of the before-text, and where after-text exists it must lead into it naturally without repeating any of it. No explanations, no markdown fences, no repeating the input. Hard length limit: at most ONE sentence, and no more than about 25 words (or ~30 characters for CJK text). Prefer completing the current phrase or sentence over starting a new one.";
 
 #[tauri::command]
-pub async fn ai_complete(app: AppHandle, provider: String, context: String) -> Result<String, String> {
-    call(&app, &provider, COMPLETION_INSTRUCTIONS.to_string(), context).await
+pub async fn ai_complete(app: AppHandle, provider: String, before: String, after: String) -> Result<String, String> {
+    // No whitespace between the tags and the text - the before-text must end
+    // exactly at the cursor for "continue from the exact end" to mean
+    // anything.
+    let user_text =
+        format!("<text-before-cursor>{before}</text-before-cursor>\n<text-after-cursor>{after}</text-after-cursor>");
+    call(&app, &provider, COMPLETION_INSTRUCTIONS.to_string(), user_text).await
 }
 
 const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Find grammar mistakes, typos, or awkward phrasing. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. `suggestion` replaces `original` exactly - it must not repeat surrounding text that is outside the span. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
