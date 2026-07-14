@@ -1969,7 +1969,7 @@ dependencies = [
 
 [[package]]
 name = "levis"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "aicompat",
  "base64 0.22.1",
