@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
@@ -17,6 +17,20 @@ import { countWords } from "./utils/word-count";
 import { comboFromEvent } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { useZoom } from "./utils/useZoom";
+import { dirname } from "./utils/path";
+import {
+  helpDocContent,
+  makeBlankTab,
+  readDocFromDisk,
+  statMtime,
+  tabIsDirty,
+  tabTitle,
+  type DetachedTabDoc,
+  type DocTab,
+  type HelpDoc,
+} from "./doc-tabs";
+import { exportHtml, exportViaPandoc } from "./export-doc";
+import { useTabDragMerge } from "./useTabDragMerge";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
@@ -24,113 +38,9 @@ import {
   TOGGLE_FIND_REPLACE_EVENT,
   INSERT_BLOCK_EVENT,
 } from "./utils/events";
-import type { Strings } from "./i18n/strings";
-import markdownGuideEn from "./help/markdown-guide.en.md?raw";
-import markdownGuideZh from "./help/markdown-guide.zh.md?raw";
-import markdownGuideJa from "./help/markdown-guide.ja.md?raw";
-import agentGuideEn from "./help/agent-guide.en.md?raw";
-import agentGuideZh from "./help/agent-guide.zh.md?raw";
-import agentGuideJa from "./help/agent-guide.ja.md?raw";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard" | "chat";
-
-interface WindowBounds {
-  label: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  scaleFactor: number;
-}
-
-// The drop target is a window's TAB ROW specifically (the tab bar if it has
-// one, or just its title strip if it's a single-tab window showing only the
-// filename) - not the window's whole body. Matches this app's other top
-// strip (.titlebar-drag-region is 28px; the tab bar itself runs a bit
-// taller with its own padding) with headroom.
-const TAB_ROW_HEIGHT_LOGICAL = 60;
-
-// All drag hit-testing happens in the global LOGICAL coordinate space -
-// PointerEvent.screenX/Y and the Rust drag-tick cursor are both logical
-// points - so each candidate window's physical bounds are converted via its
-// OWN scaleFactor (it may sit on a different-DPI display than the one the
-// drag started from).
-function pointInTopStrip(lx: number, ly: number, w: WindowBounds): boolean {
-  const x = w.x / w.scaleFactor;
-  const y = w.y / w.scaleFactor;
-  const width = w.width / w.scaleFactor;
-  return lx >= x && lx <= x + width && ly >= y && ly <= y + TAB_ROW_HEIGHT_LOGICAL;
-}
-
-interface DocTab {
-  id: string;
-  path: string | null;
-  content: string;
-  // What's on disk (or "" for a fresh draft) - dirtiness is divergence from
-  // this, and it's what the close-confirmation prompt keys off.
-  savedContent: string;
-  // Disk mtime (ms) snapshotted when this document was last read from or
-  // written to disk; null for drafts and for documents whose mtime is
-  // unknown (e.g. a tab received from another window). Divergence from the
-  // live mtime means the file changed externally - clean tabs reload on
-  // window focus, dirty tabs get an overwrite prompt on save.
-  diskMtime: number | null;
-  sourceMode: boolean;
-  reloadKey: number;
-  // A bundled Help menu document: still a pathless draft (edits never touch
-  // disk; Save goes through Save As), but titled after itself instead of
-  // "Untitled", and deduped per doc so Help focuses the existing tab rather
-  // than opening another copy.
-  helpDoc?: HelpDoc;
-}
-
-// Mirrors the doc ids Rust puts in its Help menu ids (lib.rs
-// HELP_DOC_PREFIX) - they arrive here as the menu-open-help payload.
-type HelpDoc = "markdown" | "agent";
-
-// The document part of a tab in flight between windows - what
-// start_floating_tab_drag hands to Rust and take_detached_tab /
-// receive-detached-tab hand back (lib.rs DetachedTab).
-interface DetachedTabDoc {
-  path: string | null;
-  content: string;
-  savedContent: string;
-  diskMtime: number | null;
-  helpDoc?: HelpDoc;
-}
-
-function helpDocContent(doc: HelpDoc, lang: string): string {
-  if (doc === "agent") {
-    if (lang === "zh") return agentGuideZh;
-    if (lang === "ja") return agentGuideJa;
-    return agentGuideEn;
-  }
-  if (lang === "zh") return markdownGuideZh;
-  if (lang === "ja") return markdownGuideJa;
-  return markdownGuideEn;
-}
-
-// A tab's display name everywhere one is shown (tab pill, title strip,
-// detached-drag pill, export default filename).
-function tabTitle(tab: DocTab, t: Strings): string {
-  if (tab.path) return basename(tab.path);
-  if (tab.helpDoc === "markdown") return t.markdownGuideTab;
-  if (tab.helpDoc === "agent") return t.agentGuideTab;
-  return t.untitledTab;
-}
-
-function makeBlankTab(): DocTab {
-  return {
-    id: crypto.randomUUID(),
-    path: null,
-    content: "",
-    savedContent: "",
-    diskMtime: null,
-    sourceMode: false,
-    reloadKey: 0,
-  };
-}
 
 // Module-scoped, NOT a ref: React StrictMode (dev builds) runs mount
 // effects twice on the same component, and the OS-open drain below is a
@@ -140,50 +50,6 @@ function makeBlankTab(): DocTab {
 // separate windows are separate webviews with their own module instance,
 // so each window still drains exactly once.
 let openQueueDrained = false;
-
-function dirname(path: string): string {
-  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx > 0 ? path.slice(0, idx) : path;
-}
-
-// Errors (permission issues, network mounts) are treated the same as "no
-// mtime available": external-change detection degrades to doing nothing
-// rather than blocking opens/saves.
-async function statMtime(path: string): Promise<number | null> {
-  try {
-    return await invoke<number | null>("file_mtime_ms", { path });
-  } catch {
-    return null;
-  }
-}
-
-async function readDocFromDisk(path: string): Promise<{ content: string; diskMtime: number | null }> {
-  const content = await invoke<string>("read_text_file", { path });
-  return { content, diskMtime: await statMtime(path) };
-}
-
-function basename(path: string): string {
-  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx >= 0 ? path.slice(idx + 1) : path;
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// File > Export entries beyond PDF/HTML convert through a user-installed
-// pandoc; keys are pandoc writer names, matching the menu ids in lib.rs.
-const PANDOC_FORMATS: Record<string, { ext: string; label: string }> = {
-  docx: { ext: "docx", label: "Word" },
-  odt: { ext: "odt", label: "OpenDocument" },
-  rtf: { ext: "rtf", label: "RTF" },
-  epub: { ext: "epub", label: "EPUB" },
-  latex: { ext: "tex", label: "LaTeX" },
-  mediawiki: { ext: "wiki", label: "MediaWiki" },
-  rst: { ext: "rst", label: "reStructuredText" },
-  textile: { ext: "textile", label: "Textile" },
-  opml: { ext: "opml", label: "OPML" },
-};
 
 function App() {
   const { t, settings, setSettings } = useSettings();
@@ -197,15 +63,6 @@ function App() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Set while a floating tab drag is hovering THIS window's tab row as a
-  // merge target - rendered as a real-looking pill riding the cursor along
-  // the bar (x is already window-local logical px; see the "drag-hover"
-  // listener below for the conversion).
-  const [dragHoverPreview, setDragHoverPreview] = useState<{ title: string; dirty: boolean; x: number } | null>(null);
-  // This window's own left edge in global logical points, cached for the
-  // duration of one hover (the window can't move while something is being
-  // dragged over it) - converts the drag's global cursor x to local.
-  const previewWinLeftRef = useRef<number | null>(null);
   const appUpdate = useAppUpdate();
   useZoom(settings.zoom, (zoom) => setSettings({ zoom }));
 
@@ -220,8 +77,8 @@ function App() {
   // is nothing to show.
   const rootPath = activeTab.path ? dirname(activeTab.path) : null;
   const wordCount = useMemo(() => countWords(activeTab.content), [activeTab.content]);
-  const activeDirty = activeTab.content !== activeTab.savedContent;
-  const anyDirty = tabs.some((tab) => tab.content !== tab.savedContent);
+  const activeDirty = tabIsDirty(activeTab);
+  const anyDirty = tabs.some(tabIsDirty);
   const anyDirtyRef = useRef(anyDirty);
   anyDirtyRef.current = anyDirty;
 
@@ -236,14 +93,6 @@ function App() {
     void invoke("update_session_paths", { paths });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionPathsKey]);
-
-  // Nothing to switch between with a single tab, regardless of
-  // newDocumentMode - the setting only decides how NEW documents open, not
-  // whether the bar shows. A single-tab window stays draggable-to-merge via
-  // its native title bar instead (see the onMoved effect below) - but the
-  // bar still needs to appear the moment an incoming-tab preview lands, so the
-  // incoming tab has somewhere to show up before the merge actually happens.
-  const showTabBar = tabs.length > 1 || dragHoverPreview !== null;
 
   const updateTab = useCallback((id: string, patch: Partial<DocTab>) => {
     setTabs((prev) => prev.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)));
@@ -331,7 +180,7 @@ function App() {
   // Always asks where to write, regardless of whether the document already
   // has a path - File > Save As…, and the "first save of a draft" case.
   const saveTabAs = useCallback(async (tabId: string): Promise<boolean> => {
-    const tab = tabsRef.current.find((t) => t.id === tabId);
+    const tab = tabsRef.current.find((tb) => tb.id === tabId);
     if (!tab) return false;
     const picked = await invoke<string | null>("save_file_dialog");
     if (!picked) return false;
@@ -342,7 +191,7 @@ function App() {
   }, [updateTab]);
 
   const saveTab = useCallback(async (tabId: string): Promise<boolean> => {
-    const tab = tabsRef.current.find((t) => t.id === tabId);
+    const tab = tabsRef.current.find((tb) => tb.id === tabId);
     if (!tab) return false;
     // Draft never saved before: ask where to put it, then this document
     // graduates into a real file (the sidebar tree picks up its folder).
@@ -367,101 +216,8 @@ function App() {
     return true;
   }, [updateTab, saveTabAs, t]);
 
-  // Serializes the active tab's live editor DOM - what you see is what
-  // exports - with every stylesheet inlined so the file is self-contained.
-  // Relative image paths (assets/...) are kept as-is, like Typora's HTML
-  // export next to the document.
-  const exportHtml = useCallback(async () => {
-    const tab = tabsRef.current.find((t) => t.id === activeTabId);
-    if (!tab) return;
-    const editor = document.querySelector('[data-active-tab="true"] .milkdown');
-    if (!editor) {
-      await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
-      return;
-    }
-    const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : tabTitle(tab, t);
-    const picked = await invoke<string | null>("export_save_dialog", {
-      defaultName: `${base}.html`,
-      filterName: "HTML",
-      ext: "html",
-    });
-    if (!picked) return;
-    const clone = editor.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"));
-    let css = "";
-    for (const sheet of Array.from(document.styleSheets)) {
-      try {
-        css += Array.from(sheet.cssRules)
-          .map((rule) => rule.cssText)
-          .join("\n");
-        css += "\n";
-      } catch {
-        // Cross-origin sheet (none in practice) - skip.
-      }
-    }
-    // Same ancestor classes as the app so theme selectors keep applying,
-    // plus overrides freeing the page from the app's fixed-viewport layout.
-    const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(base)}</title>
-<style>${css}</style>
-<style>.app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } .editor-content { padding: 2rem 0; }</style>
-</head>
-<body class="${document.body.className}">
-<div class="app-shell"><div class="main-pane"><div class="editor-scroll"><div class="editor-content">${clone.outerHTML}</div></div></div></div>
-</body>
-</html>`;
-    await invoke("write_text_file", { path: picked, contents: html });
-    void invoke("reveal_in_dir", { path: picked });
-  }, [activeTabId, t]);
-
-  const exportViaPandoc = useCallback(
-    async (format: string) => {
-      const info = PANDOC_FORMATS[format];
-      const tab = tabsRef.current.find((t) => t.id === activeTabId);
-      if (!info || !tab) return;
-      const pandoc = await invoke<string | null>("detect_pandoc");
-      if (!pandoc) {
-        // Typora's model: guide the user to install pandoc rather than
-        // bundling the ~180MB GPL binary in the app.
-        const goInstall = await ask(t.pandocMissingMessage, {
-          title: t.pandocMissingTitle,
-          okLabel: t.pandocMissingDownload,
-          cancelLabel: t.closePromptCancel,
-        });
-        if (goInstall) void invoke("open_pandoc_install_page");
-        return;
-      }
-      const base = tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : tabTitle(tab, t);
-      const picked = await invoke<string | null>("export_save_dialog", {
-        defaultName: `${base}.${info.ext}`,
-        filterName: info.label,
-        ext: info.ext,
-      });
-      if (!picked) return;
-      try {
-        // tab.content, not the file on disk - unsaved edits export too.
-        await invoke("export_via_pandoc", {
-          pandocPath: pandoc,
-          markdown: tab.content,
-          outputPath: picked,
-          format,
-          resourceDir: tab.path ? dirname(tab.path) : null,
-          title: base,
-        });
-        void invoke("reveal_in_dir", { path: picked });
-      } catch (err) {
-        await message(`${t.exportFailed} ${String(err)}`, { title: t.exportFailedTitle, kind: "error" });
-      }
-    },
-    [activeTabId, t],
-  );
-
   const toggleSourceMode = useCallback(() => {
-    const tab = tabsRef.current.find((t) => t.id === activeTabId);
+    const tab = tabsRef.current.find((tb) => tb.id === activeTabId);
     if (!tab) return;
     // Leaving source mode: force the WYSIWYG editor to remount so it picks
     // up whatever was typed as raw text.
@@ -473,9 +229,9 @@ function App() {
   // first). Closing the last tab closes the window; closing the active tab
   // hands focus to its right-hand neighbor, or the new last tab.
   const removeTab = useCallback((id: string) => {
-    const closedIndex = tabsRef.current.findIndex((t) => t.id === id);
+    const closedIndex = tabsRef.current.findIndex((tb) => tb.id === id);
     setTabs((prev) => {
-      const next = prev.filter((t) => t.id !== id);
+      const next = prev.filter((tb) => tb.id !== id);
       if (next.length === 0) {
         void getCurrentWindow().destroy();
         return prev;
@@ -484,7 +240,7 @@ function App() {
     });
     setActiveTabId((prevActive) => {
       if (prevActive !== id) return prevActive;
-      const remaining = tabsRef.current.filter((t) => t.id !== id);
+      const remaining = tabsRef.current.filter((tb) => tb.id !== id);
       if (remaining.length === 0) return prevActive;
       return remaining[Math.min(closedIndex, remaining.length - 1)].id;
     });
@@ -492,8 +248,8 @@ function App() {
 
   const requestCloseTab = useCallback(
     (id: string) => {
-      const tab = tabsRef.current.find((t) => t.id === id);
-      if (!tab || tab.content === tab.savedContent) {
+      const tab = tabsRef.current.find((tb) => tb.id === id);
+      if (!tab || !tabIsDirty(tab)) {
         removeTab(id);
         return;
       }
@@ -503,135 +259,23 @@ function App() {
     [removeTab],
   );
 
-  const hitTestWindow = useCallback(async (screenX: number, screenY: number): Promise<string | null> => {
-    const selfLabel = getCurrentWindow().label;
-    try {
-      const bounds = await invoke<WindowBounds[]>("list_window_bounds");
-      const hit = bounds.find((b) => b.label !== selfLabel && pointInTopStrip(screenX, screenY, b));
-      return hit?.label ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
+  // Tabs moving BETWEEN windows, in both directions (drag out, drop in,
+  // hover preview) - see useTabDragMerge.ts.
+  const { dragHoverPreview, handleTabDetach } = useTabDragMerge({
+    tabsRef,
+    t,
+    removeTab,
+    setTabs,
+    setActiveTabId,
+  });
 
-  // THE FLOATING TAB: the single "a tab is in flight" state both drag
-  // flows funnel into - and it lives entirely in Rust
-  // (start_floating_tab_drag), not here. The moment a tab is pulled past
-  // the detach threshold, it leaves this window for good: its live content
-  // (possibly an unsaved draft, or edits that never hit disk) is handed
-  // over, the pill disappears from the bar, and Rust carries the document
-  // to wherever the mouse releases - another window's tab row (pushed
-  // there as a real tab, including back onto THIS window's row, which
-  // simply re-inserts it), or empty space (a fresh window right at the
-  // drop point). This window keeps no claim on it: the handoff is the
-  // whole point, since the drag must survive this window's own DOM (and,
-  // in the whole-window flow below, this window's very existence).
-  const handleTabDetach = useCallback(
-    async (id: string) => {
-      const tab = tabsRef.current.find((t) => t.id === id);
-      if (!tab) return;
-      try {
-        await invoke("start_floating_tab_drag", {
-          tab: {
-            path: tab.path,
-            content: tab.content,
-            savedContent: tab.savedContent,
-            diskMtime: tab.diskMtime,
-            helpDoc: tab.helpDoc ?? null,
-          },
-          title: tabTitle(tab, t),
-          dirty: tab.content !== tab.savedContent,
-          destroySource: false,
-        });
-      } catch {
-        return; // drag couldn't start (unsupported platform / one already active) - keep the tab
-      }
-      removeTab(id);
-    },
-    [removeTab, t],
-  );
-
-  // Single-tab windows have no tab bar to drag a pill out of (showTabBar
-  // above), so they're merged by dragging the whole native window (its
-  // title bar) onto another Levis window instead - the same gesture
-  // Safari/Chrome use to combine two single-tab windows into one.
-  //
-  // Tauri's onMoved fires on every tick of a drag but there is no "drag
-  // ended" event, and merging on anything short of the actual button
-  // release is wrong (an early debounce-based version merged while the
-  // user was merely holding still, mid-drag). So the FIRST onMoved of a
-  // drag asks Rust to stream window-drag-tick events - real cursor
-  // position + real button state, polled natively only for the duration
-  // of this one drag - and this window's only job is watching those ticks
-  // for the moment the cursor enters another window's tab row. At that
-  // moment the window BECOMES the floating tab: its document is handed to
-  // Rust (start_floating_tab_drag) and the window itself is destroyed -
-  // destroy is the one window operation macOS reliably honors mid-drag
-  // (hide gets ignored by the drag session, which kept the "original"
-  // window visibly in hand). From there the drag is Rust's entirely, same
-  // as a tab pulled from a bar: still un-merged while the button is down,
-  // carried as the preview/pill, and landed wherever release happens - back
-  // in open space just means a fresh window there. Release before ever
-  // touching a row: it was a plain window move, nothing happens.
-  const windowDragRef = useRef<"idle" | "watching" | "handed-off">("idle");
-
-  useEffect(() => {
-    const win = getCurrentWindow();
-
-    async function handleTick(x: number, y: number, down: boolean) {
-      if (!down) {
-        windowDragRef.current = "idle";
-        return;
-      }
-      if (windowDragRef.current !== "watching") return;
-      const target = await hitTestWindow(x, y);
-      // Re-check the phase: a tick may have finished the handoff while
-      // this hit test was in flight.
-      if (!target || windowDragRef.current !== "watching") return;
-      const tab = tabsRef.current[0];
-      if (!tab) return;
-      windowDragRef.current = "handed-off";
-      void invoke("start_floating_tab_drag", {
-        tab: {
-          path: tab.path,
-          content: tab.content,
-          savedContent: tab.savedContent,
-          diskMtime: tab.diskMtime,
-          helpDoc: tab.helpDoc ?? null,
-        },
-        title: tabTitle(tab, t),
-        dirty: tab.content !== tab.savedContent,
-        destroySource: true,
-      });
-    }
-
-    // Ticks run strictly in order - two interleaved handlers could both
-    // pass the "watching" check and hand the document off twice.
-    let chain: Promise<void> = Promise.resolve();
-    const unlistenTick = listen<{ x: number; y: number; down: boolean }>("window-drag-tick", (event) => {
-      const { x, y, down } = event.payload;
-      chain = chain.then(() => handleTick(x, y, down)).catch(() => {});
-    });
-
-    const unlistenMoved = win.onMoved(() => {
-      // Lazy trigger: nothing beyond this guard runs unless a SINGLE-tab
-      // window actually starts moving (multi-tab windows merge via their
-      // tab pills instead). Rust double-checks the button is really down -
-      // a programmatic setPosition also fires onMoved - and refuses to
-      // double-track, so a stray extra call here is harmless.
-      if (windowDragRef.current !== "idle" || tabsRef.current.length !== 1) return;
-      windowDragRef.current = "watching";
-      void invoke<boolean>("start_window_drag_tracking").then((started) => {
-        if (!started && windowDragRef.current === "watching") windowDragRef.current = "idle";
-      });
-    });
-
-    return () => {
-      void unlistenTick.then((f) => f());
-      void unlistenMoved.then((f) => f());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Nothing to switch between with a single tab, regardless of
+  // newDocumentMode - the setting only decides how NEW documents open, not
+  // whether the bar shows. A single-tab window stays draggable-to-merge via
+  // its native title bar instead (see useTabDragMerge.ts) - but the bar
+  // still needs to appear the moment an incoming-tab preview lands, so the
+  // incoming tab has somewhere to show up before the merge actually happens.
+  const showTabBar = tabs.length > 1 || dragHoverPreview !== null;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -737,67 +381,6 @@ function App() {
     };
   }, [openPathInTab]);
 
-  // A floating tab dropped onto this window's tab row (Rust's drag thread
-  // emits it on release): lands at the slot it was hovering - the
-  // insertion index is however many pills sit left of the drop point -
-  // not at the end of the bar. The drag deliberately doesn't send a
-  // hover-off first: the preview pill is replaced by the real tab in the
-  // same render, so there's no empty-gap flash in between.
-  useEffect(() => {
-    const unlisten = listen<DetachedTabDoc & { x: number }>(
-      "receive-detached-tab",
-      (event) => {
-        const { x, ...doc } = event.payload;
-        const newTab = { ...makeBlankTab(), ...doc };
-        const winLeft = previewWinLeftRef.current;
-        let index = tabsRef.current.length;
-        if (winLeft !== null) {
-          const localX = x - winLeft;
-          index = tabsRef.current.filter((tab) => {
-            const node = document.querySelector<HTMLElement>(`[data-flip-id="${CSS.escape(tab.id)}"]`);
-            if (!node) return false;
-            const rect = node.getBoundingClientRect();
-            return rect.left + rect.width / 2 < localX;
-          }).length;
-        }
-        previewWinLeftRef.current = null;
-        setDragHoverPreview(null);
-        setTabs((prev) => {
-          const next = [...prev];
-          next.splice(index, 0, newTab);
-          return next;
-        });
-        setActiveTabId(newTab.id);
-      },
-    );
-    return () => {
-      void unlisten.then((f) => f());
-    };
-  }, []);
-
-  // Live "a tab is being dragged along this bar" feedback for this window
-  // as a MERGE TARGET - Rust's floating drag emits it every tick with the
-  // global cursor x; converted here to window-local so TabBar can slide
-  // the preview pill to it. Purely a receiver.
-  useEffect(() => {
-    const unlisten = listen<{ title: string; dirty: boolean; x: number } | null>("drag-hover", async (event) => {
-      if (!event.payload) {
-        previewWinLeftRef.current = null;
-        setDragHoverPreview(null);
-        return;
-      }
-      if (previewWinLeftRef.current === null) {
-        const win = getCurrentWindow();
-        const [pos, scale] = await Promise.all([win.outerPosition(), win.scaleFactor()]);
-        previewWinLeftRef.current = pos.x / scale;
-      }
-      setDragHoverPreview({ ...event.payload, x: event.payload.x - previewWinLeftRef.current });
-    });
-    return () => {
-      void unlisten.then((f) => f());
-    };
-  }, []);
-
   // Closing with unsaved changes swaps the native close for the
   // save/discard/cancel prompt, scoped to the whole window (every dirty tab
   // needs a decision, not just the active one). Registered once; reads
@@ -837,14 +420,14 @@ function App() {
             continue;
           }
           if (mtime === tab.diskMtime) continue;
-          if (tab.content !== tab.savedContent) continue; // dirty: defer to the save-time prompt
+          if (tabIsDirty(tab)) continue; // dirty: defer to the save-time prompt
           const content = await invoke<string>("read_text_file", { path: tab.path }).catch(() => null);
           if (content === null) continue;
           // Re-check against the LIVE tab: the user may have started typing
           // (or the tab may be gone) while the read above was in flight, and
           // clobbering those fresh edits with disk content would lose them.
-          const live = tabsRef.current.find((t) => t.id === tab.id);
-          if (!live || live.content !== live.savedContent) continue;
+          const live = tabsRef.current.find((tb) => tb.id === tab.id);
+          if (!live || tabIsDirty(live)) continue;
           updateTab(tab.id, { content, savedContent: content, diskMtime: mtime, reloadKey: live.reloadKey + 1 });
         }
       })().finally(() => {
@@ -856,7 +439,10 @@ function App() {
     };
   }, [updateTab]);
 
+  // Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help
+  // action the frontend owns arrives here as a window event.
   useEffect(() => {
+    const activeTabNow = () => tabsRef.current.find((tb) => tb.id === activeTabId);
     const unlistenSettings = listen("menu-open-settings", () => setSettingsOpen(true));
     // Only arrives in tab mode - in window mode the Rust menu handler opens
     // a fresh window itself instead of emitting this.
@@ -869,9 +455,15 @@ function App() {
     // rendering of our own needed. .printable-content in App.css hides
     // everything but the editor content while the panel is open.
     const unlistenExportPdf = listen("menu-export-pdf", () => window.print());
-    const unlistenExportHtml = listen("menu-export-html", () => void exportHtml());
+    const unlistenExportHtml = listen("menu-export-html", () => {
+      const tab = activeTabNow();
+      if (tab) void exportHtml(tab, t);
+    });
     // Payload is the pandoc writer name (docx, epub, ...) from the menu id.
-    const unlistenExportPandoc = listen<string>("menu-export-pandoc", (event) => void exportViaPandoc(event.payload));
+    const unlistenExportPandoc = listen<string>("menu-export-pandoc", (event) => {
+      const tab = activeTabNow();
+      if (tab) void exportViaPandoc(tab, event.payload, t);
+    });
     const unlistenSourceMode = listen("menu-toggle-source-mode", () => toggleSourceMode());
     const unlistenTypewriter = listen("menu-toggle-typewriter-mode", () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
@@ -917,8 +509,7 @@ function App() {
     toggleSourceMode,
     settings.typewriterMode,
     setSettings,
-    exportHtml,
-    exportViaPandoc,
+    t,
   ]);
 
   const closeSaving = useCallback(async () => {
@@ -928,7 +519,7 @@ function App() {
       // Whole window: save every dirty tab, aborting (leaving the window
       // open) if any of them hits a cancelled Save As.
       for (const tab of tabsRef.current) {
-        if (tab.content === tab.savedContent) continue;
+        if (!tabIsDirty(tab)) continue;
         const ok = await saveTab(tab.id);
         if (!ok) return;
       }
@@ -953,7 +544,7 @@ function App() {
       <div className="titlebar-drag-region" data-tauri-drag-region>
         {/* No tab bar to show the filename otherwise (single-tab window) -
             also doubles as the handle for the whole-window drag-to-merge
-            gesture (see the onMoved effect), so knowing which document is
+            gesture (see useTabDragMerge.ts), so knowing which document is
             in which window while dragging actually matters. */}
         {!showTabBar && (
           <span className="titlebar-filename">{tabTitle(activeTab, t)}</span>
@@ -1017,7 +608,7 @@ function App() {
       <div className="main-pane">
         {showTabBar && (
           <TabBar
-            tabs={tabs.map((tab) => ({ id: tab.id, title: tabTitle(tab, t), dirty: tab.content !== tab.savedContent }))}
+            tabs={tabs.map((tab) => ({ id: tab.id, title: tabTitle(tab, t), dirty: tabIsDirty(tab) }))}
             activeTabId={activeTabId}
             onActivate={setActiveTabId}
             onClose={requestCloseTab}

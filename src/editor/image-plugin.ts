@@ -3,6 +3,7 @@ import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { dirname } from "../utils/path";
 
 /**
  * Image support, Typora-style, in two halves:
@@ -20,11 +21,6 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
  *   itself keeps the original src; only the <img> element sees the
  *   asset: URL.
  */
-
-function dirname(path: string): string {
-  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx > 0 ? path.slice(0, idx) : path;
-}
 
 function resolveImageSrc(src: string, docPath: string | null): string {
   // A Windows drive path ("C:\..." / "C:/...") would otherwise read as a
