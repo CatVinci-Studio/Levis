@@ -33,11 +33,29 @@ function escapeRegExp(literal: string): string {
 }
 
 /**
+ * The one place a find query becomes a RegExp - search (computeMatches) and
+ * replacement (useFindReplace's capture-group re-apply) both compile through
+ * here so their semantics can never drift apart. Null when a regex-mode
+ * query doesn't compile.
+ */
+export function compileQuery(query: string, caseSensitive: boolean, useRegex: boolean, global = true): RegExp | null {
+  try {
+    return new RegExp(useRegex ? query : escapeRegExp(query), `${caseSensitive ? "" : "i"}${global ? "g" : ""}`);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Flattens a textblock's inline content (including nested enclosure nodes
  * like bold/italic md_span wrappers) into a plain string, alongside a
  * parallel array mapping each character index to its absolute doc position -
  * `posMap[i]` is the position right before character `i`, and the final
  * entry is the position right after the last character.
+ *
+ * Sibling of src/ai/doc-text.ts's textOffsetToDocPos: that one resolves a
+ * single offset per walk, this one builds the whole map up front because a
+ * search hits many offsets per block.
  */
 function textblockCharMap(node: ProseNode, contentStart: number): { text: string; posMap: number[] } {
   let text = "";
@@ -60,13 +78,8 @@ function computeMatches(
 ): { matches: FindReplaceMatch[]; error: boolean } {
   if (!query) return { matches: [], error: false };
 
-  let regex: RegExp;
-  try {
-    const source = useRegex ? query : escapeRegExp(query);
-    regex = new RegExp(source, caseSensitive ? "g" : "gi");
-  } catch {
-    return { matches: [], error: true };
-  }
+  const regex = compileQuery(query, caseSensitive, useRegex);
+  if (!regex) return { matches: [], error: true };
 
   const matches: FindReplaceMatch[] = [];
   doc.descendants((node, pos) => {

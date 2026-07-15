@@ -317,19 +317,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     <div onContextMenu={onContextMenu} onMouseOver={grammar.onMouseOver} onMouseOut={grammar.onMouseOut}>
       <Milkdown />
       {findReplace.open && (
-        <FindReplaceBar
-          findReplace={findReplace}
-          labels={{
-            findPlaceholder: t.findPlaceholder,
-            replacePlaceholder: t.replacePlaceholder,
-            replace: t.replace,
-            replaceAll: t.replaceAll,
-            matchCase: t.matchCase,
-            useRegex: t.useRegex,
-            invalidRegex: t.invalidRegex,
-            noMatches: t.noMatches,
-          }}
-        />
+        <FindReplaceBar findReplace={findReplace} labels={t} />
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenuItems()} onClose={() => setMenu(null)} />}
       {tableDialogOpen && (

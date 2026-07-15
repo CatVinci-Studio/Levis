@@ -1,17 +1,19 @@
 import { useState } from "react";
+import type { Strings } from "../i18n/strings";
 import type { FindReplace } from "./useFindReplace";
 import "./FindReplaceBar.css";
 
-interface FindReplaceBarLabels {
-  findPlaceholder: string;
-  replacePlaceholder: string;
-  replace: string;
-  replaceAll: string;
-  matchCase: string;
-  useRegex: string;
-  invalidRegex: string;
-  noMatches: string;
-}
+type FindReplaceBarLabels = Pick<
+  Strings,
+  | "findPlaceholder"
+  | "replacePlaceholder"
+  | "replace"
+  | "replaceAll"
+  | "matchCase"
+  | "useRegex"
+  | "invalidRegex"
+  | "noMatches"
+>;
 
 interface FindReplaceBarProps {
   findReplace: FindReplace;
@@ -27,9 +29,6 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
       e.preventDefault();
       if (e.shiftKey) findReplace.prev();
       else findReplace.next();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      findReplace.close();
     }
   }
 
@@ -37,10 +36,17 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
     if (e.key === "Enter") {
       e.preventDefault();
       findReplace.replaceOne();
-    } else if (e.key === "Escape") {
+    }
+  }
+
+  // Escape handled once here for both inputs; stopPropagation keeps bar
+  // keystrokes out of the app-level shortcut dispatcher.
+  function onBarKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
       e.preventDefault();
       findReplace.close();
     }
+    e.stopPropagation();
   }
 
   const countLabel = status.error
@@ -52,7 +58,7 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
       : "";
 
   return (
-    <div className="find-replace-bar" onKeyDown={(e) => e.stopPropagation()}>
+    <div className="find-replace-bar floating-surface" onKeyDown={onBarKeyDown}>
       <div className="find-replace-row">
         <button
           type="button"

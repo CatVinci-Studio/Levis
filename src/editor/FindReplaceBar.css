@@ -6,11 +6,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Card look (background/border/radius/shadow) comes from .floating-surface. */
   padding: 6px 8px;
-  border: 1px solid var(--editor-border);
-  border-radius: 10px;
-  background: var(--bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   font-size: 13px;
 }
 
