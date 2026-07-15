@@ -13,7 +13,12 @@ import type { AgentTurn } from "./types";
 /// end the conversation; the "new chat" button does that via `reset`. The
 /// document is passed per send, not held here, so each message sees the
 /// document as it was when the bar was opened.
-export function useAgentConversation(docPath: string | null, provider: string, webSearch: boolean) {
+export function useAgentConversation(
+  docPath: string | null,
+  provider: string,
+  webSearch: boolean,
+  model: string | undefined,
+) {
   const [conversationId, setConversationId] = useState<string>(() => crypto.randomUUID());
   const [history, setHistory] = useState<AgentTurn[]>([]);
   const [busy, setBusy] = useState(false);
@@ -45,6 +50,7 @@ export function useAgentConversation(docPath: string | null, provider: string, w
         history,
         message: trimmed,
         webSearch,
+        model: model || null,
       });
       setHistory((prev) => [...prev, ...newTurns]);
     } catch (err) {

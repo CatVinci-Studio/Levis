@@ -4,11 +4,14 @@ use tauri::AppHandle;
 
 const NOT_CONFIGURED: &str = "This provider isn't set up yet - configure it in Settings.";
 
+/// `model` overrides the provider's default model; inline completion always
+/// passes `None`, only the agent chat path sets it.
 pub(crate) async fn call(
     app: &AppHandle,
     provider: &str,
     instructions: String,
     user_text: String,
+    model: Option<&str>,
 ) -> Result<String, String> {
     match provider {
         "codex" => {
@@ -28,11 +31,11 @@ pub(crate) async fn call(
             let access_token = crate::auth::claude::get_valid_credential(app)
                 .await
                 .map_err(|_| NOT_CONFIGURED.to_string())?;
-            anthropic::call_completion(&access_token, instructions, user_text).await
+            anthropic::call_completion(&access_token, instructions, user_text, model).await
         }
         "apikey" => {
             let key = crate::auth::api_key::load_api_key(app)?.ok_or_else(|| NOT_CONFIGURED.to_string())?;
-            openai_api_key::call_completion(&key, instructions, user_text).await
+            openai_api_key::call_completion(&key, instructions, user_text, model).await
         }
         "custom" => {
             let config =
@@ -45,6 +48,28 @@ pub(crate) async fn call(
                 user_text,
             )
             .await
+        }
+        other => Err(format!("unknown provider: {other}")),
+    }
+}
+
+/// Live model list for the agent model picker in Settings. Codex isn't
+/// handled here - its OAuth token 403s on GET /v1/models ("Missing scopes:
+/// api.model.read", a Console/API-key permission it doesn't have), so the
+/// frontend offers a hardcoded preset list for it instead (agent-models.ts).
+/// "custom" isn't handled here either - it already has fetch_custom_models.
+#[tauri::command]
+pub async fn fetch_agent_models(app: AppHandle, provider: String) -> Result<Vec<String>, String> {
+    match provider.as_str() {
+        "claude" => {
+            let access_token = crate::auth::claude::get_valid_credential(&app)
+                .await
+                .map_err(|_| NOT_CONFIGURED.to_string())?;
+            anthropic::list_models(&access_token).await
+        }
+        "apikey" => {
+            let key = crate::auth::api_key::load_api_key(&app)?.ok_or_else(|| NOT_CONFIGURED.to_string())?;
+            custom::list_models("https://api.openai.com/v1", Some(&key)).await
         }
         other => Err(format!("unknown provider: {other}")),
     }
@@ -92,7 +117,7 @@ pub async fn ai_complete(
         ),
         _ => COMPLETION_INSTRUCTIONS.to_string(),
     };
-    call(&app, &provider, instructions, user_text).await
+    call(&app, &provider, instructions, user_text, None).await
 }
 
 const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain text. Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"context\": \"the span plus a few words of surrounding paragraph text on each side, copied verbatim - REQUIRED whenever the span's text occurs more than once in the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}]. Offsets must index into the exact paragraph text given, counting Unicode scalar values left to right. `suggestion` replaces `original` exactly - it must not repeat surrounding text that is outside the span. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
@@ -221,7 +246,7 @@ pub async fn ai_grammar_check(
         "{GRAMMAR_INSTRUCTIONS}\n\n{}",
         strictness_instructions(strictness.as_deref())
     );
-    let raw = call(&app, &provider, instructions, paragraph.clone()).await?;
+    let raw = call(&app, &provider, instructions, paragraph.clone(), None).await?;
     let json_slice = extract_json_array(&raw).ok_or_else(|| "no JSON array in model response".to_string())?;
     let issues: Vec<GrammarIssue> = serde_json::from_str(json_slice).map_err(|e| e.to_string())?;
     Ok(validate_issues(issues, &paragraph))

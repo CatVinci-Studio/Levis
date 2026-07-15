@@ -20,6 +20,7 @@ import type { Lang, Strings } from "../i18n/strings";
 import type { AgentSkill } from "../ai/types";
 import { comboFromEvent, isBindableCombo, formatCombo } from "../utils/shortcuts";
 import { importThemeCss } from "../utils/theme-import";
+import { CODEX_MODEL_PRESETS } from "./agent-models";
 import "./SettingsPanel.css";
 
 interface CustomEndpointConfig {
@@ -276,6 +277,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       checked={settings.enableWebSearch}
                       onChange={(v) => setSettings({ enableWebSearch: v })}
                     />
+                    <AgentModelSection t={t} />
                     <AgentWorkspaceSection t={t} />
                     <AgentSystemPromptSection t={t} onOpenFile={onOpenFile} onClose={onClose} />
                     <AgentSkillsSection t={t} />
@@ -912,6 +914,73 @@ function CustomProviderPanel({ t }: { t: Strings }) {
         {config && (
           <button className="text-button settings-inline-button" onClick={clear}>
             {t.apiKeyClear}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/// Model picker for the agent chat, for whichever provider is active in the
+/// AI tab. Codex gets a hardcoded preset list (its OAuth token can't list
+/// models - see agent-models.ts); claude/apikey fetch live. "custom" already
+/// has its own in CustomProviderPanel.
+function AgentModelSection({ t }: { t: Strings }) {
+  const { settings, setSettings } = useSettings();
+  const provider = settings.aiProvider;
+  const [models, setModels] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  if (provider === "custom") return null;
+
+  const key = `${provider}AgentModel` as const;
+  const current = settings[key];
+
+  async function fetchModels() {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await invoke<string[]>("fetch_agent_models", { provider });
+      setModels(list);
+      if (!current && list.length > 0) setSettings({ [key]: list[0] } as Partial<typeof settings>);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const presetOptions = provider === "codex" ? CODEX_MODEL_PRESETS : models.map((m) => ({ value: m, label: m }));
+
+  return (
+    <div className="settings-field">
+      <div>
+        <div className="settings-section-label">{t.agentModelLabel}</div>
+        <div className="settings-row-hint">{t.agentModelHint}</div>
+      </div>
+      {error && <div className="settings-error">{error}</div>}
+      <div className="custom-model-row">
+        {presetOptions.length > 0 ? (
+          <select value={current} onChange={(e) => setSettings({ [key]: e.target.value } as Partial<typeof settings>)}>
+            {presetOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            className="settings-text-input"
+            placeholder={t.customModelPlaceholder}
+            value={current}
+            onChange={(e) => setSettings({ [key]: e.target.value } as Partial<typeof settings>)}
+          />
+        )}
+        {provider !== "codex" && (
+          <button className="text-button settings-inline-button" onClick={fetchModels} disabled={loading}>
+            {t.customFetchModels}
           </button>
         )}
       </div>

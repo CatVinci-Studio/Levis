@@ -104,7 +104,13 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   }));
   // Owned here, not by the chat bar, so closing/reopening the bar continues
   // the same conversation ("New chat" inside the bar is what clears it).
-  const conversation = useAgentConversation(filePath, settings.aiProvider, settings.enableWebSearch);
+  const agentModel = {
+    codex: settings.codexAgentModel,
+    claude: settings.claudeAgentModel,
+    apikey: settings.apikeyAgentModel,
+    custom: undefined,
+  }[settings.aiProvider];
+  const conversation = useAgentConversation(filePath, settings.aiProvider, settings.enableWebSearch, agentModel);
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
 
   // Shortcuts respect the same feature toggles as the context menu items -

@@ -25,7 +25,7 @@ struct InputMessage {
 
 #[derive(Serialize)]
 pub struct ResponsesRequest {
-    model: &'static str,
+    model: String,
     store: bool,
     stream: bool,
     instructions: String,
@@ -43,7 +43,9 @@ fn supports_verbosity(model: &str) -> bool {
 }
 
 impl ResponsesRequest {
-    pub fn new(model: &'static str, instructions: String, user_text: String) -> Self {
+    pub fn new(model: impl Into<String>, instructions: String, user_text: String) -> Self {
+        let model = model.into();
+        let text = supports_verbosity(&model).then_some(TextConfig { verbosity: "low" });
         Self {
             model,
             store: false,
@@ -56,7 +58,7 @@ impl ResponsesRequest {
                     text: user_text,
                 }],
             }],
-            text: supports_verbosity(model).then_some(TextConfig { verbosity: "low" }),
+            text,
         }
     }
 

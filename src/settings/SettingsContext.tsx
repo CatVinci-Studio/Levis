@@ -72,6 +72,10 @@ export interface Settings {
   enableMath: boolean;
   enableMermaid: boolean;
   aiProvider: AiProvider;
+  /// Agent chat model per provider; "" uses the provider's default.
+  codexAgentModel: string;
+  claudeAgentModel: string;
+  apikeyAgentModel: string;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
   /// Offer OpenAI's server-side web search to the chat agent (codex only).
@@ -112,6 +116,9 @@ const DEFAULT_SETTINGS: Settings = {
   enableMath: true,
   enableMermaid: true,
   aiProvider: "codex",
+  codexAgentModel: "",
+  claudeAgentModel: "",
+  apikeyAgentModel: "",
   completionTone: "default",
   enableWebSearch: false,
   proxyType: "none",

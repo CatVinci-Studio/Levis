@@ -17,7 +17,7 @@ const JWT_CLAIM_PATH: &str = "https://api.openai.com/auth";
 // api.openai.com Responses API. Confirmed against the equivalent open-source
 // client implementation (earendil-works/pi).
 const CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
-const COMPLETION_MODEL: &str = "gpt-5.4-mini";
+pub const COMPLETION_MODEL: &str = "gpt-5.4-mini";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CodexCredential {
@@ -201,6 +201,7 @@ pub async fn agent_step(
     history: &[AgentTurn],
     tools: &[ToolSpec],
     web_search: bool,
+    model: &str,
 ) -> Result<StepResult, String> {
     let input: Vec<Value> = history.iter().map(turn_to_input_item).collect();
     let mut tool_schemas: Vec<Value> = tools.iter().map(tool_to_schema).collect();
@@ -212,7 +213,7 @@ pub async fn agent_step(
     }
 
     let body = json!({
-        "model": COMPLETION_MODEL,
+        "model": model,
         "store": false,
         "stream": true,
         "instructions": instructions,

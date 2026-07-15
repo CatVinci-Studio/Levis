@@ -61,6 +61,7 @@ fn build_instructions(workspace: &AgentWorkspace, document: &str, with_tools: bo
 /// and the tool implementations (`crate::ai::tools`) don't know that -
 /// adding tool-calling support for another provider is just wiring up its
 /// own `step` closure the way `codex_step` does below.
+/// `model` is the user's Settings choice, or None for the provider default.
 #[tauri::command]
 pub async fn ai_agent_message(
     app: AppHandle,
@@ -70,12 +71,13 @@ pub async fn ai_agent_message(
     history: Vec<AgentTurn>,
     message: String,
     web_search: bool,
+    model: Option<String>,
 ) -> Result<Vec<AgentTurn>, String> {
     let workspace = workspace::load(&app, doc_path.as_deref());
 
     if provider != "codex" {
         let instructions = build_instructions(&workspace, &document, false);
-        return flattened_chat_turn(&app, &provider, &instructions, history, message).await;
+        return flattened_chat_turn(&app, &provider, &instructions, history, message, model.as_deref()).await;
     }
 
     let instructions = build_instructions(&workspace, &document, true);
@@ -89,11 +91,13 @@ pub async fn ai_agent_message(
         root: workspace.root.as_deref().map(Path::new),
     };
 
+    let agent_model = model.unwrap_or_else(|| openai_codex::COMPLETION_MODEL.to_string());
     let codex_step = |turns: Vec<AgentTurn>| {
         let instructions = instructions.clone();
         let tool_specs = tool_specs.clone();
         let access_token = access_token.clone();
         let account_id = account_id.clone();
+        let agent_model = agent_model.clone();
         async move {
             openai_codex::agent_step(
                 &access_token,
@@ -103,6 +107,7 @@ pub async fn ai_agent_message(
                 &turns,
                 &tool_specs,
                 web_search,
+                &agent_model,
             )
             .await
         }
@@ -123,6 +128,7 @@ async fn flattened_chat_turn(
     instructions: &str,
     history: Vec<AgentTurn>,
     message: String,
+    model: Option<&str>,
 ) -> Result<Vec<AgentTurn>, String> {
     fn turn_to_plain_text(turn: &AgentTurn) -> Option<String> {
         match turn {
@@ -138,6 +144,6 @@ async fn flattened_chat_turn(
         transcript.push(t);
     }
 
-    let text = crate::ai::client::call(app, provider, instructions.to_string(), transcript.join("\n\n")).await?;
+    let text = crate::ai::client::call(app, provider, instructions.to_string(), transcript.join("\n\n"), model).await?;
     Ok(vec![user_turn, AgentTurn::Assistant { text }])
 }

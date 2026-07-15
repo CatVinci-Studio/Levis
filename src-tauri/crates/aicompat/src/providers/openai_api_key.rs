@@ -5,9 +5,15 @@ const PUBLIC_API_MODEL: &str = "gpt-5-nano";
 
 /// Standard public OpenAI Responses API, authenticated with a plain user
 /// API key rather than Codex OAuth - the fallback path for users who'd
-/// rather paste a key than sign in with ChatGPT.
-pub async fn call_completion(api_key: &str, instructions: String, user_text: String) -> Result<String, String> {
-    let body = ResponsesRequest::new(PUBLIC_API_MODEL, instructions, user_text);
+/// rather paste a key than sign in with ChatGPT. `model` overrides
+/// PUBLIC_API_MODEL when set.
+pub async fn call_completion(
+    api_key: &str,
+    instructions: String,
+    user_text: String,
+    model: Option<&str>,
+) -> Result<String, String> {
+    let body = ResponsesRequest::new(model.unwrap_or(PUBLIC_API_MODEL), instructions, user_text);
 
     let client = crate::http::client();
     let res = client

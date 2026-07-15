@@ -122,7 +122,7 @@ struct Message {
 
 #[derive(Serialize)]
 struct MessagesRequest {
-    model: &'static str,
+    model: String,
     max_tokens: u32,
     system: Vec<SystemBlock>,
     messages: Vec<Message>,
@@ -144,9 +144,15 @@ struct MessagesResponse {
 /// tokens are accepted there directly via Bearer auth, provided the request
 /// carries the Claude Code identity headers/system prompt the token is
 /// scoped to - without these the API rejects the OAuth token outright.
-pub async fn call_completion(access_token: &str, instructions: String, user_text: String) -> Result<String, String> {
+/// `model` overrides COMPLETION_MODEL when set.
+pub async fn call_completion(
+    access_token: &str,
+    instructions: String,
+    user_text: String,
+    model: Option<&str>,
+) -> Result<String, String> {
     let body = MessagesRequest {
-        model: COMPLETION_MODEL,
+        model: model.unwrap_or(COMPLETION_MODEL).to_string(),
         max_tokens: 1024,
         system: vec![
             SystemBlock {
@@ -185,4 +191,40 @@ pub async fn call_completion(access_token: &str, instructions: String, user_text
 
     let parsed: MessagesResponse = res.json().await.map_err(|e| e.to_string())?;
     Ok(parsed.content.into_iter().find_map(|c| c.text).unwrap_or_default())
+}
+
+#[derive(Deserialize)]
+struct ModelListEntry {
+    id: String,
+}
+
+#[derive(Deserialize, Default)]
+struct ModelListResponse {
+    #[serde(default)]
+    data: Vec<ModelListEntry>,
+}
+
+/// Lists available models for the agent model picker in Settings.
+pub async fn list_models(access_token: &str) -> Result<Vec<String>, String> {
+    let client = crate::http::client();
+    let res = client
+        .get("https://api.anthropic.com/v1/models")
+        .bearer_auth(access_token)
+        .header("anthropic-version", "2023-06-01")
+        .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
+        .header("anthropic-dangerous-direct-browser-access", "true")
+        .header("user-agent", "claude-cli/1.0.0")
+        .header("x-app", "cli")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let text = res.text().await.unwrap_or_default();
+        return Err(format!("Could not list models ({status}): {text}"));
+    }
+
+    let parsed: ModelListResponse = res.json().await.map_err(|e| e.to_string())?;
+    Ok(parsed.data.into_iter().map(|m| m.id).collect())
 }
