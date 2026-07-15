@@ -62,6 +62,9 @@ fn build_instructions(workspace: &AgentWorkspace, document: &str, with_tools: bo
 /// adding tool-calling support for another provider is just wiring up its
 /// own `step` closure the way `codex_step` does below.
 /// `model` is the user's Settings choice, or None for the provider default.
+// Each parameter is a distinct invoke() payload key - bundling them into a
+// struct would only move the width into the frontend call site.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn ai_agent_message(
     app: AppHandle,
