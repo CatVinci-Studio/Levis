@@ -45,6 +45,8 @@ const EXPORT_HTML_ID: &str = "export-html";
 /// name: "export-pandoc:<format>".
 const EXPORT_PANDOC_PREFIX: &str = "export-pandoc:";
 const QUIT_ID: &str = "quit";
+const CLOSE_TAB_ID: &str = "close-tab";
+const CLOSE_WINDOW_ID: &str = "close-window";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
 const TOGGLE_SIDEBAR_ID: &str = "toggle-sidebar";
@@ -772,6 +774,10 @@ pub fn run() {
             }
             let export_menu = export_menu_builder.build()?;
 
+            // Cmd+W closes the current tab (not the window - see
+            // CLOSE_WINDOW_ID below, which owns Cmd+Shift+W instead).
+            let close_tab_item = MenuItemBuilder::with_id(CLOSE_TAB_ID, "Close Tab").accelerator("Cmd+W").build(app)?;
+
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&new_file_item)
                 .item(&open_file_item)
@@ -781,6 +787,8 @@ pub fn run() {
                 .item(&save_file_as_item)
                 .separator()
                 .item(&export_menu)
+                .separator()
+                .item(&close_tab_item)
                 .build()?;
 
             app.manage(RecentMenu(Mutex::new(Some(open_recent_menu))));
@@ -850,13 +858,20 @@ pub fn run() {
             let new_window_item = MenuItemBuilder::with_id(NEW_WINDOW_ID, "New Window")
                 .accelerator("Cmd+T")
                 .build(app)?;
+            // Built manually (not the .close_window() predefined item) so it
+            // doesn't own the OS-default Cmd+W accelerator - that's Close
+            // Tab's now (see CLOSE_TAB_ID above).
+            let close_window_item = MenuItemBuilder::with_id(CLOSE_WINDOW_ID, "Close Window")
+                .accelerator("Cmd+Shift+W")
+                .build(app)?;
+
             let window_menu = SubmenuBuilder::new(app, "Window")
                 .item(&new_window_item)
                 .separator()
                 .minimize()
                 .maximize()
                 .separator()
-                .close_window()
+                .item(&close_window_item)
                 .separator()
                 .bring_all_to_front()
                 .build()?;
@@ -924,6 +939,14 @@ pub fn run() {
                     let _ = app_handle.emit("menu-toggle-sidebar", ());
                 } else if id == FIND_REPLACE_ID {
                     emit_to_focused(app_handle, "menu-find-replace");
+                } else if id == CLOSE_TAB_ID {
+                    emit_to_focused(app_handle, "menu-close-tab");
+                } else if id == CLOSE_WINDOW_ID {
+                    // close() (not destroy()) so the frontend's dirty-tab
+                    // prompt still runs, same as the red traffic-light button.
+                    if let Some((_, window)) = app_handle.webview_windows().iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
+                        let _ = window.close();
+                    }
                 } else if id == NEW_WINDOW_ID {
                     let _ = open_new_window(app_handle);
                 } else if id.as_ref().starts_with(HELP_DOC_PREFIX) {

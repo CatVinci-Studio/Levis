@@ -583,6 +583,15 @@ function App() {
         return;
       }
 
+      // Closes the current tab, not the window (Cmd+Shift+W - Close Window
+      // in the Window menu - is left to the native accelerator).
+      const isCloseTab = (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "w";
+      if (isCloseTab) {
+        e.preventDefault();
+        requestCloseTab(activeTabId);
+        return;
+      }
+
       const combo = comboFromEvent(e);
       if (!combo) return;
       const { shortcuts } = settings;
@@ -611,7 +620,7 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [saveTab, activeTabId, settings, toggleSourceMode, setSettings]);
+  }, [saveTab, requestCloseTab, activeTabId, settings, toggleSourceMode, setSettings]);
 
   useEffect(() => installClipboardCapture(), []);
 
@@ -772,6 +781,7 @@ function App() {
     const unlistenFindReplace = listen("menu-find-replace", () =>
       window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT)),
     );
+    const unlistenCloseTab = listen("menu-close-tab", () => requestCloseTab(activeTabId));
     // Payload is the block kind (h1..h6, bullet-list, ...) from the menu id -
     // relayed to whichever editor is mounted as active (see MilkdownEditor.tsx).
     const unlistenInsertBlock = listen<string>("menu-insert-block", (event) => {
@@ -793,6 +803,7 @@ function App() {
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
       void unlistenFindReplace.then((f) => f());
+      void unlistenCloseTab.then((f) => f());
       void unlistenInsertBlock.then((f) => f());
       void unlistenHelp.then((f) => f());
     };
@@ -802,6 +813,7 @@ function App() {
     saveTabAs,
     addBlankTab,
     openHelpTab,
+    requestCloseTab,
     activeTabId,
     toggleSourceMode,
     settings.typewriterMode,
