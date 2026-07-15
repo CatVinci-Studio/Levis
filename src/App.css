@@ -402,10 +402,22 @@ body {
   background: var(--editor-bg, var(--bg));
 }
 
+/* --content-zoom (set by utils/useZoom.ts) scales ONLY the document text,
+   never the window chrome. The column's max-width grows by the same factor
+   while the zoomed node's layout width divides by it, so the visual result
+   is the 100% column scaled geometrically - same words per line, everything
+   proportionally bigger - exactly like page zoom scoped to the content.
+   CSS `zoom` (not transform) so the text truly reflows and scrolls. The
+   fixed-position overlays (find bar, popovers) live OUTSIDE the zoomed
+   nodes and keep their unzoomed viewport coordinates. */
 .editor-content {
-  max-width: 760px;
+  max-width: calc(760px * var(--content-zoom, 1));
   margin: 0 auto;
   padding: 3rem 1.5rem 6rem;
+}
+
+.editor-content .milkdown {
+  zoom: var(--content-zoom, 1);
 }
 
 .editor-content.typewriter-active {
@@ -414,6 +426,7 @@ body {
 }
 
 .source-view {
+  zoom: var(--content-zoom, 1);
   flex: 1;
   width: 100%;
   max-width: 760px;

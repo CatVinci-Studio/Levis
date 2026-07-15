@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
 
-/// Whole-page zoom via the webview's native page-zoom (WKWebView pageZoom on
-/// macOS) - everything scales together in one coordinate space, so fixed
-/// overlays (find bar, popovers) keep their positioning math. Three input
-/// sources feed one engine: trackpad pinch (WebKit's non-standard gesture
-/// events), mod+wheel, and the View menu's Zoom items relayed from Rust.
+/// Document zoom, scoped to the editor CONTENT - the window chrome (tab
+/// bar, titlebar filename, sidebar, toolbars) stays at 100%. The factor is
+/// published as the `--content-zoom` CSS variable; App.css applies it as
+/// CSS `zoom` on the content nodes (.milkdown / .source-view) and widens
+/// the content column to match, so the text column scales geometrically
+/// like page zoom while fixed overlays (find bar, popovers) keep their
+/// unzoomed viewport coordinate space. Three input sources feed one
+/// engine: trackpad pinch (WebKit's non-standard gesture events),
+/// mod+wheel, and the View menu's Zoom items relayed from Rust.
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
@@ -46,13 +49,16 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
   persistRef.current = persist;
 
   useEffect(() => {
-    const webview = getCurrentWebview();
     let raf = 0;
     let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
+    const apply = () => {
+      document.documentElement.style.setProperty("--content-zoom", String(zoomRef.current));
+    };
+
     const applyFrame = () => {
       raf = 0;
-      webview.setZoom(zoomRef.current).catch(console.error);
+      apply();
     };
 
     // `snapped: false` while a pinch is mid-flight, so the 100% snap zone
@@ -65,7 +71,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       persistTimer = setTimeout(() => persistRef.current(zoomRef.current), PERSIST_DELAY_MS);
     };
 
-    if (zoomRef.current !== 1) webview.setZoom(zoomRef.current).catch(console.error);
+    if (zoomRef.current !== 1) apply();
 
     // Trackpad pinch: scale is cumulative from the gesture's start, so the
     // zoom at gesturestart is the base it multiplies.
