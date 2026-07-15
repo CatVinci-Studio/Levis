@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { normalizeMathDelimiters } from "../utils/markdown-math";
 
 // Chat replies are short-form and conversational - a bare newline should
 // break the line like it visually looks, not require a blank line the way
@@ -15,7 +16,10 @@ marked.setOptions({ gfm: true, breaks: true });
  */
 export function MarkdownText({ text }: { text: string }) {
   const html = useMemo(() => {
-    const parsed = marked.parse(text, { async: false }) as string;
+    // Not real math rendering (no KaTeX here) - just keeps LaTeX-delimited
+    // formulas from being mangled by markdown's backslash-escaping (`\(`
+    // would otherwise lose its backslash and read as a stray paren).
+    const parsed = marked.parse(normalizeMathDelimiters(text), { async: false }) as string;
     return DOMPurify.sanitize(parsed);
   }, [text]);
 

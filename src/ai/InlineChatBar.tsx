@@ -4,6 +4,7 @@ import type { AgentConversation } from "./useAgentConversation";
 import { AgentTurnView } from "./AgentTurnView";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
+import { normalizeMathDelimiters } from "../utils/markdown-math";
 import type { ApplyTarget } from "./useInlineChat";
 import { EDIT_ACTIONS, type AgentSkill, type ChatAttachment, type EditAction, type EditProposal } from "./types";
 import "./AgentTurnView.css";
@@ -57,7 +58,9 @@ function parseProposal(argumentsJson: string): EditProposal | null {
     const action = parsed.action as EditAction;
     if (!EDIT_ACTIONS.includes(action)) return null;
     const anchor = typeof parsed.anchor === "string" && parsed.anchor ? parsed.anchor : undefined;
-    const text = typeof parsed.text === "string" ? parsed.text : undefined;
+    // Only the inserted text, never the anchor - the anchor must stay a
+    // verbatim quote of the document to match.
+    const text = typeof parsed.text === "string" ? normalizeMathDelimiters(parsed.text) : undefined;
     if (action !== "append" && action !== "replace_selection" && !anchor) return null;
     if (action !== "delete" && text === undefined) return null;
     return { action, anchor, text };
@@ -76,12 +79,12 @@ function parseProposal(argumentsJson: string): EditProposal | null {
 function extractReplacement(text: string): string {
   const trimmed = text.trim();
   const wholeFence = /^```[^\n]*\n([\s\S]*?)\n?```\s*$/.exec(trimmed);
-  if (wholeFence) return wholeFence[1];
+  if (wholeFence) return normalizeMathDelimiters(wholeFence[1]);
   // Exactly one fenced block inside prose ("Sure, here's the new version:
   // ```...```") - the block is the payload, the prose is commentary.
   const fences = [...trimmed.matchAll(/```[^\n]*\n([\s\S]*?)\n?```/g)];
-  if (fences.length === 1) return fences[0][1];
-  return trimmed;
+  if (fences.length === 1) return normalizeMathDelimiters(fences[0][1]);
+  return normalizeMathDelimiters(trimmed);
 }
 
 /**
