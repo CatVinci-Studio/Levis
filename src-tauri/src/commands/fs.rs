@@ -137,6 +137,27 @@ pub async fn list_dir(path: String) -> Result<Vec<DirEntryInfo>, String> {
     Ok(items)
 }
 
+/// Millisecond mtime of a file, or None if it doesn't exist. The frontend
+/// snapshots this when a document is read or written, then compares against
+/// it to detect external modifications (reload on window focus, and the
+/// overwrite-conflict prompt before saving).
+#[tauri::command]
+pub async fn file_mtime_ms(path: String) -> Result<Option<f64>, String> {
+    require_non_empty(&path)?;
+    match fs::metadata(&path).await {
+        Ok(meta) => {
+            let modified = meta.modified().map_err(|e| e.to_string())?;
+            let ms = modified
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|e| e.to_string())?
+                .as_millis() as f64;
+            Ok(Some(ms))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[tauri::command]
 pub async fn read_text_file(path: String) -> Result<String, String> {
     require_non_empty(&path)?;

@@ -12,9 +12,8 @@ use auth::custom_endpoint::{
 };
 use auth::openai_codex::{codex_auth_status, codex_login, codex_logout};
 use commands::fs::{
-    list_dir, open_css_file_dialog, open_file_dialog, pick_attachment_file, read_binary_file_base64, read_text_file,
-    save_file_dialog,
-    save_pasted_image, write_text_file,
+    file_mtime_ms, list_dir, open_css_file_dialog, open_file_dialog, pick_attachment_file, read_binary_file_base64,
+    read_text_file, save_file_dialog, save_pasted_image, write_text_file,
 };
 use commands::cli::{cli_command_status, install_cli_command};
 use commands::export::{
@@ -93,6 +92,11 @@ struct DetachedTab {
     content: String,
     #[serde(rename = "savedContent")]
     saved_content: String,
+    /// The source tab's disk-mtime snapshot, carried along so the receiving
+    /// window's external-change detection keeps its baseline instead of
+    /// re-adopting whatever is on disk after the drop.
+    #[serde(rename = "diskMtime")]
+    disk_mtime: Option<f64>,
 }
 struct PendingDetachedTabs(Mutex<HashMap<String, DetachedTab>>);
 
@@ -446,13 +450,14 @@ fn start_floating_tab_drag(
     path: Option<String>,
     content: String,
     saved_content: String,
+    disk_mtime: Option<f64>,
     title: String,
     dirty: bool,
     destroy_source: bool,
 ) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (window, path, content, saved_content, title, dirty, destroy_source);
+        let _ = (window, path, content, saved_content, disk_mtime, title, dirty, destroy_source);
         Err("floating tab drags require macOS cursor tracking".to_string())
     }
     #[cfg(target_os = "macos")]
@@ -464,7 +469,7 @@ fn start_floating_tab_drag(
         if destroy_source {
             let _ = window.destroy();
         }
-        let tab = DetachedTab { path, content, saved_content };
+        let tab = DetachedTab { path, content, saved_content, disk_mtime };
         std::thread::spawn(move || {
             let mut pill_exists = false;
             let mut pill_parked = false;
@@ -1007,6 +1012,7 @@ pub fn run() {
             save_file_dialog,
             list_dir,
             read_text_file,
+            file_mtime_ms,
             read_binary_file_base64,
             write_text_file,
             save_pasted_image,

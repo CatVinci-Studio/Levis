@@ -70,6 +70,12 @@ interface DocTab {
   // What's on disk (or "" for a fresh draft) - dirtiness is divergence from
   // this, and it's what the close-confirmation prompt keys off.
   savedContent: string;
+  // Disk mtime (ms) snapshotted when this document was last read from or
+  // written to disk; null for drafts and for documents whose mtime is
+  // unknown (e.g. a tab received from another window). Divergence from the
+  // live mtime means the file changed externally - clean tabs reload on
+  // window focus, dirty tabs get an overwrite prompt on save.
+  diskMtime: number | null;
   sourceMode: boolean;
   reloadKey: number;
   // A bundled Help menu document: still a pathless draft (edits never touch
@@ -109,6 +115,7 @@ function makeBlankTab(): DocTab {
     path: null,
     content: "",
     savedContent: "",
+    diskMtime: null,
     sourceMode: false,
     reloadKey: 0,
   };
@@ -126,6 +133,22 @@ let openQueueDrained = false;
 function dirname(path: string): string {
   const idx = path.lastIndexOf("/");
   return idx > 0 ? path.slice(0, idx) : path;
+}
+
+// Errors (permission issues, network mounts) are treated the same as "no
+// mtime available": external-change detection degrades to doing nothing
+// rather than blocking opens/saves.
+async function statMtime(path: string): Promise<number | null> {
+  try {
+    return await invoke<number | null>("file_mtime_ms", { path });
+  } catch {
+    return null;
+  }
+}
+
+async function readDocFromDisk(path: string): Promise<{ content: string; diskMtime: number | null }> {
+  const content = await invoke<string>("read_text_file", { path });
+  return { content, diskMtime: await statMtime(path) };
 }
 
 function basename(path: string): string {
@@ -221,9 +244,9 @@ function App() {
       setActiveTabId(existing.id);
       return;
     }
-    const text = await invoke<string>("read_text_file", { path });
+    const { content: text, diskMtime } = await readDocFromDisk(path);
     void invoke("add_recent_file", { path }); // feeds File > Open Recent
-    const newTab = { ...makeBlankTab(), path, content: text, savedContent: text };
+    const newTab = { ...makeBlankTab(), path, content: text, savedContent: text, diskMtime };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newTab.id);
   }, []);
@@ -236,9 +259,9 @@ function App() {
       }
       // "window" mode: replace the active tab's document in place, same as
       // this app has always worked for a single document per window.
-      const text = await invoke<string>("read_text_file", { path });
+      const { content: text, diskMtime } = await readDocFromDisk(path);
       void invoke("add_recent_file", { path });
-      updateTab(activeTabId, { path, content: text, savedContent: text });
+      updateTab(activeTabId, { path, content: text, savedContent: text, diskMtime });
     },
     [settings.newDocumentMode, activeTabId, openPathInTab, updateTab],
   );
@@ -303,7 +326,7 @@ function App() {
     if (!picked) return false;
     await invoke("write_text_file", { path: picked, contents: tab.content });
     void invoke("add_recent_file", { path: picked });
-    updateTab(tabId, { path: picked, savedContent: tab.content });
+    updateTab(tabId, { path: picked, savedContent: tab.content, diskMtime: await statMtime(picked) });
     return true;
   }, [updateTab]);
 
@@ -313,10 +336,25 @@ function App() {
     // Draft never saved before: ask where to put it, then this document
     // graduates into a real file (the sidebar tree picks up its folder).
     if (!tab.path) return saveTabAs(tabId);
+    // The file changed on disk since it was read (another app, git, a sync
+    // service): saving now would silently destroy those changes, so ask.
+    // A null current mtime means the file was deleted - writing simply
+    // recreates it, nothing to protect.
+    if (tab.diskMtime !== null) {
+      const current = await statMtime(tab.path);
+      if (current !== null && current !== tab.diskMtime) {
+        const overwrite = await ask(t.fileChangedOnDiskMessage, {
+          title: t.fileChangedOnDiskTitle,
+          okLabel: t.fileChangedOnDiskOverwrite,
+          cancelLabel: t.closePromptCancel,
+        });
+        if (!overwrite) return false;
+      }
+    }
     await invoke("write_text_file", { path: tab.path, contents: tab.content });
-    updateTab(tabId, { savedContent: tab.content });
+    updateTab(tabId, { savedContent: tab.content, diskMtime: await statMtime(tab.path) });
     return true;
-  }, [updateTab, saveTabAs]);
+  }, [updateTab, saveTabAs, t]);
 
   // Serializes the active tab's live editor DOM - what you see is what
   // exports - with every stylesheet inlined so the file is self-contained.
@@ -486,6 +524,7 @@ function App() {
           path: tab.path,
           content: tab.content,
           savedContent: tab.savedContent,
+          diskMtime: tab.diskMtime,
           title: tabTitle(tab, t),
           dirty: tab.content !== tab.savedContent,
           destroySource: false,
@@ -542,6 +581,7 @@ function App() {
         path: tab.path,
         content: tab.content,
         savedContent: tab.savedContent,
+        diskMtime: tab.diskMtime,
         title: tabTitle(tab, t),
         dirty: tab.content !== tab.savedContent,
         destroySource: true,
@@ -639,9 +679,12 @@ function App() {
       // A tab dragged out of another window's tab bar (see TabBar.tsx /
       // detachTab): claims priority over the OS-open drain below since this
       // window was created specifically to receive it.
-      const detached = await invoke<{ path: string | null; content: string; savedContent: string } | null>(
-        "take_detached_tab",
-      );
+      const detached = await invoke<{
+        path: string | null;
+        content: string;
+        savedContent: string;
+        diskMtime: number | null;
+      } | null>("take_detached_tab");
       if (detached) {
         updateTab(activeTabId, detached);
         return;
@@ -659,8 +702,8 @@ function App() {
         const paths = await invoke<string[]>("take_pending_open_paths");
         if (paths.length === 0) return;
         const [first, ...rest] = paths;
-        const text = await invoke<string>("read_text_file", { path: first });
-        updateTab(activeTabId, { path: first, content: text, savedContent: text });
+        const { content: text, diskMtime } = await readDocFromDisk(first);
+        updateTab(activeTabId, { path: first, content: text, savedContent: text, diskMtime });
         for (const p of rest) await openPathInTab(p);
       } else {
         const pending = await invoke<string | null>("take_pending_open_path");
@@ -689,7 +732,13 @@ function App() {
   // hover-off first: the preview pill is replaced by the real tab in the
   // same render, so there's no empty-gap flash in between.
   useEffect(() => {
-    const unlisten = listen<{ path: string | null; content: string; savedContent: string; x: number }>(
+    const unlisten = listen<{
+      path: string | null;
+      content: string;
+      savedContent: string;
+      diskMtime: number | null;
+      x: number;
+    }>(
       "receive-detached-tab",
       (event) => {
         const { x, ...doc } = event.payload;
@@ -758,6 +807,43 @@ function App() {
       void unlisten.then((f) => f());
     };
   }, []);
+
+  // External-change pickup: whenever this window regains focus, compare each
+  // on-disk tab's live mtime against the snapshot taken at read/save time.
+  // Clean tabs silently reload (reloadKey remounts the editor on the new
+  // content); dirty tabs are left alone - their unsaved edits stay, and the
+  // conflict surfaces as saveTab's overwrite prompt instead. A tab with no
+  // snapshot (its mtime was unreadable when the document was read) just
+  // adopts the current mtime as its baseline.
+  useEffect(() => {
+    let checking = false;
+    const unlisten = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (!focused || checking) return;
+      checking = true;
+      void (async () => {
+        for (const tab of tabsRef.current) {
+          if (!tab.path) continue;
+          const mtime = await statMtime(tab.path);
+          // Deleted or unreadable: keep the buffer as-is; Save recreates it.
+          if (mtime === null) continue;
+          if (tab.diskMtime === null) {
+            updateTab(tab.id, { diskMtime: mtime });
+            continue;
+          }
+          if (mtime === tab.diskMtime) continue;
+          if (tab.content !== tab.savedContent) continue; // dirty: defer to the save-time prompt
+          const content = await invoke<string>("read_text_file", { path: tab.path }).catch(() => null);
+          if (content === null) continue;
+          updateTab(tab.id, { content, savedContent: content, diskMtime: mtime, reloadKey: tab.reloadKey + 1 });
+        }
+      })().finally(() => {
+        checking = false;
+      });
+    });
+    return () => {
+      void unlisten.then((f) => f());
+    };
+  }, [updateTab]);
 
   useEffect(() => {
     const unlistenSettings = listen("menu-open-settings", () => setSettingsOpen(true));
