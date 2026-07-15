@@ -583,17 +583,17 @@ function App() {
         return;
       }
 
-      // Closes the current tab, not the window (Cmd+Shift+W - Close Window
-      // in the Window menu - is left to the native accelerator).
-      const isCloseTab = (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "w";
-      if (isCloseTab) {
+      const combo = comboFromEvent(e);
+      if (!combo) return;
+
+      // Fixed OS-convention shortcut like Cmd+S above, not a configurable
+      // settings.shortcuts entry - it mirrors the File > Close Tab menu
+      // accelerator. (Close Window keeps its native Cmd+Shift+W.)
+      if (combo === "mod+w") {
         e.preventDefault();
         requestCloseTab(activeTabId);
         return;
       }
-
-      const combo = comboFromEvent(e);
-      if (!combo) return;
       const { shortcuts } = settings;
       if (combo === shortcuts.triggerCompletion) {
         e.preventDefault();
