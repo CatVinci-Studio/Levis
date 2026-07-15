@@ -840,7 +840,12 @@ function App() {
           if (tab.content !== tab.savedContent) continue; // dirty: defer to the save-time prompt
           const content = await invoke<string>("read_text_file", { path: tab.path }).catch(() => null);
           if (content === null) continue;
-          updateTab(tab.id, { content, savedContent: content, diskMtime: mtime, reloadKey: tab.reloadKey + 1 });
+          // Re-check against the LIVE tab: the user may have started typing
+          // (or the tab may be gone) while the read above was in flight, and
+          // clobbering those fresh edits with disk content would lose them.
+          const live = tabsRef.current.find((t) => t.id === tab.id);
+          if (!live || live.content !== live.savedContent) continue;
+          updateTab(tab.id, { content, savedContent: content, diskMtime: mtime, reloadKey: live.reloadKey + 1 });
         }
       })().finally(() => {
         checking = false;
