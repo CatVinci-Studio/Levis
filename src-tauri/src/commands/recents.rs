@@ -6,7 +6,7 @@ use tauri::Manager;
 /// JSON array (most recent first) next to prefs.json, so the menu survives
 /// restarts. The frontend reports every successful open/save-as via
 /// add_recent_file; the Rust side owns the list and the menu that mirrors
-/// it (lib.rs's rebuild_recent_menu).
+/// it (menu.rs's rebuild_recent_menu).
 const MAX_RECENT_FILES: usize = 10;
 
 fn recents_file(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -35,10 +35,10 @@ pub fn add_recent_file(app: tauri::AppHandle, path: String) {
     list.insert(0, path);
     list.truncate(MAX_RECENT_FILES);
     write_recent_files(&app, &list);
-    crate::rebuild_recent_menu(&app, list);
+    crate::menu::rebuild_recent_menu(&app, list);
 }
 
 pub fn clear_recent_files(app: &tauri::AppHandle) {
     write_recent_files(app, &[]);
-    crate::rebuild_recent_menu(app, Vec::new());
+    crate::menu::rebuild_recent_menu(app, Vec::new());
 }
