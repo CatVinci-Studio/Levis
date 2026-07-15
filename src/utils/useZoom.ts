@@ -52,7 +52,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
 
     const applyFrame = () => {
       raf = 0;
-      void webview.setZoom(zoomRef.current);
+      webview.setZoom(zoomRef.current).catch(console.error);
     };
 
     // `snapped: false` while a pinch is mid-flight, so the 100% snap zone
@@ -65,7 +65,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       persistTimer = setTimeout(() => persistRef.current(zoomRef.current), PERSIST_DELAY_MS);
     };
 
-    if (zoomRef.current !== 1) void webview.setZoom(zoomRef.current);
+    if (zoomRef.current !== 1) webview.setZoom(zoomRef.current).catch(console.error);
 
     // Trackpad pinch: scale is cumulative from the gesture's start, so the
     // zoom at gesturestart is the base it multiplies.
