@@ -22,11 +22,14 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
  */
 
 function dirname(path: string): string {
-  const idx = path.lastIndexOf("/");
+  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return idx > 0 ? path.slice(0, idx) : path;
 }
 
 function resolveImageSrc(src: string, docPath: string | null): string {
+  // A Windows drive path ("C:\..." / "C:/...") would otherwise read as a
+  // single-letter URL scheme to the test below.
+  if (/^[a-z]:[\\/]/i.test(src)) return convertFileSrc(src);
   if (!src || /^[a-z][a-z0-9+.-]*:/i.test(src)) return src; // http(s), data:, asset:, file:, ...
   if (src.startsWith("/")) return convertFileSrc(src);
   if (!docPath) return src;

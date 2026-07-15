@@ -29,18 +29,22 @@ function isRemoteOrData(target: string): boolean {
 }
 
 function dirnameOf(path: string): string {
-  const idx = path.lastIndexOf("/");
+  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return idx >= 0 ? path.slice(0, idx) : "";
 }
 
+// baseDir is an OS path (either separator - a Unix split keeps its leading
+// "" element, which the join below turns back into the root "/"; a Windows
+// split starts at the drive letter); rel comes from CSS, so always "/".
+// Joining with "/" is fine on Windows, whose APIs accept both separators.
 function resolvePath(baseDir: string, rel: string): string {
-  const stack = baseDir ? baseDir.split("/") : [];
+  const stack = baseDir ? baseDir.split(/[\\/]/) : [];
   for (const part of rel.split("/")) {
     if (part === "" || part === ".") continue;
     if (part === "..") stack.pop();
     else stack.push(part);
   }
-  return "/" + stack.join("/");
+  return stack.join("/");
 }
 
 function guessMime(path: string): string {

@@ -142,7 +142,7 @@ function makeBlankTab(): DocTab {
 let openQueueDrained = false;
 
 function dirname(path: string): string {
-  const idx = path.lastIndexOf("/");
+  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return idx > 0 ? path.slice(0, idx) : path;
 }
 
