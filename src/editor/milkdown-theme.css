@@ -574,16 +574,11 @@
 .milkdown th,
 .milkdown td {
   padding: 0.5em 0.8em;
-  border-bottom: 1px solid var(--editor-border);
+  border: 1px solid var(--editor-border);
 }
 
 .milkdown thead th {
-  border-bottom: 2px solid var(--editor-border);
   text-align: left;
-}
-
-.milkdown tbody tr:last-child td {
-  border-bottom: none;
 }
 
 /* table-hover-view.ts wraps the table in this to anchor the add-row/
