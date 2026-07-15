@@ -86,7 +86,7 @@ static UI_READY: AtomicBool = AtomicBool::new(false);
 /// disk yet, and dragging it out must not lose that. Keyed by the specific
 /// new window's label (not a shared queue) since it's a 1:1 handoff to the
 /// one window spawned for it, not a batch any window could claim.
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct DetachedTab {
     path: Option<String>,
     content: String,
@@ -97,6 +97,11 @@ struct DetachedTab {
     /// re-adopting whatever is on disk after the drop.
     #[serde(rename = "diskMtime")]
     disk_mtime: Option<f64>,
+    /// Bundled Help doc id ("markdown"/"agent") when the dragged tab is a
+    /// Help document - keeps its title and per-doc dedupe working in the
+    /// window it lands in.
+    #[serde(rename = "helpDoc", default, skip_serializing_if = "Option::is_none")]
+    help_doc: Option<String>,
 }
 struct PendingDetachedTabs(Mutex<HashMap<String, DetachedTab>>);
 
@@ -447,17 +452,14 @@ static FLOATING_DRAG_ACTIVE: AtomicBool = AtomicBool::new(false);
 #[tauri::command]
 fn start_floating_tab_drag(
     window: tauri::WebviewWindow,
-    path: Option<String>,
-    content: String,
-    saved_content: String,
-    disk_mtime: Option<f64>,
+    tab: DetachedTab,
     title: String,
     dirty: bool,
     destroy_source: bool,
 ) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (window, path, content, saved_content, disk_mtime, title, dirty, destroy_source);
+        let _ = (window, tab, title, dirty, destroy_source);
         Err("floating tab drags require macOS cursor tracking".to_string())
     }
     #[cfg(target_os = "macos")]
@@ -469,7 +471,6 @@ fn start_floating_tab_drag(
         if destroy_source {
             let _ = window.destroy();
         }
-        let tab = DetachedTab { path, content, saved_content, disk_mtime };
         std::thread::spawn(move || {
             let mut pill_exists = false;
             let mut pill_parked = false;

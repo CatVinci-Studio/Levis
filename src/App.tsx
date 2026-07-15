@@ -89,6 +89,17 @@ interface DocTab {
 // HELP_DOC_PREFIX) - they arrive here as the menu-open-help payload.
 type HelpDoc = "markdown" | "agent";
 
+// The document part of a tab in flight between windows - what
+// start_floating_tab_drag hands to Rust and take_detached_tab /
+// receive-detached-tab hand back (lib.rs DetachedTab).
+interface DetachedTabDoc {
+  path: string | null;
+  content: string;
+  savedContent: string;
+  diskMtime: number | null;
+  helpDoc?: HelpDoc;
+}
+
 function helpDocContent(doc: HelpDoc, lang: string): string {
   if (doc === "agent") {
     if (lang === "zh") return agentGuideZh;
@@ -521,10 +532,13 @@ function App() {
       if (!tab) return;
       try {
         await invoke("start_floating_tab_drag", {
-          path: tab.path,
-          content: tab.content,
-          savedContent: tab.savedContent,
-          diskMtime: tab.diskMtime,
+          tab: {
+            path: tab.path,
+            content: tab.content,
+            savedContent: tab.savedContent,
+            diskMtime: tab.diskMtime,
+            helpDoc: tab.helpDoc ?? null,
+          },
           title: tabTitle(tab, t),
           dirty: tab.content !== tab.savedContent,
           destroySource: false,
@@ -578,10 +592,13 @@ function App() {
       if (!tab) return;
       windowDragRef.current = "handed-off";
       void invoke("start_floating_tab_drag", {
-        path: tab.path,
-        content: tab.content,
-        savedContent: tab.savedContent,
-        diskMtime: tab.diskMtime,
+        tab: {
+          path: tab.path,
+          content: tab.content,
+          savedContent: tab.savedContent,
+          diskMtime: tab.diskMtime,
+          helpDoc: tab.helpDoc ?? null,
+        },
         title: tabTitle(tab, t),
         dirty: tab.content !== tab.savedContent,
         destroySource: true,
@@ -679,12 +696,7 @@ function App() {
       // A tab dragged out of another window's tab bar (see TabBar.tsx /
       // detachTab): claims priority over the OS-open drain below since this
       // window was created specifically to receive it.
-      const detached = await invoke<{
-        path: string | null;
-        content: string;
-        savedContent: string;
-        diskMtime: number | null;
-      } | null>("take_detached_tab");
+      const detached = await invoke<DetachedTabDoc | null>("take_detached_tab");
       if (detached) {
         updateTab(activeTabId, detached);
         return;
@@ -732,13 +744,7 @@ function App() {
   // hover-off first: the preview pill is replaced by the real tab in the
   // same render, so there's no empty-gap flash in between.
   useEffect(() => {
-    const unlisten = listen<{
-      path: string | null;
-      content: string;
-      savedContent: string;
-      diskMtime: number | null;
-      x: number;
-    }>(
+    const unlisten = listen<DetachedTabDoc & { x: number }>(
       "receive-detached-tab",
       (event) => {
         const { x, ...doc } = event.payload;
