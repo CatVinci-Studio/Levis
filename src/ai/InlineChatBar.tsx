@@ -281,67 +281,8 @@ export function InlineChatBar({
 
   return (
     <div ref={rootRef} className="inline-chat" style={pos}>
-      <div className="inline-chat-bar floating-surface">
-        {attachments.length > 0 && (
-          <div className="inline-chat-attachments">
-            {attachments.map((file, i) => (
-              <span key={i} className="inline-chat-attachment">
-                {file.name}
-                <button
-                  className="inline-chat-attachment-remove"
-                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <textarea
-          ref={inputRef}
-          className="inline-chat-input"
-          rows={1}
-          placeholder={labels.placeholder}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            setSkillIndex(0);
-          }}
-          onKeyDown={onKeyDown}
-          autoFocus
-        />
-        <div className="inline-chat-toolbar">
-          <button className="inline-chat-attach" title={labels.attachFile} onClick={attachFile}>
-            +
-          </button>
-          {selectedText && (
-            <span className="inline-chat-selection-chip">
-              {labels.selectedChars.replace("{n}", String([...selectedText].length))}
-            </span>
-          )}
-          <button className="inline-chat-send" onClick={submit} disabled={busy || !input.trim()}>
-            {labels.send}
-          </button>
-        </div>
-      </div>
-      {matchingSkills.length > 0 && (
-        <div className="inline-chat-skill-menu floating-surface">
-          {matchingSkills.map((skill, i) => (
-            <button
-              key={skill.name}
-              className={`inline-chat-skill-item ${i === activeSkillIndex ? "inline-chat-skill-item-active" : ""}`}
-              // mousedown, not click: keeps focus in the textarea.
-              onMouseDown={(e) => {
-                e.preventDefault();
-                pickSkill(skill);
-              }}
-            >
-              <span className="inline-chat-skill-name">/{skill.name}</span>
-              <span className="inline-chat-skill-preview">{skill.description || skill.prompt}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* History renders above the input, newest at the bottom - the
+          conventional chat layout (ChatGPT, Claude), not input-on-top. */}
       {(history.length > 0 || busy || error) && (
         <div className="inline-chat-messages floating-surface" ref={listRef}>
           {history.length > 0 && (
@@ -408,6 +349,67 @@ export function InlineChatBar({
           )}
         </div>
       )}
+      {matchingSkills.length > 0 && (
+        <div className="inline-chat-skill-menu floating-surface">
+          {matchingSkills.map((skill, i) => (
+            <button
+              key={skill.name}
+              className={`inline-chat-skill-item ${i === activeSkillIndex ? "inline-chat-skill-item-active" : ""}`}
+              // mousedown, not click: keeps focus in the textarea.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pickSkill(skill);
+              }}
+            >
+              <span className="inline-chat-skill-name">/{skill.name}</span>
+              <span className="inline-chat-skill-preview">{skill.description || skill.prompt}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="inline-chat-bar floating-surface">
+        {attachments.length > 0 && (
+          <div className="inline-chat-attachments">
+            {attachments.map((file, i) => (
+              <span key={i} className="inline-chat-attachment">
+                {file.name}
+                <button
+                  className="inline-chat-attachment-remove"
+                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <textarea
+          ref={inputRef}
+          className="inline-chat-input"
+          rows={1}
+          placeholder={labels.placeholder}
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setSkillIndex(0);
+          }}
+          onKeyDown={onKeyDown}
+          autoFocus
+        />
+        <div className="inline-chat-toolbar">
+          <button className="inline-chat-attach" title={labels.attachFile} onClick={attachFile}>
+            +
+          </button>
+          {selectedText && (
+            <span className="inline-chat-selection-chip">
+              {labels.selectedChars.replace("{n}", String([...selectedText].length))}
+            </span>
+          )}
+          <button className="inline-chat-send" onClick={submit} disabled={busy || !input.trim()}>
+            {labels.send}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

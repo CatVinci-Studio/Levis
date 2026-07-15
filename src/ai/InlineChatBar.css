@@ -158,7 +158,7 @@
 }
 
 .inline-chat-messages {
-  margin-top: 6px;
+  margin-bottom: 6px;
   padding: 8px 10px;
   max-height: 280px;
   overflow-y: auto;
