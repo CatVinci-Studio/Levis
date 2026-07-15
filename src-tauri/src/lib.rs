@@ -52,6 +52,10 @@ const NEW_WINDOW_ID: &str = "new-window";
 /// Help menu ids carry the bundled doc they open: "help-doc:<doc>", where
 /// <doc> is the frontend's HelpDoc id ("markdown" | "agent").
 const HELP_DOC_PREFIX: &str = "help-doc:";
+/// Format menu ids carry the block kind to insert: "insert-block:<kind>",
+/// where <kind> is one of h1..h6, bullet-list, ordered-list, blockquote,
+/// code-block, table - matching the frontend's INSERT_BLOCK_EVENT handler.
+const INSERT_BLOCK_PREFIX: &str = "insert-block:";
 
 /// Each new window is a fresh, independent instance of the whole SPA (its
 /// own React tree, own in-memory document state) - just like opening a new
@@ -791,6 +795,31 @@ pub fn run() {
                 .select_all()
                 .build()?;
 
+            let mut format_menu_builder = SubmenuBuilder::new(app, "Format");
+            for (kind, label) in [
+                ("h1", "Heading 1"),
+                ("h2", "Heading 2"),
+                ("h3", "Heading 3"),
+                ("h4", "Heading 4"),
+                ("h5", "Heading 5"),
+                ("h6", "Heading 6"),
+            ] {
+                let item = MenuItemBuilder::with_id(format!("{INSERT_BLOCK_PREFIX}{kind}"), label).build(app)?;
+                format_menu_builder = format_menu_builder.item(&item);
+            }
+            format_menu_builder = format_menu_builder.separator();
+            for (kind, label) in [
+                ("bullet-list", "Bullet List"),
+                ("ordered-list", "Numbered List"),
+                ("blockquote", "Blockquote"),
+                ("code-block", "Code Block"),
+                ("table", "Table"),
+            ] {
+                let item = MenuItemBuilder::with_id(format!("{INSERT_BLOCK_PREFIX}{kind}"), label).build(app)?;
+                format_menu_builder = format_menu_builder.item(&item);
+            }
+            let format_menu = format_menu_builder.build()?;
+
             // No fixed accelerators on these - their shortcuts are
             // user-configurable and handled by the frontend keydown
             // dispatcher (App.tsx), which reads the current bindings from
@@ -831,7 +860,7 @@ pub fn run() {
                 .build()?;
 
             let menu = MenuBuilder::new(app)
-                .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])
+                .items(&[&app_menu, &file_menu, &edit_menu, &format_menu, &view_menu, &window_menu, &help_menu])
                 .build()?;
             app.set_menu(menu)?;
 
@@ -877,6 +906,9 @@ pub fn run() {
                     for (_, window) in app_handle.webview_windows() {
                         let _ = window.close();
                     }
+                } else if id.as_ref().starts_with(INSERT_BLOCK_PREFIX) {
+                    let kind = id.as_ref()[INSERT_BLOCK_PREFIX.len()..].to_string();
+                    emit_to_focused_payload(app_handle, "menu-insert-block", kind);
                 } else if id == TOGGLE_SOURCE_MODE_ID {
                     let _ = app_handle.emit("menu-toggle-source-mode", ());
                 } else if id == TOGGLE_TYPEWRITER_MODE_ID {

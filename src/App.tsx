@@ -16,7 +16,12 @@ import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
 import { comboFromEvent } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
-import { TRIGGER_COMPLETION_EVENT, TRIGGER_GRAMMAR_CHECK_EVENT, TOGGLE_FLOATING_CHAT_EVENT } from "./utils/events";
+import {
+  TRIGGER_COMPLETION_EVENT,
+  TRIGGER_GRAMMAR_CHECK_EVENT,
+  TOGGLE_FLOATING_CHAT_EVENT,
+  INSERT_BLOCK_EVENT,
+} from "./utils/events";
 import type { Strings } from "./i18n/strings";
 import markdownGuideEn from "./help/markdown-guide.en.md?raw";
 import markdownGuideZh from "./help/markdown-guide.zh.md?raw";
@@ -760,6 +765,11 @@ function App() {
       setSettings({ typewriterMode: !settings.typewriterMode }),
     );
     const unlistenSidebar = listen("menu-toggle-sidebar", () => setPanelOpen((v) => !v));
+    // Payload is the block kind (h1..h6, bullet-list, ...) from the menu id -
+    // relayed to whichever editor is mounted as active (see MilkdownEditor.tsx).
+    const unlistenInsertBlock = listen<string>("menu-insert-block", (event) => {
+      window.dispatchEvent(new CustomEvent(INSERT_BLOCK_EVENT, { detail: event.payload }));
+    });
     const unlistenHelp = listen<string>("menu-open-help", (event) => {
       if (event.payload === "markdown" || event.payload === "agent") openHelpTab(event.payload);
     });
@@ -775,6 +785,7 @@ function App() {
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
+      void unlistenInsertBlock.then((f) => f());
       void unlistenHelp.then((f) => f());
     };
   }, [openFileDialog, saveTab, saveTabAs, addBlankTab, openHelpTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);

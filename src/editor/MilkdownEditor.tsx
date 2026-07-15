@@ -13,6 +13,7 @@ import {
   wrapInOrderedListCommand,
   wrapInBlockquoteCommand,
   createCodeBlockCommand,
+  wrapInHeadingCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { insertTableCommand } from "@milkdown/kit/preset/gfm";
 import {
@@ -34,6 +35,7 @@ import { withEditorExtensions } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChatBar } from "../ai/InlineChatBar";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { InsertTableDialog } from "./InsertTableDialog";
 import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
@@ -49,6 +51,7 @@ import {
   TOGGLE_FLOATING_CHAT_EVENT,
   INSERT_CLIPBOARD_TEXT_EVENT,
   RESTORE_CHAT_EVENT,
+  INSERT_BLOCK_EVENT,
 } from "../utils/events";
 import type { ChatHistoryEntry } from "../ai/chat-history";
 import { Milkdown, useEditor } from "@milkdown/react";
@@ -65,6 +68,7 @@ interface MilkdownEditorProps {
 
 export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEditorProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
   const { t, settings } = useSettings();
 
   // The editor plugin chain below is only built once (empty deps), so
@@ -119,6 +123,39 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     window.addEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
     return () => window.removeEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
   }, [insertText]);
+
+  // Native Format menu clicks (see menu-insert-block in src-tauri/src/lib.rs,
+  // relayed through App.tsx): same commands the right-click Insert submenu
+  // below uses, keyed by the menu item's kind string instead of a click.
+  useEffect(() => {
+    const onInsertBlock = (e: Event) => {
+      const kind = (e as CustomEvent<string>).detail;
+      const headingMatch = /^h([1-6])$/.exec(kind);
+      if (headingMatch) {
+        insertHeading(Number(headingMatch[1]));
+        return;
+      }
+      switch (kind) {
+        case "bullet-list":
+          runCommand(wrapInBulletListCommand.key);
+          break;
+        case "ordered-list":
+          runCommand(wrapInOrderedListCommand.key);
+          break;
+        case "blockquote":
+          runCommand(wrapInBlockquoteCommand.key);
+          break;
+        case "code-block":
+          runCommand(createCodeBlockCommand.key);
+          break;
+        case "table":
+          setTableDialogOpen(true);
+          break;
+      }
+    };
+    window.addEventListener(INSERT_BLOCK_EVENT, onInsertBlock);
+    return () => window.removeEventListener(INSERT_BLOCK_EVENT, onInsertBlock);
+  });
 
   // Chat-history panel clicks: load the saved conversation as the live one
   // and make sure the inline chat is open to show it.
@@ -177,9 +214,16 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     });
   }
 
-  function insertTable() {
+  function insertTable(rows: number, cols: number) {
     run((ctx) => {
-      ctx.get(commandsCtx).call(insertTableCommand.key, { row: 3, col: 3 });
+      ctx.get(commandsCtx).call(insertTableCommand.key, { row: rows, col: cols });
+    });
+  }
+
+  function insertHeading(level: number) {
+    run((ctx) => {
+      ctx.get(commandsCtx).call(wrapInHeadingCommand.key, level);
+      ctx.get(editorViewCtx).focus();
     });
   }
 
@@ -227,7 +271,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
       { label: t.insertOrderedList, onSelect: () => runCommand(wrapInOrderedListCommand.key) },
       { label: t.insertBlockquote, onSelect: () => runCommand(wrapInBlockquoteCommand.key) },
       { label: t.insertCodeBlock, onSelect: () => runCommand(createCodeBlockCommand.key) },
-      { label: t.insertTable, onSelect: insertTable },
+      { label: t.insertTable, onSelect: () => setTableDialogOpen(true) },
     ];
 
     const inTable = run((ctx) => isInTable(ctx.get(editorViewCtx).state)) ?? false;
@@ -260,6 +304,17 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     <div onContextMenu={onContextMenu} onMouseOver={grammar.onMouseOver} onMouseOut={grammar.onMouseOut}>
       <Milkdown />
       {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenuItems()} onClose={() => setMenu(null)} />}
+      {tableDialogOpen && (
+        <InsertTableDialog
+          title={t.insertTable}
+          rowsLabel={t.insertTableRowsLabel}
+          columnsLabel={t.insertTableColumnsLabel}
+          confirmLabel={t.insertTableConfirm}
+          cancelLabel={t.closePromptCancel}
+          onInsert={insertTable}
+          onClose={() => setTableDialogOpen(false)}
+        />
+      )}
       {grammar.popover && (
         <GrammarPopover
           info={grammar.popover}
