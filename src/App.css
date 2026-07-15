@@ -268,14 +268,20 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 180px;
+  /* Sized by content (title length) up to max-width, same as before - never
+     stretched to fill leftover space. Adaptive part is the shrink: once
+     tabs stop fitting at their natural width, flex-shrink narrows them
+     together down to min-width, past which the bar scrolls instead
+     (overflow-x: auto on .tab-bar). */
+  flex-shrink: 1;
+  min-width: 90px;
+  max-width: 200px;
   padding: 5px 8px;
   border-radius: 6px;
   font-size: 12px;
   color: var(--editor-muted);
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
   overflow: hidden;
   animation: tab-pill-enter 160ms ease;
 }
