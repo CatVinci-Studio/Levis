@@ -20,6 +20,7 @@ import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
   TOGGLE_FLOATING_CHAT_EVENT,
+  TOGGLE_FIND_REPLACE_EVENT,
   INSERT_BLOCK_EVENT,
 } from "./utils/events";
 import type { Strings } from "./i18n/strings";
@@ -594,6 +595,9 @@ function App() {
       } else if (combo === shortcuts.toggleFloatingChat) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent(TOGGLE_FLOATING_CHAT_EVENT));
+      } else if (combo === shortcuts.findReplace) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT));
       } else if (combo === shortcuts.toggleSidebar) {
         e.preventDefault();
         setPanelOpen((v) => !v);
@@ -765,6 +769,9 @@ function App() {
       setSettings({ typewriterMode: !settings.typewriterMode }),
     );
     const unlistenSidebar = listen("menu-toggle-sidebar", () => setPanelOpen((v) => !v));
+    const unlistenFindReplace = listen("menu-find-replace", () =>
+      window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT)),
+    );
     // Payload is the block kind (h1..h6, bullet-list, ...) from the menu id -
     // relayed to whichever editor is mounted as active (see MilkdownEditor.tsx).
     const unlistenInsertBlock = listen<string>("menu-insert-block", (event) => {
@@ -785,10 +792,23 @@ function App() {
       void unlistenSourceMode.then((f) => f());
       void unlistenTypewriter.then((f) => f());
       void unlistenSidebar.then((f) => f());
+      void unlistenFindReplace.then((f) => f());
       void unlistenInsertBlock.then((f) => f());
       void unlistenHelp.then((f) => f());
     };
-  }, [openFileDialog, saveTab, saveTabAs, addBlankTab, openHelpTab, activeTabId, toggleSourceMode, settings.typewriterMode, setSettings, exportHtml, exportViaPandoc]);
+  }, [
+    openFileDialog,
+    saveTab,
+    saveTabAs,
+    addBlankTab,
+    openHelpTab,
+    activeTabId,
+    toggleSourceMode,
+    settings.typewriterMode,
+    setSettings,
+    exportHtml,
+    exportViaPandoc,
+  ]);
 
   const closeSaving = useCallback(async () => {
     const tabId = closePromptTabId;

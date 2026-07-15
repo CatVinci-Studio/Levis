@@ -1,0 +1,138 @@
+.find-replace-bar {
+  position: fixed;
+  top: 12px;
+  right: 24px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--editor-border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+}
+
+.find-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.find-replace-chevron {
+  flex: none;
+  width: 18px;
+  height: 26px;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 10px !important;
+  color: var(--editor-muted);
+  background: transparent;
+  transition: transform 0.1s ease;
+}
+
+.find-replace-chevron-open {
+  transform: rotate(90deg);
+}
+
+.find-replace-chevron-spacer {
+  flex: none;
+  width: 18px;
+}
+
+.find-replace-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+}
+
+.find-replace-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 2px;
+  border: none;
+  background: transparent;
+  color: var(--editor-text);
+  font: inherit;
+}
+
+.find-replace-input:focus {
+  outline: none;
+}
+
+.find-replace-count {
+  flex: none;
+  color: var(--editor-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.find-replace-count-error {
+  color: #e5484d;
+}
+
+.find-replace-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.find-replace-bar button {
+  border: 1px solid var(--editor-border);
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 12px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--editor-text);
+}
+
+.find-replace-bar button:hover:not(:disabled) {
+  background: var(--editor-code-bg);
+}
+
+.find-replace-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.find-replace-toggle {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  line-height: 1;
+  color: var(--editor-muted);
+}
+
+.find-replace-toggle-active {
+  background: var(--editor-accent) !important;
+  color: #fff !important;
+}
+
+.find-replace-close {
+  border: none !important;
+  font-size: 15px !important;
+  line-height: 1;
+  padding: 4px 6px !important;
+  color: var(--editor-muted);
+}
+
+.find-match {
+  background: rgba(255, 212, 0, 0.4);
+  border-radius: 2px;
+}
+
+.find-match-active {
+  background: rgba(255, 140, 0, 0.55);
+}

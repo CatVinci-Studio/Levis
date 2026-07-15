@@ -48,6 +48,7 @@ const QUIT_ID: &str = "quit";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
 const TOGGLE_SIDEBAR_ID: &str = "toggle-sidebar";
+const FIND_REPLACE_ID: &str = "find-replace";
 const NEW_WINDOW_ID: &str = "new-window";
 /// Help menu ids carry the bundled doc they open: "help-doc:<doc>", where
 /// <doc> is the frontend's HelpDoc id ("markdown" | "agent").
@@ -785,6 +786,11 @@ pub fn run() {
             app.manage(RecentMenu(Mutex::new(Some(open_recent_menu))));
             rebuild_recent_menu(app.handle(), commands::recents::read_recent_files(app.handle()));
 
+            // No fixed accelerator - the combo is user-configurable and
+            // handled by the frontend keydown dispatcher (see
+            // toggle_source_mode_item's comment below for why).
+            let find_replace_item = MenuItemBuilder::with_id(FIND_REPLACE_ID, "Find & Replace…").build(app)?;
+
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .undo()
                 .redo()
@@ -793,6 +799,8 @@ pub fn run() {
                 .copy()
                 .paste()
                 .select_all()
+                .separator()
+                .item(&find_replace_item)
                 .build()?;
 
             let mut format_menu_builder = SubmenuBuilder::new(app, "Format");
@@ -842,7 +850,6 @@ pub fn run() {
             let new_window_item = MenuItemBuilder::with_id(NEW_WINDOW_ID, "New Window")
                 .accelerator("Cmd+T")
                 .build(app)?;
-
             let window_menu = SubmenuBuilder::new(app, "Window")
                 .item(&new_window_item)
                 .separator()
@@ -915,6 +922,8 @@ pub fn run() {
                     let _ = app_handle.emit("menu-toggle-typewriter-mode", ());
                 } else if id == TOGGLE_SIDEBAR_ID {
                     let _ = app_handle.emit("menu-toggle-sidebar", ());
+                } else if id == FIND_REPLACE_ID {
+                    emit_to_focused(app_handle, "menu-find-replace");
                 } else if id == NEW_WINDOW_ID {
                     let _ = open_new_window(app_handle);
                 } else if id.as_ref().starts_with(HELP_DOC_PREFIX) {

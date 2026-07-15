@@ -310,6 +310,13 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   t={t}
                 />
                 <ShortcutRow
+                  label={t.shortcutFindReplace}
+                  action="findReplace"
+                  shortcuts={settings.shortcuts}
+                  setSettings={setSettings}
+                  t={t}
+                />
+                <ShortcutRow
                   label={t.shortcutToggleSidebar}
                   action="toggleSidebar"
                   shortcuts={settings.shortcuts}

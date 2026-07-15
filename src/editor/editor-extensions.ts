@@ -34,6 +34,7 @@ import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
 import { buildCompletionStyle } from "../ai/completion-style";
 import { createGrammarCheckPlugin } from "../ai/grammar-check-plugin";
+import { findReplacePlugin } from "./find-replace-plugin";
 import { strings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
 
@@ -114,6 +115,7 @@ export function withEditorExtensions(
       .use(listener)
       .use(tabExtendPlugin)
       .use(escapeTrailingBlockPlugin)
+      .use(findReplacePlugin)
       .use(createTypewriterPlugin({ enabled: () => settings.current.typewriterMode }))
       .use(createPlaceholderPlugin(() => strings[settings.current.language].emptyDocPlaceholder))
 

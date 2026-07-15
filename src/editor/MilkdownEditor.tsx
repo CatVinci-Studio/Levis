@@ -36,6 +36,8 @@ import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChatBar } from "../ai/InlineChatBar";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
+import { FindReplaceBar } from "./FindReplaceBar";
+import { useFindReplace } from "./useFindReplace";
 import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
@@ -49,6 +51,7 @@ import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
   TOGGLE_FLOATING_CHAT_EVENT,
+  TOGGLE_FIND_REPLACE_EVENT,
   INSERT_CLIPBOARD_TEXT_EVENT,
   RESTORE_CHAT_EVENT,
   INSERT_BLOCK_EVENT,
@@ -112,12 +115,14 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   }[settings.aiProvider];
   const conversation = useAgentConversation(filePath, settings.aiProvider, settings.enableWebSearch, agentModel);
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
+  const findReplace = useFindReplace(run);
 
   // Shortcuts respect the same feature toggles as the context menu items -
   // a feature turned off in Settings is off through every entry point.
   useWindowEvent(TRIGGER_COMPLETION_EVENT, () => settings.enableCompletion && triggerCompletion());
   useWindowEvent(TRIGGER_GRAMMAR_CHECK_EVENT, () => settings.enableGrammarCheck && triggerGrammarCheck());
   useWindowEvent(TOGGLE_FLOATING_CHAT_EVENT, () => settings.enableAskAi && inlineChat.toggle());
+  useWindowEvent(TOGGLE_FIND_REPLACE_EVENT, () => findReplace.toggle());
 
   // Clipboard-history panel clicks: carries the text as CustomEvent detail,
   // so it can't go through useWindowEvent's payload-less handlers.
@@ -269,6 +274,8 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
       { label: t.copy, onSelect: () => copyOrCut(false) },
       { label: t.paste, onSelect: paste },
       { label: t.selectAll, onSelect: selectAll },
+      "separator",
+      { label: t.findReplace, onSelect: findReplace.toggle },
       ...(aiItems.length > 0 ? (["separator", ...aiItems] as (ContextMenuItem | "separator")[]) : []),
     ];
 
@@ -309,6 +316,21 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   return (
     <div onContextMenu={onContextMenu} onMouseOver={grammar.onMouseOver} onMouseOut={grammar.onMouseOut}>
       <Milkdown />
+      {findReplace.open && (
+        <FindReplaceBar
+          findReplace={findReplace}
+          labels={{
+            findPlaceholder: t.findPlaceholder,
+            replacePlaceholder: t.replacePlaceholder,
+            replace: t.replace,
+            replaceAll: t.replaceAll,
+            matchCase: t.matchCase,
+            useRegex: t.useRegex,
+            invalidRegex: t.invalidRegex,
+            noMatches: t.noMatches,
+          }}
+        />
+      )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={buildMenuItems()} onClose={() => setMenu(null)} />}
       {tableDialogOpen && (
         <InsertTableDialog

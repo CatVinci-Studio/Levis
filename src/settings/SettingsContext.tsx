@@ -15,7 +15,8 @@ export type ShortcutAction =
   | "toggleFloatingChat"
   | "toggleSidebar"
   | "toggleSourceMode"
-  | "toggleTypewriterMode";
+  | "toggleTypewriterMode"
+  | "findReplace";
 
 export type Shortcuts = Record<ShortcutAction, string>;
 
@@ -26,6 +27,7 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
   toggleSidebar: "mod+\\",
   toggleSourceMode: "mod+/",
   toggleTypewriterMode: "",
+  findReplace: "mod+f",
 };
 
 /// Built-in content themes only override `--editor-*` CSS variables (see

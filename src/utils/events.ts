@@ -4,6 +4,7 @@
 export const TRIGGER_COMPLETION_EVENT = "levis:trigger-completion";
 export const TRIGGER_GRAMMAR_CHECK_EVENT = "levis:trigger-grammar-check";
 export const TOGGLE_FLOATING_CHAT_EVENT = "levis:toggle-floating-chat";
+export const TOGGLE_FIND_REPLACE_EVENT = "levis:toggle-find-replace";
 
 /// detail: the markdown text to insert at the cursor (clipboard history panel).
 export const INSERT_CLIPBOARD_TEXT_EVENT = "levis:insert-clipboard-text";
