@@ -90,6 +90,10 @@ export interface Settings {
   proxyHost: string;
   proxyPort: string;
   typewriterMode: boolean;
+  /// Whole-page zoom factor (1 = 100%), driven by pinch / mod+wheel / the
+  /// View menu (see ../utils/useZoom). Saved here so it survives restarts;
+  /// each window applies it independently on mount.
+  zoom: number;
   shortcuts: Shortcuts;
   /// Either a `BuiltinContentThemeId` or a `UserThemeMeta.id`.
   themeId: string;
@@ -127,6 +131,7 @@ const DEFAULT_SETTINGS: Settings = {
   proxyHost: "",
   proxyPort: "",
   typewriterMode: false,
+  zoom: 1,
   shortcuts: DEFAULT_SHORTCUTS,
   themeId: "default",
   userThemes: [],

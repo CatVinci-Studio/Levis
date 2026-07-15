@@ -50,6 +50,9 @@ const CLOSE_WINDOW_ID: &str = "close-window";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
 const TOGGLE_SIDEBAR_ID: &str = "toggle-sidebar";
+const ZOOM_IN_ID: &str = "zoom-in";
+const ZOOM_OUT_ID: &str = "zoom-out";
+const ZOOM_RESET_ID: &str = "zoom-reset";
 const FIND_REPLACE_ID: &str = "find-replace";
 const NEW_WINDOW_ID: &str = "new-window";
 /// Help menu ids carry the bundled doc they open: "help-doc:<doc>", where
@@ -847,10 +850,23 @@ pub fn run() {
                 MenuItemBuilder::with_id(TOGGLE_TYPEWRITER_MODE_ID, "Toggle Typewriter Mode").build(app)?;
             let toggle_sidebar_item = MenuItemBuilder::with_id(TOGGLE_SIDEBAR_ID, "Toggle Sidebar").build(app)?;
 
+            // Fixed OS-convention accelerators (like Cmd+S / Cmd+W), not
+            // user-configurable ones - so unlike the items above they keep
+            // native accelerators. Zoom itself is applied by the frontend
+            // (utils/useZoom.ts), which also handles pinch and mod+wheel.
+            let zoom_in_item = MenuItemBuilder::with_id(ZOOM_IN_ID, "Zoom In").accelerator("Cmd+=").build(app)?;
+            let zoom_out_item = MenuItemBuilder::with_id(ZOOM_OUT_ID, "Zoom Out").accelerator("Cmd+-").build(app)?;
+            let zoom_reset_item =
+                MenuItemBuilder::with_id(ZOOM_RESET_ID, "Actual Size").accelerator("Cmd+0").build(app)?;
+
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&toggle_source_mode_item)
                 .item(&toggle_typewriter_mode_item)
                 .item(&toggle_sidebar_item)
+                .separator()
+                .item(&zoom_in_item)
+                .item(&zoom_out_item)
+                .item(&zoom_reset_item)
                 .separator()
                 .fullscreen()
                 .build()?;
@@ -939,6 +955,12 @@ pub fn run() {
                     let _ = app_handle.emit("menu-toggle-sidebar", ());
                 } else if id == FIND_REPLACE_ID {
                     emit_to_focused(app_handle, "menu-find-replace");
+                } else if id == ZOOM_IN_ID {
+                    emit_to_focused(app_handle, "menu-zoom-in");
+                } else if id == ZOOM_OUT_ID {
+                    emit_to_focused(app_handle, "menu-zoom-out");
+                } else if id == ZOOM_RESET_ID {
+                    emit_to_focused(app_handle, "menu-zoom-reset");
                 } else if id == CLOSE_TAB_ID {
                     emit_to_focused(app_handle, "menu-close-tab");
                 } else if id == CLOSE_WINDOW_ID {

@@ -16,6 +16,7 @@ import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
 import { comboFromEvent } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
+import { useZoom } from "./utils/useZoom";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
@@ -172,6 +173,7 @@ function App() {
   // dragged over it) - converts the drag's global cursor x to local.
   const previewWinLeftRef = useRef<number | null>(null);
   const appUpdate = useAppUpdate();
+  useZoom(settings.zoom, (zoom) => setSettings({ zoom }));
 
   // Mirrors `tabs` synchronously so callbacks (open/save/close) can read the
   // latest state without depending on - and thus re-creating - on every
