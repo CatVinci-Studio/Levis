@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useState } from "react";
+import { type MouseEvent, useState } from "react";
 import {
   Editor,
   rootCtx,
@@ -124,62 +124,49 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   useWindowEvent(TOGGLE_FLOATING_CHAT_EVENT, () => settings.enableAskAi && inlineChat.toggle());
   useWindowEvent(TOGGLE_FIND_REPLACE_EVENT, () => findReplace.toggle());
 
-  // Clipboard-history panel clicks: carries the text as CustomEvent detail,
-  // so it can't go through useWindowEvent's payload-less handlers.
-  useEffect(() => {
-    const onInsert = (e: Event) => {
-      const text = (e as CustomEvent<string>).detail;
-      if (typeof text === "string" && text) insertText(text);
-    };
-    window.addEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
-    return () => window.removeEventListener(INSERT_CLIPBOARD_TEXT_EVENT, onInsert);
-  }, [insertText]);
+  // Clipboard-history panel clicks: carries the text as CustomEvent detail.
+  useWindowEvent(INSERT_CLIPBOARD_TEXT_EVENT, (e) => {
+    const text = (e as CustomEvent<string>).detail;
+    if (typeof text === "string" && text) insertText(text);
+  });
 
   // Native Format menu clicks (see menu-insert-block in src-tauri/src/lib.rs,
   // relayed through App.tsx): same commands the right-click Insert submenu
   // below uses, keyed by the menu item's kind string instead of a click.
-  useEffect(() => {
-    const onInsertBlock = (e: Event) => {
-      const kind = (e as CustomEvent<string>).detail;
-      const headingMatch = /^h([1-6])$/.exec(kind);
-      if (headingMatch) {
-        insertHeading(Number(headingMatch[1]));
-        return;
-      }
-      switch (kind) {
-        case "bullet-list":
-          runCommand(wrapInBulletListCommand.key);
-          break;
-        case "ordered-list":
-          runCommand(wrapInOrderedListCommand.key);
-          break;
-        case "blockquote":
-          runCommand(wrapInBlockquoteCommand.key);
-          break;
-        case "code-block":
-          runCommand(createCodeBlockCommand.key);
-          break;
-        case "table":
-          setTableDialogOpen(true);
-          break;
-      }
-    };
-    window.addEventListener(INSERT_BLOCK_EVENT, onInsertBlock);
-    return () => window.removeEventListener(INSERT_BLOCK_EVENT, onInsertBlock);
+  useWindowEvent(INSERT_BLOCK_EVENT, (e) => {
+    const kind = (e as CustomEvent<string>).detail;
+    const headingMatch = /^h([1-6])$/.exec(kind);
+    if (headingMatch) {
+      insertHeading(Number(headingMatch[1]));
+      return;
+    }
+    switch (kind) {
+      case "bullet-list":
+        runCommand(wrapInBulletListCommand.key);
+        break;
+      case "ordered-list":
+        runCommand(wrapInOrderedListCommand.key);
+        break;
+      case "blockquote":
+        runCommand(wrapInBlockquoteCommand.key);
+        break;
+      case "code-block":
+        runCommand(createCodeBlockCommand.key);
+        break;
+      case "table":
+        setTableDialogOpen(true);
+        break;
+    }
   });
 
   // Chat-history panel clicks: load the saved conversation as the live one
   // and make sure the inline chat is open to show it.
-  useEffect(() => {
-    const onRestore = (e: Event) => {
-      const entry = (e as CustomEvent<ChatHistoryEntry>).detail;
-      if (!entry || !Array.isArray(entry.turns)) return;
-      conversation.restore(entry);
-      inlineChat.open();
-    };
-    window.addEventListener(RESTORE_CHAT_EVENT, onRestore);
-    return () => window.removeEventListener(RESTORE_CHAT_EVENT, onRestore);
-  }, [conversation.restore, inlineChat.open]);
+  useWindowEvent(RESTORE_CHAT_EVENT, (e) => {
+    const entry = (e as CustomEvent<ChatHistoryEntry>).detail;
+    if (!entry || !Array.isArray(entry.turns)) return;
+    conversation.restore(entry);
+    inlineChat.open();
+  });
 
   function runTableCommand(command: (state: EditorState, dispatch: (tr: Transaction) => void) => boolean) {
     run((ctx) => {
