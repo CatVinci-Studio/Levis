@@ -58,7 +58,7 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         id: "claude",
         dialect: "anthropic-messages",
         auth: ProviderAuthKind::Oauth,
-        tool_calling: false,
+        tool_calling: true,
     },
     ProviderCatalogEntry {
         id: "custom",

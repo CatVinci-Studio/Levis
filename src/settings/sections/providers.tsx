@@ -20,7 +20,7 @@ interface CustomEndpointConfig {
 const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
   { id: "codex", dialect: "openai-responses", auth: "oauth", toolCalling: true },
   { id: "apikey", dialect: "openai-responses", auth: "api_key", toolCalling: true },
-  { id: "claude", dialect: "anthropic-messages", auth: "oauth", toolCalling: false },
+  { id: "claude", dialect: "anthropic-messages", auth: "oauth", toolCalling: true },
   { id: "custom", dialect: "openai-chat-completions", auth: "custom", toolCalling: false },
 ];
 
