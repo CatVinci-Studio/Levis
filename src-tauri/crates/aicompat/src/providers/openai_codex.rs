@@ -1,8 +1,7 @@
 use crate::agent::{AgentTurn, StepResult, ToolSpec};
 use crate::pkce::{decode_base64url, generate_pkce, generate_state, now_ms};
-use crate::responses_api::{read_streamed_output, text_from_streamed_output, ResponsesRequest};
+use crate::responses_api::{self, read_streamed_output, text_from_streamed_output, ResponsesRequest};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 
 const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTHORIZE_URL: &str = "https://auth.openai.com/oauth/authorize";
@@ -154,45 +153,12 @@ pub async fn call_completion(
     Ok(text_from_streamed_output(&output))
 }
 
-fn turn_to_input_item(turn: &AgentTurn) -> Value {
-    match turn {
-        AgentTurn::User { text } => json!({
-            "type": "message",
-            "role": "user",
-            "content": [{"type": "input_text", "text": text}],
-        }),
-        AgentTurn::Assistant { text } => json!({
-            "type": "message",
-            "role": "assistant",
-            "content": [{"type": "output_text", "text": text}],
-        }),
-        AgentTurn::ToolCall { call_id, name, arguments } => json!({
-            "type": "function_call",
-            "call_id": call_id,
-            "name": name,
-            "arguments": arguments,
-        }),
-        AgentTurn::ToolResult { call_id, output } => json!({
-            "type": "function_call_output",
-            "call_id": call_id,
-            "output": output,
-        }),
-    }
-}
-
-fn tool_to_schema(tool: &ToolSpec) -> Value {
-    json!({
-        "type": "function",
-        "name": tool.name,
-        "description": tool.description,
-        "parameters": tool.parameters,
-    })
-}
-
 /// Runs one round-trip against Codex with the full turn history and tool
 /// definitions. Returns either the model's final text, or one-or-more tool
 /// calls the caller must execute and feed back via `AgentTurn::ToolResult`
-/// before calling this again.
+/// before calling this again. Request/response shape is shared with every
+/// other Responses-API dialect - see `responses_api::agent_request_body` /
+/// `parse_agent_output`.
 pub async fn agent_step(
     access_token: &str,
     account_id: &str,
@@ -203,26 +169,8 @@ pub async fn agent_step(
     web_search: bool,
     model: &str,
 ) -> Result<StepResult, String> {
-    let input: Vec<Value> = history.iter().map(turn_to_input_item).collect();
-    let mut tool_schemas: Vec<Value> = tools.iter().map(tool_to_schema).collect();
-    // OpenAI's server-side web search: unlike function tools it runs inside
-    // the response (search calls surface as ignored `web_search_call` output
-    // items), so no loop changes are needed - just offering it is enough.
-    if web_search {
-        tool_schemas.push(json!({"type": "web_search"}));
-    }
-
-    let body = json!({
-        "model": model,
-        "store": false,
-        "stream": true,
-        "instructions": instructions,
-        "input": input,
-        "tools": tool_schemas,
-        "tool_choice": "auto",
-        "parallel_tool_calls": true,
-        "text": {"verbosity": "low"},
-    });
+    // The ChatGPT backend only serves SSE (streaming: true is mandatory).
+    let body = responses_api::agent_request_body(model, instructions, history, tools, web_search, true);
 
     let client = crate::http::client();
     let res = client
@@ -237,38 +185,5 @@ pub async fn agent_step(
         .map_err(|e| e.to_string())?;
 
     let output = read_streamed_output(res, "Codex").await?;
-
-    let mut tool_calls = Vec::new();
-    let mut text_parts = Vec::new();
-
-    for item in &output {
-        match item.get("type").and_then(|t| t.as_str()) {
-            Some("function_call") => {
-                let call_id = item.get("call_id").and_then(|v| v.as_str()).unwrap_or_default();
-                let name = item.get("name").and_then(|v| v.as_str()).unwrap_or_default();
-                let arguments = item.get("arguments").and_then(|v| v.as_str()).unwrap_or("{}");
-                tool_calls.push(AgentTurn::ToolCall {
-                    call_id: call_id.to_string(),
-                    name: name.to_string(),
-                    arguments: arguments.to_string(),
-                });
-            }
-            Some("message") => {
-                if let Some(content) = item.get("content").and_then(|c| c.as_array()) {
-                    for part in content {
-                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                            text_parts.push(text.to_string());
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if !tool_calls.is_empty() {
-        return Ok(StepResult::ToolCalls(tool_calls));
-    }
-
-    Ok(StepResult::Done(text_parts.join("\n")))
+    Ok(responses_api::parse_agent_output(&output))
 }
