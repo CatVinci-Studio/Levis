@@ -3,16 +3,10 @@ import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import { invoke } from "@tauri-apps/api/core";
-import { countWords } from "../utils/word-count";
 import { isImeKeyEvent } from "../editor/enclosure";
 import { createDebouncedTask } from "./debounced-task";
+import { hasPendingEdits } from "./pending-edit-plugin";
 
-// Below this many words before the cursor, there isn't enough context for a
-// decent suggestion (and it's more likely to feel intrusive on a near-empty
-// doc). Word count comes from Intl.Segmenter, so CJK text is measured in
-// segmented words, not characters - this is lower than the old char-based
-// threshold to trigger at roughly the same amount of text.
-const MIN_CONTEXT_UNITS = 12;
 const DEBOUNCE_MS = 450;
 const MAX_CONTEXT_CHARS = 2000;
 // Look-ahead after the cursor: enough for the model to splice into what
@@ -161,6 +155,11 @@ export function createGhostTextPlugin(options: {
               if (view.state.doc.eq(prevState.doc) && view.state.selection.eq(prevState.selection)) {
                 return;
               }
+              // A pending agent edit already occupies this spot with its own
+              // ghost-style insert widget (pending-edit-plugin.ts) - stacking
+              // completion ghost text on top of it would be unreadable, and
+              // accepting one via Tab could land inside the other.
+              if (hasPendingEdits(view.state)) return;
 
               debounced.cancel();
 
@@ -180,8 +179,14 @@ export function createGhostTextPlugin(options: {
               // stays quiet. Manual trigger (triggerGhostTextNow) still
               // works - that's an explicit ask, not a typing side-effect.
               if (after.trim()) return;
-              const { words } = countWords(before);
-              if (words < MIN_CONTEXT_UNITS) return;
+              // No minimum context length: completion is opt-in via the
+              // Settings toggle already, and gating on word count made the
+              // very first sentence of a fresh document (and the onboarding
+              // tutorial, which demonstrates completion in its first
+              // paragraph) unable to trigger it at all. An empty before-text
+              // is the only real no-op case - "continue from the exact end
+              // of the before-text" is meaningless with no before-text.
+              if (!before.trim()) return;
 
               debounced.schedule(async (isCurrent) => {
                 let suggestion: string;

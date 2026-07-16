@@ -1,4 +1,4 @@
-import { type MouseEvent, useState } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import {
   Editor,
   rootCtx,
@@ -31,9 +31,10 @@ import {
 } from "@milkdown/kit/prose/tables";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
-import { withEditorExtensions } from "./editor-extensions";
+import { withEditorExtensions, type PendingEditCallbacks } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChatBar } from "../ai/InlineChatBar";
+import { PendingEditControls } from "../ai/PendingEditControls";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -43,6 +44,7 @@ import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
 import { useAgentConversation } from "../ai/useAgentConversation";
 import { useInlineChat } from "../ai/useInlineChat";
+import { usePendingEdits } from "../ai/usePendingEdits";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
 import { useLatest } from "../utils/useLatest";
@@ -80,6 +82,19 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   const settingsRef = useLatest(settings);
   const filePathRef = useLatest(filePath);
 
+  // The pending-edit plugin's callbacks need to exist at chain-construction
+  // time below, but the real accept/reject/sync functions come from
+  // usePendingEdits, which needs `run` - only available after useEditor sets
+  // up the Milkdown instance. This ref bridges the gap the same way
+  // settingsRef/filePathRef do: a stable object the plugin reads `.current`
+  // off of at call time (user interaction, well after mount), kept fresh by
+  // the effect further down.
+  const pendingEditActionsRef = useRef<PendingEditCallbacks>({
+    onAccept: () => {},
+    onReject: () => {},
+    onPreviewsChange: () => {},
+  });
+
   useEditor(
     (root) =>
       withEditorExtensions(
@@ -94,6 +109,11 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
         }),
         settingsRef,
         filePathRef,
+        {
+          onAccept: (callId) => pendingEditActionsRef.current.onAccept(callId),
+          onReject: (callId) => pendingEditActionsRef.current.onReject(callId),
+          onPreviewsChange: (previews) => pendingEditActionsRef.current.onPreviewsChange(previews),
+        },
       ),
     [],
   );
@@ -105,6 +125,14 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
     applyStale: t.agentApplyStale,
     proposalFailed: t.agentProposalFailed,
   }));
+  const pendingEdits = usePendingEdits(run);
+  useEffect(() => {
+    pendingEditActionsRef.current = {
+      onAccept: pendingEdits.accept,
+      onReject: pendingEdits.reject,
+      onPreviewsChange: pendingEdits.syncFromPlugin,
+    };
+  }, [pendingEdits.accept, pendingEdits.reject, pendingEdits.syncFromPlugin]);
   // Owned here, not by the chat bar, so closing/reopening the bar continues
   // the same conversation ("New chat" inside the bar is what clears it).
   const agentModel = {
@@ -335,6 +363,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
           document={inlineChat.chatInfo.document}
           selectedText={inlineChat.chatInfo.selectedText}
           docPath={filePath}
+          chatInfo={inlineChat.chatInfo}
           conversation={conversation}
           labels={{
             placeholder: t.agentInputPlaceholder,
@@ -349,6 +378,13 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
             proposalTitle: t.agentProposalTitle,
             proposalApply: t.agentProposalApply,
             proposalApplied: t.agentProposalApplied,
+            proposalStatus: {
+              accepted: t.proposalStatusAccepted,
+              rejected: t.proposalStatusRejected,
+              invalid: t.proposalStatusInvalid,
+            },
+            proposalAccept: t.proposalAccept,
+            proposalReject: t.proposalReject,
             actionNames: {
               replace: t.agentActionReplace,
               replace_selection: t.agentActionReplaceSelection,
@@ -360,7 +396,28 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
           }}
           onApply={inlineChat.applyResult}
           onApplyProposal={inlineChat.applyProposal}
+          onProposals={pendingEdits.showPreviews}
+          proposalStatus={pendingEdits.status}
+          onAcceptProposal={pendingEdits.accept}
+          onRejectProposal={pendingEdits.reject}
           onClose={inlineChat.close}
+        />
+      )}
+      {pendingEdits.previews.length > 0 && (
+        <PendingEditControls
+          run={run}
+          previews={pendingEdits.previews}
+          labels={{
+            accept: t.pendingAccept,
+            reject: t.pendingReject,
+            acceptAll: t.pendingAcceptAll,
+            rejectAll: t.pendingRejectAll,
+            ofCount: t.pendingOfCount,
+          }}
+          onAccept={pendingEdits.accept}
+          onReject={pendingEdits.reject}
+          onAcceptAll={pendingEdits.acceptAll}
+          onRejectAll={pendingEdits.rejectAll}
         />
       )}
     </div>

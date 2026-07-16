@@ -5,7 +5,8 @@ import { AgentTurnView } from "./AgentTurnView";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
 import { normalizeMathDelimiters } from "../utils/markdown-math";
-import type { ApplyTarget } from "./useInlineChat";
+import type { ApplyTarget, InlineChatInfo } from "./useInlineChat";
+import type { PendingStatus } from "./usePendingEdits";
 import { EDIT_ACTIONS, type AgentSkill, type ChatAttachment, type EditAction, type EditProposal } from "./types";
 import "./AgentTurnView.css";
 import "./InlineChatBar.css";
@@ -26,6 +27,10 @@ export interface InlineChatLabels {
   proposalTitle: string;
   proposalApply: string;
   proposalApplied: string;
+  /** Compact status labels shown on a proposal card once it's resolved. */
+  proposalStatus: Record<Exclude<PendingStatus, "pending">, string>;
+  proposalAccept: string;
+  proposalReject: string;
   /** Human name of each propose_edit action, shown on the proposal card. */
   actionNames: Record<EditAction, string>;
 }
@@ -37,13 +42,28 @@ interface InlineChatBarProps {
   selectedText: string | null;
   /** The document's path - resolves the agent workspace (skills, files). */
   docPath: string | null;
+  /** The full context captured when the bar opened - handed back verbatim
+   *  with any propose_edit calls a reply produces (onProposals) so the
+   *  in-document preview resolves against request-time context even if the
+   *  bar has since closed or reopened elsewhere by the time the reply
+   *  arrives. */
+  chatInfo: InlineChatInfo;
   /** Conversation state owned by the editor, so it survives the bar closing. */
   conversation: AgentConversation;
   labels: InlineChatLabels;
   /** Writes an AI reply into the document; returns an error string to show, or null on success. */
   onApply: (text: string, target: ApplyTarget) => string | null;
-  /** Applies one propose_edit tool call; same error contract as onApply. */
+  /** Fallback for a proposal whose anchor couldn't be resolved into a live
+   *  preview (status "invalid") - applies it directly, same error contract
+   *  as onApply. */
   onApplyProposal: (proposal: EditProposal) => string | null;
+  /** A reply produced one or more propose_edit tool calls - hand them to
+   *  usePendingEdits.showPreviews so they render as in-document previews. */
+  onProposals: (proposals: { callId: string; proposal: EditProposal }[], chatInfo: InlineChatInfo) => void;
+  /** Live status of a propose_edit call_id, from usePendingEdits.status. */
+  proposalStatus: (callId: string) => PendingStatus;
+  onAcceptProposal: (callId: string) => void;
+  onRejectProposal: (callId: string) => void;
   onClose: () => void;
 }
 
@@ -115,10 +135,15 @@ export function InlineChatBar({
   document,
   selectedText,
   docPath,
+  chatInfo,
   conversation,
   labels,
   onApply,
   onApplyProposal,
+  onProposals,
+  proposalStatus,
+  onAcceptProposal,
+  onRejectProposal,
   onClose,
 }: InlineChatBarProps) {
   const [input, setInput] = useState("");
@@ -126,7 +151,6 @@ export function InlineChatBar({
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [applyError, setApplyError] = useState<string | null>(null);
-  const [appliedProposals, setAppliedProposals] = useState<ReadonlySet<string>>(new Set());
   const { history, busy, error, send, reset } = conversation;
 
   // Skills come from the agent workspace on disk (global dir + the document
@@ -207,13 +231,10 @@ export function InlineChatBar({
     .slice(lastUserIndex + 1)
     .some((turn) => turn.kind === "ToolCall" && turn.name === "propose_edit");
 
-  function applyProposal(callId: string, proposal: EditProposal) {
+  function applyInvalidProposal(proposal: EditProposal) {
     const err = onApplyProposal(proposal);
     if (err) setApplyError(err);
-    else {
-      setApplyError(null);
-      setAppliedProposals((prev) => new Set(prev).add(callId));
-    }
+    else setApplyError(null);
   }
 
   async function submit() {
@@ -230,7 +251,17 @@ export function InlineChatBar({
       .map((f) => `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`)
       .join("\n\n");
     setAttachments([]);
-    await send(document, attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged);
+    // Snapshot chatInfo now (request time), not read from props later - the
+    // bar (or a differently-anchored reopening of it) may not still reflect
+    // this request's context by the time the reply arrives.
+    const requestChatInfo = chatInfo;
+    const newTurns = await send(document, attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged);
+    const proposals = (newTurns ?? []).flatMap((turn) => {
+      if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
+      const proposal = parseProposal(turn.arguments);
+      return proposal ? [{ callId: turn.call_id, proposal }] : [];
+    });
+    if (proposals.length > 0) onProposals(proposals, requestChatInfo);
     requestAnimationFrame(() => {
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     });
@@ -245,7 +276,6 @@ export function InlineChatBar({
 
   function startNewChat() {
     reset();
-    setAppliedProposals(new Set());
     setApplyError(null);
     inputRef.current?.focus();
   }
@@ -296,32 +326,60 @@ export function InlineChatBar({
             if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
               const proposal = parseProposal(turn.arguments);
               if (!proposal) return <AgentTurnView key={i} turn={turn} />;
-              const applied = appliedProposals.has(turn.call_id);
-              // What the diff shows depends on the action: replace/delete
-              // strike the anchor (replace_selection strikes the captured
-              // selection - it carries no anchor); anything with new text
-              // inserts it. An insert's anchor is untouched context, so it
-              // renders as plain text rather than a deletion.
-              const showsDeletion =
-                proposal.action === "replace" || proposal.action === "delete" || proposal.action === "replace_selection";
-              const struck = proposal.action === "replace_selection" ? (selectedText ?? undefined) : proposal.anchor;
+              const status = proposalStatus(turn.call_id);
               return (
                 <div key={i} className="agent-proposal">
                   <div className="agent-proposal-title">
                     {labels.proposalTitle} · {labels.actionNames[proposal.action]}
                   </div>
-                  <div className="agent-proposal-diff">
-                    {proposal.action === "insert_before" && <ins>{proposal.text}</ins>}
-                    {struck !== undefined && (showsDeletion ? <del>{struck}</del> : <span>{struck}</span>)}
-                    {proposal.action !== "insert_before" && proposal.text !== undefined && <ins>{proposal.text}</ins>}
-                  </div>
-                  <button
-                    className="inline-chat-action inline-chat-action-primary"
-                    disabled={applied}
-                    onClick={() => applyProposal(turn.call_id, proposal)}
-                  >
-                    {applied ? labels.proposalApplied : labels.proposalApply}
-                  </button>
+                  {status === "invalid" ? (
+                    // No live document preview to point at (the anchor no
+                    // longer resolves uniquely) - fall back to the inline
+                    // diff and a direct-apply button, same as before this
+                    // feature existed.
+                    <>
+                      <div className="agent-proposal-diff">
+                        {proposal.action === "insert_before" && <ins>{proposal.text}</ins>}
+                        {(() => {
+                          const showsDeletion =
+                            proposal.action === "replace" ||
+                            proposal.action === "delete" ||
+                            proposal.action === "replace_selection";
+                          const struck =
+                            proposal.action === "replace_selection" ? (selectedText ?? undefined) : proposal.anchor;
+                          return (
+                            struck !== undefined && (showsDeletion ? <del>{struck}</del> : <span>{struck}</span>)
+                          );
+                        })()}
+                        {proposal.action !== "insert_before" && proposal.text !== undefined && <ins>{proposal.text}</ins>}
+                      </div>
+                      <div className="agent-proposal-status agent-proposal-status-invalid">
+                        {labels.proposalStatus.invalid}
+                      </div>
+                      <button
+                        className="inline-chat-action inline-chat-action-primary"
+                        onClick={() => applyInvalidProposal(proposal)}
+                      >
+                        {labels.proposalApply}
+                      </button>
+                    </>
+                  ) : status === "pending" ? (
+                    <div className="agent-proposal-actions">
+                      <button
+                        className="inline-chat-action inline-chat-action-primary"
+                        onClick={() => onAcceptProposal(turn.call_id)}
+                      >
+                        {labels.proposalAccept}
+                      </button>
+                      <button className="inline-chat-action" onClick={() => onRejectProposal(turn.call_id)}>
+                        {labels.proposalReject}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={`agent-proposal-status agent-proposal-status-${status}`}>
+                      {labels.proposalStatus[status]}
+                    </div>
+                  )}
                 </div>
               );
             }

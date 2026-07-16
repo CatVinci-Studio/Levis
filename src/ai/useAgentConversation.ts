@@ -37,9 +37,12 @@ export function useAgentConversation(
     });
   }, [history, conversationId, docPath]);
 
-  async function send(document: string, message: string) {
+  /** Returns the newly arrived turns (undefined if the send was skipped or
+   *  failed) - the caller's hook for reacting to what came back, e.g. the
+   *  chat bar turning propose_edit tool calls into in-document previews. */
+  async function send(document: string, message: string): Promise<AgentTurn[] | undefined> {
     const trimmed = message.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy) return undefined;
     setBusy(true);
     setError(null);
     try {
@@ -53,8 +56,10 @@ export function useAgentConversation(
         model: model || null,
       });
       setHistory((prev) => [...prev, ...newTurns]);
+      return newTurns;
     } catch (err) {
       setError(String(err));
+      return undefined;
     } finally {
       setBusy(false);
     }

@@ -1,0 +1,70 @@
+.pending-edit-controls {
+  position: fixed;
+  z-index: 210;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.pending-edit-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--editor-muted);
+}
+
+.pending-edit-nav-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.pending-edit-nav-btn:hover {
+  color: var(--editor-text);
+}
+
+.pending-edit-count {
+  white-space: nowrap;
+}
+
+.pending-edit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pending-edit-action {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--editor-text);
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pending-edit-action:hover {
+  background: var(--sidebar-bg);
+}
+
+.pending-edit-accept {
+  border-color: transparent;
+  background: var(--editor-accent);
+  color: #fff;
+}
+
+.pending-edit-accept:hover {
+  opacity: 0.9;
+  background: var(--editor-accent);
+}
+
+.pending-edit-reject {
+  color: var(--danger, #dc2626);
+}

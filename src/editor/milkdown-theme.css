@@ -30,6 +30,26 @@
   user-select: none;
 }
 
+/* Pending agent edits (pending-edit-plugin.ts): the anchor text an action
+   removes is struck through with a red tint; new text is shown ghost-style
+   (like .ghost-text above) but green-tinted so it reads as "about to be
+   added" rather than "already there but faint". Neither is editable -
+   accept/reject (PendingEditControls, or ⌘Enter/⌘Backspace) is what commits
+   or discards them, never direct typing on the decoration itself. */
+.pending-delete {
+  text-decoration: line-through;
+  text-decoration-color: rgba(220, 38, 38, 0.6);
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.pending-insert {
+  background: rgba(22, 163, 74, 0.14);
+  border-radius: 3px;
+  padding: 0 2px;
+  white-space: pre-wrap;
+  user-select: none;
+}
+
 .empty-doc-placeholder::before {
   position: absolute;
   color: var(--editor-muted);

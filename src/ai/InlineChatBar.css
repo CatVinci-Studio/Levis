@@ -283,3 +283,29 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* Once resolved (status !== "pending"), the card shows a compact status
+   line instead of the buttons - the in-document preview (pending-delete/
+   pending-insert, see milkdown-theme.css) already carried the diff while it
+   was pending, so it isn't repeated here. */
+.agent-proposal-status {
+  font-size: 12px;
+  color: var(--editor-muted);
+}
+
+.agent-proposal-status-accepted {
+  color: var(--editor-accent);
+}
+
+.agent-proposal-status-rejected {
+  opacity: 0.7;
+}
+
+.agent-proposal-status-invalid {
+  color: var(--danger, #dc2626);
+}
+
+.agent-proposal-actions {
+  display: flex;
+  gap: 6px;
+}

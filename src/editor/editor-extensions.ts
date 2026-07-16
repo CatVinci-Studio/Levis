@@ -34,20 +34,31 @@ import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
 import { buildCompletionStyle } from "../ai/completion-style";
 import { createGrammarCheckPlugin } from "../ai/grammar-check-plugin";
+import { createPendingEditPlugin, type PendingPreview } from "../ai/pending-edit-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { strings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
+
+export interface PendingEditCallbacks {
+  onAccept: (callId: string) => void;
+  onReject: (callId: string) => void;
+  onPreviewsChange: (previews: PendingPreview[]) => void;
+}
 
 /**
  * The complete feature set the editor is composed of, in load order.
  * `settings` is a live ref (see useLatest) because the chain is built once
  * at mount while several features (AI, math, mermaid, typewriter,
- * placeholder language) follow the current Settings values.
+ * placeholder language) follow the current Settings values. `pendingEdits`
+ * is similarly built once - its callbacks must be stable, ref-indirected
+ * wrappers (see MilkdownEditor) since usePendingEdits itself is created
+ * from a `run` that isn't ready yet at this point.
  */
 export function withEditorExtensions(
   editor: Editor,
   settings: { readonly current: Settings },
   docPath: { readonly current: string | null },
+  pendingEdits: PendingEditCallbacks,
 ): Editor {
   return (
     editor
@@ -134,5 +145,6 @@ export function withEditorExtensions(
           strictness: () => settings.current.grammarStrictness,
         }),
       )
+      .use(createPendingEditPlugin(pendingEdits))
   );
 }

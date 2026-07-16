@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
-import { Slice } from "@milkdown/kit/prose/model";
+import { editorViewCtx } from "@milkdown/kit/core";
 import { findUniqueTextRange } from "./doc-text";
+import { applyEditRange } from "./apply-edit";
 import type { EditProposal } from "./types";
 import type { EditorRunner } from "../editor/useEditorRunner";
 
@@ -18,15 +18,6 @@ export interface InlineChatInfo {
 
 /** Where an AI reply gets applied to the document. */
 export type ApplyTarget = "selection" | "cursor" | "document";
-
-/**
- * Models are told to write valid markdown, but some still bullet lists with
- * typographic dots - as plain text those survive the markdown parse and land
- * verbatim in the document. Rewrite them to `-` so lists arrive as lists.
- */
-function normalizeAiMarkdown(text: string): string {
-  return text.replace(/^(\s*)[•●◦·]\s+/gm, "$1- ");
-}
 
 /** User-facing error strings, passed as a getter so they follow the live language setting. */
 export interface InlineChatMessages {
@@ -90,25 +81,14 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
   const applyResult = useCallback(
     (rawText: string, target: ApplyTarget): string | null => {
       if (!chatInfo) return null;
-      const text = normalizeAiMarkdown(rawText);
       let error: string | null = null;
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
         const docSize = state.doc.content.size;
 
-        let parsed;
-        try {
-          parsed = ctx.get(parserCtx)(text);
-        } catch {
-          parsed = null;
-        }
-
         if (target === "document") {
-          const tr = parsed
-            ? state.tr.replaceWith(0, docSize, parsed.content)
-            : state.tr.insertText(text, 0, docSize);
-          view.dispatch(tr.scrollIntoView());
+          view.dispatch(applyEditRange(state, ctx, 0, docSize, rawText).scrollIntoView());
         } else if (target === "selection" && chatInfo.range) {
           const { from, to } = chatInfo.range;
           const stillThere =
@@ -117,16 +97,10 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
             error = messages().applyStale;
             return;
           }
-          const tr = parsed
-            ? state.tr.replaceRange(from, to, Slice.maxOpen(parsed.content))
-            : state.tr.insertText(text, from, to);
-          view.dispatch(tr.scrollIntoView());
+          view.dispatch(applyEditRange(state, ctx, from, to, rawText).scrollIntoView());
         } else {
           const at = Math.min(chatInfo.anchor, docSize);
-          const tr = parsed
-            ? state.tr.replaceRange(at, at, Slice.maxOpen(parsed.content))
-            : state.tr.insertText(text, at, at);
-          view.dispatch(tr.scrollIntoView());
+          view.dispatch(applyEditRange(state, ctx, at, at, rawText).scrollIntoView());
         }
         view.focus();
       });
@@ -150,18 +124,8 @@ export function useInlineChat(run: EditorRunner, messages: () => InlineChatMessa
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
-        const text = normalizeAiMarkdown(proposal.text ?? "");
-        let parsed;
-        try {
-          parsed = ctx.get(parserCtx)(text);
-        } catch {
-          parsed = null;
-        }
         const insertAt = (from: number, to: number) => {
-          const tr = parsed
-            ? state.tr.replaceRange(from, to, Slice.maxOpen(parsed.content))
-            : state.tr.insertText(text, from, to);
-          view.dispatch(tr.scrollIntoView());
+          view.dispatch(applyEditRange(state, ctx, from, to, proposal.text ?? "").scrollIntoView());
         };
 
         if (proposal.action === "replace_selection") {
