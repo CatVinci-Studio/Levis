@@ -4,7 +4,7 @@ import { conversationTitle, saveConversation, type ChatHistoryEntry } from "./ch
 import type { AgentTurn } from "./types";
 
 /// Multi-turn agent conversation state/logic backing the inline chat bar
-/// (see InlineChatBar) against the `ai_agent_message` backend command -
+/// (see ai/chat/InlineChat.tsx) against the `ai_agent_message` backend command -
 /// pulled out on its own so any other agent surface added later can reuse
 /// the same history bookkeeping instead of reimplementing it.
 ///

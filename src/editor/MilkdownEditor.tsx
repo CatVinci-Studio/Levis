@@ -33,7 +33,7 @@ import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
 import { withEditorExtensions, type PendingEditCallbacks } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
-import { InlineChatBar } from "../ai/InlineChatBar";
+import { InlineChat } from "../ai/chat/InlineChat";
 import { PendingEditControls } from "../ai/PendingEditControls";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
@@ -357,7 +357,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
         />
       )}
       {inlineChat.chatInfo && (
-        <InlineChatBar
+        <InlineChat
           x={inlineChat.chatInfo.x}
           y={inlineChat.chatInfo.y}
           document={inlineChat.chatInfo.document}
@@ -369,7 +369,12 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
             placeholder: t.agentInputPlaceholder,
             send: t.agentSend,
             thinking: t.agentThinking,
+            untitled: t.chatUntitled,
+            history: t.chatHistoryButton,
             newChat: t.agentNewChat,
+            close: t.chatClose,
+            historyEmpty: t.chatHistoryEmpty,
+            historyDelete: t.chatHistoryDelete,
             attachFile: t.agentAttachFile,
             selectedChars: t.chatSelectedChars,
             replaceSelection: t.agentReplaceSelection,
@@ -377,7 +382,6 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
             replaceDocument: t.agentReplaceDocument,
             proposalTitle: t.agentProposalTitle,
             proposalApply: t.agentProposalApply,
-            proposalApplied: t.agentProposalApplied,
             proposalStatus: {
               accepted: t.proposalStatusAccepted,
               rejected: t.proposalStatusRejected,
