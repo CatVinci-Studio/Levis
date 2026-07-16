@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   useSettings,
   COMPLETION_TONES,
-  type AiProvider,
   type CompletionTone,
   type GrammarStrictness,
   type NewDocumentMode,
@@ -12,7 +11,7 @@ import type { Lang, Strings } from "../i18n/strings";
 import { ToggleRow, ShortcutRow } from "./sections/controls";
 import { UpdateSection, CliCommandSection } from "./sections/general";
 import { ThemeSection } from "./sections/theme";
-import { ProviderAuthPanel, ApiKeyProviderPanel, CustomProviderPanel } from "./sections/providers";
+import { ProviderListPanel } from "./sections/providers";
 import {
   AgentModelSection,
   AgentWorkspaceSection,
@@ -137,41 +136,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
             {category === "ai" && (
               <>
                 <div className="settings-section-label">{t.aiAccountLabel}</div>
-                <div className="settings-row">
-                  <span className="settings-row-label">{t.providerLabel}</span>
-                  <select
-                    value={settings.aiProvider}
-                    onChange={(e) => setSettings({ aiProvider: e.target.value as AiProvider })}
-                  >
-                    <option value="codex">{t.providerCodex}</option>
-                    <option value="claude">{t.providerClaude}</option>
-                    <option value="apikey">{t.providerApiKey}</option>
-                    <option value="custom">{t.providerCustom}</option>
-                  </select>
-                </div>
-
-                {settings.aiProvider === "codex" && (
-                  <ProviderAuthPanel
-                    t={t}
-                    accountLabel={t.accountLabel}
-                    loginLabel={t.loginButton}
-                    statusCommand="codex_auth_status"
-                    loginCommand="codex_login"
-                    logoutCommand="codex_logout"
-                  />
-                )}
-                {settings.aiProvider === "claude" && (
-                  <ProviderAuthPanel
-                    t={t}
-                    accountLabel={t.claudeAccountLabel}
-                    loginLabel={t.claudeLoginButton}
-                    statusCommand="claude_auth_status"
-                    loginCommand="claude_login"
-                    logoutCommand="claude_logout"
-                  />
-                )}
-                {settings.aiProvider === "apikey" && <ApiKeyProviderPanel t={t} />}
-                {settings.aiProvider === "custom" && <CustomProviderPanel t={t} />}
+                <ProviderListPanel t={t} />
 
                 <div className="settings-section-label">{t.proxyLabel}</div>
                 <div className="settings-field-stack">

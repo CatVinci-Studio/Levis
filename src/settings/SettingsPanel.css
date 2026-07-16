@@ -210,6 +210,98 @@ button.settings-inline-button {
   margin: 10px 0;
 }
 
+/* The pi.dev-style provider list: one row per catalog entry, click the row
+   body to expand its auth panel; "Use"/"In use" is the separate control that
+   actually switches settings.aiProvider, so browsing another provider's
+   panel doesn't switch away from the active one. */
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.provider-row {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.provider-row-active {
+  border-color: var(--accent-color, #4a90d9);
+}
+
+.provider-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.provider-row > .provider-row-main {
+  padding-right: 96px; /* room for the Use/In-use control, positioned below */
+}
+
+.provider-row {
+  position: relative;
+}
+
+.provider-row-name {
+  font-weight: 500;
+}
+
+.provider-row-status {
+  font-size: 0.85em;
+  color: var(--editor-muted);
+}
+
+.provider-row-status.provider-row-connected {
+  color: var(--success-color, #2a9d5c);
+}
+
+.provider-row-badge {
+  margin-left: auto;
+  font-size: 0.75em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--sidebar-bg);
+  color: var(--editor-muted);
+  white-space: nowrap;
+}
+
+.provider-row > .settings-inline-button,
+.provider-row > .provider-row-active-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+}
+
+.provider-row-active-badge {
+  font-size: 0.75em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-color, #4a90d9);
+  color: #fff;
+}
+
+.provider-row-panel {
+  border-top: 1px solid var(--border-color);
+  padding: 4px 12px;
+}
+
+.provider-row-panel .settings-provider-panel {
+  margin: 6px 0;
+  border: none;
+  padding: 0;
+}
+
 .settings-provider-panel .settings-row {
   border-bottom: none;
 }
