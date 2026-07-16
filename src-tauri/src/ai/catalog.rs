@@ -64,7 +64,11 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         id: "custom",
         dialect: "openai-chat-completions",
         auth: ProviderAuthKind::Custom,
-        tool_calling: false,
+        // Best-effort: not every OpenAI-compatible server implements
+        // `tools` correctly. ai::agent::ai_agent_message falls back to a
+        // tool-less completion on a hard failure, so this is never worse
+        // than before - just not guaranteed to actually propose edits.
+        tool_calling: true,
     },
 ];
 

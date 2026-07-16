@@ -14,7 +14,7 @@ Levis has a built-in AI agent made for writing. This document covers signing in,
 | **ChatGPT (Codex)** | Sign in with your ChatGPT account (browser authorization, no API key). Tool calling (edit proposals, file reading, dynamic skills) and web search. |
 | **OpenAI API Key** | Paste a standard OpenAI API key. Same tool calling and web search as ChatGPT. |
 | **Claude** | Sign in with your Claude account (browser authorization). Tool calling (edit proposals, file reading, dynamic skills) — no web search yet. |
-| **Custom Endpoint** | Any OpenAI-compatible endpoint (local models, proxies): enter the base URL, an optional key, then fetch or type the model name. No tool calling yet — the agent replies in plain text instead of proposing edits. |
+| **Custom Endpoint** | Any OpenAI-compatible endpoint (local models, proxies): enter the base URL, an optional key, then fetch or type the model name. Quick-fill buttons are provided for OpenRouter, Groq, and a local Ollama server. Tool calling is best-effort — not every compatible server implements it correctly, so a request that fails there quietly falls back to a plain-text reply instead of proposing edits. |
 
 "Sign in with ChatGPT" / "Sign in with Claude" opens your browser for authorization; once you approve, you're done.
 
@@ -42,7 +42,7 @@ Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to 
 
 ### 4. In-document edit previews
 
-When you ask a tool-calling provider (ChatGPT, OpenAI API Key, or Claude) to change the document, its proposal shows up right where the change would land: removed text is struck through, new text appears as a green ghost-style insert. A small floating panel with **✓ Accept** / **✗ Reject** appears next to it — keyboard shortcuts <kbd>Cmd</kbd>+<kbd>Return</kbd> / <kbd>Cmd</kbd>+<kbd>Delete</kbd> do the same. Nothing touches the document until you accept, and <kbd>Cmd</kbd>+<kbd>Z</kbd> undoes an accepted edit in one step. The chat popup's card for that proposal mirrors the same Accept/Reject buttons and shows a status once resolved.
+When you ask a tool-calling provider (ChatGPT, OpenAI API Key, Claude, or a custom endpoint that supports it) to change the document, its proposal shows up right where the change would land: removed text is struck through, new text appears as a green ghost-style insert. A small floating panel with **✓ Accept** / **✗ Reject** appears next to it — keyboard shortcuts <kbd>Cmd</kbd>+<kbd>Return</kbd> / <kbd>Cmd</kbd>+<kbd>Delete</kbd> do the same. Nothing touches the document until you accept, and <kbd>Cmd</kbd>+<kbd>Z</kbd> undoes an accepted edit in one step. The chat popup's card for that proposal mirrors the same Accept/Reject buttons and shows a status once resolved.
 
 Multiple proposals in one reply preview at once; the floating panel shows "1 of N" with ‹› to step between them, plus Accept all / Reject all.
 

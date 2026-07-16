@@ -404,6 +404,12 @@ button.settings-inline-button {
   line-height: 1.5;
 }
 
+.custom-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .custom-model-row {
   display: flex;
   align-items: center;

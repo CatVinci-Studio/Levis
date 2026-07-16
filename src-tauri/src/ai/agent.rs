@@ -1,7 +1,7 @@
 use crate::ai::tools::{self, ToolContext};
 use crate::ai::workspace::{self, AgentWorkspace};
 use aicompat::agent::{run_agent_loop, AgentTurn};
-use aicompat::providers::{anthropic, openai_api_key, openai_codex};
+use aicompat::providers::{anthropic, custom, openai_api_key, openai_codex};
 use std::path::Path;
 use tauri::AppHandle;
 
@@ -12,8 +12,8 @@ const MAX_STEPS: usize = 12;
 const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Levis, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (included below). Reply in the same language the user writes in. Be concise and concrete - when giving feedback, point at specific passages instead of generalities. Write any math formula with `$...$` for inline and `$$...$$` on its own line for block - never `\\(...\\)` or `\\[...\\]`, which this editor does not render.";
 
 /// Only appended for providers that actually run the tool loop (currently
-/// codex, apikey, and claude) - telling a tool-less provider to call tools
-/// would just confuse it.
+/// codex, apikey, claude, and custom) - telling a tool-less provider to call
+/// tools would just confuse it.
 const AGENT_TOOL_INSTRUCTIONS: &str = "Use the search_document tool to locate something specific in a long document rather than guessing. The document's folder may hold reference material - use list_files/read_file to consult it when the user's request depends on it. EVERY change to the document must go through propose_edit (once per distinct edit) - never paste rewritten or new document text into your chat reply instead of (or in addition to) a proposal. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, delete to remove text, append to add text at the end of the document. `anchor` must be quoted verbatim from the document and occur exactly once. `text` must be valid markdown: use `-` or `1.` for list items (never `•`, `●` or other bullet symbols) and `#` for headings. The user reviews and applies each proposal themselves, so your reply should only say briefly what you changed and why.";
 
 /// The static half of the layering: role + workspace instructions + skill
@@ -55,16 +55,20 @@ fn build_instructions(workspace: &AgentWorkspace, document: &str, with_tools: bo
 /// final assistant reply) for the frontend to append to its history.
 ///
 /// Tool calling runs for every provider whose dialect has an `agent_step`
-/// implemented in `aicompat::providers` (currently codex and apikey, both
-/// OpenAI Responses API; and claude, Anthropic Messages API). Providers
-/// without one yet (custom) fall back to `flattened_chat_turn`, a single
-/// non-agentic completion (with the workspace's agent.md layers still in the
-/// system prompt; skills reach them via the frontend's /name injection
-/// instead of use_skill). The orchestration loop (`run_agent_loop`) and the
-/// tool implementations (`crate::ai::tools`) don't know which dialect is in
-/// play - adding tool-calling support for another provider is just wiring up
-/// its own `step` closure and adding a match arm below, the way the three
-/// arms above do.
+/// implemented in `aicompat::providers`: codex and apikey (OpenAI Responses
+/// API), claude (Anthropic Messages API), and custom (the generic
+/// openai-chat-completions dialect most self-hosted/proxy servers speak -
+/// OpenRouter, Groq, Ollama, and friends). custom additionally falls back to
+/// `flattened_chat_turn` on a hard failure, since not every compatible
+/// server actually implements `tools` correctly. A provider with no dialect
+/// at all falls straight to `flattened_chat_turn`, a single non-agentic
+/// completion (with the workspace's agent.md layers still in the system
+/// prompt; skills reach them via the frontend's /name injection instead of
+/// use_skill). The orchestration loop (`run_agent_loop`) and the tool
+/// implementations (`crate::ai::tools`) don't know which dialect is in play -
+/// adding tool-calling support for another provider is just wiring up its
+/// own `step` closure and adding a match arm below, the way the arms above
+/// do.
 /// `model` is the user's Settings choice, or None for the provider default.
 // Each parameter is a distinct invoke() payload key - bundling them into a
 // struct would only move the width into the frontend call site.
@@ -174,6 +178,51 @@ pub async fn ai_agent_message(
                 tools::execute(&tools, &tool_ctx, name, arguments)
             })
             .await
+        }
+        "custom" => {
+            let config = crate::auth::custom_endpoint::load_custom_endpoint(&app)?
+                .ok_or_else(|| "This provider isn't set up yet - configure it in Settings.".to_string())?;
+            let tools = tools::builtin_tools(!workspace.skills.is_empty(), workspace.root.is_some());
+            let tool_specs = tools::tool_specs(&tools);
+            let tool_ctx = ToolContext {
+                document: &document,
+                skills: &workspace.skills,
+                root: workspace.root.as_deref().map(Path::new),
+            };
+            let instructions_with_tools = build_instructions(&workspace, &document, true);
+
+            let base_url = config.base_url.clone();
+            let api_key = config.api_key.clone();
+            let endpoint_model = config.model.clone();
+            let step = |turns: Vec<AgentTurn>| {
+                let base_url = base_url.clone();
+                let api_key = api_key.clone();
+                let endpoint_model = endpoint_model.clone();
+                let instructions = instructions_with_tools.clone();
+                let tool_specs = tool_specs.clone();
+                async move {
+                    custom::agent_step(&base_url, api_key.as_deref(), &endpoint_model, &instructions, &turns, &tool_specs)
+                        .await
+                }
+            };
+
+            // Not every OpenAI-compatible server implements `tools`
+            // correctly (some 400 on it, some silently ignore it and never
+            // call one) - a hard failure on the first step falls back to a
+            // single tool-less completion instead of failing the request
+            // outright. `history`/`message` are cloned so the fallback still
+            // has them; `run_agent_loop` would otherwise have consumed them.
+            match run_agent_loop(history.clone(), message.clone(), MAX_STEPS, step, |name, arguments| {
+                tools::execute(&tools, &tool_ctx, name, arguments)
+            })
+            .await
+            {
+                Ok(turns) => Ok(turns),
+                Err(_) => {
+                    let instructions = build_instructions(&workspace, &document, false);
+                    flattened_chat_turn(&app, &provider, &instructions, history, message, None).await
+                }
+            }
         }
         _ => {
             let instructions = build_instructions(&workspace, &document, false);

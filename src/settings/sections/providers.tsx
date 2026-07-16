@@ -21,7 +21,7 @@ const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
   { id: "codex", dialect: "openai-responses", auth: "oauth", toolCalling: true },
   { id: "apikey", dialect: "openai-responses", auth: "api_key", toolCalling: true },
   { id: "claude", dialect: "anthropic-messages", auth: "oauth", toolCalling: true },
-  { id: "custom", dialect: "openai-chat-completions", auth: "custom", toolCalling: false },
+  { id: "custom", dialect: "openai-chat-completions", auth: "custom", toolCalling: true },
 ];
 
 const PROVIDER_LABEL_KEY: Record<AiProvider, keyof Strings> = {
@@ -279,6 +279,18 @@ export function ApiKeyProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
   );
 }
 
+/// Quick-fill base URLs for known OpenAI-compatible services - this is the
+/// one "custom" slot's shortcut into the various-models compatibility pi.dev
+/// gets from a models.json file: pick a preset, the base URL fills in, and
+/// the tool-calling dialect (custom.rs, openai-chat-completions) already
+/// works against all three. OpenRouter/Groq still need their own API key;
+/// Ollama's local server doesn't.
+const ENDPOINT_PRESETS: { label: string; baseUrl: string }[] = [
+  { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
+  { label: "Groq", baseUrl: "https://api.groq.com/openai/v1" },
+  { label: "Ollama (local)", baseUrl: "http://localhost:11434/v1" },
+];
+
 export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatusChange?: (configured: boolean) => void }) {
   const [config, setConfig] = useState<CustomEndpointConfig | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
@@ -358,6 +370,27 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
       {statusMessage && (
         <div className={status === "error" ? "settings-error" : "settings-success"}>{statusMessage}</div>
       )}
+      <div className="settings-field">
+        <label className="settings-field-label">{t.customPresetsLabel}</label>
+        <div className="custom-preset-row">
+          {ENDPOINT_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              className="text-button settings-inline-button"
+              onClick={() => {
+                setBaseUrl(preset.baseUrl);
+                setModels([]);
+                setSelectedModel("");
+                setStatus("idle");
+                setStatusMessage(null);
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="settings-field">
         <label className="settings-field-label">{t.customBaseUrlLabel}</label>
         <input
