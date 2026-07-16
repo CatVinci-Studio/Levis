@@ -7,13 +7,19 @@ import markdownGuideJa from "./help/markdown-guide.ja.md?raw";
 import agentGuideEn from "./help/agent-guide.en.md?raw";
 import agentGuideZh from "./help/agent-guide.zh.md?raw";
 import agentGuideJa from "./help/agent-guide.ja.md?raw";
+import welcomeEn from "./help/welcome.en.md?raw";
+import welcomeZh from "./help/welcome.zh.md?raw";
+import welcomeJa from "./help/welcome.ja.md?raw";
 
 // The document-tab data model shared by App.tsx (tab state) and
 // useTabDragMerge.ts (tabs in flight between windows).
 
 // Mirrors the doc ids Rust puts in its Help menu ids (menu.rs
 // HELP_DOC_PREFIX) - they arrive here as the menu-open-help payload.
-export type HelpDoc = "markdown" | "agent";
+// "welcome" additionally starts the step-by-step tutorial mode (see
+// src/onboarding/) - the App.tsx menu-open-help handler is what does that,
+// this type only tracks which bundled doc backs the tab.
+export type HelpDoc = "markdown" | "agent" | "welcome";
 
 export interface DocTab {
   id: string;
@@ -54,6 +60,11 @@ export function helpDocContent(doc: HelpDoc, lang: string): string {
     if (lang === "ja") return agentGuideJa;
     return agentGuideEn;
   }
+  if (doc === "welcome") {
+    if (lang === "zh") return welcomeZh;
+    if (lang === "ja") return welcomeJa;
+    return welcomeEn;
+  }
   if (lang === "zh") return markdownGuideZh;
   if (lang === "ja") return markdownGuideJa;
   return markdownGuideEn;
@@ -65,6 +76,7 @@ export function tabTitle(tab: DocTab, t: Strings): string {
   if (tab.path) return basename(tab.path);
   if (tab.helpDoc === "markdown") return t.markdownGuideTab;
   if (tab.helpDoc === "agent") return t.agentGuideTab;
+  if (tab.helpDoc === "welcome") return t.welcomeTab;
   return t.untitledTab;
 }
 

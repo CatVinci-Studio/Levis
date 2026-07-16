@@ -38,7 +38,10 @@ const ZOOM_RESET_ID: &str = "zoom-reset";
 const FIND_REPLACE_ID: &str = "find-replace";
 const NEW_WINDOW_ID: &str = "new-window";
 /// Help menu ids carry the bundled doc they open: "help-doc:<doc>", where
-/// <doc> is the frontend's HelpDoc id ("markdown" | "agent").
+/// <doc> is the frontend's HelpDoc id ("markdown" | "agent" | "welcome").
+/// "welcome" additionally re-arms the coach-mark tour on the frontend side
+/// (see App.tsx's menu-open-help handler) - this string slot doesn't need
+/// to change for that, it's just a payload value like any other doc id.
 const HELP_DOC_PREFIX: &str = "help-doc:";
 /// Format menu ids carry the block kind to insert: "insert-block:<kind>",
 /// where <kind> is one of h1..h6, bullet-list, ordered-list, blockquote,
@@ -288,8 +291,10 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
 
     let help_menu = SubmenuBuilder::new(app, "Help")
+        .text(format!("{HELP_DOC_PREFIX}welcome"), "Welcome and Tutorial")
+        .separator()
         .text(format!("{HELP_DOC_PREFIX}markdown"), "Markdown Guide")
-        .text(format!("{HELP_DOC_PREFIX}agent"), "AI Agent Guide")
+        .text(format!("{HELP_DOC_PREFIX}agent"), "AI Features Guide")
         .build()?;
 
     let menu = MenuBuilder::new(app)

@@ -1,0 +1,79 @@
+.tutorial-card {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 215;
+  width: 300px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tutorial-card-progress {
+  font-size: 11px;
+  color: var(--editor-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tutorial-card-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tutorial-card-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--editor-text);
+}
+
+.tutorial-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.tutorial-card-skip {
+  border: none;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 2px;
+}
+
+.tutorial-card-skip:hover {
+  color: var(--editor-text);
+}
+
+.tutorial-card-nav {
+  display: flex;
+  gap: 6px;
+}
+
+.tutorial-card-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--editor-text);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.tutorial-card-btn:hover {
+  background: var(--editor-border);
+}
+
+.tutorial-card-btn-primary {
+  background: var(--editor-accent);
+  border-color: var(--editor-accent);
+  color: #fff;
+}
+
+.tutorial-card-btn-primary:hover {
+  opacity: 0.9;
+  background: var(--editor-accent);
+}

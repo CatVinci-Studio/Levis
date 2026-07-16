@@ -47,8 +47,12 @@ import { useInlineChat } from "../ai/useInlineChat";
 import { usePendingEdits } from "../ai/usePendingEdits";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
+import { formatCombo } from "../utils/shortcuts";
 import { useLatest } from "../utils/useLatest";
 import { useWindowEvent } from "../utils/useWindowEvent";
+import { useCoachMark } from "../onboarding/useCoachMark";
+import { skipAllCoachMarks } from "../onboarding/coach-marks";
+import { CoachMark } from "../onboarding/CoachMark";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
@@ -144,6 +148,45 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   const conversation = useAgentConversation(filePath, settings.aiProvider, settings.enableWebSearch, agentModel);
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
   const findReplace = useFindReplace(run);
+
+  // Contextual first-run coach marks (src/onboarding/) - each fires once,
+  // the first time its qualifying action happens, and never again once
+  // dismissed (or "skip all tips" is used).
+  const completionCoach = useCoachMark("completion");
+  const askAiCoach = useCoachMark("askAi");
+  const [completionAnchor, setCompletionAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [askAiAnchor, setAskAiAnchor] = useState<{ x: number; y: number } | null>(null);
+
+  // `run` returns undefined until the editor's actually mounted, and its
+  // identity changes when that happens - the dep list re-runs this exactly
+  // once loading finishes rather than needing to poll.
+  useEffect(() => {
+    if (!settings.enableCompletion || !initialValue.trim()) return;
+    const pos = run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const coords = view.coordsAtPos(view.state.selection.from);
+      return { x: coords.left, y: coords.bottom + 6 };
+    });
+    if (pos) {
+      setCompletionAnchor(pos);
+      completionCoach.trigger();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run]);
+
+  function onMouseUp() {
+    if (!settings.enableAskAi) return;
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const { selection } = view.state;
+      if (selection.empty) return;
+      const text = view.state.doc.textBetween(selection.from, selection.to, " ");
+      if (text.trim().length < 20) return;
+      const coords = view.coordsAtPos(selection.to);
+      setAskAiAnchor({ x: coords.left, y: coords.bottom + 6 });
+      askAiCoach.trigger();
+    });
+  }
 
   // Shortcuts respect the same feature toggles as the context menu items -
   // a feature turned off in Settings is off through every entry point.
@@ -329,7 +372,7 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
   }
 
   return (
-    <div onContextMenu={onContextMenu} onMouseOver={grammar.onMouseOver} onMouseOut={grammar.onMouseOut}>
+    <div onContextMenu={onContextMenu} onMouseOver={grammar.onMouseOver} onMouseOut={grammar.onMouseOut} onMouseUp={onMouseUp}>
       <Milkdown />
       {findReplace.open && (
         <FindReplaceBar findReplace={findReplace} labels={t} />
@@ -422,6 +465,34 @@ export function MilkdownEditor({ filePath, initialValue, onChange }: MilkdownEdi
           onReject={pendingEdits.reject}
           onAcceptAll={pendingEdits.acceptAll}
           onRejectAll={pendingEdits.rejectAll}
+        />
+      )}
+      {completionCoach.visible && completionAnchor && (
+        <CoachMark
+          x={completionAnchor.x}
+          y={completionAnchor.y}
+          text={t.coachCompletion}
+          gotItLabel={t.coachGotIt}
+          skipAllLabel={t.coachSkipAll}
+          onDismiss={completionCoach.dismiss}
+          onSkipAll={() => {
+            skipAllCoachMarks(["askAi", "completion"]);
+            completionCoach.dismiss();
+          }}
+        />
+      )}
+      {askAiCoach.visible && askAiAnchor && (
+        <CoachMark
+          x={askAiAnchor.x}
+          y={askAiAnchor.y}
+          text={t.coachAskAi.replace("{shortcut}", formatCombo(settings.shortcuts.toggleFloatingChat))}
+          gotItLabel={t.coachGotIt}
+          skipAllLabel={t.coachSkipAll}
+          onDismiss={askAiCoach.dismiss}
+          onSkipAll={() => {
+            skipAllCoachMarks(["askAi", "completion"]);
+            askAiCoach.dismiss();
+          }}
         />
       )}
     </div>

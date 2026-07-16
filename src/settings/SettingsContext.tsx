@@ -110,6 +110,10 @@ export interface Settings {
   /// exists; this is also what lets an app-update relaunch (which starts
   /// with no file arguments at all) reopen whatever was open before it.
   restoreSessionOnStartup: boolean;
+  /// Set once the first-run tutorial has been shown (or skipped) - belt and
+  /// suspenders alongside `isFreshInstall` below, in case a window closes
+  /// mid-tutorial before the user reaches the end.
+  onboardingShown: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -137,9 +141,18 @@ const DEFAULT_SETTINGS: Settings = {
   userThemes: [],
   newDocumentMode: "window",
   restoreSessionOnStartup: true,
+  onboardingShown: false,
 };
 
 const STORAGE_KEY = "catvinci-settings";
+
+/// True only for the very first render of a brand-new install (no settings
+/// blob has ever been saved) - computed once at module load, before
+/// SettingsProvider's persist effect below writes anything, so an existing
+/// user upgrading never sees this flip true. Multiple windows opening at
+/// once on a truly fresh install (the only way two windows could race this)
+/// isn't handled specially - first launch opens exactly one window.
+export const isFreshInstall = localStorage.getItem(STORAGE_KEY) === null;
 
 interface SettingsContextValue {
   settings: Settings;

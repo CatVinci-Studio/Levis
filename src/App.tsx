@@ -11,7 +11,10 @@ import { TreeTabIcon, OutlineTabIcon, ClipboardTabIcon, ChatTabIcon } from "./si
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
-import { useSettings } from "./settings/SettingsContext";
+import { useSettings, isFreshInstall } from "./settings/SettingsContext";
+import { useTutorial } from "./onboarding/useTutorial";
+import { TutorialCard } from "./onboarding/TutorialCard";
+import { resetCoachMarks } from "./onboarding/coach-marks";
 import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
 import { comboFromEvent } from "./utils/shortcuts";
@@ -65,6 +68,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const appUpdate = useAppUpdate();
   useZoom(settings.zoom, (zoom) => setSettings({ zoom }));
+  const tutorial = useTutorial();
 
   // Mirrors `tabs` synchronously so callbacks (open/save/close) can read the
   // latest state without depending on - and thus re-creating - on every
@@ -166,6 +170,18 @@ function App() {
     },
     [settings.language],
   );
+
+  // Opens the welcome doc and (re)starts the step-by-step tutorial - the
+  // pairing used by first-run, the Help menu item, and the no-window
+  // pending-help drain alike, so none of them can open the doc without the
+  // tutorial or vice versa. Re-arms coach marks too, so relaunching the
+  // tour from Help also brings back the "try this" bubbles it would have
+  // shown the first time.
+  const startWelcomeTutorial = useCallback(() => {
+    openHelpTab("welcome");
+    resetCoachMarks();
+    tutorial.start();
+  }, [openHelpTab, tutorial.start]);
 
   const handleChange = useCallback(
     (tabId: string, markdown: string) => {
@@ -347,23 +363,46 @@ function App() {
       }
       // A Help menu doc clicked with no window open: this window was
       // spawned to show it, so the bundled document rides the blank
-      // initial tab instead of opening next to it.
+      // initial tab instead of opening next to it. "welcome" additionally
+      // starts the tutorial, same as clicking the Help menu item directly
+      // would (see startWelcomeTutorial).
       const helpDoc = await invoke<string | null>("take_pending_show_help");
-      if (helpDoc === "markdown" || helpDoc === "agent") {
+      if (helpDoc === "markdown" || helpDoc === "agent" || helpDoc === "welcome") {
         const content = helpDocContent(helpDoc, settings.language);
         updateTab(activeTabId, { content, savedContent: content, helpDoc });
+        if (helpDoc === "welcome") {
+          resetCoachMarks();
+          tutorial.start();
+        }
         return;
       }
       if (settings.newDocumentMode === "tab") {
         const paths = await invoke<string[]>("take_pending_open_paths");
-        if (paths.length === 0) return;
-        const [first, ...rest] = paths;
-        const { content: text, diskMtime } = await readDocFromDisk(first);
-        updateTab(activeTabId, { path: first, content: text, savedContent: text, diskMtime });
-        for (const p of rest) await openPathInTab(p);
+        if (paths.length > 0) {
+          const [first, ...rest] = paths;
+          const { content: text, diskMtime } = await readDocFromDisk(first);
+          updateTab(activeTabId, { path: first, content: text, savedContent: text, diskMtime });
+          for (const p of rest) await openPathInTab(p);
+          return;
+        }
       } else {
         const pending = await invoke<string | null>("take_pending_open_path");
-        if (pending) await openFile(pending);
+        if (pending) {
+          await openFile(pending);
+          return;
+        }
+      }
+      // Nothing else claimed the initial blank tab - on a genuinely fresh
+      // install (never saved a settings blob before this run - see
+      // isFreshInstall), that's the tutorial's cue. onboardingShown is the
+      // belt-and-suspenders half: it survives even if this window closes
+      // mid-tutorial, so a relaunch doesn't restart the tour from scratch.
+      if (isFreshInstall && !settings.onboardingShown) {
+        const content = helpDocContent("welcome", settings.language);
+        updateTab(activeTabId, { content, savedContent: content, helpDoc: "welcome" });
+        resetCoachMarks();
+        tutorial.start();
+        setSettings({ onboardingShown: true });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -479,7 +518,8 @@ function App() {
       window.dispatchEvent(new CustomEvent(INSERT_BLOCK_EVENT, { detail: event.payload }));
     });
     const unlistenHelp = listen<string>("menu-open-help", (event) => {
-      if (event.payload === "markdown" || event.payload === "agent") openHelpTab(event.payload);
+      if (event.payload === "welcome") startWelcomeTutorial();
+      else if (event.payload === "markdown" || event.payload === "agent") openHelpTab(event.payload);
     });
     return () => {
       void unlistenSettings.then((f) => f());
@@ -504,6 +544,7 @@ function App() {
     saveTabAs,
     addBlankTab,
     openHelpTab,
+    startWelcomeTutorial,
     requestCloseTab,
     activeTabId,
     toggleSourceMode,
@@ -702,6 +743,25 @@ function App() {
             </>
           )}
         </div>
+      )}
+
+      {tutorial.active && (
+        <TutorialCard
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          title={t[tutorial.step.titleKey]}
+          body={t[tutorial.step.bodyKey]}
+          labels={{
+            stepOfCount: t.tutorialStepOfCount,
+            back: t.tutorialBack,
+            next: t.tutorialNext,
+            finish: t.tutorialFinish,
+            skip: t.tutorialSkip,
+          }}
+          onNext={tutorial.next}
+          onBack={tutorial.back}
+          onSkip={tutorial.skip}
+        />
       )}
     </div>
   );

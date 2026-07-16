@@ -1,0 +1,48 @@
+.coach-mark {
+  position: fixed;
+  z-index: 215;
+  max-width: 260px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.coach-mark-text {
+  color: var(--editor-text);
+  line-height: 1.4;
+}
+
+.coach-mark-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.coach-mark-skip {
+  border: none;
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px;
+}
+
+.coach-mark-skip:hover {
+  color: var(--editor-text);
+}
+
+.coach-mark-got-it {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 5px;
+  background: var(--editor-accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.coach-mark-got-it:hover {
+  opacity: 0.9;
+}
