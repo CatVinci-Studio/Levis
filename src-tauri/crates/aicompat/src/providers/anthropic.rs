@@ -13,7 +13,8 @@ const SCOPES: &str =
     "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload";
 
 const MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
-/// Also the agent loop's default model when the user hasn't picked one.
+/// Low-cost default for completion and grammar requests. Agent chat chooses
+/// its stronger default from the provider catalog.
 pub const COMPLETION_MODEL: &str = "claude-haiku-4-5-20251001";
 const CLAUDE_CODE_IDENTITY: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 
@@ -23,6 +24,44 @@ pub struct ClaudeCredential {
     pub refresh: String,
     /// ms since epoch
     pub expires: i64,
+}
+
+/// The two ways this dialect authenticates. OAuth (Claude Code) tokens are
+/// only accepted with the Claude Code identity headers and system prompt
+/// they're scoped to; a plain API key uses the standard `x-api-key` header
+/// and must NOT claim that identity.
+#[derive(Clone)]
+pub enum AnthropicAuth {
+    Oauth(String),
+    ApiKey(String),
+}
+
+fn apply_auth(req: reqwest::RequestBuilder, auth: &AnthropicAuth) -> reqwest::RequestBuilder {
+    let req = req.header("anthropic-version", "2023-06-01");
+    match auth {
+        AnthropicAuth::Oauth(token) => req
+            .bearer_auth(token)
+            .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
+            .header("anthropic-dangerous-direct-browser-access", "true")
+            .header("user-agent", "claude-cli/1.0.0")
+            .header("x-app", "cli"),
+        AnthropicAuth::ApiKey(key) => req.header("x-api-key", key),
+    }
+}
+
+fn system_blocks(instructions: String, auth: &AnthropicAuth) -> Vec<SystemBlock> {
+    let mut blocks = Vec::new();
+    if matches!(auth, AnthropicAuth::Oauth(_)) {
+        blocks.push(SystemBlock {
+            kind: "text",
+            text: CLAUDE_CODE_IDENTITY.to_string(),
+        });
+    }
+    blocks.push(SystemBlock {
+        kind: "text",
+        text: instructions,
+    });
+    blocks
 }
 
 /// Builds the browser authorize URL plus the PKCE verifier, which pi's
@@ -63,7 +102,11 @@ fn credential_from_token(token: TokenResponse) -> ClaudeCredential {
     }
 }
 
-pub async fn exchange_code(code: &str, state: &str, verifier: &str) -> Result<ClaudeCredential, String> {
+pub async fn exchange_code(
+    code: &str,
+    state: &str,
+    verifier: &str,
+) -> Result<ClaudeCredential, String> {
     let client = crate::http::client();
     let res = client
         .post(TOKEN_URL)
@@ -85,7 +128,9 @@ pub async fn exchange_code(code: &str, state: &str, verifier: &str) -> Result<Cl
         return Err(format!("token exchange failed ({status}): {body}"));
     }
 
-    Ok(credential_from_token(res.json().await.map_err(|e| e.to_string())?))
+    Ok(credential_from_token(
+        res.json().await.map_err(|e| e.to_string())?,
+    ))
 }
 
 pub async fn refresh(refresh_token: &str) -> Result<ClaudeCredential, String> {
@@ -107,7 +152,9 @@ pub async fn refresh(refresh_token: &str) -> Result<ClaudeCredential, String> {
         return Err(format!("token refresh failed ({status}): {body}"));
     }
 
-    Ok(credential_from_token(res.json().await.map_err(|e| e.to_string())?))
+    Ok(credential_from_token(
+        res.json().await.map_err(|e| e.to_string())?,
+    ))
 }
 
 #[derive(Serialize)]
@@ -143,13 +190,10 @@ struct MessagesResponse {
     content: Vec<ContentBlock>,
 }
 
-/// Calls the standard public Anthropic Messages API. OAuth (Claude Code)
-/// tokens are accepted there directly via Bearer auth, provided the request
-/// carries the Claude Code identity headers/system prompt the token is
-/// scoped to - without these the API rejects the OAuth token outright.
+/// Calls the standard public Anthropic Messages API with either auth kind.
 /// `model` overrides COMPLETION_MODEL when set.
 pub async fn call_completion(
-    access_token: &str,
+    auth: &AnthropicAuth,
     instructions: String,
     user_text: String,
     model: Option<&str>,
@@ -157,16 +201,7 @@ pub async fn call_completion(
     let body = MessagesRequest {
         model: model.unwrap_or(COMPLETION_MODEL).to_string(),
         max_tokens: 1024,
-        system: vec![
-            SystemBlock {
-                kind: "text",
-                text: CLAUDE_CODE_IDENTITY.to_string(),
-            },
-            SystemBlock {
-                kind: "text",
-                text: instructions,
-            },
-        ],
+        system: system_blocks(instructions, auth),
         messages: vec![Message {
             role: "user",
             content: user_text,
@@ -174,13 +209,7 @@ pub async fn call_completion(
     };
 
     let client = crate::http::client();
-    let res = client
-        .post(MESSAGES_URL)
-        .bearer_auth(access_token)
-        .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
-        .header("anthropic-dangerous-direct-browser-access", "true")
-        .header("user-agent", "claude-cli/1.0.0")
-        .header("x-app", "cli")
+    let res = apply_auth(client.post(MESSAGES_URL), auth)
         .json(&body)
         .send()
         .await
@@ -193,7 +222,11 @@ pub async fn call_completion(
     }
 
     let parsed: MessagesResponse = res.json().await.map_err(|e| e.to_string())?;
-    Ok(parsed.content.into_iter().find_map(|c| c.text).unwrap_or_default())
+    Ok(parsed
+        .content
+        .into_iter()
+        .find_map(|c| c.text)
+        .unwrap_or_default())
 }
 
 #[derive(Deserialize)]
@@ -208,16 +241,9 @@ struct ModelListResponse {
 }
 
 /// Lists available models for the agent model picker in Settings.
-pub async fn list_models(access_token: &str) -> Result<Vec<String>, String> {
+pub async fn list_models(auth: &AnthropicAuth) -> Result<Vec<String>, String> {
     let client = crate::http::client();
-    let res = client
-        .get("https://api.anthropic.com/v1/models")
-        .bearer_auth(access_token)
-        .header("anthropic-version", "2023-06-01")
-        .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
-        .header("anthropic-dangerous-direct-browser-access", "true")
-        .header("user-agent", "claude-cli/1.0.0")
-        .header("x-app", "cli")
+    let res = apply_auth(client.get("https://api.anthropic.com/v1/models"), auth)
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -279,8 +305,13 @@ fn turns_to_messages(history: &[AgentTurn]) -> Vec<Value> {
                 let mut tool_results = Vec::new();
                 while let Some(turn) = history.get(i) {
                     match turn {
-                        AgentTurn::ToolCall { call_id, name, arguments } => {
-                            let input: Value = serde_json::from_str(arguments).unwrap_or_else(|_| json!({}));
+                        AgentTurn::ToolCall {
+                            call_id,
+                            name,
+                            arguments,
+                        } => {
+                            let input: Value =
+                                serde_json::from_str(arguments).unwrap_or_else(|_| json!({}));
                             tool_uses.push(json!({
                                 "type": "tool_use",
                                 "id": call_id,
@@ -323,8 +354,15 @@ fn parse_agent_response(content: &[Value]) -> StepResult {
         match block.get("type").and_then(|t| t.as_str()) {
             Some("tool_use") => {
                 let call_id = block.get("id").and_then(|v| v.as_str()).unwrap_or_default();
-                let name = block.get("name").and_then(|v| v.as_str()).unwrap_or_default();
-                let arguments = block.get("input").cloned().unwrap_or_else(|| json!({})).to_string();
+                let name = block
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let arguments = block
+                    .get("input")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}))
+                    .to_string();
                 tool_calls.push(AgentTurn::ToolCall {
                     call_id: call_id.to_string(),
                     name: name.to_string(),
@@ -348,35 +386,40 @@ fn parse_agent_response(content: &[Value]) -> StepResult {
 }
 
 /// Runs one round-trip against Claude with the full turn history and tool
-/// definitions - the Anthropic twin of `openai_codex::agent_step`. Same
-/// OAuth-token identity headers as `call_completion` (required for the
-/// token to be accepted at all - see that function's doc comment).
+/// definitions - the Anthropic twin of `openai_codex::agent_step`.
 pub async fn agent_step(
-    access_token: &str,
+    auth: &AnthropicAuth,
     instructions: &str,
     history: &[AgentTurn],
     tools: &[ToolSpec],
+    web_search: bool,
     model: &str,
 ) -> Result<StepResult, String> {
+    let system: Vec<Value> = system_blocks(instructions.to_string(), auth)
+        .iter()
+        .map(|b| json!({"type": b.kind, "text": b.text}))
+        .collect();
+    let mut tool_schemas = tools.iter().map(tool_to_schema).collect::<Vec<_>>();
+    // Claude executes this server tool inside the Messages request. Its
+    // server_tool_use/result blocks are intentionally ignored by
+    // parse_agent_response; the final cited text blocks are still retained.
+    if web_search {
+        tool_schemas.push(json!({
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 5,
+        }));
+    }
     let body = json!({
         "model": model,
         "max_tokens": 4096,
-        "system": [
-            {"type": "text", "text": CLAUDE_CODE_IDENTITY},
-            {"type": "text", "text": instructions},
-        ],
+        "system": system,
         "messages": turns_to_messages(history),
-        "tools": tools.iter().map(tool_to_schema).collect::<Vec<_>>(),
+        "tools": tool_schemas,
     });
 
     let client = crate::http::client();
-    let res = client
-        .post(MESSAGES_URL)
-        .bearer_auth(access_token)
-        .header("anthropic-beta", "claude-code-20250219,oauth-2025-04-20")
-        .header("anthropic-dangerous-direct-browser-access", "true")
-        .header("user-agent", "claude-cli/1.0.0")
-        .header("x-app", "cli")
+    let res = apply_auth(client.post(MESSAGES_URL), auth)
         .json(&body)
         .send()
         .await
@@ -389,7 +432,11 @@ pub async fn agent_step(
     }
 
     let parsed: Value = res.json().await.map_err(|e| e.to_string())?;
-    let content = parsed.get("content").and_then(|c| c.as_array()).cloned().unwrap_or_default();
+    let content = parsed
+        .get("content")
+        .and_then(|c| c.as_array())
+        .cloned()
+        .unwrap_or_default();
     Ok(parse_agent_response(&content))
 }
 
@@ -400,8 +447,12 @@ mod tests {
     #[test]
     fn turns_to_messages_maps_plain_turns_1_to_1() {
         let history = vec![
-            AgentTurn::User { text: "hi".to_string() },
-            AgentTurn::Assistant { text: "hello".to_string() },
+            AgentTurn::User {
+                text: "hi".to_string(),
+            },
+            AgentTurn::Assistant {
+                text: "hello".to_string(),
+            },
         ];
         let messages = turns_to_messages(&history);
         assert_eq!(messages.len(), 2);
@@ -418,7 +469,9 @@ mod tests {
         // followed by one user message (both tool_result blocks), or Claude
         // rejects the request for having consecutive assistant messages.
         let history = vec![
-            AgentTurn::User { text: "do it".to_string() },
+            AgentTurn::User {
+                text: "do it".to_string(),
+            },
             AgentTurn::ToolCall {
                 call_id: "1".to_string(),
                 name: "search_document".to_string(),
@@ -437,7 +490,9 @@ mod tests {
                 call_id: "2".to_string(),
                 output: "found b".to_string(),
             },
-            AgentTurn::Assistant { text: "done".to_string() },
+            AgentTurn::Assistant {
+                text: "done".to_string(),
+            },
         ];
 
         let messages = turns_to_messages(&history);
@@ -472,7 +527,12 @@ mod tests {
         match parse_agent_response(&content) {
             StepResult::ToolCalls(calls) => {
                 assert_eq!(calls.len(), 1);
-                let AgentTurn::ToolCall { call_id, name, arguments } = &calls[0] else {
+                let AgentTurn::ToolCall {
+                    call_id,
+                    name,
+                    arguments,
+                } = &calls[0]
+                else {
                     panic!("expected a ToolCall turn");
                 };
                 assert_eq!(call_id, "c1");
@@ -486,7 +546,10 @@ mod tests {
 
     #[test]
     fn parse_agent_response_joins_text_blocks_when_no_tool_use() {
-        let content = vec![json!({"type": "text", "text": "part one"}), json!({"type": "text", "text": "part two"})];
+        let content = vec![
+            json!({"type": "text", "text": "part one"}),
+            json!({"type": "text", "text": "part two"}),
+        ];
         match parse_agent_response(&content) {
             StepResult::Done(text) => assert_eq!(text, "part one\npart two"),
             StepResult::ToolCalls(_) => panic!("expected a final answer"),

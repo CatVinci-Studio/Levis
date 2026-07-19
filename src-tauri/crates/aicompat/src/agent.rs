@@ -6,10 +6,21 @@ use serde_json::Value;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "kind")]
 pub enum AgentTurn {
-    User { text: String },
-    Assistant { text: String },
-    ToolCall { call_id: String, name: String, arguments: String },
-    ToolResult { call_id: String, output: String },
+    User {
+        text: String,
+    },
+    Assistant {
+        text: String,
+    },
+    ToolCall {
+        call_id: String,
+        name: String,
+        arguments: String,
+    },
+    ToolResult {
+        call_id: String,
+        output: String,
+    },
 }
 
 /// A tool the model may call. `parameters` is a JSON schema object.
@@ -65,7 +76,12 @@ where
             }
             StepResult::ToolCalls(calls) => {
                 for call in calls {
-                    let AgentTurn::ToolCall { call_id, name, arguments } = &call else {
+                    let AgentTurn::ToolCall {
+                        call_id,
+                        name,
+                        arguments,
+                    } = &call
+                    else {
                         continue;
                     };
                     turns.push(call.clone());

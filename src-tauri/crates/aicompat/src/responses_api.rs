@@ -100,11 +100,16 @@ impl ResponsesResult {
     }
 }
 
-pub async fn extract_response_text(res: reqwest::Response, provider_label: &str) -> Result<String, String> {
+pub async fn extract_response_text(
+    res: reqwest::Response,
+    provider_label: &str,
+) -> Result<String, String> {
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        return Err(format!("{provider_label} request failed ({status}): {text}"));
+        return Err(format!(
+            "{provider_label} request failed ({status}): {text}"
+        ));
     }
     let parsed: ResponsesResult = res.json().await.map_err(|e| e.to_string())?;
     Ok(parsed.into_text())
@@ -118,19 +123,28 @@ pub async fn extract_response_text(res: reqwest::Response, provider_label: &str)
 /// `response.output_item.done` event's `item` - which carries the same
 /// message/function_call shape the non-streaming `output` array used to -
 /// as they arrive.
-pub async fn read_streamed_output(res: reqwest::Response, provider_label: &str) -> Result<Vec<Value>, String> {
+pub async fn read_streamed_output(
+    res: reqwest::Response,
+    provider_label: &str,
+) -> Result<Vec<Value>, String> {
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        return Err(format!("{provider_label} request failed ({status}): {text}"));
+        return Err(format!(
+            "{provider_label} request failed ({status}): {text}"
+        ));
     }
 
     let body = res.text().await.map_err(|e| e.to_string())?;
     let mut output = Vec::new();
 
     for line in body.lines() {
-        let Some(data) = line.strip_prefix("data: ") else { continue };
-        let Ok(event) = serde_json::from_str::<Value>(data) else { continue };
+        let Some(data) = line.strip_prefix("data: ") else {
+            continue;
+        };
+        let Ok(event) = serde_json::from_str::<Value>(data) else {
+            continue;
+        };
 
         match event.get("type").and_then(|t| t.as_str()) {
             Some("response.output_item.done") => {
@@ -183,7 +197,11 @@ fn turn_to_input_item(turn: &AgentTurn) -> Value {
             "role": "assistant",
             "content": [{"type": "output_text", "text": text}],
         }),
-        AgentTurn::ToolCall { call_id, name, arguments } => json!({
+        AgentTurn::ToolCall {
+            call_id,
+            name,
+            arguments,
+        } => json!({
             "type": "function_call",
             "call_id": call_id,
             "name": name,
@@ -255,9 +273,18 @@ pub fn parse_agent_output(output: &[Value]) -> StepResult {
     for item in output {
         match item.get("type").and_then(|t| t.as_str()) {
             Some("function_call") => {
-                let call_id = item.get("call_id").and_then(|v| v.as_str()).unwrap_or_default();
-                let name = item.get("name").and_then(|v| v.as_str()).unwrap_or_default();
-                let arguments = item.get("arguments").and_then(|v| v.as_str()).unwrap_or("{}");
+                let call_id = item
+                    .get("call_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let name = item
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let arguments = item
+                    .get("arguments")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("{}");
                 tool_calls.push(AgentTurn::ToolCall {
                     call_id: call_id.to_string(),
                     name: name.to_string(),
@@ -291,8 +318,12 @@ mod tests {
     #[test]
     fn agent_request_body_round_trips_every_turn_kind() {
         let history = vec![
-            AgentTurn::User { text: "hi".to_string() },
-            AgentTurn::Assistant { text: "hello".to_string() },
+            AgentTurn::User {
+                text: "hi".to_string(),
+            },
+            AgentTurn::Assistant {
+                text: "hello".to_string(),
+            },
             AgentTurn::ToolCall {
                 call_id: "c1".to_string(),
                 name: "search_document".to_string(),
@@ -352,7 +383,9 @@ mod tests {
 
     #[test]
     fn parse_agent_output_joins_message_text_when_no_tool_calls() {
-        let output = vec![json!({"type": "message", "content": [{"text": "part one"}, {"text": "part two"}]})];
+        let output = vec![
+            json!({"type": "message", "content": [{"text": "part one"}, {"text": "part two"}]}),
+        ];
         match parse_agent_output(&output) {
             StepResult::Done(text) => assert_eq!(text, "part one\npart two"),
             StepResult::ToolCalls(_) => panic!("expected a final answer"),

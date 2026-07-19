@@ -36,7 +36,9 @@ fn load_credential(app: &AppHandle) -> Result<Option<ClaudeCredential>, String> 
         return Ok(None);
     }
     let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&text).map(Some).map_err(|e| e.to_string())
+    serde_json::from_str(&text)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 /// Runs the Claude (Anthropic Pro/Max) OAuth login, same shape as the Codex

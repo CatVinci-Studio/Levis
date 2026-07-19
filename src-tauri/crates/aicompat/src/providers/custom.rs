@@ -136,6 +136,52 @@ fn tool_to_schema(tool: &ToolSpec) -> Value {
     })
 }
 
+/// Provider-specific web search switches that are accepted by otherwise
+/// OpenAI-compatible Chat Completions endpoints.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWebSearch {
+    Groq,
+    OpenRouter,
+    Qwen,
+    Zhipu,
+}
+
+fn agent_request_body(
+    model: &str,
+    instructions: &str,
+    history: &[AgentTurn],
+    tools: &[ToolSpec],
+    web_search: Option<NativeWebSearch>,
+) -> Value {
+    let mut tool_schemas = tools.iter().map(tool_to_schema).collect::<Vec<_>>();
+    match web_search {
+        Some(NativeWebSearch::Groq) => {
+            tool_schemas.push(json!({"type": "browser_search"}));
+        }
+        Some(NativeWebSearch::OpenRouter) => {
+            tool_schemas.push(json!({"type": "openrouter:web_search"}));
+        }
+        Some(NativeWebSearch::Zhipu) => {
+            tool_schemas.push(json!({
+                "type": "web_search",
+                "web_search": {"enable": true, "search_result": true},
+            }));
+        }
+        Some(NativeWebSearch::Qwen) | None => {}
+    }
+
+    let mut body = json!({
+        "model": model,
+        "messages": turns_to_messages(instructions, history),
+        "tools": tool_schemas,
+        "tool_choice": "auto",
+    });
+    if web_search == Some(NativeWebSearch::Qwen) {
+        body["enable_search"] = json!(true);
+    }
+    body
+}
+
 /// Groups the flat `AgentTurn` history into Chat Completions messages.
 /// Like the Anthropic dialect, every `ToolCall` in a run must land in ONE
 /// assistant message's `tool_calls` array - but each `ToolResult` becomes
@@ -160,7 +206,11 @@ fn turns_to_messages(instructions: &str, history: &[AgentTurn]) -> Vec<Value> {
                 let mut tool_results = Vec::new();
                 while let Some(turn) = history.get(i) {
                     match turn {
-                        AgentTurn::ToolCall { call_id, name, arguments } => {
+                        AgentTurn::ToolCall {
+                            call_id,
+                            name,
+                            arguments,
+                        } => {
                             tool_calls.push(json!({
                                 "id": call_id,
                                 "type": "function",
@@ -179,7 +229,8 @@ fn turns_to_messages(instructions: &str, history: &[AgentTurn]) -> Vec<Value> {
                     messages.push(json!({"role": "assistant", "content": Value::Null, "tool_calls": tool_calls}));
                 }
                 for (call_id, output) in tool_results {
-                    messages.push(json!({"role": "tool", "tool_call_id": call_id, "content": output}));
+                    messages
+                        .push(json!({"role": "tool", "tool_call_id": call_id, "content": output}));
                 }
             }
         }
@@ -200,15 +251,29 @@ fn parse_agent_response(message: &Value) -> StepResult {
             let call_id = tc.get("id")?.as_str()?.to_string();
             let func = tc.get("function")?;
             let name = func.get("name")?.as_str()?.to_string();
-            let arguments = func.get("arguments").and_then(|a| a.as_str()).unwrap_or("{}").to_string();
-            Some(AgentTurn::ToolCall { call_id, name, arguments })
+            let arguments = func
+                .get("arguments")
+                .and_then(|a| a.as_str())
+                .unwrap_or("{}")
+                .to_string();
+            Some(AgentTurn::ToolCall {
+                call_id,
+                name,
+                arguments,
+            })
         })
         .collect();
 
     if !calls.is_empty() {
         return StepResult::ToolCalls(calls);
     }
-    StepResult::Done(message.get("content").and_then(|c| c.as_str()).unwrap_or_default().to_string())
+    StepResult::Done(
+        message
+            .get("content")
+            .and_then(|c| c.as_str())
+            .unwrap_or_default()
+            .to_string(),
+    )
 }
 
 /// Runs one round-trip against a Chat Completions-compatible endpoint with
@@ -220,13 +285,9 @@ pub async fn agent_step(
     instructions: &str,
     history: &[AgentTurn],
     tools: &[ToolSpec],
+    web_search: Option<NativeWebSearch>,
 ) -> Result<StepResult, String> {
-    let body = json!({
-        "model": model,
-        "messages": turns_to_messages(instructions, history),
-        "tools": tools.iter().map(tool_to_schema).collect::<Vec<_>>(),
-        "tool_choice": "auto",
-    });
+    let body = agent_request_body(model, instructions, history, tools, web_search);
 
     let client = crate::http::client();
     let mut req = client.post(chat_completions_url(base_url)).json(&body);
@@ -258,7 +319,9 @@ mod tests {
     #[test]
     fn turns_to_messages_starts_with_system_and_groups_tool_turns() {
         let history = vec![
-            AgentTurn::User { text: "do it".to_string() },
+            AgentTurn::User {
+                text: "do it".to_string(),
+            },
             AgentTurn::ToolCall {
                 call_id: "1".to_string(),
                 name: "search_document".to_string(),
@@ -277,7 +340,9 @@ mod tests {
                 call_id: "2".to_string(),
                 output: "found b".to_string(),
             },
-            AgentTurn::Assistant { text: "done".to_string() },
+            AgentTurn::Assistant {
+                text: "done".to_string(),
+            },
         ];
 
         let messages = turns_to_messages("be helpful", &history);
@@ -335,5 +400,33 @@ mod tests {
             StepResult::Done(text) => assert_eq!(text, "plain answer"),
             StepResult::ToolCalls(_) => panic!("expected a final answer"),
         }
+    }
+
+    #[test]
+    fn agent_request_body_adds_each_native_search_shape() {
+        let openrouter = agent_request_body(
+            "openrouter/auto",
+            "help",
+            &[],
+            &[],
+            Some(NativeWebSearch::OpenRouter),
+        );
+        assert_eq!(openrouter["tools"][0]["type"], "openrouter:web_search");
+
+        let groq = agent_request_body(
+            "openai/gpt-oss-120b",
+            "help",
+            &[],
+            &[],
+            Some(NativeWebSearch::Groq),
+        );
+        assert_eq!(groq["tools"][0]["type"], "browser_search");
+
+        let qwen = agent_request_body("qwen-plus", "help", &[], &[], Some(NativeWebSearch::Qwen));
+        assert_eq!(qwen["enable_search"], true);
+
+        let zhipu = agent_request_body("glm-5.2", "help", &[], &[], Some(NativeWebSearch::Zhipu));
+        assert_eq!(zhipu["tools"][0]["type"], "web_search");
+        assert_eq!(zhipu["tools"][0]["web_search"]["enable"], true);
     }
 }

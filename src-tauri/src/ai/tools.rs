@@ -30,7 +30,11 @@ const SEARCH_TOOL_NAME: &str = "search_document";
 fn search_document(ctx: &ToolContext, arguments: &str) -> String {
     let query = serde_json::from_str::<serde_json::Value>(arguments)
         .ok()
-        .and_then(|v| v.get("query").and_then(|q| q.as_str()).map(|s| s.to_string()))
+        .and_then(|v| {
+            v.get("query")
+                .and_then(|q| q.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_default();
 
     if query.trim().is_empty() {
@@ -105,7 +109,9 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
     }
     if needs_anchor(action) {
         if anchor.is_empty() {
-            return format!("`{action}` requires `anchor` - the exact document text the edit targets.");
+            return format!(
+                "`{action}` requires `anchor` - the exact document text the edit targets."
+            );
         }
         match ctx.document.matches(anchor).count() {
             0 => return "No exact match for `anchor` in the document. Quote it exactly as it appears, including punctuation and whitespace.".to_string(),
@@ -124,14 +130,24 @@ const USE_SKILL_TOOL_NAME: &str = "use_skill";
 fn use_skill(ctx: &ToolContext, arguments: &str) -> String {
     let name = serde_json::from_str::<serde_json::Value>(arguments)
         .ok()
-        .and_then(|v| v.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .and_then(|v| {
+            v.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_default();
 
     match ctx.skills.iter().find(|s| s.name == name) {
-        Some(skill) => format!("Instructions for skill `{name}` - follow them for this request:\n\n{}", skill.prompt),
+        Some(skill) => format!(
+            "Instructions for skill `{name}` - follow them for this request:\n\n{}",
+            skill.prompt
+        ),
         None => {
             let available: Vec<&str> = ctx.skills.iter().map(|s| s.name.as_str()).collect();
-            format!("No skill named `{name}`. Available skills: {}.", available.join(", "))
+            format!(
+                "No skill named `{name}`. Available skills: {}.",
+                available.join(", ")
+            )
         }
     }
 }
@@ -150,13 +166,16 @@ const MAX_READ_BYTES: u64 = 100 * 1024;
 /// writing material.
 fn list_files(ctx: &ToolContext, _arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "This document isn't saved to a folder yet, so there are no files to list.".to_string();
+        return "This document isn't saved to a folder yet, so there are no files to list."
+            .to_string();
     };
 
     let mut lines = Vec::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(dir) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         let mut paths: Vec<_> = entries.flatten().map(|e| e.path()).collect();
         paths.sort();
         for path in paths {
@@ -164,11 +183,18 @@ fn list_files(ctx: &ToolContext, _arguments: &str) -> String {
                 lines.push(format!("... (stopped at {MAX_LISTED_FILES} entries)"));
                 return lines.join("\n");
             }
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
             if name.starts_with('.') {
                 continue;
             }
-            let rel = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();
+            let rel = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .to_string();
             if path.is_dir() {
                 lines.push(format!("{rel}/"));
                 pending.push(path);
@@ -190,11 +216,16 @@ fn list_files(ctx: &ToolContext, _arguments: &str) -> String {
 /// the workspace all fail the containment check rather than escaping it.
 fn read_file(ctx: &ToolContext, arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "This document isn't saved to a folder yet, so there are no files to read.".to_string();
+        return "This document isn't saved to a folder yet, so there are no files to read."
+            .to_string();
     };
     let rel = serde_json::from_str::<serde_json::Value>(arguments)
         .ok()
-        .and_then(|v| v.get("path").and_then(|p| p.as_str()).map(|s| s.to_string()))
+        .and_then(|v| {
+            v.get("path")
+                .and_then(|p| p.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_default();
     if rel.trim().is_empty() {
         return "No path provided.".to_string();
@@ -204,12 +235,17 @@ fn read_file(ctx: &ToolContext, arguments: &str) -> String {
         return format!("`{rel}` doesn't exist. Use list_files to see what's available.");
     };
     if !path.starts_with(&root_canon) {
-        return "That path is outside the document's folder - only files inside it can be read.".to_string();
+        return "That path is outside the document's folder - only files inside it can be read."
+            .to_string();
     }
 
     match std::fs::metadata(&path) {
         Ok(meta) if meta.len() > MAX_READ_BYTES => {
-            format!("`{rel}` is too large to read ({} KB; the limit is {} KB).", meta.len() / 1024, MAX_READ_BYTES / 1024)
+            format!(
+                "`{rel}` is too large to read ({} KB; the limit is {} KB).",
+                meta.len() / 1024,
+                MAX_READ_BYTES / 1024
+            )
         }
         _ => match std::fs::read_to_string(&path) {
             Ok(content) => content,

@@ -18,9 +18,18 @@ fn config_file_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn set_custom_endpoint(app: AppHandle, base_url: String, api_key: Option<String>, model: String) -> Result<(), String> {
+pub fn set_custom_endpoint(
+    app: AppHandle,
+    base_url: String,
+    api_key: Option<String>,
+    model: String,
+) -> Result<(), String> {
     let path = config_file_path(&app)?;
-    let config = CustomEndpointConfig { base_url, api_key, model };
+    let config = CustomEndpointConfig {
+        base_url,
+        api_key,
+        model,
+    };
     let json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
     fs::write(&path, json).map_err(|e| e.to_string())?;
     #[cfg(unix)]
@@ -37,7 +46,9 @@ pub fn load_custom_endpoint(app: &AppHandle) -> Result<Option<CustomEndpointConf
         return Ok(None);
     }
     let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&text).map(Some).map_err(|e| e.to_string())
+    serde_json::from_str(&text)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -55,11 +66,16 @@ pub fn clear_custom_endpoint(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn fetch_custom_models(base_url: String, api_key: Option<String>) -> Result<Vec<String>, String> {
+pub async fn fetch_custom_models(
+    base_url: String,
+    api_key: Option<String>,
+) -> Result<Vec<String>, String> {
     custom::list_models(&base_url, api_key.as_deref()).await
 }
 
 #[tauri::command]
 pub async fn test_custom_endpoint(base_url: String, api_key: Option<String>) -> Result<(), String> {
-    custom::list_models(&base_url, api_key.as_deref()).await.map(|_| ())
+    custom::list_models(&base_url, api_key.as_deref())
+        .await
+        .map(|_| ())
 }

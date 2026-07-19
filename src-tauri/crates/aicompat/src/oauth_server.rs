@@ -6,7 +6,11 @@ use std::time::Duration;
 /// provider redirected to (e.g. `http://localhost:1455/auth/callback?code=...&state=...`).
 ///
 /// Shared by every OAuth provider - none of this is provider-specific.
-pub async fn wait_for_callback(port: u16, response_html: String, timeout_secs: u64) -> Result<String, String> {
+pub async fn wait_for_callback(
+    port: u16,
+    response_html: String,
+    timeout_secs: u64,
+) -> Result<String, String> {
     let (tx, rx) = mpsc::channel::<String>();
 
     tauri_plugin_oauth::start_with_config(

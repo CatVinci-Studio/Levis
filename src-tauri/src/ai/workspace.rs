@@ -52,7 +52,10 @@ pub struct AgentWorkspace {
 }
 
 fn global_agent_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path().app_config_dir().map_err(|e| e.to_string()).map(|p| p.join("agent"))
+    app.path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())
+        .map(|p| p.join("agent"))
 }
 
 /// Splits a skill file into (frontmatter fields, body). The frontmatter is
@@ -69,7 +72,9 @@ fn parse_skill_file(file_stem: &str, content: &str) -> AgentSkill {
             let frontmatter = &rest[..end];
             body = rest[end + 4..].trim_start_matches(['\r', '\n']);
             for line in frontmatter.lines() {
-                let Some((key, value)) = line.split_once(':') else { continue };
+                let Some((key, value)) = line.split_once(':') else {
+                    continue;
+                };
                 let value = value.trim().trim_matches('"').trim_matches('\'');
                 match key.trim() {
                     "name" => {
@@ -127,8 +132,12 @@ fn read_layer(dir: &Path) -> (Option<String>, Vec<AgentSkill>) {
             .collect();
         paths.sort();
         for path in paths {
-            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
-            let Ok(content) = std::fs::read_to_string(&path) else { continue };
+            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
             let skill = parse_skill_file(stem, &content);
             if !skill.prompt.is_empty() {
                 skills.push(skill);
@@ -303,7 +312,10 @@ pub async fn import_agent_skill(app: AppHandle) -> Result<Option<Vec<AgentSkill>
     let picked = {
         let app = app.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            app.dialog().file().add_filter("Markdown", &["md"]).blocking_pick_file()
+            app.dialog()
+                .file()
+                .add_filter("Markdown", &["md"])
+                .blocking_pick_file()
         })
         .await
         .map_err(|e| e.to_string())?
@@ -326,7 +338,8 @@ pub async fn import_agent_skill(app: AppHandle) -> Result<Option<Vec<AgentSkill>
     let global_dir = global_agent_dir(&app)?;
     let skills_dir = global_dir.join("skills");
     std::fs::create_dir_all(&skills_dir).map_err(|e| e.to_string())?;
-    std::fs::write(skills_dir.join(format!("{}.md", skill.name)), &content).map_err(|e| e.to_string())?;
+    std::fs::write(skills_dir.join(format!("{}.md", skill.name)), &content)
+        .map_err(|e| e.to_string())?;
 
     let (_, skills) = read_layer(&global_dir);
     Ok(Some(skills))

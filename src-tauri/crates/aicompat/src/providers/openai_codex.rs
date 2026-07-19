@@ -1,6 +1,8 @@
 use crate::agent::{AgentTurn, StepResult, ToolSpec};
 use crate::pkce::{decode_base64url, generate_pkce, generate_state, now_ms};
-use crate::responses_api::{self, read_streamed_output, text_from_streamed_output, ResponsesRequest};
+use crate::responses_api::{
+    self, read_streamed_output, text_from_streamed_output, ResponsesRequest,
+};
 use serde::{Deserialize, Serialize};
 
 const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -16,7 +18,7 @@ const JWT_CLAIM_PATH: &str = "https://api.openai.com/auth";
 // api.openai.com Responses API. Confirmed against the equivalent open-source
 // client implementation (earendil-works/pi).
 const CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
-pub const COMPLETION_MODEL: &str = "gpt-5.4-mini";
+pub const COMPLETION_MODEL: &str = "gpt-5.6-luna";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CodexCredential {
@@ -134,8 +136,10 @@ pub async fn call_completion(
     originator: &str,
     instructions: String,
     user_text: String,
+    model: Option<&str>,
 ) -> Result<String, String> {
-    let body = ResponsesRequest::new(COMPLETION_MODEL, instructions, user_text).streaming();
+    let body = ResponsesRequest::new(model.unwrap_or(COMPLETION_MODEL), instructions, user_text)
+        .streaming();
 
     let client = crate::http::client();
     let res = client
@@ -159,6 +163,10 @@ pub async fn call_completion(
 /// before calling this again. Request/response shape is shared with every
 /// other Responses-API dialect - see `responses_api::agent_request_body` /
 /// `parse_agent_output`.
+// The authentication headers plus the provider-neutral agent inputs make
+// eight arguments at this wire-format boundary. Grouping them would merely
+// hide the same values in a one-use transport struct.
+#[allow(clippy::too_many_arguments)]
 pub async fn agent_step(
     access_token: &str,
     account_id: &str,
@@ -170,7 +178,8 @@ pub async fn agent_step(
     model: &str,
 ) -> Result<StepResult, String> {
     // The ChatGPT backend only serves SSE (streaming: true is mandatory).
-    let body = responses_api::agent_request_body(model, instructions, history, tools, web_search, true);
+    let body =
+        responses_api::agent_request_body(model, instructions, history, tools, web_search, true);
 
     let client = crate::http::client();
     let res = client
