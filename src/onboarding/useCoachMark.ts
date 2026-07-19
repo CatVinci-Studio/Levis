@@ -1,5 +1,9 @@
-import { useCallback, useState } from "react";
-import { isCoachMarkSeen, markCoachMarkSeen, type CoachMarkId } from "./coach-marks";
+import { useCallback, useEffect, useState } from "react";
+import {
+  isCoachMarkSeen,
+  markCoachMarkSeen,
+  type CoachMarkId,
+} from "./coach-marks";
 
 // Module-level, not React state: guarantees at most one coach mark is
 // visible at a time across the whole app - whichever qualifying action
@@ -16,6 +20,17 @@ let activeMark: CoachMarkId | null = null;
  */
 export function useCoachMark(id: CoachMarkId) {
   const [visible, setVisible] = useState(false);
+
+  // Closing the tab while its bubble is visible used to leave the
+  // module-level lock occupied forever, preventing every later coach mark
+  // in the window. Releasing ownership on unmount keeps "one at a time"
+  // without turning it into "only one for the lifetime of the app".
+  useEffect(
+    () => () => {
+      if (activeMark === id) activeMark = null;
+    },
+    [id],
+  );
 
   const trigger = useCallback(() => {
     if (isCoachMarkSeen(id) || activeMark !== null) return;

@@ -1,27 +1,105 @@
 import type { Strings } from "../i18n/strings";
 
-export type TutorialStepId = "welcome" | "markdown" | "completion" | "askAi" | "editPreview" | "shortcuts";
+export type TutorialSectionId = "markdown" | "ai";
+
+export type TutorialStepId =
+  | "welcome"
+  | "markdownIntro"
+  | "markdownPractice"
+  | "aiIntro"
+  | "completion"
+  | "grammar"
+  | "agentChat"
+  | "agentEdit"
+  | "done";
+
+export interface TutorialSection {
+  id: TutorialSectionId;
+  titleKey: keyof Strings;
+}
 
 export interface TutorialStep {
   id: TutorialStepId;
+  /** Opening and ending frame the two chapters rather than belonging to one. */
+  section: TutorialSectionId | null;
+  layout: "overlay" | "card";
   titleKey: keyof Strings;
   bodyKey: keyof Strings;
 }
 
 /**
- * The tutorial's steps, in order - a fixed script paired with the welcome
- * doc (src/help/welcome.{en,zh,ja}.md), which is where the actual
- * interactive practice happens. This card just narrates: what to look for,
- * what to try. Advance is manual only (Next/Back/Skip) - there's no
- * detector wired to any of these steps, keeping the tutorial predictable
- * rather than occasionally getting stuck waiting for an action it
- * misdetected.
+ * The first-run experience has two visible chapters. Each entry in
+ * TUTORIAL_STEPS is one independently navigable lesson card inside a
+ * chapter; reading lessons use a focused overlay while exercises keep the
+ * editor interactive underneath.
  */
+export const TUTORIAL_SECTIONS: TutorialSection[] = [
+  { id: "markdown", titleKey: "tutorialSectionMarkdown" },
+  { id: "ai", titleKey: "tutorialSectionAi" },
+];
+
 export const TUTORIAL_STEPS: TutorialStep[] = [
-  { id: "welcome", titleKey: "tutorialWelcomeTitle", bodyKey: "tutorialWelcomeBody" },
-  { id: "markdown", titleKey: "tutorialMarkdownTitle", bodyKey: "tutorialMarkdownBody" },
-  { id: "completion", titleKey: "tutorialCompletionTitle", bodyKey: "tutorialCompletionBody" },
-  { id: "askAi", titleKey: "tutorialAskAiTitle", bodyKey: "tutorialAskAiBody" },
-  { id: "editPreview", titleKey: "tutorialEditPreviewTitle", bodyKey: "tutorialEditPreviewBody" },
-  { id: "shortcuts", titleKey: "tutorialShortcutsTitle", bodyKey: "tutorialShortcutsBody" },
+  {
+    id: "welcome",
+    section: null,
+    layout: "overlay",
+    titleKey: "tutorialWelcomeTitle",
+    bodyKey: "tutorialWelcomeBody",
+  },
+  {
+    id: "markdownIntro",
+    section: "markdown",
+    layout: "overlay",
+    titleKey: "tutorialMarkdownIntroTitle",
+    bodyKey: "tutorialMarkdownIntroBody",
+  },
+  {
+    id: "markdownPractice",
+    section: "markdown",
+    layout: "card",
+    titleKey: "tutorialMarkdownPracticeTitle",
+    bodyKey: "tutorialMarkdownPracticeBody",
+  },
+  {
+    id: "aiIntro",
+    section: "ai",
+    layout: "overlay",
+    titleKey: "tutorialAiIntroTitle",
+    bodyKey: "tutorialAiIntroBody",
+  },
+  {
+    id: "completion",
+    section: "ai",
+    layout: "card",
+    titleKey: "tutorialCompletionTitle",
+    bodyKey: "tutorialCompletionBody",
+  },
+  {
+    id: "grammar",
+    section: "ai",
+    layout: "card",
+    titleKey: "tutorialGrammarTitle",
+    bodyKey: "tutorialGrammarBody",
+  },
+  {
+    id: "agentChat",
+    section: "ai",
+    layout: "card",
+    titleKey: "tutorialAgentChatTitle",
+    bodyKey: "tutorialAgentChatBody",
+  },
+  {
+    id: "agentEdit",
+    section: "ai",
+    layout: "card",
+    titleKey: "tutorialAgentEditTitle",
+    bodyKey: "tutorialAgentEditBody",
+  },
+  {
+    id: "done",
+    section: null,
+    layout: "overlay",
+    titleKey: "tutorialDoneTitle",
+    bodyKey: "tutorialDoneBody",
+  },
 ];

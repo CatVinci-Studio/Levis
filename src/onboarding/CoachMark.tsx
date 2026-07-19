@@ -18,7 +18,15 @@ interface CoachMarkProps {
  * view.coordsAtPos). z-index sits under the chat popup (220) so it can
  * never cover one, but over ordinary editor chrome.
  */
-export function CoachMark({ x, y, text, gotItLabel, skipAllLabel, onDismiss, onSkipAll }: CoachMarkProps) {
+export function CoachMark({
+  x,
+  y,
+  text,
+  gotItLabel,
+  skipAllLabel,
+  onDismiss,
+  onSkipAll,
+}: CoachMarkProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(rootRef, x, y);
   return (

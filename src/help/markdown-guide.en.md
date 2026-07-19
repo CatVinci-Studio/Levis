@@ -5,17 +5,11 @@ Welcome! This built-in document demonstrates the Markdown rendering Levis suppor
 > [!TIP]
 > Press `Cmd+/` to toggle between WYSIWYG and source mode and see the raw syntax behind any example here.
 
-## Inline marks
-
-**Bold** (`**text**`), *italic* (`*text*`), ***bold italic***, ~~strikethrough~~ (`~~text~~`), ==highlight== (`==text==`), and `inline code`.
-
-Links look like this: [the Levis repository](https://github.com/CatVinci-Studio/Levis). Inline HTML renders too, e.g. keyboard keys <kbd>Cmd</kbd> + <kbd>S</kbd>.
-
-Inline math: mass–energy equivalence $E = mc^2$, Euler's identity $e^{i\pi} + 1 = 0$.
-
 ## Headings and quotes
 
-The lines above are level-1 and level-2 headings (`#`, `##`). A blockquote:
+Type `#` plus a space at the start of a line for a level-1 heading, or `##` plus a space for level 2. The headings above show the rendered result.
+
+A blockquote:
 
 > Quoted text can nest other marks, like **bold** and `code`.
 
@@ -26,6 +20,14 @@ GitHub-style alerts:
 
 > [!WARNING]
 > A warning, for things to watch out for.
+
+## Inline styles
+
+**Bold** (`**text**`), *italic* (`*text*`), ***bold italic***, ~~strikethrough~~ (`~~text~~`), ==highlight== (`==text==`), and `inline code`.
+
+Links look like this: [the Levis repository](https://github.com/CatVinci-Studio/Levis). Inline HTML renders too, e.g. keyboard keys <kbd>Cmd</kbd> + <kbd>S</kbd>.
+
+Inline math: mass–energy equivalence $E = mc^2$, Euler's identity $e^{i\pi} + 1 = 0$.
 
 ## Lists
 

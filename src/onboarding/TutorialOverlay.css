@@ -1,0 +1,498 @@
+.tutorial-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 230;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      color-mix(in srgb, var(--editor-accent) 12%, transparent),
+      transparent 34%
+    ),
+    rgba(18, 18, 20, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.tutorial-surface {
+  --tutorial-soft: color-mix(in srgb, var(--editor-accent) 9%, var(--bg));
+  --tutorial-line: color-mix(
+    in srgb,
+    var(--editor-accent) 24%,
+    var(--border-color)
+  );
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.24);
+}
+
+.tutorial-overlay {
+  width: min(570px, calc(100vw - 48px));
+  padding: 22px 24px 24px;
+}
+
+.tutorial-card {
+  position: fixed;
+  top: 48px;
+  right: 18px;
+  z-index: 230;
+  width: min(400px, calc(100vw - 36px));
+  max-height: calc(100vh - 66px);
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.tutorial-progress {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 5px;
+}
+
+.tutorial-section-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.tutorial-section-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  color: var(--editor-muted);
+  background: color-mix(in srgb, var(--bg) 94%, var(--editor-code-bg));
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.tutorial-section-nav-item > span {
+  color: var(--editor-muted);
+  font:
+    700 9px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.tutorial-section-nav-item.is-done {
+  border-color: var(--tutorial-line);
+  color: var(--editor-text);
+}
+
+.tutorial-section-nav-item.is-current {
+  border-color: var(--editor-accent);
+  color: var(--editor-accent);
+  background: var(--tutorial-soft);
+}
+
+.tutorial-section-nav-item.is-current > span {
+  color: var(--editor-accent);
+}
+
+.tutorial-progress-segment {
+  height: 3px;
+  border-radius: 99px;
+  background: var(--border-color);
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.tutorial-progress-segment.is-done {
+  background: color-mix(in srgb, var(--editor-accent) 45%, var(--border-color));
+}
+
+.tutorial-progress-segment.is-current {
+  background: var(--editor-accent);
+  transform: scaleY(1.5);
+}
+
+.tutorial-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tutorial-glyph {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid var(--tutorial-line);
+  border-radius: 12px;
+  color: var(--editor-accent);
+  background: var(--tutorial-soft);
+  font:
+    650 19px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  transform: rotate(-2deg);
+}
+
+.tutorial-step-label,
+.tutorial-section-label {
+  color: var(--editor-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.tutorial-title {
+  margin: 2px 0 0;
+  color: var(--editor-text);
+  font-size: 20px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+.tutorial-body {
+  margin: 0;
+  color: var(--editor-muted);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+.tutorial-practice {
+  padding: 13px;
+  border: 1px solid var(--tutorial-line);
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    var(--tutorial-soft),
+    color-mix(in srgb, var(--bg) 96%, transparent)
+  );
+}
+
+.tutorial-section-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  color: var(--editor-accent);
+}
+
+.tutorial-section-number {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 17px;
+  border-radius: 4px;
+  color: #fff;
+  background: var(--editor-accent);
+  font-size: 9px;
+}
+
+.tutorial-task-text {
+  padding: 10px 12px;
+  border: 1px dashed var(--tutorial-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  color: var(--editor-text);
+  font:
+    600 13px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  user-select: text;
+}
+
+.tutorial-checklist {
+  display: grid;
+  gap: 7px;
+}
+
+.tutorial-check {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: start;
+  gap: 8px;
+  color: var(--editor-text);
+  font-size: 12px;
+  line-height: 1.45;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.tutorial-check.is-done {
+  color: var(--editor-muted);
+  opacity: 0.7;
+}
+
+.tutorial-check-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--tutorial-line);
+  border-radius: 50%;
+  color: var(--editor-accent);
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg);
+}
+
+.tutorial-check-skip {
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.tutorial-check-skip:hover {
+  border-color: var(--editor-accent);
+  background: var(--tutorial-soft);
+  transform: scale(1.08);
+}
+
+.tutorial-check-skip:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 2px;
+}
+
+.tutorial-check.is-done .tutorial-check-icon {
+  border-color: var(--editor-accent);
+  color: #fff;
+  background: var(--editor-accent);
+}
+
+.tutorial-status {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  color: var(--editor-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.tutorial-status-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--editor-accent);
+  font-size: 10px;
+}
+
+.tutorial-status:not(.is-complete) .tutorial-status-icon:empty::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+  animation: tutorial-status-pulse 1.25s ease-in-out infinite;
+}
+
+.tutorial-status.is-complete {
+  color: var(--editor-text);
+  font-weight: 570;
+}
+
+.tutorial-learned {
+  align-self: flex-start;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: var(--editor-accent);
+  background: var(--tutorial-soft);
+  font-size: 11px;
+  font-weight: 650;
+  animation: tutorial-pop 240ms ease-out both;
+}
+
+.tutorial-roadmap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tutorial-roadmap-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--editor-text);
+  background: color-mix(in srgb, var(--bg) 92%, var(--editor-code-bg));
+  font-size: 12px;
+  font-weight: 580;
+}
+
+.tutorial-roadmap-item > span {
+  color: var(--editor-accent);
+  font:
+    700 10px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.tutorial-step-done .tutorial-roadmap-item > span {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--editor-accent);
+}
+
+.tutorial-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 2px;
+}
+
+.tutorial-actions-main {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-left: auto;
+}
+
+.tutorial-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  color: var(--editor-text);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition:
+    background 140ms ease,
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+.tutorial-btn:hover:not(:disabled) {
+  background: var(--editor-code-bg);
+  transform: translateY(-1px);
+}
+
+.tutorial-btn-primary {
+  min-width: 80px;
+  border-color: var(--editor-accent);
+  color: #fff;
+  background: var(--editor-accent);
+  font-weight: 620;
+}
+
+.tutorial-btn-primary:hover:not(:disabled) {
+  background: var(--editor-accent);
+  opacity: 0.92;
+}
+
+.tutorial-btn-primary:disabled {
+  border-color: var(--border-color);
+  color: var(--editor-muted);
+  background: var(--editor-code-bg);
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.tutorial-link-btn {
+  padding: 5px 2px;
+  border: 0;
+  color: var(--editor-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tutorial-link-btn:hover {
+  color: var(--editor-text);
+}
+
+@keyframes tutorial-status-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tutorial-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 720px) {
+  .tutorial-card {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-height: min(54vh, 520px);
+  }
+
+  .tutorial-overlay {
+    width: min(100%, 570px);
+  }
+}
+
+@media (max-width: 480px) {
+  .tutorial-backdrop {
+    padding: 12px;
+  }
+  .tutorial-overlay {
+    width: 100%;
+    padding: 17px;
+  }
+  .tutorial-roadmap {
+    grid-template-columns: 1fr;
+  }
+  .tutorial-actions {
+    align-items: flex-end;
+  }
+  .tutorial-actions-main {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-status:not(.is-complete) .tutorial-status-icon:empty::before,
+  .tutorial-learned {
+    animation: none;
+  }
+}

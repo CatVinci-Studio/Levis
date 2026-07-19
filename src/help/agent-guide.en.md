@@ -24,7 +24,7 @@ Levis has a built-in AI agent made for writing. This document covers signing in,
 
 As you type, a gray continuation appears at the cursor — press <kbd>Tab</kbd> to accept it. There's no minimum amount of text required; it's ready from the very first sentence of a document. You can also trigger it manually with <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> or the context menu.
 
-In **Settings > AI** you can pick a **completion tone** (formal / casual / academic / concise) and add free-form **completion instructions** (e.g. "never use em dashes") that ride along with every request.
+In **Settings > AI** you can pick a **completion tone** (match the document / formal / casual / academic / concise).
 
 ### 2. Grammar check
 
@@ -32,17 +32,18 @@ Possible issues get underlined; hover to see the explanation and apply the fix w
 
 ### 3. Ask AI (the chat popup)
 
-Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to open a chat at the cursor. It knows the whole document, and if text was selected when you opened it, the selection is included as context.
+Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to open a chat at the cursor — a single input bar anchored where you invoked it. As the conversation grows, it stacks upward above the input instead of pushing the input around the screen. It knows the whole document, and if text was selected when you opened it, the selection is included as context.
 
-- **History**: the clock icon in the popup's header opens a dropdown of your past conversations in this document — click one to pick it back up. The sidebar's Chats tab shows the same list.
-- **New chat**: the **+** button in the header starts a fresh conversation without closing the popup.
+- **History**: the sidebar's **Chats** tab stores past conversations. Click one to reopen it in the current editor and continue.
 - **Attach files**: the **+** button on the left of the input attaches any text file to that message (research notes, an outline, another chapter).
 - **Web search**: once enabled in Settings (ChatGPT and OpenAI API Key providers), the agent can search the web on its own when a request needs it.
 - **Workspace files**: for saved documents, a tool-calling provider (ChatGPT, API Key, or Claude) can list and read files in the document's folder by itself — keep reference material next to the document.
 
+Replies are read-only commentary — the chat never writes to your document directly. Whenever a reply changes the document, it arrives as an in-document edit preview instead (see below).
+
 ### 4. In-document edit previews
 
-When you ask a tool-calling provider (ChatGPT, OpenAI API Key, Claude, or a custom endpoint that supports it) to change the document, its proposal shows up right where the change would land: removed text is struck through, new text appears as a green ghost-style insert. A small floating panel with **✓ Accept** / **✗ Reject** appears next to it — keyboard shortcuts <kbd>Cmd</kbd>+<kbd>Return</kbd> / <kbd>Cmd</kbd>+<kbd>Delete</kbd> do the same. Nothing touches the document until you accept, and <kbd>Cmd</kbd>+<kbd>Z</kbd> undoes an accepted edit in one step. The chat popup's card for that proposal mirrors the same Accept/Reject buttons and shows a status once resolved.
+When you ask a tool-calling provider (ChatGPT, OpenAI API Key, Claude, or a custom endpoint that supports it) to change the document, its proposal shows up right where the change would land: removed text is struck through, new text appears as a green ghost-style insert. A small floating panel with **✓ Accept** / **✗ Reject** appears next to it — keyboard shortcuts <kbd>Cmd</kbd>+<kbd>Return</kbd> / <kbd>Cmd</kbd>+<kbd>Delete</kbd> do the same. Nothing touches the document until you accept, and <kbd>Cmd</kbd>+<kbd>Z</kbd> undoes an accepted edit in one step. The chat popup's card for that proposal mirrors the same Accept/Reject buttons and shows a status once resolved. This is the only way a reply changes your document — there's no separate "insert" or "replace" button to place text yourself.
 
 Multiple proposals in one reply preview at once; the floating panel shows "1 of N" with ‹› to step between them, plus Accept all / Reject all.
 
@@ -62,7 +63,7 @@ my-novel/
     └── worldbuilding.md   ← reference material the agent can read on its own
 ```
 
-There is also a **global layer** with the same structure that applies to every document (Settings > AI > Agent Workspace > Open Global Folder). A workspace skill with the same name overrides the global one.
+There is also a **global layer** with the same structure that applies to every document (Settings > Agent > Open Global Folder). A workspace skill with the same name overrides the global one.
 
 ### agent.md — standing instructions
 
