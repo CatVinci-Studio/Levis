@@ -23,10 +23,16 @@ export function ChatHistory() {
           key={entry.id}
           className="chat-history-entry"
           title={t.chatHistoryRestoreHint}
-          onClick={() => window.dispatchEvent(new CustomEvent(RESTORE_CHAT_EVENT, { detail: entry }))}
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent(RESTORE_CHAT_EVENT, { detail: entry }),
+            )
+          }
         >
           <div className="chat-history-entry-main">
-            <span className="chat-history-entry-title">{entry.title || "…"}</span>
+            <span className="chat-history-entry-title">
+              {entry.title || "…"}
+            </span>
             <span className="chat-history-entry-meta">
               {new Date(entry.updatedAt).toLocaleString()}
               {entry.docPath ? ` · ${entry.docPath.split("/").pop()}` : ""}

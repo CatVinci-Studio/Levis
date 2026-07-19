@@ -2,35 +2,38 @@ import { useRef, useState } from "react";
 import type { AgentConversation } from "../useAgentConversation";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../../utils/useViewportClamp";
-import type { ApplyTarget, InlineChatInfo } from "../useInlineChat";
+import type { InlineChatInfo } from "../useInlineChat";
 import type { PendingStatus } from "../usePendingEdits";
-import { useChatHistory, conversationTitle, type ChatHistoryEntry } from "../chat-history";
-import type { ChatAttachment, EditAction, EditProposal } from "../types";
-import { ChatHeader, type ChatHeaderLabels } from "./ChatHeader";
-import { ChatHistoryMenu } from "./ChatHistoryMenu";
+import type {
+  AgentTurn,
+  ChatAttachment,
+  EditAction,
+  EditProposal,
+} from "../types";
 import { ChatMessages } from "./ChatMessages";
 import { ChatComposer } from "./ChatComposer";
-import { extractReplacement, parseProposal } from "./proposal";
+import { parseProposal } from "./proposal";
+import {
+  AI_MESSAGE_SENT_EVENT,
+  TUTORIAL_AGENT_PROPOSAL_EVENT,
+} from "../../utils/events";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
-export interface InlineChatLabels extends ChatHeaderLabels {
+export interface InlineChatLabels {
   placeholder: string;
   send: string;
+  stop: string;
   thinking: string;
   attachFile: string;
   selectedChars: string;
-  replaceSelection: string;
-  insertAtCursor: string;
-  replaceDocument: string;
   proposalTitle: string;
   proposalApply: string;
   proposalStatus: Record<Exclude<PendingStatus, "pending">, string>;
   proposalAccept: string;
   proposalReject: string;
   actionNames: Record<EditAction, string>;
-  historyEmpty: string;
-  historyDelete: string;
+  retry: string;
 }
 
 interface InlineChatProps {
@@ -46,18 +49,24 @@ interface InlineChatProps {
    *  bar has since closed or reopened elsewhere by the time the reply
    *  arrives. */
   chatInfo: InlineChatInfo;
-  /** Conversation state owned by the editor, so it survives the bar closing. */
+  /** Conversation state owned by the editor so it can be saved after close;
+   *  a normal subsequent open resets it, while sidebar history restores it. */
   conversation: AgentConversation;
+  /** This chat is the onboarding tour's mock conversation - the only one
+   *  whose sends/proposals may advance the tour, so the tour's global
+   *  window events are dispatched only when this is set. */
+  tutorialMock?: boolean;
   labels: InlineChatLabels;
-  /** Writes an AI reply into the document; returns an error string to show, or null on success. */
-  onApply: (text: string, target: ApplyTarget) => string | null;
   /** Fallback for a proposal whose anchor couldn't be resolved into a live
    *  preview (status "invalid") - applies it directly, same error contract
    *  as onApply. */
   onApplyProposal: (proposal: EditProposal) => string | null;
   /** A reply produced one or more propose_edit tool calls - hand them to
    *  usePendingEdits.showPreviews so they render as in-document previews. */
-  onProposals: (proposals: { callId: string; proposal: EditProposal }[], chatInfo: InlineChatInfo) => void;
+  onProposals: (
+    proposals: { callId: string; proposal: EditProposal }[],
+    chatInfo: InlineChatInfo,
+  ) => void;
   /** Live status of a propose_edit call_id, from usePendingEdits.status. */
   proposalStatus: (callId: string) => PendingStatus;
   onAcceptProposal: (callId: string) => void;
@@ -69,16 +78,19 @@ interface InlineChatProps {
 /// context menu, styled after VS Code's inline Claude Code chat: a floating
 /// popup, not a persistent panel. If text was selected at invocation time
 /// it's silently attached to the outgoing message wrapped in a
-/// <selected-text> tag, and every reply offers apply actions (replace
-/// selection / insert at cursor / replace document) as the explicit
-/// confirmation step for free-text replies - nothing touches the document
-/// until one of them (or a propose_edit Accept) is clicked, and history
-/// (Cmd+Z) undoes an apply.
+/// <selected-text> tag. The only way a reply touches the document is a
+/// propose_edit proposal's Accept - it renders as a red/green preview right
+/// in the document, and history (Cmd+Z) undoes an accepted edit; free-text
+/// replies are commentary only, nothing to click. No title bar, no history
+/// or new-chat controls of its own - it's just the turn list and the input;
+/// browsing/restoring a past conversation lives in the sidebar's Chats tab
+/// (RESTORE_CHAT_EVENT, handled in MilkdownEditor). Every ordinary popup open
+/// starts a new conversation; sidebar history is the explicit resume path.
 ///
 /// Split across chat/ by responsibility: this file is the shell (position,
-/// outside-click close, orchestrating a send) plus the header/history
-/// dropdown; ChatMessages owns the turn list and proposal cards;
-/// ChatComposer owns the input row and skill picker.
+/// outside-click close, orchestrating a send); ChatMessages owns the turn
+/// list and proposal cards; ChatComposer owns the input row and skill
+/// picker.
 export function InlineChat({
   x,
   y,
@@ -87,8 +99,8 @@ export function InlineChat({
   docPath,
   chatInfo,
   conversation,
+  tutorialMock,
   labels,
-  onApply,
   onApplyProposal,
   onProposals,
   proposalStatus,
@@ -97,88 +109,94 @@ export function InlineChat({
   onClose,
 }: InlineChatProps) {
   const [applyError, setApplyError] = useState<string | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const { history, busy, error, send, reset, restore } = conversation;
-  const historyEntries = useChatHistory();
+  const { history, busy, error, retryable, send, stop, retry } = conversation;
 
   const rootRef = useCloseOnOutsideClick<HTMLDivElement>(onClose);
   const listRef = useRef<HTMLDivElement>(null);
-  const pos = useViewportClamp(rootRef, x, y);
+  // grow "up": the composer's screen position stays put and the history
+  // above it grows upward, instead of the whole popup growing downward from
+  // the cursor and dragging the input away as the conversation lengthens.
+  const pos = useViewportClamp(rootRef, x, y, { grow: "up" });
 
   function applyInvalidProposal(proposal: EditProposal) {
     const err = onApplyProposal(proposal);
     setApplyError(err);
   }
 
+  // Shared tail of both a fresh send and a retry: turn propose_edit calls
+  // into in-document previews and scroll the new turns into view.
+  function afterSend(
+    newTurns: AgentTurn[] | undefined,
+    requestChatInfo: InlineChatInfo,
+  ) {
+    const proposals = (newTurns ?? []).flatMap((turn) => {
+      if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
+      const proposal = parseProposal(turn.arguments);
+      return proposal ? [{ callId: turn.call_id, proposal }] : [];
+    });
+    if (proposals.length > 0) {
+      onProposals(proposals, requestChatInfo);
+      if (tutorialMock)
+        window.dispatchEvent(new Event(TUTORIAL_AGENT_PROPOSAL_EVENT));
+    }
+    requestAnimationFrame(() => {
+      listRef.current?.scrollTo({
+        top: listRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    });
+  }
+
   function handleSend(message: string, attachments: ChatAttachment[]) {
     setApplyError(null);
-    setHistoryOpen(false);
+    // Signals the interactive tutorial's "ask AI something" step - a real
+    // send, not just opening the panel. Only the tour's own mock chat may
+    // advance the lesson; chats in other tabs stay out of it.
+    if (tutorialMock) window.dispatchEvent(new Event(AI_MESSAGE_SENT_EVENT));
     // Rewrites of the selection come back as replace_selection tool calls
     // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs) - the tag
     // here just carries the selection as context.
-    const tagged = selectedText ? `<selected-text>\n${selectedText}\n</selected-text>\n\n${message}` : message;
+    const tagged = selectedText
+      ? `<selected-text>\n${selectedText}\n</selected-text>\n\n${message}`
+      : message;
     // Attachments ride inside this one message, ahead of the request text.
     const attachmentBlocks = attachments
-      .map((f) => `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`)
+      .map(
+        (f) =>
+          `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`,
+      )
       .join("\n\n");
     // Snapshot chatInfo now (request time), not read from props later - the
     // bar (or a differently-anchored reopening of it) may not still reflect
     // this request's context by the time the reply arrives.
     const requestChatInfo = chatInfo;
     void (async () => {
-      const newTurns = await send(document, attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged);
-      const proposals = (newTurns ?? []).flatMap((turn) => {
-        if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
-        const proposal = parseProposal(turn.arguments);
-        return proposal ? [{ callId: turn.call_id, proposal }] : [];
-      });
-      if (proposals.length > 0) onProposals(proposals, requestChatInfo);
-      requestAnimationFrame(() => {
-        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-      });
+      const newTurns = await send(
+        document,
+        attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged,
+      );
+      afterSend(newTurns, requestChatInfo);
     })();
   }
 
-  function apply(target: ApplyTarget) {
-    const lastReply = [...history].reverse().find((turn) => turn.kind === "Assistant");
-    if (!lastReply || lastReply.kind !== "Assistant") return;
-    const err = onApply(extractReplacement(lastReply.text), target);
-    if (err) setApplyError(err);
-    else onClose();
-  }
-
-  function startNewChat() {
-    reset();
+  function handleRetry() {
     setApplyError(null);
-    setHistoryOpen(false);
+    const requestChatInfo = chatInfo;
+    void (async () => {
+      const newTurns = await retry();
+      afterSend(newTurns, requestChatInfo);
+    })();
   }
 
-  function restoreFromHistory(entry: ChatHistoryEntry) {
-    restore(entry);
-    setApplyError(null);
-    setHistoryOpen(false);
-  }
-
-  const showPanel = history.length > 0 || busy || !!error || historyEntries.length > 0;
+  // The message list only shows once this conversation actually has
+  // content - a freshly opened bar doesn't pop up an empty-looking card
+  // above the input just because it exists.
+  const showMessages = history.length > 0 || busy || !!error;
 
   return (
     <div ref={rootRef} className="inline-chat" style={pos}>
-      {/* History renders above the input, newest at the bottom - the
-          conventional chat layout (ChatGPT, Claude), not input-on-top. */}
-      {showPanel && (
-        <div className="inline-chat-panel floating-surface">
-          <ChatHeader
-            title={conversationTitle(history)}
-            hasHistory={historyEntries.length > 0}
-            historyOpen={historyOpen}
-            onToggleHistory={() => setHistoryOpen((v) => !v)}
-            onNewChat={startNewChat}
-            onClose={onClose}
-            labels={labels}
-          />
-          {historyOpen && (
-            <ChatHistoryMenu emptyLabel={labels.historyEmpty} deleteLabel={labels.historyDelete} onRestore={restoreFromHistory} />
-          )}
+      <div className="inline-chat-shell floating-surface">
+        {showMessages && (
           <div className="inline-chat-messages" ref={listRef}>
             <ChatMessages
               history={history}
@@ -191,19 +209,21 @@ export function InlineChat({
               onAcceptProposal={onAcceptProposal}
               onRejectProposal={onRejectProposal}
               onApplyInvalidProposal={applyInvalidProposal}
-              onApply={apply}
+              canRetry={!!retryable}
+              onRetry={handleRetry}
             />
           </div>
-        </div>
-      )}
-      <ChatComposer
-        docPath={docPath}
-        selectedText={selectedText}
-        busy={busy}
-        labels={labels}
-        onSend={handleSend}
-        onEscape={onClose}
-      />
+        )}
+        <ChatComposer
+          docPath={docPath}
+          selectedText={selectedText}
+          busy={busy}
+          labels={labels}
+          onSend={handleSend}
+          onStop={stop}
+          onEscape={onClose}
+        />
+      </div>
     </div>
   );
 }

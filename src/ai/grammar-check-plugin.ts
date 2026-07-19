@@ -3,15 +3,16 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
-import { invoke } from "@tauri-apps/api/core";
 import { createDebouncedTask } from "./debounced-task";
 import { scalarToUtf16Offset, textOffsetToDocPos } from "./doc-text";
+import { isLargeDoc } from "../editor/large-doc";
+import { ai } from "../ipc";
 
 export const grammarKey = new PluginKey("grammar-check");
 const DEBOUNCE_MS = 1500;
 const MIN_PARAGRAPH_CHARS = 12;
 
-interface GrammarIssue {
+export interface GrammarIssue {
   /** Unicode-scalar offsets into the checked paragraph (backend-verified). */
   start: number;
   end: number;
@@ -28,7 +29,11 @@ interface GrammarIssue {
  * while the request is in flight, and applying offsets computed against the
  * old text is how fixes used to land beside the text they meant to replace.
  */
-function paragraphUnchanged(view: EditorView, contentStart: number, text: string): boolean {
+function paragraphUnchanged(
+  view: EditorView,
+  contentStart: number,
+  text: string,
+): boolean {
   try {
     const $pos = view.state.doc.resolve(contentStart);
     return $pos.parent.isTextblock && $pos.parent.textContent === text;
@@ -42,16 +47,22 @@ function paragraphUnchanged(view: EditorView, contentStart: number, text: string
 /// manual "trigger grammar check" entry points (e.g. a context menu item).
 /// Unlike the silent auto-trigger path, this throws on failure so the caller
 /// can surface the error to the user.
-export async function triggerGrammarCheckNow(view: EditorView, provider: string, strictness: string): Promise<void> {
+export async function triggerGrammarCheckNow(
+  view: EditorView,
+  provider: string,
+  strictness: string,
+  model: string | null,
+): Promise<void> {
   const { $from } = view.state.selection;
   const para = $from.parent;
-  if (!para.isTextblock) throw new Error("Place the cursor in a paragraph first.");
+  if (!para.isTextblock)
+    throw new Error("Place the cursor in a paragraph first.");
 
   const text = para.textContent;
   if (!text.trim()) throw new Error("This paragraph is empty.");
 
   const contentStart = $from.start($from.depth);
-  const issues = await invoke<GrammarIssue[]>("ai_grammar_check", { provider, paragraph: text, strictness });
+  const issues = await ai.grammarCheck(provider, text, strictness, model);
   if (!paragraphUnchanged(view, contentStart, text)) {
     throw new Error("The paragraph changed while checking - try again.");
   }
@@ -60,7 +71,33 @@ export async function triggerGrammarCheckNow(view: EditorView, provider: string,
   view.dispatch(
     view.state.tr.setMeta(
       grammarKey,
-      DecorationSet.create(view.state.doc, issuesToDecorations(para, issues, contentStart)),
+      DecorationSet.create(
+        view.state.doc,
+        issuesToDecorations(para, issues, contentStart),
+      ),
+    ),
+  );
+}
+
+/// Underlines a PRE-WRITTEN set of issues in the cursor's paragraph - the
+/// decoration half of triggerGrammarCheckNow above, without the backend
+/// call. Used by the onboarding tutorial's grammar step, which has no AI
+/// account to call yet.
+export function showGrammarIssues(
+  view: EditorView,
+  issues: GrammarIssue[],
+): void {
+  const { $from } = view.state.selection;
+  const para = $from.parent;
+  if (!para.isTextblock) return;
+  const contentStart = $from.start($from.depth);
+  view.dispatch(
+    view.state.tr.setMeta(
+      grammarKey,
+      DecorationSet.create(
+        view.state.doc,
+        issuesToDecorations(para, issues, contentStart),
+      ),
     ),
   );
 }
@@ -75,7 +112,11 @@ export interface GrammarDecorationSpec {
   original?: string;
 }
 
-function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentStart: number): Decoration[] {
+function issuesToDecorations(
+  para: ProseNode,
+  issues: GrammarIssue[],
+  contentStart: number,
+): Decoration[] {
   const text = para.textContent;
   const decorations: Decoration[] = [];
   // Left-to-right with overlaps dropped: stacked highlights on the same text
@@ -89,18 +130,21 @@ function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentSta
     // text offsets) count UTF-16 units.
     const start16 = scalarToUtf16Offset(text, issue.start);
     const end16 = scalarToUtf16Offset(text, issue.end);
-    if (issue.original !== undefined && text.slice(start16, end16) !== issue.original) continue;
+    if (
+      issue.original !== undefined &&
+      text.slice(start16, end16) !== issue.original
+    )
+      continue;
     const from = textOffsetToDocPos(para, contentStart, start16);
     const to = textOffsetToDocPos(para, contentStart, end16);
     if (from === null || to === null || from >= to) continue; // range the model made up - drop it
     lastEnd = issue.end;
     decorations.push(
-      Decoration.inline(
-        from,
-        to,
-        { class: "grammar-issue" },
-        { issue: issue.issue, suggestion: issue.suggestion, original: issue.original } satisfies GrammarDecorationSpec,
-      ),
+      Decoration.inline(from, to, { class: "grammar-issue" }, {
+        issue: issue.issue,
+        suggestion: issue.suggestion,
+        original: issue.original,
+      } satisfies GrammarDecorationSpec),
     );
   }
   return decorations;
@@ -109,6 +153,7 @@ function issuesToDecorations(para: ProseNode, issues: GrammarIssue[], contentSta
 export function createGrammarCheckPlugin(options: {
   enabled: () => boolean;
   provider: () => string;
+  model: () => string | null;
   strictness: () => string;
 }) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
@@ -131,7 +176,10 @@ export function createGrammarCheckPlugin(options: {
             const mapped = prev.map(tr.mapping, tr.doc);
             const stale = mapped.find().filter((deco) => {
               const spec = deco.spec as GrammarDecorationSpec;
-              return spec.original !== undefined && tr.doc.textBetween(deco.from, deco.to) !== spec.original;
+              return (
+                spec.original !== undefined &&
+                tr.doc.textBetween(deco.from, deco.to) !== spec.original
+              );
             });
             return stale.length > 0 ? mapped.remove(stale) : mapped;
           },
@@ -146,6 +194,7 @@ export function createGrammarCheckPlugin(options: {
             update(view, prevState) {
               if (!options.enabled()) return;
               if (view.composing) return;
+              if (isLargeDoc(view.state.doc)) return;
               if (view.state.doc.eq(prevState.doc)) return;
               debounced.cancel();
 
@@ -161,11 +210,12 @@ export function createGrammarCheckPlugin(options: {
               debounced.schedule(async (isCurrent) => {
                 let issues: GrammarIssue[];
                 try {
-                  issues = await invoke<GrammarIssue[]>("ai_grammar_check", {
-                    provider: options.provider(),
-                    paragraph: text,
-                    strictness: options.strictness(),
-                  });
+                  issues = await ai.grammarCheck(
+                    options.provider(),
+                    text,
+                    options.strictness(),
+                    options.model(),
+                  );
                 } catch (err) {
                   // Not logged in, offline, or bad model output - stays quiet in
                   // the UI (no error popup while you're just typing), but still
@@ -182,7 +232,10 @@ export function createGrammarCheckPlugin(options: {
                 view.dispatch(
                   view.state.tr.setMeta(
                     grammarKey,
-                    DecorationSet.create(view.state.doc, issuesToDecorations(para, issues, contentStart)),
+                    DecorationSet.create(
+                      view.state.doc,
+                      issuesToDecorations(para, issues, contentStart),
+                    ),
                   ),
                 );
               });

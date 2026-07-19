@@ -114,3 +114,8 @@
   padding: 6px;
   word-break: break-word;
 }
+
+.agent-error-retry {
+  margin-left: 8px;
+  vertical-align: baseline;
+}

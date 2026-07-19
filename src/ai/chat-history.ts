@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { AgentTurn } from "./types";
+import { loadSettings } from "../settings/SettingsContext";
 
 /**
  * Persisted agent conversations, so past chats can be reopened and continued
@@ -67,15 +68,26 @@ export function useChatHistory(): ChatHistoryEntry[] {
   return useSyncExternalStore(subscribe, () => entries);
 }
 
-/** Inserts or updates one conversation, dropping the stalest beyond the cap. */
+/** Inserts or updates one conversation, dropping the stalest beyond the cap.
+ *  A no-op while Settings > Privacy > Chat History is off. */
 export function saveConversation(entry: ChatHistoryEntry) {
-  entries = [entry, ...entries.filter((e) => e.id !== entry.id)].slice(0, MAX_ENTRIES);
+  if (!loadSettings().enableChatHistory) return;
+  entries = [entry, ...entries.filter((e) => e.id !== entry.id)].slice(
+    0,
+    MAX_ENTRIES,
+  );
   store();
   notify();
 }
 
 export function deleteConversation(id: string) {
   entries = entries.filter((e) => e.id !== id);
+  store();
+  notify();
+}
+
+export function clearAllConversations() {
+  entries = [];
   store();
   notify();
 }
@@ -94,5 +106,7 @@ export function conversationTitle(turns: AgentTurn[]): string {
     .replace(/\(If this asks you to rewrite[\s\S]*?\)\s*$/, "")
     .trim();
   const line = cleaned.split("\n").find((l) => l.trim()) ?? "";
-  return line.length > MAX_TITLE_CHARS ? `${line.slice(0, MAX_TITLE_CHARS)}…` : line;
+  return line.length > MAX_TITLE_CHARS
+    ? `${line.slice(0, MAX_TITLE_CHARS)}…`
+    : line;
 }

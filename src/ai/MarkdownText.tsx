@@ -19,10 +19,17 @@ export function MarkdownText({ text }: { text: string }) {
     // Not real math rendering (no KaTeX here) - just keeps LaTeX-delimited
     // formulas from being mangled by markdown's backslash-escaping (`\(`
     // would otherwise lose its backslash and read as a stray paren).
-    const parsed = marked.parse(normalizeMathDelimiters(text), { async: false }) as string;
+    const parsed = marked.parse(normalizeMathDelimiters(text), {
+      async: false,
+    }) as string;
     return DOMPurify.sanitize(parsed);
   }, [text]);
 
-  // eslint-disable-next-line react/no-danger -- sanitized above
-  return <div className="agent-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+  // Safe at this boundary because the generated HTML is sanitized above.
+  return (
+    <div
+      className="agent-markdown"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }

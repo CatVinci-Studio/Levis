@@ -67,18 +67,26 @@ export function PendingEditControls({
   if (!focused) return null;
 
   return (
-    <div ref={rootRef} className="pending-edit-controls floating-surface" style={pos}>
+    <div
+      ref={rootRef}
+      className="pending-edit-controls floating-surface"
+      style={pos}
+    >
       {previews.length > 1 && (
         <div className="pending-edit-nav">
           <button
             type="button"
             className="pending-edit-nav-btn"
-            onClick={() => setIndex((clampedIndex - 1 + previews.length) % previews.length)}
+            onClick={() =>
+              setIndex((clampedIndex - 1 + previews.length) % previews.length)
+            }
           >
             ‹
           </button>
           <span className="pending-edit-count">
-            {labels.ofCount.replace("{i}", String(clampedIndex + 1)).replace("{n}", String(previews.length))}
+            {labels.ofCount
+              .replace("{i}", String(clampedIndex + 1))
+              .replace("{n}", String(previews.length))}
           </span>
           <button
             type="button"
@@ -90,19 +98,35 @@ export function PendingEditControls({
         </div>
       )}
       <div className="pending-edit-actions">
-        <button type="button" className="pending-edit-action pending-edit-accept" onClick={() => onAccept(focused.callId)}>
+        <button
+          type="button"
+          className="pending-edit-action pending-edit-accept"
+          onClick={() => onAccept(focused.callId)}
+        >
           ✓ {labels.accept}
         </button>
-        <button type="button" className="pending-edit-action pending-edit-reject" onClick={() => onReject(focused.callId)}>
+        <button
+          type="button"
+          className="pending-edit-action pending-edit-reject"
+          onClick={() => onReject(focused.callId)}
+        >
           ✗ {labels.reject}
         </button>
       </div>
       {previews.length > 1 && (
         <div className="pending-edit-actions">
-          <button type="button" className="pending-edit-action" onClick={onAcceptAll}>
+          <button
+            type="button"
+            className="pending-edit-action"
+            onClick={onAcceptAll}
+          >
             {labels.acceptAll}
           </button>
-          <button type="button" className="pending-edit-action" onClick={onRejectAll}>
+          <button
+            type="button"
+            className="pending-edit-action"
+            onClick={onRejectAll}
+          >
             {labels.rejectAll}
           </button>
         </div>

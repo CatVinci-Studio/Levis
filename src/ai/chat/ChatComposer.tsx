@@ -1,11 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
+import { ai } from "../../ipc";
 
 export interface ChatComposerLabels {
   placeholder: string;
   send: string;
+  /** Send button's label while a request is in flight - clicking it then
+   *  stops the request instead of sending. */
+  stop: string;
   /** Tooltip of the "+" attach-file button. */
   attachFile: string;
   /** The selection chip's text; "{n}" is replaced with the char count. */
@@ -21,6 +24,7 @@ interface ChatComposerProps {
   /** The resolved message (skill expanded) plus any attachments - InlineChat
    *  owns tagging it with selected-text/chatInfo and actually sending it. */
   onSend: (message: string, attachments: ChatAttachment[]) => void;
+  onStop: () => void;
   onEscape: () => void;
 }
 
@@ -30,7 +34,15 @@ interface ChatComposerProps {
  * (what's typed, staged attachments) - InlineChat only hears about a
  * finished, resolved message via onSend.
  */
-export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEscape }: ChatComposerProps) {
+export function ChatComposer({
+  docPath,
+  selectedText,
+  busy,
+  labels,
+  onSend,
+  onStop,
+  onEscape,
+}: ChatComposerProps) {
   const [input, setInput] = useState("");
   const [skillIndex, setSkillIndex] = useState(0);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
@@ -42,7 +54,7 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
   // editing a skill file takes effect on the next chat without a restart.
   useEffect(() => {
     let cancelled = false;
-    invoke<{ skills: AgentSkill[] } | null>("load_agent_workspace", { docPath })
+    ai.loadAgentWorkspace(docPath)
       .then((ws) => {
         if (!cancelled && ws?.skills) setSkills(ws.skills);
       })
@@ -63,7 +75,7 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
   }, [input]);
 
   async function attachFile() {
-    const file = await invoke<ChatAttachment | null>("pick_attachment_file").catch(() => null);
+    const file = await ai.pickAttachmentFile().catch(() => null);
     if (file) setAttachments((prev) => [...prev, file]);
   }
 
@@ -72,9 +84,14 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
   // so it closes itself once the name is completed or the slash is deleted.
   const skillQuery = /^\/(\S*)$/.exec(input);
   const matchingSkills = skillQuery
-    ? skills.filter((s) => s.name.toLowerCase().startsWith(skillQuery[1].toLowerCase()))
+    ? skills.filter((s) =>
+        s.name.toLowerCase().startsWith(skillQuery[1].toLowerCase()),
+      )
     : [];
-  const activeSkillIndex = Math.min(skillIndex, Math.max(0, matchingSkills.length - 1));
+  const activeSkillIndex = Math.min(
+    skillIndex,
+    Math.max(0, matchingSkills.length - 1),
+  );
 
   function pickSkill(skill: AgentSkill) {
     setInput(`/${skill.name} `);
@@ -103,7 +120,10 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         const delta = e.key === "ArrowDown" ? 1 : -1;
-        setSkillIndex((activeSkillIndex + delta + matchingSkills.length) % matchingSkills.length);
+        setSkillIndex(
+          (activeSkillIndex + delta + matchingSkills.length) %
+            matchingSkills.length,
+        );
         return;
       }
       if (e.key === "Enter" || e.key === "Tab") {
@@ -122,7 +142,7 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
   return (
     <>
       {matchingSkills.length > 0 && (
-        <div className="inline-chat-skill-menu floating-surface">
+        <div className="inline-chat-skill-menu">
           {matchingSkills.map((skill, i) => (
             <button
               key={skill.name}
@@ -134,12 +154,14 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
               }}
             >
               <span className="inline-chat-skill-name">/{skill.name}</span>
-              <span className="inline-chat-skill-preview">{skill.description || skill.prompt}</span>
+              <span className="inline-chat-skill-preview">
+                {skill.description || skill.prompt}
+              </span>
             </button>
           ))}
         </div>
       )}
-      <div className="inline-chat-bar floating-surface">
+      <div className="inline-chat-bar">
         {attachments.length > 0 && (
           <div className="inline-chat-attachments">
             {attachments.map((file, i) => (
@@ -147,7 +169,9 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
                 {file.name}
                 <button
                   className="inline-chat-attachment-remove"
-                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  onClick={() =>
+                    setAttachments((prev) => prev.filter((_, j) => j !== i))
+                  }
                 >
                   ✕
                 </button>
@@ -169,16 +193,27 @@ export function ChatComposer({ docPath, selectedText, busy, labels, onSend, onEs
           autoFocus
         />
         <div className="inline-chat-toolbar">
-          <button className="inline-chat-attach" title={labels.attachFile} onClick={attachFile}>
+          <button
+            className="inline-chat-attach"
+            title={labels.attachFile}
+            onClick={attachFile}
+          >
             +
           </button>
           {selectedText && (
             <span className="inline-chat-selection-chip">
-              {labels.selectedChars.replace("{n}", String([...selectedText].length))}
+              {labels.selectedChars.replace(
+                "{n}",
+                String([...selectedText].length),
+              )}
             </span>
           )}
-          <button className="inline-chat-send" onClick={submit} disabled={busy || !input.trim()}>
-            {labels.send}
+          <button
+            className="inline-chat-send"
+            onClick={busy ? onStop : submit}
+            disabled={!busy && !input.trim()}
+          >
+            {busy ? labels.stop : labels.send}
           </button>
         </div>
       </div>

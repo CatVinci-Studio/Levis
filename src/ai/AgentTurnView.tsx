@@ -5,7 +5,9 @@ import "./AgentTurnView.css";
 export function AgentTurnView({ turn }: { turn: AgentTurn }) {
   switch (turn.kind) {
     case "User":
-      return <div className="agent-message agent-message-user">{turn.text}</div>;
+      return (
+        <div className="agent-message agent-message-user">{turn.text}</div>
+      );
     case "Assistant":
       return (
         <div className="agent-message agent-message-assistant">

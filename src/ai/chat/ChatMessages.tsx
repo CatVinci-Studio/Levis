@@ -2,20 +2,17 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import { AgentTurnView } from "../AgentTurnView";
 import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
-import type { ApplyTarget } from "../useInlineChat";
 import { parseProposal } from "./proposal";
 
 export interface ChatMessagesLabels {
   thinking: string;
-  replaceSelection: string;
-  insertAtCursor: string;
-  replaceDocument: string;
   proposalTitle: string;
   proposalApply: string;
   proposalStatus: Record<Exclude<PendingStatus, "pending">, string>;
   proposalAccept: string;
   proposalReject: string;
   actionNames: Record<EditAction, string>;
+  retry: string;
 }
 
 interface ChatMessagesProps {
@@ -29,15 +26,18 @@ interface ChatMessagesProps {
   onAcceptProposal: (callId: string) => void;
   onRejectProposal: (callId: string) => void;
   onApplyInvalidProposal: (proposal: EditProposal) => void;
-  onApply: (target: ApplyTarget) => void;
+  /** Set only when `error` came from a failed send whose (document, message)
+   *  is still available to resend - not every error is retryable this way. */
+  canRetry: boolean;
+  onRetry: () => void;
 }
 
 /**
- * The turn history: proposal cards, plain turns, the busy/error states, and
- * the free-text apply actions under the latest reply. Newly arrived turns
- * (everything from the index history had before the last send) get a small
- * staggered fade-in - the reply still lands all at once (no token
- * streaming), this just avoids it appearing as one flat block.
+ * The turn history: proposal cards, plain turns, and the busy/error states.
+ * Newly arrived turns (everything from the index history had before the
+ * last send) get a small staggered fade-in - the reply still lands all at
+ * once (no token streaming), this just avoids it appearing as one flat
+ * block.
  */
 export function ChatMessages({
   history,
@@ -50,7 +50,8 @@ export function ChatMessages({
   onAcceptProposal,
   onRejectProposal,
   onApplyInvalidProposal,
-  onApply,
+  canRetry,
+  onRetry,
 }: ChatMessagesProps) {
   const revealFrom = useRef(0);
   const wasBusy = useRef(busy);
@@ -59,25 +60,15 @@ export function ChatMessages({
     wasBusy.current = busy;
   }, [busy, history.length]);
 
-  const lastReply = [...history].reverse().find((turn) => turn.kind === "Assistant");
   // propose_edit calls render as proposal cards; their paired tool results
   // are backend->model bookkeeping and would only add noise.
   const proposalCallIds = new Set(
-    history.flatMap((turn) => (turn.kind === "ToolCall" && turn.name === "propose_edit" ? [turn.call_id] : [])),
+    history.flatMap((turn) =>
+      turn.kind === "ToolCall" && turn.name === "propose_edit"
+        ? [turn.call_id]
+        : [],
+    ),
   );
-  // Whether the latest exchange (everything after the last user turn)
-  // produced proposal cards. If so, they are the apply path - the free-text
-  // apply buttons below would just paste the model's commentary.
-  let lastUserIndex = -1;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].kind === "User") {
-      lastUserIndex = i;
-      break;
-    }
-  }
-  const lastExchangeHasProposal = history
-    .slice(lastUserIndex + 1)
-    .some((turn) => turn.kind === "ToolCall" && turn.name === "propose_edit");
 
   return (
     <>
@@ -86,14 +77,20 @@ export function ChatMessages({
         // A CSS custom property, not a standard style key - CSSProperties
         // doesn't type these, hence the cast.
         const style: CSSProperties | undefined = reveal
-          ? ({ "--reveal-delay": `${Math.min(i - revealFrom.current, 6) * 90}ms` } as CSSProperties)
+          ? ({
+              "--reveal-delay": `${Math.min(i - revealFrom.current, 6) * 90}ms`,
+            } as CSSProperties)
           : undefined;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
           const proposal = parseProposal(turn.arguments);
           if (!proposal) return <AgentTurnView key={i} turn={turn} />;
           const status = proposalStatus(turn.call_id);
           return (
-            <div key={i} className={`agent-proposal${reveal ? " turn-reveal" : ""}`} style={style}>
+            <div
+              key={i}
+              className={`agent-proposal${reveal ? " turn-reveal" : ""}`}
+              style={style}
+            >
               <div className="agent-proposal-title">
                 {labels.proposalTitle} · {labels.actionNames[proposal.action]}
               </div>
@@ -104,19 +101,33 @@ export function ChatMessages({
                 // feature existed.
                 <>
                   <div className="agent-proposal-diff">
-                    {proposal.action === "insert_before" && <ins>{proposal.text}</ins>}
+                    {proposal.action === "insert_before" && (
+                      <ins>{proposal.text}</ins>
+                    )}
                     {(() => {
                       const showsDeletion =
                         proposal.action === "replace" ||
                         proposal.action === "delete" ||
                         proposal.action === "replace_selection";
                       const struck =
-                        proposal.action === "replace_selection" ? (selectedText ?? undefined) : proposal.anchor;
-                      return struck !== undefined && (showsDeletion ? <del>{struck}</del> : <span>{struck}</span>);
+                        proposal.action === "replace_selection"
+                          ? (selectedText ?? undefined)
+                          : proposal.anchor;
+                      return (
+                        struck !== undefined &&
+                        (showsDeletion ? (
+                          <del>{struck}</del>
+                        ) : (
+                          <span>{struck}</span>
+                        ))
+                      );
                     })()}
-                    {proposal.action !== "insert_before" && proposal.text !== undefined && <ins>{proposal.text}</ins>}
+                    {proposal.action !== "insert_before" &&
+                      proposal.text !== undefined && <ins>{proposal.text}</ins>}
                   </div>
-                  <div className="agent-proposal-status agent-proposal-status-invalid">{labels.proposalStatus.invalid}</div>
+                  <div className="agent-proposal-status agent-proposal-status-invalid">
+                    {labels.proposalStatus.invalid}
+                  </div>
                   <button
                     className="inline-chat-action inline-chat-action-primary"
                     onClick={() => onApplyInvalidProposal(proposal)}
@@ -132,19 +143,31 @@ export function ChatMessages({
                   >
                     {labels.proposalAccept}
                   </button>
-                  <button className="inline-chat-action" onClick={() => onRejectProposal(turn.call_id)}>
+                  <button
+                    className="inline-chat-action"
+                    onClick={() => onRejectProposal(turn.call_id)}
+                  >
                     {labels.proposalReject}
                   </button>
                 </div>
               ) : (
-                <div className={`agent-proposal-status agent-proposal-status-${status}`}>{labels.proposalStatus[status]}</div>
+                <div
+                  className={`agent-proposal-status agent-proposal-status-${status}`}
+                >
+                  {labels.proposalStatus[status]}
+                </div>
               )}
             </div>
           );
         }
-        if (turn.kind === "ToolResult" && proposalCallIds.has(turn.call_id)) return null;
+        if (turn.kind === "ToolResult" && proposalCallIds.has(turn.call_id))
+          return null;
         return (
-          <div key={i} className={reveal ? "turn-reveal" : undefined} style={style}>
+          <div
+            key={i}
+            className={reveal ? "turn-reveal" : undefined}
+            style={style}
+          >
             <AgentTurnView turn={turn} />
           </div>
         );
@@ -159,24 +182,20 @@ export function ChatMessages({
           </span>
         </div>
       )}
-      {error && <div className="agent-error">{error}</div>}
-      {applyError && <div className="agent-error">{applyError}</div>}
-      {lastReply && !busy && !lastExchangeHasProposal && (
-        <div className="inline-chat-actions">
-          {selectedText ? (
-            <button className="inline-chat-action inline-chat-action-primary" onClick={() => onApply("selection")}>
-              {labels.replaceSelection}
-            </button>
-          ) : (
-            <button className="inline-chat-action inline-chat-action-primary" onClick={() => onApply("cursor")}>
-              {labels.insertAtCursor}
+      {error && (
+        <div className="agent-error">
+          {error}
+          {canRetry && (
+            <button
+              className="inline-chat-action agent-error-retry"
+              onClick={onRetry}
+            >
+              {labels.retry}
             </button>
           )}
-          <button className="inline-chat-action" onClick={() => onApply("document")}>
-            {labels.replaceDocument}
-          </button>
         </div>
       )}
+      {applyError && <div className="agent-error">{applyError}</div>}
     </>
   );
 }

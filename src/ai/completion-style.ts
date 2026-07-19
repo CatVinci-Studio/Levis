@@ -6,7 +6,8 @@ const TONE_DIRECTIVES: Record<CompletionTone, string | null> = {
   default: null,
   formal: "Write in a formal, polished tone.",
   casual: "Write in a relaxed, conversational tone.",
-  academic: "Write in a precise, academic tone appropriate for scholarly writing.",
+  academic:
+    "Write in a precise, academic tone appropriate for scholarly writing.",
   concise: "Be as concise as possible - prefer short, plain phrasing.",
 };
 

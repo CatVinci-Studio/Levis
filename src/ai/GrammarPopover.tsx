@@ -23,7 +23,14 @@ interface GrammarPopoverProps {
   onMouseLeave: () => void;
 }
 
-export function GrammarPopover({ info, applyLabel, error, onApply, onMouseEnter, onMouseLeave }: GrammarPopoverProps) {
+export function GrammarPopover({
+  info,
+  applyLabel,
+  error,
+  onApply,
+  onMouseEnter,
+  onMouseLeave,
+}: GrammarPopoverProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(rootRef, info.x, info.y);
   return (

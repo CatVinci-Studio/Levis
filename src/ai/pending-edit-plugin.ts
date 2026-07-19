@@ -73,7 +73,10 @@ function decorationsFor(p: PendingPreview): Decoration[] {
   return decos;
 }
 
-function buildDecorations(doc: ProseNode, previews: PendingPreview[]): DecorationSet {
+function buildDecorations(
+  doc: ProseNode,
+  previews: PendingPreview[],
+): DecorationSet {
   return DecorationSet.create(
     doc,
     previews.flatMap((p) => decorationsFor(p)),
@@ -111,20 +114,35 @@ export function createPendingEditPlugin(options: {
       new Plugin<PendingState>({
         key: pendingEditKey,
         state: {
-          init: (): PendingState => ({ previews: [], decoration: DecorationSet.empty }),
+          init: (): PendingState => ({
+            previews: [],
+            decoration: DecorationSet.empty,
+          }),
           apply(tr, prev): PendingState {
             const meta = tr.getMeta(pendingEditKey) as PendingMeta | undefined;
             if (meta?.type === "add") {
-              const keep = prev.previews.filter((p) => !meta.previews.some((n) => n.callId === p.callId));
+              const keep = prev.previews.filter(
+                (p) => !meta.previews.some((n) => n.callId === p.callId),
+              );
               const previews = [...keep, ...meta.previews];
-              return { previews, decoration: buildDecorations(tr.doc, previews) };
+              return {
+                previews,
+                decoration: buildDecorations(tr.doc, previews),
+              };
             }
             if (meta?.type === "remove") {
-              const previews = prev.previews.filter((p) => p.callId !== meta.callId);
-              return { previews, decoration: buildDecorations(tr.doc, previews) };
+              const previews = prev.previews.filter(
+                (p) => p.callId !== meta.callId,
+              );
+              return {
+                previews,
+                decoration: buildDecorations(tr.doc, previews),
+              };
             }
             if (meta?.type === "clear") {
-              return prev.previews.length === 0 ? prev : { previews: [], decoration: DecorationSet.empty };
+              return prev.previews.length === 0
+                ? prev
+                : { previews: [], decoration: DecorationSet.empty };
             }
             if (tr.docChanged && prev.previews.length > 0) {
               const survivors: PendingPreview[] = [];
@@ -132,10 +150,14 @@ export function createPendingEditPlugin(options: {
                 const from = tr.mapping.map(p.from, -1);
                 const to = tr.mapping.map(p.to, 1);
                 if (from > to) continue;
-                if (tr.doc.textBetween(from, to, " ") !== p.expectedText) continue;
+                if (tr.doc.textBetween(from, to, " ") !== p.expectedText)
+                  continue;
                 survivors.push({ ...p, from, to });
               }
-              return { previews: survivors, decoration: buildDecorations(tr.doc, survivors) };
+              return {
+                previews: survivors,
+                decoration: buildDecorations(tr.doc, survivors),
+              };
             }
             return prev;
           },
@@ -147,7 +169,8 @@ export function createPendingEditPlugin(options: {
           handleKeyDown(view, event) {
             const mod = event.metaKey || event.ctrlKey;
             if (!mod) return false;
-            const previews = pendingEditKey.getState(view.state)?.previews ?? [];
+            const previews =
+              pendingEditKey.getState(view.state)?.previews ?? [];
             if (previews.length === 0) return false;
             if (event.key === "Enter") {
               event.preventDefault();
@@ -166,7 +189,8 @@ export function createPendingEditPlugin(options: {
           let last: PendingPreview[] = [];
           return {
             update(view) {
-              const previews = pendingEditKey.getState(view.state)?.previews ?? [];
+              const previews =
+                pendingEditKey.getState(view.state)?.previews ?? [];
               if (previews !== last) {
                 last = previews;
                 options.onPreviewsChange?.(previews);

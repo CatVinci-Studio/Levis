@@ -43,7 +43,10 @@ export function usePendingEdits(run: EditorRunner) {
   }, []);
 
   const showPreviews = useCallback(
-    (proposals: { callId: string; proposal: EditProposal }[], chatInfo: InlineChatInfo | null) => {
+    (
+      proposals: { callId: string; proposal: EditProposal }[],
+      chatInfo: InlineChatInfo | null,
+    ) => {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
@@ -61,7 +64,11 @@ export function usePendingEdits(run: EditorRunner) {
             if (
               chatInfo?.range &&
               chatInfo.range.to <= docSize &&
-              state.doc.textBetween(chatInfo.range.from, chatInfo.range.to, " ") === (chatInfo.selectedText ?? "")
+              state.doc.textBetween(
+                chatInfo.range.from,
+                chatInfo.range.to,
+                " ",
+              ) === (chatInfo.selectedText ?? "")
             ) {
               range = chatInfo.range;
             }
@@ -83,7 +90,12 @@ export function usePendingEdits(run: EditorRunner) {
         }
 
         if (resolved.length > 0) {
-          view.dispatch(state.tr.setMeta(pendingEditKey, { type: "add", previews: resolved }));
+          view.dispatch(
+            state.tr.setMeta(pendingEditKey, {
+              type: "add",
+              previews: resolved,
+            }),
+          );
         }
         if (invalidIds.length > 0) {
           setStatuses((prev) => {
@@ -103,14 +115,26 @@ export function usePendingEdits(run: EditorRunner) {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
-        const preview = (pendingEditKey.getState(state)?.previews ?? []).find((p) => p.callId === callId);
+        const preview = (pendingEditKey.getState(state)?.previews ?? []).find(
+          (p) => p.callId === callId,
+        );
         if (!preview) return;
         // Defensive re-check mirroring the plugin's own staleness rule -
         // not expected to fire (the plugin already drops previews whose
         // mapped text changed), but a silent no-op here would be worse.
-        if (state.doc.textBetween(preview.from, preview.to, " ") !== preview.expectedText) return;
+        if (
+          state.doc.textBetween(preview.from, preview.to, " ") !==
+          preview.expectedText
+        )
+          return;
 
-        const tr = applyEditRange(state, ctx, preview.from, preview.to, preview.proposal.text ?? "");
+        const tr = applyEditRange(
+          state,
+          ctx,
+          preview.from,
+          preview.to,
+          preview.proposal.text ?? "",
+        );
         // Same transaction: one undo step restores the document exactly,
         // and the decoration is gone the instant the edit lands (no orphan
         // frame where a stale preview paints over the just-applied text).
@@ -119,7 +143,10 @@ export function usePendingEdits(run: EditorRunner) {
         view.focus();
         ok = true;
       });
-      setStatuses((prev) => ({ ...prev, [callId]: ok ? "accepted" : "invalid" }));
+      setStatuses((prev) => ({
+        ...prev,
+        [callId]: ok ? "accepted" : "invalid",
+      }));
       return ok;
     },
     [run],
@@ -129,7 +156,9 @@ export function usePendingEdits(run: EditorRunner) {
     (callId: string) => {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
-        view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "remove", callId }));
+        view.dispatch(
+          view.state.tr.setMeta(pendingEditKey, { type: "remove", callId }),
+        );
       });
       setStatuses((prev) => ({ ...prev, [callId]: "rejected" }));
     },
@@ -164,5 +193,14 @@ export function usePendingEdits(run: EditorRunner) {
     [previews, statuses],
   );
 
-  return { previews, showPreviews, accept, reject, acceptAll, rejectAll, status, syncFromPlugin };
+  return {
+    previews,
+    showPreviews,
+    accept,
+    reject,
+    acceptAll,
+    rejectAll,
+    status,
+    syncFromPlugin,
+  };
 }

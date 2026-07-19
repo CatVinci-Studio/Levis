@@ -22,7 +22,13 @@ export function normalizeAiMarkdown(text: string): string {
  * (usePendingEdits.ts) all build their transaction here, so the three paths
  * can't drift on how markdown gets parsed.
  */
-export function applyEditRange(state: EditorState, ctx: Ctx, from: number, to: number, rawText: string) {
+export function applyEditRange(
+  state: EditorState,
+  ctx: Ctx,
+  from: number,
+  to: number,
+  rawText: string,
+) {
   const text = normalizeAiMarkdown(rawText);
   let parsed;
   try {
@@ -30,5 +36,7 @@ export function applyEditRange(state: EditorState, ctx: Ctx, from: number, to: n
   } catch {
     parsed = null;
   }
-  return parsed ? state.tr.replaceRange(from, to, Slice.maxOpen(parsed.content)) : state.tr.insertText(text, from, to);
+  return parsed
+    ? state.tr.replaceRange(from, to, Slice.maxOpen(parsed.content))
+    : state.tr.insertText(text, from, to);
 }

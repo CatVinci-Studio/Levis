@@ -3,7 +3,13 @@
  * src-tauri/src/ai/tools.rs - the backend validates proposals against the
  * same list, so the two must stay in sync.
  */
-export type EditAction = "replace" | "replace_selection" | "insert_before" | "insert_after" | "delete" | "append";
+export type EditAction =
+  | "replace"
+  | "replace_selection"
+  | "insert_before"
+  | "insert_after"
+  | "delete"
+  | "append";
 
 export const EDIT_ACTIONS: readonly EditAction[] = [
   "replace",

@@ -12,14 +12,21 @@ import type { EditorRunner } from "../editor/useEditorRunner";
  * hides it on a short delay so the pointer can travel into the popover
  * itself (cancelHide keeps it open while hovered).
  */
-export function useGrammarPopover(run: EditorRunner, getStaleMessage: () => string) {
+export function useGrammarPopover(
+  run: EditorRunner,
+  getStaleMessage: () => string,
+) {
   const [popover, setPopover] = useState<GrammarPopoverInfo | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const onMouseOver = useCallback(
     (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest?.(".grammar-issue") as HTMLElement | null;
+      const target = (e.target as HTMLElement).closest?.(
+        ".grammar-issue",
+      ) as HTMLElement | null;
       if (!target) return;
       if (hideTimer.current) clearTimeout(hideTimer.current);
 
@@ -75,10 +82,12 @@ export function useGrammarPopover(run: EditorRunner, getStaleMessage: () => stri
       // so re-resolve the target now. First choice: the live decoration for
       // this issue - the plugin maps decorations through edits and drops the
       // ones whose text changed, so a surviving one is trustworthy.
-      const live = (grammarKey.getState(state)?.find() ?? []).find((deco: Decoration) => {
-        const spec = deco.spec as GrammarDecorationSpec;
-        return spec.original === original && spec.suggestion === suggestion;
-      });
+      const live = (grammarKey.getState(state)?.find() ?? []).find(
+        (deco: Decoration) => {
+          const spec = deco.spec as GrammarDecorationSpec;
+          return spec.original === original && spec.suggestion === suggestion;
+        },
+      );
       let range = live ? { from: live.from, to: live.to } : null;
 
       // No live decoration (e.g. it was cleared with the whole set) - the
@@ -87,7 +96,11 @@ export function useGrammarPopover(run: EditorRunner, getStaleMessage: () => stri
 
       // Last line of defense against replacing the wrong text: the range
       // must still say exactly what the model was fixing.
-      if (!range || (original !== undefined && state.doc.textBetween(range.from, range.to) !== original)) {
+      if (
+        !range ||
+        (original !== undefined &&
+          state.doc.textBetween(range.from, range.to) !== original)
+      ) {
         return;
       }
       view.dispatch(state.tr.insertText(suggestion, range.from, range.to));
@@ -104,5 +117,13 @@ export function useGrammarPopover(run: EditorRunner, getStaleMessage: () => stri
     }
   }, [popover, run, getStaleMessage]);
 
-  return { popover, applyError, onMouseOver, onMouseOut, cancelHide, hide, applyFix };
+  return {
+    popover,
+    applyError,
+    onMouseOver,
+    onMouseOut,
+    cancelHide,
+    hide,
+    applyFix,
+  };
 }

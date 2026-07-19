@@ -1,140 +1,31 @@
 /* A slim, cursor-anchored inline chat popup - modeled on the inline "Cmd+K"
    style assistant popups in editors like VS Code (Claude Code's inline
    chat), not a persistent panel. Appears just below the cursor, closes on
-   Escape/outside click, and doesn't survive being closed (the conversation
-   itself does - see useAgentConversation, owned by the editor). */
+   Escape/outside click, and doesn't survive being closed. Finished exchanges
+   remain available from the sidebar history. */
 
 .inline-chat {
   position: fixed;
-  z-index: 220;
+  /* Above the newcomer guide card (230) so the exercise can be completed
+     without the guide covering the Agent input or its reply. */
+  z-index: 250;
   width: 420px;
   max-width: calc(100vw - 32px);
 }
 
-/* The header + optional history dropdown + message list, as one bordered
-   card - position:relative so the history dropdown can anchor under the
-   header without its own viewport-clamp instance. */
-.inline-chat-panel {
-  position: relative;
-  margin-bottom: 6px;
+/* The message list, skill menu and composer all live inside this one
+   bordered/shadowed card - only one .floating-surface for the whole popup,
+   not one per section. */
+.inline-chat-shell {
   display: flex;
   flex-direction: column;
 }
 
-.inline-chat-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 6px 6px 10px;
-  border-bottom: 1px solid var(--editor-border);
-}
-
-.inline-chat-header-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--editor-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inline-chat-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.inline-chat-header-btn {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--editor-muted);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.inline-chat-header-btn:hover,
-.inline-chat-header-btn-active {
-  background: var(--editor-border);
-  color: var(--editor-text);
-}
-
-.inline-chat-history-menu {
-  position: absolute;
-  top: 100%;
-  right: 8px;
-  left: 8px;
-  z-index: 1;
-  max-height: 260px;
-  overflow-y: auto;
-  margin-top: 4px;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.inline-chat-history-empty {
-  padding: 8px;
-  font-size: 12px;
-  color: var(--editor-muted);
-}
-
-.inline-chat-history-entry {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.inline-chat-history-entry:hover {
-  background: var(--editor-border);
-}
-
-.inline-chat-history-entry-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.inline-chat-history-entry-title {
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inline-chat-history-entry-meta {
-  font-size: 10px;
-  color: var(--editor-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inline-chat-history-entry-delete {
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: var(--editor-muted);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 2px;
-}
-
-.inline-chat-history-entry-delete:hover {
-  color: var(--danger, #dc2626);
+/* One rule frames every section boundary inside the shell (messages/
+   skill-menu/composer, in whatever combination is actually mounted) instead
+   of per-pair divider rules. */
+.inline-chat-shell > * + * {
+  border-top: 1px solid var(--editor-border);
 }
 
 .inline-chat-bar {
@@ -209,9 +100,10 @@
   padding: 0;
 }
 
-/* Skill picker: opens while the input holds a /prefix being typed. */
+/* Skill picker: opens while the input holds a /prefix being typed - a flow
+   section between the messages and the composer, framed by the shell's
+   generic divider rule above. */
 .inline-chat-skill-menu {
-  margin-bottom: 6px;
   padding: 4px;
   max-height: 200px;
   overflow-y: auto;
@@ -291,14 +183,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-/* The confirmation step for AI edits: apply buttons under the latest reply.
-   Nothing touches the document until one of these is clicked. */
-.inline-chat-actions {
-  display: flex;
-  gap: 6px;
-  padding-top: 2px;
 }
 
 .inline-chat-action {
