@@ -33,7 +33,11 @@ const ALERT_TYPES: Record<string, { label: string; icon: string }> = {
 
 const MARKER_RE = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/;
 
-function buildTitle(info: { label: string; icon: string }, view: EditorView, getPos: () => number | undefined) {
+function buildTitle(
+  info: { label: string; icon: string },
+  view: EditorView,
+  getPos: () => number | undefined,
+) {
   const el = document.createElement("span");
   el.className = "md-alert-title";
   el.contentEditable = "false";
@@ -46,7 +50,11 @@ function buildTitle(info: { label: string; icon: string }, view: EditorView, get
     event.preventDefault();
     const widgetPos = getPos();
     if (typeof widgetPos !== "number") return;
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, widgetPos)));
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, widgetPos),
+      ),
+    );
     view.focus();
   });
   return el;
@@ -72,19 +80,35 @@ function buildDecorations(state: EditorState): DecorationSet {
     const info = ALERT_TYPES[match[1]];
 
     decorations.push(
-      Decoration.node(pos, pos + node.nodeSize, { class: `md-alert md-alert-${match[1].toLowerCase()}` }),
+      Decoration.node(pos, pos + node.nodeSize, {
+        class: `md-alert md-alert-${match[1].toLowerCase()}`,
+      }),
     );
 
     // The colored border/title stay on even while editing; only the raw
     // [!TYPE] marker toggles between hidden (badge shown in its place) and
     // visible (cursor touching it).
     const markerFrom = pos + 2; // +1 into the blockquote, +1 into its first paragraph
-    const hideLen = match[0].length + (/^[ \t]*\n?/.exec(rest)?.[0].length ?? 0);
+    const hideLen =
+      match[0].length + (/^[ \t]*\n?/.exec(rest)?.[0].length ?? 0);
     const markerTo = markerFrom + hideLen;
-    if (cursorTouches(state.selection, markerFrom, markerFrom + match[0].length)) return;
+    if (
+      cursorTouches(state.selection, markerFrom, markerFrom + match[0].length)
+    )
+      return;
 
-    decorations.push(Decoration.inline(markerFrom, markerTo, { class: "md-alert-marker-hidden" }));
-    decorations.push(Decoration.widget(markerFrom, (view, getPos) => buildTitle(info, view, getPos), { side: -1 }));
+    decorations.push(
+      Decoration.inline(markerFrom, markerTo, {
+        class: "md-alert-marker-hidden",
+      }),
+    );
+    decorations.push(
+      Decoration.widget(
+        markerFrom,
+        (view, getPos) => buildTitle(info, view, getPos),
+        { side: -1 },
+      ),
+    );
   });
 
   return DecorationSet.create(state.doc, decorations);

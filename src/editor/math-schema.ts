@@ -11,7 +11,11 @@ export const mathInlineSchema = $nodeSchema("math_inline", () => ({
   marks: "",
   attrs: {},
   parseDOM: [{ tag: 'span[data-type="math_inline"]' }],
-  toDOM: () => ["span", { "data-type": "math_inline", class: "math-inline" }, 0],
+  toDOM: () => [
+    "span",
+    { "data-type": "math_inline", class: "math-inline" },
+    0,
+  ],
   parseMarkdown: {
     match: (node) => node.type === "inlineMath",
     runner: (state, node, type) => {
@@ -23,7 +27,11 @@ export const mathInlineSchema = $nodeSchema("math_inline", () => ({
   toMarkdown: {
     match: (node) => node.type.name === "math_inline",
     runner: (state, node) => {
-      state.addNode("inlineMath", undefined, node.content.firstChild?.text || "");
+      state.addNode(
+        "inlineMath",
+        undefined,
+        node.content.firstChild?.text || "",
+      );
     },
   },
 }));
@@ -35,7 +43,9 @@ export const mathBlockSchema = $nodeSchema("math_block", () => ({
   code: true,
   defining: true,
   attrs: {},
-  parseDOM: [{ tag: 'div[data-type="math_block"]', preserveWhitespace: "full" }],
+  parseDOM: [
+    { tag: 'div[data-type="math_block"]', preserveWhitespace: "full" },
+  ],
   toDOM: () => ["div", { "data-type": "math_block", class: "math-block" }, 0],
   parseMarkdown: {
     match: (node) => node.type === "math",
@@ -59,11 +69,17 @@ export const mathBlockSchema = $nodeSchema("math_block", () => ({
 // keystroke at a time and never reaches this rule.
 export const mathInlineInputRule = $inputRule(
   (ctx) =>
-    new InputRule(/(?<!\$)\$([^$\s](?:[^$]*[^$\s])?)\$$/, (state, match, start, end) => {
-      const value = match[1];
-      if (!value) return null;
-      const type = mathInlineSchema.type(ctx);
-      return state.tr.replaceWith(start, end, type.create({}, state.schema.text(value)));
-    }),
+    new InputRule(
+      /(?<!\$)\$([^$\s](?:[^$]*[^$\s])?)\$$/,
+      (state, match, start, end) => {
+        const value = match[1];
+        if (!value) return null;
+        const type = mathInlineSchema.type(ctx);
+        return state.tr.replaceWith(
+          start,
+          end,
+          type.create({}, state.schema.text(value)),
+        );
+      },
+    ),
 );
-

@@ -78,7 +78,11 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
             onChange={(e) => findReplace.setQuery(e.target.value)}
             onKeyDown={onFindKeyDown}
           />
-          <span className={`find-replace-count ${status.error ? "find-replace-count-error" : ""}`}>{countLabel}</span>
+          <span
+            className={`find-replace-count ${status.error ? "find-replace-count-error" : ""}`}
+          >
+            {countLabel}
+          </span>
           <button
             type="button"
             className={`find-replace-toggle ${caseSensitive ? "find-replace-toggle-active" : ""}`}
@@ -97,14 +101,26 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
           </button>
         </div>
         <div className="find-replace-nav">
-          <button type="button" onClick={findReplace.prev} disabled={status.matchCount === 0}>
+          <button
+            type="button"
+            onClick={findReplace.prev}
+            disabled={status.matchCount === 0}
+          >
             ↑
           </button>
-          <button type="button" onClick={findReplace.next} disabled={status.matchCount === 0}>
+          <button
+            type="button"
+            onClick={findReplace.next}
+            disabled={status.matchCount === 0}
+          >
             ↓
           </button>
-          <button type="button" className="find-replace-close" onClick={findReplace.close}>
-            ×
+          <button
+            type="button"
+            className="find-replace-close"
+            onClick={findReplace.close}
+          >
+            ✕
           </button>
         </div>
       </div>
@@ -122,10 +138,18 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
             />
           </div>
           <div className="find-replace-nav">
-            <button type="button" onClick={findReplace.replaceOne} disabled={status.matchCount === 0}>
+            <button
+              type="button"
+              onClick={findReplace.replaceOne}
+              disabled={status.matchCount === 0}
+            >
               {labels.replace}
             </button>
-            <button type="button" onClick={findReplace.replaceAll} disabled={status.matchCount === 0}>
+            <button
+              type="button"
+              onClick={findReplace.replaceAll}
+              disabled={status.matchCount === 0}
+            >
               {labels.replaceAll}
             </button>
           </div>

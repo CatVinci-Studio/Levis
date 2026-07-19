@@ -5,17 +5,32 @@ import { listener } from "@milkdown/kit/plugin/listener";
 import { $remark } from "@milkdown/kit/utils";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethrough";
-import { commonmarkWithoutMarks, gfmWithoutStrikethrough } from "./reduced-presets";
-import { remarkFrontmatterPlugin, frontmatterSchema } from "./frontmatter-schema";
+import {
+  commonmarkWithoutMarks,
+  gfmWithoutStrikethrough,
+} from "./reduced-presets";
+import {
+  remarkFrontmatterPlugin,
+  frontmatterSchema,
+} from "./frontmatter-schema";
 import { createGithubAlertPlugin } from "./github-alert-plugin";
 import { rawHtmlSchema } from "./raw-html-schema";
 import { createRawHtmlPreviewPlugin } from "./raw-html-preview-plugin";
 import { brToHardbreakPlugin } from "./br-hardbreak-plugin";
-import { remarkHighlightPlugin, mdSpanSchema, mdCodeSpanSchema } from "./md-span-schema";
+import {
+  remarkHighlightPlugin,
+  mdSpanSchema,
+  mdCodeSpanSchema,
+} from "./md-span-schema";
 import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
 import { formatShortcutPlugin } from "./format-shortcut-plugin";
 import { enclosurePlugin } from "./enclosure";
-import { remarkMathPlugin, mathInlineSchema, mathBlockSchema, mathInlineInputRule } from "./math-schema";
+import {
+  remarkMathPlugin,
+  mathInlineSchema,
+  mathBlockSchema,
+  mathInlineInputRule,
+} from "./math-schema";
 import { mathAutopairPlugin } from "./math-autopair-plugin";
 import { createMathPreviewPlugin } from "./math-preview-plugin";
 import { headingMarkerPlugin } from "./heading-marker-plugin";
@@ -34,7 +49,10 @@ import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
 import { buildCompletionStyle } from "../ai/completion-style";
 import { createGrammarCheckPlugin } from "../ai/grammar-check-plugin";
-import { createPendingEditPlugin, type PendingPreview } from "../ai/pending-edit-plugin";
+import {
+  createPendingEditPlugin,
+  type PendingPreview,
+} from "../ai/pending-edit-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { strings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
@@ -59,6 +77,15 @@ export function withEditorExtensions(
   settings: { readonly current: Settings },
   docPath: { readonly current: string | null },
   pendingEdits: PendingEditCallbacks,
+  /** True while the onboarding tour runs: the typing-triggered AI plugins
+   *  go quiet so the tour's PRE-WRITTEN suggestions (utils/events.ts's
+   *  TUTORIAL_MOCK_GHOST_EVENT) are the only AI-looking thing on screen -
+   *  first-run users have no account, and a real response arriving over a
+   *  mocked one would derail the script. */
+  aiMuted: { readonly current: boolean },
+  /** A pasted image failed to save to disk - the message to show in a
+   *  native alert (localized, since this plugin has no i18n access itself). */
+  onImagePasteError: () => string,
 ): Editor {
   return (
     editor
@@ -88,7 +115,12 @@ export function withEditorExtensions(
       // break reopening files whose bold was created here. This relaxes the
       // rules for CJK - parse side only; serialization is unchanged.
       .use($remark("remark-cjk-friendly", () => remarkCjkFriendly))
-      .use($remark("remark-cjk-friendly-gfm-strikethrough", () => remarkCjkFriendlyGfmStrikethrough))
+      .use(
+        $remark(
+          "remark-cjk-friendly-gfm-strikethrough",
+          () => remarkCjkFriendlyGfmStrikethrough,
+        ),
+      )
 
       // Inline enclosures: bold/italic/strikethrough/highlight/inline code
       // as real nodes with synthesized, Typora-style delimiters.
@@ -105,7 +137,9 @@ export function withEditorExtensions(
       .use(mathBlockSchema)
       .use(mathInlineInputRule)
       .use(mathAutopairPlugin)
-      .use(createMathPreviewPlugin({ enabled: () => settings.current.enableMath }))
+      .use(
+        createMathPreviewPlugin({ enabled: () => settings.current.enableMath }),
+      )
 
       // Block-level niceties.
       .use(headingMarkerPlugin)
@@ -113,13 +147,22 @@ export function withEditorExtensions(
       .use(syntaxHighlightPlugin)
       .use(codeBlockLanguageView)
       .use(tableHoverView)
-      .use(createMermaidPreviewPlugin({ enabled: () => settings.current.enableMermaid }))
+      .use(
+        createMermaidPreviewPlugin({
+          enabled: () => settings.current.enableMermaid,
+        }),
+      )
 
       // Editing infrastructure. handlePaste props run in registration
       // order: images (binary, most specific) first, then markdown-source
       // text, then milkdown's own clipboard plugin.
       .use(history)
-      .use(createImagePlugin({ docPath: () => docPath.current }))
+      .use(
+        createImagePlugin({
+          docPath: () => docPath.current,
+          onError: onImagePasteError,
+        }),
+      )
       .use(pasteMarkdownSourcePlugin)
       .use(clipboard)
       .use(clipboardHistoryPlugin)
@@ -127,21 +170,34 @@ export function withEditorExtensions(
       .use(tabExtendPlugin)
       .use(escapeTrailingBlockPlugin)
       .use(findReplacePlugin)
-      .use(createTypewriterPlugin({ enabled: () => settings.current.typewriterMode }))
-      .use(createPlaceholderPlugin(() => strings[settings.current.language].emptyDocPlaceholder))
+      .use(
+        createTypewriterPlugin({
+          enabled: () => settings.current.typewriterMode,
+        }),
+      )
+      .use(
+        createPlaceholderPlugin(
+          () => strings[settings.current.language].emptyDocPlaceholder,
+        ),
+      )
 
       // AI assistance (each independently toggleable in Settings).
       .use(
         createGhostTextPlugin({
-          enabled: () => settings.current.enableCompletion,
+          enabled: () => settings.current.enableCompletion && !aiMuted.current,
           provider: () => settings.current.aiProvider,
+          model: () =>
+            settings.current.writingModels[settings.current.aiProvider] || null,
           style: () => buildCompletionStyle(settings.current.completionTone),
         }),
       )
       .use(
         createGrammarCheckPlugin({
-          enabled: () => settings.current.enableGrammarCheck,
+          enabled: () =>
+            settings.current.enableGrammarCheck && !aiMuted.current,
           provider: () => settings.current.aiProvider,
+          model: () =>
+            settings.current.writingModels[settings.current.aiProvider] || null,
           strictness: () => settings.current.grammarStrictness,
         }),
       )

@@ -1,6 +1,11 @@
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
-import { caretAt, isEnclosureName, isImeKeyEvent, stateWithLiveSelection } from "./enclosure";
+import {
+  caretAt,
+  isEnclosureName,
+  isImeKeyEvent,
+  stateWithLiveSelection,
+} from "./enclosure";
 
 interface FormatSpec {
   delim: string;
@@ -33,7 +38,12 @@ export const formatShortcutPlugin = $prose(
     new Plugin({
       props: {
         handleKeyDown(view, event) {
-          if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return false;
+          if (
+            !(event.metaKey || event.ctrlKey) ||
+            event.altKey ||
+            event.shiftKey
+          )
+            return false;
           const spec = SHORTCUTS[event.key.toLowerCase()];
           if (!spec) return false;
           if (isImeKeyEvent(view, event)) return false;
@@ -54,11 +64,18 @@ export const formatShortcutPlugin = $prose(
               parent.attrs.rung === spec.rung
             ) {
               const nodeStart = $from.before($from.depth);
-              view.dispatch(state.tr.delete(nodeStart, nodeStart + parent.nodeSize));
+              view.dispatch(
+                state.tr.delete(nodeStart, nodeStart + parent.nodeSize),
+              );
               event.preventDefault();
               return true;
             }
-            if (!parent.isTextblock || parent.type.spec.code || isEnclosureName(parent.type.name)) return false;
+            if (
+              !parent.isTextblock ||
+              parent.type.spec.code ||
+              isEnclosureName(parent.type.name)
+            )
+              return false;
 
             const node = mdSpan.create({ delim: spec.delim, rung: spec.rung });
             const tr = state.tr.replaceWith($from.pos, $from.pos, node);
@@ -70,7 +87,12 @@ export const formatShortcutPlugin = $prose(
           // Selection: wrap plain text within a single textblock.
           if (!(state.selection instanceof TextSelection)) return false;
           if (!$from.sameParent($to)) return false;
-          if (!parent.isTextblock || parent.type.spec.code || isEnclosureName(parent.type.name)) return false;
+          if (
+            !parent.isTextblock ||
+            parent.type.spec.code ||
+            isEnclosureName(parent.type.name)
+          )
+            return false;
 
           // Keep edge whitespace outside the shell.
           const selected = state.doc.textBetween($from.pos, $to.pos);
@@ -80,12 +102,18 @@ export const formatShortcutPlugin = $prose(
 
           // Only plain text may move inside - a fragment containing another
           // enclosure (or any other inline node) is left alone.
-          const fragment = parent.content.cut(from - $from.start(), to - $from.start());
+          const fragment = parent.content.cut(
+            from - $from.start(),
+            to - $from.start(),
+          );
           for (let i = 0; i < fragment.childCount; i++) {
             if (!fragment.child(i).isText) return false;
           }
 
-          const node = mdSpan.create({ delim: spec.delim, rung: spec.rung }, fragment);
+          const node = mdSpan.create(
+            { delim: spec.delim, rung: spec.rung },
+            fragment,
+          );
           const tr = state.tr.replaceWith(from, to, node);
           view.dispatch(caretAt(tr, from + node.nodeSize));
           event.preventDefault();

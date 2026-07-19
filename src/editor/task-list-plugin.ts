@@ -15,10 +15,13 @@ export const taskListClickPlugin = $prose(
     new Plugin({
       props: {
         handleClickOn(view, _pos, node, nodePos, event) {
-          if (node.type.name !== "list_item" || node.attrs.checked == null) return false;
+          if (node.type.name !== "list_item" || node.attrs.checked == null)
+            return false;
 
           const target = event.target as HTMLElement | null;
-          const li = target?.closest('li[data-item-type="task"]') as HTMLElement | null;
+          const li = target?.closest(
+            'li[data-item-type="task"]',
+          ) as HTMLElement | null;
           if (!li) return false;
 
           const rect = li.getBoundingClientRect();

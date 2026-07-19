@@ -55,13 +55,17 @@ function fragmentWidget(rendered: { html: string; inline: boolean }) {
     // line they were written in; only block-level content (alignment
     // wrappers, headings) becomes its own block - matching GitHub.
     const el = document.createElement(rendered.inline ? "span" : "div");
-    el.className = rendered.inline ? "raw-html-rendered raw-html-rendered-inline" : "raw-html-rendered";
+    el.className = rendered.inline
+      ? "raw-html-rendered raw-html-rendered-inline"
+      : "raw-html-rendered";
     el.innerHTML = rendered.html;
     el.addEventListener("mousedown", (event) => {
       event.preventDefault();
       const widgetPos = getPos();
       if (typeof widgetPos !== "number") return;
-      const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, widgetPos - 1));
+      const tr = view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, widgetPos - 1),
+      );
       view.dispatch(tr);
       view.focus();
     });
@@ -77,7 +81,12 @@ function pairedLinkTitle(openTag: string): string | undefined {
   return value || undefined;
 }
 
-function decorateTextblock(block: ProseNode, blockPos: number, state: EditorState, decorations: Decoration[]) {
+function decorateTextblock(
+  block: ProseNode,
+  blockPos: number,
+  state: EditorState,
+  decorations: Decoration[],
+) {
   const htmls: HtmlChild[] = [];
   block.forEach((child, offset) => {
     if (child.type.name === "html") {
@@ -93,7 +102,11 @@ function decorateTextblock(block: ProseNode, blockPos: number, state: EditorStat
 
   for (const item of htmls) {
     const open = OPEN_TAG_RE.exec(item.text);
-    if (open && open[1].toLowerCase() in PAIR_TAG_CLASSES && !VOID_TAGS.has(open[1].toLowerCase())) {
+    if (
+      open &&
+      open[1].toLowerCase() in PAIR_TAG_CLASSES &&
+      !VOID_TAGS.has(open[1].toLowerCase())
+    ) {
       stack.push({ tag: open[1].toLowerCase(), item });
       continue;
     }
@@ -123,10 +136,21 @@ function decorateTextblock(block: ProseNode, blockPos: number, state: EditorStat
 
   for (const { tag, open, close } of pairs) {
     // Cursor on either tag reveals BOTH raw (the pair is one edit unit).
-    if (cursorTouches(state.selection, open.from, open.to) || cursorTouches(state.selection, close.from, close.to))
+    if (
+      cursorTouches(state.selection, open.from, open.to) ||
+      cursorTouches(state.selection, close.from, close.to)
+    )
       continue;
-    decorations.push(Decoration.inline(open.from, open.to, { class: "raw-html-source-hidden" }));
-    decorations.push(Decoration.inline(close.from, close.to, { class: "raw-html-source-hidden" }));
+    decorations.push(
+      Decoration.inline(open.from, open.to, {
+        class: "raw-html-source-hidden",
+      }),
+    );
+    decorations.push(
+      Decoration.inline(close.from, close.to, {
+        class: "raw-html-source-hidden",
+      }),
+    );
     if (close.from <= open.to) continue; // nothing between the tags
     const cls = PAIR_TAG_CLASSES[tag];
     const attrs: Record<string, string> = {};
@@ -135,7 +159,8 @@ function decorateTextblock(block: ProseNode, blockPos: number, state: EditorStat
       const title = pairedLinkTitle(open.text);
       if (title) attrs.title = title;
     }
-    if (Object.keys(attrs).length > 0) decorations.push(Decoration.inline(open.to, close.from, attrs));
+    if (Object.keys(attrs).length > 0)
+      decorations.push(Decoration.inline(open.to, close.from, attrs));
   }
 
   for (const item of fragments) {
@@ -144,8 +169,14 @@ function decorateTextblock(block: ProseNode, blockPos: number, state: EditorStat
     // Not whitelisted (or unparsable): raw text stays visible, the
     // existing fallback for anything outside the whitelist.
     if (rendered === null) continue;
-    decorations.push(Decoration.inline(item.from + 1, item.to - 1, { class: "raw-html-source-hidden" }));
-    decorations.push(Decoration.widget(item.to, fragmentWidget(rendered), { side: -1 }));
+    decorations.push(
+      Decoration.inline(item.from + 1, item.to - 1, {
+        class: "raw-html-source-hidden",
+      }),
+    );
+    decorations.push(
+      Decoration.widget(item.to, fragmentWidget(rendered), { side: -1 }),
+    );
   }
 }
 

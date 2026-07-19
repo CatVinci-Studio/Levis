@@ -58,7 +58,11 @@ export function useEditorClipboard(run: EditorRunner): EditorClipboard {
         try {
           const doc = ctx.get(parserCtx)(text);
           if (doc && doc.content.size > 0) {
-            view.dispatch(view.state.tr.replaceSelection(Slice.maxOpen(doc.content)).scrollIntoView());
+            view.dispatch(
+              view.state.tr
+                .replaceSelection(Slice.maxOpen(doc.content))
+                .scrollIntoView(),
+            );
             inserted = true;
           }
         } catch {
@@ -86,7 +90,9 @@ export function useEditorClipboard(run: EditorRunner): EditorClipboard {
   const selectAll = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+      view.dispatch(
+        view.state.tr.setSelection(new AllSelection(view.state.doc)),
+      );
       view.focus();
     });
   }, [run]);

@@ -10,12 +10,22 @@ export interface FindReplaceStatus {
   error: boolean;
 }
 
-const IDLE_STATUS: FindReplaceStatus = { matchCount: 0, activeIndex: -1, error: false };
+const IDLE_STATUS: FindReplaceStatus = {
+  matchCount: 0,
+  activeIndex: -1,
+  error: false,
+};
 
 /** The bar-facing view of the plugin's state, read back after a dispatch. */
 function readStatus(view: EditorView): FindReplaceStatus {
   const s = findReplaceKey.getState(view.state);
-  return s ? { matchCount: s.matches.length, activeIndex: s.activeIndex, error: s.error } : IDLE_STATUS;
+  return s
+    ? {
+        matchCount: s.matches.length,
+        activeIndex: s.activeIndex,
+        error: s.error,
+      }
+    : IDLE_STATUS;
 }
 
 function scrollToActive(view: EditorView) {
@@ -47,12 +57,22 @@ export function useFindReplace(run: EditorRunner) {
     if (!open) return;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      view.dispatch(view.state.tr.setMeta(findReplaceKey, { type: "search", query, caseSensitive, useRegex }));
+      view.dispatch(
+        view.state.tr.setMeta(findReplaceKey, {
+          type: "search",
+          query,
+          caseSensitive,
+          useRegex,
+        }),
+      );
       setStatus(readStatus(view));
     });
   }, [open, query, caseSensitive, useRegex, run]);
 
-  const toggleCaseSensitive = useCallback(() => setCaseSensitive((v) => !v), []);
+  const toggleCaseSensitive = useCallback(
+    () => setCaseSensitive((v) => !v),
+    [],
+  );
   const toggleUseRegex = useCallback(() => setUseRegex((v) => !v), []);
 
   const step = useCallback(
@@ -61,8 +81,11 @@ export function useFindReplace(run: EditorRunner) {
         const view = ctx.get(editorViewCtx);
         const s = findReplaceKey.getState(view.state);
         if (!s || s.matches.length === 0) return;
-        const index = (s.activeIndex + delta + s.matches.length) % s.matches.length;
-        view.dispatch(view.state.tr.setMeta(findReplaceKey, { type: "setActive", index }));
+        const index =
+          (s.activeIndex + delta + s.matches.length) % s.matches.length;
+        view.dispatch(
+          view.state.tr.setMeta(findReplaceKey, { type: "setActive", index }),
+        );
         setStatus(readStatus(view));
         scrollToActive(view);
       });
@@ -81,7 +104,9 @@ export function useFindReplace(run: EditorRunner) {
   const makeReplacer = useCallback((): ((matchText: string) => string) => {
     if (!useRegex) return () => replacement;
     const regex = compileQuery(query, caseSensitive, true, false);
-    return regex ? (text) => text.replace(regex, replacement) : () => replacement;
+    return regex
+      ? (text) => text.replace(regex, replacement)
+      : () => replacement;
   }, [useRegex, query, caseSensitive, replacement]);
 
   const replaceOne = useCallback(() => {
@@ -90,7 +115,13 @@ export function useFindReplace(run: EditorRunner) {
       const s = findReplaceKey.getState(view.state);
       const match = s?.matches[s.activeIndex];
       if (!match) return;
-      view.dispatch(view.state.tr.insertText(makeReplacer()(match.text), match.from, match.to));
+      view.dispatch(
+        view.state.tr.insertText(
+          makeReplacer()(match.text),
+          match.from,
+          match.to,
+        ),
+      );
       view.focus();
       setStatus(readStatus(view));
     });

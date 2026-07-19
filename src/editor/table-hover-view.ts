@@ -1,11 +1,18 @@
 import { $view } from "@milkdown/kit/utils";
 import { tableSchema } from "@milkdown/kit/preset/gfm";
-import { addRowAfter, addColumnAfter, TableMap } from "@milkdown/kit/prose/tables";
+import {
+  addRowAfter,
+  addColumnAfter,
+  TableMap,
+} from "@milkdown/kit/prose/tables";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-type TableCommand = (state: EditorState, dispatch: (tr: Transaction) => void) => boolean;
+type TableCommand = (
+  state: EditorState,
+  dispatch: (tr: Transaction) => void,
+) => boolean;
 
 /**
  * Moves the selection into the table's last cell (last row, last column) -
@@ -19,13 +26,21 @@ function focusLastCell(view: EditorView, tablePos: number): boolean {
   const table = view.state.doc.nodeAt(tablePos);
   if (!table) return false;
   const map = TableMap.get(table);
-  const lastCellPos = tablePos + 1 + map.positionAt(map.height - 1, map.width - 1, table);
-  const $pos = view.state.doc.resolve(Math.min(lastCellPos + 1, view.state.doc.content.size));
+  const lastCellPos =
+    tablePos + 1 + map.positionAt(map.height - 1, map.width - 1, table);
+  const $pos = view.state.doc.resolve(
+    Math.min(lastCellPos + 1, view.state.doc.content.size),
+  );
   view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
   return true;
 }
 
-function bindInsertButton(button: HTMLButtonElement, view: EditorView, getPos: () => number | undefined, command: TableCommand): void {
+function bindInsertButton(
+  button: HTMLButtonElement,
+  view: EditorView,
+  getPos: () => number | undefined,
+  command: TableCommand,
+): void {
   button.addEventListener("mousedown", (event) => {
     event.preventDefault();
     const pos = getPos();
@@ -52,29 +67,32 @@ function makeInsertButton(className: string): HTMLButtonElement {
  * <table><tbody> (still the real contentDOM) in a positioned wrapper with
  * small "+" affordances along the bottom and right edges, shown on hover.
  */
-export const tableHoverView = $view(tableSchema.node, () => (node, view, getPos) => {
-  const wrapper = document.createElement("div");
-  wrapper.className = "table-wrapper";
+export const tableHoverView = $view(
+  tableSchema.node,
+  () => (node, view, getPos) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "table-wrapper";
 
-  const table = document.createElement("table");
-  const tbody = document.createElement("tbody");
-  table.appendChild(tbody);
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+    table.appendChild(tbody);
 
-  const addRowBtn = makeInsertButton("table-add-row-btn");
-  bindInsertButton(addRowBtn, view, getPos, addRowAfter);
+    const addRowBtn = makeInsertButton("table-add-row-btn");
+    bindInsertButton(addRowBtn, view, getPos, addRowAfter);
 
-  const addColBtn = makeInsertButton("table-add-col-btn");
-  bindInsertButton(addColBtn, view, getPos, addColumnAfter);
+    const addColBtn = makeInsertButton("table-add-col-btn");
+    bindInsertButton(addColBtn, view, getPos, addColumnAfter);
 
-  wrapper.appendChild(table);
-  wrapper.appendChild(addRowBtn);
-  wrapper.appendChild(addColBtn);
+    wrapper.appendChild(table);
+    wrapper.appendChild(addRowBtn);
+    wrapper.appendChild(addColBtn);
 
-  return {
-    dom: wrapper,
-    contentDOM: tbody,
-    update(updatedNode) {
-      return updatedNode.type === node.type;
-    },
-  };
-});
+    return {
+      dom: wrapper,
+      contentDOM: tbody,
+      update(updatedNode) {
+        return updatedNode.type === node.type;
+      },
+    };
+  },
+);

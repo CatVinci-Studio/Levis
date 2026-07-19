@@ -102,15 +102,21 @@ export const escapeTrailingBlockPlugin = $prose(
             return backspaceOutOfLeadingEmptyCodeBlock(view);
           }
 
-          const isForwardKey = event.key === "ArrowDown" || event.key === "ArrowRight" || event.key === "Enter";
-          const isBackwardKey = event.key === "ArrowUp" || event.key === "ArrowLeft";
+          const isForwardKey =
+            event.key === "ArrowDown" ||
+            event.key === "ArrowRight" ||
+            event.key === "Enter";
+          const isBackwardKey =
+            event.key === "ArrowUp" || event.key === "ArrowLeft";
           if (!isForwardKey && !isBackwardKey) return false;
 
           const { state } = view;
           const { $from, empty } = state.selection;
           if (!empty) return false;
 
-          const inEscapableBlock = ESCAPABLE_BLOCK_TYPES.has($from.parent.type.name);
+          const inEscapableBlock = ESCAPABLE_BLOCK_TYPES.has(
+            $from.parent.type.name,
+          );
           const inTable = isInTable(state);
 
           if (!inEscapableBlock && !inTable) {
@@ -121,12 +127,14 @@ export const escapeTrailingBlockPlugin = $prose(
             // ProseMirror's own defaults - and only when that boundary line
             // actually has content, so it doesn't keep stacking empty lines.
             if (event.key === "ArrowDown") {
-              if (!view.endOfTextblock("down") || !hasNothingAfter($from)) return false;
+              if (!view.endOfTextblock("down") || !hasNothingAfter($from))
+                return false;
               if ($from.parent.content.size === 0) return false;
               return escapeAfterLastNode(view);
             }
             if (event.key === "ArrowUp") {
-              if (!view.endOfTextblock("up") || !hasNothingBefore($from)) return false;
+              if (!view.endOfTextblock("up") || !hasNothingBefore($from))
+                return false;
               if ($from.parent.content.size === 0) return false;
               return escapeBeforeFirstNode(view);
             }
@@ -141,12 +149,19 @@ export const escapeTrailingBlockPlugin = $prose(
             }
 
             if (!isLastTopLevelNode($from, state.doc)) return false;
-            const atEndOfBlock = $from.parentOffset === $from.parent.content.size;
+            const atEndOfBlock =
+              $from.parentOffset === $from.parent.content.size;
             if (!atEndOfBlock) return false;
 
             if (event.key === "Enter") {
-              const textBeforeCursor = $from.parent.textBetween(0, $from.parentOffset, "\n");
-              const onEmptyLastLine = textBeforeCursor.length === 0 || textBeforeCursor.endsWith("\n");
+              const textBeforeCursor = $from.parent.textBetween(
+                0,
+                $from.parentOffset,
+                "\n",
+              );
+              const onEmptyLastLine =
+                textBeforeCursor.length === 0 ||
+                textBeforeCursor.endsWith("\n");
               if (!onEmptyLastLine) return false;
             }
             return escapeAfterLastNode(view);
@@ -155,7 +170,8 @@ export const escapeTrailingBlockPlugin = $prose(
           // Table: only escape from the bottom-right-most cell, moving down.
           if (event.key !== "ArrowDown") return false;
           const rect = selectedRect(state);
-          const atLastCell = rect.bottom === rect.map.height && rect.right === rect.map.width;
+          const atLastCell =
+            rect.bottom === rect.map.height && rect.right === rect.map.width;
           if (!atLastCell) return false;
 
           return escapeAfterLastNode(view);

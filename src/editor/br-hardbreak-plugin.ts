@@ -32,7 +32,8 @@ export const brToHardbreakPlugin = $prose(() => {
 
       const targets: { from: number; to: number }[] = [];
       newState.doc.descendants((node, pos) => {
-        if (node.type.name !== "html" || !BR_RE.test(node.textContent.trim())) return true;
+        if (node.type.name !== "html" || !BR_RE.test(node.textContent.trim()))
+          return true;
         const $pos = newState.doc.resolve(pos);
         for (let d = $pos.depth; d >= 0; d--) {
           if (TABLE_CELL_TYPES.has($pos.node(d).type.name)) return true;

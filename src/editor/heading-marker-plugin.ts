@@ -78,27 +78,39 @@ export const headingMarkerPlugin = $prose(
           // (the same stall the ArrowLeft case below works around), so the
           // deletion silently does nothing. Perform it on the document
           // directly.
-          if (event.key === "Backspace" && event.metaKey && !event.altKey && !event.ctrlKey) {
+          if (
+            event.key === "Backspace" &&
+            event.metaKey &&
+            !event.altKey &&
+            !event.ctrlKey
+          ) {
             const state = stateWithLiveSelection(view);
             const { $from, empty } = state.selection;
             if ($from.parent.type.name !== "heading") return false;
             if (!empty || $from.parentOffset === 0) return false;
             event.preventDefault();
-            view.dispatch(view.state.tr.delete($from.start(), state.selection.from));
+            view.dispatch(
+              view.state.tr.delete($from.start(), state.selection.from),
+            );
             return true;
           }
 
           if (event.key !== "ArrowLeft") return false;
-          if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return false;
+          if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey)
+            return false;
           const { state } = view;
           const { $from, empty } = state.selection;
           if (!empty) return false;
-          if ($from.parent.type.name !== "heading" || $from.parentOffset !== 0) return false;
+          if ($from.parent.type.name !== "heading" || $from.parentOffset !== 0)
+            return false;
           // The revealed "# " prefix is a non-editable widget sitting between
           // the caret and the start of the line, so native Left-arrow has no
           // real text to move onto and stalls there. Hop to the end of the
           // previous block explicitly.
-          const target = Selection.near(state.doc.resolve($from.before($from.depth)), -1);
+          const target = Selection.near(
+            state.doc.resolve($from.before($from.depth)),
+            -1,
+          );
           if (target.from === state.selection.from) return false;
           event.preventDefault();
           view.dispatch(state.tr.setSelection(target));

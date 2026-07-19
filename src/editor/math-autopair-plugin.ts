@@ -16,11 +16,13 @@ const DOLLAR = "$";
 
 /** See the Enter handler: the paragraph shapes that mean "the user typed $$". */
 function isMathFenceLine(paragraph: ProseNode): boolean {
-  if (paragraph.childCount === 1 && paragraph.child(0).isText) return paragraph.child(0).text === "$$";
+  if (paragraph.childCount === 1 && paragraph.child(0).isText)
+    return paragraph.child(0).text === "$$";
   if (paragraph.childCount < 1 || paragraph.childCount > 2) return false;
   for (let i = 0; i < paragraph.childCount; i++) {
     const child = paragraph.child(i);
-    if (child.type.name !== "math_inline" || child.content.size !== 0) return false;
+    if (child.type.name !== "math_inline" || child.content.size !== 0)
+      return false;
   }
   return true;
 }
@@ -58,7 +60,9 @@ export const mathAutopairPlugin = $prose(
           const { state } = view;
           const $pos = state.doc.resolve(from);
           const parent = $pos.parent;
-          const inMath = parent.type.name === "math_inline" || parent.type.name === "math_block";
+          const inMath =
+            parent.type.name === "math_inline" ||
+            parent.type.name === "math_block";
 
           if (inMath) {
             if ($pos.parentOffset !== parent.content.size) return false; // literal "$" mid-source
@@ -69,7 +73,11 @@ export const mathAutopairPlugin = $prose(
             if (parent.content.size === 0) {
               // Empty pair, closed immediately - revert to literal "$$" rather
               // than leave an empty formula node rendering as a stray widget.
-              const tr = state.tr.replaceWith(nodeStart, nodeEnd, state.schema.text("$$"));
+              const tr = state.tr.replaceWith(
+                nodeStart,
+                nodeEnd,
+                state.schema.text("$$"),
+              );
               view.dispatch(caretAt(tr, nodeStart + 2));
               return true;
             }
@@ -84,9 +92,17 @@ export const mathAutopairPlugin = $prose(
           // paragraph instead of the shell - same close-empty-pair
           // semantics as the inMath branch above.
           const before = $pos.nodeBefore;
-          if (before && before.type.name === "math_inline" && before.content.size === 0) {
+          if (
+            before &&
+            before.type.name === "math_inline" &&
+            before.content.size === 0
+          ) {
             const nodeStart = from - before.nodeSize;
-            const tr = state.tr.replaceWith(nodeStart, from, state.schema.text("$$"));
+            const tr = state.tr.replaceWith(
+              nodeStart,
+              from,
+              state.schema.text("$$"),
+            );
             view.dispatch(caretAt(tr, nodeStart + 2));
             return true;
           }
@@ -111,8 +127,15 @@ export const mathAutopairPlugin = $prose(
           const close = findRunClose(textBefore, textAfter, DOLLAR, 1);
           if (close) {
             const value = textAfter.slice(0, close.valueLen);
-            const node = state.schema.nodes.math_inline.create({}, state.schema.text(value));
-            const tr = state.tr.replaceWith(from, to + close.valueLen + 1, node);
+            const node = state.schema.nodes.math_inline.create(
+              {},
+              state.schema.text(value),
+            );
+            const tr = state.tr.replaceWith(
+              from,
+              to + close.valueLen + 1,
+              node,
+            );
             view.dispatch(caretAt(tr, from + 1));
             return true;
           }
@@ -142,7 +165,11 @@ export const mathAutopairPlugin = $prose(
           // handleTextInput above), a single empty shell the caret got
           // normalized out of (WKWebView), or two empty shells left by the
           // pre-fix version of that normalization bug.
-          if (parent.type.name === "paragraph" && $from.parentOffset === parent.content.size && isMathFenceLine(parent)) {
+          if (
+            parent.type.name === "paragraph" &&
+            $from.parentOffset === parent.content.size &&
+            isMathFenceLine(parent)
+          ) {
             const paragraphPos = $from.before($from.depth);
             const tr = state.tr
               .delete(paragraphPos + 1, paragraphPos + 1 + parent.content.size)

@@ -73,10 +73,20 @@ const excludedCommonmarkPieces = [
   htmlAttr,
 ].flat();
 
-const excludedGfmPieces = [strikethroughSchema, strikethroughAttr, strikethroughInputRule, strikethroughKeymap, toggleStrikethroughCommand].flat();
+const excludedGfmPieces = [
+  strikethroughSchema,
+  strikethroughAttr,
+  strikethroughInputRule,
+  strikethroughKeymap,
+  toggleStrikethroughCommand,
+].flat();
 
 const excludedCommonmarkSet = new Set<unknown>(excludedCommonmarkPieces);
 const excludedGfmSet = new Set<unknown>(excludedGfmPieces);
 
-export const commonmarkWithoutMarks = (commonmark as unknown[]).filter((piece) => !excludedCommonmarkSet.has(piece)) as typeof commonmark;
-export const gfmWithoutStrikethrough = (gfm as unknown[]).filter((piece) => !excludedGfmSet.has(piece)) as typeof gfm;
+export const commonmarkWithoutMarks = (commonmark as unknown[]).filter(
+  (piece) => !excludedCommonmarkSet.has(piece),
+) as typeof commonmark;
+export const gfmWithoutStrikethrough = (gfm as unknown[]).filter(
+  (piece) => !excludedGfmSet.has(piece),
+) as typeof gfm;

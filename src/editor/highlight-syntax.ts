@@ -7,9 +7,23 @@
 import { splice } from "micromark-util-chunked";
 import { classifyCharacter } from "micromark-util-classify-character";
 import { resolveAll } from "micromark-util-resolve-all";
-import type { Event, Extension, State, Token, TokenizeContext, Tokenizer } from "micromark-util-types";
-import type { Extension as FromMarkdownExtension, Handle as FromMarkdownHandle } from "mdast-util-from-markdown";
-import type { ConstructName, Handle as ToMarkdownHandle, Options as ToMarkdownExtension } from "mdast-util-to-markdown";
+import type {
+  Event,
+  Extension,
+  State,
+  Token,
+  TokenizeContext,
+  Tokenizer,
+} from "micromark-util-types";
+import type {
+  Extension as FromMarkdownExtension,
+  Handle as FromMarkdownHandle,
+} from "mdast-util-from-markdown";
+import type {
+  ConstructName,
+  Handle as ToMarkdownHandle,
+  Options as ToMarkdownExtension,
+} from "mdast-util-to-markdown";
 import type { Parent, PhrasingContent } from "mdast";
 
 declare module "micromark-util-types" {
@@ -84,17 +98,25 @@ export function highlightSyntax(): Extension {
     attentionMarkers: { null: [EQUALS] },
   };
 
-  function resolveAllHighlight(events: Event[], context: TokenizeContext): Event[] {
+  function resolveAllHighlight(
+    events: Event[],
+    context: TokenizeContext,
+  ): Event[] {
     let index = -1;
     while (++index < events.length) {
-      if (events[index][0] === "enter" && events[index][1].type === "highlightSequenceTemporary" && events[index][1]._close) {
+      if (
+        events[index][0] === "enter" &&
+        events[index][1].type === "highlightSequenceTemporary" &&
+        events[index][1]._close
+      ) {
         let open = index;
         while (open--) {
           if (
             events[open][0] === "exit" &&
             events[open][1].type === "highlightSequenceTemporary" &&
             events[open][1]._open &&
-            events[index][1].end.offset - events[index][1].start.offset === events[open][1].end.offset - events[open][1].start.offset
+            events[index][1].end.offset - events[index][1].start.offset ===
+              events[open][1].end.offset - events[open][1].start.offset
           ) {
             events[index][1].type = "highlightSequence";
             events[open][1].type = "highlightSequence";
@@ -118,7 +140,12 @@ export function highlightSyntax(): Extension {
             ];
             const insideSpan = context.parser.constructs.insideSpan.null;
             if (insideSpan) {
-              splice(nextEvents, nextEvents.length, 0, resolveAll(insideSpan, events.slice(open + 1, index), context));
+              splice(
+                nextEvents,
+                nextEvents.length,
+                0,
+                resolveAll(insideSpan, events.slice(open + 1, index), context),
+              );
             }
             splice(nextEvents, nextEvents.length, 0, [
               ["exit", text, context],
@@ -142,14 +169,22 @@ export function highlightSyntax(): Extension {
     return events;
   }
 
-  function tokenizeHighlight(this: TokenizeContext, effects: any, ok: State, nok: State): ReturnType<Tokenizer> {
+  function tokenizeHighlight(
+    this: TokenizeContext,
+    effects: any,
+    ok: State,
+    nok: State,
+  ): ReturnType<Tokenizer> {
     const previous = this.previous;
     const events = this.events;
     let size = 0;
     return start;
 
     function start(code: number | null) {
-      if (previous === EQUALS && events[events.length - 1][1].type !== "characterEscape") {
+      if (
+        previous === EQUALS &&
+        events[events.length - 1][1].type !== "characterEscape"
+      ) {
         return nok(code);
       }
       effects.enter("highlightSequenceTemporary");
@@ -174,8 +209,14 @@ export function highlightSyntax(): Extension {
       // delimiter touching one may open/close as long as it doesn't face
       // whitespace.
       const cjkAdjacent = isCjkCode(previous) || isCjkCode(code);
-      token._open = !after || (after === 2 && Boolean(before)) || (cjkAdjacent && after !== 1);
-      token._close = !before || (before === 2 && Boolean(after)) || (cjkAdjacent && before !== 1);
+      token._open =
+        !after ||
+        (after === 2 && Boolean(before)) ||
+        (cjkAdjacent && after !== 1);
+      token._close =
+        !before ||
+        (before === 2 && Boolean(after)) ||
+        (cjkAdjacent && before !== 1);
       return ok(code);
     }
   }
@@ -199,7 +240,13 @@ const exitHighlight: FromMarkdownHandle = function (token) {
 
 export function highlightToMarkdown(): ToMarkdownExtension {
   return {
-    unsafe: [{ character: "=", inConstruct: "phrasing", notInConstruct: CONSTRUCTS_WITHOUT_HIGHLIGHT }],
+    unsafe: [
+      {
+        character: "=",
+        inConstruct: "phrasing",
+        notInConstruct: CONSTRUCTS_WITHOUT_HIGHLIGHT,
+      },
+    ],
     handlers: { mark: handleMark },
   };
 }
@@ -210,7 +257,11 @@ const handleMark: HandleWithPeek = function (node, _parent, state, info) {
   const tracker = state.createTracker(info);
   const exit = state.enter("highlight");
   let value = tracker.move("==");
-  value += state.containerPhrasing(node as Mark, { ...tracker.current(), before: value, after: "=" });
+  value += state.containerPhrasing(node as Mark, {
+    ...tracker.current(),
+    before: value,
+    after: "=",
+  });
   value += tracker.move("==");
   exit();
   return value;

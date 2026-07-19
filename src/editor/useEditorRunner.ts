@@ -15,7 +15,8 @@ export type EditorRunner = <T>(fn: (ctx: Ctx) => T) => T | undefined;
 export function useEditorRunner(): EditorRunner {
   const [loading, getEditor] = useInstance();
   return useCallback(
-    <T,>(fn: (ctx: Ctx) => T): T | undefined => (loading ? undefined : getEditor().action(fn)),
+    <T>(fn: (ctx: Ctx) => T): T | undefined =>
+      loading ? undefined : getEditor().action(fn),
     [loading, getEditor],
   );
 }

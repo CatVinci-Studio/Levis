@@ -10,7 +10,10 @@ const mathPreviewKey = new PluginKey("math-preview");
 
 function renderKatex(value: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(value || "\\,", { throwOnError: false, displayMode });
+    return katex.renderToString(value || "\\,", {
+      throwOnError: false,
+      displayMode,
+    });
   } catch {
     return value;
   }
@@ -22,7 +25,8 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
   const decorations: Decoration[] = [];
 
   state.doc.descendants((node, pos) => {
-    if (node.type.name !== "math_inline" && node.type.name !== "math_block") return;
+    if (node.type.name !== "math_inline" && node.type.name !== "math_block")
+      return;
 
     const from = pos;
     const to = pos + node.nodeSize;
@@ -35,19 +39,25 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
     const displayMode = node.type.name === "math_block";
     const html = renderKatex(node.textContent, displayMode);
 
-    decorations.push(Decoration.inline(from + 1, to - 1, { class: "math-source-hidden" }));
+    decorations.push(
+      Decoration.inline(from + 1, to - 1, { class: "math-source-hidden" }),
+    );
     decorations.push(
       Decoration.widget(
         to,
         (view: EditorView, getPos: () => number | undefined) => {
           const el = document.createElement(displayMode ? "div" : "span");
-          el.className = displayMode ? "math-block-rendered" : "math-inline-rendered";
+          el.className = displayMode
+            ? "math-block-rendered"
+            : "math-inline-rendered";
           el.innerHTML = html;
           el.addEventListener("mousedown", (event) => {
             event.preventDefault();
             const widgetPos = getPos();
             if (typeof widgetPos !== "number") return;
-            const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, widgetPos - 1));
+            const tr = view.state.tr.setSelection(
+              TextSelection.create(view.state.doc, widgetPos - 1),
+            );
             view.dispatch(tr);
             view.focus();
           });
@@ -61,14 +71,19 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
   return DecorationSet.create(state.doc, decorations);
 }
 
-function findMathNodeAtSelection(
-  state: EditorState,
-): { node: { type: { name: string }; textContent: string }; from: number } | null {
+function findMathNodeAtSelection(state: EditorState): {
+  node: { type: { name: string }; textContent: string };
+  from: number;
+} | null {
   const { selection } = state;
-  let found: { node: { type: { name: string }; textContent: string }; from: number } | null = null;
+  let found: {
+    node: { type: { name: string }; textContent: string };
+    from: number;
+  } | null = null;
   state.doc.descendants((node, pos) => {
     if (found) return false;
-    if (node.type.name !== "math_inline" && node.type.name !== "math_block") return;
+    if (node.type.name !== "math_inline" && node.type.name !== "math_block")
+      return;
     // Content bounds, not the node's outer bounds - the floating preview
     // should only follow while actually editing the source, not while
     // merely adjacent to it.
@@ -153,7 +168,10 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             }
 
             const displayMode = found.node.type.name === "math_block";
-            floatEl.innerHTML = renderKatex(found.node.textContent, displayMode);
+            floatEl.innerHTML = renderKatex(
+              found.node.textContent,
+              displayMode,
+            );
             floatEl.style.display = "block";
 
             // Anchored below the cursor's current line (not the node's

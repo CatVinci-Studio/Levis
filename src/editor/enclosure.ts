@@ -2,7 +2,11 @@ import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { Fragment } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
-import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
+import type {
+  EditorState,
+  Selection,
+  Transaction,
+} from "@milkdown/kit/prose/state";
 import type { Node as ProseNode, ResolvedPos } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { spanDelimText } from "./md-span-schema";
@@ -64,7 +68,12 @@ import { spanDelimText } from "./md-span-schema";
 
 const enclosureKey = new PluginKey("enclosure");
 
-const ENCLOSURE_NODES = new Set(["md_span", "md_code_span", "math_inline", "math_block"]);
+const ENCLOSURE_NODES = new Set([
+  "md_span",
+  "md_code_span",
+  "math_inline",
+  "math_block",
+]);
 
 export function isEnclosureName(name: string): boolean {
   return ENCLOSURE_NODES.has(name);
@@ -89,7 +98,11 @@ export function enclosureDelimText(node: ProseNode): string {
  * decorations here and math-preview's "render KaTeX instead" check must use
  * this same predicate or the two representations would overlap.
  */
-export function cursorTouches(selection: Selection, from: number, to: number): boolean {
+export function cursorTouches(
+  selection: Selection,
+  from: number,
+  to: number,
+): boolean {
   return selection.from <= to && selection.to >= from;
 }
 
@@ -101,7 +114,10 @@ export function cursorTouches(selection: Selection, from: number, to: number): b
  * apart as soon as the paragraph contains any enclosure node - and pairing
  * across an existing node would be wrong anyway.
  */
-export function literalTextBefore($pos: ResolvedPos): { text: string; from: number } {
+export function literalTextBefore($pos: ResolvedPos): {
+  text: string;
+  from: number;
+} {
   const parent = $pos.parent;
   let offset = $pos.parentOffset;
   let text = "";
@@ -148,7 +164,11 @@ function isValidRunValue(value: string, char: string): boolean {
  * delimiter, a paste, or an abandoned edit - re-form into a real node when
  * its closing delimiter is (re)typed.
  */
-export function findRunOpen(textBefore: string, char: string, rung: number): { openIdx: number; value: string } | null {
+export function findRunOpen(
+  textBefore: string,
+  char: string,
+  rung: number,
+): { openIdx: number; value: string } | null {
   const closerStart = textBefore.length - (rung - 1);
   if (closerStart < 0) return null;
   if (textBefore.slice(closerStart) !== char.repeat(rung - 1)) return null;
@@ -174,7 +194,12 @@ export function findRunOpen(textBefore: string, char: string, rung: number): { o
  * italic immediately, even if the user meant to keep going to bold - an
  * inherently ambiguous input either way.
  */
-export function findRunClose(textBefore: string, textAfter: string, char: string, rung: number): { valueLen: number } | null {
+export function findRunClose(
+  textBefore: string,
+  textAfter: string,
+  char: string,
+  rung: number,
+): { valueLen: number } | null {
   const openStart = textBefore.length - (rung - 1);
   if (openStart < 0) return null;
   if (textBefore.slice(openStart) !== char.repeat(rung - 1)) return null;
@@ -194,9 +219,18 @@ export function findRunClose(textBefore: string, textAfter: string, char: string
  * run one keystroke at a time) instead of opening a fresh unrelated shell,
  * or the multi-character closer could never be typed at all.
  */
-export function hasPendingRunOpen(textBefore: string, char: string, minRung: number, maxRung: number): boolean {
+export function hasPendingRunOpen(
+  textBefore: string,
+  char: string,
+  minRung: number,
+  maxRung: number,
+): boolean {
   let trailing = 0;
-  while (trailing < textBefore.length && textBefore[textBefore.length - 1 - trailing] === char) trailing++;
+  while (
+    trailing < textBefore.length &&
+    textBefore[textBefore.length - 1 - trailing] === char
+  )
+    trailing++;
   for (let rung = Math.max(minRung, 2); rung <= maxRung; rung++) {
     if (trailing >= rung - 1) continue; // this keystroke already completes that rung (findRunOpen's case)
     const body = textBefore.slice(0, textBefore.length - trailing);
@@ -221,7 +255,12 @@ export function hasPendingRunOpen(textBefore: string, char: string, minRung: num
  * a delimiter character still gets its normal autopair treatment there).
  * Every autopair plugin calls this first from its handleTextInput.
  */
-export function redirectMisattributedInput(view: EditorView, from: number, to: number, text: string): boolean {
+export function redirectMisattributedInput(
+  view: EditorView,
+  from: number,
+  to: number,
+  text: string,
+): boolean {
   // During IME composition the intermediate text (e.g. pinyin) lives in the
   // DOM ahead of the editor state, so from/selection routinely disagree for
   // reasons that have nothing to do with WKWebView misattribution - and
@@ -238,7 +277,9 @@ export function redirectMisattributedInput(view: EditorView, from: number, to: n
   const nodeEnd = $typed.after($typed.depth);
   if (sel.from > nodeStart && sel.from < nodeEnd) return false; // genuinely typing inside
   const deflt = () => state.tr.insertText(text, sel.from, sel.to);
-  const handled = view.someProp("handleTextInput", (f) => f(view, sel.from, sel.to, text, deflt));
+  const handled = view.someProp("handleTextInput", (f) =>
+    f(view, sel.from, sel.to, text, deflt),
+  );
   if (!handled) view.dispatch(deflt());
   return true;
 }
@@ -300,14 +341,26 @@ function buildDecorations(state: EditorState): DecorationSet {
     // has somewhere to sit even while the block is empty.
     const delim = enclosureDelimText(node);
     if (node.isBlock) {
-      decorations.push(Decoration.node(from, to, { class: "math-block-revealed" }));
+      decorations.push(
+        Decoration.node(from, to, { class: "math-block-revealed" }),
+      );
     } else {
       // side: 1 on the opener / side: -1 on the closer keeps the caret at
       // the node's outer boundary visually OUTSIDE the delimiters (the
       // "adjacent" phase in the diagram above), and makes text typed there
       // land outside the enclosure too.
-      decorations.push(Decoration.widget(from, () => makeDelimiterEl(delim), { side: 1, key: `enc-open:${delim}` }));
-      decorations.push(Decoration.widget(to, () => makeDelimiterEl(delim), { side: -1, key: `enc-close:${delim}` }));
+      decorations.push(
+        Decoration.widget(from, () => makeDelimiterEl(delim), {
+          side: 1,
+          key: `enc-open:${delim}`,
+        }),
+      );
+      decorations.push(
+        Decoration.widget(to, () => makeDelimiterEl(delim), {
+          side: -1,
+          key: `enc-close:${delim}`,
+        }),
+      );
     }
   });
 
@@ -345,7 +398,11 @@ export function computeArrowRight(state: EditorState): ArrowMove | null {
   const pos = sel.from;
   const parent = $pos.parent;
 
-  if (isEnclosureName(parent.type.name) && parent.content.size > 0 && $pos.parentOffset === parent.content.size) {
+  if (
+    isEnclosureName(parent.type.name) &&
+    parent.content.size > 0 &&
+    $pos.parentOffset === parent.content.size
+  ) {
     return { pos: $pos.after($pos.depth) };
   }
 
@@ -383,7 +440,11 @@ export function computeArrowLeft(state: EditorState): ArrowMove | null {
   const pos = sel.from;
   const parent = $pos.parent;
 
-  if (isEnclosureName(parent.type.name) && parent.content.size > 0 && $pos.parentOffset === 0) {
+  if (
+    isEnclosureName(parent.type.name) &&
+    parent.content.size > 0 &&
+    $pos.parentOffset === 0
+  ) {
     return { pos: $pos.before($pos.depth) };
   }
 
@@ -411,7 +472,12 @@ export function computeArrowLeft(state: EditorState): ArrowMove | null {
 
 export type DeleteAction =
   | { kind: "deleteShell"; start: number; node: ProseNode }
-  | { kind: "deleteDelimiter"; start: number; node: ProseNode; drop: "opening" | "closing" };
+  | {
+      kind: "deleteDelimiter";
+      start: number;
+      node: ProseNode;
+      drop: "opening" | "closing";
+    };
 
 /**
  * Backspace deletes whichever delimiter is immediately to its left: the
@@ -430,7 +496,8 @@ export function computeBackspace(state: EditorState): DeleteAction | null {
 
   if (isEnclosureName(parent.type.name)) {
     const start = $pos.before($pos.depth);
-    if (parent.content.size === 0) return { kind: "deleteShell", start, node: parent };
+    if (parent.content.size === 0)
+      return { kind: "deleteShell", start, node: parent };
     if ($pos.parentOffset === 0 && parent.type.name !== "math_block") {
       return { kind: "deleteDelimiter", start, node: parent, drop: "opening" };
     }
@@ -440,7 +507,8 @@ export function computeBackspace(state: EditorState): DeleteAction | null {
   const prev = $pos.nodeBefore;
   if (prev && isEnclosure(prev) && !prev.isBlock) {
     const start = pos - prev.nodeSize;
-    if (prev.content.size === 0) return { kind: "deleteShell", start, node: prev };
+    if (prev.content.size === 0)
+      return { kind: "deleteShell", start, node: prev };
     return { kind: "deleteDelimiter", start, node: prev, drop: "closing" };
   }
   return null;
@@ -456,8 +524,12 @@ export function computeDelete(state: EditorState): DeleteAction | null {
 
   if (isEnclosureName(parent.type.name)) {
     const start = $pos.before($pos.depth);
-    if (parent.content.size === 0) return { kind: "deleteShell", start, node: parent };
-    if ($pos.parentOffset === parent.content.size && parent.type.name !== "math_block") {
+    if (parent.content.size === 0)
+      return { kind: "deleteShell", start, node: parent };
+    if (
+      $pos.parentOffset === parent.content.size &&
+      parent.type.name !== "math_block"
+    ) {
       return { kind: "deleteDelimiter", start, node: parent, drop: "closing" };
     }
     return null;
@@ -465,7 +537,8 @@ export function computeDelete(state: EditorState): DeleteAction | null {
 
   const next = $pos.nodeAfter;
   if (next && isEnclosure(next) && !next.isBlock) {
-    if (next.content.size === 0) return { kind: "deleteShell", start: pos, node: next };
+    if (next.content.size === 0)
+      return { kind: "deleteShell", start: pos, node: next };
     return { kind: "deleteDelimiter", start: pos, node: next, drop: "opening" };
   }
   return null;
@@ -486,7 +559,9 @@ export function computeDelete(state: EditorState): DeleteAction | null {
  * delimiters are synthesized decorations with no real character of their
  * own to anchor a selection endpoint just inside them).
  */
-export function computeRangeDeleteInEnclosure(state: EditorState): { node: ProseNode; nodeStart: number } | null {
+export function computeRangeDeleteInEnclosure(
+  state: EditorState,
+): { node: ProseNode; nodeStart: number } | null {
   const sel = state.selection;
   if (sel.empty) return null;
   const { from, to } = sel;
@@ -505,7 +580,12 @@ export function computeRangeDeleteInEnclosure(state: EditorState): { node: Prose
   }
 
   const node = state.doc.nodeAt(from);
-  if (node && isEnclosure(node) && node.content.size > 0 && to === from + node.nodeSize) {
+  if (
+    node &&
+    isEnclosure(node) &&
+    node.content.size > 0 &&
+    to === from + node.nodeSize
+  ) {
     return { node, nodeStart: from };
   }
 
@@ -514,15 +594,24 @@ export function computeRangeDeleteInEnclosure(state: EditorState): { node: Prose
 
 /** Apply computeRangeDeleteInEnclosure's result: strip the node's content,
  *  leave the (now empty) node in place, caret inside it. */
-function emptyEnclosureContent(view: EditorView, node: ProseNode, nodeStart: number): void {
+function emptyEnclosureContent(
+  view: EditorView,
+  node: ProseNode,
+  nodeStart: number,
+): void {
   const contentStart = nodeStart + 1;
-  const tr = view.state.tr.delete(contentStart, contentStart + node.content.size);
+  const tr = view.state.tr.delete(
+    contentStart,
+    contentStart + node.content.size,
+  );
   tr.setSelection(TextSelection.create(tr.doc, contentStart));
   view.dispatch(tr);
 }
 
 function setCaret(view: EditorView, pos: number): void {
-  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)),
+  );
 }
 
 /**
@@ -560,16 +649,25 @@ export function stateWithLiveSelection(view: EditorView): EditorState {
   const { state } = view;
   if (!state.selection.empty) return state;
   // ShadowRoot.getSelection is nonstandard (Blink-only), hence the guard.
-  const root = view.root as { getSelection?: () => globalThis.Selection | null };
+  const root = view.root as {
+    getSelection?: () => globalThis.Selection | null;
+  };
   const domSel = root.getSelection ? root.getSelection() : null;
-  if (!domSel || domSel.rangeCount === 0 || !domSel.isCollapsed || !domSel.anchorNode) return state;
+  if (
+    !domSel ||
+    domSel.rangeCount === 0 ||
+    !domSel.isCollapsed ||
+    !domSel.anchorNode
+  )
+    return state;
   let pos: number;
   try {
     pos = view.posAtDOM(domSel.anchorNode, domSel.anchorOffset);
   } catch {
     return state;
   }
-  if (pos < 0 || pos > state.doc.content.size || pos === state.selection.from) return state;
+  if (pos < 0 || pos > state.doc.content.size || pos === state.selection.from)
+    return state;
   const $pos = state.doc.resolve(pos);
   return state.apply(state.tr.setSelection(TextSelection.between($pos, $pos)));
 }
@@ -588,18 +686,31 @@ function deleteShell(view: EditorView, start: number, node: ProseNode): void {
  * nodes in the content survive as nodes. Retyping the deleted delimiter
  * re-forms the enclosure via the autopair plugins' findRunOpen path.
  */
-function deleteDelimiter(view: EditorView, start: number, node: ProseNode, drop: "opening" | "closing"): void {
+function deleteDelimiter(
+  view: EditorView,
+  start: number,
+  node: ProseNode,
+  drop: "opening" | "closing",
+): void {
   const { state } = view;
   const delimText = state.schema.text(enclosureDelimText(node));
   const frag =
-    drop === "closing" ? Fragment.from(delimText).append(node.content) : node.content.append(Fragment.from(delimText));
+    drop === "closing"
+      ? Fragment.from(delimText).append(node.content)
+      : node.content.append(Fragment.from(delimText));
   const tr = state.tr.replaceWith(start, start + node.nodeSize, frag);
-  tr.setSelection(TextSelection.create(tr.doc, drop === "closing" ? start + frag.size : start));
+  tr.setSelection(
+    TextSelection.create(
+      tr.doc,
+      drop === "closing" ? start + frag.size : start,
+    ),
+  );
   view.dispatch(tr);
 }
 
 function applyDeleteAction(view: EditorView, action: DeleteAction): void {
-  if (action.kind === "deleteShell") deleteShell(view, action.start, action.node);
+  if (action.kind === "deleteShell")
+    deleteShell(view, action.start, action.node);
   else deleteDelimiter(view, action.start, action.node, action.drop);
 }
 
@@ -629,11 +740,19 @@ function snapshotAdjacentEnclosures(state: EditorState): CompositionAnchor[] {
   const anchors: CompositionAnchor[] = [];
   const before = $pos.nodeBefore;
   if (before && isEnclosure(before) && !before.isBlock) {
-    anchors.push({ side: "after", nodeStart: sel.from - before.nodeSize, contentSize: before.content.size });
+    anchors.push({
+      side: "after",
+      nodeStart: sel.from - before.nodeSize,
+      contentSize: before.content.size,
+    });
   }
   const after = $pos.nodeAfter;
   if (after && isEnclosure(after) && !after.isBlock) {
-    anchors.push({ side: "before", nodeStart: sel.from, contentSize: after.content.size });
+    anchors.push({
+      side: "before",
+      nodeStart: sel.from,
+      contentSize: after.content.size,
+    });
   }
   return anchors;
 }
@@ -650,7 +769,10 @@ function snapshotAdjacentEnclosures(state: EditorState): CompositionAnchor[] {
  * only the DOM selection is composition-safe: nothing is dispatched and no
  * DOM is redrawn.
  */
-function pinDomCaretForComposition(view: EditorView, anchors: CompositionAnchor[]): void {
+function pinDomCaretForComposition(
+  view: EditorView,
+  anchors: CompositionAnchor[],
+): void {
   if (anchors.length !== 1) return; // caret between two enclosures - no text node to anchor into
   const bias = anchors[0].side === "after" ? 1 : -1; // lean away from the enclosure
   const sel = view.state.selection;
@@ -661,7 +783,9 @@ function pinDomCaretForComposition(view: EditorView, anchors: CompositionAnchor[
     return;
   }
   if (domPos.node.nodeType !== Node.TEXT_NODE) return; // only a real text position is unambiguous
-  const root = view.root as { getSelection?: () => globalThis.Selection | null };
+  const root = view.root as {
+    getSelection?: () => globalThis.Selection | null;
+  };
   const domSel = root.getSelection ? root.getSelection() : null;
   if (!domSel) return;
   try {
@@ -671,7 +795,10 @@ function pinDomCaretForComposition(view: EditorView, anchors: CompositionAnchor[
   }
 }
 
-function relocateComposedText(view: EditorView, anchors: CompositionAnchor[]): void {
+function relocateComposedText(
+  view: EditorView,
+  anchors: CompositionAnchor[],
+): void {
   const { state } = view;
   const sel = state.selection;
   if (!sel.empty) return;
@@ -716,94 +843,101 @@ function relocateComposedText(view: EditorView, anchors: CompositionAnchor[]): v
 export const enclosurePlugin = $prose(() => {
   let compositionAnchors: CompositionAnchor[] = [];
   return new Plugin<DecorationSet>({
-      key: enclosureKey,
-      state: {
-        init: (_config, state) => buildDecorations(state),
-        apply(tr, prev, _oldState, newState) {
-          if (!tr.docChanged && !tr.selectionSet) return prev;
-          return buildDecorations(newState);
-        },
+    key: enclosureKey,
+    state: {
+      init: (_config, state) => buildDecorations(state),
+      apply(tr, prev, _oldState, newState) {
+        if (!tr.docChanged && !tr.selectionSet) return prev;
+        return buildDecorations(newState);
       },
-      view(editorView) {
-        // Dev-only escape hatch: WKWebView/caret bugs in this feature keep
-        // needing to be poked at from a console, and the EditorView isn't
-        // reachable from the DOM otherwise.
-        if (import.meta.env.DEV) (window as unknown as { __pmView?: EditorView }).__pmView = editorView;
-        return {};
+    },
+    view(editorView) {
+      // Dev-only escape hatch: WKWebView/caret bugs in this feature keep
+      // needing to be poked at from a console, and the EditorView isn't
+      // reachable from the DOM otherwise.
+      if (import.meta.env.DEV)
+        (window as unknown as { __pmView?: EditorView }).__pmView = editorView;
+      return {};
+    },
+    props: {
+      decorations(state) {
+        return enclosureKey.getState(state);
       },
-      props: {
-        decorations(state) {
-          return enclosureKey.getState(state);
+      handleDOMEvents: {
+        compositionstart(view) {
+          compositionAnchors = snapshotAdjacentEnclosures(view.state);
+          if (compositionAnchors.length > 0)
+            pinDomCaretForComposition(view, compositionAnchors);
+          return false;
         },
-        handleDOMEvents: {
-          compositionstart(view) {
-            compositionAnchors = snapshotAdjacentEnclosures(view.state);
-            if (compositionAnchors.length > 0) pinDomCaretForComposition(view, compositionAnchors);
-            return false;
-          },
-          compositionend(view) {
-            const anchors = compositionAnchors;
-            compositionAnchors = [];
-            if (anchors.length === 0) return false;
-            // prosemirror-view flushes the final composition change slightly
-            // after this event (scheduleComposeEnd ~20ms); relocate only once
-            // the committed text is actually in the state.
-            setTimeout(() => relocateComposedText(view, anchors), 30);
-            return false;
-          },
-        },
-        handleKeyDown(view, event) {
-          if (isImeKeyEvent(view, event)) return false;
-          // Modified keys are line/word-level commands (Cmd+Backspace =
-          // delete to line start, Alt+Arrow = word hop, Shift+Arrow =
-          // extend selection) - never reinterpret those as the single
-          // caret-phase steps below.
-          if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return false;
-          const state = stateWithLiveSelection(view);
-
-          if (event.key === "ArrowRight") {
-            const move = computeArrowRight(state);
-            if (!move) return false;
-            event.preventDefault();
-            setCaret(view, move.pos);
-            return true;
-          }
-
-          if (event.key === "ArrowLeft") {
-            const move = computeArrowLeft(state);
-            if (!move) return false;
-            event.preventDefault();
-            setCaret(view, move.pos);
-            return true;
-          }
-
-          if (event.key === "Backspace" || event.key === "Delete") {
-            const rangeAction = computeRangeDeleteInEnclosure(state);
-            if (rangeAction) {
-              event.preventDefault();
-              emptyEnclosureContent(view, rangeAction.node, rangeAction.nodeStart);
-              return true;
-            }
-          }
-
-          if (event.key === "Backspace") {
-            const action = computeBackspace(state);
-            if (!action) return false;
-            event.preventDefault();
-            applyDeleteAction(view, action);
-            return true;
-          }
-
-          if (event.key === "Delete") {
-            const action = computeDelete(state);
-            if (!action) return false;
-            event.preventDefault();
-            applyDeleteAction(view, action);
-            return true;
-          }
-
+        compositionend(view) {
+          const anchors = compositionAnchors;
+          compositionAnchors = [];
+          if (anchors.length === 0) return false;
+          // prosemirror-view flushes the final composition change slightly
+          // after this event (scheduleComposeEnd ~20ms); relocate only once
+          // the committed text is actually in the state.
+          setTimeout(() => relocateComposedText(view, anchors), 30);
           return false;
         },
       },
-    });
+      handleKeyDown(view, event) {
+        if (isImeKeyEvent(view, event)) return false;
+        // Modified keys are line/word-level commands (Cmd+Backspace =
+        // delete to line start, Alt+Arrow = word hop, Shift+Arrow =
+        // extend selection) - never reinterpret those as the single
+        // caret-phase steps below.
+        if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey)
+          return false;
+        const state = stateWithLiveSelection(view);
+
+        if (event.key === "ArrowRight") {
+          const move = computeArrowRight(state);
+          if (!move) return false;
+          event.preventDefault();
+          setCaret(view, move.pos);
+          return true;
+        }
+
+        if (event.key === "ArrowLeft") {
+          const move = computeArrowLeft(state);
+          if (!move) return false;
+          event.preventDefault();
+          setCaret(view, move.pos);
+          return true;
+        }
+
+        if (event.key === "Backspace" || event.key === "Delete") {
+          const rangeAction = computeRangeDeleteInEnclosure(state);
+          if (rangeAction) {
+            event.preventDefault();
+            emptyEnclosureContent(
+              view,
+              rangeAction.node,
+              rangeAction.nodeStart,
+            );
+            return true;
+          }
+        }
+
+        if (event.key === "Backspace") {
+          const action = computeBackspace(state);
+          if (!action) return false;
+          event.preventDefault();
+          applyDeleteAction(view, action);
+          return true;
+        }
+
+        if (event.key === "Delete") {
+          const action = computeDelete(state);
+          if (!action) return false;
+          event.preventDefault();
+          applyDeleteAction(view, action);
+          return true;
+        }
+
+        return false;
+      },
+    },
+  });
 });

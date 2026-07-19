@@ -17,7 +17,11 @@ export function createTypewriterPlugin(options: { enabled: () => boolean }) {
             update(view, prevState) {
               if (!options.enabled()) return;
               if (view.composing) return;
-              if (view.state.doc.eq(prevState.doc) && view.state.selection.eq(prevState.selection)) return;
+              if (
+                view.state.doc.eq(prevState.doc) &&
+                view.state.selection.eq(prevState.selection)
+              )
+                return;
 
               const scrollContainer = view.dom.closest(".editor-scroll");
               if (!scrollContainer) return;

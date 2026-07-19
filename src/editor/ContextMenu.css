@@ -4,7 +4,8 @@
   max-height: min(70vh, 480px);
   overflow-y: auto;
   padding: 4px;
-  z-index: 200;
+  /* The Agent lesson intentionally teaches this real entry point. */
+  z-index: 250;
   font-size: 13px;
 }
 

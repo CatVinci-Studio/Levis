@@ -38,9 +38,17 @@ function escapeRegExp(literal: string): string {
  * here so their semantics can never drift apart. Null when a regex-mode
  * query doesn't compile.
  */
-export function compileQuery(query: string, caseSensitive: boolean, useRegex: boolean, global = true): RegExp | null {
+export function compileQuery(
+  query: string,
+  caseSensitive: boolean,
+  useRegex: boolean,
+  global = true,
+): RegExp | null {
   try {
-    return new RegExp(useRegex ? query : escapeRegExp(query), `${caseSensitive ? "" : "i"}${global ? "g" : ""}`);
+    return new RegExp(
+      useRegex ? query : escapeRegExp(query),
+      `${caseSensitive ? "" : "i"}${global ? "g" : ""}`,
+    );
   } catch {
     return null;
   }
@@ -57,7 +65,10 @@ export function compileQuery(query: string, caseSensitive: boolean, useRegex: bo
  * single offset per walk, this one builds the whole map up front because a
  * search hits many offsets per block.
  */
-function textblockCharMap(node: ProseNode, contentStart: number): { text: string; posMap: number[] } {
+function textblockCharMap(
+  node: ProseNode,
+  contentStart: number,
+): { text: string; posMap: number[] } {
   let text = "";
   const posMap: number[] = [];
   node.descendants((child, offset) => {
@@ -101,7 +112,11 @@ function computeMatches(
   return { matches, error: false };
 }
 
-function buildDecorations(doc: ProseNode, matches: FindReplaceMatch[], activeIndex: number): DecorationSet {
+function buildDecorations(
+  doc: ProseNode,
+  matches: FindReplaceMatch[],
+  activeIndex: number,
+): DecorationSet {
   const decorations = matches.map((match, i) =>
     Decoration.inline(match.from, match.to, {
       class: i === activeIndex ? "find-match find-match-active" : "find-match",
@@ -133,12 +148,18 @@ export const findReplacePlugin = $prose(
       state: {
         init: () => EMPTY_STATE,
         apply(tr, prev) {
-          const meta = tr.getMeta(findReplaceKey) as FindReplaceMeta | undefined;
+          const meta = tr.getMeta(findReplaceKey) as
+            FindReplaceMeta | undefined;
 
           if (meta?.type === "clear") return EMPTY_STATE;
 
           if (meta?.type === "search") {
-            const { matches, error } = computeMatches(tr.doc, meta.query, meta.caseSensitive, meta.useRegex);
+            const { matches, error } = computeMatches(
+              tr.doc,
+              meta.query,
+              meta.caseSensitive,
+              meta.useRegex,
+            );
             const activeIndex = matches.length ? 0 : -1;
             return {
               query: meta.query,
@@ -152,20 +173,35 @@ export const findReplacePlugin = $prose(
           }
 
           if (meta?.type === "setActive") {
-            return { ...prev, activeIndex: meta.index, decorations: buildDecorations(tr.doc, prev.matches, meta.index) };
+            return {
+              ...prev,
+              activeIndex: meta.index,
+              decorations: buildDecorations(tr.doc, prev.matches, meta.index),
+            };
           }
 
           if (!tr.docChanged || !prev.query) return prev;
 
           // Live re-search: keep results in step with edits (typing, undo, AI
           // proposals) without waiting for the next explicit search command.
-          const { matches, error } = computeMatches(tr.doc, prev.query, prev.caseSensitive, prev.useRegex);
+          const { matches, error } = computeMatches(
+            tr.doc,
+            prev.query,
+            prev.caseSensitive,
+            prev.useRegex,
+          );
           const activeIndex = matches.length
             ? prev.activeIndex < 0
               ? 0
               : Math.min(prev.activeIndex, matches.length - 1)
             : -1;
-          return { ...prev, error, matches, activeIndex, decorations: buildDecorations(tr.doc, matches, activeIndex) };
+          return {
+            ...prev,
+            error,
+            matches,
+            activeIndex,
+            decorations: buildDecorations(tr.doc, matches, activeIndex),
+          };
         },
       },
       props: {

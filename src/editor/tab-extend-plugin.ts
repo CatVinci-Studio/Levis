@@ -1,6 +1,11 @@
 import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
-import { isInTable, selectedRect, addRowAfter, goToNextCell } from "@milkdown/kit/prose/tables";
+import {
+  isInTable,
+  selectedRect,
+  addRowAfter,
+  goToNextCell,
+} from "@milkdown/kit/prose/tables";
 import { isImeKeyEvent } from "./enclosure";
 
 /**
@@ -15,7 +20,12 @@ export const tabExtendPlugin = $prose(
     new Plugin({
       props: {
         handleKeyDown(view, event) {
-          if (event.key !== "Tab" || event.shiftKey || isImeKeyEvent(view, event)) return false;
+          if (
+            event.key !== "Tab" ||
+            event.shiftKey ||
+            isImeKeyEvent(view, event)
+          )
+            return false;
 
           const { state } = view;
           const { $from } = state.selection;
@@ -27,7 +37,8 @@ export const tabExtendPlugin = $prose(
 
           if (isInTable(state)) {
             const rect = selectedRect(state);
-            const atLastCell = rect.bottom === rect.map.height && rect.right === rect.map.width;
+            const atLastCell =
+              rect.bottom === rect.map.height && rect.right === rect.map.width;
             if (!atLastCell) return false;
 
             addRowAfter(view.state, view.dispatch);

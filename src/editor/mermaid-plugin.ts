@@ -1,16 +1,23 @@
-import mermaid from "mermaid";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { cursorTouches } from "./enclosure";
-
-mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+import { isLargeDoc } from "./large-doc";
 
 const mermaidKey = new PluginKey("mermaid-preview");
 const DEBOUNCE_MS = 500;
-let renderSeq = 0;
+type MermaidApi = (typeof import("mermaid"))["default"];
+let mermaidPromise: Promise<MermaidApi> | null = null;
+
+function loadMermaid(): Promise<MermaidApi> {
+  mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
+    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+    return mermaid;
+  });
+  return mermaidPromise;
+}
 
 interface MermaidBlock {
   from: number;
@@ -22,7 +29,11 @@ function collectMermaidBlocks(doc: EditorState["doc"]): MermaidBlock[] {
   const blocks: MermaidBlock[] = [];
   doc.descendants((node, pos) => {
     if (node.type.name === "code_block" && node.attrs.language === "mermaid") {
-      blocks.push({ from: pos, to: pos + node.nodeSize, code: node.textContent });
+      blocks.push({
+        from: pos,
+        to: pos + node.nodeSize,
+        code: node.textContent,
+      });
     }
   });
   return blocks;
@@ -36,9 +47,14 @@ function collectMermaidBlocks(doc: EditorState["doc"]): MermaidBlock[] {
  * moving the cursor back into the block - or clicking the diagram - reveals
  * the source again for editing.
  */
-export function createMermaidPreviewPlugin(options: { enabled: () => boolean }) {
+export function createMermaidPreviewPlugin(options: {
+  enabled: () => boolean;
+}) {
   return $prose(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    // Per editor instance: rendering in one open tab must not cancel a
+    // render already in flight in another tab.
+    let renderSeq = 0;
     // Keyed by the block's exact source text rather than its doc position -
     // an edit anywhere earlier in the document shifts every later block's
     // position on every keystroke, which would otherwise miss this cache
@@ -56,7 +72,9 @@ export function createMermaidPreviewPlugin(options: { enabled: () => boolean }) 
         if (!svg) continue;
         if (cursorTouches(state.selection, from, to)) continue; // editing it - keep source visible
 
-        decorations.push(Decoration.node(from, to, { class: "mermaid-source-hidden" }));
+        decorations.push(
+          Decoration.node(from, to, { class: "mermaid-source-hidden" }),
+        );
         decorations.push(
           Decoration.widget(
             to,
@@ -66,7 +84,9 @@ export function createMermaidPreviewPlugin(options: { enabled: () => boolean }) 
               container.innerHTML = svg;
               container.addEventListener("mousedown", (event) => {
                 event.preventDefault();
-                const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, from + 1));
+                const tr = view.state.tr.setSelection(
+                  TextSelection.create(view.state.doc, from + 1),
+                );
                 view.dispatch(tr);
                 view.focus();
               });
@@ -98,12 +118,27 @@ export function createMermaidPreviewPlugin(options: { enabled: () => boolean }) 
         async function renderAll() {
           if (!options.enabled()) {
             lastRenders = new Map();
-            editorView.dispatch(editorView.state.tr.setMeta(mermaidKey, "rerender"));
+            editorView.dispatch(
+              editorView.state.tr.setMeta(mermaidKey, "rerender"),
+            );
             return;
           }
 
           const mySeq = ++renderSeq;
           const blocks = collectMermaidBlocks(editorView.state.doc);
+          if (blocks.length === 0) {
+            lastRenders = new Map();
+            editorView.dispatch(
+              editorView.state.tr.setMeta(mermaidKey, "rerender"),
+            );
+            return;
+          }
+
+          // Mermaid is by far the editor's largest optional dependency. It
+          // is fetched only after a real diagram block exists, so ordinary
+          // Markdown documents never pay its startup or parse cost.
+          const mermaid = await loadMermaid();
+          if (mySeq !== renderSeq) return;
 
           const rendered = new Map<string, string>();
           for (const { code } of blocks) {
@@ -120,7 +155,9 @@ export function createMermaidPreviewPlugin(options: { enabled: () => boolean }) 
 
           if (mySeq !== renderSeq) return;
           lastRenders = rendered;
-          editorView.dispatch(editorView.state.tr.setMeta(mermaidKey, "rerender"));
+          editorView.dispatch(
+            editorView.state.tr.setMeta(mermaidKey, "rerender"),
+          );
         }
 
         renderAll();
@@ -128,6 +165,10 @@ export function createMermaidPreviewPlugin(options: { enabled: () => boolean }) 
         return {
           update(view, prevState) {
             if (view.state.doc.eq(prevState.doc)) return;
+            // Large-doc mode (4.1): existing diagrams stay pinned (their
+            // cached SVG is keyed by source text, untouched here) - only new
+            // re-render passes, the expensive part, stop scheduling.
+            if (isLargeDoc(view.state.doc)) return;
             if (debounceTimer) clearTimeout(debounceTimer);
             debounceTimer = setTimeout(renderAll, DEBOUNCE_MS);
           },

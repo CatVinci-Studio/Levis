@@ -74,8 +74,13 @@ export const pasteMarkdownSourcePlugin = $prose(
           } catch {
             return false;
           }
-          if (!doc || typeof doc === "string" || doc.content.size === 0) return false;
-          view.dispatch(view.state.tr.replaceSelection(Slice.maxOpen(doc.content)).scrollIntoView());
+          if (!doc || typeof doc === "string" || doc.content.size === 0)
+            return false;
+          view.dispatch(
+            view.state.tr
+              .replaceSelection(Slice.maxOpen(doc.content))
+              .scrollIntoView(),
+          );
           return true;
         },
       },

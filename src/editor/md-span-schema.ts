@@ -1,12 +1,18 @@
 import { $nodeSchema, $remark } from "@milkdown/kit/utils";
 import type { RemarkPluginRaw } from "@milkdown/kit/transformer";
-import { highlightFromMarkdown, highlightSyntax, highlightToMarkdown } from "./highlight-syntax";
+import {
+  highlightFromMarkdown,
+  highlightSyntax,
+  highlightToMarkdown,
+} from "./highlight-syntax";
 
 // Registers "==highlighted==" parsing/serialization with remark, the same
 // way remark-math registers "$...$" (see math-schema.ts) - a unified plugin
 // that pushes a micromark syntax extension plus mdast fromMarkdown/
 // toMarkdown extensions onto the processor's shared `data()` bag.
-const remarkHighlight: RemarkPluginRaw<unknown> = function (this: { data: () => Record<string, unknown[]> }) {
+const remarkHighlight: RemarkPluginRaw<unknown> = function (this: {
+  data: () => Record<string, unknown[]>;
+}) {
   const data = this.data();
   const micromarkExtensions = (data.micromarkExtensions ??= []);
   const fromMarkdownExtensions = (data.fromMarkdownExtensions ??= []);
@@ -16,12 +22,18 @@ const remarkHighlight: RemarkPluginRaw<unknown> = function (this: { data: () => 
   toMarkdownExtensions.push(highlightToMarkdown());
 } as unknown as RemarkPluginRaw<unknown>;
 
-export const remarkHighlightPlugin = $remark("remark-highlight", () => remarkHighlight);
+export const remarkHighlightPlugin = $remark(
+  "remark-highlight",
+  () => remarkHighlight,
+);
 
 // The literal markdown delimiter text a node renders from/reverts to -
 // shared by the schema's toDOM (static "data-syntax" attribute) and
 // enclosure.ts (delimiter reveal widgets, delimiter deletion/unwrap).
-export function spanDelimText(node: { type: { name: string }; attrs: { delim?: string; rung?: number } }): string {
+export function spanDelimText(node: {
+  type: { name: string };
+  attrs: { delim?: string; rung?: number };
+}): string {
   if (node.type.name === "md_code_span") return "`";
   return (node.attrs.delim ?? "*").repeat(node.attrs.rung ?? 1);
 }
@@ -61,7 +73,11 @@ export const mdSpanSchema = $nodeSchema("md_span", () => ({
     0,
   ],
   parseMarkdown: {
-    match: (node) => node.type === "strong" || node.type === "emphasis" || node.type === "delete" || node.type === "mark",
+    match: (node) =>
+      node.type === "strong" ||
+      node.type === "emphasis" ||
+      node.type === "delete" ||
+      node.type === "mark",
     runner: (state, node, type) => {
       const attrs =
         node.type === "strong"
@@ -84,10 +100,22 @@ export const mdSpanSchema = $nodeSchema("md_span", () => ({
       if (delim === "*" && rung === 3) {
         // Bold+italic together: mdast represents this as nested strong>emphasis,
         // not a single node - matches how remark itself parses "***text***".
-        state.openNode("strong").openNode("emphasis").next(node.content).closeNode().closeNode();
+        state
+          .openNode("strong")
+          .openNode("emphasis")
+          .next(node.content)
+          .closeNode()
+          .closeNode();
         return;
       }
-      const mdastType = delim === "*" ? (rung === 2 ? "strong" : "emphasis") : delim === "~" ? "delete" : "mark";
+      const mdastType =
+        delim === "*"
+          ? rung === 2
+            ? "strong"
+            : "emphasis"
+          : delim === "~"
+            ? "delete"
+            : "mark";
       state.openNode(mdastType).next(node.content).closeNode();
     },
   },
@@ -105,7 +133,11 @@ export const mdCodeSpanSchema = $nodeSchema("md_code_span", () => ({
   code: true,
   attrs: {},
   parseDOM: [{ tag: 'code[data-type="md_code_span"]' }],
-  toDOM: () => ["code", { "data-type": "md_code_span", "data-syntax": "`", class: "md-code-span" }, 0],
+  toDOM: () => [
+    "code",
+    { "data-type": "md_code_span", "data-syntax": "`", class: "md-code-span" },
+    0,
+  ],
   parseMarkdown: {
     match: (node) => node.type === "inlineCode",
     runner: (state, node, type) => {
@@ -117,7 +149,11 @@ export const mdCodeSpanSchema = $nodeSchema("md_code_span", () => ({
   toMarkdown: {
     match: (node) => node.type.name === "md_code_span",
     runner: (state, node) => {
-      state.addNode("inlineCode", undefined, node.content.firstChild?.text || "");
+      state.addNode(
+        "inlineCode",
+        undefined,
+        node.content.firstChild?.text || "",
+      );
     },
   },
 }));

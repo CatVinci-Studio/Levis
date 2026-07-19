@@ -53,7 +53,13 @@ export function InsertTableDialog({
           </label>
           <label>
             {columnsLabel}
-            <input type="number" min={1} max={20} value={cols} onChange={(e) => setCols(Number(e.target.value))} />
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={cols}
+              onChange={(e) => setCols(Number(e.target.value))}
+            />
           </label>
         </div>
         <div className="insert-table-buttons">

@@ -2,8 +2,10 @@ import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { message } from "@tauri-apps/plugin-dialog";
 import { dirname } from "../utils/path";
+import { fs } from "../ipc";
 
 /**
  * Image support, Typora-style, in two halves:
@@ -54,26 +56,39 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-async function saveAndInsertImages(view: EditorView, files: File[], docPath: string | null): Promise<void> {
+async function saveAndInsertImages(
+  view: EditorView,
+  files: File[],
+  docPath: string | null,
+  onError: () => string,
+): Promise<void> {
   for (const file of files) {
     const ext = EXT_BY_MIME[file.type];
     if (!ext) continue;
     try {
-      const { src } = await invoke<{ src: string }>("save_pasted_image", {
+      const { src } = await fs.savePastedImage(
         docPath,
-        dataBase64: await fileToBase64(file),
+        await fileToBase64(file),
         ext,
-      });
+      );
       const image = view.state.schema.nodes.image;
       if (!image) return;
-      view.dispatch(view.state.tr.replaceSelectionWith(image.create({ src })).scrollIntoView());
+      view.dispatch(
+        view.state.tr
+          .replaceSelectionWith(image.create({ src }))
+          .scrollIntoView(),
+      );
     } catch (err) {
       console.error("saving pasted image failed:", err);
+      void message(onError(), { kind: "error" });
     }
   }
 }
 
-export function createImagePlugin(options: { docPath: () => string | null }) {
+export function createImagePlugin(options: {
+  docPath: () => string | null;
+  onError: () => string;
+}) {
   return $prose(
     () =>
       new Plugin({
@@ -81,18 +96,29 @@ export function createImagePlugin(options: { docPath: () => string | null }) {
           handlePaste(view, event) {
             const items = Array.from(event.clipboardData?.items ?? []);
             const files = items
-              .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+              .filter(
+                (item) =>
+                  item.kind === "file" && item.type.startsWith("image/"),
+              )
               .map((item) => item.getAsFile())
               .filter((f): f is File => f !== null);
             if (files.length === 0) return false;
-            void saveAndInsertImages(view, files, options.docPath());
+            void saveAndInsertImages(
+              view,
+              files,
+              options.docPath(),
+              options.onError,
+            );
             return true;
           },
           nodeViews: {
             image: (node: ProseNode) => {
               const img = document.createElement("img");
               const apply = (n: ProseNode) => {
-                img.src = resolveImageSrc((n.attrs.src as string) ?? "", options.docPath());
+                img.src = resolveImageSrc(
+                  (n.attrs.src as string) ?? "",
+                  options.docPath(),
+                );
                 img.alt = (n.attrs.alt as string) ?? "";
                 if (n.attrs.title) img.title = n.attrs.title as string;
               };

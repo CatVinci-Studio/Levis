@@ -94,7 +94,8 @@ export const mdSpanAutopairPlugin = $prose(
           const parent = $pos.parent;
 
           const isMatchingNode =
-            parent.type.name === spec.nodeType && (spec.nodeType !== "md_span" || parent.attrs.delim === spec.char);
+            parent.type.name === spec.nodeType &&
+            (spec.nodeType !== "md_span" || parent.attrs.delim === spec.char);
 
           if (isMatchingNode) {
             const atContentEnd = $pos.parentOffset === parent.content.size;
@@ -106,7 +107,10 @@ export const mdSpanAutopairPlugin = $prose(
             if (parent.content.size === 0) {
               const rung = (parent.attrs.rung as number) ?? spec.minRung;
               if (spec.nodeType === "md_span" && rung < spec.maxRung) {
-                const tr = state.tr.setNodeMarkup(nodeStart, undefined, { delim: spec.char, rung: rung + 1 });
+                const tr = state.tr.setNodeMarkup(nodeStart, undefined, {
+                  delim: spec.char,
+                  rung: rung + 1,
+                });
                 view.dispatch(tr);
                 return true;
               }
@@ -134,7 +138,10 @@ export const mdSpanAutopairPlugin = $prose(
             if (spec.nodeType === "md_span") {
               const rung = (before.attrs.rung as number) ?? spec.minRung;
               if (rung >= spec.maxRung) return false;
-              const tr = state.tr.setNodeMarkup(nodeStart, undefined, { delim: spec.char, rung: rung + 1 });
+              const tr = state.tr.setNodeMarkup(nodeStart, undefined, {
+                delim: spec.char,
+                rung: rung + 1,
+              });
               view.dispatch(caretAt(tr, nodeStart + 1));
               return true;
             }
@@ -158,8 +165,14 @@ export const mdSpanAutopairPlugin = $prose(
             const absOpen = runStart + open.openIdx;
             const node =
               spec.nodeType === "md_span"
-                ? state.schema.nodes.md_span.create({ delim: spec.char, rung }, state.schema.text(open.value))
-                : state.schema.nodes.md_code_span.create({}, state.schema.text(open.value));
+                ? state.schema.nodes.md_span.create(
+                    { delim: spec.char, rung },
+                    state.schema.text(open.value),
+                  )
+                : state.schema.nodes.md_code_span.create(
+                    {},
+                    state.schema.text(open.value),
+                  );
             const tr = state.tr.replaceWith(absOpen, to, node);
             view.dispatch(caretAt(tr, absOpen + node.nodeSize));
             return true;
@@ -169,7 +182,10 @@ export const mdSpanAutopairPlugin = $prose(
           // (e.g. "**hello" with only one "*" typed so far) - stay literal
           // so the multi-character closer can be built up keystroke by
           // keystroke instead of spawning an unrelated fresh shell.
-          if (hasPendingRunOpen(textBefore, spec.char, spec.minRung, spec.maxRung)) return false;
+          if (
+            hasPendingRunOpen(textBefore, spec.char, spec.minRung, spec.maxRung)
+          )
+            return false;
 
           // Complete an opening run typed in FRONT of existing content whose
           // matching closing run already sits ahead in the literal text -
@@ -178,18 +194,37 @@ export const mdSpanAutopairPlugin = $prose(
           // length picks the rung; see findRunClose for the exact-length
           // matching rule.
           let typedRun = 1;
-          while (typedRun - 1 < textBefore.length && textBefore[textBefore.length - typedRun] === spec.char) typedRun++;
+          while (
+            typedRun - 1 < textBefore.length &&
+            textBefore[textBefore.length - typedRun] === spec.char
+          )
+            typedRun++;
           if (typedRun >= spec.minRung && typedRun <= spec.maxRung) {
             const { text: textAfter } = literalTextAfter($pos);
-            const close = findRunClose(textBefore, textAfter, spec.char, typedRun);
+            const close = findRunClose(
+              textBefore,
+              textAfter,
+              spec.char,
+              typedRun,
+            );
             if (close) {
               const openStart = from - (typedRun - 1);
               const value = textAfter.slice(0, close.valueLen);
               const node =
                 spec.nodeType === "md_span"
-                  ? state.schema.nodes.md_span.create({ delim: spec.char, rung: typedRun }, state.schema.text(value))
-                  : state.schema.nodes.md_code_span.create({}, state.schema.text(value));
-              const tr = state.tr.replaceWith(openStart, to + close.valueLen + typedRun, node);
+                  ? state.schema.nodes.md_span.create(
+                      { delim: spec.char, rung: typedRun },
+                      state.schema.text(value),
+                    )
+                  : state.schema.nodes.md_code_span.create(
+                      {},
+                      state.schema.text(value),
+                    );
+              const tr = state.tr.replaceWith(
+                openStart,
+                to + close.valueLen + typedRun,
+                node,
+              );
               view.dispatch(caretAt(tr, openStart + 1));
               return true;
             }
@@ -204,7 +239,10 @@ export const mdSpanAutopairPlugin = $prose(
           if (spec.minRung === 1) {
             const node =
               spec.nodeType === "md_span"
-                ? state.schema.nodes.md_span.create({ delim: spec.char, rung: 1 })
+                ? state.schema.nodes.md_span.create({
+                    delim: spec.char,
+                    rung: 1,
+                  })
                 : state.schema.nodes.md_code_span.create();
             const tr = state.tr.replaceWith(from, to, node);
             view.dispatch(caretAt(tr, from + 1));
@@ -220,7 +258,10 @@ export const mdSpanAutopairPlugin = $prose(
           if (!textBefore.endsWith(spec.char.repeat(need))) return false;
           const precedingStart = from - need;
 
-          const node = state.schema.nodes.md_span.create({ delim: spec.char, rung: spec.minRung });
+          const node = state.schema.nodes.md_span.create({
+            delim: spec.char,
+            rung: spec.minRung,
+          });
           const tr = state.tr.delete(precedingStart, from);
           tr.replaceWith(precedingStart, precedingStart, node);
           view.dispatch(caretAt(tr, precedingStart + 1));
