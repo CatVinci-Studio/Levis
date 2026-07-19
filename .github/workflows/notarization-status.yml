@@ -1,6 +1,11 @@
 name: Notarization Status
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/notarization-status.yml"
   workflow_dispatch:
 
 permissions:
