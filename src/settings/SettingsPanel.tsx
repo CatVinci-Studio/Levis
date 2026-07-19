@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   useSettings,
   COMPLETION_TONES,
@@ -14,10 +15,12 @@ import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
   AgentModelSection,
+  WritingModelSection,
   AgentWorkspaceSection,
   AgentSystemPromptSection,
   AgentSkillsSection,
 } from "./sections/agent";
+import { PrivacySection } from "./sections/privacy";
 import "./SettingsPanel.css";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
@@ -30,7 +33,22 @@ interface SettingsPanelProps {
   onOpenFile: (path: string) => void;
 }
 
-type Category = "general" | "theme" | "markdown" | "ai" | "agent" | "shortcuts";
+type Category = "general" | "editor" | "ai" | "shortcuts" | "privacy";
+
+function SettingsGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="settings-group">
+      <h2 className="settings-group-title">{title}</h2>
+      <div className="settings-group-body">{children}</div>
+    </section>
+  );
+}
 
 export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
@@ -46,11 +64,10 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
 
   const categories: { id: Category; label: string }[] = [
     { id: "general", label: t.navGeneral },
-    { id: "theme", label: t.navTheme },
-    { id: "markdown", label: t.navMarkdown },
+    { id: "editor", label: t.navEditor },
     { id: "ai", label: t.navAi },
-    { id: "agent", label: t.navAgent },
     { id: "shortcuts", label: t.navShortcuts },
+    { id: "privacy", label: t.navPrivacy },
   ];
 
   return (
@@ -58,7 +75,10 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
       <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-header">
           <span>{t.settingsTitle}</span>
-          <button className="icon-button settings-close-button" onClick={onClose}>
+          <button
+            className="icon-button settings-close-button"
+            onClick={onClose}
+          >
             ✕
           </button>
         </div>
@@ -79,72 +99,207 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
           <div className="settings-content">
             {category === "general" && (
               <>
-                <div className="settings-row">
-                  <span className="settings-row-label">{t.languageLabel}</span>
-                  <select
-                    value={settings.language}
-                    onChange={(e) => setSettings({ language: e.target.value as Lang })}
-                  >
-                    <option value="en">English</option>
-                    <option value="zh">中文</option>
-                    <option value="ja">日本語</option>
-                  </select>
-                </div>
-                <div className="settings-row">
-                  <div>
-                    <div className="settings-row-label">{t.newDocumentModeLabel}</div>
-                    <div className="settings-row-hint">{t.newDocumentModeHint}</div>
+                <SettingsGroup title={t.generalBasicsLabel}>
+                  <div className="settings-row">
+                    <span className="settings-row-label">
+                      {t.languageLabel}
+                    </span>
+                    <select
+                      className="settings-select"
+                      value={settings.language}
+                      onChange={(e) =>
+                        setSettings({ language: e.target.value as Lang })
+                      }
+                    >
+                      <option value="en">English</option>
+                      <option value="zh">中文</option>
+                      <option value="ja">日本語</option>
+                    </select>
                   </div>
-                  <select
-                    value={settings.newDocumentMode}
-                    onChange={(e) => setSettings({ newDocumentMode: e.target.value as NewDocumentMode })}
-                  >
-                    <option value="window">{t.newDocumentModeWindow}</option>
-                    <option value="tab">{t.newDocumentModeTab}</option>
-                  </select>
-                </div>
-                <ToggleRow
-                  label={t.restoreSessionLabel}
-                  hint={t.restoreSessionHint}
-                  checked={settings.restoreSessionOnStartup}
-                  onChange={(v) => setSettings({ restoreSessionOnStartup: v })}
-                />
-                <CliCommandSection t={t} />
-                <UpdateSection t={t} />
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-row-label">
+                        {t.newDocumentModeLabel}
+                      </div>
+                      <div className="settings-row-hint">
+                        {t.newDocumentModeHint}
+                      </div>
+                    </div>
+                    <select
+                      className="settings-select"
+                      value={settings.newDocumentMode}
+                      onChange={(e) =>
+                        setSettings({
+                          newDocumentMode: e.target.value as NewDocumentMode,
+                        })
+                      }
+                    >
+                      <option value="window">{t.newDocumentModeWindow}</option>
+                      <option value="tab">{t.newDocumentModeTab}</option>
+                    </select>
+                  </div>
+                  <ToggleRow
+                    label={t.restoreSessionLabel}
+                    hint={t.restoreSessionHint}
+                    checked={settings.restoreSessionOnStartup}
+                    onChange={(v) =>
+                      setSettings({ restoreSessionOnStartup: v })
+                    }
+                  />
+                </SettingsGroup>
+
+                <SettingsGroup title={t.aiAccountLabel}>
+                  <ProviderListPanel t={t} />
+                </SettingsGroup>
+
+                <SettingsGroup title={t.generalSystemLabel}>
+                  <CliCommandSection t={t} />
+                  <UpdateSection t={t} />
+                </SettingsGroup>
               </>
             )}
 
-            {category === "theme" && <ThemeSection t={t} />}
-
-            {category === "markdown" && (
+            {category === "editor" && (
               <>
-                <ToggleRow
-                  label={t.enableMathLabel}
-                  hint={t.enableMathHint}
-                  checked={settings.enableMath}
-                  onChange={(v) => setSettings({ enableMath: v })}
-                />
-                <ToggleRow
-                  label={t.enableMermaidLabel}
-                  hint={t.enableMermaidHint}
-                  checked={settings.enableMermaid}
-                  onChange={(v) => setSettings({ enableMermaid: v })}
-                />
+                <SettingsGroup title={t.navTheme}>
+                  <ThemeSection t={t} />
+                </SettingsGroup>
+                <SettingsGroup title={t.navMarkdown}>
+                  <ToggleRow
+                    label={t.enableMathLabel}
+                    hint={t.enableMathHint}
+                    checked={settings.enableMath}
+                    onChange={(v) => setSettings({ enableMath: v })}
+                  />
+                  <ToggleRow
+                    label={t.enableMermaidLabel}
+                    hint={t.enableMermaidHint}
+                    checked={settings.enableMermaid}
+                    onChange={(v) => setSettings({ enableMermaid: v })}
+                  />
+                </SettingsGroup>
               </>
             )}
 
             {category === "ai" && (
               <>
-                <div className="settings-section-label">{t.aiAccountLabel}</div>
-                <ProviderListPanel t={t} />
+                <SettingsGroup title={t.writingFeaturesLabel}>
+                  <WritingModelSection t={t} />
+                  <div className="settings-feature-grid">
+                    <div className="settings-feature-block">
+                      <ToggleRow
+                        label={t.aiCompletionLabel}
+                        hint={t.aiCompletionHint}
+                        checked={settings.enableCompletion}
+                        onChange={(v) => setSettings({ enableCompletion: v })}
+                      />
+                      {settings.enableCompletion && (
+                        <div className="settings-feature-option">
+                          <div>
+                            <div className="settings-row-label">
+                              {t.completionToneLabel}
+                            </div>
+                            <div className="settings-row-hint">
+                              {t.completionToneHint}
+                            </div>
+                          </div>
+                          <select
+                            className="settings-select"
+                            value={settings.completionTone}
+                            onChange={(e) =>
+                              setSettings({
+                                completionTone: e.target
+                                  .value as CompletionTone,
+                              })
+                            }
+                          >
+                            {COMPLETION_TONES.map((tone) => (
+                              <option key={tone} value={tone}>
+                                {t[`completionTone_${tone}` as keyof Strings]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                    <div className="settings-feature-block">
+                      <ToggleRow
+                        label={t.aiGrammarLabel}
+                        hint={t.aiGrammarHint}
+                        checked={settings.enableGrammarCheck}
+                        onChange={(v) => setSettings({ enableGrammarCheck: v })}
+                      />
+                      {settings.enableGrammarCheck && (
+                        <div className="settings-feature-option">
+                          <div>
+                            <div className="settings-row-label">
+                              {t.grammarStrictnessLabel}
+                            </div>
+                            <div className="settings-row-hint">
+                              {t.grammarStrictnessHint}
+                            </div>
+                          </div>
+                          <select
+                            className="settings-select"
+                            value={settings.grammarStrictness}
+                            onChange={(e) =>
+                              setSettings({
+                                grammarStrictness: e.target
+                                  .value as GrammarStrictness,
+                              })
+                            }
+                          >
+                            <option value="typos">
+                              {t.grammarStrictnessTypos}
+                            </option>
+                            <option value="standard">
+                              {t.grammarStrictnessStandard}
+                            </option>
+                            <option value="strict">
+                              {t.grammarStrictnessStrict}
+                            </option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </SettingsGroup>
 
-                <div className="settings-section-label">{t.proxyLabel}</div>
-                <div className="settings-field-stack">
-                  <div className="settings-row-hint">{t.proxyHint}</div>
+                <SettingsGroup title={t.navAgent}>
+                  <ToggleRow
+                    label={t.aiAskLabel}
+                    hint={t.aiAskHint}
+                    checked={settings.enableAskAi}
+                    onChange={(v) => setSettings({ enableAskAi: v })}
+                  />
+                  {settings.enableAskAi && (
+                    <>
+                      <AgentModelSection t={t} />
+                      <ToggleRow
+                        label={t.webSearchLabel}
+                        hint={t.webSearchHint}
+                        checked={settings.enableWebSearch}
+                        onChange={(v) => setSettings({ enableWebSearch: v })}
+                      />
+                      <AgentWorkspaceSection t={t} />
+                      <AgentSystemPromptSection
+                        t={t}
+                        onOpenFile={onOpenFile}
+                        onClose={onClose}
+                      />
+                      <AgentSkillsSection t={t} />
+                    </>
+                  )}
+                </SettingsGroup>
+
+                <SettingsGroup title={t.proxyLabel}>
                   <div className="settings-proxy-row">
                     <select
+                      className="settings-select"
                       value={settings.proxyType}
-                      onChange={(e) => setSettings({ proxyType: e.target.value as ProxyType })}
+                      onChange={(e) =>
+                        setSettings({ proxyType: e.target.value as ProxyType })
+                      }
                     >
                       <option value="none">{t.proxyTypeNone}</option>
                       <option value="http">HTTP</option>
@@ -158,146 +313,83 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           className="settings-text-input settings-proxy-host"
                           placeholder={t.proxyHostPlaceholder}
                           value={settings.proxyHost}
-                          onChange={(e) => setSettings({ proxyHost: e.target.value })}
+                          onChange={(e) =>
+                            setSettings({ proxyHost: e.target.value })
+                          }
                         />
                         <input
                           type="text"
                           className="settings-text-input settings-proxy-port"
                           placeholder={t.proxyPortPlaceholder}
                           value={settings.proxyPort}
-                          onChange={(e) => setSettings({ proxyPort: e.target.value })}
+                          onChange={(e) =>
+                            setSettings({ proxyPort: e.target.value })
+                          }
                         />
                       </>
                     )}
                   </div>
-                </div>
-
-                <div className="settings-section-label">{t.aiFeaturesLabel}</div>
-                <ToggleRow
-                  label={t.aiCompletionLabel}
-                  hint={t.aiCompletionHint}
-                  checked={settings.enableCompletion}
-                  onChange={(v) => setSettings({ enableCompletion: v })}
-                />
-                {settings.enableCompletion && (
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">{t.completionToneLabel}</div>
-                      <div className="settings-row-hint">{t.completionToneHint}</div>
-                    </div>
-                    <select
-                      value={settings.completionTone}
-                      onChange={(e) => setSettings({ completionTone: e.target.value as CompletionTone })}
-                    >
-                      {COMPLETION_TONES.map((tone) => (
-                        <option key={tone} value={tone}>
-                          {t[`completionTone_${tone}` as keyof Strings]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <ToggleRow
-                  label={t.aiGrammarLabel}
-                  hint={t.aiGrammarHint}
-                  checked={settings.enableGrammarCheck}
-                  onChange={(v) => setSettings({ enableGrammarCheck: v })}
-                />
-                {settings.enableGrammarCheck && (
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">{t.grammarStrictnessLabel}</div>
-                      <div className="settings-row-hint">{t.grammarStrictnessHint}</div>
-                    </div>
-                    <select
-                      value={settings.grammarStrictness}
-                      onChange={(e) => setSettings({ grammarStrictness: e.target.value as GrammarStrictness })}
-                    >
-                      <option value="typos">{t.grammarStrictnessTypos}</option>
-                      <option value="standard">{t.grammarStrictnessStandard}</option>
-                      <option value="strict">{t.grammarStrictnessStrict}</option>
-                    </select>
-                  </div>
-                )}
+                </SettingsGroup>
               </>
             )}
 
-            {category === "agent" && (
-              <>
-                <ToggleRow
-                  label={t.aiAskLabel}
-                  hint={t.aiAskHint}
-                  checked={settings.enableAskAi}
-                  onChange={(v) => setSettings({ enableAskAi: v })}
-                />
-                {settings.enableAskAi && (
-                  <>
-                    <ToggleRow
-                      label={t.webSearchLabel}
-                      hint={t.webSearchHint}
-                      checked={settings.enableWebSearch}
-                      onChange={(v) => setSettings({ enableWebSearch: v })}
-                    />
-                    <AgentModelSection t={t} />
-                    <AgentWorkspaceSection t={t} />
-                    <AgentSystemPromptSection t={t} onOpenFile={onOpenFile} onClose={onClose} />
-                    <AgentSkillsSection t={t} />
-                  </>
-                )}
-              </>
-            )}
+            {category === "privacy" && <PrivacySection t={t} />}
 
             {category === "shortcuts" && (
               <>
-                <ShortcutRow
-                  label={t.shortcutTriggerCompletion}
-                  action="triggerCompletion"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
-                <ShortcutRow
-                  label={t.shortcutTriggerGrammarCheck}
-                  action="triggerGrammarCheck"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
-                <ShortcutRow
-                  label={t.shortcutToggleFloatingChat}
-                  action="toggleFloatingChat"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
-                <ShortcutRow
-                  label={t.shortcutFindReplace}
-                  action="findReplace"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
-                <ShortcutRow
-                  label={t.shortcutToggleSidebar}
-                  action="toggleSidebar"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
-                <ShortcutRow
-                  label={t.shortcutToggleSourceMode}
-                  action="toggleSourceMode"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
-                <ShortcutRow
-                  label={t.shortcutToggleTypewriterMode}
-                  action="toggleTypewriterMode"
-                  shortcuts={settings.shortcuts}
-                  setSettings={setSettings}
-                  t={t}
-                />
+                <SettingsGroup title={t.shortcutAiGroupLabel}>
+                  <ShortcutRow
+                    label={t.shortcutTriggerCompletion}
+                    action="triggerCompletion"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutTriggerGrammarCheck}
+                    action="triggerGrammarCheck"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleFloatingChat}
+                    action="toggleFloatingChat"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                </SettingsGroup>
+                <SettingsGroup title={t.shortcutEditorGroupLabel}>
+                  <ShortcutRow
+                    label={t.shortcutFindReplace}
+                    action="findReplace"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleSidebar}
+                    action="toggleSidebar"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleSourceMode}
+                    action="toggleSourceMode"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleTypewriterMode}
+                    action="toggleTypewriterMode"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                </SettingsGroup>
               </>
             )}
           </div>

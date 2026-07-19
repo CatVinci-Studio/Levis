@@ -1,166 +1,279 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Strings } from "../../i18n/strings";
 import type { AiProvider } from "../SettingsContext";
 import { useSettings } from "../SettingsContext";
-import { fetchProviderCatalog, type ProviderCatalogEntry } from "../../ai/provider-catalog";
+import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import {
+  useProviderCatalog,
+  type ProviderCatalogEntry,
+} from "../../ai/provider-catalog";
+import { ChevronIcon } from "../../sidebar/icons";
+import { auth, type CustomEndpointConfig } from "../../ipc";
 
-// The AI category's provider list (pi.dev-style: a row per provider, click
-// to expand its auth panel) plus the per-provider account panels themselves.
+// General > AI Login Settings: two compact disclosure rows (provider, then
+// credentials) plus the per-provider account/API-key/custom panels.
 
-interface CustomEndpointConfig {
-  base_url: string;
-  api_key: string | null;
-  model: string;
+function localizedLabel(entry: ProviderCatalogEntry, t: Strings): string {
+  return entry.id === "custom" ? t.providerCustom : entry.label;
 }
-
-/// Mirrors the Rust catalog's static entries (src-tauri/src/ai/catalog.rs) -
-/// used as the initial render and as the dev-shim fallback, where
-/// `invoke("list_providers")` resolves to `null` instead of the real list.
-const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
-  { id: "codex", dialect: "openai-responses", auth: "oauth", toolCalling: true },
-  { id: "apikey", dialect: "openai-responses", auth: "api_key", toolCalling: true },
-  { id: "claude", dialect: "anthropic-messages", auth: "oauth", toolCalling: true },
-  { id: "custom", dialect: "openai-chat-completions", auth: "custom", toolCalling: true },
-];
-
-const PROVIDER_LABEL_KEY: Record<AiProvider, keyof Strings> = {
-  codex: "providerCodex",
-  claude: "providerClaude",
-  apikey: "providerApiKey",
-  custom: "providerCustom",
-};
 
 /// Each provider's "is it connected" check speaks a different shape
 /// (status-object, bare boolean, or config-or-null) - this normalizes them
-/// to one boolean for the list row's status pill.
-async function fetchConnected(id: AiProvider): Promise<boolean> {
-  switch (id) {
-    case "codex":
-      return (await invoke<{ configured: boolean }>("codex_auth_status")).configured;
-    case "claude":
-      return (await invoke<{ configured: boolean }>("claude_auth_status")).configured;
-    case "apikey":
-      return invoke<boolean>("api_key_status");
-    case "custom":
-      return (await invoke<CustomEndpointConfig | null>("custom_endpoint_status")) !== null;
+/// to one boolean per auth method for the picker's status pill and to decide
+/// which auth tab opens by default.
+async function fetchConnected(
+  entry: ProviderCatalogEntry,
+): Promise<{ oauth: boolean; apiKey: boolean }> {
+  if (entry.id === "custom") {
+    const config = await auth.customEndpointStatus();
+    return { oauth: false, apiKey: config !== null };
   }
+  const oauth = entry.auth.includes("oauth")
+    ? (await auth.oauthStatus(entry.id)).configured
+    : false;
+  const apiKey = entry.auth.includes("api_key")
+    ? entry.keyOptional || (await auth.providerApiKeyStatus(entry.id))
+    : false;
+  return { oauth, apiKey };
 }
 
-/// The selectable provider list: one row per catalog entry, showing live
-/// connection status and a badge for dialects with tool-calling wired up
-/// (propose_edit et al - see catalog.rs). Clicking a row's body expands its
-/// auth panel in place; the "Use" button (or "In use" badge) is what
-/// actually flips `settings.aiProvider`, kept separate from expand/collapse
-/// so browsing other providers' panels doesn't switch the active one.
+interface ConnectedState {
+  oauth: boolean;
+  apiKey: boolean;
+}
+
+/// Two compact rows: the first opens a searchable provider list; the second
+/// independently expands login/API-key details for the active provider.
 export function ProviderListPanel({ t }: { t: Strings }) {
   const { settings, setSettings } = useSettings();
-  const [catalog, setCatalog] = useState<ProviderCatalogEntry[]>(FALLBACK_CATALOG);
-  const [connected, setConnected] = useState<Partial<Record<AiProvider, boolean>>>({});
-  const [expandedId, setExpandedId] = useState<AiProvider | null>(settings.aiProvider);
+  const catalog = useProviderCatalog();
+  const [connected, setConnected] = useState<
+    Partial<Record<AiProvider, ConnectedState>>
+  >({});
+  const [open, setOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const popoverRef = useCloseOnOutsideClick<HTMLDivElement>(
+    () => setOpen(false),
+    true,
+  );
 
-  useEffect(() => {
-    fetchProviderCatalog()
-      .then((list) => {
-        if (list?.length) setCatalog(list);
-      })
+  const refreshConnected = useCallback((entry: ProviderCatalogEntry) => {
+    fetchConnected(entry)
+      .then((state) => setConnected((prev) => ({ ...prev, [entry.id]: state })))
       .catch(() => {});
   }, []);
 
-  const refreshConnected = (id: AiProvider) => {
-    fetchConnected(id)
-      .then((ok) => setConnected((prev) => ({ ...prev, [id]: ok })))
-      .catch(() => {});
-  };
-
   useEffect(() => {
-    for (const entry of catalog) refreshConnected(entry.id);
-    // catalog only changes once (fallback -> fetched list), not per render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog]);
+    for (const entry of catalog) refreshConnected(entry);
+  }, [catalog, refreshConnected]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return catalog;
+    return catalog.filter(
+      (e) => localizedLabel(e, t).toLowerCase().includes(q) || e.id.includes(q),
+    );
+  }, [catalog, query, t]);
+
+  const active = catalog.find((e) => e.id === settings.aiProvider);
+  const activeConnected = active ? connected[active.id] : undefined;
+  const isConnected = !!(activeConnected?.oauth || activeConnected?.apiKey);
+  const usesAccountStatus = active?.auth.includes("oauth") ?? false;
+  const statusLabel =
+    active?.keyOptional && active.id !== "custom"
+      ? t.providerNoKeyRequired
+      : isConnected
+        ? usesAccountStatus
+          ? t.accountConnectedAs
+          : t.apiKeyConfigured
+        : usesAccountStatus
+          ? t.accountNotConnected
+          : t.providerNotConfigured;
+
+  function selectProvider(id: AiProvider) {
+    setSettings({ aiProvider: id });
+    setOpen(false);
+    setAuthOpen(false);
+    setQuery("");
+  }
 
   return (
-    <div className="provider-list">
-      {catalog.map((entry) => (
-        <div key={entry.id} className={`provider-row${settings.aiProvider === entry.id ? " provider-row-active" : ""}`}>
+    <div className="provider-picker">
+      <div className="combobox" ref={popoverRef}>
+        <button
+          type="button"
+          className="combobox-trigger"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`${t.providerDropdownLabel}: ${active ? localizedLabel(active, t) : settings.aiProvider}`}
+        >
+          <span className="provider-disclosure-label">
+            {t.providerDropdownLabel}
+          </span>
+          <span className="combobox-trigger-label">
+            {active ? localizedLabel(active, t) : settings.aiProvider}
+          </span>
+          <ChevronIcon className="combobox-caret" />
+        </button>
+        {open && (
+          <div className="combobox-popover">
+            <input
+              type="text"
+              className="combobox-search"
+              placeholder={t.providerSearchPlaceholder}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+            />
+            <div className="combobox-list">
+              {filtered.length === 0 && (
+                <div className="combobox-empty">{t.noProvidersFound}</div>
+              )}
+              {filtered.map((entry) => {
+                const state = connected[entry.id];
+                const connectedHere = !!(state?.oauth || state?.apiKey);
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={`combobox-option${entry.id === settings.aiProvider ? " combobox-option-active" : ""}`}
+                    onClick={() => selectProvider(entry.id)}
+                  >
+                    <span className="combobox-option-label">
+                      {localizedLabel(entry, t)}
+                    </span>
+                    {connectedHere && (
+                      <span className="status-dot" aria-hidden />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {active && (
+        <>
           <button
             type="button"
-            className="provider-row-main"
-            onClick={() => setExpandedId((cur) => (cur === entry.id ? null : entry.id))}
+            className="provider-auth-trigger"
+            onClick={() => setAuthOpen((v) => !v)}
+            aria-expanded={authOpen}
+            aria-label={`${t.authDropdownLabel}: ${statusLabel}`}
           >
-            <span className="provider-row-name">{t[PROVIDER_LABEL_KEY[entry.id]]}</span>
-            <span className={`provider-row-status${connected[entry.id] ? " provider-row-connected" : ""}`}>
-              {connected[entry.id] ? t.accountConnectedAs : t.accountNotConnected}
+            <span className="provider-disclosure-label">
+              {t.authDropdownLabel}
             </span>
-            {entry.toolCalling && <span className="provider-row-badge">{t.providerToolCallingBadge}</span>}
-          </button>
-          {settings.aiProvider === entry.id ? (
-            <span className="provider-row-active-badge">{t.providerActiveBadge}</span>
-          ) : (
-            <button
-              type="button"
-              className="text-button settings-inline-button"
-              onClick={() => setSettings({ aiProvider: entry.id })}
+            <span
+              className={`status-pill${isConnected ? " status-pill-connected" : ""}`}
             >
-              {t.providerUseButton}
-            </button>
-          )}
-          {expandedId === entry.id && (
-            <div className="provider-row-panel">
-              {entry.id === "codex" && (
-                <ProviderAuthPanel
+              {statusLabel}
+            </span>
+            <ChevronIcon
+              className={`combobox-caret${authOpen ? " combobox-caret-open" : ""}`}
+            />
+          </button>
+          {authOpen && (
+            <div className="provider-panel">
+              {active.id === "custom" ? (
+                <CustomProviderPanel
                   t={t}
-                  accountLabel={t.accountLabel}
-                  loginLabel={t.loginButton}
-                  statusCommand="codex_auth_status"
-                  loginCommand="codex_login"
-                  logoutCommand="codex_logout"
-                  onStatusChange={(ok) => setConnected((prev) => ({ ...prev, codex: ok }))}
+                  onStatusChange={() => refreshConnected(active)}
                 />
-              )}
-              {entry.id === "claude" && (
+              ) : (
                 <ProviderAuthPanel
+                  key={active.id}
                   t={t}
-                  accountLabel={t.claudeAccountLabel}
-                  loginLabel={t.claudeLoginButton}
-                  statusCommand="claude_auth_status"
-                  loginCommand="claude_login"
-                  logoutCommand="claude_logout"
-                  onStatusChange={(ok) => setConnected((prev) => ({ ...prev, claude: ok }))}
+                  entry={active}
+                  connected={connected[active.id]}
+                  onStatusChange={() => refreshConnected(active)}
                 />
-              )}
-              {entry.id === "apikey" && (
-                <ApiKeyProviderPanel t={t} onStatusChange={(ok) => setConnected((prev) => ({ ...prev, apikey: ok }))} />
-              )}
-              {entry.id === "custom" && (
-                <CustomProviderPanel t={t} onStatusChange={(ok) => setConnected((prev) => ({ ...prev, custom: ok }))} />
               )}
             </div>
           )}
-        </div>
-      ))}
+        </>
+      )}
     </div>
   );
 }
 
-/// Shared shape for the Codex/Claude settings panels - both are a thin
-/// "configured?" flag behind a status/login/logout command trio, differing
-/// only in which commands and labels they use.
+/// A provider with one or both of oauth/api_key auth: renders a tab switch
+/// when both are available, or just the relevant panel when only one is.
 export function ProviderAuthPanel({
   t,
-  accountLabel,
-  loginLabel,
-  statusCommand,
-  loginCommand,
-  logoutCommand,
+  entry,
+  connected,
   onStatusChange,
 }: {
   t: Strings;
-  accountLabel: string;
-  loginLabel: string;
-  statusCommand: string;
-  loginCommand: string;
-  logoutCommand: string;
+  entry: ProviderCatalogEntry;
+  connected?: ConnectedState;
+  onStatusChange: () => void;
+}) {
+  const hasOauth = entry.auth.includes("oauth");
+  const hasApiKey = entry.auth.includes("api_key");
+  // Default to whichever method is already connected; oauth otherwise, since
+  // it's the richer entitlement and what the backend prefers when both are
+  // configured (see ai::route::resolve_openai_auth).
+  const [tab, setTab] = useState<"oauth" | "api_key">(() => {
+    if (!hasOauth) return "api_key";
+    if (!hasApiKey) return "oauth";
+    return connected?.apiKey && !connected?.oauth ? "api_key" : "oauth";
+  });
+
+  const label = localizedLabel(entry, t);
+
+  return (
+    <div>
+      {hasOauth && hasApiKey && (
+        <div className="auth-tabs">
+          <button
+            type="button"
+            className={`auth-tab${tab === "oauth" ? " auth-tab-active" : ""}`}
+            onClick={() => setTab("oauth")}
+          >
+            {t.authTabAccount}
+          </button>
+          <button
+            type="button"
+            className={`auth-tab${tab === "api_key" ? " auth-tab-active" : ""}`}
+            onClick={() => setTab("api_key")}
+          >
+            {t.authTabApiKey}
+          </button>
+        </div>
+      )}
+      {hasOauth && (!hasApiKey || tab === "oauth") && (
+        <OauthPanel
+          t={t}
+          providerId={entry.id}
+          label={label}
+          onStatusChange={onStatusChange}
+        />
+      )}
+      {hasApiKey && (!hasOauth || tab === "api_key") && (
+        <ApiKeyProviderPanel
+          t={t}
+          providerId={entry.id}
+          label={label}
+          keyOptional={entry.keyOptional}
+          onStatusChange={onStatusChange}
+        />
+      )}
+    </div>
+  );
+}
+
+function OauthPanel({
+  t,
+  providerId,
+  label,
+  onStatusChange,
+}: {
+  t: Strings;
+  providerId: string;
+  label: string;
   onStatusChange?: (configured: boolean) => void;
 }) {
   const [configured, setConfiguredState] = useState(false);
@@ -173,16 +286,19 @@ export function ProviderAuthPanel({
   };
 
   useEffect(() => {
-    invoke<{ configured: boolean }>(statusCommand).then((s) => setConfigured(s.configured));
+    auth
+      .oauthStatus(providerId)
+      .then((s) => setConfigured(s.configured))
+      .catch(() => {});
     // onStatusChange identity isn't expected to change per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusCommand]);
+  }, [providerId]);
 
   async function login() {
     setLoggingIn(true);
     setError(null);
     try {
-      const status = await invoke<{ configured: boolean }>(loginCommand);
+      const status = await auth.oauthLogin(providerId);
       setConfigured(status.configured);
     } catch (err) {
       setError(String(err));
@@ -192,27 +308,40 @@ export function ProviderAuthPanel({
   }
 
   async function logout() {
-    await invoke(logoutCommand);
+    await auth.oauthLogout(providerId);
     setConfigured(false);
   }
 
   return (
-    <div className="settings-provider-panel">
+    <div>
       {error && <div className="settings-error">{error}</div>}
       <div className="settings-row">
         <div>
-          <div className="settings-row-label">{accountLabel}</div>
+          <div className="settings-row-label">
+            {t.accountLabelTemplate.replace("{name}", label)}
+          </div>
           <div className="settings-row-hint">
-            {loggingIn ? t.loggingIn : configured ? t.accountConnectedAs : t.accountNotConnected}
+            {loggingIn
+              ? t.loggingIn
+              : configured
+                ? t.accountConnectedAs
+                : t.accountNotConnected}
           </div>
         </div>
         {configured ? (
-          <button className="text-button settings-inline-button" onClick={logout}>
+          <button
+            className="text-button settings-inline-button"
+            onClick={logout}
+          >
             {t.logoutButton}
           </button>
         ) : (
-          <button className="text-button settings-inline-button" onClick={login} disabled={loggingIn}>
-            {loginLabel}
+          <button
+            className="text-button settings-inline-button"
+            onClick={login}
+            disabled={loggingIn}
+          >
+            {t.signInTemplate.replace("{name}", label)}
           </button>
         )}
       </div>
@@ -220,7 +349,19 @@ export function ProviderAuthPanel({
   );
 }
 
-export function ApiKeyProviderPanel({ t, onStatusChange }: { t: Strings; onStatusChange?: (configured: boolean) => void }) {
+export function ApiKeyProviderPanel({
+  t,
+  providerId,
+  label,
+  keyOptional = false,
+  onStatusChange,
+}: {
+  t: Strings;
+  providerId: string;
+  label: string;
+  keyOptional?: boolean;
+  onStatusChange?: (configured: boolean) => void;
+}) {
   const [configured, setConfiguredState] = useState(false);
   const [input, setInput] = useState("");
 
@@ -230,33 +371,41 @@ export function ApiKeyProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
   };
 
   useEffect(() => {
-    invoke<boolean>("api_key_status").then(setConfigured);
+    auth.providerApiKeyStatus(providerId).then(setConfigured);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [providerId]);
 
   async function save() {
     if (!input.trim()) return;
-    await invoke("set_api_key", { key: input.trim() });
+    await auth.setProviderApiKey(providerId, input.trim());
     setInput("");
     setConfigured(true);
   }
 
   async function clear() {
-    await invoke("clear_api_key");
+    await auth.clearProviderApiKey(providerId);
     setConfigured(false);
   }
 
   return (
-    <div className="settings-provider-panel">
+    <div>
       <div className="settings-row">
         <div>
-          <div className="settings-row-label">{t.apiKeyLabel}</div>
-          <div className="settings-row-hint">{t.apiKeyHint}</div>
+          <div className="settings-row-label">{label}</div>
+          <div className="settings-row-hint">
+            {(keyOptional
+              ? t.apiKeyOptionalHintTemplate
+              : t.apiKeyHintTemplate
+            ).replace("{name}", label)}
+          </div>
         </div>
         {configured ? (
           <div className="api-key-configured">
             <span className="settings-row-hint">{t.apiKeyConfigured}</span>
-            <button className="text-button settings-inline-button" onClick={clear}>
+            <button
+              className="text-button settings-inline-button"
+              onClick={clear}
+            >
               {t.apiKeyClear}
             </button>
           </div>
@@ -264,12 +413,15 @@ export function ApiKeyProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
           <div className="api-key-input-row">
             <input
               type="password"
-              className="api-key-input"
+              className="settings-text-input api-key-input"
               placeholder={t.apiKeyPlaceholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
-            <button className="text-button settings-inline-button" onClick={save}>
+            <button
+              className="text-button settings-inline-button"
+              onClick={save}
+            >
               {t.apiKeySave}
             </button>
           </div>
@@ -279,29 +431,25 @@ export function ApiKeyProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
   );
 }
 
-/// Quick-fill base URLs for known OpenAI-compatible services - this is the
-/// one "custom" slot's shortcut into the various-models compatibility pi.dev
-/// gets from a models.json file: pick a preset, the base URL fills in, and
-/// the tool-calling dialect (custom.rs, openai-chat-completions) already
-/// works against all three. OpenRouter/Groq still need their own API key;
-/// Ollama's local server doesn't.
-const ENDPOINT_PRESETS: { label: string; baseUrl: string }[] = [
-  { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
-  { label: "Groq", baseUrl: "https://api.groq.com/openai/v1" },
-  { label: "Ollama (local)", baseUrl: "http://localhost:11434/v1" },
-];
-
-export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatusChange?: (configured: boolean) => void }) {
+export function CustomProviderPanel({
+  t,
+  onStatusChange,
+}: {
+  t: Strings;
+  onStatusChange?: (configured: boolean) => void;
+}) {
   const [config, setConfig] = useState<CustomEndpointConfig | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
-  const [status, setStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "checking" | "ok" | "error">(
+    "idle",
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<CustomEndpointConfig | null>("custom_endpoint_status").then((c) => {
+    auth.customEndpointStatus().then((c) => {
       if (c) {
         setConfig(c);
         setBaseUrl(c.base_url);
@@ -317,10 +465,7 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
     setStatus("checking");
     setStatusMessage(null);
     try {
-      const list = await invoke<string[]>("fetch_custom_models", {
-        baseUrl,
-        apiKey: apiKey || null,
-      });
+      const list = await auth.fetchCustomModels(baseUrl, apiKey || null);
       setModels(list);
       setStatus("ok");
       if (!selectedModel && list.length > 0) setSelectedModel(list[0]);
@@ -334,7 +479,7 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
     setStatus("checking");
     setStatusMessage(null);
     try {
-      await invoke("test_custom_endpoint", { baseUrl, apiKey: apiKey || null });
+      await auth.testCustomEndpoint(baseUrl, apiKey || null);
       setStatus("ok");
       setStatusMessage(t.customTestSuccess);
     } catch (err) {
@@ -345,17 +490,21 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
 
   async function save() {
     if (!baseUrl.trim() || !selectedModel.trim()) return;
-    await invoke("set_custom_endpoint", {
-      baseUrl: baseUrl.trim(),
-      apiKey: apiKey.trim() || null,
+    await auth.setCustomEndpoint(
+      baseUrl.trim(),
+      apiKey.trim() || null,
+      selectedModel.trim(),
+    );
+    setConfig({
+      base_url: baseUrl.trim(),
+      api_key: apiKey.trim() || null,
       model: selectedModel.trim(),
     });
-    setConfig({ base_url: baseUrl.trim(), api_key: apiKey.trim() || null, model: selectedModel.trim() });
     onStatusChange?.(true);
   }
 
   async function clear() {
-    await invoke("clear_custom_endpoint");
+    await auth.clearCustomEndpoint();
     setConfig(null);
     setBaseUrl("");
     setApiKey("");
@@ -366,31 +515,14 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
   }
 
   return (
-    <div className="settings-provider-panel">
+    <div>
       {statusMessage && (
-        <div className={status === "error" ? "settings-error" : "settings-success"}>{statusMessage}</div>
-      )}
-      <div className="settings-field">
-        <label className="settings-field-label">{t.customPresetsLabel}</label>
-        <div className="custom-preset-row">
-          {ENDPOINT_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              className="text-button settings-inline-button"
-              onClick={() => {
-                setBaseUrl(preset.baseUrl);
-                setModels([]);
-                setSelectedModel("");
-                setStatus("idle");
-                setStatusMessage(null);
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
+        <div
+          className={status === "error" ? "settings-error" : "settings-success"}
+        >
+          {statusMessage}
         </div>
-      </div>
+      )}
       <div className="settings-field">
         <label className="settings-field-label">{t.customBaseUrlLabel}</label>
         <input
@@ -415,7 +547,11 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
         <label className="settings-field-label">{t.customModelLabel}</label>
         <div className="custom-model-row">
           {models.length > 0 ? (
-            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+            <select
+              className="settings-select"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+            >
               {models.map((m) => (
                 <option key={m} value={m}>
                   {m}
@@ -431,13 +567,21 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
               onChange={(e) => setSelectedModel(e.target.value)}
             />
           )}
-          <button className="text-button settings-inline-button" onClick={fetchModels} disabled={!baseUrl.trim()}>
+          <button
+            className="text-button settings-inline-button"
+            onClick={fetchModels}
+            disabled={!baseUrl.trim()}
+          >
             {t.customFetchModels}
           </button>
         </div>
       </div>
       <div className="custom-actions-row">
-        <button className="text-button settings-inline-button" onClick={testConnection} disabled={!baseUrl.trim()}>
+        <button
+          className="text-button settings-inline-button"
+          onClick={testConnection}
+          disabled={!baseUrl.trim()}
+        >
           {t.customTestConnection}
         </button>
         <button
@@ -448,7 +592,10 @@ export function CustomProviderPanel({ t, onStatusChange }: { t: Strings; onStatu
           {t.customSave}
         </button>
         {config && (
-          <button className="text-button settings-inline-button" onClick={clear}>
+          <button
+            className="text-button settings-inline-button"
+            onClick={clear}
+          >
             {t.apiKeyClear}
           </button>
         )}

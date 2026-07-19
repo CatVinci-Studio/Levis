@@ -1,9 +1,20 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { strings, type Lang, type Strings } from "../i18n/strings";
+import { ai, prefs, themes } from "../ipc";
 
 export type ThemeMode = "system" | "light" | "dark";
-export type AiProvider = "codex" | "claude" | "apikey" | "custom";
+/// A provider catalog id (src-tauri/src/ai/catalog.rs) - "openai",
+/// "anthropic", "google", "custom", etc. Not a closed union: the catalog is
+/// the source of truth for which providers exist, fetched at runtime.
+export type AiProvider = string;
 export type NewDocumentMode = "window" | "tab";
 export type ProxyType = "none" | "http" | "https" | "socks5";
 
@@ -35,7 +46,10 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
 /// base variables from App.css apply as-is.
 export type BuiltinContentThemeId = "default" | "paper" | "slate" | "forest";
 
-export const BUILTIN_CONTENT_THEMES: { id: BuiltinContentThemeId; name: string }[] = [
+export const BUILTIN_CONTENT_THEMES: {
+  id: BuiltinContentThemeId;
+  name: string;
+}[] = [
   { id: "default", name: "Default" },
   { id: "paper", name: "Paper" },
   { id: "slate", name: "Slate" },
@@ -44,13 +58,24 @@ export const BUILTIN_CONTENT_THEMES: { id: BuiltinContentThemeId; name: string }
 
 /// Tone presets for AI completion - resolved to an English style directive
 /// appended to the completion prompt (see ../ai/completion-style).
-export type CompletionTone = "default" | "formal" | "casual" | "academic" | "concise";
+export type CompletionTone =
+  "default" | "formal" | "casual" | "academic" | "concise";
 
-export const COMPLETION_TONES: CompletionTone[] = ["default", "formal", "casual", "academic", "concise"];
+export const COMPLETION_TONES: CompletionTone[] = [
+  "default",
+  "formal",
+  "casual",
+  "academic",
+  "concise",
+];
 
 export type GrammarStrictness = "typos" | "standard" | "strict";
 
-export const GRAMMAR_STRICTNESS_LEVELS: GrammarStrictness[] = ["typos", "standard", "strict"];
+export const GRAMMAR_STRICTNESS_LEVELS: GrammarStrictness[] = [
+  "typos",
+  "standard",
+  "strict",
+];
 
 /// A user-imported (Typora-style) theme. The actual CSS lives on disk under
 /// the app's theme directory (see ../utils/theme-import and the Rust
@@ -74,13 +99,17 @@ export interface Settings {
   enableMath: boolean;
   enableMermaid: boolean;
   aiProvider: AiProvider;
-  /// Agent chat model per provider; "" uses the provider's default.
-  codexAgentModel: string;
-  claudeAgentModel: string;
-  apikeyAgentModel: string;
+  /// Shared model for inline completion and grammar checking, per provider.
+  /// Missing/"" keeps the provider's low-cost writing default.
+  writingModels: Record<string, string>;
+  /// Agent chat model per provider id; missing/"" uses the provider's
+  /// default. Keyed by catalog id, so adding a provider needs no Settings
+  /// shape change.
+  agentModels: Record<string, string>;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
-  /// Offer OpenAI's server-side web search to the chat agent (codex only).
+  /// Offer the active provider's native server-side web search to Agent;
+  /// providers without a compatible search API safely ignore it.
   enableWebSearch: boolean;
   /// Proxy all AI provider requests route through, as type + host + port
   /// ("none" or an empty host means direct connection). Mirrored to Rust as
@@ -114,6 +143,13 @@ export interface Settings {
   /// suspenders alongside `isFreshInstall` below, in case a window closes
   /// mid-tutorial before the user reaches the end.
   onboardingShown: boolean;
+  /// Privacy toggles (Settings > Privacy) - each independently disables one
+  /// kind of locally-stored history/recovery data going forward. Turning
+  /// one off does not retroactively clear what's already stored; the
+  /// section's own "Clear" button does that explicitly.
+  enableChatHistory: boolean;
+  enableClipboardHistory: boolean;
+  enableDraftRecovery: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -125,10 +161,9 @@ const DEFAULT_SETTINGS: Settings = {
   enableAskAi: true,
   enableMath: true,
   enableMermaid: true,
-  aiProvider: "codex",
-  codexAgentModel: "",
-  claudeAgentModel: "",
-  apikeyAgentModel: "",
+  aiProvider: "openai",
+  writingModels: {},
+  agentModels: {},
   completionTone: "default",
   enableWebSearch: false,
   proxyType: "none",
@@ -142,17 +177,12 @@ const DEFAULT_SETTINGS: Settings = {
   newDocumentMode: "window",
   restoreSessionOnStartup: true,
   onboardingShown: false,
+  enableChatHistory: true,
+  enableClipboardHistory: true,
+  enableDraftRecovery: true,
 };
 
 const STORAGE_KEY = "catvinci-settings";
-
-/// True only for the very first render of a brand-new install (no settings
-/// blob has ever been saved) - computed once at module load, before
-/// SettingsProvider's persist effect below writes anything, so an existing
-/// user upgrading never sees this flip true. Multiple windows opening at
-/// once on a truly fresh install (the only way two windows could race this)
-/// isn't handled specially - first launch opens exactly one window.
-export const isFreshInstall = localStorage.getItem(STORAGE_KEY) === null;
 
 interface SettingsContextValue {
   settings: Settings;
@@ -162,7 +192,35 @@ interface SettingsContextValue {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
-function loadSettings(): Settings {
+/// Maps a pre-catalog-expansion provider id to its new catalog id - "codex"
+/// and "apikey" both become "openai" (now one entry with two auth methods).
+const LEGACY_PROVIDER_IDS: Record<string, string> = {
+  codex: "openai",
+  claude: "anthropic",
+  apikey: "openai",
+};
+
+/// Old settings blobs kept one model field per provider id
+/// (`${provider}AgentModel`); folds those into the new `agentModels` map,
+/// translating ids through `LEGACY_PROVIDER_IDS`.
+function migrateAgentModels(
+  parsed: Record<string, unknown>,
+): Record<string, string> {
+  const models: Record<string, string> = {
+    ...(parsed.agentModels as Record<string, string> | undefined),
+  };
+  for (const legacyId of ["codex", "claude", "apikey"]) {
+    const value = parsed[`${legacyId}AgentModel`];
+    if (typeof value === "string" && value)
+      models[LEGACY_PROVIDER_IDS[legacyId]] = value;
+  }
+  return models;
+}
+
+/** Exported so small standalone stores (chat-history.ts, clipboard-history.ts)
+ *  can read a privacy toggle's current value without depending on React
+ *  context - they're plain localStorage-backed modules, not components. */
+export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
@@ -170,6 +228,22 @@ function loadSettings(): Settings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      // Existing installations created before the newcomer guide had no
+      // field at all and must not suddenly receive first-run onboarding
+      // after an update. A genuinely new install starts from DEFAULT_SETTINGS
+      // (false); once shown, the explicit true value persists normally.
+      onboardingShown:
+        typeof parsed.onboardingShown === "boolean"
+          ? parsed.onboardingShown
+          : true,
+      aiProvider:
+        LEGACY_PROVIDER_IDS[parsed.aiProvider] ??
+        parsed.aiProvider ??
+        DEFAULT_SETTINGS.aiProvider,
+      agentModels: migrateAgentModels(parsed),
+      writingModels: {
+        ...(parsed.writingModels as Record<string, string> | undefined),
+      },
       shortcuts: { ...DEFAULT_SETTINGS.shortcuts, ...(parsed.shortcuts ?? {}) },
       // The light/dark picker was removed from Settings - appearance always
       // follows the system now, including for users who had picked one back
@@ -189,17 +263,43 @@ function isEffectiveDark(themeMode: ThemeMode): boolean {
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(loadSettings);
+  // Set right before applying a cross-window update (see the storage
+  // listener below) so the persist effect skips re-writing localStorage for
+  // it - otherwise each window's zoom (the one field that's deliberately
+  // per-window, not synced) would bounce back and forth forever, each
+  // window's write-back triggering the other's storage listener in turn.
+  const applyingRemoteRef = useRef(false);
 
   useEffect(() => {
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      return;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
 
+  // Cross-window sync (2.5): another window's SettingsProvider just wrote a
+  // change to the same localStorage key - pick it up here instead of this
+  // window silently going stale until its own next unrelated write
+  // overwrites the other window's change. `zoom` stays this window's own
+  // (see its field comment) - everything else adopts the incoming value.
   useEffect(() => {
-    void invoke("set_new_document_mode", { mode: settings.newDocumentMode });
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY || e.newValue === null) return;
+      const incoming = loadSettings();
+      applyingRemoteRef.current = true;
+      setSettingsState((prev) => ({ ...incoming, zoom: prev.zoom }));
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  useEffect(() => {
+    void prefs.setNewDocumentMode(settings.newDocumentMode);
   }, [settings.newDocumentMode]);
 
   useEffect(() => {
-    void invoke("set_restore_session_on_startup", { enabled: settings.restoreSessionOnStartup });
+    void prefs.setRestoreSessionOnStartup(settings.restoreSessionOnStartup);
   }, [settings.restoreSessionOnStartup]);
 
   // An unparseable proxy is rejected by the backend (and requests fall back
@@ -209,8 +309,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const host = settings.proxyHost.trim();
     const port = settings.proxyPort.trim();
     const proxy =
-      settings.proxyType !== "none" && host ? `${settings.proxyType}://${host}${port ? `:${port}` : ""}` : null;
-    invoke("set_ai_proxy", { proxy }).catch(() => {});
+      settings.proxyType !== "none" && host
+        ? `${settings.proxyType}://${host}${port ? `:${port}` : ""}`
+        : null;
+    ai.setAiProxy(proxy).catch(() => {});
   }, [settings.proxyType, settings.proxyHost, settings.proxyPort]);
 
   useEffect(() => {
@@ -237,7 +339,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       document.getElementById(STYLE_ID)?.remove();
     }
 
-    const builtin = BUILTIN_CONTENT_THEMES.find((t) => t.id === settings.themeId);
+    const builtin = BUILTIN_CONTENT_THEMES.find(
+      (t) => t.id === settings.themeId,
+    );
     if (builtin) {
       if (builtin.id === "default") root.removeAttribute("data-content-theme");
       else root.setAttribute("data-content-theme", builtin.id);
@@ -245,7 +349,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const userTheme = settings.userThemes.find((t) => t.id === settings.themeId);
+    const userTheme = settings.userThemes.find(
+      (t) => t.id === settings.themeId,
+    );
     if (!userTheme) {
       // Unknown or deleted theme (e.g. loaded from a stale settings blob) -
       // fall back to default rather than silently doing nothing.
@@ -260,11 +366,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const theme = userTheme;
 
     async function applyUserTheme() {
-      const variant = isEffectiveDark(settings.theme) && theme.hasDark ? "dark" : "light";
+      const variant =
+        isEffectiveDark(settings.theme) && theme.hasDark ? "dark" : "light";
       try {
-        const css = await invoke<string | null>("load_theme_css", { id: theme.id, variant });
+        const css = await themes.loadThemeCss(theme.id, variant);
         if (cancelled) return;
-        let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+        let styleEl = document.getElementById(
+          STYLE_ID,
+        ) as HTMLStyleElement | null;
         if (!styleEl) {
           styleEl = document.createElement("style");
           styleEl.id = STYLE_ID;
@@ -294,7 +403,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ settings, setSettings, t }), [settings, t]);
 
-  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+  return (
+    <SettingsContext.Provider value={value}>
+      {children}
+    </SettingsContext.Provider>
+  );
 }
 
 export function useSettings(): SettingsContextValue {

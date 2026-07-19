@@ -10,9 +10,9 @@
 
 .settings-panel {
   width: 100%;
-  max-width: 760px;
-  height: 80vh;
-  max-height: 620px;
+  max-width: 780px;
+  height: 82vh;
+  max-height: 640px;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -26,15 +26,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border-color);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 650;
   flex-shrink: 0;
 }
 
 .settings-close-button {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   padding: 6px;
 }
@@ -46,13 +46,12 @@
 }
 
 .settings-nav {
-  width: 170px;
+  width: 160px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 8px;
-  border-right: 1px solid var(--border-color);
+  padding: 14px 10px;
   background: var(--sidebar-bg);
   overflow-y: auto;
 }
@@ -61,10 +60,10 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 8px 12px;
-  font-size: 13.5px;
+  padding: 7px 12px;
+  font-size: 13px;
   border: none;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   color: var(--sidebar-text, var(--editor-muted));
   cursor: pointer;
@@ -77,13 +76,49 @@
 .settings-nav-item-active {
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
+  font-weight: 550;
 }
 
 .settings-content {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 1.25rem 1.5rem 2rem;
+  padding: 20px 24px 28px;
+}
+
+/* Information architecture: each group is a quiet inset card - the title
+   floats above it, rows live inside it, and the ONLY rules anywhere are the
+   faint hairlines between adjacent rows of the same card. No group-to-group
+   separators, no full-width rules in open space, no double borders. */
+.settings-group + .settings-group {
+  margin-top: 24px;
+}
+
+.settings-group-title {
+  margin: 0 0 7px;
+  padding-left: 4px;
+  color: var(--editor-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-group-body {
+  padding: 2px 16px;
+  background: color-mix(in srgb, var(--sidebar-bg) 55%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+  border-radius: 10px;
+}
+
+/* The one divider in the design: an inset hairline between adjacent rows of
+   a card (fragments flatten sections into direct children, so this covers
+   every settings.* row and section root alike). */
+.settings-group-body > * + *,
+.provider-picker > * + *,
+.settings-feature-block + .settings-feature-block {
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
 }
 
 .settings-row {
@@ -91,9 +126,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 14px;
+  padding: 12px 0;
+  font-size: 13.5px;
 }
 
 .settings-row > *:first-child {
@@ -107,15 +141,59 @@
 
 .settings-row-label {
   color: var(--editor-text);
-  font-size: 15px;
+  font-size: 13.5px;
 }
 
 .settings-row-hint {
   color: var(--editor-muted);
-  font-size: 12.5px;
-  margin-top: 4px;
-  max-width: 360px;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 3px;
+  max-width: 380px;
   overflow-wrap: break-word;
+}
+
+/* Toggles render as switches, not native checkboxes - the single clearest
+   "this is a settings panel" affordance, and it reads at a glance. */
+.settings-row input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 36px;
+  height: 21px;
+  margin: 0;
+  position: relative;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--editor-muted) 38%, var(--bg));
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.settings-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 160ms ease;
+}
+
+.settings-row input[type="checkbox"]:checked {
+  background: var(--editor-accent);
+}
+
+.settings-row input[type="checkbox"]:checked::after {
+  transform: translateX(15px);
+}
+
+.settings-row input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 2px;
 }
 
 button.settings-inline-button {
@@ -123,6 +201,7 @@ button.settings-inline-button {
   margin-bottom: 0;
   flex-shrink: 0;
   white-space: nowrap;
+  background: var(--bg);
 }
 
 .shortcut-row-controls {
@@ -135,10 +214,13 @@ button.settings-inline-button {
 .shortcut-capture-button {
   min-width: 120px;
   text-align: center;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
 }
 
 .shortcut-capture-active {
-  border-color: var(--sidebar-active, #3a6df0);
+  border-color: var(--editor-accent);
+  color: var(--editor-accent);
 }
 
 .api-key-input-row {
@@ -154,12 +236,6 @@ button.settings-inline-button {
   flex: 1;
   min-width: 0;
   max-width: 220px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--sidebar-bg);
-  color: var(--editor-text);
-  font-size: 14px;
 }
 
 .api-key-configured {
@@ -170,170 +246,285 @@ button.settings-inline-button {
 }
 
 .settings-error {
-  padding: 10px 14px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  background: color-mix(in srgb, #c1495a 12%, transparent);
-  color: #c1495a;
-  font-size: 13px;
+  padding: 8px 10px;
+  margin: 8px 0;
+  border-left: 2px solid var(--danger, #c1495a);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, #c1495a 10%, transparent);
+  color: var(--danger, #c1495a);
+  font-size: 12.5px;
   word-break: break-word;
 }
 
-.settings-row select {
-  background: var(--sidebar-bg);
+.settings-success {
+  padding: 8px 10px;
+  margin: 8px 0;
+  border-left: 2px solid #5f8b4c;
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, #5f8b4c 10%, transparent);
+  color: #5f8b4c;
+  font-size: 12.5px;
+}
+
+/* Inline error/success banners sit between card rows; they carry their own
+   left accent, so suppress the row hairline directly above them. */
+.settings-group-body > .settings-error,
+.settings-group-body > .settings-success {
+  border-top: none;
+}
+
+/* Every <select> in Settings uses this class - a native select otherwise
+   renders with no border/background at all outside `.settings-row`. The
+   native dropdown arrow is replaced (appearance:none) with a drawn chevron
+   matching the app's iconography. */
+.settings-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg);
   color: var(--editor-text);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 14px;
+  padding: 5px 26px 5px 10px;
+  font-size: 13px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.8L5 6.8L8 3.8' stroke='%23888888' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 10px;
 }
 
-.settings-section-label {
-  margin: 1.5rem 0 0.25rem;
-  font-size: 12px;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--editor-muted);
+.settings-select:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--editor-muted) 45%,
+    var(--border-color)
+  );
 }
 
-/* The first section of a page shouldn't float 1.5rem below the top edge. */
-.settings-section-label:first-child {
-  margin-top: 0;
-}
-
-.settings-provider-panel {
-  background: var(--sidebar-bg);
+.settings-text-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 4px 16px;
-  margin: 10px 0;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--editor-text);
+  font-size: 13px;
 }
 
-/* The pi.dev-style provider list: one row per catalog entry, click the row
-   body to expand its auth panel; "Use"/"In use" is the separate control that
-   actually switches settings.aiProvider, so browsing another provider's
-   panel doesn't switch away from the active one. */
-.provider-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 10px 0;
+.settings-text-input:focus {
+  outline: none;
+  border-color: var(--editor-accent);
 }
 
-.provider-row {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  overflow: hidden;
+/* ---- General > AI account: two disclosure rows + expanding panels ---- */
+
+.provider-picker {
+  margin: 0;
 }
 
-.provider-row-active {
-  border-color: var(--accent-color, #4a90d9);
+.combobox {
+  position: relative;
 }
 
-.provider-row-main {
+.combobox-trigger,
+.provider-auth-trigger {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 12px;
-  background: none;
+  padding: 12px 4px;
   border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13.5px;
   cursor: pointer;
   text-align: left;
-  font: inherit;
+}
+
+.combobox-trigger:hover,
+.provider-auth-trigger:hover {
+  background: var(--sidebar-hover);
+}
+
+.combobox-trigger-label {
+  font-weight: 550;
+  color: var(--editor-text);
+}
+
+.provider-disclosure-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--editor-muted);
+  font-size: 13px;
+}
+
+.combobox-caret {
+  flex-shrink: 0;
+  color: var(--editor-muted);
+  transform: rotate(90deg);
+  transition: transform 140ms ease;
+}
+
+.combobox-caret-open {
+  transform: rotate(-90deg);
+}
+
+.combobox-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.combobox-search {
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 12px;
+  font-size: 13.5px;
+  background: transparent;
+  color: var(--editor-text);
+}
+
+.combobox-search:focus {
+  outline: none;
+}
+
+.combobox-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.combobox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 5px;
+  background: none;
   color: inherit;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
 }
 
-.provider-row > .provider-row-main {
-  padding-right: 96px; /* room for the Use/In-use control, positioned below */
+.combobox-option:hover {
+  background: var(--sidebar-hover);
 }
 
-.provider-row {
-  position: relative;
+.combobox-option-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
 }
 
-.provider-row-name {
-  font-weight: 500;
+.combobox-option-label {
+  flex: 1;
+  min-width: 0;
 }
 
-.provider-row-status {
-  font-size: 0.85em;
+.combobox-empty {
+  padding: 10px 12px;
+  font-size: 13px;
   color: var(--editor-muted);
 }
 
-.provider-row-status.provider-row-connected {
-  color: var(--success-color, #2a9d5c);
-}
-
-.provider-row-badge {
+.status-pill {
   margin-left: auto;
-  font-size: 0.75em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--sidebar-bg);
+  font-size: 12px;
   color: var(--editor-muted);
   white-space: nowrap;
 }
 
-.provider-row > .settings-inline-button,
-.provider-row > .provider-row-active-badge {
-  position: absolute;
-  top: 10px;
-  right: 12px;
+.status-pill-connected {
+  color: var(--success-color, #2a9d5c);
 }
 
-.provider-row-active-badge {
-  font-size: 0.75em;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--accent-color, #4a90d9);
-  color: #fff;
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success-color, #2a9d5c);
+  flex-shrink: 0;
 }
 
-.provider-row-panel {
-  border-top: 1px solid var(--border-color);
+/* Expanded credentials: indented behind an accent-tinted rail, the same
+   "dependent detail" language the AI tab's sub-options use. */
+.provider-picker > .provider-panel {
+  border-top: none;
+}
+
+.provider-panel {
+  margin: 2px 0 12px 8px;
+  padding: 0 0 0 14px;
+  border-left: 2px solid
+    color-mix(in srgb, var(--editor-accent) 35%, var(--border-color));
+}
+
+.provider-panel .settings-row,
+.provider-panel .settings-field {
+  padding: 9px 0;
+}
+
+/* Account vs API key: a segmented control instead of underline tabs - one
+   fewer horizontal rule, and the choice reads as the mode switch it is. */
+.auth-tabs {
+  display: inline-flex;
+  gap: 2px;
+  margin: 10px 0 4px;
+  padding: 2px;
+  background: var(--sidebar-bg);
+  border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+  border-radius: 7px;
+}
+
+.auth-tab {
   padding: 4px 12px;
-}
-
-.provider-row-panel .settings-provider-panel {
-  margin: 6px 0;
   border: none;
-  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--editor-muted);
+  font-size: 12.5px;
+  cursor: pointer;
 }
 
-.settings-provider-panel .settings-row {
-  border-bottom: none;
+.auth-tab:hover {
+  color: var(--editor-text);
 }
 
-.settings-provider-panel .settings-row + .settings-field,
-.settings-provider-panel .settings-field + .settings-field {
-  border-top: 1px solid var(--border-color);
+.auth-tab-active {
+  background: var(--bg);
+  color: var(--editor-text);
+  font-weight: 550;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
+
+/* ---- Label + control rows that aren't toggle rows ---- */
 
 .settings-field {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0;
+  padding: 12px 0;
 }
 
 .settings-field-label {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--editor-text);
   flex-shrink: 0;
-}
-
-.settings-text-input {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--editor-text);
-  font-size: 14px;
 }
 
 /* Vertical variant of .settings-field: label + hint stacked over a full-
@@ -349,6 +540,7 @@ button.settings-inline-button {
 .settings-proxy-row {
   display: flex;
   gap: 6px;
+  padding: 12px 0;
 }
 
 .settings-proxy-host {
@@ -359,29 +551,56 @@ button.settings-inline-button {
   flex: 0 0 72px;
 }
 
+/* Completion and grammar are parallel rows; each one's dependent control
+   indents behind the same accent rail used everywhere else - no extra
+   borders. */
+.settings-feature-grid {
+  display: grid;
+  gap: 0;
+}
+
+.settings-feature-block .settings-row {
+  padding: 12px 0;
+}
+
+.settings-feature-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 12px 8px;
+  padding: 4px 0 4px 14px;
+  border-left: 2px solid
+    color-mix(in srgb, var(--editor-accent) 35%, var(--border-color));
+}
+
 /* Global skills as read-only rows: /name + description. Managed as files -
    this list is a mirror, plus the import button above it. */
 .settings-skill-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-bottom: 10px;
+  margin: 0 0 12px 8px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid
+    color-mix(in srgb, var(--editor-accent) 35%, var(--border-color));
+  border-top: none;
 }
 
 .settings-skill-item {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 3px 0;
   font-size: 12px;
-  background: var(--sidebar-hover);
   min-width: 0;
 }
 
 .settings-skill-name {
   flex-shrink: 0;
   font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
 }
 
 .settings-skill-desc {
@@ -389,6 +608,11 @@ button.settings-inline-button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The skills list continues its header row - no hairline between them. */
+.settings-group-body > .settings-skill-list {
+  border-top: none;
 }
 
 .settings-textarea {
@@ -404,12 +628,6 @@ button.settings-inline-button {
   line-height: 1.5;
 }
 
-.custom-preset-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .custom-model-row {
   display: flex;
   align-items: center;
@@ -421,7 +639,7 @@ button.settings-inline-button {
 .custom-model-row select,
 .custom-model-row input {
   flex: 1;
-  min-width: 0;
+  min-width: 180px;
 }
 
 .custom-actions-row {
@@ -429,14 +647,5 @@ button.settings-inline-button {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 14px 0;
-}
-
-.settings-success {
-  padding: 10px 14px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  background: color-mix(in srgb, #5f8b4c 12%, transparent);
-  color: #5f8b4c;
-  font-size: 13px;
+  padding: 12px 0;
 }

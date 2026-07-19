@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Strings } from "../../i18n/strings";
+import { cli } from "../../ipc";
 
 // The General category's sections beyond plain settings rows.
 
@@ -15,7 +15,9 @@ import type { Strings } from "../../i18n/strings";
  */
 export function UpdateSection({ t }: { t: Strings }) {
   const [version, setVersion] = useState("");
-  const [phase, setPhase] = useState<"idle" | "checking" | "latest" | "available" | "downloading" | "error">("idle");
+  const [phase, setPhase] = useState<
+    "idle" | "checking" | "latest" | "available" | "downloading" | "error"
+  >("idle");
   const [message, setMessage] = useState("");
   const [update, setUpdate] = useState<Update | null>(null);
 
@@ -63,15 +65,31 @@ export function UpdateSection({ t }: { t: Strings }) {
         <div className="settings-row-label">
           {t.updateVersionLabel} {version && `v${version}`}
         </div>
-        {message && <div className={phase === "error" ? "settings-error" : "settings-row-hint"}>{message}</div>}
+        {message && (
+          <div
+            className={
+              phase === "error" ? "settings-error" : "settings-row-hint"
+            }
+          >
+            {message}
+          </div>
+        )}
       </div>
       <div className="shortcut-row-controls">
         {phase === "available" || phase === "downloading" ? (
-          <button className="text-button settings-inline-button" onClick={install} disabled={phase === "downloading"}>
+          <button
+            className="text-button settings-inline-button"
+            onClick={install}
+            disabled={phase === "downloading"}
+          >
             {t.updateInstall}
           </button>
         ) : (
-          <button className="text-button settings-inline-button" onClick={checkNow} disabled={phase === "checking"}>
+          <button
+            className="text-button settings-inline-button"
+            onClick={checkNow}
+            disabled={phase === "checking"}
+          >
             {phase === "checking" ? t.updateChecking : t.updateCheckButton}
           </button>
         )}
@@ -92,14 +110,14 @@ export function CliCommandSection({ t }: { t: Strings }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<boolean>("cli_command_status").then(setInstalled);
+    cli.cliCommandStatus().then(setInstalled);
   }, []);
 
   async function install() {
     setPhase("installing");
     setError(null);
     try {
-      await invoke("install_cli_command");
+      await cli.installCliCommand();
       setInstalled(true);
       setPhase("idle");
     } catch (err) {
@@ -113,11 +131,23 @@ export function CliCommandSection({ t }: { t: Strings }) {
       <div>
         <div className="settings-row-label">{t.cliCommandLabel}</div>
         <div className="settings-row-hint">{t.cliCommandHint}</div>
-        {error && <div className="settings-error">{t.cliCommandFailed} {error}</div>}
+        {error && (
+          <div className="settings-error">
+            {t.cliCommandFailed} {error}
+          </div>
+        )}
       </div>
       <div className="shortcut-row-controls">
-        {!error && <span className="settings-row-hint">{installed ? t.cliCommandInstalled : t.cliCommandNotInstalled}</span>}
-        <button className="text-button settings-inline-button" onClick={install} disabled={phase === "installing"}>
+        {!error && (
+          <span className="settings-row-hint">
+            {installed ? t.cliCommandInstalled : t.cliCommandNotInstalled}
+          </span>
+        )}
+        <button
+          className="text-button settings-inline-button"
+          onClick={install}
+          disabled={phase === "installing"}
+        >
           {phase === "installing"
             ? t.cliCommandInstalling
             : installed

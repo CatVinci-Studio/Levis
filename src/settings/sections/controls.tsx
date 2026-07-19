@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ShortcutAction, Shortcuts } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
-import { comboFromEvent, isBindableCombo, formatCombo } from "../../utils/shortcuts";
+import {
+  comboFromEvent,
+  isBindableCombo,
+  formatCombo,
+} from "../../utils/shortcuts";
 
 // Generic row controls shared by the settings categories.
 
@@ -22,7 +26,11 @@ export function ToggleRow({
         <div className="settings-row-label">{label}</div>
         <div className="settings-row-hint">{hint}</div>
       </div>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
     </label>
   );
 }
@@ -73,10 +81,17 @@ export function ShortcutRow({
           className={`text-button settings-inline-button shortcut-capture-button ${recording ? "shortcut-capture-active" : ""}`}
           onClick={() => setRecording(true)}
         >
-          {recording ? t.shortcutRecording : combo ? formatCombo(combo) : t.shortcutUnset}
+          {recording
+            ? t.shortcutRecording
+            : combo
+              ? formatCombo(combo)
+              : t.shortcutUnset}
         </button>
         {combo && !recording && (
-          <button className="text-button settings-inline-button" onClick={clear}>
+          <button
+            className="text-button settings-inline-button"
+            onClick={clear}
+          >
             {t.shortcutClear}
           </button>
         )}
