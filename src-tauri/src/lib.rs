@@ -5,29 +5,37 @@
 
 mod ai;
 mod app_identity;
+mod atomic;
 mod auth;
 mod commands;
 mod menu;
 mod tab_drag;
 
 use ai::agent::ai_agent_message;
+use ai::cancel::ai_cancel;
 use ai::client::{ai_complete, ai_grammar_check, fetch_agent_models, set_ai_proxy};
-use auth::api_key::{api_key_status, clear_api_key, set_api_key};
 use auth::claude::{claude_auth_status, claude_login, claude_logout};
 use auth::custom_endpoint::{
-    clear_custom_endpoint, custom_endpoint_status, fetch_custom_models, set_custom_endpoint, test_custom_endpoint,
+    clear_custom_endpoint, custom_endpoint_status, fetch_custom_models, set_custom_endpoint,
+    test_custom_endpoint,
 };
+use auth::keys::{clear_provider_api_key, provider_api_key_status, set_provider_api_key};
 use auth::openai_codex::{codex_auth_status, codex_login, codex_logout};
-use commands::fs::{
-    file_mtime_ms, list_dir, open_css_file_dialog, open_file_dialog, pick_attachment_file, read_binary_file_base64,
-    read_text_file, save_file_dialog, save_pasted_image, write_text_file,
-};
 use commands::cli::{cli_command_status, install_cli_command};
+use commands::drafts::{
+    clear_all_drafts, clear_draft_snapshot, save_draft_snapshot, take_draft_snapshots,
+};
 use commands::export::{
     detect_pandoc, export_save_dialog, export_via_pandoc, open_pandoc_install_page, reveal_in_dir,
 };
+use commands::fs::{
+    file_mtime_ms, list_dir, migrate_draft_images, open_css_file_dialog, open_file_dialog,
+    pick_attachment_file, read_binary_file_base64, read_text_file, save_file_dialog,
+    save_pasted_image, write_text_file,
+};
 use commands::prefs::{
-    get_new_document_mode, get_restore_session_on_startup, set_new_document_mode, set_restore_session_on_startup,
+    get_new_document_mode, get_restore_session_on_startup, set_new_document_mode,
+    set_restore_session_on_startup,
 };
 use commands::session::{update_session_paths, SessionTabsState};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
@@ -112,8 +120,16 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
         // Already running: hand the whole batch to a live window as tabs
         // instead of spawning one window per path. Only fall back to a fresh
         // window if there's truly nothing to receive them.
-        if let Some((label, _)) = app.webview_windows().iter().find(|(label, _)| *label != DRAG_PILL_LABEL) {
-            let _ = app.emit_to(EventTarget::webview_window(label), "open-paths-as-tabs", paths);
+        if let Some((label, _)) = app
+            .webview_windows()
+            .iter()
+            .find(|(label, _)| *label != DRAG_PILL_LABEL)
+        {
+            let _ = app.emit_to(
+                EventTarget::webview_window(label),
+                "open-paths-as-tabs",
+                paths,
+            );
         } else {
             let _ = open_new_window(app);
         }
@@ -134,7 +150,11 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     }
 }
 
-pub(crate) fn build_window(app: &tauri::AppHandle, label: &str, position: Option<(f64, f64)>) -> tauri::Result<()> {
+pub(crate) fn build_window(
+    app: &tauri::AppHandle,
+    label: &str,
+    position: Option<(f64, f64)>,
+) -> tauri::Result<()> {
     let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(app_identity::APP_NAME)
         .inner_size(800.0, 600.0);
@@ -144,7 +164,9 @@ pub(crate) fn build_window(app: &tauri::AppHandle, label: &str, position: Option
     // The overlay title bar (traffic lights floating over the content) is a
     // macOS-only API - Linux/Windows don't compile these methods at all.
     #[cfg(target_os = "macos")]
-    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
     builder.build()?;
     Ok(())
 }
@@ -179,7 +201,10 @@ pub fn run() {
             // documents (unless the user turned that off in Settings) -
             // this is also what makes an app-update relaunch (which passes
             // no args at all) reopen whatever was open before the update.
-            let arg_paths: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with('-')).collect();
+            let arg_paths: Vec<String> = std::env::args()
+                .skip(1)
+                .filter(|a| !a.starts_with('-'))
+                .collect();
             let startup_paths = if !arg_paths.is_empty() {
                 arg_paths
             } else if commands::prefs::read_restore_session_on_startup(app.handle()) {
@@ -218,6 +243,7 @@ pub fn run() {
             read_binary_file_base64,
             write_text_file,
             save_pasted_image,
+            migrate_draft_images,
             save_theme_css,
             load_theme_css,
             delete_theme,
@@ -230,6 +256,7 @@ pub fn run() {
             ai_complete,
             ai_grammar_check,
             ai_agent_message,
+            ai_cancel,
             fetch_agent_models,
             set_ai_proxy,
             crate::ai::catalog::list_providers,
@@ -238,9 +265,9 @@ pub fn run() {
             crate::ai::workspace::ensure_global_agent_md,
             crate::ai::workspace::import_agent_skill,
             pick_attachment_file,
-            set_api_key,
-            api_key_status,
-            clear_api_key,
+            set_provider_api_key,
+            provider_api_key_status,
+            clear_provider_api_key,
             set_custom_endpoint,
             custom_endpoint_status,
             clear_custom_endpoint,
@@ -252,7 +279,11 @@ pub fn run() {
             export_via_pandoc,
             export_save_dialog,
             open_pandoc_install_page,
-            reveal_in_dir
+            reveal_in_dir,
+            save_draft_snapshot,
+            take_draft_snapshots,
+            clear_draft_snapshot,
+            clear_all_drafts
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

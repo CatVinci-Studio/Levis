@@ -60,8 +60,16 @@ fn emit_to_focused(app: &tauri::AppHandle, event: &str) {
     emit_to_focused_payload(app, event, ());
 }
 
-fn emit_to_focused_payload<S: serde::Serialize + Clone>(app: &tauri::AppHandle, event: &str, payload: S) {
-    if let Some((label, _)) = app.webview_windows().iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
+fn emit_to_focused_payload<S: serde::Serialize + Clone>(
+    app: &tauri::AppHandle,
+    event: &str,
+    payload: S,
+) {
+    if let Some((label, _)) = app
+        .webview_windows()
+        .iter()
+        .find(|(_, w)| w.is_focused().unwrap_or(false))
+    {
         let _ = app.emit_to(EventTarget::webview_window(label), event, payload);
     }
 }
@@ -85,22 +93,32 @@ fn abbreviate_home(path: &str) -> String {
 pub(crate) fn rebuild_recent_menu(app: &tauri::AppHandle, list: Vec<String>) {
     let app = app.clone();
     let _ = app.clone().run_on_main_thread(move || {
-        let Some(state) = app.try_state::<RecentMenu>() else { return };
+        let Some(state) = app.try_state::<RecentMenu>() else {
+            return;
+        };
         let guard = state.0.lock().unwrap();
-        let Some(submenu) = guard.as_ref() else { return };
+        let Some(submenu) = guard.as_ref() else {
+            return;
+        };
         if let Ok(items) = submenu.items() {
             for item in items {
                 let _ = submenu.remove(&item);
             }
         }
         if list.is_empty() {
-            if let Ok(item) = MenuItemBuilder::with_id("recent-none", "No Recent Files").enabled(false).build(&app) {
+            if let Ok(item) = MenuItemBuilder::with_id("recent-none", "No Recent Files")
+                .enabled(false)
+                .build(&app)
+            {
                 let _ = submenu.append(&item);
             }
             return;
         }
         for path in &list {
-            if let Ok(item) = MenuItemBuilder::with_id(format!("{RECENT_PREFIX}{path}"), abbreviate_home(path)).build(&app) {
+            if let Ok(item) =
+                MenuItemBuilder::with_id(format!("{RECENT_PREFIX}{path}"), abbreviate_home(path))
+                    .build(&app)
+            {
                 let _ = submenu.append(&item);
             }
         }
@@ -140,12 +158,18 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .item(&quit_item)
         .build()?;
 
-    let new_file_item = MenuItemBuilder::with_id(NEW_FILE_ID, "New File").accelerator("Cmd+N").build(app)?;
-    let open_file_item = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…").accelerator("Cmd+O").build(app)?;
+    let new_file_item = MenuItemBuilder::with_id(NEW_FILE_ID, "New File")
+        .accelerator("Cmd+N")
+        .build(app)?;
+    let open_file_item = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…")
+        .accelerator("Cmd+O")
+        .build(app)?;
     // Built empty here; rebuild_recent_menu below fills it from the
     // persisted list and keeps it current as files are opened.
     let open_recent_menu = SubmenuBuilder::new(app, "Open Recent").build()?;
-    let save_file_item = MenuItemBuilder::with_id(SAVE_FILE_ID, "Save").accelerator("Cmd+S").build(app)?;
+    let save_file_item = MenuItemBuilder::with_id(SAVE_FILE_ID, "Save")
+        .accelerator("Cmd+S")
+        .build(app)?;
     let save_file_as_item = MenuItemBuilder::with_id(SAVE_FILE_AS_ID, "Save As…")
         .accelerator("Cmd+Shift+S")
         .build(app)?;
@@ -170,14 +194,17 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         ("textile", "Textile…"),
         ("opml", "OPML…"),
     ] {
-        let item = MenuItemBuilder::with_id(format!("{EXPORT_PANDOC_PREFIX}{format}"), label).build(app)?;
+        let item = MenuItemBuilder::with_id(format!("{EXPORT_PANDOC_PREFIX}{format}"), label)
+            .build(app)?;
         export_menu_builder = export_menu_builder.item(&item);
     }
     let export_menu = export_menu_builder.build()?;
 
     // Cmd+W closes the current tab (not the window - see
     // CLOSE_WINDOW_ID below, which owns Cmd+Shift+W instead).
-    let close_tab_item = MenuItemBuilder::with_id(CLOSE_TAB_ID, "Close Tab").accelerator("Cmd+W").build(app)?;
+    let close_tab_item = MenuItemBuilder::with_id(CLOSE_TAB_ID, "Close Tab")
+        .accelerator("Cmd+W")
+        .build(app)?;
 
     let file_menu = SubmenuBuilder::new(app, "File")
         .item(&new_file_item)
@@ -193,12 +220,16 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
 
     app.manage(RecentMenu(Mutex::new(Some(open_recent_menu))));
-    rebuild_recent_menu(app.handle(), commands::recents::read_recent_files(app.handle()));
+    rebuild_recent_menu(
+        app.handle(),
+        commands::recents::read_recent_files(app.handle()),
+    );
 
     // No fixed accelerator - the combo is user-configurable and
     // handled by the frontend keydown dispatcher (see
     // toggle_source_mode_item's comment below for why).
-    let find_replace_item = MenuItemBuilder::with_id(FIND_REPLACE_ID, "Find & Replace…").build(app)?;
+    let find_replace_item =
+        MenuItemBuilder::with_id(FIND_REPLACE_ID, "Find & Replace…").build(app)?;
 
     let edit_menu = SubmenuBuilder::new(app, "Edit")
         .undo()
@@ -221,7 +252,8 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         ("h5", "Heading 5"),
         ("h6", "Heading 6"),
     ] {
-        let item = MenuItemBuilder::with_id(format!("{INSERT_BLOCK_PREFIX}{kind}"), label).build(app)?;
+        let item =
+            MenuItemBuilder::with_id(format!("{INSERT_BLOCK_PREFIX}{kind}"), label).build(app)?;
         format_menu_builder = format_menu_builder.item(&item);
     }
     format_menu_builder = format_menu_builder.separator();
@@ -232,7 +264,8 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         ("code-block", "Code Block"),
         ("table", "Table"),
     ] {
-        let item = MenuItemBuilder::with_id(format!("{INSERT_BLOCK_PREFIX}{kind}"), label).build(app)?;
+        let item =
+            MenuItemBuilder::with_id(format!("{INSERT_BLOCK_PREFIX}{kind}"), label).build(app)?;
         format_menu_builder = format_menu_builder.item(&item);
     }
     let format_menu = format_menu_builder.build()?;
@@ -246,16 +279,22 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         MenuItemBuilder::with_id(TOGGLE_SOURCE_MODE_ID, "Toggle Source Code Mode").build(app)?;
     let toggle_typewriter_mode_item =
         MenuItemBuilder::with_id(TOGGLE_TYPEWRITER_MODE_ID, "Toggle Typewriter Mode").build(app)?;
-    let toggle_sidebar_item = MenuItemBuilder::with_id(TOGGLE_SIDEBAR_ID, "Toggle Sidebar").build(app)?;
+    let toggle_sidebar_item =
+        MenuItemBuilder::with_id(TOGGLE_SIDEBAR_ID, "Toggle Sidebar").build(app)?;
 
     // Fixed OS-convention accelerators (like Cmd+S / Cmd+W), not
     // user-configurable ones - so unlike the items above they keep
     // native accelerators. Zoom itself is applied by the frontend
     // (utils/useZoom.ts), which also handles pinch and mod+wheel.
-    let zoom_in_item = MenuItemBuilder::with_id(ZOOM_IN_ID, "Zoom In").accelerator("Cmd+=").build(app)?;
-    let zoom_out_item = MenuItemBuilder::with_id(ZOOM_OUT_ID, "Zoom Out").accelerator("Cmd+-").build(app)?;
-    let zoom_reset_item =
-        MenuItemBuilder::with_id(ZOOM_RESET_ID, "Actual Size").accelerator("Cmd+0").build(app)?;
+    let zoom_in_item = MenuItemBuilder::with_id(ZOOM_IN_ID, "Zoom In")
+        .accelerator("Cmd+=")
+        .build(app)?;
+    let zoom_out_item = MenuItemBuilder::with_id(ZOOM_OUT_ID, "Zoom Out")
+        .accelerator("Cmd+-")
+        .build(app)?;
+    let zoom_reset_item = MenuItemBuilder::with_id(ZOOM_RESET_ID, "Actual Size")
+        .accelerator("Cmd+0")
+        .build(app)?;
 
     let view_menu = SubmenuBuilder::new(app, "View")
         .item(&toggle_source_mode_item)
@@ -298,14 +337,22 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
 
     let menu = MenuBuilder::new(app)
-        .items(&[&app_menu, &file_menu, &edit_menu, &format_menu, &view_menu, &window_menu, &help_menu])
+        .items(&[
+            &app_menu,
+            &file_menu,
+            &edit_menu,
+            &format_menu,
+            &view_menu,
+            &window_menu,
+            &help_menu,
+        ])
         .build()?;
     app.set_menu(menu)?;
 
     app.on_menu_event(move |app_handle, event| {
         let id = event.id();
         if id == SETTINGS_MENU_ID {
-            let _ = app_handle.emit("menu-open-settings", ());
+            emit_to_focused(app_handle, "menu-open-settings");
         } else if id == NEW_FILE_ID {
             // Honors the same Settings choice as opening files: a
             // new tab in the focused window in tab mode, a fresh
@@ -318,7 +365,7 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
                 emit_to_focused(app_handle, "menu-new-file");
             }
         } else if id == OPEN_FILE_ID {
-            let _ = app_handle.emit("menu-open-file", ());
+            emit_to_focused(app_handle, "menu-open-file");
         } else if id == SAVE_FILE_ID {
             emit_to_focused(app_handle, "menu-save-file");
         } else if id == SAVE_FILE_AS_ID {
@@ -348,11 +395,11 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
             let kind = id.as_ref()[INSERT_BLOCK_PREFIX.len()..].to_string();
             emit_to_focused_payload(app_handle, "menu-insert-block", kind);
         } else if id == TOGGLE_SOURCE_MODE_ID {
-            let _ = app_handle.emit("menu-toggle-source-mode", ());
+            emit_to_focused(app_handle, "menu-toggle-source-mode");
         } else if id == TOGGLE_TYPEWRITER_MODE_ID {
-            let _ = app_handle.emit("menu-toggle-typewriter-mode", ());
+            emit_to_focused(app_handle, "menu-toggle-typewriter-mode");
         } else if id == TOGGLE_SIDEBAR_ID {
-            let _ = app_handle.emit("menu-toggle-sidebar", ());
+            emit_to_focused(app_handle, "menu-toggle-sidebar");
         } else if id == FIND_REPLACE_ID {
             emit_to_focused(app_handle, "menu-find-replace");
         } else if id == ZOOM_IN_ID {
@@ -366,7 +413,11 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         } else if id == CLOSE_WINDOW_ID {
             // close() (not destroy()) so the frontend's dirty-tab
             // prompt still runs, same as the red traffic-light button.
-            if let Some((_, window)) = app_handle.webview_windows().iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
+            if let Some((_, window)) = app_handle
+                .webview_windows()
+                .iter()
+                .find(|(_, w)| w.is_focused().unwrap_or(false))
+            {
                 let _ = window.close();
             }
         } else if id == NEW_WINDOW_ID {
@@ -377,7 +428,11 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
             // windowless), spawn one that drains the pending doc on
             // mount.
             let doc = id.as_ref()[HELP_DOC_PREFIX.len()..].to_string();
-            if app_handle.webview_windows().iter().any(|(label, _)| *label != DRAG_PILL_LABEL) {
+            if app_handle
+                .webview_windows()
+                .iter()
+                .any(|(label, _)| *label != DRAG_PILL_LABEL)
+            {
                 emit_to_focused_payload(app_handle, "menu-open-help", doc);
             } else {
                 *crate::PENDING_SHOW_HELP.lock().unwrap() = Some(doc);

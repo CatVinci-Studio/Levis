@@ -73,9 +73,10 @@ const MAX_ATTACHMENT_BYTES: u64 = 200 * 1024;
 #[tauri::command]
 pub async fn pick_attachment_file(app: tauri::AppHandle) -> Result<Option<AttachedFile>, String> {
     use tauri_plugin_dialog::DialogExt;
-    let picked = tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_file())
-        .await
-        .map_err(|e| e.to_string())?;
+    let picked =
+        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_file())
+            .await
+            .map_err(|e| e.to_string())?;
     let Some(path) = picked.map(|p| p.to_string()) else {
         return Ok(None);
     };
@@ -204,7 +205,10 @@ pub async fn save_pasted_image(
     let (dir, relative) = match doc_path.as_deref().map(Path::new).and_then(|p| p.parent()) {
         Some(parent) => (parent.join("assets"), true),
         None => (
-            app.path().app_data_dir().map_err(|e| e.to_string())?.join("assets"),
+            app.path()
+                .app_data_dir()
+                .map_err(|e| e.to_string())?
+                .join("assets"),
             false,
         ),
     };
@@ -231,13 +235,102 @@ pub async fn save_pasted_image(
     Ok(SavedImage { src })
 }
 
+#[derive(Serialize)]
+pub struct ImageMigration {
+    old: String,
+    /// New "assets/<name>" src (relative to the document) on success; None
+    /// if this one image failed to move - it's left at its old absolute
+    /// path, so nothing is lost, just not tidied up.
+    new: Option<String>,
+}
+
+async fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
+    if fs::rename(from, to).await.is_ok() {
+        return Ok(());
+    }
+    // rename fails across filesystems/volumes (app data dir and the
+    // document's folder aren't guaranteed to share one) - copy then remove
+    // the original as a fallback "move".
+    fs::copy(from, to).await?;
+    fs::remove_file(from).await
+}
+
+/// Moves a first-saved draft's pasted images from the app's data dir into a
+/// Typora-style `assets/` folder next to the now-real document, rewriting
+/// each markdown `src` to the new relative path. Only touches paths that are
+/// actually under the app data dir's `assets/` folder - anything else
+/// (http(s), data:, or already-relative) is left alone, matching the
+/// frontend's job of only offering draft-image candidates here.
+#[tauri::command]
+pub async fn migrate_draft_images(
+    app: tauri::AppHandle,
+    doc_path: String,
+    srcs: Vec<String>,
+) -> Result<Vec<ImageMigration>, String> {
+    use tauri::Manager;
+
+    require_non_empty(&doc_path)?;
+    let Some(doc_dir) = Path::new(&doc_path).parent() else {
+        return Err("document path has no parent directory".to_string());
+    };
+    let draft_assets_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("assets");
+    let dest_dir = doc_dir.join("assets");
+
+    let mut results = Vec::with_capacity(srcs.len());
+    for old in srcs {
+        let path = Path::new(&old);
+        // Not a draft-origin image (e.g. some other absolute path the user
+        // inserted directly) - silently skipped, not a migration failure:
+        // `new: None` below is reserved for a draft image that WAS found
+        // here but failed to move, which is the only case worth a toast.
+        if path.parent() != Some(draft_assets_dir.as_path()) {
+            continue;
+        }
+        let Some(name) = path.file_name() else {
+            results.push(ImageMigration { old, new: None });
+            continue;
+        };
+
+        let new = async {
+            fs::create_dir_all(&dest_dir).await.ok()?;
+            let mut dest_name = name.to_string_lossy().to_string();
+            let mut n = 1;
+            while dest_dir.join(&dest_name).exists() {
+                let stem = Path::new(name).file_stem()?.to_string_lossy();
+                let ext = Path::new(name)
+                    .extension()
+                    .map(|e| e.to_string_lossy().to_string());
+                dest_name = match &ext {
+                    Some(ext) => format!("{stem}-{n}.{ext}"),
+                    None => format!("{stem}-{n}"),
+                };
+                n += 1;
+            }
+            move_file(path, &dest_dir.join(&dest_name)).await.ok()?;
+            Some(format!("assets/{dest_name}"))
+        }
+        .await;
+
+        results.push(ImageMigration { old, new });
+    }
+    Ok(results)
+}
+
 #[tauri::command]
 pub async fn write_text_file(path: String, contents: String) -> Result<(), String> {
     require_non_empty(&path)?;
     if let Some(parent) = Path::new(&path).parent() {
         if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+            fs::create_dir_all(parent)
+                .await
+                .map_err(|e| e.to_string())?;
         }
     }
-    fs::write(&path, contents).await.map_err(|e| e.to_string())
+    crate::atomic::write(Path::new(&path), contents)
+        .await
+        .map_err(|e| e.to_string())
 }

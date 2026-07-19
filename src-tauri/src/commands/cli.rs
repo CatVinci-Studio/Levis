@@ -27,7 +27,9 @@ fn write_direct() -> std::io::Result<()> {
 
 #[cfg(target_os = "macos")]
 pub fn is_installed() -> bool {
-    std::fs::read_to_string(CLI_BIN_PATH).map(|c| c == script_content()).unwrap_or(false)
+    std::fs::read_to_string(CLI_BIN_PATH)
+        .map(|c| c == script_content())
+        .unwrap_or(false)
 }
 
 /// Called once on startup. `/usr/local/bin` is only user-writable on some
@@ -63,7 +65,10 @@ pub fn install() -> Result<(), String> {
         "do shell script \"{escaped}\" with administrator privileges with prompt \
          \"{APP_NAME} wants to install the 'levis' command in /usr/local/bin.\""
     );
-    let result = std::process::Command::new("osascript").arg("-e").arg(apple_script).output();
+    let result = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(apple_script)
+        .output();
     let _ = std::fs::remove_file(&tmp);
     let output = result.map_err(|e| e.to_string())?;
     if output.status.success() {

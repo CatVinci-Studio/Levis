@@ -137,5 +137,7 @@ pub async fn open_pandoc_install_page(app: tauri::AppHandle) -> Result<(), Strin
 #[tauri::command]
 pub async fn reveal_in_dir(app: tauri::AppHandle, path: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
-    app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())
+    app.opener()
+        .reveal_item_in_dir(&path)
+        .map_err(|e| e.to_string())
 }

@@ -12,21 +12,31 @@ use tauri::{AppHandle, Manager};
 pub struct SessionTabsState(pub Mutex<HashMap<String, Vec<String>>>);
 
 fn session_file(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|dir| dir.join("session.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join("session.json"))
 }
 
 pub fn read_session_paths(app: &AppHandle) -> Vec<String> {
-    let Some(path) = session_file(app) else { return Vec::new() };
-    fs::read_to_string(path).ok().and_then(|raw| serde_json::from_str(&raw).ok()).unwrap_or_default()
+    let Some(path) = session_file(app) else {
+        return Vec::new();
+    };
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
 }
 
 fn write_session_paths(app: &AppHandle, paths: &[String]) {
-    let Some(path) = session_file(app) else { return };
+    let Some(path) = session_file(app) else {
+        return;
+    };
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
     if let Ok(json) = serde_json::to_string(paths) {
-        let _ = fs::write(path, json);
+        let _ = crate::atomic::write_sync(&path, json);
     }
 }
 

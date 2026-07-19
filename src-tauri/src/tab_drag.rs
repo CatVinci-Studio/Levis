@@ -45,7 +45,10 @@ pub struct PendingDetachedTabs(pub Mutex<HashMap<String, DetachedTab>>);
 pub struct DragTrackers(pub Mutex<std::collections::HashSet<String>>);
 
 #[tauri::command]
-pub fn take_detached_tab(window: tauri::Window, pending: State<PendingDetachedTabs>) -> Option<DetachedTab> {
+pub fn take_detached_tab(
+    window: tauri::Window,
+    pending: State<PendingDetachedTabs>,
+) -> Option<DetachedTab> {
     pending.0.lock().unwrap().remove(window.label())
 }
 
@@ -81,7 +84,14 @@ pub fn list_window_bounds(app: tauri::AppHandle) -> Vec<WindowBounds> {
             let pos = window.outer_position().ok()?;
             let size = window.outer_size().ok()?;
             let scale_factor = window.scale_factor().ok()?;
-            Some(WindowBounds { label: label.clone(), x: pos.x, y: pos.y, width: size.width, height: size.height, scale_factor })
+            Some(WindowBounds {
+                label: label.clone(),
+                x: pos.x,
+                y: pos.y,
+                width: size.width,
+                height: size.height,
+                scale_factor,
+            })
         })
         .collect()
 }
@@ -105,7 +115,9 @@ const DRAG_PILL_HEIGHT: f64 = 34.0;
 fn url_encode(s: &str) -> String {
     s.bytes()
         .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
             _ => format!("%{b:02X}"),
         })
         .collect()
@@ -119,7 +131,11 @@ fn url_encode(s: &str) -> String {
 /// run_on_main_thread hop.
 #[cfg(target_os = "macos")]
 fn create_drag_pill(app: &tauri::AppHandle, title: &str, dirty: bool, x: f64, y: f64) {
-    let url = format!("dragpill.html?title={}&dirty={}", url_encode(title), if dirty { 1 } else { 0 });
+    let url = format!(
+        "dragpill.html?title={}&dirty={}",
+        url_encode(title),
+        if dirty { 1 } else { 0 }
+    );
     let app = app.clone();
     let _ = app.clone().run_on_main_thread(move || {
         if let Some(existing) = app.get_webview_window(DRAG_PILL_LABEL) {
@@ -147,7 +163,10 @@ fn create_drag_pill(app: &tauri::AppHandle, title: &str, dirty: bool, x: f64, y:
 #[cfg(target_os = "macos")]
 fn move_drag_pill(app: &tauri::AppHandle, x: f64, y: f64) {
     if let Some(window) = app.get_webview_window(DRAG_PILL_LABEL) {
-        let _ = window.set_position(tauri::LogicalPosition::new(x - DRAG_PILL_WIDTH / 2.0, y - DRAG_PILL_HEIGHT / 2.0));
+        let _ = window.set_position(tauri::LogicalPosition::new(
+            x - DRAG_PILL_WIDTH / 2.0,
+            y - DRAG_PILL_HEIGHT / 2.0,
+        ));
         let _ = window.show();
     }
 }
@@ -192,8 +211,11 @@ fn top_strip_hit(app: &tauri::AppHandle, x: f64, y: f64) -> Option<String> {
         if label == DRAG_PILL_LABEL || !window.is_visible().unwrap_or(false) {
             continue;
         }
-        let (Ok(pos), Ok(size), Ok(scale)) = (window.outer_position(), window.outer_size(), window.scale_factor())
-        else {
+        let (Ok(pos), Ok(size), Ok(scale)) = (
+            window.outer_position(),
+            window.outer_size(),
+            window.scale_factor(),
+        ) else {
             continue;
         };
         let wx = pos.x as f64 / scale;
@@ -294,13 +316,20 @@ pub fn start_floating_tab_drag(
                         let _ = app.emit_to(
                             EventTarget::webview_window(label),
                             "drag-hover",
-                            Some(DragHoverPreview { title: title.clone(), dirty, x }),
+                            Some(DragHoverPreview {
+                                title: title.clone(),
+                                dirty,
+                                x,
+                            }),
                         );
                     }
                     None => {
                         if let Some(prev) = hover.take() {
-                            let _ =
-                                app.emit_to(EventTarget::webview_window(&prev), "drag-hover", Option::<DragHoverPreview>::None);
+                            let _ = app.emit_to(
+                                EventTarget::webview_window(&prev),
+                                "drag-hover",
+                                Option::<DragHoverPreview>::None,
+                            );
                         }
                         if pill_exists {
                             move_drag_pill(&app, x, y);
@@ -321,16 +350,28 @@ pub fn start_floating_tab_drag(
             // swaps it for the real tab without an empty-gap flash.
             if let Some(prev) = &hover {
                 if final_hit.as_deref() != Some(prev.as_str()) {
-                    let _ = app.emit_to(EventTarget::webview_window(prev), "drag-hover", Option::<DragHoverPreview>::None);
+                    let _ = app.emit_to(
+                        EventTarget::webview_window(prev),
+                        "drag-hover",
+                        Option::<DragHoverPreview>::None,
+                    );
                 }
             }
             match final_hit {
                 Some(label) => {
-                    let _ = app.emit_to(EventTarget::webview_window(&label), "receive-detached-tab", DroppedTab { tab, x });
+                    let _ = app.emit_to(
+                        EventTarget::webview_window(&label),
+                        "receive-detached-tab",
+                        DroppedTab { tab, x },
+                    );
                 }
                 None => {
                     let label = format!("window-{}", crate::next_window_id());
-                    app.state::<PendingDetachedTabs>().0.lock().unwrap().insert(label.clone(), tab);
+                    app.state::<PendingDetachedTabs>()
+                        .0
+                        .lock()
+                        .unwrap()
+                        .insert(label.clone(), tab);
                     let app2 = app.clone();
                     let position = (x - 100.0, (y - 14.0).max(0.0));
                     let _ = app.run_on_main_thread(move || {
@@ -402,7 +443,10 @@ mod mouse {
 /// to track (button already up - e.g. a programmatic setPosition fired
 /// onMoved - or a non-macOS platform).
 #[tauri::command]
-pub fn start_window_drag_tracking(window: tauri::WebviewWindow, trackers: State<DragTrackers>) -> bool {
+pub fn start_window_drag_tracking(
+    window: tauri::WebviewWindow,
+    trackers: State<DragTrackers>,
+) -> bool {
     #[cfg(target_os = "macos")]
     {
         if !mouse::left_button_down() {
@@ -422,7 +466,11 @@ pub fn start_window_drag_tracking(window: tauri::WebviewWindow, trackers: State<
                     break;
                 }
                 let (x, y, down) = mouse::state();
-                let _ = app.emit_to(EventTarget::webview_window(&label), "window-drag-tick", DragTick { x, y, down });
+                let _ = app.emit_to(
+                    EventTarget::webview_window(&label),
+                    "window-drag-tick",
+                    DragTick { x, y, down },
+                );
                 if !down {
                     break;
                 }

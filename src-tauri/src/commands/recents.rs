@@ -10,21 +10,31 @@ use tauri::Manager;
 const MAX_RECENT_FILES: usize = 10;
 
 fn recents_file(app: &tauri::AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|dir| dir.join("recent_files.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join("recent_files.json"))
 }
 
 pub fn read_recent_files(app: &tauri::AppHandle) -> Vec<String> {
-    let Some(path) = recents_file(app) else { return Vec::new() };
-    fs::read_to_string(path).ok().and_then(|raw| serde_json::from_str(&raw).ok()).unwrap_or_default()
+    let Some(path) = recents_file(app) else {
+        return Vec::new();
+    };
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
 }
 
 fn write_recent_files(app: &tauri::AppHandle, list: &[String]) {
-    let Some(path) = recents_file(app) else { return };
+    let Some(path) = recents_file(app) else {
+        return;
+    };
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
     if let Ok(json) = serde_json::to_string(list) {
-        let _ = fs::write(path, json);
+        let _ = crate::atomic::write_sync(&path, json);
     }
 }
 

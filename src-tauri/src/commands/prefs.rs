@@ -11,12 +11,19 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 fn prefs_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path().app_config_dir().map_err(|e| e.to_string()).map(|p| p.join("prefs.json"))
+    app.path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())
+        .map(|p| p.join("prefs.json"))
 }
 
 fn read_prefs(app: &AppHandle) -> serde_json::Value {
-    let Ok(path) = prefs_path(app) else { return serde_json::json!({}) };
-    let Ok(raw) = std::fs::read_to_string(path) else { return serde_json::json!({}) };
+    let Ok(path) = prefs_path(app) else {
+        return serde_json::json!({});
+    };
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return serde_json::json!({});
+    };
     serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}))
 }
 
@@ -29,14 +36,17 @@ fn write_pref(app: &AppHandle, key: &str, value: serde_json::Value) -> Result<()
     }
     let mut prefs = read_prefs(app);
     prefs[key] = value;
-    std::fs::write(path, prefs.to_string()).map_err(|e| e.to_string())
+    crate::atomic::write_sync(&path, prefs.to_string()).map_err(|e| e.to_string())
 }
 
 /// Internal helper for lib.rs's window-spawning decisions. Defaults to
 /// "window" (today's only behavior) on any missing/unreadable/malformed
 /// file, same "safe default" precedent as commands::cli.
 pub fn read_new_document_mode(app: &AppHandle) -> String {
-    match read_prefs(app).get("new_document_mode").and_then(|v| v.as_str()) {
+    match read_prefs(app)
+        .get("new_document_mode")
+        .and_then(|v| v.as_str())
+    {
         Some("tab") => "tab".to_string(),
         _ => "window".to_string(),
     }
@@ -56,7 +66,10 @@ pub fn set_new_document_mode(app: AppHandle, mode: String) -> Result<(), String>
 /// last session's documents (default) or start blank. Same "safe default"
 /// precedent - missing/unreadable/malformed prefs.json means restore.
 pub fn read_restore_session_on_startup(app: &AppHandle) -> bool {
-    read_prefs(app).get("restore_session_on_startup").and_then(|v| v.as_bool()).unwrap_or(true)
+    read_prefs(app)
+        .get("restore_session_on_startup")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
 }
 
 #[tauri::command]
@@ -66,5 +79,9 @@ pub fn get_restore_session_on_startup(app: AppHandle) -> bool {
 
 #[tauri::command]
 pub fn set_restore_session_on_startup(app: AppHandle, enabled: bool) -> Result<(), String> {
-    write_pref(&app, "restore_session_on_startup", serde_json::json!(enabled))
+    write_pref(
+        &app,
+        "restore_session_on_startup",
+        serde_json::json!(enabled),
+    )
 }
