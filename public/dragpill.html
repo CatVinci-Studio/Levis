@@ -65,7 +65,8 @@
     <script>
       const params = new URLSearchParams(location.search);
       document.getElementById("title").textContent = params.get("title") || "";
-      if (params.get("dirty") === "1") document.getElementById("dot").style.display = "";
+      if (params.get("dirty") === "1")
+        document.getElementById("dot").style.display = "";
     </script>
   </body>
 </html>

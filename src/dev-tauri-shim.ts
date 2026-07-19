@@ -25,12 +25,58 @@ export function installDevTauriShim(): void {
       currentWebview: { label: "main", windowLabel: "main" },
     },
     invoke: (cmd: string, args?: { event?: string; handler?: number }) => {
-      if (cmd === "plugin:event|listen" && args?.event && typeof args.handler === "number") {
-        listeners.set(args.event, [...(listeners.get(args.event) ?? []), args.handler]);
+      if (
+        cmd === "plugin:event|listen" &&
+        args?.event &&
+        typeof args.handler === "number"
+      ) {
+        listeners.set(args.event, [
+          ...(listeners.get(args.event) ?? []),
+          args.handler,
+        ]);
         // The listener id unlisten() later passes to unregisterListener -
         // returning null here would make every unlisten a no-op and stale
         // StrictMode handlers would double-fire events.
         return Promise.resolve(args.handler);
+      }
+      // A canned suggestion instead of null: lets ghost-text rendering (and
+      // the tutorial's completion step) be smoke-tested in the browser -
+      // null would make the manual trigger path throw an error dialog.
+      if (cmd === "ai_complete") {
+        return Promise.resolve(
+          " and this ghost text is a canned dev-shim suggestion.",
+        );
+      }
+      // One canned issue on the paragraph's first character, so the
+      // underline decoration and hover popover can be smoke-tested too.
+      if (cmd === "ai_grammar_check") {
+        const paragraph =
+          (args as unknown as { paragraph?: string })?.paragraph ?? "";
+        return Promise.resolve(
+          paragraph.length > 0
+            ? [
+                {
+                  start: 0,
+                  end: 1,
+                  issue: "Canned dev-shim issue.",
+                  suggestion: paragraph[0].toUpperCase(),
+                },
+              ]
+            : [],
+        );
+      }
+      // A canned User/Assistant exchange (AgentTurn[]) instead of null - lets
+      // the inline chat's real send path (not just the tutorial's own
+      // mockReply) be smoke-tested in the browser; null here made
+      // useAgentConversation's `[...prev, ...newTurns]` throw (newTurns not
+      // iterable) and crash the whole tree, since there's no error boundary.
+      if (cmd === "ai_agent_message") {
+        const message =
+          (args as unknown as { message?: string })?.message ?? "";
+        return Promise.resolve([
+          { kind: "User", text: message },
+          { kind: "Assistant", text: `Canned dev-shim reply to: ${message}` },
+        ]);
       }
       return Promise.resolve(null);
     },
@@ -49,12 +95,19 @@ export function installDevTauriShim(): void {
   // one __devEmitTauriEvent fires them all (symptom: duplicated tabs).
   w.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
     unregisterListener: (event: string, id: number) => {
-      listeners.set(event, (listeners.get(event) ?? []).filter((h) => h !== id));
+      listeners.set(
+        event,
+        (listeners.get(event) ?? []).filter((h) => h !== id),
+      );
     },
   };
   w.__devEmitTauriEvent = (event: string, payload?: unknown) => {
     for (const id of listeners.get(event) ?? []) {
-      (w[`_${id}`] as ((e: unknown) => void) | undefined)?.({ event, id, payload });
+      (w[`_${id}`] as ((e: unknown) => void) | undefined)?.({
+        event,
+        id,
+        payload,
+      });
     }
   };
 }

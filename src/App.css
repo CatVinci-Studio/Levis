@@ -84,6 +84,20 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
+/* Self-dismissing message from an on-demand AI trigger (MilkdownEditor's
+   showAiNotice) - "no issues found", "not signed in", ... */
+.ai-notice {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 220;
+  max-width: 60ch;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-color);
+}
+
 html,
 body,
 #root {
@@ -380,6 +394,18 @@ body {
   padding: 0 4px;
 }
 
+/* 4.1: shown while ghost text / grammar check / live Mermaid preview are
+   paused for a large document (see editor/large-doc.ts). */
+.large-doc-badge {
+  font-size: 11px;
+  color: var(--editor-muted);
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--editor-border);
+  cursor: default;
+}
+
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -476,6 +502,33 @@ body {
 .update-toast-secondary {
   background: transparent;
   color: var(--editor-muted, inherit);
+}
+
+/* Startup notice that a crash/force-quit's unsaved content was recovered as
+   extra tabs (see draft-autosave.ts) - opposite corner from .update-toast so
+   the two never overlap if both happen to show at once. */
+.draft-restored-toast {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  font-size: 13px;
+}
+
+.draft-restored-toast button {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .unsaved-dot {

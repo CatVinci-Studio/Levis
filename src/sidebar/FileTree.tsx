@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import type { DirEntryInfo } from "./types";
 import { ChevronIcon, FolderIcon, FolderOpenIcon, fileIconFor } from "./icons";
+import { fs } from "../ipc";
 import "./FileTree.css";
 
 interface FileTreeProps {
@@ -10,10 +10,20 @@ interface FileTreeProps {
   onFileSelect: (path: string) => void;
 }
 
-export function FileTree({ rootPath, activePath, onFileSelect }: FileTreeProps) {
+export function FileTree({
+  rootPath,
+  activePath,
+  onFileSelect,
+}: FileTreeProps) {
   return (
     <div className="file-tree">
-      <DirNode path={rootPath} depth={0} activePath={activePath} onFileSelect={onFileSelect} forceOpen />
+      <DirNode
+        path={rootPath}
+        depth={0}
+        activePath={activePath}
+        onFileSelect={onFileSelect}
+        forceOpen
+      />
     </div>
   );
 }
@@ -26,7 +36,13 @@ interface DirNodeProps {
   forceOpen?: boolean;
 }
 
-function DirNode({ path, depth, activePath, onFileSelect, forceOpen }: DirNodeProps) {
+function DirNode({
+  path,
+  depth,
+  activePath,
+  onFileSelect,
+  forceOpen,
+}: DirNodeProps) {
   const [open, setOpen] = useState(!!forceOpen);
   const [children, setChildren] = useState<DirEntryInfo[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +51,7 @@ function DirNode({ path, depth, activePath, onFileSelect, forceOpen }: DirNodePr
     if (children !== null || loading) return;
     setLoading(true);
     try {
-      const entries = await invoke<DirEntryInfo[]>("list_dir", { path });
+      const entries = await fs.listDir(path);
       setChildren(entries);
     } finally {
       setLoading(false);
@@ -56,9 +72,17 @@ function DirNode({ path, depth, activePath, onFileSelect, forceOpen }: DirNodePr
   return (
     <div className="dir-node">
       {depth > 0 && (
-        <button className="tree-row" style={{ paddingLeft: depth * 14 }} onClick={toggle}>
+        <button
+          className="tree-row"
+          style={{ paddingLeft: depth * 14 }}
+          onClick={toggle}
+        >
           <ChevronIcon className={`chevron ${open ? "chevron-open" : ""}`} />
-          {open ? <FolderOpenIcon className="tree-icon" /> : <FolderIcon className="tree-icon" />}
+          {open ? (
+            <FolderOpenIcon className="tree-icon" />
+          ) : (
+            <FolderIcon className="tree-icon" />
+          )}
           <span className="tree-label">{path.split("/").pop()}</span>
         </button>
       )}

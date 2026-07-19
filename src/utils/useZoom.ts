@@ -53,7 +53,10 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
     const apply = () => {
-      document.documentElement.style.setProperty("--content-zoom", String(zoomRef.current));
+      document.documentElement.style.setProperty(
+        "--content-zoom",
+        String(zoomRef.current),
+      );
     };
 
     const applyFrame = () => {
@@ -68,7 +71,10 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       zoomRef.current = snapped ? snap(zoom) : clamp(zoom);
       if (!raf) raf = requestAnimationFrame(applyFrame);
       clearTimeout(persistTimer);
-      persistTimer = setTimeout(() => persistRef.current(zoomRef.current), PERSIST_DELAY_MS);
+      persistTimer = setTimeout(
+        () => persistRef.current(zoomRef.current),
+        PERSIST_DELAY_MS,
+      );
     };
 
     if (zoomRef.current !== 1) apply();
@@ -105,8 +111,12 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     window.addEventListener("gestureend", onGestureEnd);
     window.addEventListener("wheel", onWheel, { passive: false });
 
-    const unlistenIn = listen("menu-zoom-in", () => setZoom(zoomRef.current * MENU_STEP));
-    const unlistenOut = listen("menu-zoom-out", () => setZoom(zoomRef.current / MENU_STEP));
+    const unlistenIn = listen("menu-zoom-in", () =>
+      setZoom(zoomRef.current * MENU_STEP),
+    );
+    const unlistenOut = listen("menu-zoom-out", () =>
+      setZoom(zoomRef.current / MENU_STEP),
+    );
     const unlistenReset = listen("menu-zoom-reset", () => setZoom(1));
 
     return () => {

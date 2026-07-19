@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { loadSettings } from "../settings/SettingsContext";
 
 /**
  * Rolling history of text that moved through the clipboard inside the
@@ -32,7 +33,10 @@ function load(): ClipboardEntry[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((e): e is ClipboardEntry => typeof e?.text === "string" && typeof e?.at === "number")
+      .filter(
+        (e): e is ClipboardEntry =>
+          typeof e?.text === "string" && typeof e?.at === "number",
+      )
       .slice(0, MAX_ENTRIES);
   } catch {
     return [];
@@ -52,9 +56,13 @@ function notify(): void {
 }
 
 export function recordClipboardEntry(text: string): void {
+  if (!loadSettings().enableClipboardHistory) return;
   const trimmed = text.trim();
   if (!trimmed || text.length > MAX_TEXT_LENGTH) return;
-  entries = [{ text, at: Date.now() }, ...entries.filter((e) => e.text !== text)].slice(0, MAX_ENTRIES);
+  entries = [
+    { text, at: Date.now() },
+    ...entries.filter((e) => e.text !== text),
+  ].slice(0, MAX_ENTRIES);
   persist();
   notify();
 }

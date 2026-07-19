@@ -1,12 +1,18 @@
 import { useSettings } from "../settings/SettingsContext";
-import { useClipboardHistory, clearClipboardHistory, recordClipboardEntry } from "../utils/clipboard-history";
+import {
+  useClipboardHistory,
+  clearClipboardHistory,
+  recordClipboardEntry,
+} from "../utils/clipboard-history";
 import { INSERT_CLIPBOARD_TEXT_EVENT } from "../utils/events";
 
 const PREVIEW_MAX_CHARS = 120;
 
 function preview(text: string): string {
   const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length > PREVIEW_MAX_CHARS ? `${flat.slice(0, PREVIEW_MAX_CHARS)}…` : flat;
+  return flat.length > PREVIEW_MAX_CHARS
+    ? `${flat.slice(0, PREVIEW_MAX_CHARS)}…`
+    : flat;
 }
 
 /**
@@ -35,7 +41,13 @@ export function ClipboardHistory() {
           key={entry.at}
           className="clipboard-entry"
           title={t.clipboardInsertHint}
-          onClick={() => window.dispatchEvent(new CustomEvent(INSERT_CLIPBOARD_TEXT_EVENT, { detail: entry.text }))}
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent(INSERT_CLIPBOARD_TEXT_EVENT, {
+                detail: entry.text,
+              }),
+            )
+          }
         >
           <span className="clipboard-entry-text">{preview(entry.text)}</span>
           <button

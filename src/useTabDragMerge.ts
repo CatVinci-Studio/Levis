@@ -1,9 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Strings } from "./i18n/strings";
-import { floatingDragArgs, makeBlankTab, type DetachedTabDoc, type DocTab } from "./doc-tabs";
+import {
+  floatingDragArgs,
+  makeBlankTab,
+  type DetachedTabDoc,
+  type DocTab,
+} from "./doc-tabs";
+import { windowIpc, type WindowBounds } from "./ipc";
 
 // Everything about moving tabs BETWEEN windows lives here, both directions:
 //
@@ -15,15 +28,6 @@ import { floatingDragArgs, makeBlankTab, type DetachedTabDoc, type DocTab } from
 //   bar, and receive-detached-tab landing the document as a real tab.
 //
 // Within-bar reordering is NOT here - that's TabBar.tsx's own DOM drag.
-
-interface WindowBounds {
-  label: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  scaleFactor: number;
-}
 
 // The drop target is a window's TAB ROW specifically (the tab bar if it has
 // one, or just its title strip if it's a single-tab window showing only the
@@ -41,7 +45,9 @@ function pointInTopStrip(lx: number, ly: number, w: WindowBounds): boolean {
   const x = w.x / w.scaleFactor;
   const y = w.y / w.scaleFactor;
   const width = w.width / w.scaleFactor;
-  return lx >= x && lx <= x + width && ly >= y && ly <= y + TAB_ROW_HEIGHT_LOGICAL;
+  return (
+    lx >= x && lx <= x + width && ly >= y && ly <= y + TAB_ROW_HEIGHT_LOGICAL
+  );
 }
 
 export interface DragHoverPreview {
@@ -63,22 +69,28 @@ export function useTabDragMerge(opts: {
   // merge target - rendered as a real-looking pill riding the cursor along
   // the bar (x is already window-local logical px; see the "drag-hover"
   // listener below for the conversion).
-  const [dragHoverPreview, setDragHoverPreview] = useState<DragHoverPreview | null>(null);
+  const [dragHoverPreview, setDragHoverPreview] =
+    useState<DragHoverPreview | null>(null);
   // This window's own left edge in global logical points, cached for the
   // duration of one hover (the window can't move while something is being
   // dragged over it) - converts the drag's global cursor x to local.
   const previewWinLeftRef = useRef<number | null>(null);
 
-  const hitTestWindow = useCallback(async (screenX: number, screenY: number): Promise<string | null> => {
-    const selfLabel = getCurrentWindow().label;
-    try {
-      const bounds = await invoke<WindowBounds[]>("list_window_bounds");
-      const hit = bounds.find((b) => b.label !== selfLabel && pointInTopStrip(screenX, screenY, b));
-      return hit?.label ?? null;
-    } catch {
-      return null;
-    }
-  }, []);
+  const hitTestWindow = useCallback(
+    async (screenX: number, screenY: number): Promise<string | null> => {
+      const selfLabel = getCurrentWindow().label;
+      try {
+        const bounds = await windowIpc.listWindowBounds();
+        const hit = bounds.find(
+          (b) => b.label !== selfLabel && pointInTopStrip(screenX, screenY, b),
+        );
+        return hit?.label ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
 
   // THE FLOATING TAB: the single "a tab is in flight" state both drag
   // flows funnel into - and it lives entirely in Rust
@@ -97,7 +109,7 @@ export function useTabDragMerge(opts: {
       const tab = tabsRef.current.find((tb) => tb.id === id);
       if (!tab) return;
       try {
-        await invoke("start_floating_tab_drag", floatingDragArgs(tab, t, false));
+        await windowIpc.startFloatingTabDrag(floatingDragArgs(tab, t, false));
       } catch {
         return; // drag couldn't start (unsupported platform / one already active) - keep the tab
       }
@@ -146,16 +158,19 @@ export function useTabDragMerge(opts: {
       const tab = tabsRef.current[0];
       if (!tab) return;
       windowDragRef.current = "handed-off";
-      void invoke("start_floating_tab_drag", floatingDragArgs(tab, t, true));
+      void windowIpc.startFloatingTabDrag(floatingDragArgs(tab, t, true));
     }
 
     // Ticks run strictly in order - two interleaved handlers could both
     // pass the "watching" check and hand the document off twice.
     let chain: Promise<void> = Promise.resolve();
-    const unlistenTick = listen<{ x: number; y: number; down: boolean }>("window-drag-tick", (event) => {
-      const { x, y, down } = event.payload;
-      chain = chain.then(() => handleTick(x, y, down)).catch(() => {});
-    });
+    const unlistenTick = listen<{ x: number; y: number; down: boolean }>(
+      "window-drag-tick",
+      (event) => {
+        const { x, y, down } = event.payload;
+        chain = chain.then(() => handleTick(x, y, down)).catch(() => {});
+      },
+    );
 
     const unlistenMoved = win.onMoved(() => {
       // Lazy trigger: nothing beyond this guard runs unless a SINGLE-tab
@@ -163,10 +178,12 @@ export function useTabDragMerge(opts: {
       // tab pills instead). Rust double-checks the button is really down -
       // a programmatic setPosition also fires onMoved - and refuses to
       // double-track, so a stray extra call here is harmless.
-      if (windowDragRef.current !== "idle" || tabsRef.current.length !== 1) return;
+      if (windowDragRef.current !== "idle" || tabsRef.current.length !== 1)
+        return;
       windowDragRef.current = "watching";
-      void invoke<boolean>("start_window_drag_tracking").then((started) => {
-        if (!started && windowDragRef.current === "watching") windowDragRef.current = "idle";
+      void windowIpc.startWindowDragTracking().then((started) => {
+        if (!started && windowDragRef.current === "watching")
+          windowDragRef.current = "idle";
       });
     });
 
@@ -194,7 +211,9 @@ export function useTabDragMerge(opts: {
         if (winLeft !== null) {
           const localX = x - winLeft;
           index = tabsRef.current.filter((tab) => {
-            const node = document.querySelector<HTMLElement>(`[data-flip-id="${CSS.escape(tab.id)}"]`);
+            const node = document.querySelector<HTMLElement>(
+              `[data-flip-id="${CSS.escape(tab.id)}"]`,
+            );
             if (!node) return false;
             const rect = node.getBoundingClientRect();
             return rect.left + rect.width / 2 < localX;
@@ -221,19 +240,28 @@ export function useTabDragMerge(opts: {
   // global cursor x; converted here to window-local so TabBar can slide
   // the preview pill to it. Purely a receiver.
   useEffect(() => {
-    const unlisten = listen<DragHoverPreview | null>("drag-hover", async (event) => {
-      if (!event.payload) {
-        previewWinLeftRef.current = null;
-        setDragHoverPreview(null);
-        return;
-      }
-      if (previewWinLeftRef.current === null) {
-        const win = getCurrentWindow();
-        const [pos, scale] = await Promise.all([win.outerPosition(), win.scaleFactor()]);
-        previewWinLeftRef.current = pos.x / scale;
-      }
-      setDragHoverPreview({ ...event.payload, x: event.payload.x - previewWinLeftRef.current });
-    });
+    const unlisten = listen<DragHoverPreview | null>(
+      "drag-hover",
+      async (event) => {
+        if (!event.payload) {
+          previewWinLeftRef.current = null;
+          setDragHoverPreview(null);
+          return;
+        }
+        if (previewWinLeftRef.current === null) {
+          const win = getCurrentWindow();
+          const [pos, scale] = await Promise.all([
+            win.outerPosition(),
+            win.scaleFactor(),
+          ]);
+          previewWinLeftRef.current = pos.x / scale;
+        }
+        setDragHoverPreview({
+          ...event.payload,
+          x: event.payload.x - previewWinLeftRef.current,
+        });
+      },
+    );
     return () => {
       void unlisten.then((f) => f());
     };

@@ -106,8 +106,15 @@ export function TabBar({
   // pills jittering in and out.
   const previewRef = useRef<HTMLDivElement>(null);
   const appliedShift = useRef(new Map<string, number>());
-  const hoverGeom = useRef<{ forTabs: string; centers: Map<string, number> } | null>(null);
-  const previewState = useRef<{ hadPreview: boolean; tabIds: string[]; previewLeft: number }>({
+  const hoverGeom = useRef<{
+    forTabs: string;
+    centers: Map<string, number>;
+  } | null>(null);
+  const previewState = useRef<{
+    hadPreview: boolean;
+    tabIds: string[];
+    previewLeft: number;
+  }>({
     hadPreview: false,
     tabIds: [],
     previewLeft: 0,
@@ -117,7 +124,9 @@ export function TabBar({
     const bar = barRef.current;
     if (!bar) return;
     const prev = previewState.current;
-    const slidables = Array.from(bar.querySelectorAll<HTMLElement>("[data-flip-id]"));
+    const slidables = Array.from(
+      bar.querySelectorAll<HTMLElement>("[data-flip-id]"),
+    );
 
     if (previewTab) {
       const el = previewRef.current;
@@ -149,14 +158,18 @@ export function TabBar({
       const prevTx = appliedShift.current.get("__preview__") ?? 0;
       const layoutCenter = rect.left - prevTx + rect.width / 2;
       const barRect = bar.getBoundingClientRect();
-      const x = Math.min(Math.max(previewTab.x, barRect.left + rect.width / 2), barRect.right - rect.width / 2);
+      const x = Math.min(
+        Math.max(previewTab.x, barRect.left + rect.width / 2),
+        barRect.right - rect.width / 2,
+      );
       const tx = x - layoutCenter;
       el.style.transition = "none";
       el.style.transform = `translateX(${tx}px)`;
       appliedShift.current.set("__preview__", tx);
       prev.previewLeft = x - rect.width / 2;
 
-      const slot = rect.width + (parseFloat(getComputedStyle(bar).columnGap) || 0);
+      const slot =
+        rect.width + (parseFloat(getComputedStyle(bar).columnGap) || 0);
       for (const node of slidables) {
         const id = node.dataset.flipId!;
         const center = geom.centers.get(id);
@@ -182,7 +195,9 @@ export function TabBar({
           node.style.transform = "";
         }
         const arrivedId = tabs.find((tab) => !prev.tabIds.includes(tab.id))!.id;
-        const arrived = bar.querySelector<HTMLElement>(`[data-flip-id="${CSS.escape(arrivedId)}"]`);
+        const arrived = bar.querySelector<HTMLElement>(
+          `[data-flip-id="${CSS.escape(arrivedId)}"]`,
+        );
         if (arrived) {
           arrived.style.animation = "none"; // the grow-in would fight the settle
           const delta = prev.previewLeft - arrived.getBoundingClientRect().left;
@@ -226,7 +241,10 @@ export function TabBar({
         />
       ))}
       {previewTab && (
-        <div className="tab-pill tab-pill-active tab-pill-preview" ref={previewRef}>
+        <div
+          className="tab-pill tab-pill-active tab-pill-preview"
+          ref={previewRef}
+        >
           {previewTab.dirty && <span className="tab-pill-dirty-dot" />}
           <span className="tab-pill-title">{previewTab.title}</span>
         </div>
@@ -277,7 +295,9 @@ function TabPill({
   const title = tab.title;
 
   const pillNode = (id: string): HTMLElement | null =>
-    elRef.current?.parentElement?.querySelector<HTMLElement>(`[data-flip-id="${CSS.escape(id)}"]`) ?? null;
+    elRef.current?.parentElement?.querySelector<HTMLElement>(
+      `[data-flip-id="${CSS.escape(id)}"]`,
+    ) ?? null;
 
   function clearInlineStyles() {
     for (const id of tabIds) {
@@ -291,7 +311,13 @@ function TabPill({
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
-    gesture.current = { startX: e.clientX, startY: e.clientY, reordering: false, rects: [], gap: 0 };
+    gesture.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      reordering: false,
+      rects: [],
+      gap: 0,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
@@ -321,7 +347,11 @@ function TabPill({
           if (!node) return null;
           // offsetLeft/offsetWidth are layout values, immune to any
           // transform already in flight from a previous animation.
-          return { id, center: node.offsetLeft + node.offsetWidth / 2, width: node.offsetWidth };
+          return {
+            id,
+            center: node.offsetLeft + node.offsetWidth / 2,
+            width: node.offsetWidth,
+          };
         })
         .filter((r): r is PillRect => r !== null);
       const bar = elRef.current?.parentElement;
@@ -366,7 +396,9 @@ function TabPill({
     // every pill glide from exactly where it was to its final slot.
     const mine = g.rects.find((r) => r.id === tab.id);
     const center = (mine?.center ?? 0) + (e.clientX - g.startX);
-    const index = g.rects.filter((r) => r.id !== tab.id && r.center < center).length;
+    const index = g.rects.filter(
+      (r) => r.id !== tab.id && r.center < center,
+    ).length;
     captureFlip();
     clearInlineStyles();
     onReorder(tab.id, index);

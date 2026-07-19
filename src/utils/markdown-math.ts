@@ -14,8 +14,14 @@ export function normalizeMathDelimiters(text: string): string {
       i % 2 === 1
         ? segment
         : segment
-            .replace(/\\\[([\s\S]*?)\\\]/g, (_, inner: string) => `$$${inner.trim()}$$`)
-            .replace(/\\\(([\s\S]*?)\\\)/g, (_, inner: string) => `$${inner.trim()}$`),
+            .replace(
+              /\\\[([\s\S]*?)\\\]/g,
+              (_, inner: string) => `$$${inner.trim()}$$`,
+            )
+            .replace(
+              /\\\(([\s\S]*?)\\\)/g,
+              (_, inner: string) => `$${inner.trim()}$`,
+            ),
     )
     .join("");
 }

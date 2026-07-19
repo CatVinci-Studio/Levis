@@ -6,7 +6,10 @@ import { useEffect } from "react";
  * closure - listeners wired once at mount would keep reading whatever
  * state they captured back then.
  */
-export function useWindowEvent(name: string, handler: (e: Event) => void): void {
+export function useWindowEvent(
+  name: string,
+  handler: (e: Event) => void,
+): void {
   useEffect(() => {
     window.addEventListener(name, handler);
     return () => window.removeEventListener(name, handler);

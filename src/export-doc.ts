@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import type { Strings } from "./i18n/strings";
 import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
+import { exportDoc, fs } from "./ipc";
 
 // File > Export implementations (HTML serializes the live editor DOM;
 // everything else converts through a user-installed pandoc). PDF isn't here:
@@ -24,13 +24,18 @@ const PANDOC_FORMATS: Record<string, { ext: string; label: string }> = {
 };
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 // The export's default filename stem: the document's name without its
 // extension, or the tab title for drafts.
 function exportBaseName(tab: DocTab, t: Strings): string {
-  return tab.path ? basename(tab.path).replace(/\.[^.]+$/, "") : tabTitle(tab, t);
+  return tab.path
+    ? basename(tab.path).replace(/\.[^.]+$/, "")
+    : tabTitle(tab, t);
 }
 
 // Serializes the tab's live editor DOM - what you see is what exports -
@@ -44,14 +49,16 @@ export async function exportHtml(tab: DocTab, t: Strings): Promise<void> {
     return;
   }
   const base = exportBaseName(tab, t);
-  const picked = await invoke<string | null>("export_save_dialog", {
-    defaultName: `${base}.html`,
-    filterName: "HTML",
-    ext: "html",
-  });
+  const picked = await exportDoc.exportSaveDialog(
+    `${base}.html`,
+    "HTML",
+    "html",
+  );
   if (!picked) return;
   const clone = editor.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"));
+  clone
+    .querySelectorAll("[contenteditable]")
+    .forEach((el) => el.removeAttribute("contenteditable"));
   let css = "";
   for (const sheet of Array.from(document.styleSheets)) {
     try {
@@ -78,14 +85,18 @@ export async function exportHtml(tab: DocTab, t: Strings): Promise<void> {
 <div class="app-shell"><div class="main-pane"><div class="editor-scroll"><div class="editor-content">${clone.outerHTML}</div></div></div></div>
 </body>
 </html>`;
-  await invoke("write_text_file", { path: picked, contents: html });
-  void invoke("reveal_in_dir", { path: picked });
+  await fs.writeTextFile(picked, html);
+  void exportDoc.revealInDir(picked);
 }
 
-export async function exportViaPandoc(tab: DocTab, format: string, t: Strings): Promise<void> {
+export async function exportViaPandoc(
+  tab: DocTab,
+  format: string,
+  t: Strings,
+): Promise<void> {
   const info = PANDOC_FORMATS[format];
   if (!info) return;
-  const pandoc = await invoke<string | null>("detect_pandoc");
+  const pandoc = await exportDoc.detectPandoc();
   if (!pandoc) {
     // Typora's model: guide the user to install pandoc rather than
     // bundling the ~180MB GPL binary in the app.
@@ -94,19 +105,19 @@ export async function exportViaPandoc(tab: DocTab, format: string, t: Strings): 
       okLabel: t.pandocMissingDownload,
       cancelLabel: t.closePromptCancel,
     });
-    if (goInstall) void invoke("open_pandoc_install_page");
+    if (goInstall) void exportDoc.openPandocInstallPage();
     return;
   }
   const base = exportBaseName(tab, t);
-  const picked = await invoke<string | null>("export_save_dialog", {
-    defaultName: `${base}.${info.ext}`,
-    filterName: info.label,
-    ext: info.ext,
-  });
+  const picked = await exportDoc.exportSaveDialog(
+    `${base}.${info.ext}`,
+    info.label,
+    info.ext,
+  );
   if (!picked) return;
   try {
     // tab.content, not the file on disk - unsaved edits export too.
-    await invoke("export_via_pandoc", {
+    await exportDoc.exportViaPandoc({
       pandocPath: pandoc,
       markdown: tab.content,
       outputPath: picked,
@@ -114,8 +125,11 @@ export async function exportViaPandoc(tab: DocTab, format: string, t: Strings): 
       resourceDir: tab.path ? dirname(tab.path) : null,
       title: base,
     });
-    void invoke("reveal_in_dir", { path: picked });
+    void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.exportFailed} ${String(err)}`, { title: t.exportFailedTitle, kind: "error" });
+    await message(`${t.exportFailed} ${String(err)}`, {
+      title: t.exportFailedTitle,
+      kind: "error",
+    });
   }
 }

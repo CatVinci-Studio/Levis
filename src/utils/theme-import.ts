@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { fs } from "../ipc";
 
 /// Typora theme files commonly `@import` a base stylesheet from the same
 /// theme folder (e.g. `phycat-orange.css` importing `./phycat/phycat.light.css`)
@@ -8,7 +8,8 @@ import { invoke } from "@tauri-apps/api/core";
 /// recursively substituted with their target file's content, and local
 /// `url(...)` assets are embedded as base64 data URIs.
 
-const IMPORT_RE = /@import\s+(?:url\(\s*["']?([^"')]+)["']?\s*\)|["']([^"']+)["'])\s*;/g;
+const IMPORT_RE =
+  /@import\s+(?:url\(\s*["']?([^"')]+)["']?\s*\)|["']([^"']+)["'])\s*;/g;
 const URL_RE = /url\(\s*["']?([^"')]+)["']?\s*\)/g;
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -68,7 +69,7 @@ async function inlineLocalUrls(css: string, baseDir: string): Promise<string> {
     }
     try {
       const resolved = resolvePath(baseDir, target);
-      const base64 = await invoke<string>("read_binary_file_base64", { path: resolved });
+      const base64 = await fs.readBinaryFileBase64(resolved);
       result += `url("data:${guessMime(resolved)};base64,${base64}")`;
     } catch {
       result += m[0]; // asset missing/unreadable - leave the original reference (best effort)
@@ -82,7 +83,7 @@ async function inlineFile(path: string, seen: Set<string>): Promise<string> {
   if (seen.has(path)) return ""; // circular @import guard
   seen.add(path);
 
-  const raw = await invoke<string>("read_text_file", { path });
+  const raw = await fs.readTextFile(path);
   const baseDir = dirnameOf(path);
 
   let withImports = "";

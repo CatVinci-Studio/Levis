@@ -5,7 +5,10 @@ import { useEffect, useRef } from "react";
 /// returned ref to the overlay's root element. Listens in the capture phase
 /// after a tick so the click/keypress that opened the overlay doesn't also
 /// immediately close it.
-export function useCloseOnOutsideClick<T extends HTMLElement>(onClose: () => void, closeOnEscape = false) {
+export function useCloseOnOutsideClick<T extends HTMLElement>(
+  onClose: () => void,
+  closeOnEscape = false,
+) {
   const ref = useRef<T>(null);
 
   useEffect(() => {
