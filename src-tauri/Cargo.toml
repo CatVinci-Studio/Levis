@@ -1,6 +1,6 @@
 [package]
 name = "levis"
-version = "0.7.2"
+version = "0.8.0"
 description = "Levis Markdown Editor"
 authors = ["you"]
 edition = "2021"
