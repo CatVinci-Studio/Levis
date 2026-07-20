@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { ChatHandoff, ChatHandoffState } from "./ai/chat/chat-bridge";
 import type { DetachedTabDoc, HelpDoc } from "./doc-tabs";
 import type { DirEntryInfo } from "./sidebar/types";
 import type { ProviderCatalogEntry } from "./ai/provider-catalog";
@@ -137,6 +138,15 @@ export const windowIpc = {
   takePendingShowHelp: () => call<string | null>("take_pending_show_help"),
   takePendingOpenPath: () => call<string | null>("take_pending_open_path"),
   takePendingOpenPaths: () => call<string[]>("take_pending_open_paths"),
+  /** Pops the chat panel out into its own OS window; resolves to its label,
+   *  which is the address every later message to it is sent to. */
+  detachChatWindow: (args: {
+    state: ChatHandoffState;
+    position: [number, number] | null;
+    title: string;
+  }) => call<string>("detach_chat_window", args),
+  takeChatHandoff: () => call<ChatHandoff | null>("take_chat_handoff"),
+  closeChatWindow: () => call<void>("close_chat_window"),
 };
 
 // ---------------------------------------------------------------------------

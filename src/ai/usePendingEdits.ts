@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import {
   composeMarkdownEdit,
@@ -223,8 +223,19 @@ export function usePendingEdits(run: EditorRunner) {
     [previews, statuses],
   );
 
+  /** Every known proposal's status in one object. The per-callId `status`
+   *  above is what the local chat card asks; this is what gets pushed to a
+   *  detached chat window, which has no access to editor state and so can't
+   *  derive "pending" from the live preview list itself. */
+  const allStatuses = useMemo(() => {
+    const merged: Record<string, PendingStatus> = { ...statuses };
+    for (const preview of previews) merged[preview.callId] = "pending";
+    return merged;
+  }, [previews, statuses]);
+
   return {
     previews,
+    allStatuses,
     showPreviews,
     accept,
     reject,

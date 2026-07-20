@@ -43,6 +43,8 @@ import {
 } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
+import { chatLabels } from "../ai/chat/chat-labels";
+import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -76,6 +78,7 @@ import {
   type TutorialGrammarMock,
 } from "../onboarding/tutorial-evaluation";
 import type { ChatHistoryEntry } from "../ai/chat-history";
+import type { EditProposal } from "../ai/types";
 import { Milkdown, useEditor } from "@milkdown/react";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "katex/dist/katex.min.css";
@@ -193,6 +196,76 @@ export function MilkdownEditor({
     agentModel,
     tutorialMock ? createTutorialMockAgent(t) : null,
   );
+  // Proposals always resolve HERE, whether the chat that produced them is
+  // the embedded popup or a detached window - one implementation of the
+  // anchor/apply logic, addressed two ways (see chat-bridge.ts).
+  const showProposals = useCallback(
+    (proposals: { callId: string; proposal: EditProposal }[]) => {
+      pendingEdits.showPreviews(proposals, inlineChat.chatInfoRef.current);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingEdits.showPreviews],
+  );
+
+  const detachedChat = useDetachedChat({
+    onProposals: showProposals,
+    onAccept: (callId) => pendingEdits.accept(callId),
+    onReject: (callId) => pendingEdits.reject(callId),
+    onAcceptAll: () => pendingEdits.acceptAll(),
+    onRejectAll: () => pendingEdits.rejectAll(),
+    // The window handed its conversation back on close - carry on with it in
+    // the embedded popup rather than dropping the exchange.
+    onReembed: (turns) => {
+      if (turns.length > 0)
+        conversation.restore({
+          id: crypto.randomUUID(),
+          docPath: filePathRef.current,
+          title: "",
+          updatedAt: Date.now(),
+          turns,
+        });
+      inlineChat.open();
+    },
+  });
+
+  // The detached window has no editor state of its own, so it's fed: the
+  // document/selection as they now read, and every proposal's status.
+  useEffect(() => {
+    if (!detachedChat.chatLabel || !inlineChat.chatInfo) return;
+    detachedChat.pushContext({
+      document: inlineChat.chatInfo.document,
+      selectedText: inlineChat.chatInfo.selectedText,
+      selectionMarkdown: inlineChat.chatInfo.selectionMarkdown,
+      docPath: filePath,
+    });
+  }, [detachedChat, inlineChat.chatInfo, filePath]);
+
+  useEffect(() => {
+    if (detachedChat.chatLabel)
+      detachedChat.pushStatuses(pendingEdits.allStatuses);
+  }, [detachedChat, pendingEdits.allStatuses]);
+
+  function handleDetachChat() {
+    const info = inlineChat.chatInfo;
+    if (!info) return;
+    void detachedChat.detach(
+      {
+        context: {
+          document: info.document,
+          selectedText: info.selectedText,
+          selectionMarkdown: info.selectionMarkdown,
+          docPath: filePath,
+        },
+        turns: conversation.history,
+        statuses: pendingEdits.allStatuses,
+      },
+      t.chatWindowTitle,
+    );
+    // The popup gives way to the window; chatInfo stays set so proposals
+    // arriving from the window still resolve against this request's context.
+    inlineChat.hide();
+  }
+
   function openNewAgentConversation() {
     conversation.reset();
     inlineChat.open();
@@ -556,7 +629,7 @@ export function MilkdownEditor({
           onMouseLeave={grammar.hide}
         />
       )}
-      {inlineChat.chatInfo && (
+      {inlineChat.chatInfo && inlineChat.visible && (
         <InlineChat
           run={run}
           document={inlineChat.chatInfo.document}
@@ -565,48 +638,15 @@ export function MilkdownEditor({
           chatInfo={inlineChat.chatInfo}
           conversation={conversation}
           tutorialMock={tutorialMock}
-          labels={{
-            placeholder: t.agentInputPlaceholder,
-            send: t.agentSend,
-            stop: t.agentStop,
-            retry: t.agentRetry,
-            thinking: t.agentThinking,
-            attachFile: t.agentAttachFile,
-            selectedChars: t.chatSelectedChars,
-            selectionChip: t.chatSelectionChip,
-            proposalTitle: t.agentProposalTitle,
-            proposalStatus: {
-              accepted: t.proposalStatusAccepted,
-              rejected: t.proposalStatusRejected,
-              invalid: t.proposalStatusInvalid,
-            },
-            proposalAccept: t.proposalAccept,
-            proposalReject: t.proposalReject,
-            proposalAcceptAll: t.proposalAcceptAll,
-            proposalRejectAll: t.proposalRejectAll,
-            proposalRelocate: t.proposalRelocate,
-            relocateRequest: t.proposalRelocateRequest,
-            close: t.chatClose,
-            closeConfirm: t.chatCloseConfirm,
-            closeConfirmAccept: t.chatCloseConfirmAccept,
-            closeConfirmReject: t.chatCloseConfirmReject,
-            closeConfirmCancel: t.chatCloseConfirmCancel,
-            actionNames: {
-              replace: t.agentActionReplace,
-              replace_selection: t.agentActionReplaceSelection,
-              insert_before: t.agentActionInsertBefore,
-              insert_after: t.agentActionInsertAfter,
-              delete: t.agentActionDelete,
-              append: t.agentActionAppend,
-            },
-          }}
-          onProposals={pendingEdits.showPreviews}
+          labels={chatLabels(t)}
+          onProposals={showProposals}
           proposalStatus={pendingEdits.status}
           onAcceptProposal={pendingEdits.accept}
           onRejectProposal={pendingEdits.reject}
           onAcceptAll={pendingEdits.acceptAll}
           onRejectAll={pendingEdits.rejectAll}
           pendingCount={pendingEdits.previews.length}
+          onDetach={handleDetachChat}
           onClose={inlineChat.close}
         />
       )}

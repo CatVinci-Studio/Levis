@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main", "window-*"],
+  "description": "Capability for the editor windows and the detached chat window",
+  "windows": ["main", "window-*", "chat-*"],
   "permissions": [
     "core:default",
     "core:window:allow-destroy",
@@ -11,6 +11,9 @@
     "opener:default",
     "dialog:default",
     "updater:default",
-    "process:default"
+    "process:default",
+    "core:event:allow-emit-to",
+    "core:event:allow-emit",
+    "core:event:allow-listen"
   ]
 }

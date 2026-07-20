@@ -1,3 +1,4 @@
+pub mod chat_window;
 pub mod cli;
 pub mod drafts;
 pub mod export;

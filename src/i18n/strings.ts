@@ -175,6 +175,10 @@ export const strings = {
     askAi: "Ask AI…",
     agentProposalTitle: "Proposed edit",
     chatClose: "Close chat",
+    chatDetach: "Open in its own window",
+    chatWindowTitle: "Levis Agent",
+    chatWindowLost:
+      "This chat lost its editor window. Close this window and start a new chat.",
     chatCloseConfirm:
       "{n} proposed edit(s) are still waiting on you. What should happen to them?",
     chatCloseConfirmAccept: "Accept all and close",
@@ -535,6 +539,10 @@ export const strings = {
     askAi: "询问 AI…",
     agentProposalTitle: "修改提议",
     chatClose: "关闭对话",
+    chatDetach: "在独立窗口中打开",
+    chatWindowTitle: "Levis 助手",
+    chatWindowLost:
+      "这个对话已经和编辑器窗口失去联系。请关闭本窗口后重新开始对话。",
     chatCloseConfirm: "还有 {n} 处修改没有确认,要怎么处理?",
     chatCloseConfirmAccept: "全部采纳并关闭",
     chatCloseConfirmReject: "全部丢弃并关闭",
@@ -889,6 +897,10 @@ export const strings = {
     askAi: "AIに聞く…",
     agentProposalTitle: "編集の提案",
     chatClose: "チャットを閉じる",
+    chatDetach: "別ウィンドウで開く",
+    chatWindowTitle: "Levis エージェント",
+    chatWindowLost:
+      "このチャットはエディタウィンドウとの接続を失いました。ウィンドウを閉じて、新しいチャットを開始してください。",
     chatCloseConfirm: "未確認の編集が {n} 件あります。どうしますか?",
     chatCloseConfirmAccept: "すべて承認して閉じる",
     chatCloseConfirmReject: "すべて破棄して閉じる",

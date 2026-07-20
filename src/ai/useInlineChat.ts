@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import {
   documentMarkdown,
@@ -40,6 +40,15 @@ export interface InlineChatInfo {
  */
 export function useInlineChat(run: EditorRunner) {
   const [chatInfo, setChatInfo] = useState<InlineChatInfo | null>(null);
+  // Whether the POPUP is on screen. Separate from chatInfo because detaching
+  // into a window hides the popup while the context must survive: proposals
+  // arriving from the detached window still resolve against the selection and
+  // document captured when this request was made.
+  const [visible, setVisible] = useState(false);
+  // Read from callbacks registered once (the detached-chat bridge), which
+  // would otherwise close over a stale chatInfo.
+  const chatInfoRef = useRef<InlineChatInfo | null>(null);
+  chatInfoRef.current = chatInfo;
 
   const openWith = useCallback(
     (
@@ -83,10 +92,17 @@ export function useInlineChat(run: EditorRunner) {
   /** Opens the bar (or keeps it open). The caller decides whether this is a
    *  fresh conversation or a restored history entry before opening. */
   const open = useCallback(() => {
+    setVisible(true);
     openWith((prev, computed) => prev ?? computed);
   }, [openWith]);
 
-  const close = useCallback(() => setChatInfo(null), []);
+  /** Popup off, context kept - what detaching into a window does. */
+  const hide = useCallback(() => setVisible(false), []);
 
-  return { chatInfo, open, close };
+  const close = useCallback(() => {
+    setVisible(false);
+    setChatInfo(null);
+  }, []);
+
+  return { chatInfo, chatInfoRef, visible, open, hide, close };
 }

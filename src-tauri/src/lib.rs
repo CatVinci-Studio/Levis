@@ -186,11 +186,20 @@ pub fn run() {
         .manage(PendingDetachedTabs(Mutex::new(HashMap::new())))
         .manage(DragTrackers(Mutex::new(std::collections::HashSet::new())))
         .manage(SessionTabsState(Mutex::new(HashMap::new())))
+        .manage(commands::chat_window::PendingChatHandoffs(Mutex::new(
+            HashMap::new(),
+        )))
+        .manage(commands::chat_window::OpenChatWindows(Mutex::new(
+            HashMap::new(),
+        )))
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 let app = window.app_handle();
                 if let Some(state) = app.try_state::<SessionTabsState>() {
                     commands::session::forget_window(app, window.label(), &state);
+                }
+                if let Some(state) = app.try_state::<commands::chat_window::OpenChatWindows>() {
+                    commands::chat_window::forget_chat_window(window.label(), &state);
                 }
             }
         })
@@ -225,6 +234,9 @@ pub fn run() {
             take_pending_open_paths,
             take_pending_show_help,
             tab_drag::take_detached_tab,
+            commands::chat_window::detach_chat_window,
+            commands::chat_window::take_chat_handoff,
+            commands::chat_window::close_chat_window,
             tab_drag::list_window_bounds,
             tab_drag::start_window_drag_tracking,
             tab_drag::start_floating_tab_drag,
