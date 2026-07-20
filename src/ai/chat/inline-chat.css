@@ -16,15 +16,29 @@
 }
 
 /* Once dragged or resized, width/height come from the inline style and the
-   shell has to fill them rather than sizing to its content. */
+   shell has to fill them rather than sizing to its content. The message list
+   is the one region that absorbs the difference; everything else keeps its
+   natural height, so the composer stays pinned to the bottom edge however
+   tall the user makes the panel. */
 .inline-chat-floating .inline-chat-shell {
   height: 100%;
+  box-sizing: border-box;
 }
 
 .inline-chat-floating .inline-chat-messages {
-  flex: 1;
+  flex: 1 1 auto;
+  /* Without this a flex item refuses to shrink below its content height, so
+     a long conversation would push the composer off the bottom instead of
+     scrolling inside the list. */
   min-height: 0;
   max-height: none;
+}
+
+.inline-chat-floating .inline-chat-header,
+.inline-chat-floating .inline-chat-bar,
+.inline-chat-floating .inline-chat-skill-menu,
+.inline-chat-floating .inline-chat-confirm {
+  flex: 0 0 auto;
 }
 
 /* Drag handle plus the close button. Deliberately slim - this is a grab

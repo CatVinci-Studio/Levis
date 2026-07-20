@@ -228,8 +228,12 @@ export function InlineChat({
 
   // The message list only shows once this conversation actually has
   // content - a freshly opened bar doesn't pop up an empty-looking card
-  // above the input just because it exists.
-  const showMessages = history.length > 0 || busy || !!error;
+  // above the input just because it exists. Once the panel has been given a
+  // fixed size, though, it renders even while empty: it's the flexible
+  // region, so without it there is nothing to absorb the extra height and
+  // the composer would sit at the top of a mostly blank panel.
+  const showMessages =
+    history.length > 0 || busy || !!error || panel.frame !== null;
 
   return (
     <div
