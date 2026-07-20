@@ -1,0 +1,42 @@
+name: Notarization Status
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - name: Query Apple notarization history
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required secret: $name" >&2
+              exit 1
+            fi
+          done
+
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json > notarization-history.json
+
+          jq . notarization-history.json
+
+          jq -r '.history[].id' notarization-history.json | while read -r id; do
+            echo "=== $id ==="
+            xcrun notarytool info "$id" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID"
+          done
