@@ -1,16 +1,20 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { AgentTurnView } from "../AgentTurnView";
+import { AgentTurnView, type AgentTurnLabels } from "../AgentTurnView";
 import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import { parseProposal } from "./proposal";
 
-export interface ChatMessagesLabels {
+export interface ChatMessagesLabels extends AgentTurnLabels {
   thinking: string;
   proposalTitle: string;
-  proposalApply: string;
   proposalStatus: Record<Exclude<PendingStatus, "pending">, string>;
   proposalAccept: string;
   proposalReject: string;
+  proposalAcceptAll: string;
+  proposalRejectAll: string;
+  /** Offered when an anchor no longer resolves - asks the model to re-issue
+   *  the proposal against the document as it now reads. */
+  proposalRelocate: string;
   actionNames: Record<EditAction, string>;
   retry: string;
 }
@@ -19,13 +23,17 @@ interface ChatMessagesProps {
   history: AgentTurn[];
   busy: boolean;
   error: string | null;
-  applyError: string | null;
   selectedText: string | null;
   labels: ChatMessagesLabels;
   proposalStatus: (callId: string) => PendingStatus;
   onAcceptProposal: (callId: string) => void;
   onRejectProposal: (callId: string) => void;
-  onApplyInvalidProposal: (proposal: EditProposal) => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
+  /** How many proposals are pending right now - drives the accept-all row. */
+  pendingCount: number;
+  /** Asks the model to re-propose an edit whose anchor went stale. */
+  onRelocateProposal: (proposal: EditProposal) => void;
   /** Set only when `error` came from a failed send whose (document, message)
    *  is still available to resend - not every error is retryable this way. */
   canRetry: boolean;
@@ -38,18 +46,25 @@ interface ChatMessagesProps {
  * last send) get a small staggered fade-in - the reply still lands all at
  * once (no token streaming), this just avoids it appearing as one flat
  * block.
+ *
+ * The proposal card is the ONLY place an edit is accepted or rejected. The
+ * document shows the same edit as red/green marks, but carries no controls of
+ * its own - two sets of buttons for one action, on screen simultaneously, is
+ * what this replaced.
  */
 export function ChatMessages({
   history,
   busy,
   error,
-  applyError,
   selectedText,
   labels,
   proposalStatus,
   onAcceptProposal,
   onRejectProposal,
-  onApplyInvalidProposal,
+  onAcceptAll,
+  onRejectAll,
+  pendingCount,
+  onRelocateProposal,
   canRetry,
   onRetry,
 }: ChatMessagesProps) {
@@ -83,7 +98,8 @@ export function ChatMessages({
           : undefined;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
           const proposal = parseProposal(turn.arguments);
-          if (!proposal) return <AgentTurnView key={i} turn={turn} />;
+          if (!proposal)
+            return <AgentTurnView key={i} turn={turn} labels={labels} />;
           const status = proposalStatus(turn.call_id);
           return (
             <div
@@ -94,48 +110,8 @@ export function ChatMessages({
               <div className="agent-proposal-title">
                 {labels.proposalTitle} · {labels.actionNames[proposal.action]}
               </div>
-              {status === "invalid" ? (
-                // No live document preview to point at (the anchor no
-                // longer resolves uniquely) - fall back to the inline
-                // diff and a direct-apply button, same as before this
-                // feature existed.
-                <>
-                  <div className="agent-proposal-diff">
-                    {proposal.action === "insert_before" && (
-                      <ins>{proposal.text}</ins>
-                    )}
-                    {(() => {
-                      const showsDeletion =
-                        proposal.action === "replace" ||
-                        proposal.action === "delete" ||
-                        proposal.action === "replace_selection";
-                      const struck =
-                        proposal.action === "replace_selection"
-                          ? (selectedText ?? undefined)
-                          : proposal.anchor;
-                      return (
-                        struck !== undefined &&
-                        (showsDeletion ? (
-                          <del>{struck}</del>
-                        ) : (
-                          <span>{struck}</span>
-                        ))
-                      );
-                    })()}
-                    {proposal.action !== "insert_before" &&
-                      proposal.text !== undefined && <ins>{proposal.text}</ins>}
-                  </div>
-                  <div className="agent-proposal-status agent-proposal-status-invalid">
-                    {labels.proposalStatus.invalid}
-                  </div>
-                  <button
-                    className="inline-chat-action inline-chat-action-primary"
-                    onClick={() => onApplyInvalidProposal(proposal)}
-                  >
-                    {labels.proposalApply}
-                  </button>
-                </>
-              ) : status === "pending" ? (
+              <ProposalDiff proposal={proposal} selectedText={selectedText} />
+              {status === "pending" ? (
                 <div className="agent-proposal-actions">
                   <button
                     className="inline-chat-action inline-chat-action-primary"
@@ -150,6 +126,24 @@ export function ChatMessages({
                     {labels.proposalReject}
                   </button>
                 </div>
+              ) : status === "invalid" ? (
+                // The anchor no longer resolves to exactly one place, so
+                // there's nothing to preview and nothing safe to write. The
+                // only honest move is to ask the model again against the
+                // document as it now reads - applying this text blind is
+                // what the old direct-apply fallback did, and it could land
+                // an edit somewhere the user never saw highlighted.
+                <>
+                  <div className="agent-proposal-status agent-proposal-status-invalid">
+                    {labels.proposalStatus.invalid}
+                  </div>
+                  <button
+                    className="inline-chat-action"
+                    onClick={() => onRelocateProposal(proposal)}
+                  >
+                    {labels.proposalRelocate}
+                  </button>
+                </>
               ) : (
                 <div
                   className={`agent-proposal-status agent-proposal-status-${status}`}
@@ -168,10 +162,20 @@ export function ChatMessages({
             className={reveal ? "turn-reveal" : undefined}
             style={style}
           >
-            <AgentTurnView turn={turn} />
+            <AgentTurnView turn={turn} labels={labels} />
           </div>
         );
       })}
+      {pendingCount > 1 && (
+        <div className="agent-proposal-bulk">
+          <button className="inline-chat-action" onClick={onAcceptAll}>
+            {labels.proposalAcceptAll}
+          </button>
+          <button className="inline-chat-action" onClick={onRejectAll}>
+            {labels.proposalRejectAll}
+          </button>
+        </div>
+      )}
       {busy && (
         <div className="agent-thinking">
           <span className="agent-thinking-label">{labels.thinking}</span>
@@ -195,7 +199,41 @@ export function ChatMessages({
           )}
         </div>
       )}
-      {applyError && <div className="agent-error">{applyError}</div>}
     </>
+  );
+}
+
+/**
+ * What the edit changes, as before/after text. Shown in every state, not just
+ * the unresolvable one: the card is now the only place the diff is spelled
+ * out, since the in-document marks deliberately carry no detail.
+ */
+function ProposalDiff({
+  proposal,
+  selectedText,
+}: {
+  proposal: EditProposal;
+  selectedText: string | null;
+}) {
+  const removes =
+    proposal.action === "replace" ||
+    proposal.action === "delete" ||
+    proposal.action === "replace_selection";
+  const before =
+    proposal.action === "replace_selection"
+      ? (selectedText ?? undefined)
+      : proposal.anchor;
+
+  return (
+    <div className="agent-proposal-diff">
+      {proposal.action === "insert_before" && proposal.text !== undefined && (
+        <ins>{proposal.text}</ins>
+      )}
+      {before !== undefined &&
+        (removes ? <del>{before}</del> : <span>{before}</span>)}
+      {proposal.action !== "insert_before" && proposal.text !== undefined && (
+        <ins>{proposal.text}</ins>
+      )}
+    </div>
   );
 }

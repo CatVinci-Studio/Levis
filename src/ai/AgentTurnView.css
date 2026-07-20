@@ -11,9 +11,67 @@
   align-self: flex-end;
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
-  /* Plain text, not rendered markdown - literal newlines should still break
-     lines. */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Plain text, not rendered markdown - literal newlines should still break
+   lines. Scoped to the prose itself so the context chips above it aren't
+   stretched by the same whitespace rule. */
+.agent-message-body {
   white-space: pre-wrap;
+}
+
+/* Selection / attachments that rode along with the message. They're context
+   the user chose, so they stay visible - but as compact chips, not as the raw
+   <selected-text>/<attached-file> blocks that used to bury the actual
+   sentence they typed. */
+.agent-message-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.agent-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: none;
+  background: color-mix(in srgb, var(--sidebar-active-text) 16%, transparent);
+  color: inherit;
+  opacity: 0.85;
+}
+
+button.agent-context-chip {
+  cursor: pointer;
+}
+
+button.agent-context-chip:hover {
+  opacity: 1;
+}
+
+.agent-context-chip-caret {
+  font-size: 9px;
+}
+
+/* The expanded selection: monospaced and scroll-capped, so checking what was
+   sent never costs more than a few lines of the transcript. */
+.agent-message-selection {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sidebar-active-text) 12%, transparent);
 }
 
 .agent-message-assistant {

@@ -211,10 +211,10 @@
 }
 
 /* One propose_edit tool call from the agent: what it wants to replace (del)
-   and with what (ins) - shown only as a fallback when there's no live
-   document preview to point at (status "invalid"); otherwise the card just
-   shows Accept/Reject or a resolved status (see agent-proposal-status*
-   below), the diff itself lives in the document. */
+   and with what (ins). This card is the ONLY place the edit is accepted or
+   rejected, and the only place the before/after is spelled out - the
+   in-document marks show which region changes but carry no detail and no
+   controls of their own. */
 .agent-proposal {
   display: flex;
   flex-direction: column;
@@ -262,10 +262,9 @@
   align-self: flex-start;
 }
 
-/* Once resolved (status !== "pending"), the card shows a compact status
-   line instead of the buttons - the in-document preview (pending-delete/
-   pending-insert, see milkdown-theme.css) already carried the diff while it
-   was pending, so it isn't repeated here. */
+/* Once resolved (status !== "pending"), the buttons give way to a compact
+   status line; the diff above stays, so scrolling back through a
+   conversation still shows what each accepted edit actually did. */
 .agent-proposal-status {
   font-size: 12px;
   color: var(--editor-muted);
@@ -286,6 +285,15 @@
 .agent-proposal-actions {
   display: flex;
   gap: 6px;
+}
+
+/* Shown below the turn list only while more than one proposal is pending -
+   the per-card buttons stay the primary path, this is the "and the rest"
+   shortcut for a reply that produced several edits at once. */
+.agent-proposal-bulk {
+  display: flex;
+  gap: 6px;
+  padding-top: 2px;
 }
 
 /* Busy indicator: no token streaming (the reply arrives all at once), so

@@ -7,10 +7,15 @@ import type { EditProposal } from "./types";
 
 /**
  * One propose_edit tool call, resolved to a live document range (see
- * usePendingEdits.ts, which does the resolution using findUniqueTextRange /
- * the captured selection - this plugin only renders and tracks staleness,
- * it never resolves anchors itself). `from === to` for pure insertions
- * (insert_before/insert_after/append).
+ * usePendingEdits.ts, which does the resolution in markdown space via
+ * doc-markdown.ts - this plugin only renders and tracks staleness, it never
+ * resolves anchors itself). `from === to` for `append`.
+ *
+ * For anchored actions the range covers the WHOLE blocks the anchor touches,
+ * not just the quoted snippet: a markdown offset inside a block has no
+ * ProseMirror position, a block boundary does. `replacement` carries the
+ * precise, sub-block-accurate result as markdown, so nothing is lost - only
+ * the decorated (and re-parsed) range is coarse.
  */
 export interface PendingPreview {
   callId: string;
@@ -20,6 +25,8 @@ export interface PendingPreview {
   /** `doc.textBetween(from, to, " ")` at resolution time - the ground truth
    *  a later docChanged re-checks before letting the preview survive. */
   expectedText: string;
+  /** Markdown `[from, to)` becomes on accept, composed in markdown space. */
+  replacement: string;
 }
 
 type PendingMeta =
@@ -54,11 +61,16 @@ function textWidget(pos: number, side: -1 | 1, text: string) {
 
 /**
  * One preview's decorations: a struck-through/red-tinted `.pending-delete`
- * span over the anchor when the action removes text (replace, delete,
- * replace_selection), plus a green `.pending-insert` ghost-text widget
- * carrying the raw markdown when the action adds text - shown as source
- * text, not parsed nodes, because parsing only happens once (on accept, via
+ * span over the range being rewritten, plus a green `.pending-insert`
+ * ghost-text widget carrying the new markdown - shown as source text, not
+ * parsed nodes, because parsing only happens once (on accept, via
  * apply-edit.ts's parserCtx path) to avoid a second, divergent render path.
+ *
+ * The widget shows `proposal.text` (what the model actually wrote) rather
+ * than the full `replacement`, which for a sub-block edit would repeat the
+ * untouched prefix/suffix back at the reader. The exact before/after diff
+ * lives in the chat card; in the document these marks only say "this region
+ * is changing".
  */
 function decorationsFor(p: PendingPreview): Decoration[] {
   const decos: Decoration[] = [];

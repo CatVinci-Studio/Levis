@@ -43,7 +43,6 @@ import {
 } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
-import { PendingEditControls } from "../ai/PendingEditControls";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -174,10 +173,7 @@ export function MilkdownEditor({
     () => settingsRef.current,
     showAiNotice,
   );
-  const inlineChat = useInlineChat(run, () => ({
-    applyStale: t.agentApplyStale,
-    proposalFailed: t.agentProposalFailed,
-  }));
+  const inlineChat = useInlineChat(run);
   const pendingEdits = usePendingEdits(run);
   useEffect(() => {
     pendingEditActionsRef.current = {
@@ -562,8 +558,7 @@ export function MilkdownEditor({
       )}
       {inlineChat.chatInfo && (
         <InlineChat
-          x={inlineChat.chatInfo.x}
-          y={inlineChat.chatInfo.y}
+          run={run}
           document={inlineChat.chatInfo.document}
           selectedText={inlineChat.chatInfo.selectedText}
           docPath={filePath}
@@ -578,8 +573,8 @@ export function MilkdownEditor({
             thinking: t.agentThinking,
             attachFile: t.agentAttachFile,
             selectedChars: t.chatSelectedChars,
+            selectionChip: t.chatSelectionChip,
             proposalTitle: t.agentProposalTitle,
-            proposalApply: t.agentProposalApply,
             proposalStatus: {
               accepted: t.proposalStatusAccepted,
               rejected: t.proposalStatusRejected,
@@ -587,6 +582,10 @@ export function MilkdownEditor({
             },
             proposalAccept: t.proposalAccept,
             proposalReject: t.proposalReject,
+            proposalAcceptAll: t.proposalAcceptAll,
+            proposalRejectAll: t.proposalRejectAll,
+            proposalRelocate: t.proposalRelocate,
+            relocateRequest: t.proposalRelocateRequest,
             actionNames: {
               replace: t.agentActionReplace,
               replace_selection: t.agentActionReplaceSelection,
@@ -596,29 +595,14 @@ export function MilkdownEditor({
               append: t.agentActionAppend,
             },
           }}
-          onApplyProposal={inlineChat.applyProposal}
           onProposals={pendingEdits.showPreviews}
           proposalStatus={pendingEdits.status}
           onAcceptProposal={pendingEdits.accept}
           onRejectProposal={pendingEdits.reject}
-          onClose={inlineChat.close}
-        />
-      )}
-      {pendingEdits.previews.length > 0 && (
-        <PendingEditControls
-          run={run}
-          previews={pendingEdits.previews}
-          labels={{
-            accept: t.pendingAccept,
-            reject: t.pendingReject,
-            acceptAll: t.pendingAcceptAll,
-            rejectAll: t.pendingRejectAll,
-            ofCount: t.pendingOfCount,
-          }}
-          onAccept={pendingEdits.accept}
-          onReject={pendingEdits.reject}
           onAcceptAll={pendingEdits.acceptAll}
           onRejectAll={pendingEdits.rejectAll}
+          pendingCount={pendingEdits.previews.length}
+          onClose={inlineChat.close}
         />
       )}
     </div>

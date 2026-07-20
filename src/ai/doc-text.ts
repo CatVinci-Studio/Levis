@@ -1,11 +1,18 @@
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 
 /**
- * AI features exchange PLAIN TEXT with the model (a paragraph's textContent,
- * a quoted snippet), but document positions also count node boundaries - a
- * bold span or inline formula shifts everything after it by 2. These helpers
- * translate between the two, walking text leaves so the mapping stays exact
- * no matter what inline nodes the text passes through.
+ * Grammar checking exchanges PLAIN TEXT with the model (a paragraph's
+ * textContent, character offsets into it, a quoted snippet), but document
+ * positions also count node boundaries - a bold span or inline formula shifts
+ * everything after it by 2. These helpers translate between the two, walking
+ * text leaves so the mapping stays exact no matter what inline nodes the text
+ * passes through.
+ *
+ * Plain text is the right currency HERE: a grammar fix is a within-sentence
+ * word swap that carries no formatting of its own. The agent's propose_edit
+ * path used to share these helpers and must not - it rewrites whole passages,
+ * and a flattened view is what silently destroyed their formatting. It works
+ * in markdown source instead; see doc-markdown.ts.
  */
 
 /** Document position of the `offset`-th character of `parent`'s textContent. */

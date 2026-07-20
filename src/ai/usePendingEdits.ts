@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
-import { findUniqueTextRange } from "./doc-text";
+import {
+  composeMarkdownEdit,
+  findMarkdownMatch,
+  serializeBlocks,
+  serializeRange,
+} from "./doc-markdown";
 import { applyEditRange } from "./apply-edit";
 import { pendingEditKey, type PendingPreview } from "./pending-edit-plugin";
 import type { EditProposal } from "./types";
@@ -11,10 +16,16 @@ export type PendingStatus = "pending" | "accepted" | "rejected" | "invalid";
 
 /**
  * Resolves propose_edit proposals to live document ranges and shows them as
- * in-document decorations (pending-edit-plugin.ts) instead of only a
- * chat-panel diff card - accept/reject there is what actually edits the
- * document. Owned by MilkdownEditor, same lifetime as the editor, so
+ * in-document decorations (pending-edit-plugin.ts). Accept/reject lives in
+ * the chat's proposal card (ChatMessages.tsx) and calls in here - the
+ * decorations are display only, so there is exactly one set of controls for
+ * one action. Owned by MilkdownEditor, same lifetime as the editor, so
  * previews survive the chat popup closing and reopening.
+ *
+ * Anchors resolve in MARKDOWN SOURCE (doc-markdown.ts), matching what the
+ * model was shown. This is the only path that writes a reply into the
+ * document; there is deliberately no direct-apply fallback that skips the
+ * preview.
  */
 export function usePendingEdits(run: EditorRunner) {
   const [previews, setPreviews] = useState<PendingPreview[]>([]);
@@ -51,29 +62,47 @@ export function usePendingEdits(run: EditorRunner) {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
         const docSize = state.doc.content.size;
+        // One serialization per batch, shared by every proposal in it.
+        const blocks = serializeBlocks(ctx, state.doc);
         const resolved: PendingPreview[] = [];
         const invalidIds: string[] = [];
 
         for (const { callId, proposal } of proposals) {
           let range: { from: number; to: number } | null = null;
+          let replacement = proposal.text ?? "";
+
           if (proposal.action === "append") {
             range = { from: docSize, to: docSize };
           } else if (proposal.action === "replace_selection") {
-            // Same staleness rule as the free-text apply path: the selection
-            // captured when the chat opened must still read the same.
+            // Targets the selection captured when the chat opened. Staleness
+            // is judged on the selection's MARKDOWN: that's what the model
+            // was shown, so a formatting-only change under it (bolding a
+            // word) has to invalidate the proposal just as a text change
+            // would - the reply was written against the old formatting.
             if (
               chatInfo?.range &&
               chatInfo.range.to <= docSize &&
-              state.doc.textBetween(
+              serializeRange(
+                ctx,
+                state.doc,
                 chatInfo.range.from,
                 chatInfo.range.to,
-                " ",
-              ) === (chatInfo.selectedText ?? "")
+              ) === (chatInfo.selectionMarkdown ?? "")
             ) {
               range = chatInfo.range;
             }
           } else {
-            range = findUniqueTextRange(state.doc, proposal.anchor ?? "");
+            const snippet = proposal.anchor ?? "";
+            const match = findMarkdownMatch(blocks, snippet);
+            if (match) {
+              range = { from: match.from, to: match.to };
+              replacement = composeMarkdownEdit(
+                match,
+                proposal.action,
+                snippet,
+                proposal.text ?? "",
+              );
+            }
           }
 
           if (!range) {
@@ -86,6 +115,7 @@ export function usePendingEdits(run: EditorRunner) {
             from: range.from,
             to: range.to,
             expectedText: state.doc.textBetween(range.from, range.to, " "),
+            replacement,
           });
         }
 
@@ -133,7 +163,7 @@ export function usePendingEdits(run: EditorRunner) {
           ctx,
           preview.from,
           preview.to,
-          preview.proposal.text ?? "",
+          preview.replacement,
         );
         // Same transaction: one undo step restores the document exactly,
         // and the decoration is gone the instant the edit lands (no orphan

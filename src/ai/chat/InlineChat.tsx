@@ -1,18 +1,15 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import type { AgentConversation } from "../useAgentConversation";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../../utils/useViewportClamp";
+import type { EditorRunner } from "../../editor/useEditorRunner";
 import type { InlineChatInfo } from "../useInlineChat";
 import type { PendingStatus } from "../usePendingEdits";
-import type {
-  AgentTurn,
-  ChatAttachment,
-  EditAction,
-  EditProposal,
-} from "../types";
-import { ChatMessages } from "./ChatMessages";
-import { ChatComposer } from "./ChatComposer";
+import type { AgentTurn, ChatAttachment, EditProposal } from "../types";
+import { ChatMessages, type ChatMessagesLabels } from "./ChatMessages";
+import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
 import { parseProposal } from "./proposal";
+import { useAnchoredPosition } from "./useAnchoredPosition";
 import {
   AI_MESSAGE_SENT_EVENT,
   TUTORIAL_AGENT_PROPOSAL_EVENT,
@@ -20,25 +17,16 @@ import {
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
-export interface InlineChatLabels {
-  placeholder: string;
-  send: string;
-  stop: string;
-  thinking: string;
-  attachFile: string;
-  selectedChars: string;
-  proposalTitle: string;
-  proposalApply: string;
-  proposalStatus: Record<Exclude<PendingStatus, "pending">, string>;
-  proposalAccept: string;
-  proposalReject: string;
-  actionNames: Record<EditAction, string>;
-  retry: string;
+export interface InlineChatLabels
+  extends ChatMessagesLabels, ChatComposerLabels {
+  /** Sent as the user's message when relocating a stale proposal. */
+  relocateRequest: string;
 }
 
 interface InlineChatProps {
-  x: number;
-  y: number;
+  /** Drives the popup's position: it follows the document position it was
+   *  opened on instead of staying at the coordinates captured then. */
+  run: EditorRunner;
   document: string;
   selectedText: string | null;
   /** The document's path - resolves the agent workspace (skills, files). */
@@ -57,10 +45,6 @@ interface InlineChatProps {
    *  window events are dispatched only when this is set. */
   tutorialMock?: boolean;
   labels: InlineChatLabels;
-  /** Fallback for a proposal whose anchor couldn't be resolved into a live
-   *  preview (status "invalid") - applies it directly, same error contract
-   *  as onApply. */
-  onApplyProposal: (proposal: EditProposal) => string | null;
   /** A reply produced one or more propose_edit tool calls - hand them to
    *  usePendingEdits.showPreviews so they render as in-document previews. */
   onProposals: (
@@ -71,29 +55,35 @@ interface InlineChatProps {
   proposalStatus: (callId: string) => PendingStatus;
   onAcceptProposal: (callId: string) => void;
   onRejectProposal: (callId: string) => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
+  pendingCount: number;
   onClose: () => void;
 }
 
 /// A cursor-anchored inline assistant bar - invoked via shortcut or the
 /// context menu, styled after VS Code's inline Claude Code chat: a floating
 /// popup, not a persistent panel. If text was selected at invocation time
-/// it's silently attached to the outgoing message wrapped in a
-/// <selected-text> tag. The only way a reply touches the document is a
-/// propose_edit proposal's Accept - it renders as a red/green preview right
-/// in the document, and history (Cmd+Z) undoes an accepted edit; free-text
-/// replies are commentary only, nothing to click. No title bar, no history
-/// or new-chat controls of its own - it's just the turn list and the input;
-/// browsing/restoring a past conversation lives in the sidebar's Chats tab
-/// (RESTORE_CHAT_EVENT, handled in MilkdownEditor). Every ordinary popup open
-/// starts a new conversation; sidebar history is the explicit resume path.
+/// its MARKDOWN is silently attached to the outgoing message wrapped in a
+/// <selected-text> tag (markdown, not flattened text, so the model can see -
+/// and preserve - the formatting it is being asked to rewrite; see
+/// doc-markdown.ts). No title bar, no history or new-chat controls of its own
+/// - it's just the turn list and the input; browsing/restoring a past
+/// conversation lives in the sidebar's Chats tab (RESTORE_CHAT_EVENT, handled
+/// in MilkdownEditor). Every ordinary popup open starts a new conversation;
+/// sidebar history is the explicit resume path.
+///
+/// The only way a reply touches the document is a proposal's Accept in the
+/// chat card. It renders as a red/green preview in the document and history
+/// (Cmd+Z) undoes it once accepted; free-text replies are commentary only.
+/// There is deliberately no second path that writes without a preview.
 ///
 /// Split across chat/ by responsibility: this file is the shell (position,
 /// outside-click close, orchestrating a send); ChatMessages owns the turn
 /// list and proposal cards; ChatComposer owns the input row and skill
 /// picker.
 export function InlineChat({
-  x,
-  y,
+  run,
   document,
   selectedText,
   docPath,
@@ -101,27 +91,31 @@ export function InlineChat({
   conversation,
   tutorialMock,
   labels,
-  onApplyProposal,
   onProposals,
   proposalStatus,
   onAcceptProposal,
   onRejectProposal,
+  onAcceptAll,
+  onRejectAll,
+  pendingCount,
   onClose,
 }: InlineChatProps) {
-  const [applyError, setApplyError] = useState<string | null>(null);
   const { history, busy, error, retryable, send, stop, retry } = conversation;
 
   const rootRef = useCloseOnOutsideClick<HTMLDivElement>(onClose);
   const listRef = useRef<HTMLDivElement>(null);
+  // Follows the document position the chat was opened on, so scrolling
+  // doesn't leave the popup stranded over unrelated text.
+  const anchor = useAnchoredPosition(run, chatInfo.anchorPos);
   // grow "up": the composer's screen position stays put and the history
   // above it grows upward, instead of the whole popup growing downward from
   // the cursor and dragging the input away as the conversation lengthens.
-  const pos = useViewportClamp(rootRef, x, y, { grow: "up" });
-
-  function applyInvalidProposal(proposal: EditProposal) {
-    const err = onApplyProposal(proposal);
-    setApplyError(err);
-  }
+  const pos = useViewportClamp(
+    rootRef,
+    anchor?.x ?? chatInfo.x,
+    anchor?.y ?? chatInfo.y,
+    { grow: "up" },
+  );
 
   // Shared tail of both a fresh send and a retry: turn propose_edit calls
   // into in-document previews and scroll the new turns into view.
@@ -147,17 +141,29 @@ export function InlineChat({
     });
   }
 
+  /** Sends `message` with this request's context snapshotted now (request
+   *  time), not read from props later - the bar (or a differently-anchored
+   *  reopening of it) may not still reflect this request's context by the
+   *  time the reply arrives. */
+  function dispatchSend(message: string) {
+    const requestChatInfo = chatInfo;
+    void (async () => {
+      const newTurns = await send(document, message);
+      afterSend(newTurns, requestChatInfo);
+    })();
+  }
+
   function handleSend(message: string, attachments: ChatAttachment[]) {
-    setApplyError(null);
     // Signals the interactive tutorial's "ask AI something" step - a real
     // send, not just opening the panel. Only the tour's own mock chat may
     // advance the lesson; chats in other tabs stay out of it.
     if (tutorialMock) window.dispatchEvent(new Event(AI_MESSAGE_SENT_EVENT));
     // Rewrites of the selection come back as replace_selection tool calls
     // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs) - the tag
-    // here just carries the selection as context.
-    const tagged = selectedText
-      ? `<selected-text>\n${selectedText}\n</selected-text>\n\n${message}`
+    // here just carries the selection as context. It's the selection's
+    // MARKDOWN, so formatting survives the round trip.
+    const tagged = chatInfo.selectionMarkdown
+      ? `<selected-text>\n${chatInfo.selectionMarkdown}\n</selected-text>\n\n${message}`
       : message;
     // Attachments ride inside this one message, ahead of the request text.
     const attachmentBlocks = attachments
@@ -166,21 +172,19 @@ export function InlineChat({
           `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`,
       )
       .join("\n\n");
-    // Snapshot chatInfo now (request time), not read from props later - the
-    // bar (or a differently-anchored reopening of it) may not still reflect
-    // this request's context by the time the reply arrives.
-    const requestChatInfo = chatInfo;
-    void (async () => {
-      const newTurns = await send(
-        document,
-        attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged,
-      );
-      afterSend(newTurns, requestChatInfo);
-    })();
+    dispatchSend(
+      attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged,
+    );
+  }
+
+  /** An anchor that no longer resolves: ask the model to re-issue the edit
+   *  against the document as it now reads, rather than writing text whose
+   *  target we can't locate. */
+  function handleRelocate(proposal: EditProposal) {
+    dispatchSend(labels.relocateRequest.replace("{text}", proposal.text ?? ""));
   }
 
   function handleRetry() {
-    setApplyError(null);
     const requestChatInfo = chatInfo;
     void (async () => {
       const newTurns = await retry();
@@ -202,13 +206,15 @@ export function InlineChat({
               history={history}
               busy={busy}
               error={error}
-              applyError={applyError}
               selectedText={selectedText}
               labels={labels}
               proposalStatus={proposalStatus}
               onAcceptProposal={onAcceptProposal}
               onRejectProposal={onRejectProposal}
-              onApplyInvalidProposal={applyInvalidProposal}
+              onAcceptAll={onAcceptAll}
+              onRejectAll={onRejectAll}
+              pendingCount={pendingCount}
+              onRelocateProposal={handleRelocate}
               canRetry={!!retryable}
               onRetry={handleRetry}
             />
