@@ -192,6 +192,7 @@ export const strings = {
     diffCollapse: "Show less",
     chatPendingSummary: "{n} edit(s) awaiting your decision",
     chatPendingReveal: "Show in document",
+    chatDropSelection: "Don't send the selection",
     proposalRelocateRequest:
       "That edit no longer matches the document. Please look at the document as it reads now and propose the change again.",
     chatSelectionChip: "Selected text ({n} chars)",
@@ -559,6 +560,7 @@ export const strings = {
     diffCollapse: "收起",
     chatPendingSummary: "有 {n} 处修改等待你确认",
     chatPendingReveal: "在文档中定位",
+    chatDropSelection: "不发送选中内容",
     proposalRelocateRequest:
       "这处修改已经和文档对不上了。请按文档现在的内容重新给出这个修改。",
     chatSelectionChip: "选中内容({n} 字)",
@@ -921,6 +923,7 @@ export const strings = {
     diffCollapse: "折りたたむ",
     chatPendingSummary: "{n} 件の編集が確認待ちです",
     chatPendingReveal: "文書内で表示",
+    chatDropSelection: "選択範囲を送らない",
     proposalRelocateRequest:
       "この編集は現在の文書と一致しません。今の文書の内容に基づいて、もう一度提案してください。",
     chatSelectionChip: "選択範囲（{n}文字）",

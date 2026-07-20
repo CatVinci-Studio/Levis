@@ -111,16 +111,21 @@ export function ChatBody({
     })();
   }
 
-  function handleSend(message: string, attachments: ChatAttachment[]) {
+  function handleSend(
+    message: string,
+    attachments: ChatAttachment[],
+    includeSelection: boolean,
+  ) {
     // Signals the interactive tutorial's "ask AI something" step - a real
     // send, not just opening the panel.
     if (tutorialMock) window.dispatchEvent(new Event(AI_MESSAGE_SENT_EVENT));
     // Rewrites of the selection come back as replace_selection tool calls
     // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs); the tag
     // carries the selection's MARKDOWN so formatting survives the round trip.
-    const tagged = selectionMarkdown
-      ? `<selected-text>\n${selectionMarkdown}\n</selected-text>\n\n${message}`
-      : message;
+    const tagged =
+      selectionMarkdown && includeSelection
+        ? `<selected-text>\n${selectionMarkdown}\n</selected-text>\n\n${message}`
+        : message;
     const attachmentBlocks = attachments
       .map(
         (f) =>

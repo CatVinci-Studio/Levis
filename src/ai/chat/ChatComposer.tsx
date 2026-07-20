@@ -4,6 +4,8 @@ import { resolveSkillMessage } from "./proposal";
 import { ai } from "../../ipc";
 
 export interface ChatComposerLabels {
+  /** Accessible name of the selection chip's remove button. */
+  dropSelection: string;
   placeholder: string;
   send: string;
   /** Send button's label while a request is in flight - clicking it then
@@ -23,7 +25,12 @@ interface ChatComposerProps {
   labels: ChatComposerLabels;
   /** The resolved message (skill expanded) plus any attachments - InlineChat
    *  owns tagging it with selected-text/chatInfo and actually sending it. */
-  onSend: (message: string, attachments: ChatAttachment[]) => void;
+  onSend: (
+    message: string,
+    attachments: ChatAttachment[],
+    /** False once the user has removed the selection chip. */
+    includeSelection: boolean,
+  ) => void;
   onStop: () => void;
   onEscape: () => void;
 }
@@ -47,6 +54,10 @@ export function ChatComposer({
   const [skillIndex, setSkillIndex] = useState(0);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  // The selection rides along as context by default, but a question about
+  // the document as a whole shouldn't be forced to carry whatever happened
+  // to be highlighted - dropping it is a click, not a re-selection.
+  const [selectionDropped, setSelectionDropped] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Skills come from the agent workspace on disk (global dir + the document
@@ -104,7 +115,7 @@ export function ChatComposer({
     setInput("");
     const staged = attachments;
     setAttachments([]);
-    onSend(message, staged);
+    onSend(message, staged, !selectionDropped);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -200,12 +211,21 @@ export function ChatComposer({
           >
             +
           </button>
-          {selectedText && (
+          {selectedText && !selectionDropped && (
             <span className="inline-chat-selection-chip">
               {labels.selectedChars.replace(
                 "{n}",
                 String([...selectedText].length),
               )}
+              <button
+                type="button"
+                className="inline-chat-chip-remove"
+                aria-label={labels.dropSelection}
+                title={labels.dropSelection}
+                onClick={() => setSelectionDropped(true)}
+              >
+                ✕
+              </button>
             </span>
           )}
           <button

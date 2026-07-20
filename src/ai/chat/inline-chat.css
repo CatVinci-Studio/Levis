@@ -183,8 +183,11 @@
   gap: 6px;
 }
 
-/* How much text rides along as context - quiet, not interactive. */
+/* How much text rides along as context, and a way to drop it. */
 .inline-chat-selection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   color: var(--editor-muted);
   border: 1px solid var(--editor-border);
@@ -193,6 +196,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.inline-chat-chip-remove {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.inline-chat-chip-remove:hover {
+  opacity: 1;
 }
 
 /* The "+" attach-file button, kept as quiet as the input itself. */

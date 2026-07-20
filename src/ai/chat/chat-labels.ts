@@ -33,6 +33,7 @@ export function chatLabels(t: Strings): InlineChatLabels {
     diffCollapse: t.diffCollapse,
     pendingSummary: t.chatPendingSummary,
     pendingReveal: t.chatPendingReveal,
+    dropSelection: t.chatDropSelection,
     relocateRequest: t.proposalRelocateRequest,
     close: t.chatClose,
     detach: t.chatDetach,
