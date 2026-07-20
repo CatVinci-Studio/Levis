@@ -10,7 +10,6 @@ use tauri::{Emitter, EventTarget, Manager};
 
 use crate::app_identity;
 use crate::commands;
-use crate::tab_drag::DRAG_PILL_LABEL;
 
 const SETTINGS_MENU_ID: &str = "settings";
 const NEW_FILE_ID: &str = "new-file";
@@ -60,17 +59,41 @@ fn emit_to_focused(app: &tauri::AppHandle, event: &str) {
     emit_to_focused_payload(app, event, ());
 }
 
+/// Menu commands go to the focused EDITOR window.
+///
+/// "Focused window" alone is not enough once a detached chat window exists:
+/// the chat holds focus for as long as the user is typing in it, but it has
+/// no document and subscribes to none of these events, so Save/Open/Export/
+/// Find would all quietly do nothing. A focused chat is resolved back to the
+/// editor it belongs to; failing that, any editor window is a better target
+/// than none.
 fn emit_to_focused_payload<S: serde::Serialize + Clone>(
     app: &tauri::AppHandle,
     event: &str,
     payload: S,
 ) {
-    if let Some((label, _)) = app
-        .webview_windows()
+    let windows = app.webview_windows();
+    let focused = windows
         .iter()
         .find(|(_, w)| w.is_focused().unwrap_or(false))
-    {
-        let _ = app.emit_to(EventTarget::webview_window(label), event, payload);
+        .map(|(label, _)| label.clone());
+
+    let target = match focused {
+        Some(label) if crate::commands::chat_window::is_editor_window(&label) => Some(label),
+        Some(label) => app
+            .try_state::<crate::commands::chat_window::OpenChatWindows>()
+            .and_then(|state| crate::commands::chat_window::editor_for_chat(&label, &state)),
+        None => None,
+    }
+    .or_else(|| {
+        windows
+            .keys()
+            .find(|label| crate::commands::chat_window::is_editor_window(label))
+            .cloned()
+    });
+
+    if let Some(label) = target {
+        let _ = app.emit_to(EventTarget::webview_window(&label), event, payload);
     }
 }
 
@@ -431,7 +454,7 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
             if app_handle
                 .webview_windows()
                 .iter()
-                .any(|(label, _)| *label != DRAG_PILL_LABEL)
+                .any(|(label, _)| crate::commands::chat_window::is_editor_window(label))
             {
                 emit_to_focused_payload(app_handle, "menu-open-help", doc);
             } else {

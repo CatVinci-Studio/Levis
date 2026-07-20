@@ -51,6 +51,10 @@ export interface ChatContext {
 /** Everything a detaching panel hands to its new window. */
 export interface ChatHandoffState {
   context: ChatContext;
+  /** Carried across so the conversation keeps ONE id through detach and
+   *  re-embed - minting a new one each hop scatters a single exchange over
+   *  several sidebar history entries. */
+  conversationId: string;
   turns: AgentTurn[];
   /** Statuses of proposals already on screen, so a detached window doesn't
    *  show every past card as freshly pending. */
@@ -68,6 +72,13 @@ export interface ProposalsMessage {
 
 export interface CallIdMessage {
   callId: string;
+}
+
+/** Sent back when the detached window closes, so the editor can resume the
+ *  same conversation in the embedded panel. */
+export interface ReembedMessage {
+  conversationId: string;
+  turns: AgentTurn[];
 }
 
 /** Typed `emitTo` - keeps event name and payload shape together. */

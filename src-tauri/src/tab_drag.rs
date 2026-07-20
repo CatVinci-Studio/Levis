@@ -77,8 +77,12 @@ pub fn list_window_bounds(app: tauri::AppHandle) -> Vec<WindowBounds> {
         .iter()
         .filter_map(|(label, window)| {
             // The floating drag pill is the thing BEING dragged, never a
-            // drop target; a hidden window can't be one either.
-            if label == DRAG_PILL_LABEL || !window.is_visible().unwrap_or(false) {
+            // drop target; neither is a detached chat window (no tab bar, no
+            // document - a tab dropped there would just vanish), and a hidden
+            // window can't be one either.
+            if !crate::commands::chat_window::is_editor_window(label)
+                || !window.is_visible().unwrap_or(false)
+            {
                 return None;
             }
             let pos = window.outer_position().ok()?;
@@ -208,7 +212,9 @@ const TAB_ROW_HEIGHT_LOGICAL: f64 = 60.0;
 #[cfg(target_os = "macos")]
 fn top_strip_hit(app: &tauri::AppHandle, x: f64, y: f64) -> Option<String> {
     for (label, window) in app.webview_windows() {
-        if label == DRAG_PILL_LABEL || !window.is_visible().unwrap_or(false) {
+        if !crate::commands::chat_window::is_editor_window(&label)
+            || !window.is_visible().unwrap_or(false)
+        {
             continue;
         }
         let (Ok(pos), Ok(size), Ok(scale)) = (

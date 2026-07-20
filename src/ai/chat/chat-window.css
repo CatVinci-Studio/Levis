@@ -1,7 +1,7 @@
-/* The detached chat window. Unlike the embedded popup this has no chrome of
-   its own to draw - the OS provides the frame, the resize edges and the
-   shadow, which is exactly why detaching uses a real window. All this file
-   does is fill it. */
+/* The detached chat window. Unlike the embedded popup this draws no chrome of
+   its own: the platform supplies the title bar, the drag behaviour, the
+   four-edge resizing and the shadow - which is exactly why detaching uses a
+   real window rather than a simulated one. All this file does is fill it. */
 
 .chat-window {
   display: flex;
@@ -10,14 +10,6 @@
   background: var(--editor-bg);
   color: var(--editor-text);
   overflow: hidden;
-}
-
-/* macOS traffic lights float over the content (the window is built with an
-   overlay title bar), so the top strip is left clear for them and doubles as
-   the drag region. */
-.chat-window-titlebar {
-  flex: 0 0 auto;
-  height: 28px;
 }
 
 .chat-window-body {

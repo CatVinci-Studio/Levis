@@ -57,6 +57,11 @@ export function ChatComposer({
   // The selection rides along as context by default, but a question about
   // the document as a whole shouldn't be forced to carry whatever happened
   // to be highlighted - dropping it is a click, not a re-selection.
+  //
+  // Dropping it is sticky for the rest of this chat: it is not reset after a
+  // send, because having the chip reappear on the next message after the user
+  // just dismissed it would read as the app arguing. Getting it back means
+  // reselecting and opening the chat again.
   const [selectionDropped, setSelectionDropped] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 

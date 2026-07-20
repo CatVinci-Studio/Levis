@@ -15,6 +15,11 @@ import {
   type ChatHandoff,
 } from "./chat-bridge";
 import { windowIpc } from "../../ipc";
+// Every theme custom property (--editor-bg, --editor-text, --editor-border,
+// ...) is declared on :root in App.css, which until now only App.tsx pulled
+// in. This window doesn't render App, so without this import every var()
+// below resolves to nothing and the whole window is unstyled.
+import "../../App.css";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 import "./chat-window.css";
@@ -72,7 +77,7 @@ export function ChatWindowApp() {
       setStatuses(claimed.state.statuses);
       if (claimed.state.turns.length > 0) {
         conversation.restore({
-          id: crypto.randomUUID(),
+          id: claimed.state.conversationId,
           docPath: claimed.state.context.docPath,
           title: "",
           updatedAt: Date.now(),
@@ -108,13 +113,14 @@ export function ChatWindowApp() {
     const unlisten = win.onCloseRequested(() => {
       if (editorLabel.current)
         sendToWindow(editorLabel.current, CHAT_TO_EDITOR.reembed, {
+          conversationId: conversation.conversationId,
           turns: conversation.history,
         });
     });
     return () => {
       void unlisten.then((f) => f());
     };
-  }, [conversation.history]);
+  }, [conversation.conversationId, conversation.history]);
 
   const send = useCallback((event: string, payload?: unknown) => {
     if (editorLabel.current) sendToWindow(editorLabel.current, event, payload);
@@ -137,7 +143,6 @@ export function ChatWindowApp() {
 
   return (
     <div className="chat-window">
-      <div className="chat-window-titlebar" data-tauri-drag-region />
       <div className="chat-window-body">
         <ChatBody
           document={context.document}

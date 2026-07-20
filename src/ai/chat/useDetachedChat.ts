@@ -10,7 +10,9 @@ import {
   sendToWindow,
   type CallIdMessage,
   type ChatContext,
+  type ChatHandoffState,
   type ProposalsMessage,
+  type ReembedMessage,
 } from "./chat-bridge";
 
 export interface DetachedChatHandlers {
@@ -22,7 +24,7 @@ export interface DetachedChatHandlers {
   onAcceptAll: () => void;
   onRejectAll: () => void;
   /** The chat window closed and handed its conversation back. */
-  onReembed: (turns: AgentTurn[]) => void;
+  onReembed: (conversationId: string, turns: AgentTurn[]) => void;
 }
 
 /**
@@ -58,13 +60,10 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
       onWindowEvent(CHAT_TO_EDITOR.rejectAll, () =>
         latest.current.onRejectAll(),
       ),
-      onWindowEvent<{ turns: AgentTurn[] }>(
-        CHAT_TO_EDITOR.reembed,
-        (payload) => {
-          setChatLabel(null);
-          latest.current.onReembed(payload.turns ?? []);
-        },
-      ),
+      onWindowEvent<ReembedMessage>(CHAT_TO_EDITOR.reembed, (payload) => {
+        setChatLabel(null);
+        latest.current.onReembed(payload.conversationId, payload.turns ?? []);
+      }),
     ];
     return () => {
       for (const sub of subscriptions) void sub.then((f) => f());
@@ -72,39 +71,29 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
   }, []);
 
   /** Pops the chat out. Resolves once the window exists. */
-  const detach = useCallback(
-    async (
-      state: {
-        context: ChatContext;
-        turns: AgentTurn[];
-        statuses: Record<string, PendingStatus>;
-      },
-      title: string,
-    ) => {
-      const win = getCurrentWindow();
-      let position: [number, number] | null = null;
-      try {
-        // Open beside the editor rather than on top of it - the reason to
-        // detach is to stop the chat covering the document.
-        const [pos, size, scale] = await Promise.all([
-          win.outerPosition(),
-          win.outerSize(),
-          win.scaleFactor(),
-        ]);
-        position = [(pos.x + size.width) / scale + 12, pos.y / scale];
-      } catch {
-        // No bounds available - let the platform place it.
-      }
-      const label = await windowIpc.detachChatWindow({
-        state,
-        position,
-        title,
-      });
-      setChatLabel(label);
-      return label;
-    },
-    [],
-  );
+  const detach = useCallback(async (state: ChatHandoffState, title: string) => {
+    const win = getCurrentWindow();
+    let position: [number, number] | null = null;
+    try {
+      // Open beside the editor rather than on top of it - the reason to
+      // detach is to stop the chat covering the document.
+      const [pos, size, scale] = await Promise.all([
+        win.outerPosition(),
+        win.outerSize(),
+        win.scaleFactor(),
+      ]);
+      position = [(pos.x + size.width) / scale + 12, pos.y / scale];
+    } catch {
+      // No bounds available - let the platform place it.
+    }
+    const label = await windowIpc.detachChatWindow({
+      state,
+      position,
+      title,
+    });
+    setChatLabel(label);
+    return label;
+  }, []);
 
   /** Pushes the document as it now reads, so a send from the detached window
    *  never goes out against a stale snapshot. */

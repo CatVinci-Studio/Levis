@@ -173,7 +173,21 @@ export function useAgentConversation(
     mockTainted.current = !!mockReply;
   }
 
-  return { history, busy, error, retryable, send, stop, retry, reset, restore };
+  return {
+    // Exposed so a conversation can move between windows (detached chat)
+    // without being re-saved under a new id each hop, which would leave one
+    // exchange scattered across several sidebar history entries.
+    conversationId,
+    history,
+    busy,
+    error,
+    retryable,
+    send,
+    stop,
+    retry,
+    reset,
+    restore,
+  };
 }
 
 export type AgentConversation = ReturnType<typeof useAgentConversation>;

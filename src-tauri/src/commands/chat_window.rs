@@ -2,6 +2,31 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder};
 
+/// Label prefix of every detached chat window. Window-enumeration code has
+/// to be able to tell these apart from editor windows: a chat window has no
+/// tab bar and no document, so offering it as a tab-drag drop target or
+/// handing it files to open would silently lose whatever was sent.
+pub const CHAT_LABEL_PREFIX: &str = "chat-";
+
+/// Whether `label` names a window that hosts a document (i.e. not the drag
+/// pill and not a detached chat).
+pub fn is_editor_window(label: &str) -> bool {
+    label != crate::tab_drag::DRAG_PILL_LABEL && !label.starts_with(CHAT_LABEL_PREFIX)
+}
+
+/// The editor window a detached chat belongs to, if `label` names one.
+/// Menu commands focused on a chat window are routed here - the chat has no
+/// document and no menu handlers, so delivering Save/Export/Find to it would
+/// silently do nothing.
+pub fn editor_for_chat(label: &str, open: &OpenChatWindows) -> Option<String> {
+    open.0
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|(_, chat)| chat.as_str() == label)
+        .map(|(editor, _)| editor.clone())
+}
+
 /// Everything a detached chat window needs to carry on where the embedded
 /// panel left off. `state` is opaque JSON: the actual shape is defined once,
 /// in TypeScript (src/ai/chat/chat-bridge.ts), so the protocol doesn't have
@@ -53,7 +78,7 @@ pub fn detach_chat_window(
         }
     }
 
-    let label = format!("chat-{}", crate::next_window_id());
+    let label = format!("{CHAT_LABEL_PREFIX}{}", crate::next_window_id());
     pending.0.lock().unwrap().insert(
         label.clone(),
         ChatHandoff {
@@ -106,9 +131,11 @@ pub fn close_chat_window(
     }
 }
 
-/// Drops a closed chat window's registration so the editor that owned it can
-/// detach again. Called from the global window-destroyed handler, since the
-/// window can also be closed by the user or by the OS.
+/// Drops registrations involving a destroyed window. Called from the global
+/// window-destroyed handler for EVERY window, so it handles both directions
+/// of the editor -> chat mapping: a closed chat window is removed by value
+/// (letting its editor detach again), and a closed editor window is removed
+/// by key (so its entry doesn't outlive it).
 pub fn forget_chat_window(label: &str, open: &OpenChatWindows) {
     let mut map = open.0.lock().unwrap();
     map.retain(|_, chat| chat != label);

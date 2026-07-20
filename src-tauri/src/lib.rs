@@ -44,7 +44,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use tauri::{Emitter, EventTarget, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
-use tab_drag::{DragTrackers, PendingDetachedTabs, DRAG_PILL_LABEL};
+use tab_drag::{DragTrackers, PendingDetachedTabs};
 
 /// Each new window is a fresh, independent instance of the whole SPA (its
 /// own React tree, own in-memory document state) - just like opening a new
@@ -123,7 +123,7 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
         if let Some((label, _)) = app
             .webview_windows()
             .iter()
-            .find(|(label, _)| *label != DRAG_PILL_LABEL)
+            .find(|(label, _)| commands::chat_window::is_editor_window(label))
         {
             let _ = app.emit_to(
                 EventTarget::webview_window(label),

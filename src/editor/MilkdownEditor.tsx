@@ -219,10 +219,10 @@ export function MilkdownEditor({
     onRejectAll: () => pendingEdits.rejectAll(),
     // The window handed its conversation back on close - carry on with it in
     // the embedded popup rather than dropping the exchange.
-    onReembed: (turns) => {
+    onReembed: (conversationId, turns) => {
       if (turns.length > 0)
         conversation.restore({
-          id: crypto.randomUUID(),
+          id: conversationId,
           docPath: filePathRef.current,
           title: "",
           updatedAt: Date.now(),
@@ -232,22 +232,31 @@ export function MilkdownEditor({
     },
   });
 
+  // Destructured so the effects below can depend on the individual, stable
+  // callbacks. The hook's return value is a fresh object literal each render,
+  // and depending on THAT re-ran these every render - emitting a bridge event
+  // per render rather than per actual change.
+  const {
+    chatLabel: detachedChatLabel,
+    pushContext: pushChatContext,
+    pushStatuses: pushChatStatuses,
+  } = detachedChat;
+
   // The detached window has no editor state of its own, so it's fed: the
   // document/selection as they now read, and every proposal's status.
   useEffect(() => {
-    if (!detachedChat.chatLabel || !inlineChat.chatInfo) return;
-    detachedChat.pushContext({
+    if (!detachedChatLabel || !inlineChat.chatInfo) return;
+    pushChatContext({
       document: inlineChat.chatInfo.document,
       selectedText: inlineChat.chatInfo.selectedText,
       selectionMarkdown: inlineChat.chatInfo.selectionMarkdown,
       docPath: filePath,
     });
-  }, [detachedChat, inlineChat.chatInfo, filePath]);
+  }, [detachedChatLabel, pushChatContext, inlineChat.chatInfo, filePath]);
 
   useEffect(() => {
-    if (detachedChat.chatLabel)
-      detachedChat.pushStatuses(pendingEdits.allStatuses);
-  }, [detachedChat, pendingEdits.allStatuses]);
+    if (detachedChatLabel) pushChatStatuses(pendingEdits.allStatuses);
+  }, [detachedChatLabel, pushChatStatuses, pendingEdits.allStatuses]);
 
   /** Scrolls to the first undecided edit. In a long conversation the cards
    *  scroll away, so the pinned summary bar needs a way back to the text. */
@@ -256,9 +265,12 @@ export function MilkdownEditor({
     if (!first) return;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
+      // near(), not create(): an anchored proposal's `from` is the position
+      // BEFORE a block node, which is not a valid text position - create()
+      // throws there. near() snaps to the closest one it can select.
       view.dispatch(
         view.state.tr
-          .setSelection(TextSelection.create(view.state.doc, first.from))
+          .setSelection(TextSelection.near(view.state.doc.resolve(first.from)))
           .scrollIntoView(),
       );
       view.focus();
@@ -276,6 +288,7 @@ export function MilkdownEditor({
           selectionMarkdown: info.selectionMarkdown,
           docPath: filePath,
         },
+        conversationId: conversation.conversationId,
         turns: conversation.history,
         statuses: pendingEdits.allStatuses,
       },
