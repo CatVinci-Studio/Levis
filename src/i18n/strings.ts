@@ -310,16 +310,12 @@ export const strings = {
     tutorialDoneTitle: "Start your Markdown journey",
     tutorialDoneBody:
       "You have created Markdown structure, accepted an AI completion, corrected a grammar issue, talked with the Agent, and approved an edit. Connect a provider in Settings → AI to use these AI features in your own documents.",
-    coachAskAi: "Press {shortcut} to ask AI about this selection",
-    coachCompletion:
-      "Pause while typing and a gray suggestion appears - Tab accepts it",
-    coachGotIt: "Got it",
-    coachSkipAll: "Skip all tips",
     closePromptMessage: "This document has unsaved changes.",
     closePromptSave: "Save",
     closePromptDiscard: "Don't Save",
     closePromptCancel: "Cancel",
     draftRestoredMessage: "Recovered unsaved content from the last session.",
+    draftRestoredDismiss: "Got it",
     fileChangedOnDiskTitle: "File Changed on Disk",
     fileChangedOnDiskMessage:
       "This file has been changed on disk by another program. Saving will overwrite those changes.",
@@ -661,15 +657,12 @@ export const strings = {
     tutorialDoneTitle: "开始你的 Markdown 之旅吧",
     tutorialDoneBody:
       "你已经完成了 Markdown 排版、AI 续写、语法纠正、Agent 对话和正文修改。在「设置 → AI」中连接服务后，就可以把这些 AI 能力用在自己的文档里。",
-    coachAskAi: "按 {shortcut} 可以让 AI 处理这段选中内容",
-    coachCompletion: "打字时停顿一下,灰色建议就会出现——按 Tab 采纳",
-    coachGotIt: "知道了",
-    coachSkipAll: "跳过全部提示",
     closePromptMessage: "文档有未保存的更改。",
     closePromptSave: "保存",
     closePromptDiscard: "不保存",
     closePromptCancel: "取消",
     draftRestoredMessage: "已恢复上次会话中未保存的内容。",
+    draftRestoredDismiss: "知道了",
     fileChangedOnDiskTitle: "文件已在磁盘上被修改",
     fileChangedOnDiskMessage:
       "该文件已被其他程序修改。保存将覆盖磁盘上的更改。",
@@ -1023,16 +1016,12 @@ export const strings = {
     tutorialDoneTitle: "Markdownの旅を始めましょう",
     tutorialDoneBody:
       "Markdownの書式、AI補完、文法修正、Agentとの対話、本文の編集を体験しました。「設定 → AI」でサービスを接続すると、自分の文書でもこれらのAI機能を使えます。",
-    coachAskAi: "{shortcut} を押すと、この選択範囲についてAIに聞けます",
-    coachCompletion:
-      "入力中に少し止まるとグレーの候補が表示されます——Tabで採用",
-    coachGotIt: "わかった",
-    coachSkipAll: "すべてのヒントをスキップ",
     closePromptMessage: "この文書には保存されていない変更があります。",
     closePromptSave: "保存",
     closePromptDiscard: "保存しない",
     closePromptCancel: "キャンセル",
     draftRestoredMessage: "前回のセッションの未保存の内容を復元しました。",
+    draftRestoredDismiss: "わかった",
     fileChangedOnDiskTitle: "ファイルがディスク上で変更されました",
     fileChangedOnDiskMessage:
       "このファイルは他のプログラムによって変更されています。保存するとその変更が上書きされます。",

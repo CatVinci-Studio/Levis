@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { resetCoachMarks } from "./onboarding/coach-marks";
 import { drafts, windowIpc } from "./ipc";
 import {
   helpDocContent,
@@ -126,7 +125,6 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
         return;
       }
       if (helpDoc === "welcome") {
-        resetCoachMarks();
         opts.startTutorial(opts.activeTabId);
         if (!opts.onboardingShown) opts.markOnboardingShown();
         return;
@@ -160,7 +158,6 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       // defer the guide safely to the next ordinary launch instead of losing
       // it forever.
       if (!opts.onboardingShown) {
-        resetCoachMarks();
         opts.startTutorial(opts.activeTabId);
         opts.markOnboardingShown();
       }

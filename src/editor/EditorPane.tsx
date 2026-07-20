@@ -14,7 +14,6 @@ interface EditorPaneProps {
   tutorialMock?: boolean;
   /** Bundled guides already contain text, but that is not the user's first
    * writing action and must not trigger contextual onboarding bubbles. */
-  suppressCoachMarks?: boolean;
 }
 
 export function EditorPane({
@@ -22,7 +21,6 @@ export function EditorPane({
   initialValue,
   onChange,
   tutorialMock,
-  suppressCoachMarks,
 }: EditorPaneProps) {
   // No file open yet -> still show an editable blank canvas (draft mode).
   // "untitled" as the key means switching between draft <-> a real file
@@ -42,7 +40,6 @@ export function EditorPane({
               initialValue={initialValue}
               onChange={onChange}
               tutorialMock={tutorialMock}
-              suppressCoachMarks={suppressCoachMarks}
             />
           </MilkdownProvider>
         </Suspense>

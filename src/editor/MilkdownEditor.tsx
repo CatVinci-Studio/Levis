@@ -56,12 +56,8 @@ import { useInlineChat } from "../ai/useInlineChat";
 import { usePendingEdits } from "../ai/usePendingEdits";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
-import { formatCombo } from "../utils/shortcuts";
 import { useLatest } from "../utils/useLatest";
 import { useWindowEvent } from "../utils/useWindowEvent";
-import { useCoachMark } from "../onboarding/useCoachMark";
-import { skipAllCoachMarks } from "../onboarding/coach-marks";
-import { CoachMark } from "../onboarding/CoachMark";
 import { createTutorialMockAgent } from "../onboarding/tutorial-mock-agent";
 import {
   TRIGGER_COMPLETION_EVENT,
@@ -96,9 +92,6 @@ interface MilkdownEditorProps {
    *  triggers are ignored, and the chat answers from a pre-written script
    *  instead of the backend. First-run users have no AI account yet. */
   tutorialMock?: boolean;
-  /** Help/demo documents are pre-filled by the app. Their content should not
-   * be mistaken for a user's first qualifying action by coach marks. */
-  suppressCoachMarks?: boolean;
 }
 
 export function MilkdownEditor({
@@ -106,7 +99,6 @@ export function MilkdownEditor({
   initialValue,
   onChange,
   tutorialMock = false,
-  suppressCoachMarks = false,
 }: MilkdownEditorProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
@@ -216,60 +208,6 @@ export function MilkdownEditor({
   }
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
   const findReplace = useFindReplace(run);
-
-  // Contextual first-run coach marks (src/onboarding/) - each fires once,
-  // the first time its qualifying action happens, and never again once
-  // dismissed (or "skip all tips" is used).
-  const completionCoach = useCoachMark("completion");
-  const askAiCoach = useCoachMark("askAi");
-  const [completionAnchor, setCompletionAnchor] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-  const [askAiAnchor, setAskAiAnchor] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-
-  // `run` returns undefined until the editor's actually mounted, and its
-  // identity changes when that happens - the dep list re-runs this exactly
-  // once loading finishes rather than needing to poll.
-  useEffect(() => {
-    if (
-      suppressCoachMarks ||
-      !settings.enableCompletion ||
-      !initialValue.trim()
-    )
-      return;
-    const pos = run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const coords = view.coordsAtPos(view.state.selection.from);
-      return { x: coords.left, y: coords.bottom + 6 };
-    });
-    if (pos) {
-      setCompletionAnchor(pos);
-      completionCoach.trigger();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [run]);
-
-  function onMouseUp() {
-    if (suppressCoachMarks || !settings.enableAskAi) return;
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const { selection } = view.state;
-      if (selection.empty) return;
-      const text = view.state.doc.textBetween(
-        selection.from,
-        selection.to,
-        " ",
-      );
-      if (text.trim().length < 20) return;
-      const coords = view.coordsAtPos(selection.to);
-      setAskAiAnchor({ x: coords.left, y: coords.bottom + 6 });
-      askAiCoach.trigger();
-    });
-  }
 
   // Every open tab's editor stays mounted (App.tsx hides the inactive ones
   // with display:none, which nulls offsetParent) but the window events below
@@ -583,7 +521,6 @@ export function MilkdownEditor({
       onContextMenu={onContextMenu}
       onMouseOver={grammar.onMouseOver}
       onMouseOut={grammar.onMouseOut}
-      onMouseUp={onMouseUp}
     >
       <Milkdown />
       {findReplace.open && (
@@ -684,39 +621,6 @@ export function MilkdownEditor({
           onRejectAll={pendingEdits.rejectAll}
         />
       )}
-      {renderCoachMark(completionCoach, completionAnchor, t.coachCompletion)}
-      {renderCoachMark(
-        askAiCoach,
-        askAiAnchor,
-        t.coachAskAi.replace(
-          "{shortcut}",
-          formatCombo(settings.shortcuts.toggleFloatingChat),
-        ),
-      )}
     </div>
   );
-
-  // Both coach marks render identically except for anchor and text; "skip
-  // all tips" always silences the whole set, whichever bubble it's on.
-  function renderCoachMark(
-    coach: ReturnType<typeof useCoachMark>,
-    anchor: { x: number; y: number } | null,
-    text: string,
-  ) {
-    if (!coach.visible || !anchor) return null;
-    return (
-      <CoachMark
-        x={anchor.x}
-        y={anchor.y}
-        text={text}
-        gotItLabel={t.coachGotIt}
-        skipAllLabel={t.coachSkipAll}
-        onDismiss={coach.dismiss}
-        onSkipAll={() => {
-          skipAllCoachMarks(["askAi", "completion"]);
-          coach.dismiss();
-        }}
-      />
-    );
-  }
 }

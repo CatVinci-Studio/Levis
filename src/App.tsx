@@ -19,7 +19,6 @@ import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
 import { useTutorialDocumentEvaluation } from "./onboarding/useTutorialDocumentEvaluation";
-import { resetCoachMarks } from "./onboarding/coach-marks";
 import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
 import { LARGE_DOC_THRESHOLD } from "./editor/large-doc";
@@ -256,7 +255,6 @@ function App() {
   // coach marks too, so relaunching the tour from Help also brings back the
   // "try this" bubbles it would have shown the first time.
   const startWelcomeTutorial = useCallback(() => {
-    resetCoachMarks();
     startTutorial(claimPracticeTab());
   }, [startTutorial, claimPracticeTab]);
 
@@ -762,7 +760,6 @@ function App() {
                 initialValue={tab.content}
                 onChange={(md) => handleChange(tab.id, md)}
                 tutorialMock={tutorial.active && tab.id === tutorial.tabId}
-                suppressCoachMarks={!!tab.helpDoc}
               />
             )}
           </div>
@@ -810,7 +807,7 @@ function App() {
             className="update-toast-secondary"
             onClick={() => setDraftsRestoredCount(0)}
           >
-            {t.coachGotIt}
+            {t.draftRestoredDismiss}
           </button>
         </div>
       )}
