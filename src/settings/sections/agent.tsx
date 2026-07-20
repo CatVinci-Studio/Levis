@@ -125,7 +125,7 @@ function ProviderModelSection({
   }
   const defaultModel =
     kind === "agent" ? entry?.agentDefaultModel : entry?.defaultModel;
-  const codexDefaultModel = kind === "agent" ? "gpt-5.6" : "gpt-5.6-luna";
+  const codexDefaultModel = kind === "agent" ? "gpt-5.6-sol" : "gpt-5.6-luna";
   const codexPresets =
     kind === "agent"
       ? OPENAI_OAUTH_AGENT_MODEL_PRESETS

@@ -44,10 +44,10 @@ export const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
     auth: ["oauth", "api_key"],
     baseUrl: null,
     defaultModel: "gpt-5.4-nano",
-    agentDefaultModel: "gpt-5.6",
+    agentDefaultModel: "gpt-5.6-sol",
     keyOptional: false,
     modelsListable: true,
-    knownModels: ["gpt-5.6", "gpt-5.6-terra", "gpt-5.6-luna"],
+    knownModels: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
   },
   {
     id: "anthropic",

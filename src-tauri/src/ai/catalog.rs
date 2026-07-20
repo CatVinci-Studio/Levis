@@ -58,10 +58,10 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         auth: &["oauth", "api_key"],
         base_url: None,
         default_model: Some("gpt-5.4-nano"),
-        agent_default_model: Some("gpt-5.6"),
+        agent_default_model: Some("gpt-5.6-sol"),
         key_optional: false,
         models_listable: true,
-        known_models: &["gpt-5.6", "gpt-5.6-terra", "gpt-5.6-luna"],
+        known_models: &["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
     },
     ProviderCatalogEntry {
         id: "anthropic",
