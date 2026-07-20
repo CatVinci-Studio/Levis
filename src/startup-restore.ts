@@ -37,10 +37,11 @@ export interface StartupRestoreOptions {
 
 /**
  * Everything that can claim this window's initial blank tab (or add extra
- * ones) at launch, in priority order: recovered drafts (2.4, never steals
- * focus - just adds tabs), a tab dragged in from another window, a Help doc
- * this window was spawned to show, OS-handed-over file paths, and finally -
- * if nothing else claimed anything - the first-run tutorial. Runs exactly
+ * ones) at launch, in priority order: a tab dragged in from another window
+ * (which short-circuits everything else - see below), recovered drafts (2.4,
+ * never steals focus - just adds tabs), a Help doc this window was spawned to
+ * show, OS-handed-over file paths, and finally - if nothing else claimed
+ * anything - the first-run tutorial. Runs exactly
  * once per window, at mount; the effect deliberately uses `[]` (not the
  * values it closes over) since a later change to any of them shouldn't
  * re-trigger a second drain.
@@ -50,6 +51,21 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
     if (drained) return;
     drained = true;
     void (async () => {
+      // A tab dragged out of another window's tab bar (see TabBar.tsx /
+      // detachTab). Checked FIRST, ahead of draft recovery: this window was
+      // created for this one document and must claim nothing else. Draft
+      // recovery below is a DESTRUCTIVE drain of the app-wide snapshot pool,
+      // and the dragged tab's own snapshot is very likely still in it - the
+      // source window clears it asynchronously (draft-autosave.ts) with no
+      // ordering guarantee against this window mounting. Draining here would
+      // re-add the dragged document as a "recovered" tab and then land it a
+      // second time as the detached tab.
+      const detached = await windowIpc.takeDetachedTab();
+      if (detached) {
+        opts.stopTutorial();
+        opts.updateTab(opts.activeTabId, detached);
+        return;
+      }
       // Recovered drafts (2.4): content a previous run snapshotted but never
       // resolved (crash, forced quit) - added as extra tabs, never stealing
       // focus from whatever this launch's OS-open/session claim below picks.
@@ -89,15 +105,6 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
           opts.setTabs((prev) => [...prev, ...restored]);
           opts.setDraftsRestoredCount(restored.length);
         }
-      }
-      // A tab dragged out of another window's tab bar (see TabBar.tsx /
-      // detachTab): claims priority over the OS-open drain below since this
-      // window was created specifically to receive it.
-      const detached = await windowIpc.takeDetachedTab();
-      if (detached) {
-        opts.stopTutorial();
-        opts.updateTab(opts.activeTabId, detached);
-        return;
       }
       // A Help menu doc clicked with no window open: this window was
       // spawned to show it, so the bundled document rides the blank
