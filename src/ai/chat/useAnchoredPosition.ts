@@ -22,11 +22,27 @@ import type { EditorRunner } from "../../editor/useEditorRunner";
  * transaction's mapping (the way pending-edit-plugin does); it is not worth
  * one for a popup the user is typing into rather than editing around.
  */
+export interface AnchorPlacement {
+  x: number;
+  y: number;
+  /** Which side of the anchored line the panel sits on. "above" means y is
+   *  the panel's BOTTOM edge; "below" means y is its top. */
+  side: "above" | "below";
+}
+
+/** Roughly how tall the panel gets before its message list starts scrolling.
+ *  Enough to choose a side without measuring the panel first, which would
+ *  cost a render to measure and another to move. */
+const ASSUMED_PANEL_HEIGHT = 320;
+
+/** Kept clear between the anchored line and the panel. */
+const GAP = 6;
+
 export function useAnchoredPosition(
   run: EditorRunner,
   pos: number,
-): { x: number; y: number } | null {
-  const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
+): AnchorPlacement | null {
+  const [coords, setCoords] = useState<AnchorPlacement | null>(null);
 
   useEffect(() => {
     let frame = 0;
@@ -38,7 +54,20 @@ export function useAnchoredPosition(
           const clamped = Math.min(pos, view.state.doc.content.size);
           try {
             const rect = view.coordsAtPos(clamped);
-            setCoords({ x: rect.left, y: rect.bottom + 6 });
+            // Prefer below the anchored line, but flip above when there isn't
+            // room and there is more of it up there - otherwise the panel
+            // ends up jammed against the viewport's bottom edge, covering the
+            // very text it was opened on.
+            const below = window.innerHeight - rect.bottom;
+            const side: "above" | "below" =
+              below >= ASSUMED_PANEL_HEIGHT || below >= rect.top
+                ? "below"
+                : "above";
+            setCoords({
+              x: rect.left,
+              y: side === "below" ? rect.bottom + GAP : rect.top - GAP,
+              side,
+            });
           } catch {
             // Position isn't renderable this tick (mid-remap, or scrolled
             // out of the rendered range) - keep the last known coordinates

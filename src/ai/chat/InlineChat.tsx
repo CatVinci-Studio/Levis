@@ -7,7 +7,6 @@ import type { PendingStatus } from "../usePendingEdits";
 import type { EditProposal } from "../types";
 import { ChatBody, type ChatBodyLabels } from "./ChatBody";
 import { useAnchoredPosition } from "./useAnchoredPosition";
-import { useDraggablePanel } from "./useDraggablePanel";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
@@ -57,15 +56,20 @@ interface InlineChatProps {
   onClose: () => void;
 }
 
-/// A cursor-anchored inline assistant popup - modeled on the inline "Cmd+K"
-/// assistant popups in editors like VS Code (Claude Code's inline chat). It
-/// opens beside the caret and follows it, can be dragged and resized, and can
-/// be popped out into a real OS window when the user wants it beside the app
-/// rather than on top of it.
+/// The EMBEDDED half of the chat's two modes - a cursor-anchored panel,
+/// modeled on the inline "Cmd+K" assistant popups in editors like VS Code
+/// (Claude Code's inline chat).
 ///
-/// This file is only the popup CHROME: position, drag/resize, the header, and
-/// the close confirmation. The chat itself is ChatBody, shared verbatim with
-/// the detached window so the two modes can't drift.
+/// Embedded means placed for you: it opens beside the caret, follows it as
+/// the view scrolls, flips to whichever side of the line has room, and stays
+/// inside the viewport. It is deliberately NOT draggable or resizable.
+/// Wanting to arrange the chat is what the detached window is for, and the
+/// platform's own window does that better than any simulation inside a
+/// webview - native edges, native title bar, and it can leave the app.
+///
+/// This file is only the panel's CHROME: placement, the header, and the close
+/// confirmation. The chat itself is ChatBody, shared verbatim with the
+/// detached window so the two modes can't drift.
 ///
 /// The only way a reply touches the document is a proposal's Accept in the
 /// chat card, which renders as a red/green preview first; Cmd+Z undoes it
@@ -91,33 +95,25 @@ export function InlineChat({
   onDetach,
   onClose,
 }: InlineChatProps) {
-  // Deliberately NOT closed by clicking outside: the popup is a working
+  // Deliberately NOT closed by clicking outside: the panel is a working
   // surface the user reads next to the document, and an outside click is
   // usually them going to look at that document. Closing is explicit.
   const rootRef = useRef<HTMLDivElement>(null);
-  const panel = useDraggablePanel(rootRef);
-  // Follows the document position the chat was opened on, so scrolling
-  // doesn't leave the popup stranded over unrelated text.
+  // Placement is entirely automatic in this mode - it follows the document
+  // position the chat was opened on, picks the side of the line with room,
+  // and stays inside the viewport. There is no dragging or resizing here: a
+  // panel the user has to arrange is what the detached WINDOW is for, and
+  // the platform does that job better than a simulation of it would.
   const anchor = useAnchoredPosition(run, chatInfo.anchorPos);
-  // grow "up": the composer's screen position stays put and the history
-  // above it grows upward, instead of the popup growing downward from the
-  // cursor and dragging the input away as the conversation lengthens.
-  const clamped = useViewportClamp(
+  // grow "up" when placed above the line: the composer's screen position
+  // stays put and the history grows away from the text, instead of the panel
+  // growing over the document as the conversation lengthens.
+  const pos = useViewportClamp(
     rootRef,
     anchor?.x ?? chatInfo.x,
     anchor?.y ?? chatInfo.y,
-    { grow: "up" },
+    { grow: anchor?.side === "above" ? "up" : "down" },
   );
-  // Once the user has moved or resized it, their geometry wins outright -
-  // re-anchoring a deliberately placed panel would fight them.
-  const pos = panel.frame
-    ? {
-        left: panel.frame.x,
-        top: panel.frame.y,
-        width: panel.frame.width,
-        height: panel.frame.height,
-      }
-    : clamped;
 
   // Closing with edits still awaiting a decision asks first, rather than
   // leaving previews decorated in the document with the surface that
@@ -132,20 +128,10 @@ export function InlineChat({
   }
 
   return (
-    <div
-      ref={rootRef}
-      className={`inline-chat${panel.frame ? " inline-chat-floating" : ""}`}
-      style={pos}
-    >
+    <div ref={rootRef} className="inline-chat" style={pos}>
       <div className="inline-chat-shell floating-surface">
-        <div className="inline-chat-header" onPointerDown={panel.onMoveStart}>
-          <span className="inline-chat-grip" aria-hidden="true" />
-          <div
-            className="inline-chat-header-actions"
-            // The header is a drag handle; without this the press that starts
-            // a drag would also arm whichever button it landed on.
-            onPointerDown={(event) => event.stopPropagation()}
-          >
+        <div className="inline-chat-header">
+          <div className="inline-chat-header-actions">
             <button
               type="button"
               className="inline-chat-header-button"
@@ -183,7 +169,6 @@ export function InlineChat({
           onRejectAll={onRejectAll}
           onEscape={requestClose}
           onRevealPending={onRevealPending}
-          fillHeight={panel.frame !== null}
           footer={
             confirmingClose && (
               <div className="inline-chat-confirm">
@@ -219,11 +204,6 @@ export function InlineChat({
               </div>
             )
           }
-        />
-        <div
-          className="inline-chat-resize"
-          onPointerDown={panel.onResizeStart}
-          aria-hidden="true"
         />
       </div>
     </div>

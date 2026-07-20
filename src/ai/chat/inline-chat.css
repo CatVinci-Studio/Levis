@@ -1,7 +1,8 @@
-/* A cursor-anchored inline chat popup - modeled on the inline "Cmd+K" style
-   assistant popups in editors like VS Code (Claude Code's inline chat). It
-   opens beside the caret and follows it, but can be dragged anywhere and
-   resized, at which point it stops following. Closing is explicit (the
+/* The EMBEDDED chat panel - modeled on the inline "Cmd+K" assistant popups
+   in editors like VS Code (Claude Code's inline chat). It is placed for the
+   user: anchored beside the caret, flipped to whichever side of the line has
+   room, clamped to the viewport, and never dragged or resized. Arranging the
+   chat by hand is what the detached WINDOW is for. Closing is explicit (the
    header X or Escape) - never an outside click, since reading the document
    the chat is about is the most common reason to click away from it.
    Finished exchanges remain available from the sidebar history. */
@@ -15,55 +16,14 @@
   max-width: calc(100vw - 32px);
 }
 
-/* Once dragged or resized, width/height come from the inline style and the
-   shell has to fill them rather than sizing to its content. The message list
-   is the one region that absorbs the difference; everything else keeps its
-   natural height, so the composer stays pinned to the bottom edge however
-   tall the user makes the panel. */
-.inline-chat-floating .inline-chat-shell {
-  height: 100%;
-  box-sizing: border-box;
-}
-
-.inline-chat-floating .inline-chat-messages {
-  flex: 1 1 auto;
-  /* Without this a flex item refuses to shrink below its content height, so
-     a long conversation would push the composer off the bottom instead of
-     scrolling inside the list. */
-  min-height: 0;
-  max-height: none;
-}
-
-.inline-chat-floating .inline-chat-header,
-.inline-chat-floating .inline-chat-bar,
-.inline-chat-floating .inline-chat-skill-menu,
-.inline-chat-floating .inline-chat-confirm {
-  flex: 0 0 auto;
-}
-
-/* Drag handle plus the close button. Deliberately slim - this is a grab
-   strip, not a title bar; the popup has no title to show. */
+/* Just the pop-out and close buttons, right-aligned. Deliberately slim -
+   this is not a title bar; the panel has no title to show and nothing to
+   grab. */
 .inline-chat-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 3px 4px 3px 8px;
-  cursor: grab;
-  touch-action: none;
-}
-
-.inline-chat-header:active {
-  cursor: grabbing;
-}
-
-/* The visual affordance that the strip is draggable. */
-.inline-chat-grip {
-  flex: 1;
-  height: 3px;
-  max-width: 44px;
-  border-radius: 999px;
-  background: var(--editor-border);
+  justify-content: flex-end;
+  padding: 3px 4px;
 }
 
 .inline-chat-header-actions {
@@ -94,37 +54,6 @@
   color: var(--editor-text);
 }
 
-/* Resize grip in the bottom-right corner. A custom handle rather than CSS
-   `resize`, so that growing because messages arrived is never mistaken for
-   the user resizing (see useDraggablePanel). */
-.inline-chat-resize {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 14px;
-  height: 14px;
-  cursor: nwse-resize;
-  touch-action: none;
-  /* Two short strokes, the conventional corner-grip look. */
-  background:
-    linear-gradient(
-        135deg,
-        transparent 45%,
-        var(--editor-border) 45%,
-        var(--editor-border) 55%,
-        transparent 55%
-      )
-      no-repeat,
-    linear-gradient(
-        135deg,
-        transparent 65%,
-        var(--editor-border) 65%,
-        var(--editor-border) 75%,
-        transparent 75%
-      )
-      no-repeat;
-}
-
 /* Asked before closing while proposals are still undecided - the previews
    stay decorated in the document, so closing the surface that explains them
    without a word would strand them. */
@@ -152,8 +81,6 @@
 .inline-chat-shell {
   display: flex;
   flex-direction: column;
-  /* Anchors the absolutely-positioned resize grip. */
-  position: relative;
 }
 
 /* One rule frames every section boundary inside the shell (messages/
@@ -163,8 +90,8 @@
   border-top: 1px solid var(--editor-border);
 }
 
-/* ...except right below the grab strip, where a rule would just box in the
-   grip for no information. */
+/* ...except right below the header, where a rule would just box in two
+   small buttons for no information. */
 .inline-chat-header + * {
   border-top: none;
 }
