@@ -188,6 +188,10 @@ export const strings = {
     proposalAcceptAll: "Accept all",
     proposalRejectAll: "Reject all",
     proposalRelocate: "Ask AI to redo this edit",
+    diffExpand: "Show {n} more lines",
+    diffCollapse: "Show less",
+    chatPendingSummary: "{n} edit(s) awaiting your decision",
+    chatPendingReveal: "Show in document",
     proposalRelocateRequest:
       "That edit no longer matches the document. Please look at the document as it reads now and propose the change again.",
     chatSelectionChip: "Selected text ({n} chars)",
@@ -551,6 +555,10 @@ export const strings = {
     proposalAcceptAll: "全部采纳",
     proposalRejectAll: "全部拒绝",
     proposalRelocate: "让 AI 重新给出修改",
+    diffExpand: "展开其余 {n} 行",
+    diffCollapse: "收起",
+    chatPendingSummary: "有 {n} 处修改等待你确认",
+    chatPendingReveal: "在文档中定位",
     proposalRelocateRequest:
       "这处修改已经和文档对不上了。请按文档现在的内容重新给出这个修改。",
     chatSelectionChip: "选中内容({n} 字)",
@@ -909,6 +917,10 @@ export const strings = {
     proposalAcceptAll: "すべて承認",
     proposalRejectAll: "すべて却下",
     proposalRelocate: "AIに修正をやり直してもらう",
+    diffExpand: "残り {n} 行を表示",
+    diffCollapse: "折りたたむ",
+    chatPendingSummary: "{n} 件の編集が確認待ちです",
+    chatPendingReveal: "文書内で表示",
     proposalRelocateRequest:
       "この編集は現在の文書と一致しません。今の文書の内容に基づいて、もう一度提案してください。",
     chatSelectionChip: "選択範囲（{n}文字）",

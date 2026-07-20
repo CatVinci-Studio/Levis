@@ -13,6 +13,9 @@ import {
 export interface ChatBodyLabels extends ChatMessagesLabels, ChatComposerLabels {
   /** Sent as the user's message when relocating a stale proposal. */
   relocateRequest: string;
+  /** Pinned pending-edits bar; "{n}" is how many are undecided. */
+  pendingSummary: string;
+  pendingReveal: string;
 }
 
 export interface ChatBodyProps {
@@ -40,6 +43,9 @@ export interface ChatBodyProps {
   onEscape?: () => void;
   /** Rendered above the composer - the popup's close-confirmation bar. */
   footer?: React.ReactNode;
+  /** Jumps the editor to a pending edit. Absent in the detached window,
+   *  which can't scroll another window's document. */
+  onRevealPending?: () => void;
   /** The chat has a fixed height to fill (a resized panel, or a window), so
    *  the message list renders even while empty - it is the flexible region,
    *  and without it the composer would sit at the top of a blank panel. */
@@ -75,6 +81,7 @@ export function ChatBody({
   onEscape,
   footer,
   fillHeight,
+  onRevealPending,
 }: ChatBodyProps) {
   const { history, busy, error, retryable, send, stop, retry } = conversation;
   const listRef = useRef<HTMLDivElement>(null);
@@ -153,13 +160,30 @@ export function ChatBody({
             proposalStatus={proposalStatus}
             onAcceptProposal={onAcceptProposal}
             onRejectProposal={onRejectProposal}
-            onAcceptAll={onAcceptAll}
-            onRejectAll={onRejectAll}
-            pendingCount={pendingCount}
             onRelocateProposal={handleRelocate}
             canRetry={!!retryable}
             onRetry={handleRetry}
           />
+        </div>
+      )}
+      {pendingCount > 0 && (
+        <div className="inline-chat-pending-bar">
+          <span className="inline-chat-pending-count">
+            {labels.pendingSummary.replace("{n}", String(pendingCount))}
+          </span>
+          <div className="inline-chat-pending-actions">
+            {onRevealPending && (
+              <button className="inline-chat-action" onClick={onRevealPending}>
+                {labels.pendingReveal}
+              </button>
+            )}
+            <button className="inline-chat-action" onClick={onAcceptAll}>
+              {labels.proposalAcceptAll}
+            </button>
+            <button className="inline-chat-action" onClick={onRejectAll}>
+              {labels.proposalRejectAll}
+            </button>
+          </div>
         </div>
       )}
       <ChatComposer

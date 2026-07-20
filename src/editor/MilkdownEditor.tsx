@@ -35,7 +35,11 @@ import {
   CellSelection,
   selectionCell,
 } from "@milkdown/kit/prose/tables";
-import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import {
+  TextSelection,
+  type EditorState,
+  type Transaction,
+} from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
   withEditorExtensions,
@@ -244,6 +248,22 @@ export function MilkdownEditor({
     if (detachedChat.chatLabel)
       detachedChat.pushStatuses(pendingEdits.allStatuses);
   }, [detachedChat, pendingEdits.allStatuses]);
+
+  /** Scrolls to the first undecided edit. In a long conversation the cards
+   *  scroll away, so the pinned summary bar needs a way back to the text. */
+  function revealFirstPending() {
+    const first = pendingEdits.previews[0];
+    if (!first) return;
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(
+        view.state.tr
+          .setSelection(TextSelection.create(view.state.doc, first.from))
+          .scrollIntoView(),
+      );
+      view.focus();
+    });
+  }
 
   function handleDetachChat() {
     const info = inlineChat.chatInfo;
@@ -646,6 +666,7 @@ export function MilkdownEditor({
           onAcceptAll={pendingEdits.acceptAll}
           onRejectAll={pendingEdits.rejectAll}
           pendingCount={pendingEdits.previews.length}
+          onRevealPending={revealFirstPending}
           onDetach={handleDetachChat}
           onClose={inlineChat.close}
         />

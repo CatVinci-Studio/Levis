@@ -1,6 +1,10 @@
+/* Turn hierarchy: the user's own words are the quiet reference point and the
+   agent's reply is the thing being read, so the two are distinguished by
+   weight and alignment rather than by two competing coloured bubbles. A long
+   conversation of uniform tinted blocks is what this replaced. */
 .agent-message {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   padding: 8px 10px;
   border-radius: 8px;
   max-width: 92%;
@@ -74,9 +78,14 @@ button.agent-context-chip:hover {
   background: color-mix(in srgb, var(--sidebar-active-text) 12%, transparent);
 }
 
+/* No bubble: the reply is the main content of the panel, and boxing it just
+   narrows the column it's read in. A leading accent rule marks it instead. */
 .agent-message-assistant {
-  align-self: flex-start;
-  background: var(--sidebar-hover);
+  align-self: stretch;
+  max-width: 100%;
+  padding-left: 10px;
+  border-left: 2px solid var(--editor-accent);
+  border-radius: 0;
   color: var(--editor-text);
 }
 
@@ -135,11 +144,14 @@ button.agent-context-chip:hover {
   text-decoration: underline;
 }
 
+/* Tool calls are progress notes, not content - readable if looked for,
+   invisible if not. */
 .agent-tool-line {
   align-self: flex-start;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--editor-muted);
-  padding: 2px 6px;
+  padding: 1px 6px;
+  opacity: 0.75;
 }
 
 .agent-tool-result {

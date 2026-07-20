@@ -1,8 +1,9 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AgentTurnView, type AgentTurnLabels } from "../AgentTurnView";
 import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import { parseProposal } from "./proposal";
+import { diffLines, isLongDiff } from "./line-diff";
 
 export interface ChatMessagesLabels extends AgentTurnLabels {
   thinking: string;
@@ -15,6 +16,9 @@ export interface ChatMessagesLabels extends AgentTurnLabels {
   /** Offered when an anchor no longer resolves - asks the model to re-issue
    *  the proposal against the document as it now reads. */
   proposalRelocate: string;
+  /** Diff expander; "{n}" is how many lines stay hidden. */
+  diffExpand: string;
+  diffCollapse: string;
   actionNames: Record<EditAction, string>;
   retry: string;
 }
@@ -28,10 +32,6 @@ interface ChatMessagesProps {
   proposalStatus: (callId: string) => PendingStatus;
   onAcceptProposal: (callId: string) => void;
   onRejectProposal: (callId: string) => void;
-  onAcceptAll: () => void;
-  onRejectAll: () => void;
-  /** How many proposals are pending right now - drives the accept-all row. */
-  pendingCount: number;
   /** Asks the model to re-propose an edit whose anchor went stale. */
   onRelocateProposal: (proposal: EditProposal) => void;
   /** Set only when `error` came from a failed send whose (document, message)
@@ -61,9 +61,6 @@ export function ChatMessages({
   proposalStatus,
   onAcceptProposal,
   onRejectProposal,
-  onAcceptAll,
-  onRejectAll,
-  pendingCount,
   onRelocateProposal,
   canRetry,
   onRetry,
@@ -110,7 +107,11 @@ export function ChatMessages({
               <div className="agent-proposal-title">
                 {labels.proposalTitle} · {labels.actionNames[proposal.action]}
               </div>
-              <ProposalDiff proposal={proposal} selectedText={selectedText} />
+              <ProposalDiff
+                proposal={proposal}
+                selectedText={selectedText}
+                labels={labels}
+              />
               {status === "pending" ? (
                 <div className="agent-proposal-actions">
                   <button
@@ -166,16 +167,6 @@ export function ChatMessages({
           </div>
         );
       })}
-      {pendingCount > 1 && (
-        <div className="agent-proposal-bulk">
-          <button className="inline-chat-action" onClick={onAcceptAll}>
-            {labels.proposalAcceptAll}
-          </button>
-          <button className="inline-chat-action" onClick={onRejectAll}>
-            {labels.proposalRejectAll}
-          </button>
-        </div>
-      )}
       {busy && (
         <div className="agent-thinking">
           <span className="agent-thinking-label">{labels.thinking}</span>
@@ -204,35 +195,67 @@ export function ChatMessages({
 }
 
 /**
- * What the edit changes, as before/after text. Shown in every state, not just
- * the unresolvable one: the card is now the only place the diff is spelled
- * out, since the in-document marks deliberately carry no detail.
+ * What the edit changes, as a line-by-line diff.
+ *
+ * Shown in every state, not just the unresolvable one: this card is the only
+ * place the before/after is spelled out, since the in-document marks
+ * deliberately carry no detail. Lining the two sides up matters most for a
+ * reworded sentence inside a paragraph - as two stacked blocks that meant
+ * reading the whole paragraph twice to find what moved.
  */
 function ProposalDiff({
   proposal,
   selectedText,
+  labels,
 }: {
   proposal: EditProposal;
   selectedText: string | null;
+  labels: ChatMessagesLabels;
 }) {
-  const removes =
-    proposal.action === "replace" ||
-    proposal.action === "delete" ||
-    proposal.action === "replace_selection";
+  const [expanded, setExpanded] = useState(false);
+
+  // `append` has nothing to compare against; the others diff the text they
+  // target against the replacement. replace_selection targets the captured
+  // selection rather than a quoted anchor.
   const before =
-    proposal.action === "replace_selection"
-      ? (selectedText ?? undefined)
-      : proposal.anchor;
+    proposal.action === "append"
+      ? ""
+      : proposal.action === "replace_selection"
+        ? (selectedText ?? "")
+        : (proposal.anchor ?? "");
+  const after =
+    proposal.action === "delete"
+      ? ""
+      : proposal.action === "insert_before"
+        ? `${proposal.text ?? ""}\n${before}`
+        : proposal.action === "insert_after"
+          ? `${before}\n${proposal.text ?? ""}`
+          : (proposal.text ?? "");
+
+  const lines = diffLines(before, after);
+  const long = isLongDiff(lines);
+  const shown = long && !expanded ? lines.slice(0, 10) : lines;
 
   return (
     <div className="agent-proposal-diff">
-      {proposal.action === "insert_before" && proposal.text !== undefined && (
-        <ins>{proposal.text}</ins>
-      )}
-      {before !== undefined &&
-        (removes ? <del>{before}</del> : <span>{before}</span>)}
-      {proposal.action !== "insert_before" && proposal.text !== undefined && (
-        <ins>{proposal.text}</ins>
+      {shown.map((line, i) => (
+        <div key={i} className={`agent-diff-line agent-diff-${line.kind}`}>
+          <span className="agent-diff-marker" aria-hidden="true">
+            {line.kind === "add" ? "+" : line.kind === "remove" ? "-" : " "}
+          </span>
+          <span className="agent-diff-text">{line.text || "\u00a0"}</span>
+        </div>
+      ))}
+      {long && (
+        <button
+          type="button"
+          className="agent-diff-toggle"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded
+            ? labels.diffCollapse
+            : labels.diffExpand.replace("{n}", String(lines.length - 10))}
+        </button>
       )}
     </div>
   );

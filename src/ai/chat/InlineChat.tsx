@@ -50,6 +50,8 @@ interface InlineChatProps {
   onAcceptAll: () => void;
   onRejectAll: () => void;
   pendingCount: number;
+  /** Scrolls the editor to the first pending edit. */
+  onRevealPending: () => void;
   /** Pops the chat out into its own OS window (see chat-bridge.ts). */
   onDetach: () => void;
   onClose: () => void;
@@ -85,6 +87,7 @@ export function InlineChat({
   onAcceptAll,
   onRejectAll,
   pendingCount,
+  onRevealPending,
   onDetach,
   onClose,
 }: InlineChatProps) {
@@ -179,6 +182,7 @@ export function InlineChat({
           onAcceptAll={onAcceptAll}
           onRejectAll={onRejectAll}
           onEscape={requestClose}
+          onRevealPending={onRevealPending}
           fillHeight={panel.frame !== null}
           footer={
             confirmingClose && (
