@@ -1,6 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { AgentConversation } from "../useAgentConversation";
-import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../../utils/useViewportClamp";
 import type { EditorRunner } from "../../editor/useEditorRunner";
 import type { InlineChatInfo } from "../useInlineChat";
@@ -10,6 +9,7 @@ import { ChatMessages, type ChatMessagesLabels } from "./ChatMessages";
 import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
 import { parseProposal } from "./proposal";
 import { useAnchoredPosition } from "./useAnchoredPosition";
+import { useDraggablePanel } from "./useDraggablePanel";
 import {
   AI_MESSAGE_SENT_EVENT,
   TUTORIAL_AGENT_PROPOSAL_EVENT,
@@ -21,6 +21,13 @@ export interface InlineChatLabels
   extends ChatMessagesLabels, ChatComposerLabels {
   /** Sent as the user's message when relocating a stale proposal. */
   relocateRequest: string;
+  /** Accessible name / tooltip of the header's close button. */
+  close: string;
+  /** Close prompt while edits are pending; "{n}" is how many. */
+  closeConfirm: string;
+  closeConfirmAccept: string;
+  closeConfirmReject: string;
+  closeConfirmCancel: string;
 }
 
 interface InlineChatProps {
@@ -102,20 +109,47 @@ export function InlineChat({
 }: InlineChatProps) {
   const { history, busy, error, retryable, send, stop, retry } = conversation;
 
-  const rootRef = useCloseOnOutsideClick<HTMLDivElement>(onClose);
+  // Deliberately NOT closed by clicking outside: the popup is a working
+  // surface the user drags, resizes, and reads next to the document, and an
+  // outside click is usually them going to look at that document. Closing is
+  // explicit - the header's X, or Escape.
+  const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const panel = useDraggablePanel(rootRef);
   // Follows the document position the chat was opened on, so scrolling
   // doesn't leave the popup stranded over unrelated text.
   const anchor = useAnchoredPosition(run, chatInfo.anchorPos);
   // grow "up": the composer's screen position stays put and the history
   // above it grows upward, instead of the whole popup growing downward from
   // the cursor and dragging the input away as the conversation lengthens.
-  const pos = useViewportClamp(
+  const clamped = useViewportClamp(
     rootRef,
     anchor?.x ?? chatInfo.x,
     anchor?.y ?? chatInfo.y,
     { grow: "up" },
   );
+  // Once the user has moved or resized it, their geometry wins outright -
+  // re-anchoring a deliberately placed panel would fight them.
+  const pos = panel.frame
+    ? {
+        left: panel.frame.x,
+        top: panel.frame.y,
+        width: panel.frame.width,
+        height: panel.frame.height,
+      }
+    : clamped;
+
+  // Closing with edits still awaiting a decision asks first, rather than
+  // leaving previews decorated in the document with the surface that
+  // explains them gone.
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  function requestClose() {
+    if (pendingCount > 0) {
+      setConfirmingClose(true);
+      return;
+    }
+    onClose();
+  }
 
   // Shared tail of both a fresh send and a retry: turn propose_edit calls
   // into in-document previews and scroll the new turns into view.
@@ -198,8 +232,27 @@ export function InlineChat({
   const showMessages = history.length > 0 || busy || !!error;
 
   return (
-    <div ref={rootRef} className="inline-chat" style={pos}>
+    <div
+      ref={rootRef}
+      className={`inline-chat${panel.frame ? " inline-chat-floating" : ""}`}
+      style={pos}
+    >
       <div className="inline-chat-shell floating-surface">
+        <div className="inline-chat-header" onPointerDown={panel.onMoveStart}>
+          <span className="inline-chat-grip" aria-hidden="true" />
+          <button
+            type="button"
+            className="inline-chat-close"
+            aria-label={labels.close}
+            title={labels.close}
+            // The header is a drag handle; without this the press that
+            // starts a drag would also arm the button.
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={requestClose}
+          >
+            ✕
+          </button>
+        </div>
         {showMessages && (
           <div className="inline-chat-messages" ref={listRef}>
             <ChatMessages
@@ -227,7 +280,45 @@ export function InlineChat({
           labels={labels}
           onSend={handleSend}
           onStop={stop}
-          onEscape={onClose}
+          onEscape={requestClose}
+        />
+        {confirmingClose && (
+          <div className="inline-chat-confirm">
+            <span className="inline-chat-confirm-message">
+              {labels.closeConfirm.replace("{n}", String(pendingCount))}
+            </span>
+            <div className="inline-chat-confirm-actions">
+              <button
+                className="inline-chat-action inline-chat-action-primary"
+                onClick={() => {
+                  onAcceptAll();
+                  onClose();
+                }}
+              >
+                {labels.closeConfirmAccept}
+              </button>
+              <button
+                className="inline-chat-action"
+                onClick={() => {
+                  onRejectAll();
+                  onClose();
+                }}
+              >
+                {labels.closeConfirmReject}
+              </button>
+              <button
+                className="inline-chat-action"
+                onClick={() => setConfirmingClose(false)}
+              >
+                {labels.closeConfirmCancel}
+              </button>
+            </div>
+          </div>
+        )}
+        <div
+          className="inline-chat-resize"
+          onPointerDown={panel.onResizeStart}
+          aria-hidden="true"
         />
       </div>
     </div>

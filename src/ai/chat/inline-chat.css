@@ -1,8 +1,10 @@
-/* A slim, cursor-anchored inline chat popup - modeled on the inline "Cmd+K"
-   style assistant popups in editors like VS Code (Claude Code's inline
-   chat), not a persistent panel. Appears just below the cursor, closes on
-   Escape/outside click, and doesn't survive being closed. Finished exchanges
-   remain available from the sidebar history. */
+/* A cursor-anchored inline chat popup - modeled on the inline "Cmd+K" style
+   assistant popups in editors like VS Code (Claude Code's inline chat). It
+   opens beside the caret and follows it, but can be dragged anywhere and
+   resized, at which point it stops following. Closing is explicit (the
+   header X or Escape) - never an outside click, since reading the document
+   the chat is about is the most common reason to click away from it.
+   Finished exchanges remain available from the sidebar history. */
 
 .inline-chat {
   position: fixed;
@@ -13,12 +15,124 @@
   max-width: calc(100vw - 32px);
 }
 
+/* Once dragged or resized, width/height come from the inline style and the
+   shell has to fill them rather than sizing to its content. */
+.inline-chat-floating .inline-chat-shell {
+  height: 100%;
+}
+
+.inline-chat-floating .inline-chat-messages {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+/* Drag handle plus the close button. Deliberately slim - this is a grab
+   strip, not a title bar; the popup has no title to show. */
+.inline-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 4px 3px 8px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.inline-chat-header:active {
+  cursor: grabbing;
+}
+
+/* The visual affordance that the strip is draggable. */
+.inline-chat-grip {
+  flex: 1;
+  height: 3px;
+  max-width: 44px;
+  border-radius: 999px;
+  background: var(--editor-border);
+}
+
+.inline-chat-close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--editor-muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inline-chat-close:hover {
+  background: var(--sidebar-hover);
+  color: var(--editor-text);
+}
+
+/* Resize grip in the bottom-right corner. A custom handle rather than CSS
+   `resize`, so that growing because messages arrived is never mistaken for
+   the user resizing (see useDraggablePanel). */
+.inline-chat-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  touch-action: none;
+  /* Two short strokes, the conventional corner-grip look. */
+  background:
+    linear-gradient(
+        135deg,
+        transparent 45%,
+        var(--editor-border) 45%,
+        var(--editor-border) 55%,
+        transparent 55%
+      )
+      no-repeat,
+    linear-gradient(
+        135deg,
+        transparent 65%,
+        var(--editor-border) 65%,
+        var(--editor-border) 75%,
+        transparent 75%
+      )
+      no-repeat;
+}
+
+/* Asked before closing while proposals are still undecided - the previews
+   stay decorated in the document, so closing the surface that explains them
+   without a word would strand them. */
+.inline-chat-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.inline-chat-confirm-message {
+  font-size: 12px;
+  color: var(--editor-text);
+}
+
+.inline-chat-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* The message list, skill menu and composer all live inside this one
    bordered/shadowed card - only one .floating-surface for the whole popup,
    not one per section. */
 .inline-chat-shell {
   display: flex;
   flex-direction: column;
+  /* Anchors the absolutely-positioned resize grip. */
+  position: relative;
 }
 
 /* One rule frames every section boundary inside the shell (messages/
@@ -26,6 +140,12 @@
    of per-pair divider rules. */
 .inline-chat-shell > * + * {
   border-top: 1px solid var(--editor-border);
+}
+
+/* ...except right below the grab strip, where a rule would just box in the
+   grip for no information. */
+.inline-chat-header + * {
+  border-top: none;
 }
 
 .inline-chat-bar {

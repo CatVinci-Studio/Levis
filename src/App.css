@@ -600,11 +600,13 @@ body {
   color: var(--danger) !important;
 }
 
-/* Clipboard-history sidebar panel. */
+/* Clipboard-history sidebar panel. Entries are hairline-separated rather
+   than gap-separated: a clipboard entry is several clamped lines of the
+   user's own prose, so without a rule where one ends and the next begins,
+   two entries read as one run-on block. */
 .clipboard-history {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   padding: 4px;
 }
 
@@ -640,6 +642,10 @@ body {
   font-size: 12px;
   color: var(--sidebar-text);
   line-height: 1.45;
+}
+
+.clipboard-entry + .clipboard-entry {
+  border-top: 1px solid var(--editor-border);
 }
 
 .clipboard-entry:hover {
@@ -684,10 +690,11 @@ body {
 }
 
 /* Chat-history sidebar panel - visually a sibling of the clipboard panel. */
+/* Same separated-list treatment as .clipboard-history above - the two sit in
+   the same sidebar and shouldn't read as different kinds of list. */
 .chat-history {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   padding: 4px;
 }
 
@@ -701,6 +708,10 @@ body {
   font-size: 12px;
   color: var(--sidebar-text);
   line-height: 1.45;
+}
+
+.chat-history-entry + .chat-history-entry {
+  border-top: 1px solid var(--editor-border);
 }
 
 .chat-history-entry:hover {

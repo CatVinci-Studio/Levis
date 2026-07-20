@@ -586,6 +586,11 @@ export function MilkdownEditor({
             proposalRejectAll: t.proposalRejectAll,
             proposalRelocate: t.proposalRelocate,
             relocateRequest: t.proposalRelocateRequest,
+            close: t.chatClose,
+            closeConfirm: t.chatCloseConfirm,
+            closeConfirmAccept: t.chatCloseConfirmAccept,
+            closeConfirmReject: t.chatCloseConfirmReject,
+            closeConfirmCancel: t.chatCloseConfirmCancel,
             actionNames: {
               replace: t.agentActionReplace,
               replace_selection: t.agentActionReplaceSelection,
