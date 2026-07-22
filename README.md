@@ -23,13 +23,6 @@
 
 ---
 
-> [!IMPORTANT]
-> We're still saving up for an Apple Developer membership, so macOS may report **"Levis is damaged and can't be opened"**. The app itself is safe and open source — run this once in a terminal and it opens normally:
->
-> ```sh
-> xattr -cr /Applications/Levis.app
-> ```
-
 ## What it is
 
 Levis is a WYSIWYG Markdown editor with modern AI features built in — sentence completion, grammar checking, and asking questions about the document you have open.
