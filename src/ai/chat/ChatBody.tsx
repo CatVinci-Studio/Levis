@@ -50,6 +50,10 @@ export interface ChatBodyProps {
    *  the message list renders even while empty - it is the flexible region,
    *  and without it the composer would sit at the top of a blank panel. */
   fillHeight?: boolean;
+  /** Quick Ask mode: a tightly capped message area showing only the latest
+   *  exchange. The conversation itself is untouched - expanding the same
+   *  ChatBody state into the sidebar reveals the full history. */
+  compact?: boolean;
 }
 
 /**
@@ -93,6 +97,7 @@ export function ChatBody({
   onEscape,
   footer,
   fillHeight,
+  compact,
   onRevealPending,
 }: ChatBodyProps) {
   const { history, streaming, busy, error, retryable, send, stop, retry } =
@@ -188,10 +193,14 @@ export function ChatBody({
   return (
     <>
       {showMessages && (
-        <div className="inline-chat-messages" ref={listRef}>
+        <div
+          className={`inline-chat-messages${compact ? " inline-chat-messages-compact" : ""}`}
+          ref={listRef}
+        >
           <ChatMessages
             history={history}
             streaming={streaming}
+            compact={compact}
             busy={busy}
             error={error}
             selectedText={selectedText}

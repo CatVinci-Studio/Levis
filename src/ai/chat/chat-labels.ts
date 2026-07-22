@@ -37,6 +37,8 @@ export function chatLabels(t: Strings): InlineChatLabels {
     relocateRequest: t.proposalRelocateRequest,
     close: t.chatClose,
     detach: t.chatDetach,
+    openSidebar: t.chatOpenSidebar,
+    sidebarTitle: t.chatSidebarTitle,
     closeConfirm: t.chatCloseConfirm,
     closeConfirmAccept: t.chatCloseConfirmAccept,
     closeConfirmReject: t.chatCloseConfirmReject,

@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Editor,
   rootCtx,
@@ -47,6 +48,7 @@ import {
 } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
+import { ChatSidebar } from "../ai/chat/ChatSidebar";
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
@@ -103,6 +105,9 @@ interface MilkdownEditorProps {
    *  triggers are ignored, and the chat answers from a pre-written script
    *  instead of the backend. First-run users have no AI account yet. */
   tutorialMock?: boolean;
+  /** EditorPane's dock element the chat sidebar portals into - the docked
+   *  column must live beside the scroll container, not inside it. */
+  chatDock?: HTMLElement | null;
 }
 
 export function MilkdownEditor({
@@ -110,9 +115,15 @@ export function MilkdownEditor({
   initialValue,
   onChange,
   tutorialMock = false,
+  chatDock = null,
 }: MilkdownEditorProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
+  // Which in-app surface renders the live chat: Quick Ask (caret-anchored
+  // popup, the default entry point) or the docked sidebar. One conversation,
+  // two renderings - switching surface never touches the chat state, which
+  // is what makes "open in sidebar" seamless rather than a handoff.
+  const [chatSurface, setChatSurface] = useState<"quick" | "dock">("quick");
   const { t, settings } = useSettings();
 
   // The editor plugin chain below is only built once (empty deps), so
@@ -303,8 +314,9 @@ export function MilkdownEditor({
     onReject: (callId) => pendingEdits.reject(callId),
     onAcceptAll: () => pendingEdits.acceptAll(),
     onRejectAll: () => pendingEdits.rejectAll(),
-    // The window handed its conversation back on close - carry on with it in
-    // the embedded popup rather than dropping the exchange.
+    // The window handed its conversation back on close - carry on with it
+    // in the docked sidebar (a returning conversation is by definition a
+    // multi-turn one) rather than dropping the exchange.
     onReembed: (conversationId, turns) => {
       if (turns.length > 0)
         conversation.restore({
@@ -314,6 +326,7 @@ export function MilkdownEditor({
           updatedAt: Date.now(),
           turns,
         });
+      setChatSurface("dock");
       inlineChat.open();
     },
   });
@@ -387,6 +400,9 @@ export function MilkdownEditor({
 
   function openNewAgentConversation() {
     conversation.reset();
+    // A fresh ask always starts as the lightweight caret-side popup;
+    // escalating to the sidebar is the user's explicit move.
+    setChatSurface("quick");
     inlineChat.open();
   }
 
@@ -510,6 +526,9 @@ export function MilkdownEditor({
     const entry = (e as CustomEvent<ChatHistoryEntry>).detail;
     if (!entry || !Array.isArray(entry.turns)) return;
     conversation.restore(entry);
+    // A restored conversation goes straight to the sidebar - it exists to
+    // be read through, which is the sidebar's job, not Quick Ask's.
+    setChatSurface("dock");
     inlineChat.open();
   });
 
@@ -748,28 +767,56 @@ export function MilkdownEditor({
           onMouseLeave={grammar.hide}
         />
       )}
-      {inlineChat.chatInfo && inlineChat.visible && (
-        <InlineChat
-          run={run}
-          document={inlineChat.chatInfo.document}
-          selectedText={inlineChat.chatInfo.selectedText}
-          docPath={filePath}
-          chatInfo={inlineChat.chatInfo}
-          conversation={conversation}
-          tutorialMock={tutorialMock}
-          labels={chatLabels(t)}
-          onProposals={showProposals}
-          proposalStatus={pendingEdits.status}
-          onAcceptProposal={pendingEdits.accept}
-          onRejectProposal={pendingEdits.reject}
-          onAcceptAll={pendingEdits.acceptAll}
-          onRejectAll={pendingEdits.rejectAll}
-          pendingCount={pendingEdits.previews.length}
-          onRevealPending={revealFirstPending}
-          onDetach={handleDetachChat}
-          onClose={inlineChat.close}
-        />
-      )}
+      {inlineChat.chatInfo &&
+        inlineChat.visible &&
+        (chatSurface === "dock" && chatDock ? (
+          // The docked surface renders through a portal into EditorPane's
+          // dock slot - the chat state stays right here, only the pixels
+          // move outside the scroll container.
+          createPortal(
+            <ChatSidebar
+              document={inlineChat.chatInfo.document}
+              selectedText={inlineChat.chatInfo.selectedText}
+              selectionMarkdown={inlineChat.chatInfo.selectionMarkdown}
+              docPath={filePath}
+              conversation={conversation}
+              tutorialMock={tutorialMock}
+              labels={chatLabels(t)}
+              onProposals={showProposals}
+              proposalStatus={pendingEdits.status}
+              onAcceptProposal={pendingEdits.accept}
+              onRejectProposal={pendingEdits.reject}
+              onAcceptAll={pendingEdits.acceptAll}
+              onRejectAll={pendingEdits.rejectAll}
+              pendingCount={pendingEdits.previews.length}
+              onRevealPending={revealFirstPending}
+              onDetach={handleDetachChat}
+              onClose={inlineChat.close}
+            />,
+            chatDock,
+          )
+        ) : (
+          <InlineChat
+            run={run}
+            document={inlineChat.chatInfo.document}
+            selectedText={inlineChat.chatInfo.selectedText}
+            docPath={filePath}
+            chatInfo={inlineChat.chatInfo}
+            conversation={conversation}
+            tutorialMock={tutorialMock}
+            labels={chatLabels(t)}
+            onProposals={showProposals}
+            proposalStatus={pendingEdits.status}
+            onAcceptProposal={pendingEdits.accept}
+            onRejectProposal={pendingEdits.reject}
+            onAcceptAll={pendingEdits.acceptAll}
+            onRejectAll={pendingEdits.rejectAll}
+            pendingCount={pendingEdits.previews.length}
+            onRevealPending={revealFirstPending}
+            onOpenSidebar={() => setChatSurface("dock")}
+            onClose={inlineChat.close}
+          />
+        ))}
     </div>
   );
 }

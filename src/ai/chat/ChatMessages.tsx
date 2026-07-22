@@ -30,6 +30,9 @@ interface ChatMessagesProps {
    *  prose being generated). Null when idle - and on providers without
    *  streaming, where the reply still arrives all at once via `history`. */
   streaming: StreamingState | null;
+  /** Quick Ask mode: render only the latest exchange (from the last user
+   *  turn on) - the full history lives in the sidebar. */
+  compact?: boolean;
   busy: boolean;
   error: string | null;
   selectedText: string | null;
@@ -61,6 +64,7 @@ interface ChatMessagesProps {
 export function ChatMessages({
   history,
   streaming,
+  compact,
   busy,
   error,
   selectedText,
@@ -80,6 +84,18 @@ export function ChatMessages({
   }, [busy, history.length]);
 
   const shown = streaming ? [...history, ...streaming.turns] : history;
+  // Compact starts at the last user turn; indexes (keys, reveal offsets)
+  // stay the full-list ones so nothing remounts when the same conversation
+  // is next rendered uncut in the sidebar.
+  let startIndex = 0;
+  if (compact) {
+    for (let i = shown.length - 1; i >= 0; i--) {
+      if (shown[i].kind === "User") {
+        startIndex = i;
+        break;
+      }
+    }
+  }
 
   // propose_edit calls render as proposal cards; their paired tool results
   // are backend->model bookkeeping and would only add noise.
@@ -93,7 +109,8 @@ export function ChatMessages({
 
   return (
     <>
-      {shown.map((turn, i) => {
+      {shown.slice(startIndex).map((turn, sliceIndex) => {
+        const i = startIndex + sliceIndex;
         const reveal = i >= revealFrom.current;
         // A CSS custom property, not a standard style key - CSSProperties
         // doesn't type these, hence the cast.
@@ -272,7 +289,9 @@ function ProposalDiff({
           <span className="agent-diff-chip agent-diff-add">+{added}</span>
         )}
         {removed > 0 && (
-          <span className="agent-diff-chip agent-diff-remove">\u2212{removed}</span>
+          <span className="agent-diff-chip agent-diff-remove">
+            \u2212{removed}
+          </span>
         )}
         <span className="agent-diff-summary-label">{labels.diffShow}</span>
       </button>

@@ -422,8 +422,18 @@ body {
   background: var(--editor-code-bg);
 }
 
+/* Editor row: the scrollable document plus the chat dock the AI sidebar
+   portals into (EditorPane.tsx) - a flex sibling so an open chat squeezes
+   the document narrower instead of floating over it. */
+.editor-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .editor-scroll {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background: var(--editor-bg, var(--bg));
 }
@@ -770,6 +780,7 @@ body {
   .tab-bar,
   .floating-toolbar,
   .close-prompt-overlay,
+  .chat-dock,
   .update-toast {
     display: none !important;
   }
@@ -784,6 +795,7 @@ body {
 
   .app-shell,
   .main-pane,
+  .editor-pane,
   .editor-scroll {
     height: auto;
     overflow: visible;

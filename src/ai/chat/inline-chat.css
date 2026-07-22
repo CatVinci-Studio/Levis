@@ -271,6 +271,12 @@
   gap: 6px;
 }
 
+/* Quick Ask keeps its reply area tight - it shows only the latest exchange,
+   and anything worth more reading room belongs in the sidebar. */
+.inline-chat-messages-compact {
+  max-height: 200px;
+}
+
 .inline-chat-action {
   padding: 4px 10px;
   border: 1px solid var(--editor-border);

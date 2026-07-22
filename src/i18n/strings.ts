@@ -179,6 +179,8 @@ export const strings = {
     agentProposalTitle: "Proposed edit",
     chatClose: "Close chat",
     chatDetach: "Open in its own window",
+    chatOpenSidebar: "Open in sidebar",
+    chatSidebarTitle: "AI Chat",
     chatWindowTitle: "Levis Agent",
     chatWindowLost:
       "This chat lost its editor window. Close this window and start a new chat.",
@@ -551,6 +553,8 @@ export const strings = {
     agentProposalTitle: "修改提议",
     chatClose: "关闭对话",
     chatDetach: "在独立窗口中打开",
+    chatOpenSidebar: "在侧边栏打开",
+    chatSidebarTitle: "AI 对话",
     chatWindowTitle: "Levis 助手",
     chatWindowLost:
       "这个对话已经和编辑器窗口失去联系。请关闭本窗口后重新开始对话。",
@@ -917,6 +921,8 @@ export const strings = {
     agentProposalTitle: "編集の提案",
     chatClose: "チャットを閉じる",
     chatDetach: "別ウィンドウで開く",
+    chatOpenSidebar: "サイドバーで開く",
+    chatSidebarTitle: "AIチャット",
     chatWindowTitle: "Levis エージェント",
     chatWindowLost:
       "このチャットはエディタウィンドウとの接続を失いました。ウィンドウを閉じて、新しいチャットを開始してください。",
