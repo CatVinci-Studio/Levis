@@ -4,16 +4,22 @@ import type { PendingStatus } from "../usePendingEdits";
 import type { AgentTurn, ChatAttachment, EditProposal } from "../types";
 import { ChatMessages, type ChatMessagesLabels } from "./ChatMessages";
 import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
+import {
+  QuickAskPendingBar,
+  type QuickAskPendingBarLabels,
+} from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
 import {
   AI_MESSAGE_SENT_EVENT,
   TUTORIAL_AGENT_PROPOSAL_EVENT,
 } from "../../utils/events";
 
-export interface ChatBodyLabels extends ChatMessagesLabels, ChatComposerLabels {
+export interface ChatBodyLabels
+  extends ChatMessagesLabels, ChatComposerLabels, QuickAskPendingBarLabels {
   /** Sent as the user's message when relocating a stale proposal. */
   relocateRequest: string;
-  /** Pinned pending-edits bar; "{n}" is how many are undecided. */
+  /** Pinned pending-edits bar (full/window variant only); "{n}" is how many
+   *  are undecided. */
   pendingSummary: string;
   pendingReveal: string;
   /** The quick variant's "open the full conversation" button. */
@@ -58,6 +64,13 @@ export interface ChatBodyProps {
   variant?: "quick" | "full";
   /** Quick variant only: opens the full conversation (detach to a window). */
   onExpand?: () => void;
+  /** Quick variant only: the "review one at a time" nav bar's state/actions
+   *  (usePendingEdits' focus* API) - required whenever `variant === "quick"`. */
+  focusIndex?: number;
+  onFocusNext?: () => void;
+  onFocusPrevious?: () => void;
+  onAcceptFocused?: () => void;
+  onRejectFocused?: () => void;
 }
 
 /**
@@ -104,6 +117,11 @@ export function ChatBody({
   variant = "full",
   onExpand,
   onRevealPending,
+  focusIndex = -1,
+  onFocusNext,
+  onFocusPrevious,
+  onAcceptFocused,
+  onRejectFocused,
 }: ChatBodyProps) {
   const { history, streaming, busy, error, retryable, send, stop, retry } =
     conversation;
@@ -275,25 +293,42 @@ export function ChatBody({
               />
             </div>
           )}
-      {pendingCount > 0 && (
-        <div className="inline-chat-pending-bar">
-          <span className="inline-chat-pending-count">
-            {labels.pendingSummary.replace("{n}", String(pendingCount))}
-          </span>
-          <div className="inline-chat-pending-actions">
-            {onRevealPending && (
-              <button className="inline-chat-action" onClick={onRevealPending}>
-                {labels.pendingReveal}
+      {variant === "quick" ? (
+        <QuickAskPendingBar
+          total={pendingCount}
+          focusIndex={focusIndex}
+          onFocusNext={onFocusNext ?? (() => {})}
+          onFocusPrevious={onFocusPrevious ?? (() => {})}
+          onAcceptFocused={onAcceptFocused ?? (() => {})}
+          onRejectFocused={onRejectFocused ?? (() => {})}
+          onAcceptAll={onAcceptAll}
+          onRejectAll={onRejectAll}
+          labels={labels}
+        />
+      ) : (
+        pendingCount > 0 && (
+          <div className="inline-chat-pending-bar">
+            <span className="inline-chat-pending-count">
+              {labels.pendingSummary.replace("{n}", String(pendingCount))}
+            </span>
+            <div className="inline-chat-pending-actions">
+              {onRevealPending && (
+                <button
+                  className="inline-chat-action"
+                  onClick={onRevealPending}
+                >
+                  {labels.pendingReveal}
+                </button>
+              )}
+              <button className="inline-chat-action" onClick={onAcceptAll}>
+                {labels.proposalAcceptAll}
               </button>
-            )}
-            <button className="inline-chat-action" onClick={onAcceptAll}>
-              {labels.proposalAcceptAll}
-            </button>
-            <button className="inline-chat-action" onClick={onRejectAll}>
-              {labels.proposalRejectAll}
-            </button>
+              <button className="inline-chat-action" onClick={onRejectAll}>
+                {labels.proposalRejectAll}
+              </button>
+            </div>
           </div>
-        </div>
+        )
       )}
       <ChatComposer
         docPath={docPath}

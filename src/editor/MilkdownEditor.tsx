@@ -58,13 +58,14 @@ import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
 import { useAgentConversation } from "../ai/useAgentConversation";
-import { useInlineChat } from "../ai/useInlineChat";
+import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
 import { usePendingEdits } from "../ai/usePendingEdits";
 import {
   prefersReducedMotion,
   streamPendingInsertText,
+  type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { draftProposal } from "../ai/chat/partial-tool-args";
 import { parseProposal } from "../ai/chat/proposal";
@@ -144,6 +145,7 @@ export function MilkdownEditor({
     onAccept: () => {},
     onReject: () => {},
     onPreviewsChange: () => {},
+    getFocusedCallId: () => null,
   });
 
   useEditor(
@@ -167,6 +169,8 @@ export function MilkdownEditor({
           onReject: (callId) => pendingEditActionsRef.current.onReject(callId),
           onPreviewsChange: (previews) =>
             pendingEditActionsRef.current.onPreviewsChange(previews),
+          getFocusedCallId: () =>
+            pendingEditActionsRef.current.getFocusedCallId(),
         },
         // setQuickAskEl is a useState setter - always stable, no ref
         // indirection needed (unlike pendingEdits above, whose real
@@ -235,8 +239,14 @@ export function MilkdownEditor({
       onAccept: pendingEdits.accept,
       onReject: pendingEdits.reject,
       onPreviewsChange: pendingEdits.syncFromPlugin,
+      getFocusedCallId: () => pendingEdits.focusedPreview?.callId ?? null,
     };
-  }, [pendingEdits.accept, pendingEdits.reject, pendingEdits.syncFromPlugin]);
+  }, [
+    pendingEdits.accept,
+    pendingEdits.reject,
+    pendingEdits.syncFromPlugin,
+    pendingEdits.focusedPreview,
+  ]);
   // A streaming propose_edit grows its green preview in the document while
   // the model is still writing it: argument fragments accumulate here, the
   // preview is placed as soon as the action+anchor are complete
@@ -382,23 +392,70 @@ export function MilkdownEditor({
     if (detachedChatLabel) pushChatStatuses(pendingEdits.allStatuses);
   }, [detachedChatLabel, pushChatStatuses, pendingEdits.allStatuses]);
 
-  /** Scrolls to the first undecided edit. In a long conversation the cards
-   *  scroll away, so the pinned summary bar needs a way back to the text. */
-  function revealFirstPending() {
-    const first = pendingEdits.previews[0];
-    if (!first) return;
+  /** Scrolls to a pending edit and, while Quick Ask is the active surface,
+   *  moves its zone widget to follow - the direct, synchronous result of a
+   *  nav-bar click (Next/Previous/Accept/Reject), never a background
+   *  reaction to something else changing (see the call sites below). */
+  function revealPreview(preview: PendingPreview) {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
+      const { doc } = view.state;
       // near(), not create(): an anchored proposal's `from` is the position
       // BEFORE a block node, which is not a valid text position - create()
       // throws there. near() snaps to the closest one it can select.
-      view.dispatch(
-        view.state.tr
-          .setSelection(TextSelection.near(view.state.doc.resolve(first.from)))
-          .scrollIntoView(),
-      );
+      let tr = view.state.tr
+        .setSelection(TextSelection.near(doc.resolve(preview.from)))
+        .scrollIntoView();
+      if (inlineChat.visible) {
+        tr = setQuickAskWidget(tr, blockPositionAfter(doc, preview.from));
+      }
+      view.dispatch(tr);
       view.focus();
     });
+  }
+
+  function handleFocusNext() {
+    const preview = pendingEdits.focusNext();
+    if (preview) revealPreview(preview);
+  }
+
+  function handleFocusPrevious() {
+    const preview = pendingEdits.focusPrevious();
+    if (preview) revealPreview(preview);
+  }
+
+  // Accept/reject-focused change WHICH preview is decidable (not just the
+  // pointer within a fixed set, unlike Next/Previous above), so where the
+  // pointer lands next depends on usePendingEdits' own reindex effect
+  // running first - there's no new preview to reveal synchronously here.
+  // `revealArmed` bridges that one-render gap: armed right before the
+  // action, consumed by the effect below once `focusedPreview` actually
+  // updates. The same flag is armed once per batch of edits arriving (0 ->
+  // >0 pending), so the first edit is revealed without the user having to
+  // click Next first - after that, only an explicit nav/decide action moves
+  // the panel again (see [[ui-no-auto-jump-preference]]).
+  const revealArmed = useRef(false);
+  const hadPendingRef = useRef(false);
+  useEffect(() => {
+    const hasPending = pendingEdits.decidable.length > 0;
+    if (hasPending && !hadPendingRef.current) revealArmed.current = true;
+    hadPendingRef.current = hasPending;
+  }, [pendingEdits.decidable.length]);
+  useEffect(() => {
+    if (!revealArmed.current) return;
+    revealArmed.current = false;
+    if (pendingEdits.focusedPreview) revealPreview(pendingEdits.focusedPreview);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEdits.focusedPreview]);
+
+  function handleAcceptFocused() {
+    revealArmed.current = true;
+    pendingEdits.acceptFocused();
+  }
+
+  function handleRejectFocused() {
+    revealArmed.current = true;
+    pendingEdits.rejectFocused();
   }
 
   function handleDetachChat() {
@@ -810,12 +867,12 @@ export function MilkdownEditor({
             onRejectProposal={pendingEdits.reject}
             onAcceptAll={pendingEdits.acceptAll}
             onRejectAll={pendingEdits.rejectAll}
-            // Streaming previews are visible but not yet decidable - the
-            // pending bar (count + accept/reject all) must not offer them.
-            pendingCount={
-              pendingEdits.previews.filter((p) => !p.streaming).length
-            }
-            onRevealPending={revealFirstPending}
+            pendingCount={pendingEdits.decidable.length}
+            focusIndex={pendingEdits.focusIndex}
+            onFocusNext={handleFocusNext}
+            onFocusPrevious={handleFocusPrevious}
+            onAcceptFocused={handleAcceptFocused}
+            onRejectFocused={handleRejectFocused}
             onDetach={handleDetachChat}
             onClose={inlineChat.close}
           />,

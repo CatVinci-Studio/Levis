@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import {
   composeMarkdownEdit,
@@ -8,6 +8,7 @@ import {
 } from "./doc-markdown";
 import { applyEditRange } from "./apply-edit";
 import { pendingEditKey, type PendingPreview } from "./pending-edit-plugin";
+import { nextFocusAfterChange, orderForReview } from "./pending-edit-focus";
 import type { EditProposal } from "./types";
 import type { EditorRunner } from "../editor/useEditorRunner";
 import type { InlineChatInfo } from "./useInlineChat";
@@ -39,6 +40,29 @@ export function usePendingEdits(run: EditorRunner) {
   // to a plain, misleading "Pending".
   const [statuses, setStatuses] = useState<Record<string, PendingStatus>>({});
   const knownIds = useRef<Set<string>>(new Set());
+
+  // "Review one at a time" state for Quick Ask (MilkdownEditor's nav bar) -
+  // ordered by document position, not arrival order, so Next reads top to
+  // bottom the way scrolling through the document would.
+  const [focusedCallId, setFocusedCallId] = useState<string | null>(null);
+  const decidable = useMemo(() => orderForReview(previews), [previews]);
+  const focusIndex = focusedCallId
+    ? decidable.findIndex((p) => p.callId === focusedCallId)
+    : -1;
+  const focusedPreview = focusIndex >= 0 ? decidable[focusIndex] : null;
+
+  // Re-points the focus whenever the navigable set changes (a preview
+  // settled into it, or left it via accept/reject/invalidation) - keeping
+  // the pointer's POSITION (see nextFocusAfterChange) rather than resetting
+  // to the start every time.
+  const lastOrderRef = useRef<string[]>([]);
+  useEffect(() => {
+    const newOrder = decidable.map((p) => p.callId);
+    setFocusedCallId((prev) =>
+      nextFocusAfterChange(lastOrderRef.current, prev, newOrder),
+    );
+    lastOrderRef.current = newOrder;
+  }, [decidable]);
 
   /** Wired (via a ref-indirected callback, see MilkdownEditor) to the
    *  plugin's onPreviewsChange - the only path React learns about a preview
@@ -239,6 +263,44 @@ export function usePendingEdits(run: EditorRunner) {
     for (const p of previews) accept(p.callId);
   }, [previews, accept]);
 
+  /** Moves the review pointer and returns what it now points at (or null
+   *  if there's nothing to navigate) - the caller (MilkdownEditor) reveals
+   *  that preview immediately, synchronously, rather than waiting on an
+   *  effect: unlike accept/reject, moving the pointer doesn't change the
+   *  navigable set, so there's nothing to wait for. */
+  const focusNext = useCallback((): PendingPreview | null => {
+    if (decidable.length === 0) return null;
+    const next = focusIndex === -1 ? 0 : (focusIndex + 1) % decidable.length;
+    const preview = decidable[next];
+    setFocusedCallId(preview.callId);
+    return preview;
+  }, [decidable, focusIndex]);
+
+  const focusPrevious = useCallback((): PendingPreview | null => {
+    if (decidable.length === 0) return null;
+    const prev =
+      focusIndex === -1
+        ? 0
+        : (focusIndex - 1 + decidable.length) % decidable.length;
+    const preview = decidable[prev];
+    setFocusedCallId(preview.callId);
+    return preview;
+  }, [decidable, focusIndex]);
+
+  /** Accept/reject the currently focused preview - the Quick Ask nav bar's
+   *  primary buttons. Unlike focusNext/Previous, WHERE the pointer lands
+   *  afterward depends on the plugin round-trip (dispatch -> decoration
+   *  state -> onPreviewsChange -> this hook's reindex effect above), so
+   *  there's no new preview to return synchronously; the caller reveals the
+   *  result via an effect on `focusedPreview` instead. */
+  const acceptFocused = useCallback(() => {
+    if (focusedCallId) accept(focusedCallId);
+  }, [focusedCallId, accept]);
+
+  const rejectFocused = useCallback(() => {
+    if (focusedCallId) reject(focusedCallId);
+  }, [focusedCallId, reject]);
+
   const status = useCallback(
     (callId: string): PendingStatus => {
       const preview = previews.find((p) => p.callId === callId);
@@ -269,5 +331,12 @@ export function usePendingEdits(run: EditorRunner) {
     rejectAll,
     status,
     syncFromPlugin,
+    decidable,
+    focusIndex,
+    focusedPreview,
+    focusNext,
+    focusPrevious,
+    acceptFocused,
+    rejectFocused,
   };
 }

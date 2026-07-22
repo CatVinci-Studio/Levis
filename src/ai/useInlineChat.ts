@@ -1,11 +1,22 @@
 import { useCallback, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import {
   documentMarkdown,
   serializeBlocks,
   serializeRange,
 } from "./doc-markdown";
 import type { EditorRunner } from "../editor/useEditorRunner";
+
+/** The document position right after the top-level block containing `pos` -
+ *  where the Quick Ask zone widget goes (quick-ask-widget-plugin), both when
+ *  the chat first opens (relative to the selection) and when the review nav
+ *  bar moves it to follow a pending edit (relative to the edit's `from`). A
+ *  real ProseMirror position, so it maps through edits like any other one. */
+export function blockPositionAfter(doc: ProseNode, pos: number): number {
+  const $pos = doc.resolve(Math.min(pos, doc.content.size));
+  return $pos.depth >= 1 ? $pos.after(1) : doc.content.size;
+}
 
 export interface InlineChatInfo {
   /** The whole document as MARKDOWN SOURCE - see doc-markdown.ts for why
@@ -68,9 +79,7 @@ export function useInlineChat(run: EditorRunner) {
           const selectionMarkdown = selection.empty
             ? null
             : serializeRange(ctx, view.state.doc, selection.from, selection.to);
-          const $to = view.state.doc.resolve(selection.to);
-          const widgetPos =
-            $to.depth >= 1 ? $to.after(1) : view.state.doc.content.size;
+          const widgetPos = blockPositionAfter(view.state.doc, selection.to);
           return next(prev, {
             document: documentMarkdown(serializeBlocks(ctx, view.state.doc)),
             selectedText,

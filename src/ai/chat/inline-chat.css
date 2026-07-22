@@ -505,6 +505,111 @@
   flex-shrink: 0;
 }
 
+/* Quick Ask's review-one-at-a-time bar (QuickAskPendingBar.tsx) - the ONE
+   control surface for edits in this surface, so it gets the same pinned
+   treatment as the full variant's bar above. */
+.quick-ask-pending-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  color: var(--editor-text);
+  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+}
+
+.quick-ask-pending-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.quick-ask-pending-nav-button {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--editor-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quick-ask-pending-nav-button:hover {
+  background: var(--sidebar-hover);
+  color: var(--editor-text);
+}
+
+.quick-ask-pending-position {
+  font-variant-numeric: tabular-nums;
+  color: var(--editor-muted);
+  white-space: nowrap;
+}
+
+.quick-ask-pending-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Split button: a primary action plus a chevron that opens a one-item menu
+   for the bulk variant of the same action ("Accept" -> "Accept all (N)"). */
+.quick-ask-split-button {
+  position: relative;
+  display: flex;
+}
+
+.quick-ask-split-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.quick-ask-split-chevron {
+  padding: 4px 5px;
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+}
+
+.quick-ask-split-chevron-icon {
+  transform: rotate(90deg);
+  opacity: 0.7;
+}
+
+.quick-ask-split-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  padding: 3px;
+  white-space: nowrap;
+}
+
+.quick-ask-split-menu-item {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  background: none;
+  border-radius: 5px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--editor-text);
+  cursor: pointer;
+}
+
+.quick-ask-split-menu-item:hover {
+  background: var(--sidebar-hover);
+}
+
 /* Busy indicator: no token streaming (the reply arrives all at once), so
    this is deliberately honest about that - a label plus three staggered
    pulsing dots, not a fake progress bar. */

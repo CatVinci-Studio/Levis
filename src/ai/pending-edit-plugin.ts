@@ -332,9 +332,13 @@ function buildDecorations(
  * wrong text later.
  */
 export function createPendingEditPlugin(options: {
-  /** Accept/reject the first pending preview - ⌘Enter / ⌘Backspace. Wired
-   *  to the same accept/reject usePendingEdits.ts exposes for the button
-   *  path, so the two can't drift. */
+  /** Accept/reject via ⌘Enter / ⌘Backspace. Wired to the same accept/reject
+   *  usePendingEdits.ts exposes for the button path, so the two can't
+   *  drift. Targets `getFocusedCallId()` when it names a still-pending
+   *  preview (kept in sync with the Quick Ask nav bar's "current" pointer),
+   *  falling back to the first preview otherwise - e.g. before any preview
+   *  has been focused yet, or in the detached window, which has no nav bar
+   *  and so never supplies this. */
   onAccept?: (callId: string) => void;
   onReject?: (callId: string) => void;
   /** Fired whenever the live preview list changes (add/remove/clear, or a
@@ -346,6 +350,9 @@ export function createPendingEditPlugin(options: {
   /** Whether the green widget types its text in (Settings toggle, read live
    *  per decoration build). Off, or unset: the text appears at once. */
   animationEnabled?: () => boolean;
+  /** Live read of the Quick Ask nav bar's current pointer (usePendingEdits'
+   *  `focusedPreview`) - see `onAccept`/`onReject` above. */
+  getFocusedCallId?: () => string | null;
 }) {
   const animate = () => options.animationEnabled?.() ?? false;
   /** Whatever left the preview list takes its typewriter state with it. */
@@ -448,14 +455,19 @@ export function createPendingEditPlugin(options: {
             const previews =
               pendingEditKey.getState(view.state)?.previews ?? [];
             if (previews.length === 0) return false;
+            const focused = options.getFocusedCallId?.() ?? null;
+            const targetId =
+              (focused && previews.some((p) => p.callId === focused)
+                ? focused
+                : null) ?? previews[0].callId;
             if (event.key === "Enter") {
               event.preventDefault();
-              options.onAccept?.(previews[0].callId);
+              options.onAccept?.(targetId);
               return true;
             }
             if (event.key === "Backspace") {
               event.preventDefault();
-              options.onReject?.(previews[0].callId);
+              options.onReject?.(targetId);
               return true;
             }
             return false;

@@ -63,6 +63,9 @@ export interface PendingEditCallbacks {
   onAccept: (callId: string) => void;
   onReject: (callId: string) => void;
   onPreviewsChange: (previews: PendingPreview[]) => void;
+  /** Live read of the Quick Ask nav bar's current pointer - see
+   *  createPendingEditPlugin's option of the same name. */
+  getFocusedCallId: () => string | null;
 }
 
 /**

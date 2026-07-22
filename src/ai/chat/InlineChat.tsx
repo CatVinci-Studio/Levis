@@ -39,9 +39,15 @@ interface InlineChatProps {
   onRejectProposal: (callId: string) => void;
   onAcceptAll: () => void;
   onRejectAll: () => void;
+  /** How many proposals are currently decidable (usePendingEdits.decidable -
+   *  streaming ones excluded). Drives the nav bar below. */
   pendingCount: number;
-  /** Scrolls the editor to the first pending edit. */
-  onRevealPending: () => void;
+  /** 0-based position of the currently focused edit, or -1 if none. */
+  focusIndex: number;
+  onFocusNext: () => void;
+  onFocusPrevious: () => void;
+  onAcceptFocused: () => void;
+  onRejectFocused: () => void;
   /** Pops the full conversation out into its own OS window (chat-bridge) -
    *  the explicit, user-initiated escalation path from this one-shot bar. */
   onDetach: () => void;
@@ -78,7 +84,11 @@ export function InlineChat({
   onAcceptAll,
   onRejectAll,
   pendingCount,
-  onRevealPending,
+  focusIndex,
+  onFocusNext,
+  onFocusPrevious,
+  onAcceptFocused,
+  onRejectFocused,
   onDetach,
   onClose,
 }: InlineChatProps) {
@@ -125,9 +135,13 @@ export function InlineChat({
           onAcceptAll={onAcceptAll}
           onRejectAll={onRejectAll}
           onEscape={confirm.requestClose}
-          onRevealPending={onRevealPending}
           variant="quick"
           onExpand={onDetach}
+          focusIndex={focusIndex}
+          onFocusNext={onFocusNext}
+          onFocusPrevious={onFocusPrevious}
+          onAcceptFocused={onAcceptFocused}
+          onRejectFocused={onRejectFocused}
           footer={
             confirm.confirming && (
               <CloseConfirmBar
