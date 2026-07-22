@@ -100,13 +100,12 @@ export function usePendingEdits(run: EditorRunner) {
             }
           } else {
             const snippet = proposal.anchor ?? "";
-            const match = findMarkdownMatch(blocks, snippet);
+            const match = findMarkdownMatch(blocks, snippet, proposal.context);
             if (match) {
               range = { from: match.from, to: match.to };
               replacement = composeMarkdownEdit(
                 match,
                 proposal.action,
-                snippet,
                 proposal.text ?? "",
               );
             }

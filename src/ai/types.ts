@@ -28,6 +28,10 @@ export interface EditProposal {
   anchor?: string;
   /** New markdown content; absent only for `delete`. */
   text?: string;
+  /** A longer verbatim quote containing `anchor`, itself unique in the
+   *  document - disambiguates which occurrence a repeated anchor means
+   *  (see findMarkdownMatch). Mirrors the `context` field tools.rs offers. */
+  context?: string;
 }
 
 /**

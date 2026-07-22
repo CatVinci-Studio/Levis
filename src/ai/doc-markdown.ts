@@ -99,22 +99,75 @@ function blockIndexAt(blocks: MarkdownBlock[], offset: number): number {
   return 0;
 }
 
+/** Byte offset of `needle`'s single occurrence in `doc`, null when absent
+ *  or repeated - an ambiguous match can't be trusted to be the one meant. */
+function uniqueIndexOf(doc: string, needle: string): number | null {
+  const first = doc.indexOf(needle);
+  if (first === -1 || doc.indexOf(needle, first + 1) !== -1) return null;
+  return first;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Whitespace-tolerant retry for a snippet with NO verbatim occurrence at
+ * all: models routinely fold the blank line between blocks into a single
+ * newline (or a space) when quoting. Word-ish runs must still match
+ * verbatim and the whole thing must still occur exactly once, so this
+ * can't land an edit anywhere an exact quote couldn't have.
+ */
+function flexibleRange(
+  doc: string,
+  snippet: string,
+): { start: number; end: number } | null {
+  const tokens = snippet.split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return null; // single token: flexible == exact
+  const pattern = new RegExp(tokens.map(escapeRegExp).join("\\s+"), "g");
+  const first = pattern.exec(doc);
+  if (!first || pattern.exec(doc)) return null;
+  return { start: first.index, end: first.index + first[0].length };
+}
+
 /**
  * Locates `snippet` in the document's markdown. Null when it's absent or
  * occurs more than once - the same "must be quoted verbatim and occur exactly
  * once" contract the backend states in AGENT_TOOL_INSTRUCTIONS, only now
  * evaluated against the markdown the model was actually shown.
+ *
+ * Two escape hatches keep honest proposals from dying on that contract
+ * (both mirrored in the backend's propose_edit validation, tools.rs):
+ * `context` - a longer verbatim quote containing the snippet, itself
+ * unique - pins down WHICH occurrence a repeated snippet means, and a
+ * whitespace-tolerant retry catches quotes whose only defect is a folded
+ * blank line. Anything still unresolved stays null; there is deliberately
+ * no fuzzier fallback than whitespace.
  */
 export function findMarkdownMatch(
   blocks: MarkdownBlock[],
   snippet: string,
+  context?: string,
 ): MarkdownMatch | null {
   if (!snippet || blocks.length === 0) return null;
   const doc = documentMarkdown(blocks);
-  const start = doc.indexOf(snippet);
-  if (start === -1) return null;
-  if (doc.indexOf(snippet, start + 1) !== -1) return null; // ambiguous
-  const end = start + snippet.length;
+
+  let range: { start: number; end: number } | null = null;
+  const exact = uniqueIndexOf(doc, snippet);
+  if (exact !== null) range = { start: exact, end: exact + snippet.length };
+  if (!range && context && context.length > snippet.length) {
+    const inner = context.indexOf(snippet);
+    const contextStart = inner === -1 ? null : uniqueIndexOf(doc, context);
+    if (contextStart !== null) {
+      const start = contextStart + inner;
+      range = { start, end: start + snippet.length };
+    }
+  }
+  if (!range && doc.indexOf(snippet) === -1) {
+    range = flexibleRange(doc, snippet);
+  }
+  if (!range) return null;
+  const { start, end } = range;
 
   const startIdx = blockIndexAt(blocks, start);
   // `end` is exclusive, so probe the last character the snippet covers.
@@ -137,23 +190,31 @@ export function findMarkdownMatch(
  * The markdown those blocks should become - composed in markdown space, so
  * whatever formatting the prefix/suffix carried is preserved verbatim rather
  * than being re-derived from a lossy plain-text round trip.
+ *
+ * The kept text for insert actions is sliced out of the DOCUMENT's markdown
+ * (what the match actually covered), not taken from the model's quote - a
+ * whitespace-tolerant match means the two can differ, and the model's
+ * version must never reformat what it was only inserting next to.
  */
 export function composeMarkdownEdit(
   match: MarkdownMatch,
   action: EditAction,
-  snippet: string,
   text: string,
 ): string {
+  const matched = match.markdown.slice(
+    match.prefix.length,
+    match.markdown.length - match.suffix.length,
+  );
   let middle: string;
   switch (action) {
     case "delete":
       middle = "";
       break;
     case "insert_before":
-      middle = `${text}${BLOCK_SEPARATOR}${snippet}`;
+      middle = `${text}${BLOCK_SEPARATOR}${matched}`;
       break;
     case "insert_after":
-      middle = `${snippet}${BLOCK_SEPARATOR}${text}`;
+      middle = `${matched}${BLOCK_SEPARATOR}${text}`;
       break;
     default:
       middle = text;

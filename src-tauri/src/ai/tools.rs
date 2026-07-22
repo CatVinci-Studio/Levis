@@ -116,7 +116,18 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
         match ctx.document.matches(anchor).count() {
             0 => return "No exact match for `anchor` in the document. Quote it exactly as it appears, including punctuation and whitespace.".to_string(),
             1 => {}
-            n => return format!("`anchor` appears {n} times in the document. Include more surrounding text so it matches exactly once."),
+            n => {
+                // A repeated anchor is still usable when `context` (a longer
+                // verbatim quote containing it) pins down which occurrence
+                // is meant - the frontend resolves it the same way.
+                let context = parsed.get("context").and_then(|v| v.as_str()).unwrap_or("");
+                let context_ok = context.contains(anchor)
+                    && context.len() > anchor.len()
+                    && ctx.document.matches(context).count() == 1;
+                if !context_ok {
+                    return format!("`anchor` appears {n} times in the document. Add `context`: a longer quote copied verbatim from the document that contains this anchor and itself occurs exactly once (or extend the anchor).");
+                }
+            }
         }
     }
 
@@ -280,7 +291,7 @@ pub fn builtin_tools(has_skills: bool, has_root: bool) -> Vec<Tool> {
         Tool {
             spec: ToolSpec {
                 name: PROPOSE_EDIT_TOOL_NAME,
-                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `replace_selection` swaps the user's currently selected text (the <selected-text> block in their message; no `anchor` needed) for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once. `text` must be valid markdown: `-` or `1.` for lists (never `•` or other bullet symbols), `#` for headings.",
+                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `replace_selection` swaps the user's currently selected text (the <selected-text> block in their message; no `anchor` needed) for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once - if the text you need to target appears more than once, keep `anchor` as the exact text being edited and also pass `context`. `text` must be valid markdown: `-` or `1.` for lists (never `•` or other bullet symbols), `#` for headings.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
@@ -296,6 +307,10 @@ pub fn builtin_tools(has_skills: bool, has_root: bool) -> Vec<Tool> {
                         "text": {
                             "type": "string",
                             "description": "The new content (markdown). Required for every action except `delete`."
+                        },
+                        "context": {
+                            "type": "string",
+                            "description": "Only when `anchor` occurs more than once in the document: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - it pins down which occurrence is meant."
                         }
                     },
                     "required": ["action"],
@@ -364,5 +379,52 @@ pub fn execute(tools: &[Tool], ctx: &ToolContext, name: &str, arguments: &str) -
     match tools.iter().find(|t| t.spec.name == name) {
         Some(tool) => (tool.run)(ctx, arguments),
         None => format!("Unknown tool: {name}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ctx(document: &str) -> ToolContext<'_> {
+        ToolContext {
+            document,
+            skills: &[],
+            root: None,
+        }
+    }
+
+    #[test]
+    fn propose_edit_rejects_repeated_anchor_without_context() {
+        let out = propose_edit(
+            &ctx("Levis is great. Levis is fast."),
+            r#"{"action":"replace","anchor":"Levis","text":"It"}"#,
+        );
+        assert!(out.contains("appears 2 times"), "{out}");
+        assert!(out.contains("`context`"), "{out}");
+    }
+
+    #[test]
+    fn propose_edit_accepts_repeated_anchor_with_unique_context() {
+        let out = propose_edit(
+            &ctx("Levis is great. Levis is fast."),
+            r#"{"action":"replace","anchor":"Levis","text":"It","context":"Levis is fast"}"#,
+        );
+        assert!(out.starts_with("Edit proposed"), "{out}");
+    }
+
+    #[test]
+    fn propose_edit_rejects_context_that_repeats_or_misses_the_anchor() {
+        let doc = "Levis is great. Levis is great.";
+        let repeated = propose_edit(
+            &ctx(doc),
+            r#"{"action":"replace","anchor":"Levis","text":"It","context":"Levis is great"}"#,
+        );
+        assert!(repeated.contains("`context`"), "{repeated}");
+        let anchor_free = propose_edit(
+            &ctx("Levis is great. Levis is fast."),
+            r#"{"action":"replace","anchor":"Levis","text":"It","context":"is fast"}"#,
+        );
+        assert!(anchor_free.contains("`context`"), "{anchor_free}");
     }
 }

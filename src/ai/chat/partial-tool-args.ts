@@ -133,6 +133,9 @@ export function draftProposal(fragment: string): DraftProposal | null {
       action: action.value as EditAction,
       anchor: needsAnchor ? anchor?.value : undefined,
       text: fields.text?.value ?? "",
+      // Disambiguates a repeated anchor (findMarkdownMatch) - only once
+      // fully quoted; a half-arrived context must not mislocate the draft.
+      context: fields.context?.complete ? fields.context.value : undefined,
     },
     textComplete: fields.text?.complete ?? false,
   };

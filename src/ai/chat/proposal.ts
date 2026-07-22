@@ -26,10 +26,15 @@ export function parseProposal(argumentsJson: string): EditProposal | null {
       typeof parsed.text === "string"
         ? normalizeMathDelimiters(parsed.text)
         : undefined;
+    // Like the anchor, kept verbatim - it must match the document exactly.
+    const context =
+      typeof parsed.context === "string" && parsed.context
+        ? parsed.context
+        : undefined;
     if (action !== "append" && action !== "replace_selection" && !anchor)
       return null;
     if (action !== "delete" && text === undefined) return null;
-    return { action, anchor, text };
+    return { action, anchor, text, context };
   } catch {
     return null;
   }
