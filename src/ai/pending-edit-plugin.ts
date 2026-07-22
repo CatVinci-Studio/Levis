@@ -58,6 +58,15 @@ const animations = new Map<string, InsertAnimation>();
 
 const TICK_MS = 30;
 
+/** What the widget's span actually shows. The proposal text is markdown
+ *  SOURCE, where paragraphs are separated by blank lines - rendered through
+ *  `white-space: pre-wrap` at the editor's line-height those become huge
+ *  gaps, so runs of newlines collapse to one for display. Display only:
+ *  the `replacement` applied on accept keeps the real separators. */
+function displayText(text: string): string {
+  return text.replace(/\n{2,}/g, "\n");
+}
+
 function prefersReducedMotion(): boolean {
   return (
     typeof window.matchMedia === "function" &&
@@ -74,7 +83,7 @@ function stopTimer(anim: InsertAnimation) {
 
 function renderAnimation(anim: InsertAnimation) {
   if (!anim.span) return;
-  anim.span.textContent = anim.target.slice(0, anim.shown);
+  anim.span.textContent = displayText(anim.target.slice(0, anim.shown));
   anim.span.classList.toggle(
     "pending-insert-typing",
     anim.shown < anim.target.length || !anim.done,
@@ -169,7 +178,7 @@ function textWidget(
       span.contentEditable = "false";
       const text = p.proposal.text ?? "";
       if (!animate || prefersReducedMotion()) {
-        span.textContent = text;
+        span.textContent = displayText(text);
         return span;
       }
       let anim = animations.get(p.callId);
