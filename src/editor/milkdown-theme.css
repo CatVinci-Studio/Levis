@@ -89,6 +89,14 @@
   user-select: none;
 }
 
+/* The selection the inline chat was opened over (chat-selection-plugin.ts).
+   Accent-tinted, not green/red - it means "this is the chat's context", not
+   "this is being added/removed". */
+.chat-selection {
+  background: color-mix(in srgb, var(--editor-accent) 18%, transparent);
+  border-radius: 2px;
+}
+
 .empty-doc-placeholder::before {
   position: absolute;
   color: var(--editor-muted);

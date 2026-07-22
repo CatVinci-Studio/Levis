@@ -53,6 +53,7 @@ import {
   createPendingEditPlugin,
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
+import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { strings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
@@ -202,5 +203,6 @@ export function withEditorExtensions(
         }),
       )
       .use(createPendingEditPlugin(pendingEdits))
+      .use(chatSelectionPlugin)
   );
 }

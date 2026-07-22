@@ -58,6 +58,7 @@ import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
 import { useAgentConversation } from "../ai/useAgentConversation";
 import { useInlineChat } from "../ai/useInlineChat";
+import { setChatSelection } from "../ai/chat-selection-plugin";
 import { usePendingEdits } from "../ai/usePendingEdits";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
@@ -181,6 +182,16 @@ export function MilkdownEditor({
     showAiNotice,
   );
   const inlineChat = useInlineChat(run);
+  // Keep the text the chat was opened over visibly marked for as long as
+  // the chat context lives (popup or detached window) - the native
+  // selection paint is gone the moment the composer takes focus.
+  const chatRange = inlineChat.chatInfo?.range ?? null;
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(setChatSelection(view.state.tr, chatRange));
+    });
+  }, [chatRange, run]);
   const pendingEdits = usePendingEdits(run);
   useEffect(() => {
     pendingEditActionsRef.current = {
