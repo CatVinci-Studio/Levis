@@ -26,14 +26,9 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  /* Clears the fixed titlebar-drag-region (28px, z-40) when no tab bar is
-     rendered above - same treatment as the left sidebar's header. */
-  padding: 32px 10px 4px 12px;
-}
-
-/* With the tab bar present the pane already starts below the title bar. */
-.main-pane:has(.tab-bar) .chat-sidebar-header {
-  padding-top: 6px;
+  /* --pane-top-inset (App.css, set on .main-pane) clears the fixed
+     titlebar when no tab bar is rendered above. */
+  padding: var(--pane-top-inset, 32px) 10px 4px 12px;
 }
 
 .chat-sidebar-title {

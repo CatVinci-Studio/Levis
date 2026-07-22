@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { AgentTurnView, type AgentTurnLabels } from "../AgentTurnView";
 import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
@@ -83,28 +89,39 @@ export function ChatMessages({
     wasBusy.current = busy;
   }, [busy, history.length]);
 
-  const shown = streaming ? [...history, ...streaming.turns] : history;
-  // Compact starts at the last user turn; indexes (keys, reveal offsets)
-  // stay the full-list ones so nothing remounts when the same conversation
-  // is next rendered uncut in the sidebar.
-  let startIndex = 0;
-  if (compact) {
-    for (let i = shown.length - 1; i >= 0; i--) {
-      if (shown[i].kind === "User") {
-        startIndex = i;
-        break;
+  // Memoized on the turn lists, NOT on `streaming` itself: text deltas
+  // replace the streaming object many times a second while reusing the
+  // same turns array, and none of this depends on the text.
+  const streamingTurns = streaming?.turns;
+  const { shown, startIndex } = useMemo(() => {
+    const shown = streamingTurns ? [...history, ...streamingTurns] : history;
+    // Compact starts at the last user turn; indexes (keys, reveal offsets)
+    // stay the full-list ones so nothing remounts when the same conversation
+    // is next rendered uncut in the sidebar.
+    let startIndex = 0;
+    if (compact) {
+      for (let i = shown.length - 1; i >= 0; i--) {
+        if (shown[i].kind === "User") {
+          startIndex = i;
+          break;
+        }
       }
     }
-  }
+    return { shown, startIndex };
+  }, [history, streamingTurns, compact]);
 
   // propose_edit calls render as proposal cards; their paired tool results
   // are backend->model bookkeeping and would only add noise.
-  const proposalCallIds = new Set(
-    shown.flatMap((turn) =>
-      turn.kind === "ToolCall" && turn.name === "propose_edit"
-        ? [turn.call_id]
-        : [],
-    ),
+  const proposalCallIds = useMemo(
+    () =>
+      new Set(
+        shown.flatMap((turn) =>
+          turn.kind === "ToolCall" && turn.name === "propose_edit"
+            ? [turn.call_id]
+            : [],
+        ),
+      ),
+    [shown],
   );
 
   return (

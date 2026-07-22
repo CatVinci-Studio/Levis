@@ -2,6 +2,7 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
+import { escapeRegExp } from "../utils/regexp";
 
 export const findReplaceKey = new PluginKey<FindReplaceState>("find-replace");
 
@@ -27,10 +28,6 @@ type FindReplaceMeta =
   | { type: "search"; query: string; caseSensitive: boolean; useRegex: boolean }
   | { type: "setActive"; index: number }
   | { type: "clear" };
-
-function escapeRegExp(literal: string): string {
-  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /**
  * The one place a find query becomes a RegExp - search (computeMatches) and

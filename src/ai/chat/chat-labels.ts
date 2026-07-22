@@ -1,5 +1,5 @@
 import type { Strings } from "../../i18n/strings";
-import type { InlineChatLabels } from "./InlineChat";
+import type { ChatSurfaceLabels } from "./ChatSurfaceBody";
 
 /**
  * The chat's user-facing strings, assembled once here rather than inline at
@@ -8,7 +8,7 @@ import type { InlineChatLabels } from "./InlineChat";
  * same set, and a second hand-written copy would go stale the first time a
  * label was added.
  */
-export function chatLabels(t: Strings): InlineChatLabels {
+export function chatLabels(t: Strings): ChatSurfaceLabels {
   return {
     placeholder: t.agentInputPlaceholder,
     send: t.agentSend,

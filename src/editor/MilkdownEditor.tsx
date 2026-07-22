@@ -59,7 +59,7 @@ import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
 import { useAgentConversation } from "../ai/useAgentConversation";
-import { useInlineChat } from "../ai/useInlineChat";
+import { useInlineChat, type InlineChatInfo } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { usePendingEdits } from "../ai/usePendingEdits";
 import { streamPendingInsertText } from "../ai/pending-edit-plugin";
@@ -723,6 +723,30 @@ export function MilkdownEditor({
     ];
   }
 
+  /** The prop bag both in-app chat surfaces share (ChatSurfaceProps) - one
+   *  definition, so Quick Ask and the sidebar can't be handed different
+   *  wiring for the same conversation. */
+  function chatSurfaceProps(info: InlineChatInfo) {
+    return {
+      document: info.document,
+      selectedText: info.selectedText,
+      selectionMarkdown: info.selectionMarkdown,
+      docPath: filePath,
+      conversation,
+      tutorialMock,
+      labels: chatLabels(t),
+      onProposals: showProposals,
+      proposalStatus: pendingEdits.status,
+      onAcceptProposal: pendingEdits.accept,
+      onRejectProposal: pendingEdits.reject,
+      onAcceptAll: pendingEdits.acceptAll,
+      onRejectAll: pendingEdits.rejectAll,
+      pendingCount: pendingEdits.previews.length,
+      onRevealPending: revealFirstPending,
+      onClose: inlineChat.close,
+    };
+  }
+
   return (
     <div
       onContextMenu={onContextMenu}
@@ -775,46 +799,17 @@ export function MilkdownEditor({
           // move outside the scroll container.
           createPortal(
             <ChatSidebar
-              document={inlineChat.chatInfo.document}
-              selectedText={inlineChat.chatInfo.selectedText}
-              selectionMarkdown={inlineChat.chatInfo.selectionMarkdown}
-              docPath={filePath}
-              conversation={conversation}
-              tutorialMock={tutorialMock}
-              labels={chatLabels(t)}
-              onProposals={showProposals}
-              proposalStatus={pendingEdits.status}
-              onAcceptProposal={pendingEdits.accept}
-              onRejectProposal={pendingEdits.reject}
-              onAcceptAll={pendingEdits.acceptAll}
-              onRejectAll={pendingEdits.rejectAll}
-              pendingCount={pendingEdits.previews.length}
-              onRevealPending={revealFirstPending}
+              {...chatSurfaceProps(inlineChat.chatInfo)}
               onDetach={handleDetachChat}
-              onClose={inlineChat.close}
             />,
             chatDock,
           )
         ) : (
           <InlineChat
+            {...chatSurfaceProps(inlineChat.chatInfo)}
             run={run}
-            document={inlineChat.chatInfo.document}
-            selectedText={inlineChat.chatInfo.selectedText}
-            docPath={filePath}
             chatInfo={inlineChat.chatInfo}
-            conversation={conversation}
-            tutorialMock={tutorialMock}
-            labels={chatLabels(t)}
-            onProposals={showProposals}
-            proposalStatus={pendingEdits.status}
-            onAcceptProposal={pendingEdits.accept}
-            onRejectProposal={pendingEdits.reject}
-            onAcceptAll={pendingEdits.acceptAll}
-            onRejectAll={pendingEdits.rejectAll}
-            pendingCount={pendingEdits.previews.length}
-            onRevealPending={revealFirstPending}
             onOpenSidebar={() => setChatSurface("dock")}
-            onClose={inlineChat.close}
           />
         ))}
     </div>

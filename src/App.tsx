@@ -704,7 +704,7 @@ function App() {
         )}
       </aside>
 
-      <div className="main-pane">
+      <div className={`main-pane${showTabBar ? " main-pane-tabs" : ""}`}>
         {showTabBar && (
           <TabBar
             tabs={tabs.map((tab) => ({

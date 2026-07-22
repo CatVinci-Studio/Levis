@@ -72,8 +72,3 @@ export function diffLines(before: string, after: string): DiffLine[] {
   while (j < b.length) out.push({ kind: "add", text: b[j++] });
   return out;
 }
-
-/** Whether a diff is big enough to be worth collapsing behind a toggle. */
-export function isLongDiff(lines: DiffLine[]): boolean {
-  return lines.length > 12;
-}

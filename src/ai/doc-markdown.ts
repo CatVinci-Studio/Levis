@@ -1,6 +1,7 @@
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { serializerCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
+import { escapeRegExp } from "../utils/regexp";
 import type { EditAction } from "./types";
 
 /**
@@ -105,10 +106,6 @@ function uniqueIndexOf(doc: string, needle: string): number | null {
   const first = doc.indexOf(needle);
   if (first === -1 || doc.indexOf(needle, first + 1) !== -1) return null;
   return first;
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
