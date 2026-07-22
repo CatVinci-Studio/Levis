@@ -12,7 +12,15 @@ import type { EditProposal } from "./types";
 import type { EditorRunner } from "../editor/useEditorRunner";
 import type { InlineChatInfo } from "./useInlineChat";
 
-export type PendingStatus = "pending" | "accepted" | "rejected" | "invalid";
+/** `streaming`: the proposal exists but can't be decided yet - its
+ *  arguments are still arriving or its text is still typing into the
+ *  document (pending-edit-plugin settles it when the reveal completes). */
+export type PendingStatus =
+  | "pending"
+  | "streaming"
+  | "accepted"
+  | "rejected"
+  | "invalid";
 
 /**
  * Resolves propose_edit proposals to live document ranges and shows them as
@@ -237,7 +245,8 @@ export function usePendingEdits(run: EditorRunner) {
 
   const status = useCallback(
     (callId: string): PendingStatus => {
-      if (previews.some((p) => p.callId === callId)) return "pending";
+      const preview = previews.find((p) => p.callId === callId);
+      if (preview) return preview.streaming ? "streaming" : "pending";
       return statuses[callId] ?? "pending";
     },
     [previews, statuses],
@@ -249,7 +258,8 @@ export function usePendingEdits(run: EditorRunner) {
    *  derive "pending" from the live preview list itself. */
   const allStatuses = useMemo(() => {
     const merged: Record<string, PendingStatus> = { ...statuses };
-    for (const preview of previews) merged[preview.callId] = "pending";
+    for (const preview of previews)
+      merged[preview.callId] = preview.streaming ? "streaming" : "pending";
     return merged;
   }, [previews, statuses]);
 

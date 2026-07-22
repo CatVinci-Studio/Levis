@@ -62,7 +62,10 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { useInlineChat, type InlineChatInfo } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { usePendingEdits } from "../ai/usePendingEdits";
-import { streamPendingInsertText } from "../ai/pending-edit-plugin";
+import {
+  prefersReducedMotion,
+  streamPendingInsertText,
+} from "../ai/pending-edit-plugin";
 import { draftProposal } from "../ai/chat/partial-tool-args";
 import { parseProposal } from "../ai/chat/proposal";
 import type { StreamEvent } from "../ipc";
@@ -228,7 +231,10 @@ export function MilkdownEditor({
   );
   const handleStreamEvent = useCallback(
     (event: StreamEvent) => {
-      if (!settingsRef.current.enableEditAnimation) return;
+      // Reduced motion renders widgets instantly, so streamed drafts would
+      // create animation entries nothing ever reveals (or settles).
+      if (!settingsRef.current.enableEditAnimation || prefersReducedMotion())
+        return;
       const drafts = streamedProposals.current;
       if (event.type === "toolStart") {
         if (event.name === "propose_edit")
@@ -741,7 +747,9 @@ export function MilkdownEditor({
       onRejectProposal: pendingEdits.reject,
       onAcceptAll: pendingEdits.acceptAll,
       onRejectAll: pendingEdits.rejectAll,
-      pendingCount: pendingEdits.previews.length,
+      // Streaming previews are visible but not yet decidable - the pending
+      // bar (count + accept/reject all) must not offer them.
+      pendingCount: pendingEdits.previews.filter((p) => !p.streaming).length,
       onRevealPending: revealFirstPending,
       onClose: inlineChat.close,
     };

@@ -432,6 +432,12 @@
   color: var(--editor-muted);
 }
 
+/* Not decidable yet - arguments still streaming or the typewriter still
+   revealing the text in the document. */
+.agent-proposal-status-streaming {
+  font-style: italic;
+}
+
 .agent-proposal-status-accepted {
   color: var(--editor-accent);
 }

@@ -1,5 +1,6 @@
 import type { EditorState } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
@@ -27,10 +28,12 @@ export interface PendingPreview {
   expectedText: string;
   /** Markdown `[from, to)` becomes on accept, composed in markdown space. */
   replacement: string;
-  /** True while the propose_edit call is still streaming its arguments -
-   *  the preview was placed early so the text can grow in the document, but
-   *  `replacement` is incomplete, so accept must refuse until the final
-   *  (non-streaming) add for the same callId replaces this one. */
+  /** True while the proposal isn't ready to be decided on: its arguments
+   *  are still streaming in (`replacement` incomplete - accept refuses), or
+   *  the typewriter is still revealing the text in the document (offering
+   *  Accept before the content is even visible was the complaint this
+   *  covers). Cleared by the plugin's `settle` meta once the reveal
+   *  finishes; surfaced to the UI as the "streaming" PendingStatus. */
   streaming?: boolean;
 }
 
@@ -44,6 +47,7 @@ export interface PendingPreview {
 // streaming preview - whose toDOM is then never called.
 
 interface InsertAnimation {
+  callId: string;
   /** Full text known so far - grows while the proposal streams. */
   target: string;
   /** How many chars of `target` are currently revealed. */
@@ -52,11 +56,43 @@ interface InsertAnimation {
   done: boolean;
   span: HTMLSpanElement | null;
   timer: number | null;
+  /** The view that drew the widget - the reveal's only way to dispatch the
+   *  `settle` meta that finally offers Accept/Reject for this preview. */
+  view: EditorView | null;
+  /** The settle meta was dispatched - never dispatch it twice. */
+  settled: boolean;
 }
 
 const animations = new Map<string, InsertAnimation>();
 
 const TICK_MS = 30;
+
+/** Whether the callId's text is still being revealed (or may still grow) -
+ *  while true, the preview must stay in the un-decidable "streaming" state
+ *  even after the final proposal arguments have landed. */
+function stillRevealing(callId: string): boolean {
+  const anim = animations.get(callId);
+  if (!anim) return false;
+  return !anim.done || anim.shown < anim.target.length;
+}
+
+/** Once the reveal completes, flips the preview out of `streaming` via a
+ *  plugin meta so Accept/Reject finally show. Deferred a tick: this is
+ *  reached from timer callbacks but also from inside decoration draws,
+ *  where a reentrant dispatch is not allowed. */
+function maybeSettle(callId: string) {
+  const anim = animations.get(callId);
+  if (!anim || anim.settled || stillRevealing(callId)) return;
+  const view = anim.view;
+  if (!view) return; // no widget drawn yet - its toDOM will retry
+  anim.settled = true;
+  window.setTimeout(() => {
+    if (view.isDestroyed) return;
+    view.dispatch(
+      view.state.tr.setMeta(pendingEditKey, { type: "settle", callId }),
+    );
+  }, 0);
+}
 
 /** What the widget's span actually shows. The proposal text is markdown
  *  SOURCE, where paragraphs are separated by blank lines - rendered through
@@ -67,7 +103,7 @@ function displayText(text: string): string {
   return text.replace(/\n{2,}/g, "\n");
 }
 
-function prefersReducedMotion(): boolean {
+export function prefersReducedMotion(): boolean {
   return (
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -108,7 +144,10 @@ function ensureTicking(anim: InsertAnimation) {
       );
     }
     renderAnimation(anim);
-    if (anim.shown >= anim.target.length && anim.done) stopTimer(anim);
+    if (anim.shown >= anim.target.length && anim.done) {
+      stopTimer(anim);
+      maybeSettle(anim.callId);
+    }
   }, TICK_MS);
 }
 
@@ -133,25 +172,35 @@ export function streamPendingInsertText(
   const existing = animations.get(callId);
   if (!existing) {
     animations.set(callId, {
+      callId,
       target: text,
       shown: 0,
       done,
       span: null,
       timer: null,
+      view: null,
+      settled: false,
     });
     return;
   }
   existing.target = text;
   existing.shown = Math.min(existing.shown, text.length);
-  if (done) existing.done = true;
+  // Both directions: a widget drawn from an early streaming preview creates
+  // the entry with done=true (it can't know more text is coming) - the next
+  // stream call must be able to reopen it, or the reveal settles mid-stream.
+  existing.done = done;
   ensureTicking(existing);
   renderAnimation(existing);
+  maybeSettle(callId);
 }
 
 type PendingMeta =
   | { type: "add"; previews: PendingPreview[] }
   | { type: "remove"; callId: string }
-  | { type: "clear" };
+  | { type: "clear" }
+  /** The typewriter finished revealing this preview's text - it may now be
+   *  decided on (dispatched by maybeSettle, never from outside). */
+  | { type: "settle"; callId: string };
 
 interface PendingState {
   previews: PendingPreview[];
@@ -172,7 +221,7 @@ function textWidget(
 ) {
   return Decoration.widget(
     pos,
-    () => {
+    (view) => {
       const span = document.createElement("span");
       span.className = "pending-insert";
       span.contentEditable = "false";
@@ -184,22 +233,26 @@ function textWidget(
       let anim = animations.get(p.callId);
       if (!anim) {
         anim = {
+          callId: p.callId,
           target: text,
           shown: 0,
           done: !p.streaming,
           span: null,
           timer: null,
+          view: null,
+          settled: false,
         };
         animations.set(p.callId, anim);
-      } else {
+      } else if (text.length > anim.target.length) {
         // The final proposal's text wins over whatever partial state the
         // stream left behind; a shorter re-add never truncates the target.
-        if (text.length > anim.target.length) anim.target = text;
-        if (!p.streaming) anim.done = true;
+        anim.target = text;
       }
       anim.span = span;
+      anim.view = view;
       renderAnimation(anim);
       ensureTicking(anim);
+      maybeSettle(p.callId);
       return span;
     },
     {
@@ -319,7 +372,32 @@ export function createPendingEditPlugin(options: {
               const keep = prev.previews.filter(
                 (p) => !meta.previews.some((n) => n.callId === p.callId),
               );
-              const previews = [...keep, ...meta.previews];
+              // A final (non-streaming) add for a callId whose typewriter is
+              // still revealing keeps the streaming state - the settle meta,
+              // not the add, is what makes the preview decidable.
+              const previews = [
+                ...keep,
+                ...meta.previews.map((p) =>
+                  p.streaming || stillRevealing(p.callId)
+                    ? { ...p, streaming: true }
+                    : p,
+                ),
+              ];
+              return {
+                previews,
+                decoration: buildDecorations(tr.doc, previews, animate()),
+              };
+            }
+            if (meta?.type === "settle") {
+              if (
+                !prev.previews.some(
+                  (p) => p.callId === meta.callId && p.streaming,
+                )
+              )
+                return prev;
+              const previews = prev.previews.map((p) =>
+                p.callId === meta.callId ? { ...p, streaming: undefined } : p,
+              );
               return {
                 previews,
                 decoration: buildDecorations(tr.doc, previews, animate()),

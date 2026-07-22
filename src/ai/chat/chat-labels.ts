@@ -20,6 +20,7 @@ export function chatLabels(t: Strings): ChatSurfaceLabels {
     selectionChip: t.chatSelectionChip,
     proposalTitle: t.agentProposalTitle,
     proposalStatus: {
+      streaming: t.proposalStatusStreaming,
       accepted: t.proposalStatusAccepted,
       rejected: t.proposalStatusRejected,
       invalid: t.proposalStatusInvalid,
