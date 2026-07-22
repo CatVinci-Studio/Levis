@@ -41,7 +41,7 @@ import { useTabDragMerge } from "./useTabDragMerge";
 import { useDraftAutosave } from "./draft-autosave";
 import { useMenuBridge } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
-import { fs, session } from "./ipc";
+import { drafts, fs, session } from "./ipc";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
@@ -599,6 +599,19 @@ function App() {
     startWelcomeTutorial,
   });
 
+  /** Deletes this window's draft snapshots before the window is destroyed.
+   *  Draft cleanup normally rides useDraftAutosave's next effect run (a tab
+   *  leaves `tabs`, or turns clean) - but destroy() means there IS no next
+   *  run, so a whole-window close must clean up explicitly or the discarded
+   *  content comes back as a "restored draft" on the next launch. Per-tab
+   *  rather than clearAllDrafts: the draft store is shared by every window,
+   *  and other windows' drafts must survive. */
+  const clearWindowDrafts = useCallback(async () => {
+    await Promise.all(
+      tabsRef.current.map((tab) => drafts.clearDraftSnapshot(tab.id)),
+    );
+  }, []);
+
   const closeSaving = useCallback(async () => {
     const action = pendingClose;
     setPendingClose(null);
@@ -611,6 +624,9 @@ function App() {
         const ok = await saveTab(tab.id);
         if (!ok) return;
       }
+      // The just-saved tabs' snapshot cleanup would race destroy() below
+      // (it runs on a later effect tick) - do it synchronously instead.
+      await clearWindowDrafts();
       await getCurrentWindow().destroy();
     } else if (action.kind === "tab") {
       if (!(await saveTab(action.tabId))) return;
@@ -619,16 +635,26 @@ function App() {
       if (!(await saveTab(action.tabId))) return;
       await replaceTabWithFile(action.tabId, action.path);
     }
-  }, [pendingClose, saveTab, removeTab, replaceTabWithFile]);
+  }, [
+    pendingClose,
+    saveTab,
+    removeTab,
+    replaceTabWithFile,
+    clearWindowDrafts,
+  ]);
 
   const closeDiscarding = useCallback(async () => {
     const action = pendingClose;
     setPendingClose(null);
     if (!action) return;
-    if (action.kind === "window") await getCurrentWindow().destroy();
-    else if (action.kind === "tab") removeTab(action.tabId);
+    if (action.kind === "window") {
+      // "Don't Save" is a decision - the discarded content must not come
+      // back as a recovered draft on the next launch.
+      await clearWindowDrafts();
+      await getCurrentWindow().destroy();
+    } else if (action.kind === "tab") removeTab(action.tabId);
     else await replaceTabWithFile(action.tabId, action.path);
-  }, [pendingClose, removeTab, replaceTabWithFile]);
+  }, [pendingClose, removeTab, replaceTabWithFile, clearWindowDrafts]);
 
   return (
     <div className="app-shell">
