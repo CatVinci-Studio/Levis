@@ -4,7 +4,7 @@ import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import type { StreamingState } from "../useAgentConversation";
 import { parseProposal } from "./proposal";
-import { diffLines, isLongDiff } from "./line-diff";
+import { diffLines } from "./line-diff";
 
 export interface ChatMessagesLabels extends AgentTurnLabels {
   thinking: string;
@@ -17,9 +17,9 @@ export interface ChatMessagesLabels extends AgentTurnLabels {
   /** Offered when an anchor no longer resolves - asks the model to re-issue
    *  the proposal against the document as it now reads. */
   proposalRelocate: string;
-  /** Diff expander; "{n}" is how many lines stay hidden. */
-  diffExpand: string;
   diffCollapse: string;
+  /** The collapsed "+X −Y" summary row's call-to-action. */
+  diffShow: string;
   actionNames: Record<EditAction, string>;
   retry: string;
 }
@@ -120,6 +120,7 @@ export function ChatMessages({
                 proposal={proposal}
                 selectedText={selectedText}
                 labels={labels}
+                defaultExpanded={status === "invalid"}
               />
               {status === "pending" ? (
                 <div className="agent-proposal-actions">
@@ -212,24 +213,25 @@ export function ChatMessages({
 }
 
 /**
- * What the edit changes, as a line-by-line diff.
- *
- * Shown in every state, not just the unresolvable one: this card is the only
- * place the before/after is spelled out, since the in-document marks
- * deliberately carry no detail. Lining the two sides up matters most for a
- * reworded sentence inside a paragraph - as two stacked blocks that meant
- * reading the whole paragraph twice to find what moved.
+ * What the edit changes - collapsed by default to a "+X −Y" summary row,
+ * because the document already shows the change itself as red/green marks;
+ * spelling the whole diff out again in the card was redundant. Expanding
+ * reveals the full line diff. The one state that starts expanded is
+ * `invalid`: an anchor that couldn't be located leaves NO in-document
+ * preview, so the card is then the only place the content is visible.
  */
 function ProposalDiff({
   proposal,
   selectedText,
   labels,
+  defaultExpanded,
 }: {
   proposal: EditProposal;
   selectedText: string | null;
   labels: ChatMessagesLabels;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!defaultExpanded);
 
   // `append` has nothing to compare against; the others diff the text they
   // target against the replacement. replace_selection targets the captured
@@ -249,13 +251,37 @@ function ProposalDiff({
           ? `${before}\n${proposal.text ?? ""}`
           : (proposal.text ?? "");
 
+  // A proposal that turns invalid after mounting (its preview resolved and
+  // failed) must pop open - the card just became the only view of it.
+  useEffect(() => {
+    if (defaultExpanded) setExpanded(true);
+  }, [defaultExpanded]);
+
   const lines = diffLines(before, after);
-  const long = isLongDiff(lines);
-  const shown = long && !expanded ? lines.slice(0, 10) : lines;
+  const added = lines.filter((line) => line.kind === "add").length;
+  const removed = lines.filter((line) => line.kind === "remove").length;
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        className="agent-diff-summary"
+        onClick={() => setExpanded(true)}
+      >
+        {added > 0 && (
+          <span className="agent-diff-chip agent-diff-add">+{added}</span>
+        )}
+        {removed > 0 && (
+          <span className="agent-diff-chip agent-diff-remove">\u2212{removed}</span>
+        )}
+        <span className="agent-diff-summary-label">{labels.diffShow}</span>
+      </button>
+    );
+  }
 
   return (
     <div className="agent-proposal-diff">
-      {shown.map((line, i) => (
+      {lines.map((line, i) => (
         <div key={i} className={`agent-diff-line agent-diff-${line.kind}`}>
           <span className="agent-diff-marker" aria-hidden="true">
             {line.kind === "add" ? "+" : line.kind === "remove" ? "-" : " "}
@@ -263,17 +289,13 @@ function ProposalDiff({
           <span className="agent-diff-text">{line.text || "\u00a0"}</span>
         </div>
       ))}
-      {long && (
-        <button
-          type="button"
-          className="agent-diff-toggle"
-          onClick={() => setExpanded((prev) => !prev)}
-        >
-          {expanded
-            ? labels.diffCollapse
-            : labels.diffExpand.replace("{n}", String(lines.length - 10))}
-        </button>
-      )}
+      <button
+        type="button"
+        className="agent-diff-toggle"
+        onClick={() => setExpanded(false)}
+      >
+        {labels.diffCollapse}
+      </button>
     </div>
   );
 }

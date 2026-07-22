@@ -364,8 +364,39 @@
   color: var(--editor-text);
 }
 
-/* Long diffs are clipped rather than allowed to fill the whole panel - a
-   30-line rewrite is scrolled past, not studied, so it starts folded. */
+/* The collapsed default: the document already paints the change itself as
+   red/green marks, so the card leads with just "+X −Y" counts and expands
+   on demand. */
+.agent-diff-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--editor-muted);
+}
+
+.agent-diff-summary:hover .agent-diff-summary-label {
+  color: var(--editor-text);
+  text-decoration: underline;
+}
+
+.agent-diff-chip {
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.agent-diff-summary-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+/* Expanded diffs fold back down from the button at the bottom. */
 .agent-diff-toggle {
   align-self: flex-start;
   margin-top: 2px;
