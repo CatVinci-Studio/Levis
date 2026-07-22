@@ -18,6 +18,7 @@ import {
   toggleInlineCodeCommand,
   htmlSchema,
   htmlAttr,
+  remarkPreserveEmptyLinePlugin,
 } from "@milkdown/kit/preset/commonmark";
 import {
   gfm,
@@ -36,6 +37,15 @@ import {
 // keymaps, and toggle commands removed; everything else each preset
 // provides (paragraphs, headings, lists, code blocks, tables, task lists,
 // footnotes, links, images, ...) is untouched.
+//
+// remarkPreserveEmptyLinePlugin is excluded because of what it does on
+// OUTPUT: while it is registered, the paragraph serializer writes every
+// empty paragraph as a literal `<br />` placeholder (so blank lines survive
+// a round trip) - which polluted saved files AND the markdown shown to the
+// AI with non-standard HTML. Without it, empty paragraphs collapse on
+// save/reload per normal markdown semantics; a lone `<br />` in an existing
+// file still parses and gets normalized to a hardbreak on first edit by
+// br-hardbreak-plugin (table cells keep theirs - GFM has no alternative).
 //
 // htmlSchema/htmlAttr are excluded too: raw-html-schema.ts replaces it with
 // a real-text node (stock's is an attrs-based atom whose toDOM just echoes
@@ -71,6 +81,7 @@ const excludedCommonmarkPieces = [
   toggleInlineCodeCommand,
   htmlSchema,
   htmlAttr,
+  remarkPreserveEmptyLinePlugin,
 ].flat();
 
 const excludedGfmPieces = [
