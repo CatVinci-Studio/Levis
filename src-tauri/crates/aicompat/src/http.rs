@@ -154,7 +154,10 @@ mod tests {
     fn reassembles_lines_split_across_chunks() {
         let mut buffer = SseLineBuffer::default();
         assert!(collect(&mut buffer, b"data: {\"te").is_empty());
-        assert_eq!(collect(&mut buffer, b"xt\":\"hi\"}\n"), vec!["{\"text\":\"hi\"}"]);
+        assert_eq!(
+            collect(&mut buffer, b"xt\":\"hi\"}\n"),
+            vec!["{\"text\":\"hi\"}"]
+        );
     }
 
     #[test]

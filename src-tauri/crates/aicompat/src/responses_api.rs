@@ -150,7 +150,9 @@ pub async fn read_streamed_output(
 
         match event.get("type").and_then(|t| t.as_str()) {
             Some("response.output_item.added") => {
-                let Some(item) = event.get("item") else { return };
+                let Some(item) = event.get("item") else {
+                    return;
+                };
                 if item.get("type").and_then(|t| t.as_str()) != Some("function_call") {
                     return;
                 }
@@ -158,7 +160,10 @@ pub async fn read_streamed_output(
                     .get("call_id")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                let name = item.get("name").and_then(|v| v.as_str()).unwrap_or_default();
+                let name = item
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
                 if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
                     call_ids.insert(id.to_string(), call_id.to_string());
                 }

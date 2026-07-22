@@ -609,11 +609,7 @@ mod tests {
         ]);
         assert_eq!(
             events,
-            vec![
-                "S:c1:propose_edit",
-                "A:c1:{\"action\":",
-                "A:c1:\"append\"}",
-            ]
+            vec!["S:c1:propose_edit", "A:c1:{\"action\":", "A:c1:\"append\"}",]
         );
         match acc.into_step_result() {
             StepResult::ToolCalls(calls) => {

@@ -704,7 +704,10 @@ mod tests {
         );
 
         let content = acc.into_content();
-        assert_eq!(content[0], json!({"type": "text", "text": "I'll fix that."}));
+        assert_eq!(
+            content[0],
+            json!({"type": "text", "text": "I'll fix that."})
+        );
         assert_eq!(content[1]["type"], "tool_use");
         assert_eq!(content[1]["input"]["action"], "append");
         // The rebuilt content parses exactly like a non-streamed response.
