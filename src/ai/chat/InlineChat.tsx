@@ -1,93 +1,146 @@
-import { useRef } from "react";
-import { useViewportClamp } from "../../utils/useViewportClamp";
-import type { EditorRunner } from "../../editor/useEditorRunner";
-import type { InlineChatInfo } from "../useInlineChat";
-import { ChatSurfaceBody, type ChatSurfaceProps } from "./ChatSurfaceBody";
-import { useCloseConfirm } from "./CloseConfirm";
-import { useAnchoredPosition } from "./useAnchoredPosition";
+import type { AgentConversation } from "../useAgentConversation";
+import type { PendingStatus } from "../usePendingEdits";
+import type { EditProposal } from "../types";
+import { ChatBody, type ChatBodyLabels } from "./ChatBody";
+import {
+  CloseConfirmBar,
+  useCloseConfirm,
+  type CloseConfirmLabels,
+} from "./CloseConfirm";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
-interface InlineChatProps extends ChatSurfaceProps {
-  /** Drives the popup's position: it follows the document position it was
-   *  opened on instead of staying at the coordinates captured then. */
-  run: EditorRunner;
-  /** The full context captured when the bar opened. */
-  chatInfo: InlineChatInfo;
-  /** Expands this same conversation into the docked sidebar - the explicit,
-   *  user-initiated escalation path; nothing moves there on its own. */
-  onOpenSidebar: () => void;
+export interface InlineChatLabels extends ChatBodyLabels, CloseConfirmLabels {
+  /** Accessible name / tooltip of the header's close button. */
+  close: string;
+  /** Accessible name / tooltip of the pop-out-to-OS-window button. */
+  detach: string;
 }
 
-/// QUICK ASK - the lightest of the chat's three surfaces (this popup, the
-/// docked sidebar, the detached window), modeled on the inline "Cmd+K"
-/// assistant popups in editors like VS Code.
-///
-/// It opens beside the caret as little more than an input bar; replies show
-/// compactly right here (only the latest exchange, tightly capped) so
-/// nothing jumps elsewhere on its own, and edit proposals land in the
-/// document as previews as always. Wanting the full conversation is an
-/// explicit step: the header's expand button opens the SAME conversation in
-/// the docked sidebar - two renderings of one state, so the switch is
-/// seamless.
-///
-/// Placement is automatic: it follows the caret, flips to whichever side of
-/// the line has room, and stays inside the viewport. Deliberately NOT
-/// draggable or resizable - arranging the chat is what the sidebar and the
-/// detached window are for.
-///
-/// This file is only the popup's CHROME: placement, the header, and the
-/// close confirmation trigger. The chat itself is ChatSurfaceBody, shared
-/// verbatim with the sidebar so the surfaces can't drift.
-export function InlineChat({
-  run,
-  chatInfo,
-  onOpenSidebar,
-  ...surface
-}: InlineChatProps) {
-  // Deliberately NOT closed by clicking outside: the panel is a working
-  // surface the user reads next to the document, and an outside click is
-  // usually them going to look at that document. Closing is explicit.
-  const rootRef = useRef<HTMLDivElement>(null);
-  const anchor = useAnchoredPosition(run, chatInfo.anchorPos);
-  // grow "up" when placed above the line: the composer's screen position
-  // stays put and the history grows away from the text, instead of the panel
-  // growing over the document as the conversation lengthens.
-  const pos = useViewportClamp(
-    rootRef,
-    anchor?.x ?? chatInfo.x,
-    anchor?.y ?? chatInfo.y,
-    { grow: anchor?.side === "above" ? "up" : "down" },
-  );
+interface InlineChatProps {
+  document: string;
+  selectedText: string | null;
+  selectionMarkdown: string | null;
+  /** The document's path - resolves the agent workspace (skills, files). */
+  docPath: string | null;
+  /** Conversation state owned by the editor so it can be saved after close;
+   *  a normal subsequent open resets it, while history restores resume it. */
+  conversation: AgentConversation;
+  /** This chat is the onboarding tour's mock conversation - the only one
+   *  whose sends/proposals may advance the tour. */
+  tutorialMock?: boolean;
+  labels: InlineChatLabels;
+  onProposals: (
+    proposals: { callId: string; proposal: EditProposal }[],
+  ) => void;
+  /** Live status of a propose_edit call_id, from usePendingEdits.status. */
+  proposalStatus: (callId: string) => PendingStatus;
+  onAcceptProposal: (callId: string) => void;
+  onRejectProposal: (callId: string) => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
+  pendingCount: number;
+  /** Scrolls the editor to the first pending edit. */
+  onRevealPending: () => void;
+  /** Pops the full conversation out into its own OS window (chat-bridge) -
+   *  the explicit, user-initiated escalation path from this one-shot bar. */
+  onDetach: () => void;
+  onClose: () => void;
+}
 
-  const confirm = useCloseConfirm(surface.pendingCount, surface.onClose);
+/// QUICK ASK - the in-document half of the chat's two surfaces (the other
+/// is the detached OS window), modeled on VS Code's inline chat.
+///
+/// It renders as a ZONE WIDGET: a block portaled into the document flow
+/// right after the block the chat was opened on (quick-ask-widget-plugin),
+/// so the content below is pushed down, never covered, and the panel
+/// follows its block through edits. It is a command bar, not a chat log:
+/// an instruction produces previews in the document plus the pending bar
+/// (the ONE in-app place edits are confirmed); a question produces a
+/// one-line reply summary with "open the full conversation" (detach)
+/// beside it. The conversation itself is never rendered here.
+///
+/// This file is only the panel's CHROME: the header and the close
+/// confirmation. The body is ChatBody in its "quick" variant, sharing send
+/// orchestration and streaming with the detached window's "full" variant.
+export function InlineChat({
+  document,
+  selectedText,
+  selectionMarkdown,
+  docPath,
+  conversation,
+  tutorialMock,
+  labels,
+  onProposals,
+  proposalStatus,
+  onAcceptProposal,
+  onRejectProposal,
+  onAcceptAll,
+  onRejectAll,
+  pendingCount,
+  onRevealPending,
+  onDetach,
+  onClose,
+}: InlineChatProps) {
+  const confirm = useCloseConfirm(pendingCount, onClose);
 
   return (
-    <div ref={rootRef} className="inline-chat" style={pos}>
+    <div className="inline-chat">
       <div className="inline-chat-shell floating-surface">
         <div className="inline-chat-header">
           <div className="inline-chat-header-actions">
             <button
               type="button"
               className="inline-chat-header-button"
-              aria-label={surface.labels.openSidebar}
-              title={surface.labels.openSidebar}
-              onClick={onOpenSidebar}
+              aria-label={labels.detach}
+              title={labels.detach}
+              onClick={onDetach}
             >
-              ⇥
+              ⧉
             </button>
             <button
               type="button"
               className="inline-chat-header-button inline-chat-close"
-              aria-label={surface.labels.close}
-              title={surface.labels.close}
+              aria-label={labels.close}
+              title={labels.close}
               onClick={confirm.requestClose}
             >
               ✕
             </button>
           </div>
         </div>
-        <ChatSurfaceBody surface="quick" confirm={confirm} {...surface} />
+        <ChatBody
+          document={document}
+          selectedText={selectedText}
+          selectionMarkdown={selectionMarkdown}
+          docPath={docPath}
+          conversation={conversation}
+          tutorialMock={tutorialMock}
+          labels={labels}
+          proposalStatus={proposalStatus}
+          pendingCount={pendingCount}
+          onProposals={onProposals}
+          onAcceptProposal={onAcceptProposal}
+          onRejectProposal={onRejectProposal}
+          onAcceptAll={onAcceptAll}
+          onRejectAll={onRejectAll}
+          onEscape={confirm.requestClose}
+          onRevealPending={onRevealPending}
+          variant="quick"
+          onExpand={onDetach}
+          footer={
+            confirm.confirming && (
+              <CloseConfirmBar
+                labels={labels}
+                pendingCount={pendingCount}
+                onAcceptAll={onAcceptAll}
+                onRejectAll={onRejectAll}
+                onClose={onClose}
+                onCancel={confirm.cancel}
+              />
+            )
+          }
+        />
       </div>
     </div>
   );

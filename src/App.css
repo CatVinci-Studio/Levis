@@ -245,17 +245,6 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  /* How far a pane header inside main-pane must sit below the window top
-     to clear the fixed titlebar-drag-region (28px, z-40). The single source
-     panel headers (e.g. .chat-sidebar-header) read, instead of each one
-     re-deriving the geometry. */
-  --pane-top-inset: 32px;
-}
-
-/* With the tab bar rendered, the pane's content already starts below the
-   title bar - App.tsx stamps the class alongside showTabBar. */
-.main-pane-tabs {
-  --pane-top-inset: 6px;
 }
 
 /* Only rendered when Settings > General > "Open Documents In" is set to
@@ -433,18 +422,8 @@ body {
   background: var(--editor-code-bg);
 }
 
-/* Editor row: the scrollable document plus the chat dock the AI sidebar
-   portals into (EditorPane.tsx) - a flex sibling so an open chat squeezes
-   the document narrower instead of floating over it. */
-.editor-pane {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-
 .editor-scroll {
   flex: 1;
-  min-width: 0;
   overflow-y: auto;
   background: var(--editor-bg, var(--bg));
 }
@@ -791,7 +770,6 @@ body {
   .tab-bar,
   .floating-toolbar,
   .close-prompt-overlay,
-  .chat-dock,
   .update-toast {
     display: none !important;
   }
@@ -806,7 +784,6 @@ body {
 
   .app-shell,
   .main-pane,
-  .editor-pane,
   .editor-scroll {
     height: auto;
     overflow: visible;

@@ -36,9 +36,6 @@ interface ChatMessagesProps {
    *  prose being generated). Null when idle - and on providers without
    *  streaming, where the reply still arrives all at once via `history`. */
   streaming: StreamingState | null;
-  /** Quick Ask mode: render only the latest exchange (from the last user
-   *  turn on) - the full history lives in the sidebar. */
-  compact?: boolean;
   busy: boolean;
   error: string | null;
   selectedText: string | null;
@@ -70,7 +67,6 @@ interface ChatMessagesProps {
 export function ChatMessages({
   history,
   streaming,
-  compact,
   busy,
   error,
   selectedText,
@@ -93,22 +89,10 @@ export function ChatMessages({
   // replace the streaming object many times a second while reusing the
   // same turns array, and none of this depends on the text.
   const streamingTurns = streaming?.turns;
-  const { shown, startIndex } = useMemo(() => {
-    const shown = streamingTurns ? [...history, ...streamingTurns] : history;
-    // Compact starts at the last user turn; indexes (keys, reveal offsets)
-    // stay the full-list ones so nothing remounts when the same conversation
-    // is next rendered uncut in the sidebar.
-    let startIndex = 0;
-    if (compact) {
-      for (let i = shown.length - 1; i >= 0; i--) {
-        if (shown[i].kind === "User") {
-          startIndex = i;
-          break;
-        }
-      }
-    }
-    return { shown, startIndex };
-  }, [history, streamingTurns, compact]);
+  const shown = useMemo(
+    () => (streamingTurns ? [...history, ...streamingTurns] : history),
+    [history, streamingTurns],
+  );
 
   // propose_edit calls render as proposal cards; their paired tool results
   // are backend->model bookkeeping and would only add noise.
@@ -126,8 +110,7 @@ export function ChatMessages({
 
   return (
     <>
-      {shown.slice(startIndex).map((turn, sliceIndex) => {
-        const i = startIndex + sliceIndex;
+      {shown.map((turn, i) => {
         const reveal = i >= revealFrom.current;
         // A CSS custom property, not a standard style key - CSSProperties
         // doesn't type these, hence the cast.

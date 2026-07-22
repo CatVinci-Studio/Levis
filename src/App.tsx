@@ -635,13 +635,7 @@ function App() {
       if (!(await saveTab(action.tabId))) return;
       await replaceTabWithFile(action.tabId, action.path);
     }
-  }, [
-    pendingClose,
-    saveTab,
-    removeTab,
-    replaceTabWithFile,
-    clearWindowDrafts,
-  ]);
+  }, [pendingClose, saveTab, removeTab, replaceTabWithFile, clearWindowDrafts]);
 
   const closeDiscarding = useCallback(async () => {
     const action = pendingClose;
@@ -730,7 +724,7 @@ function App() {
         )}
       </aside>
 
-      <div className={`main-pane${showTabBar ? " main-pane-tabs" : ""}`}>
+      <div className="main-pane">
         {showTabBar && (
           <TabBar
             tabs={tabs.map((tab) => ({

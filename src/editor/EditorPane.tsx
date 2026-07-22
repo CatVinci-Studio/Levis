@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { MilkdownProvider } from "@milkdown/react";
 import { useSettings } from "../settings/SettingsContext";
 
@@ -27,32 +27,23 @@ export function EditorPane({
   // (or between two different files) always remounts with a fresh document.
   const editorKey = filePath ?? "untitled";
   const { settings } = useSettings();
-  // The chat sidebar's dock: an empty flex column beside the scroll area
-  // that MilkdownEditor portals ChatSidebar into. The dock lives HERE (and
-  // the chat state stays in MilkdownEditor) because the column must sit
-  // outside the scroll container, which the editor renders inside of.
-  const [chatDock, setChatDock] = useState<HTMLElement | null>(null);
 
   return (
-    <div className="editor-pane">
-      <div className="editor-scroll">
-        <div
-          className={`editor-content ${settings.typewriterMode ? "typewriter-active" : ""}`}
-        >
-          <Suspense fallback={null}>
-            <MilkdownProvider key={editorKey}>
-              <MilkdownEditor
-                filePath={filePath}
-                initialValue={initialValue}
-                onChange={onChange}
-                tutorialMock={tutorialMock}
-                chatDock={chatDock}
-              />
-            </MilkdownProvider>
-          </Suspense>
-        </div>
+    <div className="editor-scroll">
+      <div
+        className={`editor-content ${settings.typewriterMode ? "typewriter-active" : ""}`}
+      >
+        <Suspense fallback={null}>
+          <MilkdownProvider key={editorKey}>
+            <MilkdownEditor
+              filePath={filePath}
+              initialValue={initialValue}
+              onChange={onChange}
+              tutorialMock={tutorialMock}
+            />
+          </MilkdownProvider>
+        </Suspense>
       </div>
-      <div className="chat-dock" ref={setChatDock} />
     </div>
   );
 }

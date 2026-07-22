@@ -1,14 +1,14 @@
 import type { Strings } from "../../i18n/strings";
-import type { ChatSurfaceLabels } from "./ChatSurfaceBody";
+import type { InlineChatLabels } from "./InlineChat";
 
 /**
  * The chat's user-facing strings, assembled once here rather than inline at
- * each mount point - the embedded popup (MilkdownEditor) and the detached
- * window (ChatWindowApp) render the same components and so need exactly the
- * same set, and a second hand-written copy would go stale the first time a
- * label was added.
+ * each mount point - the embedded Quick Ask bar (MilkdownEditor) and the
+ * detached window (ChatWindowApp) render the same components and so need
+ * exactly the same set, and a second hand-written copy would go stale the
+ * first time a label was added.
  */
-export function chatLabels(t: Strings): ChatSurfaceLabels {
+export function chatLabels(t: Strings): InlineChatLabels {
   return {
     placeholder: t.agentInputPlaceholder,
     send: t.agentSend,
@@ -36,10 +36,9 @@ export function chatLabels(t: Strings): ChatSurfaceLabels {
     pendingReveal: t.chatPendingReveal,
     dropSelection: t.chatDropSelection,
     relocateRequest: t.proposalRelocateRequest,
+    expandConversation: t.chatExpandConversation,
     close: t.chatClose,
     detach: t.chatDetach,
-    openSidebar: t.chatOpenSidebar,
-    sidebarTitle: t.chatSidebarTitle,
     closeConfirm: t.chatCloseConfirm,
     closeConfirmAccept: t.chatCloseConfirmAccept,
     closeConfirmReject: t.chatCloseConfirmReject,

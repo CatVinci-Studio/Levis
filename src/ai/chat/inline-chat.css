@@ -1,19 +1,14 @@
-/* The EMBEDDED chat panel - modeled on the inline "Cmd+K" assistant popups
-   in editors like VS Code (Claude Code's inline chat). It is placed for the
-   user: anchored beside the caret, flipped to whichever side of the line has
-   room, clamped to the viewport, and never dragged or resized. Arranging the
-   chat by hand is what the detached WINDOW is for. Closing is explicit (the
+/* QUICK ASK - the in-document chat bar, modeled on VS Code's inline chat.
+   It renders as a block INSIDE the document flow (quick-ask-widget-plugin's
+   zone widget), right after the block it was opened on - content below gets
+   pushed down, never covered, and the panel is never dragged or resized.
+   Reading the full conversation is what the detached WINDOW is for, opened
+   explicitly (the header's pop-out button). Closing is explicit too (the
    header X or Escape) - never an outside click, since reading the document
-   the chat is about is the most common reason to click away from it.
-   Finished exchanges remain available from the sidebar history. */
+   the chat is about is the most common reason to click away from it. */
 
 .inline-chat {
-  position: fixed;
-  /* Above the newcomer guide card (230) so the exercise can be completed
-     without the guide covering the Agent input or its reply. */
-  z-index: 250;
-  width: 420px;
-  max-width: calc(100vw - 32px);
+  margin: 0.75em 0;
 }
 
 /* Just the pop-out and close buttons, right-aligned. Deliberately slim -
@@ -271,10 +266,31 @@
   gap: 6px;
 }
 
-/* Quick Ask keeps its reply area tight - it shows only the latest exchange,
-   and anything worth more reading room belongs in the sidebar. */
-.inline-chat-messages-compact {
-  max-height: 200px;
+/* Quick Ask's reply area (ChatBody's "quick" variant): no conversation, just
+   a one-line status - this is what replaces .inline-chat-messages there. */
+.quick-ask-status {
+  padding: 8px 10px;
+}
+
+.quick-ask-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quick-ask-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--editor-text);
+}
+
+.quick-ask-expand {
+  flex-shrink: 0;
 }
 
 .inline-chat-action {

@@ -16,6 +16,8 @@ export interface ChatBodyLabels extends ChatMessagesLabels, ChatComposerLabels {
   /** Pinned pending-edits bar; "{n}" is how many are undecided. */
   pendingSummary: string;
   pendingReveal: string;
+  /** The quick variant's "open the full conversation" button. */
+  expandConversation: string;
 }
 
 export interface ChatBodyProps {
@@ -50,10 +52,12 @@ export interface ChatBodyProps {
    *  the message list renders even while empty - it is the flexible region,
    *  and without it the composer would sit at the top of a blank panel. */
   fillHeight?: boolean;
-  /** Quick Ask mode: a tightly capped message area showing only the latest
-   *  exchange. The conversation itself is untouched - expanding the same
-   *  ChatBody state into the sidebar reveals the full history. */
-  compact?: boolean;
+  /** "quick" (the in-document Quick Ask bar) renders NO conversation - just
+   *  a one-line reply summary, the pending bar, and the composer. Edits are
+   *  the output; reading happens in the detached window ("full", default). */
+  variant?: "quick" | "full";
+  /** Quick variant only: opens the full conversation (detach to a window). */
+  onExpand?: () => void;
 }
 
 /**
@@ -97,7 +101,8 @@ export function ChatBody({
   onEscape,
   footer,
   fillHeight,
-  compact,
+  variant = "full",
+  onExpand,
   onRevealPending,
 }: ChatBodyProps) {
   const { history, streaming, busy, error, retryable, send, stop, retry } =
@@ -190,30 +195,86 @@ export function ChatBody({
 
   const showMessages = history.length > 0 || busy || !!error || !!fillHeight;
 
+  // The quick variant's one-line reply: live streamed prose while it
+  // arrives, else the conversation's last assistant reply (so a restored
+  // conversation shows where it left off).
+  let summaryText: string | null = null;
+  if (variant === "quick") {
+    summaryText = streaming?.text || null;
+    if (!summaryText) {
+      for (let i = history.length - 1; i >= 0; i--) {
+        const turn = history[i];
+        if (turn.kind === "Assistant") {
+          summaryText = turn.text;
+          break;
+        }
+      }
+    }
+  }
+
   return (
     <>
-      {showMessages && (
-        <div
-          className={`inline-chat-messages${compact ? " inline-chat-messages-compact" : ""}`}
-          ref={listRef}
-        >
-          <ChatMessages
-            history={history}
-            streaming={streaming}
-            compact={compact}
-            busy={busy}
-            error={error}
-            selectedText={selectedText}
-            labels={labels}
-            proposalStatus={proposalStatus}
-            onAcceptProposal={onAcceptProposal}
-            onRejectProposal={onRejectProposal}
-            onRelocateProposal={handleRelocate}
-            canRetry={!!retryable}
-            onRetry={handleRetry}
-          />
-        </div>
-      )}
+      {variant === "quick"
+        ? (busy || error || summaryText) && (
+            <div className="quick-ask-status">
+              {error && (
+                <div className="agent-error">
+                  {error}
+                  {retryable && (
+                    <button
+                      className="inline-chat-action agent-error-retry"
+                      onClick={handleRetry}
+                    >
+                      {labels.retry}
+                    </button>
+                  )}
+                </div>
+              )}
+              {!error && summaryText && (
+                <div className="quick-ask-summary-row">
+                  <span className="quick-ask-summary">{summaryText}</span>
+                  {onExpand && (
+                    <button
+                      className="inline-chat-action quick-ask-expand"
+                      onClick={onExpand}
+                    >
+                      {labels.expandConversation}
+                    </button>
+                  )}
+                </div>
+              )}
+              {!error && busy && !summaryText && (
+                <div className="agent-thinking">
+                  <span className="agent-thinking-label">
+                    {labels.thinking}
+                  </span>
+                  <span className="agent-thinking-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </div>
+              )}
+            </div>
+          )
+        : showMessages && (
+            <div className="inline-chat-messages" ref={listRef}>
+              <ChatMessages
+                history={history}
+                streaming={streaming}
+                busy={busy}
+                error={error}
+                selectedText={selectedText}
+                labels={labels}
+                proposalStatus={proposalStatus}
+                onAcceptProposal={onAcceptProposal}
+                onRejectProposal={onRejectProposal}
+                onRelocateProposal={handleRelocate}
+                canRetry={!!retryable}
+                onRetry={handleRetry}
+              />
+            </div>
+          )}
       {pendingCount > 0 && (
         <div className="inline-chat-pending-bar">
           <span className="inline-chat-pending-count">

@@ -54,6 +54,7 @@ import {
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
+import { createQuickAskWidgetPlugin } from "../ai/quick-ask-widget-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { strings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
@@ -78,6 +79,10 @@ export function withEditorExtensions(
   settings: { readonly current: Settings },
   docPath: { readonly current: string | null },
   pendingEdits: PendingEditCallbacks,
+  /** Hands the Quick Ask widget's DOM container to MilkdownEditor as it
+   *  mounts/unmounts - ref-indirected the same way `pendingEdits` is (this
+   *  is built before the real callback exists). */
+  quickAskWidget: { onMount: (el: HTMLElement | null) => void },
   /** True while the onboarding tour runs: the typing-triggered AI plugins
    *  go quiet so the tour's PRE-WRITTEN suggestions (utils/events.ts's
    *  TUTORIAL_MOCK_GHOST_EVENT) are the only AI-looking thing on screen -
@@ -209,5 +214,6 @@ export function withEditorExtensions(
         }),
       )
       .use(chatSelectionPlugin)
+      .use(createQuickAskWidgetPlugin(quickAskWidget))
   );
 }

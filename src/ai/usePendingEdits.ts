@@ -16,11 +16,7 @@ import type { InlineChatInfo } from "./useInlineChat";
  *  arguments are still arriving or its text is still typing into the
  *  document (pending-edit-plugin settles it when the reveal completes). */
 export type PendingStatus =
-  | "pending"
-  | "streaming"
-  | "accepted"
-  | "rejected"
-  | "invalid";
+  "pending" | "streaming" | "accepted" | "rejected" | "invalid";
 
 /**
  * Resolves propose_edit proposals to live document ranges and shows them as
