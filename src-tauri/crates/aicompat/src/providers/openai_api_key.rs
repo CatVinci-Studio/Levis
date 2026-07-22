@@ -1,5 +1,5 @@
-use crate::agent::{AgentTurn, StepResult, ToolSpec};
-use crate::responses_api::{self, extract_response_text, ResponsesRequest};
+use crate::agent::{AgentTurn, EventSink, StepResult, ToolSpec};
+use crate::responses_api::{self, extract_response_text, read_streamed_output, ResponsesRequest};
 
 const PUBLIC_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
 /// Low-cost default for completion and grammar requests. Agent chat chooses
@@ -33,8 +33,8 @@ pub async fn call_completion(
 /// Runs one round-trip against the public Responses API with the full turn
 /// history and tool definitions - the API-key twin of
 /// `openai_codex::agent_step`, same wire format (see `responses_api`), just
-/// authenticated with a plain key and answered non-streaming (this endpoint,
-/// unlike the ChatGPT backend, accepts `stream: false`).
+/// authenticated with a plain key. Streams (`stream: true`) so text and
+/// tool-call fragments surface through `on_event` as they're generated.
 pub async fn agent_step(
     api_key: &str,
     instructions: &str,
@@ -42,11 +42,12 @@ pub async fn agent_step(
     tools: &[ToolSpec],
     web_search: bool,
     model: &str,
+    on_event: EventSink<'_>,
 ) -> Result<StepResult, String> {
     let body =
-        responses_api::agent_request_body(model, instructions, history, tools, web_search, false);
+        responses_api::agent_request_body(model, instructions, history, tools, web_search, true);
 
-    let client = crate::http::client();
+    let client = crate::http::streaming_client();
     let res = client
         .post(PUBLIC_RESPONSES_URL)
         .bearer_auth(api_key)
@@ -55,17 +56,6 @@ pub async fn agent_step(
         .await
         .map_err(|e| e.to_string())?;
 
-    if !res.status().is_success() {
-        let status = res.status();
-        let text = res.text().await.unwrap_or_default();
-        return Err(format!("OpenAI request failed ({status}): {text}"));
-    }
-
-    let parsed: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
-    let output = parsed
-        .get("output")
-        .and_then(|o| o.as_array())
-        .cloned()
-        .unwrap_or_default();
+    let output = read_streamed_output(res, "OpenAI", on_event).await?;
     Ok(responses_api::parse_agent_output(&output))
 }

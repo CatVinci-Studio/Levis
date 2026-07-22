@@ -1,4 +1,4 @@
-use crate::agent::{AgentTurn, StepResult, ToolSpec};
+use crate::agent::{AgentTurn, EventSink, ProviderEvent, StepResult, ToolSpec};
 use crate::pkce::{generate_pkce, now_ms};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -385,8 +385,128 @@ fn parse_agent_response(content: &[Value]) -> StepResult {
     }
 }
 
+/// One in-flight content block while a streamed Messages response is being
+/// read. Only the kinds parse_agent_response cares about get accumulated;
+/// everything else (server_tool_use, web_search results, thinking) stays
+/// Ignored, exactly as the non-streaming path ignores those block types.
+enum StreamBlock {
+    Text(String),
+    ToolUse {
+        id: String,
+        name: String,
+        /// input_json_delta fragments, concatenated - parsed once at the end.
+        args: String,
+    },
+    Ignored,
+}
+
+/// Rebuilds the non-streaming response's `content` array from Messages API
+/// SSE events, reporting fragments through `on_event` as they arrive. Kept
+/// separate from the HTTP read so the event-to-block bookkeeping is unit
+/// testable with plain JSON fixtures.
+#[derive(Default)]
+struct StreamAccumulator {
+    blocks: Vec<StreamBlock>,
+    error: Option<String>,
+}
+
+impl StreamAccumulator {
+    fn block_at(&mut self, index: usize) -> &mut StreamBlock {
+        while self.blocks.len() <= index {
+            self.blocks.push(StreamBlock::Ignored);
+        }
+        &mut self.blocks[index]
+    }
+
+    fn apply(&mut self, data: &str, on_event: EventSink<'_>) {
+        if self.error.is_some() {
+            return;
+        }
+        let Ok(event) = serde_json::from_str::<Value>(data) else {
+            return;
+        };
+        let index = event.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+
+        match event.get("type").and_then(|t| t.as_str()) {
+            Some("content_block_start") => {
+                let Some(block) = event.get("content_block") else {
+                    return;
+                };
+                match block.get("type").and_then(|t| t.as_str()) {
+                    Some("text") => *self.block_at(index) = StreamBlock::Text(String::new()),
+                    Some("tool_use") => {
+                        let id = block.get("id").and_then(|v| v.as_str()).unwrap_or_default();
+                        let name = block
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default();
+                        on_event(ProviderEvent::ToolStart { call_id: id, name });
+                        *self.block_at(index) = StreamBlock::ToolUse {
+                            id: id.to_string(),
+                            name: name.to_string(),
+                            args: String::new(),
+                        };
+                    }
+                    _ => *self.block_at(index) = StreamBlock::Ignored,
+                }
+            }
+            Some("content_block_delta") => {
+                let Some(delta) = event.get("delta") else {
+                    return;
+                };
+                match delta.get("type").and_then(|t| t.as_str()) {
+                    Some("text_delta") => {
+                        let Some(text) = delta.get("text").and_then(|t| t.as_str()) else {
+                            return;
+                        };
+                        if let StreamBlock::Text(buf) = self.block_at(index) {
+                            buf.push_str(text);
+                            on_event(ProviderEvent::Text(text));
+                        }
+                    }
+                    Some("input_json_delta") => {
+                        let Some(part) = delta.get("partial_json").and_then(|t| t.as_str()) else {
+                            return;
+                        };
+                        if let StreamBlock::ToolUse { id, args, .. } = self.block_at(index) {
+                            args.push_str(part);
+                            let call_id = id.clone();
+                            on_event(ProviderEvent::ToolArgs {
+                                call_id: &call_id,
+                                delta: part,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Some("error") => {
+                let error = event.get("error").cloned().unwrap_or(event.clone());
+                self.error = Some(format!("Claude request failed: {error}"));
+            }
+            _ => {}
+        }
+    }
+
+    fn into_content(self) -> Vec<Value> {
+        self.blocks
+            .into_iter()
+            .filter_map(|block| match block {
+                StreamBlock::Text(text) => Some(json!({"type": "text", "text": text})),
+                StreamBlock::ToolUse { id, name, args } => {
+                    let input: Value = serde_json::from_str(&args).unwrap_or_else(|_| json!({}));
+                    Some(json!({"type": "tool_use", "id": id, "name": name, "input": input}))
+                }
+                StreamBlock::Ignored => None,
+            })
+            .collect()
+    }
+}
+
 /// Runs one round-trip against Claude with the full turn history and tool
-/// definitions - the Anthropic twin of `openai_codex::agent_step`.
+/// definitions - the Anthropic twin of `openai_codex::agent_step`. Streams
+/// (`stream: true`) so text and tool-call fragments surface through
+/// `on_event` as they're generated.
 pub async fn agent_step(
     auth: &AnthropicAuth,
     instructions: &str,
@@ -394,6 +514,7 @@ pub async fn agent_step(
     tools: &[ToolSpec],
     web_search: bool,
     model: &str,
+    on_event: EventSink<'_>,
 ) -> Result<StepResult, String> {
     let system: Vec<Value> = system_blocks(instructions.to_string(), auth)
         .iter()
@@ -413,31 +534,25 @@ pub async fn agent_step(
     let body = json!({
         "model": model,
         "max_tokens": 4096,
+        "stream": true,
         "system": system,
         "messages": turns_to_messages(history),
         "tools": tool_schemas,
     });
 
-    let client = crate::http::client();
+    let client = crate::http::streaming_client();
     let res = apply_auth(client.post(MESSAGES_URL), auth)
         .json(&body)
         .send()
         .await
         .map_err(|e| e.to_string())?;
 
-    if !res.status().is_success() {
-        let status = res.status();
-        let text = res.text().await.unwrap_or_default();
-        return Err(format!("Claude request failed ({status}): {text}"));
+    let mut acc = StreamAccumulator::default();
+    crate::http::read_sse(res, "Claude", |data| acc.apply(data, on_event)).await?;
+    if let Some(error) = acc.error {
+        return Err(error);
     }
-
-    let parsed: Value = res.json().await.map_err(|e| e.to_string())?;
-    let content = parsed
-        .get("content")
-        .and_then(|c| c.as_array())
-        .cloned()
-        .unwrap_or_default();
-    Ok(parse_agent_response(&content))
+    Ok(parse_agent_response(&acc.into_content()))
 }
 
 #[cfg(test)]
@@ -542,6 +657,74 @@ mod tests {
             }
             StepResult::Done(_) => panic!("expected tool calls"),
         }
+    }
+
+    /// Feeds SSE data payloads through the accumulator, collecting the
+    /// events it reports as "T:text", "S:id:name", "A:id:delta" strings.
+    fn run_stream(events: &[Value]) -> (StreamAccumulator, Vec<String>) {
+        let reported = std::sync::Mutex::new(Vec::new());
+        let sink = |e: ProviderEvent<'_>| {
+            reported.lock().unwrap().push(match e {
+                ProviderEvent::Text(t) => format!("T:{t}"),
+                ProviderEvent::ToolStart { call_id, name } => format!("S:{call_id}:{name}"),
+                ProviderEvent::ToolArgs { call_id, delta } => format!("A:{call_id}:{delta}"),
+            });
+        };
+        let mut acc = StreamAccumulator::default();
+        for event in events {
+            acc.apply(&event.to_string(), &sink);
+        }
+        let reported = reported.into_inner().unwrap();
+        (acc, reported)
+    }
+
+    #[test]
+    fn stream_accumulator_rebuilds_text_and_tool_use_blocks() {
+        let (acc, events) = run_stream(&[
+            json!({"type": "message_start"}),
+            json!({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
+            json!({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "I'll "}}),
+            json!({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "fix that."}}),
+            json!({"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "tu_1", "name": "propose_edit"}}),
+            json!({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": "{\"action\":"}}),
+            json!({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": "\"append\",\"text\":\"hi\"}"}}),
+            json!({"type": "content_block_stop", "index": 1}),
+            json!({"type": "message_stop"}),
+        ]);
+
+        assert_eq!(
+            events,
+            vec![
+                "T:I'll ",
+                "T:fix that.",
+                "S:tu_1:propose_edit",
+                "A:tu_1:{\"action\":",
+                "A:tu_1:\"append\",\"text\":\"hi\"}",
+            ]
+        );
+
+        let content = acc.into_content();
+        assert_eq!(content[0], json!({"type": "text", "text": "I'll fix that."}));
+        assert_eq!(content[1]["type"], "tool_use");
+        assert_eq!(content[1]["input"]["action"], "append");
+        // The rebuilt content parses exactly like a non-streamed response.
+        match parse_agent_response(&content) {
+            StepResult::ToolCalls(calls) => assert_eq!(calls.len(), 1),
+            StepResult::Done(_) => panic!("expected tool calls"),
+        }
+    }
+
+    #[test]
+    fn stream_accumulator_ignores_server_tool_blocks_and_reports_errors() {
+        let (acc, events) = run_stream(&[
+            json!({"type": "content_block_start", "index": 0, "content_block": {"type": "server_tool_use", "id": "srvtoolu_1", "name": "web_search"}}),
+            json!({"type": "content_block_start", "index": 1, "content_block": {"type": "text", "text": ""}}),
+            json!({"type": "content_block_delta", "index": 1, "delta": {"type": "text_delta", "text": "answer"}}),
+            json!({"type": "error", "error": {"type": "overloaded_error", "message": "busy"}}),
+            json!({"type": "content_block_delta", "index": 1, "delta": {"type": "text_delta", "text": "after error, ignored"}}),
+        ]);
+        assert_eq!(events, vec!["T:answer"]);
+        assert!(acc.error.as_deref().unwrap().contains("overloaded_error"));
     }
 
     #[test]

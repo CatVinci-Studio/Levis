@@ -5,7 +5,17 @@ import {
   type ChatHistoryEntry,
 } from "./chat-history";
 import type { AgentTurn } from "./types";
-import { ai, AI_CANCELLED, IpcError } from "../ipc";
+import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
+
+/** What has streamed in so far for the in-flight exchange: completed
+ *  intermediate turns (the user's own message, tool calls/results as they
+ *  land) plus the assistant prose fragment currently being generated.
+ *  Display-only - the resolved request's turn list is what enters
+ *  `history`; this exists so the UI has something live to show first. */
+export interface StreamingState {
+  turns: AgentTurn[];
+  text: string;
+}
 
 /** The (document, message) pair behind the last failed send - lets the
  *  caller offer a "retry" that resends without the user retyping. */
@@ -40,12 +50,20 @@ export function useAgentConversation(
    *  behave identically for everyone. Mocked exchanges are also NOT saved
    *  to the chat history (they aren't real conversations). */
   mockReply?: MockAgentReply | null,
+  /** Raw stream events beyond what `streaming` state captures - the editor
+   *  hooks propose_edit argument fragments here to grow the in-document
+   *  preview while the model is still writing it. Read through a ref, so a
+   *  re-render mid-request picks up the newest callback. */
+  onStreamEvent?: (event: StreamEvent) => void,
 ) {
   const [conversationId, setConversationId] = useState<string>(() =>
     crypto.randomUUID(),
   );
   const [history, setHistory] = useState<AgentTurn[]>([]);
+  const [streaming, setStreaming] = useState<StreamingState | null>(null);
   const [busy, setBusy] = useState(false);
+  const onStreamEventRef = useRef(onStreamEvent);
+  onStreamEventRef.current = onStreamEvent;
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState<RetryableSend | null>(null);
   // The in-flight request's id, for stop() to cancel by - null when nothing
@@ -96,6 +114,9 @@ export function useAgentConversation(
     setBusy(true);
     setError(null);
     setRetryable(null);
+    // The user's message shows immediately as a streamed turn - the real
+    // one only enters `history` when the whole exchange resolves.
+    setStreaming({ turns: [{ kind: "User", text: trimmed }], text: "" });
     const requestId = crypto.randomUUID();
     const generation = generationRef.current;
     requestIdRef.current = requestId;
@@ -112,6 +133,24 @@ export function useAgentConversation(
             webSearch,
             model: model || null,
             requestId,
+            onEvent: (event) => {
+              if (generation !== generationRef.current) return;
+              onStreamEventRef.current?.(event);
+              if (event.type === "delta") {
+                setStreaming((prev) => ({
+                  turns: prev?.turns ?? [],
+                  text: (prev?.text ?? "") + event.text,
+                }));
+              } else if (event.type === "turn") {
+                // Interim prose that streamed before a tool call is dropped,
+                // mirroring how the backend's step parsers prefer tool calls
+                // over accompanying text - it never enters history either.
+                setStreaming((prev) => ({
+                  turns: [...(prev?.turns ?? []), event.turn],
+                  text: "",
+                }));
+              }
+            },
           });
       if (generation !== generationRef.current) return undefined;
       setHistory((prev) => [...prev, ...newTurns]);
@@ -128,6 +167,7 @@ export function useAgentConversation(
     } finally {
       if (generation === generationRef.current) {
         setBusy(false);
+        setStreaming(null);
         requestIdRef.current = null;
       }
     }
@@ -154,6 +194,7 @@ export function useAgentConversation(
     requestIdRef.current = null;
     setConversationId(crypto.randomUUID());
     setHistory([]);
+    setStreaming(null);
     setBusy(false);
     setError(null);
     setRetryable(null);
@@ -167,6 +208,7 @@ export function useAgentConversation(
     requestIdRef.current = null;
     setConversationId(entry.id);
     setHistory(entry.turns);
+    setStreaming(null);
     setBusy(false);
     setError(null);
     setRetryable(null);
@@ -179,6 +221,7 @@ export function useAgentConversation(
     // exchange scattered across several sidebar history entries.
     conversationId,
     history,
+    streaming,
     busy,
     error,
     retryable,

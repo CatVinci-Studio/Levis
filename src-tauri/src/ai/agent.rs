@@ -3,12 +3,57 @@ use crate::ai::catalog;
 use crate::ai::route::{self, OpenaiAuth, NOT_CONFIGURED};
 use crate::ai::tools::{self, ToolContext};
 use crate::ai::workspace::{self, AgentWorkspace};
-use aicompat::agent::{run_agent_loop, AgentTurn};
+use aicompat::agent::{run_agent_loop, AgentTurn, ProviderEvent};
 use aicompat::providers::{
     anthropic, custom, openai_api_key, openai_codex, openai_responses_compatible,
 };
+use serde::Serialize;
 use std::path::Path;
+use tauri::ipc::Channel;
 use tauri::AppHandle;
+
+/// One live fragment of an in-flight `ai_agent_message`, pushed to the
+/// invoking window over a Tauri channel while the agent loop runs. Purely
+/// additive display data: the command still resolves with the complete turn
+/// list, which remains the authoritative result the frontend appends to its
+/// history - a dropped or ignored event costs liveness, never correctness.
+/// Mirrored by `StreamEvent` in src/ipc.ts - the two must stay in sync.
+#[derive(Clone, Serialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum StreamEvent {
+    /// A chunk of the assistant's prose for the turn being generated.
+    Delta { text: String },
+    /// The model opened a tool call; its arguments follow as ToolArgsDelta.
+    ToolStart { call_id: String, name: String },
+    /// A raw fragment of a tool call's JSON `arguments` string.
+    ToolArgsDelta { call_id: String, delta: String },
+    /// A completed intermediate turn (ToolCall/ToolResult) as it lands.
+    Turn { turn: AgentTurn },
+}
+
+/// Forwards a provider-level fragment onto the frontend channel. Send
+/// failures are ignored deliberately - a closed webview mid-request must
+/// not fail the agent loop, which still returns turns for the history.
+fn forward(channel: &Channel<StreamEvent>, event: ProviderEvent<'_>) {
+    let event = match event {
+        ProviderEvent::Text(text) => StreamEvent::Delta {
+            text: text.to_string(),
+        },
+        ProviderEvent::ToolStart { call_id, name } => StreamEvent::ToolStart {
+            call_id: call_id.to_string(),
+            name: name.to_string(),
+        },
+        ProviderEvent::ToolArgs { call_id, delta } => StreamEvent::ToolArgsDelta {
+            call_id: call_id.to_string(),
+            delta: delta.to_string(),
+        },
+    };
+    let _ = channel.send(event);
+}
 
 /// Skill loads, file reads, and web searches all consume steps, so a
 /// research-y request needs more headroom than the old chat-only loop did.
@@ -165,10 +210,11 @@ pub async fn ai_agent_message(
     web_search: bool,
     model: Option<String>,
     request_id: String,
+    on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let cancel_rx = cancel::register(request_id.clone());
     let result = tokio::select! {
-        result = ai_agent_message_inner(app, provider, document, doc_path, history, message, web_search, model) => result,
+        result = ai_agent_message_inner(app, provider, document, doc_path, history, message, web_search, model, on_event) => result,
         _ = cancel_rx => Err(cancel::CANCELLED.to_string()),
     };
     cancel::unregister(&request_id);
@@ -185,6 +231,7 @@ async fn ai_agent_message_inner(
     message: String,
     web_search: bool,
     model: Option<String>,
+    on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let workspace = workspace::load(&app, doc_path.as_deref());
     let entry = catalog::find(&provider).ok_or_else(|| format!("unknown provider: {provider}"))?;
@@ -218,7 +265,9 @@ async fn ai_agent_message_inner(
                         let access_token = access_token.clone();
                         let account_id = account_id.clone();
                         let agent_model = agent_model.clone();
+                        let channel = on_event.clone();
                         async move {
+                            let sink = move |e: ProviderEvent<'_>| forward(&channel, e);
                             openai_codex::agent_step(
                                 &access_token,
                                 &account_id,
@@ -228,13 +277,21 @@ async fn ai_agent_message_inner(
                                 &tool_specs,
                                 web_search,
                                 &agent_model,
+                                &sink,
                             )
                             .await
                         }
                     };
-                    run_agent_loop(history, message, MAX_STEPS, step, |name, arguments| {
-                        tools::execute(&tools, &tool_ctx, name, arguments)
-                    })
+                    run_agent_loop(
+                        history,
+                        message,
+                        MAX_STEPS,
+                        step,
+                        |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
+                        |turn| {
+                            let _ = on_event.send(StreamEvent::Turn { turn: turn.clone() });
+                        },
+                    )
                     .await
                 }
                 OpenaiAuth::ApiKey(api_key) => {
@@ -249,7 +306,9 @@ async fn ai_agent_message_inner(
                         let tool_specs = tool_specs.clone();
                         let api_key = api_key.clone();
                         let agent_model = agent_model.clone();
+                        let channel = on_event.clone();
                         async move {
+                            let sink = move |e: ProviderEvent<'_>| forward(&channel, e);
                             openai_api_key::agent_step(
                                 &api_key,
                                 &instructions,
@@ -257,13 +316,21 @@ async fn ai_agent_message_inner(
                                 &tool_specs,
                                 web_search,
                                 &agent_model,
+                                &sink,
                             )
                             .await
                         }
                     };
-                    run_agent_loop(history, message, MAX_STEPS, step, |name, arguments| {
-                        tools::execute(&tools, &tool_ctx, name, arguments)
-                    })
+                    run_agent_loop(
+                        history,
+                        message,
+                        MAX_STEPS,
+                        step,
+                        |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
+                        |turn| {
+                            let _ = on_event.send(StreamEvent::Turn { turn: turn.clone() });
+                        },
+                    )
                     .await
                 }
             }
@@ -291,7 +358,9 @@ async fn ai_agent_message_inner(
                 let tool_specs = tool_specs.clone();
                 let auth = auth.clone();
                 let agent_model = agent_model.clone();
+                let channel = on_event.clone();
                 async move {
+                    let sink = move |e: ProviderEvent<'_>| forward(&channel, e);
                     anthropic::agent_step(
                         &auth,
                         &instructions,
@@ -299,14 +368,22 @@ async fn ai_agent_message_inner(
                         &tool_specs,
                         web_search,
                         &agent_model,
+                        &sink,
                     )
                     .await
                 }
             };
 
-            run_agent_loop(history, message, MAX_STEPS, step, |name, arguments| {
-                tools::execute(&tools, &tool_ctx, name, arguments)
-            })
+            run_agent_loop(
+                history,
+                message,
+                MAX_STEPS,
+                step,
+                |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
+                |turn| {
+                    let _ = on_event.send(StreamEvent::Turn { turn: turn.clone() });
+                },
+            )
             .await
         }
         "openai-chat-completions" => {
@@ -352,6 +429,7 @@ async fn ai_agent_message_inner(
                 let endpoint_model = endpoint_model.clone();
                 let instructions = instructions_with_tools.clone();
                 let tool_specs = tool_specs.clone();
+                let channel = on_event.clone();
                 async move {
                     if use_responses_web_search {
                         return openai_responses_compatible::agent_step(
@@ -365,7 +443,14 @@ async fn ai_agent_message_inner(
                         )
                         .await;
                     }
-                    custom::agent_step(
+                    // `stream` support varies across OpenAI-compatible
+                    // servers even more than `tools` does, so a failed
+                    // streamed step is retried once without streaming
+                    // before the outer flattened fallback gets a say. A
+                    // genuine model/auth error just fails twice cheaply and
+                    // surfaces the second (identical) error.
+                    let sink = move |e: ProviderEvent<'_>| forward(&channel, e);
+                    match custom::agent_step_streaming(
                         &base_url,
                         api_key.as_deref(),
                         &endpoint_model,
@@ -373,8 +458,24 @@ async fn ai_agent_message_inner(
                         &turns,
                         &tool_specs,
                         native_web_search,
+                        &sink,
                     )
                     .await
+                    {
+                        Ok(result) => Ok(result),
+                        Err(_) => {
+                            custom::agent_step(
+                                &base_url,
+                                api_key.as_deref(),
+                                &endpoint_model,
+                                &instructions,
+                                &turns,
+                                &tool_specs,
+                                native_web_search,
+                            )
+                            .await
+                        }
+                    }
                 }
             };
 
@@ -390,6 +491,9 @@ async fn ai_agent_message_inner(
                 MAX_STEPS,
                 step,
                 |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
+                |turn| {
+                    let _ = on_event.send(StreamEvent::Turn { turn: turn.clone() });
+                },
             )
             .await
             {

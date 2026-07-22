@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AgentTurnView, type AgentTurnLabels } from "../AgentTurnView";
 import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
+import type { StreamingState } from "../useAgentConversation";
 import { parseProposal } from "./proposal";
 import { diffLines, isLongDiff } from "./line-diff";
 
@@ -25,6 +26,10 @@ export interface ChatMessagesLabels extends AgentTurnLabels {
 
 interface ChatMessagesProps {
   history: AgentTurn[];
+  /** Live view of the in-flight exchange (turns landed so far + assistant
+   *  prose being generated). Null when idle - and on providers without
+   *  streaming, where the reply still arrives all at once via `history`. */
+  streaming: StreamingState | null;
   busy: boolean;
   error: string | null;
   selectedText: string | null;
@@ -42,10 +47,11 @@ interface ChatMessagesProps {
 
 /**
  * The turn history: proposal cards, plain turns, and the busy/error states.
- * Newly arrived turns (everything from the index history had before the
- * last send) get a small staggered fade-in - the reply still lands all at
- * once (no token streaming), this just avoids it appearing as one flat
- * block.
+ * While a request runs, the streamed turns and the assistant prose being
+ * generated render live after the settled history; when the request
+ * resolves, the same turns re-enter via `history` at the same list indexes,
+ * so React keeps the DOM nodes and nothing flickers or re-animates. Newly
+ * arrived turns get a small staggered fade-in on top.
  *
  * The proposal card is the ONLY place an edit is accepted or rejected. The
  * document shows the same edit as red/green marks, but carries no controls of
@@ -54,6 +60,7 @@ interface ChatMessagesProps {
  */
 export function ChatMessages({
   history,
+  streaming,
   busy,
   error,
   selectedText,
@@ -72,10 +79,12 @@ export function ChatMessages({
     wasBusy.current = busy;
   }, [busy, history.length]);
 
+  const shown = streaming ? [...history, ...streaming.turns] : history;
+
   // propose_edit calls render as proposal cards; their paired tool results
   // are backend->model bookkeeping and would only add noise.
   const proposalCallIds = new Set(
-    history.flatMap((turn) =>
+    shown.flatMap((turn) =>
       turn.kind === "ToolCall" && turn.name === "propose_edit"
         ? [turn.call_id]
         : [],
@@ -84,7 +93,7 @@ export function ChatMessages({
 
   return (
     <>
-      {history.map((turn, i) => {
+      {shown.map((turn, i) => {
         const reveal = i >= revealFrom.current;
         // A CSS custom property, not a standard style key - CSSProperties
         // doesn't type these, hence the cast.
@@ -167,7 +176,15 @@ export function ChatMessages({
           </div>
         );
       })}
-      {busy && (
+      {streaming && streaming.text.length > 0 && (
+        <div className="turn-reveal">
+          <AgentTurnView
+            turn={{ kind: "Assistant", text: streaming.text }}
+            labels={labels}
+          />
+        </div>
+      )}
+      {busy && !streaming?.text && (
         <div className="agent-thinking">
           <span className="agent-thinking-label">{labels.thinking}</span>
           <span className="agent-thinking-dots">

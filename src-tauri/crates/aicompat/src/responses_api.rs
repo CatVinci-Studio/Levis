@@ -1,6 +1,7 @@
-use crate::agent::{AgentTurn, StepResult, ToolSpec};
+use crate::agent::{AgentTurn, EventSink, ProviderEvent, StepResult, ToolSpec};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 /// Shared request/response shapes for OpenAI's Responses API - both the
 /// Codex (chatgpt.com backend) and the plain public API key path send the
@@ -116,7 +117,9 @@ pub async fn extract_response_text(
 }
 
 /// Reads a `stream: true` Responses API SSE body and collects the completed
-/// output items.
+/// output items, reporting live fragments through `on_event` as they come
+/// off the wire (`http::read_sse`) - text via `response.output_text.delta`,
+/// tool calls via `response.output_item.added` + arguments deltas.
 ///
 /// The `response.completed` event's `response.output` is unreliable (often
 /// empty) on this backend, so instead this accumulates each
@@ -126,27 +129,58 @@ pub async fn extract_response_text(
 pub async fn read_streamed_output(
     res: reqwest::Response,
     provider_label: &str,
+    on_event: EventSink<'_>,
 ) -> Result<Vec<Value>, String> {
-    if !res.status().is_success() {
-        let status = res.status();
-        let text = res.text().await.unwrap_or_default();
-        return Err(format!(
-            "{provider_label} request failed ({status}): {text}"
-        ));
-    }
-
-    let body = res.text().await.map_err(|e| e.to_string())?;
     let mut output = Vec::new();
+    // A remote failure arrives as an event, not a transport error - noted
+    // here and surfaced after the read loop (read_sse's callback can't
+    // return early).
+    let mut failure: Option<String> = None;
+    // arguments-delta events carry the ITEM id, not the call_id the rest of
+    // the pipeline keys on - the mapping arrives on output_item.added.
+    let mut call_ids: HashMap<String, String> = HashMap::new();
 
-    for line in body.lines() {
-        let Some(data) = line.strip_prefix("data: ") else {
-            continue;
-        };
+    crate::http::read_sse(res, provider_label, |data| {
+        if failure.is_some() {
+            return;
+        }
         let Ok(event) = serde_json::from_str::<Value>(data) else {
-            continue;
+            return;
         };
 
         match event.get("type").and_then(|t| t.as_str()) {
+            Some("response.output_item.added") => {
+                let Some(item) = event.get("item") else { return };
+                if item.get("type").and_then(|t| t.as_str()) != Some("function_call") {
+                    return;
+                }
+                let call_id = item
+                    .get("call_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let name = item.get("name").and_then(|v| v.as_str()).unwrap_or_default();
+                if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                    call_ids.insert(id.to_string(), call_id.to_string());
+                }
+                on_event(ProviderEvent::ToolStart { call_id, name });
+            }
+            Some("response.output_text.delta") => {
+                if let Some(delta) = event.get("delta").and_then(|d| d.as_str()) {
+                    on_event(ProviderEvent::Text(delta));
+                }
+            }
+            Some("response.function_call_arguments.delta") => {
+                let Some(delta) = event.get("delta").and_then(|d| d.as_str()) else {
+                    return;
+                };
+                let item_id = event
+                    .get("item_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                if let Some(call_id) = call_ids.get(item_id) {
+                    on_event(ProviderEvent::ToolArgs { call_id, delta });
+                }
+            }
             Some("response.output_item.done") => {
                 if let Some(item) = event.get("item") {
                     output.push(item.clone());
@@ -157,13 +191,17 @@ pub async fn read_streamed_output(
                     .get("response")
                     .and_then(|r| r.get("error"))
                     .cloned()
-                    .unwrap_or(event);
-                return Err(format!("{provider_label} request failed: {error}"));
+                    .unwrap_or(event.clone());
+                failure = Some(format!("{provider_label} request failed: {error}"));
             }
             _ => {}
         }
-    }
+    })
+    .await?;
 
+    if let Some(failure) = failure {
+        return Err(failure);
+    }
     Ok(output)
 }
 

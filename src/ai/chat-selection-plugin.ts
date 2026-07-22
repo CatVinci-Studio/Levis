@@ -4,8 +4,7 @@ import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
 type ChatSelectionMeta =
-  | { type: "set"; from: number; to: number }
-  | { type: "clear" };
+  { type: "set"; from: number; to: number } | { type: "clear" };
 
 interface ChatSelectionState {
   range: { from: number; to: number } | null;
@@ -65,9 +64,9 @@ export const chatSelectionPlugin = $prose(
         init: () => EMPTY,
         apply(tr, prev, _old, state): ChatSelectionState {
           const meta = tr.getMeta(chatSelectionKey) as
-            | ChatSelectionMeta
-            | undefined;
-          if (meta?.type === "set") return highlighted(state, meta.from, meta.to);
+            ChatSelectionMeta | undefined;
+          if (meta?.type === "set")
+            return highlighted(state, meta.from, meta.to);
           if (meta?.type === "clear") return EMPTY;
           if (tr.docChanged && prev.range) {
             const from = tr.mapping.map(prev.range.from, 1);

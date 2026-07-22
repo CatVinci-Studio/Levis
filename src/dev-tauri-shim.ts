@@ -70,13 +70,35 @@ export function installDevTauriShim(): void {
       // mockReply) be smoke-tested in the browser; null here made
       // useAgentConversation's `[...prev, ...newTurns]` throw (newTurns not
       // iterable) and crash the whole tree, since there's no error boundary.
+      // The reply is also drip-fed through the onEvent channel first, so the
+      // streaming render path gets exercised without a real provider. In
+      // this shim, invoke() receives the raw args object, so onEvent is the
+      // live Channel instance and its onmessage handler is callable.
       if (cmd === "ai_agent_message") {
-        const message =
-          (args as unknown as { message?: string })?.message ?? "";
-        return Promise.resolve([
-          { kind: "User", text: message },
-          { kind: "Assistant", text: `Canned dev-shim reply to: ${message}` },
-        ]);
+        const { message = "", onEvent } =
+          (args as unknown as {
+            message?: string;
+            onEvent?: { onmessage?: (event: unknown) => void };
+          }) ?? {};
+        const reply = `Canned dev-shim reply to: ${message}`;
+        return new Promise((resolve) => {
+          let sent = 0;
+          const timer = setInterval(() => {
+            const next = Math.min(sent + 3, reply.length);
+            onEvent?.onmessage?.({
+              type: "delta",
+              text: reply.slice(sent, next),
+            });
+            sent = next;
+            if (sent >= reply.length) {
+              clearInterval(timer);
+              resolve([
+                { kind: "User", text: message },
+                { kind: "Assistant", text: reply },
+              ]);
+            }
+          }, 30);
+        });
       }
       return Promise.resolve(null);
     },

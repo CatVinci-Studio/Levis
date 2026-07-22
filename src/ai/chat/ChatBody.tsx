@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { AgentConversation } from "../useAgentConversation";
 import type { PendingStatus } from "../usePendingEdits";
 import type { AgentTurn, ChatAttachment, EditProposal } from "../types";
@@ -63,6 +63,18 @@ export interface ChatBodyProps {
  * case forwards the identical calls to the editor window over the bridge.
  * Neither path has its own copy of the apply logic.
  */
+/** The propose_edit tool calls in `turns`, parsed - what `onProposals`
+ *  consumers (usePendingEdits directly, or the detached-window bridge)
+ *  expect. Shared by the settled afterSend path and the live streamed-turn
+ *  path so the two can't drift. */
+function proposalsFromTurns(turns: AgentTurn[]) {
+  return turns.flatMap((turn) => {
+    if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
+    const proposal = parseProposal(turn.arguments);
+    return proposal ? [{ callId: turn.call_id, proposal }] : [];
+  });
+}
+
 export function ChatBody({
   document,
   selectedText,
@@ -83,15 +95,36 @@ export function ChatBody({
   fillHeight,
   onRevealPending,
 }: ChatBodyProps) {
-  const { history, busy, error, retryable, send, stop, retry } = conversation;
+  const { history, streaming, busy, error, retryable, send, stop, retry } =
+    conversation;
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Streamed turns become pending previews the moment they land, not when
+  // the whole exchange resolves - a propose_edit shows up in the document
+  // while the agent loop is still running. afterSend re-extracts the same
+  // proposals afterwards; showPreviews adds are idempotent per callId, so
+  // the second pass is a no-op for anything already shown here.
+  const streamedTurnCount = useRef(0);
+  useEffect(() => {
+    if (!streaming) {
+      streamedTurnCount.current = 0;
+      return;
+    }
+    const fresh = streaming.turns.slice(streamedTurnCount.current);
+    streamedTurnCount.current = streaming.turns.length;
+    const proposals = proposalsFromTurns(fresh);
+    if (proposals.length > 0) onProposals(proposals);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming?.turns]);
+
+  // Keep the newest streamed content in view while it grows.
+  useEffect(() => {
+    if (!streaming) return;
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+  }, [streaming]);
+
   function afterSend(newTurns: AgentTurn[] | undefined) {
-    const proposals = (newTurns ?? []).flatMap((turn) => {
-      if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
-      const proposal = parseProposal(turn.arguments);
-      return proposal ? [{ callId: turn.call_id, proposal }] : [];
-    });
+    const proposals = proposalsFromTurns(newTurns ?? []);
     if (proposals.length > 0) {
       onProposals(proposals);
       if (tutorialMock)
@@ -158,6 +191,7 @@ export function ChatBody({
         <div className="inline-chat-messages" ref={listRef}>
           <ChatMessages
             history={history}
+            streaming={streaming}
             busy={busy}
             error={error}
             selectedText={selectedText}

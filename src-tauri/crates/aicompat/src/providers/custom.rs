@@ -1,4 +1,4 @@
-use crate::agent::{AgentTurn, StepResult, ToolSpec};
+use crate::agent::{AgentTurn, EventSink, ProviderEvent, StepResult, ToolSpec};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -276,6 +276,167 @@ fn parse_agent_response(message: &Value) -> StepResult {
     )
 }
 
+/// One tool call under construction while a Chat Completions stream is
+/// being read - OpenAI-compatible servers send the id/name in the first
+/// fragment and the JSON arguments in pieces after it, all addressed by
+/// array index rather than id.
+#[derive(Default)]
+struct StreamToolCall {
+    id: String,
+    name: String,
+    args: String,
+    /// ToolStart is reported once, when both id and name have arrived.
+    started: bool,
+}
+
+/// Rebuilds the non-streaming `choices[0].message` result from Chat
+/// Completions SSE chunks, reporting fragments through `on_event` as they
+/// arrive. Separate from the HTTP read so the chunk bookkeeping is unit
+/// testable with plain JSON fixtures.
+#[derive(Default)]
+struct ChatStreamAccumulator {
+    text: String,
+    calls: Vec<StreamToolCall>,
+    error: Option<String>,
+}
+
+impl ChatStreamAccumulator {
+    fn apply(&mut self, data: &str, on_event: EventSink<'_>) {
+        if self.error.is_some() || data.trim() == "[DONE]" {
+            return;
+        }
+        let Ok(chunk) = serde_json::from_str::<Value>(data) else {
+            return;
+        };
+        // Mid-stream failures arrive as an `error` object in the data
+        // payload (the HTTP status was already 200 by the time they occur).
+        if let Some(error) = chunk.get("error") {
+            self.error = Some(format!("Custom endpoint request failed: {error}"));
+            return;
+        }
+        let Some(delta) = chunk
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|c| c.first())
+            .and_then(|c| c.get("delta"))
+        else {
+            return;
+        };
+
+        if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
+            if !text.is_empty() {
+                self.text.push_str(text);
+                on_event(ProviderEvent::Text(text));
+            }
+        }
+
+        for tc in delta
+            .get("tool_calls")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+        {
+            let index = tc
+                .get("index")
+                .and_then(|i| i.as_u64())
+                .map(|i| i as usize)
+                .unwrap_or(self.calls.len().saturating_sub(1));
+            while self.calls.len() <= index {
+                self.calls.push(StreamToolCall::default());
+            }
+            let call = &mut self.calls[index];
+            if let Some(id) = tc.get("id").and_then(|v| v.as_str()) {
+                call.id = id.to_string();
+            }
+            if let Some(name) = tc
+                .get("function")
+                .and_then(|f| f.get("name"))
+                .and_then(|v| v.as_str())
+            {
+                call.name = name.to_string();
+            }
+            if !call.started && !call.id.is_empty() && !call.name.is_empty() {
+                call.started = true;
+                on_event(ProviderEvent::ToolStart {
+                    call_id: &call.id,
+                    name: &call.name,
+                });
+            }
+            if let Some(part) = tc
+                .get("function")
+                .and_then(|f| f.get("arguments"))
+                .and_then(|v| v.as_str())
+            {
+                if !part.is_empty() {
+                    call.args.push_str(part);
+                    if call.started {
+                        on_event(ProviderEvent::ToolArgs {
+                            call_id: &call.id,
+                            delta: part,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    fn into_step_result(self) -> StepResult {
+        let calls: Vec<AgentTurn> = self
+            .calls
+            .into_iter()
+            .filter(|c| !c.id.is_empty() && !c.name.is_empty())
+            .map(|c| AgentTurn::ToolCall {
+                call_id: c.id,
+                name: c.name,
+                arguments: if c.args.is_empty() {
+                    "{}".to_string()
+                } else {
+                    c.args
+                },
+            })
+            .collect();
+        if !calls.is_empty() {
+            StepResult::ToolCalls(calls)
+        } else {
+            StepResult::Done(self.text)
+        }
+    }
+}
+
+/// The streaming twin of [`agent_step`]: same request plus `stream: true`,
+/// consumed incrementally so fragments surface through `on_event`. Kept
+/// separate rather than replacing agent_step because `stream` support
+/// varies across OpenAI-compatible servers even more than `tools` does -
+/// the caller falls back to the non-streaming step when this errors.
+#[allow(clippy::too_many_arguments)]
+pub async fn agent_step_streaming(
+    base_url: &str,
+    api_key: Option<&str>,
+    model: &str,
+    instructions: &str,
+    history: &[AgentTurn],
+    tools: &[ToolSpec],
+    web_search: Option<NativeWebSearch>,
+    on_event: EventSink<'_>,
+) -> Result<StepResult, String> {
+    let mut body = agent_request_body(model, instructions, history, tools, web_search);
+    body["stream"] = json!(true);
+
+    let client = crate::http::streaming_client();
+    let mut req = client.post(chat_completions_url(base_url)).json(&body);
+    if let Some(key) = api_key {
+        req = req.bearer_auth(key);
+    }
+    let res = req.send().await.map_err(|e| e.to_string())?;
+
+    let mut acc = ChatStreamAccumulator::default();
+    crate::http::read_sse(res, "Custom endpoint", |data| acc.apply(data, on_event)).await?;
+    if let Some(error) = acc.error {
+        return Err(error);
+    }
+    Ok(acc.into_step_result())
+}
+
 /// Runs one round-trip against a Chat Completions-compatible endpoint with
 /// tool definitions - the generic-dialect twin of `openai_codex::agent_step`.
 pub async fn agent_step(
@@ -400,6 +561,87 @@ mod tests {
             StepResult::Done(text) => assert_eq!(text, "plain answer"),
             StepResult::ToolCalls(_) => panic!("expected a final answer"),
         }
+    }
+
+    /// Feeds SSE data payloads through the accumulator, collecting the
+    /// events it reports as "T:text", "S:id:name", "A:id:delta" strings.
+    fn run_stream(chunks: &[&str]) -> (ChatStreamAccumulator, Vec<String>) {
+        let reported = std::sync::Mutex::new(Vec::new());
+        let sink = |e: ProviderEvent<'_>| {
+            reported.lock().unwrap().push(match e {
+                ProviderEvent::Text(t) => format!("T:{t}"),
+                ProviderEvent::ToolStart { call_id, name } => format!("S:{call_id}:{name}"),
+                ProviderEvent::ToolArgs { call_id, delta } => format!("A:{call_id}:{delta}"),
+            });
+        };
+        let mut acc = ChatStreamAccumulator::default();
+        for chunk in chunks {
+            acc.apply(chunk, &sink);
+        }
+        let reported = reported.into_inner().unwrap();
+        (acc, reported)
+    }
+
+    #[test]
+    fn chat_stream_accumulates_text_deltas() {
+        let (acc, events) = run_stream(&[
+            r#"{"choices":[{"delta":{"role":"assistant"}}]}"#,
+            r#"{"choices":[{"delta":{"content":"Hel"}}]}"#,
+            r#"{"choices":[{"delta":{"content":"lo"}}]}"#,
+            r#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#,
+            "[DONE]",
+        ]);
+        assert_eq!(events, vec!["T:Hel", "T:lo"]);
+        match acc.into_step_result() {
+            StepResult::Done(text) => assert_eq!(text, "Hello"),
+            StepResult::ToolCalls(_) => panic!("expected a final answer"),
+        }
+    }
+
+    #[test]
+    fn chat_stream_assembles_tool_calls_from_indexed_fragments() {
+        let (acc, events) = run_stream(&[
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"propose_edit","arguments":""}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"action\":"}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"append\"}"}}]}}]}"#,
+            r#"{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}"#,
+            "[DONE]",
+        ]);
+        assert_eq!(
+            events,
+            vec![
+                "S:c1:propose_edit",
+                "A:c1:{\"action\":",
+                "A:c1:\"append\"}",
+            ]
+        );
+        match acc.into_step_result() {
+            StepResult::ToolCalls(calls) => {
+                let AgentTurn::ToolCall {
+                    call_id,
+                    name,
+                    arguments,
+                } = &calls[0]
+                else {
+                    panic!("expected a ToolCall turn");
+                };
+                assert_eq!(call_id, "c1");
+                assert_eq!(name, "propose_edit");
+                assert_eq!(arguments, "{\"action\":\"append\"}");
+            }
+            StepResult::Done(_) => panic!("expected tool calls"),
+        }
+    }
+
+    #[test]
+    fn chat_stream_surfaces_mid_stream_errors() {
+        let (acc, events) = run_stream(&[
+            r#"{"choices":[{"delta":{"content":"par"}}]}"#,
+            r#"{"error":{"message":"rate limited","code":429}}"#,
+            r#"{"choices":[{"delta":{"content":"tial, ignored"}}]}"#,
+        ]);
+        assert_eq!(events, vec!["T:par"]);
+        assert!(acc.error.as_deref().unwrap().contains("rate limited"));
     }
 
     #[test]

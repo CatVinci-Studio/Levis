@@ -1,4 +1,4 @@
-use crate::agent::{AgentTurn, StepResult, ToolSpec};
+use crate::agent::{AgentTurn, EventSink, StepResult, ToolSpec};
 use crate::pkce::{decode_base64url, generate_pkce, generate_state, now_ms};
 use crate::responses_api::{
     self, read_streamed_output, text_from_streamed_output, ResponsesRequest,
@@ -141,7 +141,7 @@ pub async fn call_completion(
     let body = ResponsesRequest::new(model.unwrap_or(COMPLETION_MODEL), instructions, user_text)
         .streaming();
 
-    let client = crate::http::client();
+    let client = crate::http::streaming_client();
     let res = client
         .post(CODEX_RESPONSES_URL)
         .bearer_auth(access_token)
@@ -153,7 +153,7 @@ pub async fn call_completion(
         .await
         .map_err(|e| e.to_string())?;
 
-    let output = read_streamed_output(res, "Codex").await?;
+    let output = read_streamed_output(res, "Codex", &|_| {}).await?;
     Ok(text_from_streamed_output(&output))
 }
 
@@ -176,12 +176,13 @@ pub async fn agent_step(
     tools: &[ToolSpec],
     web_search: bool,
     model: &str,
+    on_event: EventSink<'_>,
 ) -> Result<StepResult, String> {
     // The ChatGPT backend only serves SSE (streaming: true is mandatory).
     let body =
         responses_api::agent_request_body(model, instructions, history, tools, web_search, true);
 
-    let client = crate::http::client();
+    let client = crate::http::streaming_client();
     let res = client
         .post(CODEX_RESPONSES_URL)
         .bearer_auth(access_token)
@@ -193,6 +194,6 @@ pub async fn agent_step(
         .await
         .map_err(|e| e.to_string())?;
 
-    let output = read_streamed_output(res, "Codex").await?;
+    let output = read_streamed_output(res, "Codex", on_event).await?;
     Ok(responses_api::parse_agent_output(&output))
 }

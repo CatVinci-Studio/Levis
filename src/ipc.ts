@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { ChatHandoff, ChatHandoffState } from "./ai/chat/chat-bridge";
 import type { DetachedTabDoc, HelpDoc } from "./doc-tabs";
 import type { DirEntryInfo } from "./sidebar/types";
@@ -249,6 +249,17 @@ export const auth = {
 /// real failure, so callers should treat it differently from other errors.
 export const AI_CANCELLED = "cancelled";
 
+/** One live fragment of an in-flight ai_agent_message, delivered over a
+ *  Tauri channel while the agent loop runs. Purely additive display data -
+ *  the command still resolves with the complete turn list, which stays the
+ *  authoritative result. Mirrors `StreamEvent` in src-tauri/src/ai/agent.rs;
+ *  the two must stay in sync. */
+export type StreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "toolStart"; callId: string; name: string }
+  | { type: "toolArgsDelta"; callId: string; delta: string }
+  | { type: "turn"; turn: AgentTurn };
+
 export const ai = {
   listProviders: () => call<ProviderCatalogEntry[]>("list_providers"),
   fetchAgentModels: (provider: string) =>
@@ -273,7 +284,10 @@ export const ai = {
       strictness,
       model,
     }),
-  agentMessage: (args: {
+  agentMessage: ({
+    onEvent,
+    ...args
+  }: {
     provider: string;
     document: string;
     docPath: string | null;
@@ -282,7 +296,16 @@ export const ai = {
     webSearch: boolean;
     model: string | null;
     requestId: string;
-  }) => call<AgentTurn[]>("ai_agent_message", args),
+    /** Live fragments while the request runs - see StreamEvent. */
+    onEvent?: (event: StreamEvent) => void;
+  }) => {
+    const channel = new Channel<StreamEvent>();
+    if (onEvent) channel.onmessage = onEvent;
+    return call<AgentTurn[]>("ai_agent_message", {
+      ...args,
+      onEvent: channel,
+    });
+  },
   cancelAgentMessage: (requestId: string) =>
     call<void>("ai_cancel", { requestId }),
 
