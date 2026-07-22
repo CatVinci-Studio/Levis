@@ -74,7 +74,14 @@ function textWidget(pos: number, side: -1 | 1, text: string) {
  */
 function decorationsFor(p: PendingPreview): Decoration[] {
   const decos: Decoration[] = [];
-  if (p.from < p.to) {
+  // Only actions that actually remove text get the strikethrough; an
+  // insert_before/insert_after keeps the anchor blocks verbatim, so striking
+  // them through would wrongly read as "this is being deleted".
+  const removesText =
+    p.proposal.action === "replace" ||
+    p.proposal.action === "replace_selection" ||
+    p.proposal.action === "delete";
+  if (p.from < p.to && removesText) {
     decos.push(Decoration.inline(p.from, p.to, { class: "pending-delete" }));
   }
   const text = p.proposal.text;
