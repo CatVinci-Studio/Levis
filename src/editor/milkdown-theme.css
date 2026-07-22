@@ -87,6 +87,32 @@
   padding: 0 2px;
   white-space: pre-wrap;
   user-select: none;
+  animation: pending-insert-fade 0.25s ease-out;
+}
+
+@keyframes pending-insert-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* While the typewriter is still revealing text (pending-edit-plugin's
+   animation queue), a blinking caret marks the growth point - same
+   blink cadence as the ghost-text caret above. */
+.pending-insert-typing::after {
+  content: "\200b";
+  border-left: 1.5px solid rgba(22, 163, 74, 0.9);
+  margin-left: 1px;
+  animation: ghost-caret-blink 1.1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-insert {
+    animation: none;
+  }
 }
 
 /* The selection the inline chat was opened over (chat-selection-plugin.ts).

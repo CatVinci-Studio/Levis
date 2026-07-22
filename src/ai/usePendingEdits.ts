@@ -55,7 +55,14 @@ export function usePendingEdits(run: EditorRunner) {
 
   const showPreviews = useCallback(
     (
-      proposals: { callId: string; proposal: EditProposal }[],
+      // `streaming` marks a proposal whose arguments are still arriving -
+      // placed early so the text can grow in the document, un-acceptable
+      // until the final add for the same callId lands without the flag.
+      proposals: {
+        callId: string;
+        proposal: EditProposal;
+        streaming?: boolean;
+      }[],
       chatInfo: InlineChatInfo | null,
     ) => {
       run((ctx) => {
@@ -67,7 +74,7 @@ export function usePendingEdits(run: EditorRunner) {
         const resolved: PendingPreview[] = [];
         const invalidIds: string[] = [];
 
-        for (const { callId, proposal } of proposals) {
+        for (const { callId, proposal, streaming } of proposals) {
           let range: { from: number; to: number } | null = null;
           let replacement = proposal.text ?? "";
 
@@ -106,7 +113,10 @@ export function usePendingEdits(run: EditorRunner) {
           }
 
           if (!range) {
-            invalidIds.push(callId);
+            // A still-streaming draft that doesn't resolve just isn't shown
+            // yet - the final proposal gets the real verdict; only IT may
+            // mark the call invalid.
+            if (!streaming) invalidIds.push(callId);
             continue;
           }
           resolved.push({
@@ -116,6 +126,7 @@ export function usePendingEdits(run: EditorRunner) {
             to: range.to,
             expectedText: state.doc.textBetween(range.from, range.to, " "),
             replacement,
+            streaming,
           });
         }
 
@@ -142,6 +153,7 @@ export function usePendingEdits(run: EditorRunner) {
   const accept = useCallback(
     (callId: string): boolean => {
       let ok = false;
+      let stillStreaming = false;
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
@@ -149,6 +161,14 @@ export function usePendingEdits(run: EditorRunner) {
           (p) => p.callId === callId,
         );
         if (!preview) return;
+        // The arguments are still streaming in: `replacement` is incomplete,
+        // so applying now would write a half-generated edit. Not a failure -
+        // the status stays pending and the button works once the final add
+        // (same callId, no flag) lands moments later.
+        if (preview.streaming) {
+          stillStreaming = true;
+          return;
+        }
         // Defensive re-check mirroring the plugin's own staleness rule -
         // not expected to fire (the plugin already drops previews whose
         // mapped text changed), but a silent no-op here would be worse.
@@ -173,6 +193,7 @@ export function usePendingEdits(run: EditorRunner) {
         view.focus();
         ok = true;
       });
+      if (stillStreaming) return false;
       setStatuses((prev) => ({
         ...prev,
         [callId]: ok ? "accepted" : "invalid",

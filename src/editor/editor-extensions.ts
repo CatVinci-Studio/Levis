@@ -202,7 +202,12 @@ export function withEditorExtensions(
           strictness: () => settings.current.grammarStrictness,
         }),
       )
-      .use(createPendingEditPlugin(pendingEdits))
+      .use(
+        createPendingEditPlugin({
+          ...pendingEdits,
+          animationEnabled: () => settings.current.enableEditAnimation,
+        }),
+      )
       .use(chatSelectionPlugin)
   );
 }

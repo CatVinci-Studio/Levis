@@ -27,6 +27,116 @@ export interface PendingPreview {
   expectedText: string;
   /** Markdown `[from, to)` becomes on accept, composed in markdown space. */
   replacement: string;
+  /** True while the propose_edit call is still streaming its arguments -
+   *  the preview was placed early so the text can grow in the document, but
+   *  `replacement` is incomplete, so accept must refuse until the final
+   *  (non-streaming) add for the same callId replaces this one. */
+  streaming?: boolean;
+}
+
+// --- Typewriter reveal for the green pending-insert widget --------------
+//
+// The animation state lives OUTSIDE the widget DOM, keyed by callId,
+// because the two have different lifetimes in both directions: streamed
+// text arrives before the widget exists (the plugin add that creates it is
+// dispatched in the same tick), and the widget DOM survives decoration
+// rebuilds (via the widget `key`) including the final add that replaces a
+// streaming preview - whose toDOM is then never called.
+
+interface InsertAnimation {
+  /** Full text known so far - grows while the proposal streams. */
+  target: string;
+  /** How many chars of `target` are currently revealed. */
+  shown: number;
+  /** False while more streamed text may still arrive (keeps the caret). */
+  done: boolean;
+  span: HTMLSpanElement | null;
+  timer: number | null;
+}
+
+const animations = new Map<string, InsertAnimation>();
+
+const TICK_MS = 30;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function stopTimer(anim: InsertAnimation) {
+  if (anim.timer !== null) {
+    window.clearInterval(anim.timer);
+    anim.timer = null;
+  }
+}
+
+function renderAnimation(anim: InsertAnimation) {
+  if (!anim.span) return;
+  anim.span.textContent = anim.target.slice(0, anim.shown);
+  anim.span.classList.toggle(
+    "pending-insert-typing",
+    anim.shown < anim.target.length || !anim.done,
+  );
+}
+
+/** Reveals a couple of chars per tick, catching up faster the further
+ *  behind the target it is - so the pace follows real token arrival while
+ *  still reading as steady typing. */
+function ensureTicking(anim: InsertAnimation) {
+  if (anim.timer !== null || anim.span === null) return;
+  if (anim.shown >= anim.target.length) {
+    renderAnimation(anim);
+    return;
+  }
+  anim.timer = window.setInterval(() => {
+    const remaining = anim.target.length - anim.shown;
+    if (remaining > 0) {
+      anim.shown = Math.min(
+        anim.target.length,
+        anim.shown + Math.max(2, Math.ceil(remaining / 15)),
+      );
+    }
+    renderAnimation(anim);
+    if (anim.shown >= anim.target.length && anim.done) stopTimer(anim);
+  }, TICK_MS);
+}
+
+function dropAnimation(callId: string) {
+  const anim = animations.get(callId);
+  if (!anim) return;
+  stopTimer(anim);
+  animations.delete(callId);
+}
+
+/**
+ * Feeds streamed propose_edit text into the callId's green widget - called
+ * by the editor (MilkdownEditor's stream-event handler) as `text` argument
+ * fragments arrive, and once more with `done` when the call completes. The
+ * widget picks the state up whenever it's created relative to this.
+ */
+export function streamPendingInsertText(
+  callId: string,
+  text: string,
+  done: boolean,
+) {
+  const existing = animations.get(callId);
+  if (!existing) {
+    animations.set(callId, {
+      target: text,
+      shown: 0,
+      done,
+      span: null,
+      timer: null,
+    });
+    return;
+  }
+  existing.target = text;
+  existing.shown = Math.min(existing.shown, text.length);
+  if (done) existing.done = true;
+  ensureTicking(existing);
+  renderAnimation(existing);
 }
 
 type PendingMeta =
@@ -45,17 +155,58 @@ export function hasPendingEdits(state: EditorState): boolean {
   return (pendingEditKey.getState(state)?.previews.length ?? 0) > 0;
 }
 
-function textWidget(pos: number, side: -1 | 1, text: string) {
+function textWidget(
+  p: PendingPreview,
+  pos: number,
+  side: -1 | 1,
+  animate: boolean,
+) {
   return Decoration.widget(
     pos,
     () => {
       const span = document.createElement("span");
       span.className = "pending-insert";
-      span.textContent = text;
       span.contentEditable = "false";
+      const text = p.proposal.text ?? "";
+      if (!animate || prefersReducedMotion()) {
+        span.textContent = text;
+        return span;
+      }
+      let anim = animations.get(p.callId);
+      if (!anim) {
+        anim = {
+          target: text,
+          shown: 0,
+          done: !p.streaming,
+          span: null,
+          timer: null,
+        };
+        animations.set(p.callId, anim);
+      } else {
+        // The final proposal's text wins over whatever partial state the
+        // stream left behind; a shorter re-add never truncates the target.
+        if (text.length > anim.target.length) anim.target = text;
+        if (!p.streaming) anim.done = true;
+      }
+      anim.span = span;
+      renderAnimation(anim);
+      ensureTicking(anim);
       return span;
     },
-    { side },
+    {
+      side,
+      // Decorations are rebuilt wholesale on every docChanged; the key
+      // makes ProseMirror keep the DOM node across rebuilds, so the
+      // typewriter isn't restarted by unrelated keystrokes.
+      key: `pending-insert-${p.callId}`,
+      destroy: (node) => {
+        const anim = animations.get(p.callId);
+        if (anim && anim.span === node) {
+          anim.span = null;
+          stopTimer(anim);
+        }
+      },
+    },
   );
 }
 
@@ -72,7 +223,7 @@ function textWidget(pos: number, side: -1 | 1, text: string) {
  * lives in the chat card; in the document these marks only say "this region
  * is changing".
  */
-function decorationsFor(p: PendingPreview): Decoration[] {
+function decorationsFor(p: PendingPreview, animate: boolean): Decoration[] {
   const decos: Decoration[] = [];
   // Only actions that actually remove text get the strikethrough; an
   // insert_before/insert_after keeps the anchor blocks verbatim, so striking
@@ -87,7 +238,9 @@ function decorationsFor(p: PendingPreview): Decoration[] {
   const text = p.proposal.text;
   if (text !== undefined && p.proposal.action !== "delete") {
     const atStart = p.proposal.action === "insert_before";
-    decos.push(textWidget(atStart ? p.from : p.to, atStart ? -1 : 1, text));
+    decos.push(
+      textWidget(p, atStart ? p.from : p.to, atStart ? -1 : 1, animate),
+    );
   }
   return decos;
 }
@@ -95,10 +248,11 @@ function decorationsFor(p: PendingPreview): Decoration[] {
 function buildDecorations(
   doc: ProseNode,
   previews: PendingPreview[],
+  animate: boolean,
 ): DecorationSet {
   return DecorationSet.create(
     doc,
-    previews.flatMap((p) => decorationsFor(p)),
+    previews.flatMap((p) => decorationsFor(p, animate)),
   );
 }
 
@@ -127,7 +281,20 @@ export function createPendingEditPlugin(options: {
    *  in-document accept/reject controls and the chat panel's proposal
    *  status chips. */
   onPreviewsChange?: (previews: PendingPreview[]) => void;
+  /** Whether the green widget types its text in (Settings toggle, read live
+   *  per decoration build). Off, or unset: the text appears at once. */
+  animationEnabled?: () => boolean;
 }) {
+  const animate = () => options.animationEnabled?.() ?? false;
+  /** Whatever left the preview list takes its typewriter state with it. */
+  const dropRemovedAnimations = (
+    prev: PendingPreview[],
+    next: PendingPreview[],
+  ) => {
+    for (const p of prev) {
+      if (!next.some((n) => n.callId === p.callId)) dropAnimation(p.callId);
+    }
+  };
   return $prose(
     () =>
       new Plugin<PendingState>({
@@ -146,19 +313,21 @@ export function createPendingEditPlugin(options: {
               const previews = [...keep, ...meta.previews];
               return {
                 previews,
-                decoration: buildDecorations(tr.doc, previews),
+                decoration: buildDecorations(tr.doc, previews, animate()),
               };
             }
             if (meta?.type === "remove") {
               const previews = prev.previews.filter(
                 (p) => p.callId !== meta.callId,
               );
+              dropRemovedAnimations(prev.previews, previews);
               return {
                 previews,
-                decoration: buildDecorations(tr.doc, previews),
+                decoration: buildDecorations(tr.doc, previews, animate()),
               };
             }
             if (meta?.type === "clear") {
+              dropRemovedAnimations(prev.previews, []);
               return prev.previews.length === 0
                 ? prev
                 : { previews: [], decoration: DecorationSet.empty };
@@ -173,9 +342,10 @@ export function createPendingEditPlugin(options: {
                   continue;
                 survivors.push({ ...p, from, to });
               }
+              dropRemovedAnimations(prev.previews, survivors);
               return {
                 previews: survivors,
-                decoration: buildDecorations(tr.doc, survivors),
+                decoration: buildDecorations(tr.doc, survivors, animate()),
               };
             }
             return prev;

@@ -60,6 +60,10 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { usePendingEdits } from "../ai/usePendingEdits";
+import { streamPendingInsertText } from "../ai/pending-edit-plugin";
+import { draftProposal } from "../ai/chat/partial-tool-args";
+import { parseProposal } from "../ai/chat/proposal";
+import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
 import { useLatest } from "../utils/useLatest";
@@ -200,6 +204,64 @@ export function MilkdownEditor({
       onPreviewsChange: pendingEdits.syncFromPlugin,
     };
   }, [pendingEdits.accept, pendingEdits.reject, pendingEdits.syncFromPlugin]);
+  // A streaming propose_edit grows its green preview in the document while
+  // the model is still writing it: argument fragments accumulate here, the
+  // preview is placed as soon as the action+anchor are complete
+  // (partial-tool-args), and the text after that goes straight into the
+  // widget's typewriter (streamPendingInsertText). The final ToolCall turn
+  // then delivers the authoritative proposal (ChatBody re-shows it without
+  // the streaming flag). Gated on the animation setting: off means previews
+  // appear complete, at once.
+  const streamedProposals = useRef(
+    new Map<string, { args: string; placed: boolean }>(),
+  );
+  const handleStreamEvent = useCallback(
+    (event: StreamEvent) => {
+      if (!settingsRef.current.enableEditAnimation) return;
+      const drafts = streamedProposals.current;
+      if (event.type === "toolStart") {
+        if (event.name === "propose_edit")
+          drafts.set(event.callId, { args: "", placed: false });
+      } else if (event.type === "toolArgsDelta") {
+        const draft = drafts.get(event.callId);
+        if (!draft) return;
+        draft.args += event.delta;
+        const parsed = draftProposal(draft.args);
+        if (!parsed) return;
+        if (!draft.placed) {
+          draft.placed = true;
+          pendingEdits.showPreviews(
+            [
+              {
+                callId: event.callId,
+                proposal: parsed.proposal,
+                streaming: true,
+              },
+            ],
+            inlineChat.chatInfoRef.current,
+          );
+        }
+        streamPendingInsertText(
+          event.callId,
+          parsed.proposal.text ?? "",
+          false,
+        );
+      } else if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolCall" &&
+        event.turn.name === "propose_edit"
+      ) {
+        drafts.delete(event.turn.call_id);
+        const proposal = parseProposal(event.turn.arguments);
+        if (proposal?.text !== undefined)
+          streamPendingInsertText(event.turn.call_id, proposal.text, true);
+      }
+    },
+    // settingsRef/chatInfoRef are stable refs; showPreviews is stable per
+    // editor (useCallback on `run`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingEdits.showPreviews],
+  );
   // Owned here rather than by the popup so a completed exchange can be saved
   // to history when the popup closes. Every ordinary NEW open resets it;
   // sidebar history restoration is the one path that deliberately resumes.
@@ -210,7 +272,20 @@ export function MilkdownEditor({
     settings.enableWebSearch,
     agentModel,
     tutorialMock ? createTutorialMockAgent(t) : null,
+    handleStreamEvent,
   );
+  // A send that ended without its propose_edit calls completing (stopped
+  // mid-stream, or the request failed) must not leave a half-written,
+  // un-acceptable preview in the document.
+  useEffect(() => {
+    if (conversation.busy) return;
+    const drafts = streamedProposals.current;
+    for (const [callId, draft] of drafts) {
+      if (draft.placed) pendingEdits.reject(callId);
+    }
+    drafts.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.busy, pendingEdits.reject]);
   // Proposals always resolve HERE, whether the chat that produced them is
   // the embedded popup or a detached window - one implementation of the
   // anchor/apply logic, addressed two ways (see chat-bridge.ts).

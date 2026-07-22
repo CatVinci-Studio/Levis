@@ -281,6 +281,14 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                         checked={settings.enableWebSearch}
                         onChange={(v) => setSettings({ enableWebSearch: v })}
                       />
+                      <ToggleRow
+                        label={t.editAnimationLabel}
+                        hint={t.editAnimationHint}
+                        checked={settings.enableEditAnimation}
+                        onChange={(v) =>
+                          setSettings({ enableEditAnimation: v })
+                        }
+                      />
                       <AgentWorkspaceSection t={t} />
                       <AgentSystemPromptSection
                         t={t}

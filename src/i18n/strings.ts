@@ -35,6 +35,9 @@ export const strings = {
     webSearchLabel:
       "Enable web search (available only when the API supports it)",
     webSearchHint: "Lets the Agent search the web when needed.",
+    editAnimationLabel: "Animate edit previews",
+    editAnimationHint:
+      "Types an agent edit's green preview into the document as it streams in; off, it appears all at once.",
     agentWorkspaceLabel: "Agent Workspace",
     agentWorkspaceHint:
       "The agent is configured with plain files: a global folder applies to every document, and a .levis/ folder next to a document applies to that folder only. See Help > AI Agent Guide.",
@@ -407,6 +410,9 @@ export const strings = {
     completionTone_concise: "简洁",
     webSearchLabel: "开启联网搜索（仅当 API 支持时可用）",
     webSearchHint: "允许 Agent 在需要时搜索网页。",
+    editAnimationLabel: "编辑预览动画",
+    editAnimationHint:
+      "Agent 编辑的绿色预览随生成逐字打入文档；关闭后整块一次性出现。",
     agentWorkspaceLabel: "Agent 工作区",
     agentWorkspaceHint:
       "Agent 通过纯文件定制：全局文件夹对所有文档生效，文档旁的 .levis/ 文件夹只对该文件夹生效。详见 帮助 > AI Agent 指南。",
@@ -764,6 +770,9 @@ export const strings = {
     completionTone_concise: "簡潔",
     webSearchLabel: "Web検索を有効にする（APIが対応している場合のみ利用可能）",
     webSearchHint: "必要に応じてAgentがWebを検索できるようにします。",
+    editAnimationLabel: "編集プレビューのアニメーション",
+    editAnimationHint:
+      "Agent編集の緑色プレビューを生成に合わせて文書にタイプ表示します。オフの場合は一括で表示されます。",
     agentWorkspaceLabel: "Agentワークスペース",
     agentWorkspaceHint:
       "Agentはプレーンなファイルで構成されます:グローバルフォルダはすべてのドキュメントに適用され、ドキュメント脇の .levis/ フォルダはそのフォルダにのみ適用されます。詳しくは ヘルプ > AI Agentガイド を参照してください。",

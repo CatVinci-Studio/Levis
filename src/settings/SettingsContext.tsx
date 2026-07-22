@@ -111,6 +111,9 @@ export interface Settings {
   /// Offer the active provider's native server-side web search to Agent;
   /// providers without a compatible search API safely ignore it.
   enableWebSearch: boolean;
+  /// Whether an agent edit's green in-document preview streams/types itself
+  /// in (pending-edit-plugin's typewriter) or appears complete at once.
+  enableEditAnimation: boolean;
   /// Proxy all AI provider requests route through, as type + host + port
   /// ("none" or an empty host means direct connection). Mirrored to Rust as
   /// a URL (see the effect below) because requests are sent from Rust, which
@@ -166,6 +169,7 @@ const DEFAULT_SETTINGS: Settings = {
   agentModels: {},
   completionTone: "default",
   enableWebSearch: false,
+  enableEditAnimation: true,
   proxyType: "none",
   proxyHost: "",
   proxyPort: "",
