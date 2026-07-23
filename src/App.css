@@ -760,17 +760,40 @@ body {
   opacity: 1 !important;
 }
 
-/* Menu > File > Export as PDF just calls window.print() (App.tsx's
-   menu-export-pdf listener) - WKWebView's system print panel already has
-   "Save as PDF" built in, so this only needs to hide everything but the
-   document content and let it flow across pages instead of scrolling. */
+/* Menu > File > Export as PDF (see export-doc.ts's exportPdf) drives the
+   system print panel's "Save as PDF" after a themed-render pass. These rules
+   pin the current editor theme onto the printed page and hide app chrome, so
+   the PDF matches what's on screen. */
 @media print {
+  /* Without this the print engine drops every background colour, flattening
+     the editor theme (code blocks, quotes, the dark-mode page) to white. */
+  :root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Zero the sheet margin and inset the content instead, so the theme's page
+     background (--editor-bg) fills the whole page edge-to-edge - matters most
+     for dark themes, which the user asked to keep faithful. */
+  @page {
+    margin: 0;
+  }
+
+  html,
+  body,
+  .app-shell,
+  .main-pane,
+  .editor-scroll {
+    background: var(--editor-bg, var(--bg)) !important;
+  }
+
   .sidebar,
   .titlebar-drag-region,
   .tab-bar,
   .floating-toolbar,
   .close-prompt-overlay,
-  .update-toast {
+  .update-toast,
+  .pdf-export-overlay {
     display: none !important;
   }
 
@@ -789,10 +812,64 @@ body {
     overflow: visible;
   }
 
-  /* Typewriter mode's huge vertical padding (centering the cursor line) is
+  /* Page margins live here (not @page) so the theme background bleeds to the
+     sheet edge. Typewriter mode's huge centering padding is dropped - it's
      meaningless on a printed page and would waste most of it. */
   .editor-content,
   .editor-content.typewriter-active {
-    padding: 0;
+    padding: 16mm 18mm;
   }
+}
+
+/* "Preparing PDF…" overlay shown by exportPdf while the document renders,
+   before the system print panel opens. Hidden from the print output above. */
+.pdf-export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.pdf-export-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.75rem 2.25rem;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--editor-text);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.pdf-export-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--editor-border);
+  border-top-color: var(--editor-accent);
+  animation: pdf-export-spin 0.7s linear infinite;
+}
+
+@keyframes pdf-export-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pdf-export-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pdf-export-hint {
+  font-size: 0.8rem;
+  color: var(--editor-muted);
+  max-width: 22ch;
 }

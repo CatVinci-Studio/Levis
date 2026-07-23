@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { exportHtml, exportViaPandoc } from "./export-doc";
+import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
 import type { DocTab, HelpDoc } from "./doc-tabs";
 import type { Strings } from "./i18n/strings";
@@ -70,11 +70,14 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
       "menu-save-file-as",
       () => void saveTabAs(activeTabId),
     );
-    // Hands off to the system print panel (WKWebView on macOS supports
-    // window.print() natively), which has "Save as PDF" built in - no PDF
-    // rendering of our own needed. .printable-content in App.css hides
-    // everything but the editor content while the panel is open.
-    const unlistenExportPdf = listen("menu-export-pdf", () => window.print());
+    // Dedicated PDF export: shows a progress overlay and waits for the
+    // document to finish rendering, then hands off to the system print panel
+    // (WKWebView's "Save as PDF"). App.css's @media print rules carry the
+    // current editor theme onto the printed page. See exportPdf in export-doc.
+    const unlistenExportPdf = listen("menu-export-pdf", () => {
+      const tab = activeTabNow();
+      if (tab) void exportPdf(tab, t);
+    });
     const unlistenExportHtml = listen("menu-export-html", () => {
       const tab = activeTabNow();
       if (tab) void exportHtml(tab, t);

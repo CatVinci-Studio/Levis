@@ -5,9 +5,8 @@ import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
 
 // File > Export implementations (HTML serializes the live editor DOM;
-// everything else converts through a user-installed pandoc). PDF isn't here:
-// it's just window.print() via the system print panel (see App.tsx's
-// menu-export-pdf listener).
+// everything else converts through a user-installed pandoc; PDF drives the
+// system print panel after a themed-render pass - see exportPdf below).
 
 // Keys are pandoc writer names, matching the export menu ids Rust builds in
 // menu.rs (EXPORT_PANDOC_PREFIX) - the two lists must stay in step.
@@ -36,6 +35,80 @@ function exportBaseName(tab: DocTab, t: Strings): string {
   return tab.path
     ? basename(tab.path).replace(/\.[^.]+$/, "")
     : tabTitle(tab, t);
+}
+
+// --- PDF export -----------------------------------------------------------
+//
+// PDF hands off to the system print panel (WKWebView's "Save as PDF"), but
+// unlike a bare window.print() this first shows a progress overlay and waits
+// for the document to finish rendering, so large docs (many images, mermaid
+// diagrams, KaTeX) don't hit the panel half-painted. The print output itself
+// is the live editor DOM under App.css's @media print rules, which pin the
+// current editor theme (--editor-* colors, backgrounds) onto the page.
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+// Injects the "Preparing PDF…" overlay. It carries .pdf-export-overlay, which
+// App.css's @media print hides, so it never bleeds into the printed page even
+// though it's still mounted when window.print() fires.
+function showPdfOverlay(t: Strings): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "pdf-export-overlay";
+  el.innerHTML = `<div class="pdf-export-card"><div class="pdf-export-spinner" aria-hidden="true"></div><div class="pdf-export-text">${escapeHtml(t.pdfPreparing)}</div><div class="pdf-export-hint">${escapeHtml(t.pdfPreparingHint)}</div></div>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+// Waits for the async parts of the render to settle before printing: web
+// fonts (theme fonts like the Parchment script face) and every image the
+// editor holds. Diagrams and math are already inline SVG/HTML in the DOM by
+// the time this runs, so no extra pass is needed for them.
+async function settleForPrint(editor: HTMLElement): Promise<void> {
+  try {
+    await document.fonts.ready;
+  } catch {
+    // Font loading API unavailable or rejected - print with what's loaded.
+  }
+  const images = Array.from(editor.querySelectorAll("img"));
+  await Promise.all(
+    images.map((img) =>
+      img.complete && img.naturalWidth > 0
+        ? Promise.resolve()
+        : img.decode().catch(() => undefined),
+    ),
+  );
+  // One more frame so any layout from decoded images/fonts is committed.
+  await nextFrame();
+}
+
+// File > Export as PDF. Requires the WYSIWYG view (source mode has no themed
+// DOM to print) and prints the active tab as-is - unsaved edits included.
+export async function exportPdf(_tab: DocTab, t: Strings): Promise<void> {
+  const editor = document.querySelector<HTMLElement>(
+    '[data-active-tab="true"] .milkdown',
+  );
+  if (!editor) {
+    await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
+    return;
+  }
+  const overlay = showPdfOverlay(t);
+  try {
+    // Two frames so the overlay actually paints before the (synchronous,
+    // blocking) print panel takes over the window.
+    await nextFrame();
+    await nextFrame();
+    await settleForPrint(editor);
+    window.print();
+  } catch (err) {
+    await message(`${t.pdfFailed} ${String(err)}`, {
+      title: t.exportFailedTitle,
+      kind: "error",
+    });
+  } finally {
+    overlay.remove();
+  }
 }
 
 // Serializes the tab's live editor DOM - what you see is what exports -
