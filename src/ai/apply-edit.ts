@@ -1,7 +1,7 @@
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { Ctx } from "@milkdown/kit/ctx";
-import { parserCtx } from "@milkdown/kit/core";
 import { Slice } from "@milkdown/kit/prose/model";
+import { parseMarkdownSource } from "../editor/parse-markdown-source";
 
 /**
  * Models routinely bullet lists with typographic dots ("•", "●", "◦", "·")
@@ -30,12 +30,7 @@ export function applyEditRange(
   rawText: string,
 ) {
   const text = normalizeAiMarkdown(rawText);
-  let parsed;
-  try {
-    parsed = ctx.get(parserCtx)(text);
-  } catch {
-    parsed = null;
-  }
+  const parsed = parseMarkdownSource(ctx, text);
   return parsed
     ? state.tr.replaceRange(from, to, Slice.maxOpen(parsed.content))
     : state.tr.insertText(text, from, to);

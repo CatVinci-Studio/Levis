@@ -1,9 +1,10 @@
 import { useCallback } from "react";
-import { editorViewCtx, parserCtx, serializerCtx } from "@milkdown/kit/core";
+import { editorViewCtx, serializerCtx } from "@milkdown/kit/core";
 import { Slice } from "@milkdown/kit/prose/model";
 import { AllSelection } from "@milkdown/kit/prose/state";
 import type { EditorRunner } from "./useEditorRunner";
 import { recordClipboardEntry } from "../utils/clipboard-history";
+import { parseMarkdownSource } from "./parse-markdown-source";
 
 export interface EditorClipboard {
   copyOrCut: (cut: boolean) => void;
@@ -55,18 +56,14 @@ export function useEditorClipboard(run: EditorRunner): EditorClipboard {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         let inserted = false;
-        try {
-          const doc = ctx.get(parserCtx)(text);
-          if (doc && doc.content.size > 0) {
-            view.dispatch(
-              view.state.tr
-                .replaceSelection(Slice.maxOpen(doc.content))
-                .scrollIntoView(),
-            );
-            inserted = true;
-          }
-        } catch {
-          // Not parseable as markdown - fall through to plain insertion.
+        const doc = parseMarkdownSource(ctx, text);
+        if (doc && doc.content.size > 0) {
+          view.dispatch(
+            view.state.tr
+              .replaceSelection(Slice.maxOpen(doc.content))
+              .scrollIntoView(),
+          );
+          inserted = true;
         }
         if (!inserted) view.dispatch(view.state.tr.insertText(text));
         view.focus();

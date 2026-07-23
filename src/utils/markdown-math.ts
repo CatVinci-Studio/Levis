@@ -1,9 +1,14 @@
 /**
- * LLMs default to LaTeX's `\(...\)` / `\[...\]` delimiters unless told
- * otherwise. The system prompt (AGENT_ROLE in src-tauri/src/ai/agent.rs)
- * asks for `$...$` / `$$...$$` instead - remark-math (the editor's math
- * schema) and the chat panel's markdown renderer only recognize those - but
- * this is a backstop for replies that ignore the instruction anyway.
+ * remark-math (the editor's math schema) and the chat panel's markdown
+ * renderer only recognize `$...$` / `$$...$$` - never LaTeX's `\(...\)` /
+ * `\[...\]`, which LLMs default to unless told otherwise (the system prompt,
+ * AGENT_ROLE in src-tauri/src/ai/agent.rs, asks for `$`/`$$`, but this is a
+ * backstop for replies - and pasted/typed/loaded content - that use the
+ * backslash form anyway). Every path that turns markdown text into real
+ * document content runs input through this first - see
+ * src/editor/parse-markdown-source.ts for parserCtx-based paths and
+ * MilkdownEditor.tsx for the file-load path, which sets defaultValueCtx
+ * directly and so can't go through that shared helper.
  *
  * Skips fenced code blocks so literal `\(` in a code sample isn't touched.
  */

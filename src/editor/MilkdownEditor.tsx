@@ -74,6 +74,7 @@ import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
 import { useLatest } from "../utils/useLatest";
 import { useWindowEvent } from "../utils/useWindowEvent";
+import { normalizeMathDelimiters } from "../utils/markdown-math";
 import { createTutorialMockAgent } from "../onboarding/tutorial-mock-agent";
 import {
   TRIGGER_COMPLETION_EVENT,
@@ -153,7 +154,7 @@ export function MilkdownEditor({
       withEditorExtensions(
         Editor.make().config((ctx) => {
           ctx.set(rootCtx, root);
-          ctx.set(defaultValueCtx, initialValue);
+          ctx.set(defaultValueCtx, normalizeMathDelimiters(initialValue));
           // Typora-compatible themes style their content under `#write` -
           // aliasing it here lets most community Typora themes' CSS apply
           // directly to our content with no rewriting.

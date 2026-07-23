@@ -1,7 +1,7 @@
-import { parserCtx } from "@milkdown/kit/core";
 import { Plugin } from "@milkdown/kit/prose/state";
 import { Slice } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
+import { parseMarkdownSource } from "./parse-markdown-source";
 
 /**
  * Milkdown's clipboard plugin only parses pasted text as markdown when the
@@ -78,12 +78,7 @@ export const pasteMarkdownSourcePlugin = $prose(
           const text = data.getData("text/plain");
           if (!text || !htmlIsStyledPlainText(html)) return false;
 
-          let doc;
-          try {
-            doc = ctx.get(parserCtx)(text);
-          } catch {
-            return false;
-          }
+          const doc = parseMarkdownSource(ctx, text);
           if (!doc || typeof doc === "string" || doc.content.size === 0)
             return false;
           view.dispatch(
