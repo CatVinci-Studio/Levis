@@ -109,3 +109,40 @@
   --editor-accent: #79b579;
   --editor-code-bg: #1c2419;
 }
+
+/* Parchment - aged vellum, sepia ink, handwritten feel */
+
+[data-content-theme="parchment"] {
+  --editor-bg: #f1e6c8;
+  --editor-text: #4a3826;
+  --editor-muted: #8a7357;
+  --editor-border: #c9b587;
+  --editor-quote-border: #a68a55;
+  --editor-accent: #8c3a2b;
+  --editor-code-bg: #e8dab0;
+  --editor-font:
+    "Bradley Hand", "Segoe Script", "STKaiti", "Kaiti SC", "楷体", cursive,
+    serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-content-theme="parchment"] {
+    --editor-bg: #241d13;
+    --editor-text: #d8c9a3;
+    --editor-muted: #9c8a68;
+    --editor-border: #4a3d28;
+    --editor-quote-border: #5c4a30;
+    --editor-accent: #c97a5c;
+    --editor-code-bg: #2e2517;
+  }
+}
+
+:root[data-theme="dark"][data-content-theme="parchment"] {
+  --editor-bg: #241d13;
+  --editor-text: #d8c9a3;
+  --editor-muted: #9c8a68;
+  --editor-border: #4a3d28;
+  --editor-quote-border: #5c4a30;
+  --editor-accent: #c97a5c;
+  --editor-code-bg: #2e2517;
+}

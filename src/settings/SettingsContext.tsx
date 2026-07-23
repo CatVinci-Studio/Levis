@@ -44,7 +44,8 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
 /// Built-in content themes only override `--editor-*` CSS variables (see
 /// content-themes.css) - "default" means none of them are active, so the
 /// base variables from App.css apply as-is.
-export type BuiltinContentThemeId = "default" | "paper" | "slate" | "forest";
+export type BuiltinContentThemeId =
+  "default" | "paper" | "slate" | "forest" | "parchment";
 
 export const BUILTIN_CONTENT_THEMES: {
   id: BuiltinContentThemeId;
@@ -54,6 +55,7 @@ export const BUILTIN_CONTENT_THEMES: {
   { id: "paper", name: "Paper" },
   { id: "slate", name: "Slate" },
   { id: "forest", name: "Forest" },
+  { id: "parchment", name: "Parchment" },
 ];
 
 /// Tone presets for AI completion - resolved to an English style directive
