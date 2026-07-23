@@ -7,7 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { strings, type Lang, type Strings } from "../i18n/strings";
+import {
+  strings,
+  type Lang,
+  type Strings,
+  type StringKey,
+} from "../i18n/strings";
 import { ai, prefs, themes } from "../ipc";
 
 export type ThemeMode = "system" | "light" | "dark";
@@ -47,15 +52,19 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
 export type BuiltinContentThemeId =
   "default" | "paper" | "slate" | "forest" | "parchment";
 
+/// `nameKey` points at an i18n string so the picker label follows the app
+/// language (see settings/sections/theme.tsx); `name` stays as a stable
+/// English fallback. User-imported themes keep their filename, untranslated.
 export const BUILTIN_CONTENT_THEMES: {
   id: BuiltinContentThemeId;
   name: string;
+  nameKey: StringKey;
 }[] = [
-  { id: "default", name: "Default" },
-  { id: "paper", name: "Paper" },
-  { id: "slate", name: "Slate" },
-  { id: "forest", name: "Forest" },
-  { id: "parchment", name: "Parchment" },
+  { id: "default", name: "Default", nameKey: "themeNameDefault" },
+  { id: "paper", name: "Paper", nameKey: "themeNamePaper" },
+  { id: "slate", name: "Slate", nameKey: "themeNameSlate" },
+  { id: "forest", name: "Forest", nameKey: "themeNameForest" },
+  { id: "parchment", name: "Parchment", nameKey: "themeNameParchment" },
 ];
 
 /// Tone presets for AI completion - resolved to an English style directive

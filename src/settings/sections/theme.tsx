@@ -71,7 +71,7 @@ export function ThemeSection({ t }: { t: Strings }) {
           >
             {BUILTIN_CONTENT_THEMES.map((theme) => (
               <option key={theme.id} value={theme.id}>
-                {theme.name}
+                {t[theme.nameKey]}
               </option>
             ))}
             {settings.userThemes.map((theme) => (
