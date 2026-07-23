@@ -41,6 +41,7 @@ import { tableHoverView } from "./table-hover-view";
 import { createMermaidPreviewPlugin } from "./mermaid-plugin";
 import { tabExtendPlugin } from "./tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
+import { codeBlockIndentPlugin } from "./code-block-indent-plugin";
 import { pasteMarkdownSourcePlugin } from "./paste-markdown-plugin";
 import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
 import { createImagePlugin } from "./image-plugin";
@@ -178,6 +179,7 @@ export function withEditorExtensions(
       .use(listener)
       .use(tabExtendPlugin)
       .use(escapeTrailingBlockPlugin)
+      .use(codeBlockIndentPlugin)
       .use(findReplacePlugin)
       .use(
         createTypewriterPlugin({

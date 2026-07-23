@@ -555,6 +555,14 @@
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+  /* .milkdown code (above) sets font-size: 0.9em for inline code, and
+     nothing here overrode line-height for the block case - so it kept
+     inheriting .milkdown's prose-tuned 1.8, which produces a line box
+     roughly twice the smaller monospace glyphs' own height. The native
+     caret sizes itself to that line box, so it rendered visibly oversized
+     next to the code text (most obvious on an empty line, with no glyph to
+     compare it against). 1.5 matches ordinary code-editor line spacing. */
+  line-height: 1.5;
 }
 
 /* Syntax highlighting tokens (via refractor/Prism token classes) */
