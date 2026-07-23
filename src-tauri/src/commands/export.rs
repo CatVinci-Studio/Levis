@@ -142,13 +142,14 @@ pub async fn reveal_in_dir(app: tauri::AppHandle, path: String) -> Result<(), St
         .map_err(|e| e.to_string())
 }
 
-/// Renders self-contained, already-themed document HTML to a PDF file. wry's
-/// window.print() on macOS drives a broken NSPrintPanel (flashes and
-/// self-dismisses - tauri-apps/wry#713, tauri#6202), so instead of printing we
-/// load the HTML into a fresh offscreen WKWebView and ask WebKit for a PDF via
-/// -createPDFWithConfiguration:, writing the bytes to `output_path`. WKWebView
-/// is main-thread-only, so the work is dispatched to the main thread and this
-/// async command blocks on a channel until the PDF completion handler fires.
+/// Renders self-contained, already-themed document HTML to a paginated PDF
+/// file. wry's window.print() on macOS drives a broken NSPrintPanel (flashes
+/// and self-dismisses - tauri-apps/wry#713, tauri#6202), so instead we load the
+/// HTML into a fresh offscreen WKWebView and, once it finishes loading, run a
+/// panel-less NSPrintOperation with the job disposition set to "save", writing
+/// an A4-paginated PDF to `output_path`. WKWebView is main-thread-only, so the
+/// work is dispatched to the main thread and this async command blocks on a
+/// channel until the print operation reports its result.
 #[cfg(target_os = "macos")]
 #[tauri::command]
 pub async fn export_pdf_native(
@@ -194,21 +195,26 @@ mod pdf_macos {
 
     use objc2::rc::Retained;
     use objc2::runtime::{NSObject, ProtocolObject};
-    use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly};
+    use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly, Message};
+    use objc2_app_kit::{
+        NSPrintInfo, NSPrintJobSavingURL, NSPrintSaveJob, NSPrintingPaginationMode,
+    };
     use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-    use objc2_foundation::{MainThreadMarker, NSData, NSError, NSObjectProtocol, NSString, NSURL};
+    use objc2_foundation::{MainThreadMarker, NSError, NSObjectProtocol, NSString, NSURL};
     use objc2_web_kit::{WKNavigation, WKNavigationDelegate, WKWebView, WKWebViewConfiguration};
 
-    // A4 width at 96dpi. createPDF captures the document's full content height,
-    // so this only pins the page (and thus text) width; the result is a single
-    // continuous page as tall as the document.
-    const PAGE_WIDTH: f64 = 794.0;
-    const PAGE_HEIGHT: f64 = 1123.0;
+    // A4 in PostScript points (1pt = 1/72"), with a 0.5" margin on every side.
+    // WKWebView's print operation paginates the document across pages of this
+    // geometry, honouring its @media print CSS - unlike createPDF, which only
+    // ever yields one continuous page.
+    const PAPER_WIDTH: f64 = 595.0;
+    const PAPER_HEIGHT: f64 = 842.0;
+    const MARGIN: f64 = 36.0;
 
-    // Keeps the webview and its delegate alive until the PDF completion handler
-    // runs. WKWebView's navigationDelegate is a weak reference, and the main
-    // dispatch closure returns long before navigation finishes, so without this
-    // both would be dropped and the load would never complete.
+    // Keeps the webview and its delegate alive until navigation finishes and the
+    // PDF is written. WKWebView's navigationDelegate is a weak reference, and the
+    // main-thread dispatch that starts the export returns long before the load
+    // completes, so without this both would be dropped and nothing would render.
     struct Pending {
         _webview: Retained<WKWebView>,
         _delegate: Retained<PdfExporter>,
@@ -223,8 +229,8 @@ mod pdf_macos {
         id: usize,
         output_path: String,
         result_tx: Sender<Result<(), String>>,
-        // Guards against reporting a result twice (finish + a late delegate
-        // callback), which would panic the mpsc send on a dropped receiver.
+        // Guards against reporting a result twice (e.g. a load failure after a
+        // finish), which would send on a channel whose receiver may be gone.
         settled: Cell<bool>,
     }
 
@@ -239,7 +245,7 @@ mod pdf_macos {
         unsafe impl WKNavigationDelegate for PdfExporter {
             #[unsafe(method(webView:didFinishNavigation:))]
             fn did_finish_navigation(&self, webview: &WKWebView, _navigation: &WKNavigation) {
-                self.generate_pdf(webview);
+                self.render(webview);
             }
 
             #[unsafe(method(webView:didFailNavigation:withError:))]
@@ -249,7 +255,7 @@ mod pdf_macos {
                 _navigation: &WKNavigation,
                 error: &NSError,
             ) {
-                self.finish(Err(format!(
+                self.settle(Err(format!(
                     "Failed to render page: {}",
                     error.localizedDescription()
                 )));
@@ -262,7 +268,7 @@ mod pdf_macos {
                 _navigation: &WKNavigation,
                 error: &NSError,
             ) {
-                self.finish(Err(format!(
+                self.settle(Err(format!(
                     "Failed to load page: {}",
                     error.localizedDescription()
                 )));
@@ -271,52 +277,65 @@ mod pdf_macos {
     );
 
     impl PdfExporter {
-        fn generate_pdf(&self, webview: &WKWebView) {
-            let ivars = self.ivars();
-            if ivars.settled.replace(true) {
+        fn render(&self, webview: &WKWebView) {
+            if self.ivars().settled.get() {
                 return;
             }
-            let id = ivars.id;
-            let output_path = ivars.output_path.clone();
-            let tx = ivars.result_tx.clone();
-            let handler = block2::RcBlock::new(move |data: *mut NSData, error: *mut NSError| {
-                let result = if !error.is_null() {
-                    let error = unsafe { &*error };
-                    Err(format!(
-                        "createPDF failed: {}",
-                        error.localizedDescription()
-                    ))
-                } else if data.is_null() {
-                    Err("createPDF returned no data".to_string())
-                } else {
-                    let data = unsafe { &*data };
-                    let path = NSString::from_str(&output_path);
-                    if data.writeToFile_atomically(&path, true) {
-                        Ok(())
-                    } else {
-                        Err(format!("Could not write PDF to {output_path}"))
-                    }
-                };
-                let _ = tx.send(result);
-                PENDING.with(|pending| {
-                    pending.borrow_mut().remove(&id);
-                });
-            });
-            unsafe {
-                webview.createPDFWithConfiguration_completionHandler(None, &handler);
-            }
+            let result = print_webview_to_pdf(webview, &self.ivars().output_path);
+            self.settle(result);
         }
 
-        fn finish(&self, result: Result<(), String>) {
+        fn settle(&self, result: Result<(), String>) {
             let ivars = self.ivars();
             if ivars.settled.replace(true) {
                 return;
             }
+            // Retain across the PENDING removal: the map holds our only strong
+            // reference (the webview points back weakly), and we're still inside
+            // a delegate method, so dropping it now would be a use-after-free.
+            let _keep = self.retain();
             let _ = ivars.result_tx.send(result);
             let id = ivars.id;
             PENDING.with(|pending| {
                 pending.borrow_mut().remove(&id);
             });
+        }
+    }
+
+    // Drives an NSPrintOperation on the loaded offscreen webview with both
+    // panels suppressed and the job disposition set to "save", writing a
+    // paginated PDF to `output_path`. Runs synchronously on the main thread.
+    fn print_webview_to_pdf(webview: &WKWebView, output_path: &str) -> Result<(), String> {
+        let print_info = NSPrintInfo::new();
+        print_info.setPaperSize(CGSize::new(PAPER_WIDTH, PAPER_HEIGHT));
+        print_info.setTopMargin(MARGIN);
+        print_info.setBottomMargin(MARGIN);
+        print_info.setLeftMargin(MARGIN);
+        print_info.setRightMargin(MARGIN);
+        // Scale to the page width so nothing is clipped horizontally; let height
+        // flow across as many pages as the document needs.
+        print_info.setHorizontalPagination(NSPrintingPaginationMode::Fit);
+        print_info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
+        // SAFETY: accessing AppKit's `extern static` job-disposition constant.
+        print_info.setJobDisposition(unsafe { NSPrintSaveJob });
+
+        // The output path goes in the print-info dictionary under the
+        // save-to-URL key - there's no typed setter for it.
+        let url = NSURL::fileURLWithPath(&NSString::from_str(output_path));
+        let key = ProtocolObject::from_ref(unsafe { NSPrintJobSavingURL });
+        let dict = unsafe { print_info.dictionary() };
+        unsafe { dict.setObject_forKey(&url, key) };
+
+        let operation = unsafe { webview.printOperationWithPrintInfo(&print_info) };
+        operation.setShowsPrintPanel(false);
+        operation.setShowsProgressPanel(false);
+        // Keep it on this (main) thread so runOperation blocks until the file is
+        // written, rather than returning while a worker thread is still going.
+        operation.setCanSpawnSeparateThread(false);
+        if operation.runOperation() {
+            Ok(())
+        } else {
+            Err("The print operation did not complete".to_string())
         }
     }
 
@@ -337,9 +356,11 @@ mod pdf_macos {
         });
 
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
+        // Lay the content out at the printable width so on-screen wrapping lines
+        // up with what the print operation paginates.
         let frame = CGRect {
             origin: CGPoint::new(0.0, 0.0),
-            size: CGSize::new(PAGE_WIDTH, PAGE_HEIGHT),
+            size: CGSize::new(PAPER_WIDTH - 2.0 * MARGIN, PAPER_HEIGHT),
         };
         let webview =
             unsafe { WKWebView::initWithFrame_configuration(mtm.alloc(), frame, &config) };
