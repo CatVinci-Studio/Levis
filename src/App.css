@@ -23,7 +23,12 @@
   color: var(--editor-text);
   background-color: var(--bg);
   font-family: var(--font-sans);
-  font-synthesis: none;
+  /* `style` (not `none`) so *emphasis* on CJK text synthesizes an oblique:
+     PingFang/Noto CJK ship no italic face, and without synthesis <em> on
+     Chinese/Japanese renders upright. Weight synthesis stays off (CJK fonts
+     have real bold), and Latin system fonts have real italics so nothing is
+     faux-slanted there. */
+  font-synthesis: style;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
