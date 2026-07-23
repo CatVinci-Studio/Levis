@@ -35,6 +35,14 @@ export interface PendingPreview {
    *  covers). Cleared by the plugin's `settle` meta once the reveal
    *  finishes; surfaced to the UI as the "streaming" PendingStatus. */
   streaming?: boolean;
+  /** For `replace`/`delete`: a tighter range within [from, to) covering
+   *  just the text actually being removed, located via its rendered PLAIN
+   *  TEXT (text-locate.ts) rather than the block-boundary-snapped
+   *  [from, to) - see usePendingEdits.ts's computeStrikeRange. Absent
+   *  (falls back to the whole [from, to) range) whenever that couldn't be
+   *  determined uniquely - e.g. the anchor spans more than one block. */
+  strikeFrom?: number;
+  strikeTo?: number;
 }
 
 // --- Typewriter reveal for the green pending-insert widget --------------
@@ -274,16 +282,22 @@ function textWidget(
 
 /**
  * One preview's decorations: a struck-through/red-tinted `.pending-delete`
- * span over the range being rewritten, plus a green `.pending-insert`
+ * span over the text being removed, plus a green `.pending-insert`
  * ghost-text widget carrying the new markdown - shown as source text, not
  * parsed nodes, because parsing only happens once (on accept, via
  * apply-edit.ts's parserCtx path) to avoid a second, divergent render path.
  *
  * The widget shows `proposal.text` (what the model actually wrote) rather
  * than the full `replacement`, which for a sub-block edit would repeat the
- * untouched prefix/suffix back at the reader. The exact before/after diff
- * lives in the chat card; in the document these marks only say "this region
- * is changing".
+ * untouched prefix/suffix back at the reader.
+ *
+ * `strikeFrom`/`strikeTo`, when present, narrow the strike (and the
+ * `replace` widget's anchor point) from the whole re-parsed block down to
+ * just the actually-changed text - see PendingPreview's doc comment. `p.to`
+ * remains the fallback for BOTH the strike extent and the widget position:
+ * a struck whole block with the new text tacked on at its very end is a
+ * safe, if coarser, degradation of the same "old text struck, new text
+ * follows immediately" reading.
  */
 function decorationsFor(p: PendingPreview, animate: boolean): Decoration[] {
   const decos: Decoration[] = [];
@@ -294,15 +308,26 @@ function decorationsFor(p: PendingPreview, animate: boolean): Decoration[] {
     p.proposal.action === "replace" ||
     p.proposal.action === "replace_selection" ||
     p.proposal.action === "delete";
-  if (p.from < p.to && removesText) {
-    decos.push(Decoration.inline(p.from, p.to, { class: "pending-delete" }));
+  const strikeFrom = p.strikeFrom ?? p.from;
+  const strikeTo = p.strikeTo ?? p.to;
+  if (strikeFrom < strikeTo && removesText) {
+    decos.push(
+      Decoration.inline(strikeFrom, strikeTo, { class: "pending-delete" }),
+    );
   }
   const text = p.proposal.text;
   if (text !== undefined && p.proposal.action !== "delete") {
     const atStart = p.proposal.action === "insert_before";
-    decos.push(
-      textWidget(p, atStart ? p.from : p.to, atStart ? -1 : 1, animate),
-    );
+    // `replace`'s insert point follows the strike range specifically (not
+    // just "p.to") so the green text lands immediately after the red -
+    // "struck old text, new text right after" - rather than at the very end
+    // of a whole re-parsed block that may extend well past what was struck.
+    const insertPos = atStart
+      ? p.from
+      : p.proposal.action === "replace"
+        ? strikeTo
+        : p.to;
+    decos.push(textWidget(p, insertPos, atStart ? -1 : 1, animate));
   }
   return decos;
 }

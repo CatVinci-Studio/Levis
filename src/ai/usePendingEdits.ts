@@ -1,23 +1,66 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { editorViewCtx } from "@milkdown/kit/core";
+import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
 import {
   composeMarkdownEdit,
   findMarkdownMatch,
   serializeBlocks,
   serializeRange,
+  type MarkdownBlock,
+  type MarkdownMatch,
 } from "./doc-markdown";
 import { applyEditRange } from "./apply-edit";
 import { pendingEditKey, type PendingPreview } from "./pending-edit-plugin";
 import { nextFocusAfterChange, orderForReview } from "./pending-edit-focus";
+import { locatePlainText } from "./text-locate";
 import type { EditProposal } from "./types";
 import type { EditorRunner } from "../editor/useEditorRunner";
 import type { InlineChatInfo } from "./useInlineChat";
+import type { Ctx } from "@milkdown/kit/ctx";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 
 /** `streaming`: the proposal exists but can't be decided yet - its
  *  arguments are still arriving or its text is still typing into the
  *  document (pending-edit-plugin settles it when the reveal completes). */
 export type PendingStatus =
   "pending" | "streaming" | "accepted" | "rejected" | "invalid";
+
+/**
+ * A tighter strike range for `replace`/`delete`, covering just the text
+ * actually being removed rather than the whole containing block - see
+ * text-locate.ts for why plain-text location sidesteps the markdown-offset
+ * constraint that forces `match.from`/`match.to` to the block boundary.
+ * Null (falls back to the whole-block range) whenever the match spans more
+ * than one block, the matched markdown fails to parse, or its plain text
+ * isn't uniquely findable in the block - never a worse result than today's
+ * whole-block strike, only sometimes a more precise one.
+ */
+function computeStrikeRange(
+  ctx: Ctx,
+  doc: ProseNode,
+  blocks: MarkdownBlock[],
+  match: MarkdownMatch,
+): { from: number; to: number } | null {
+  const block = blocks.find((b) => b.from === match.from);
+  if (!block || block.to !== match.to) return null; // spans more than one block
+
+  const matched = match.markdown.slice(
+    match.prefix.length,
+    match.markdown.length - match.suffix.length,
+  );
+  if (!matched) return null;
+
+  let parsedText: string;
+  try {
+    const parsed = ctx.get(parserCtx)(matched);
+    if (!parsed || typeof parsed === "string") return null;
+    parsedText = parsed.textContent;
+  } catch {
+    return null;
+  }
+  if (!parsedText) return null;
+
+  return locatePlainText(doc, match.from, match.to, parsedText);
+}
 
 /**
  * Resolves propose_edit proposals to live document ranges and shows them as
@@ -105,6 +148,7 @@ export function usePendingEdits(run: EditorRunner) {
         for (const { callId, proposal, streaming } of proposals) {
           let range: { from: number; to: number } | null = null;
           let replacement = proposal.text ?? "";
+          let strikeRange: { from: number; to: number } | null = null;
 
           if (proposal.action === "append") {
             range = { from: docSize, to: docSize };
@@ -136,6 +180,12 @@ export function usePendingEdits(run: EditorRunner) {
                 proposal.action,
                 proposal.text ?? "",
               );
+              if (
+                proposal.action === "replace" ||
+                proposal.action === "delete"
+              ) {
+                strikeRange = computeStrikeRange(ctx, state.doc, blocks, match);
+              }
             }
           }
 
@@ -154,6 +204,8 @@ export function usePendingEdits(run: EditorRunner) {
             expectedText: state.doc.textBetween(range.from, range.to, " "),
             replacement,
             streaming,
+            strikeFrom: strikeRange?.from,
+            strikeTo: strikeRange?.to,
           });
         }
 

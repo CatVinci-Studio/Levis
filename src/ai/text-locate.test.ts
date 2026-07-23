@@ -1,0 +1,82 @@
+import { describe, expect, it } from "vitest";
+import { Schema } from "@milkdown/kit/prose/model";
+import { locatePlainText } from "./text-locate";
+
+// A minimal schema (paragraph + text + a "strong" mark) - just enough to
+// build a doc with mixed marked/unmarked inline content, so tests prove the
+// plain-text search and position mapping work across mark boundaries
+// (exactly the case doc-markdown-offset math cannot handle).
+const schema = new Schema({
+  nodes: {
+    doc: { content: "block+" },
+    paragraph: {
+      content: "inline*",
+      group: "block",
+      toDOM: () => ["p", 0],
+      parseDOM: [{ tag: "p" }],
+    },
+    text: { group: "inline" },
+  },
+  marks: {
+    strong: { toDOM: () => ["strong", 0], parseDOM: [{ tag: "strong" }] },
+  },
+});
+
+function paragraph(...content: Parameters<typeof schema.node>[2][]) {
+  return schema.node("paragraph", null, content as never);
+}
+
+function doc(...paragraphs: ReturnType<typeof paragraph>[]) {
+  return schema.node("doc", null, paragraphs);
+}
+
+describe("locatePlainText", () => {
+  it("locates a unique plain-text needle within a block", () => {
+    const d = doc(paragraph(schema.text("This is important content")));
+    const match = locatePlainText(d, 0, d.content.size, "important");
+    expect(match).not.toBeNull();
+    expect(d.textBetween(match!.from, match!.to)).toBe("important");
+  });
+
+  it("maps positions correctly across a mark boundary", () => {
+    // "important" is bold in the doc's real structure - the search still
+    // works because it operates on RENDERED plain text, and the resulting
+    // position range is still correct despite the mark wrapping it.
+    const d = doc(
+      paragraph(
+        schema.text("This is "),
+        schema.text("important", [schema.mark("strong")]),
+        schema.text(" content"),
+      ),
+    );
+    const match = locatePlainText(d, 0, d.content.size, "important");
+    expect(match).not.toBeNull();
+    expect(d.textBetween(match!.from, match!.to)).toBe("important");
+  });
+
+  it("returns null when the needle is absent", () => {
+    const d = doc(paragraph(schema.text("hello world")));
+    expect(locatePlainText(d, 0, d.content.size, "goodbye")).toBeNull();
+  });
+
+  it("returns null when the needle is ambiguous (occurs more than once)", () => {
+    const d = doc(paragraph(schema.text("same same")));
+    expect(locatePlainText(d, 0, d.content.size, "same")).toBeNull();
+  });
+
+  it("returns null for an empty needle rather than matching everywhere", () => {
+    const d = doc(paragraph(schema.text("hello")));
+    expect(locatePlainText(d, 0, d.content.size, "")).toBeNull();
+  });
+
+  it("locates a needle at the very start and very end of the range", () => {
+    const d = doc(paragraph(schema.text("start middle end")));
+    const size = d.content.size;
+    const start = locatePlainText(d, 0, size, "start");
+    expect(start).not.toBeNull();
+    expect(d.textBetween(start!.from, start!.to)).toBe("start");
+    const end = locatePlainText(d, 0, size, "end");
+    expect(end).not.toBeNull();
+    expect(d.textBetween(end!.from, end!.to)).toBe("end");
+  });
+});
