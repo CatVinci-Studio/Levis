@@ -204,11 +204,12 @@ mod pdf_macos {
     use objc2_foundation::{MainThreadMarker, NSError, NSObjectProtocol, NSString, NSURL};
     use objc2_web_kit::{WKNavigation, WKNavigationDelegate, WKWebView, WKWebViewConfiguration};
 
-    // A4 in PostScript points (1pt = 1/72") with 0.5" margins - the panel's
-    // defaults; the user can still change paper/scale there.
+    // A4 in PostScript points (1pt = 1/72"). Zero page margins so the theme
+    // background bleeds to the sheet edge (full-bleed); the text is inset by the
+    // document's own CSS padding (PDF_LAYOUT_CSS) instead.
     const PAPER_WIDTH: f64 = 595.0;
     const PAPER_HEIGHT: f64 = 842.0;
-    const MARGIN: f64 = 36.0;
+    const MARGIN: f64 = 0.0;
 
     // Keeps the offscreen webview and its delegate alive from load until the
     // print panel is dismissed. navigationDelegate is weak and the dispatch that

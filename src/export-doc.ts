@@ -113,14 +113,15 @@ function buildStandaloneHtml(
 
 const isMac = navigator.userAgent.includes("Mac");
 
-// Theme + page CSS for the offscreen macOS render. Page margins come from the
-// print operation (NSPrintInfo), so the content carries none; print-color-adjust
-// keeps the editor theme's backgrounds from being flattened to white per page.
+// Theme + page CSS for the offscreen macOS render. Print margins are zero (Rust
+// side) so the theme background bleeds to the sheet edge (full-bleed); the text
+// is inset with padding here instead. print-color-adjust keeps the editor
+// theme's backgrounds from being flattened to white per page.
 const PDF_LAYOUT_CSS =
   ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
   "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
-  ".editor-content, .editor-content.typewriter-active { padding: 0; } " +
+  ".editor-content, .editor-content.typewriter-active { padding: 48px 56px; } " +
   "pre, blockquote, table, img { break-inside: avoid; }";
 
 const HTML_LAYOUT_CSS =

@@ -777,8 +777,10 @@ body {
     print-color-adjust: exact;
   }
 
+  /* Zero page margins so the theme background bleeds to the sheet edge
+     (full-bleed); the text is inset with padding below instead. */
   @page {
-    margin: 16mm;
+    margin: 0;
   }
 
   .sidebar,
@@ -801,10 +803,11 @@ body {
     background: var(--editor-bg, var(--bg)) !important;
   }
 
-  /* Page margins come from @page; drop typewriter mode's centering padding. */
+  /* Inset the text (page margins are zero for full-bleed); drop typewriter
+     mode's centering padding. */
   .editor-content,
   .editor-content.typewriter-active {
-    padding: 0;
+    padding: 12mm 14mm;
   }
 
   /* Keep indivisible blocks off page seams. */
