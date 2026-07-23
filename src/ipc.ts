@@ -167,6 +167,13 @@ export const exportDoc = {
   }) => call<void>("export_via_pandoc", args),
   openPandocInstallPage: () => call<void>("open_pandoc_install_page"),
   revealInDir: (path: string) => call<void>("reveal_in_dir", { path }),
+  // Renders self-contained themed HTML to a PDF file via an offscreen
+  // WKWebView + createPDF (macOS). baseDir resolves relative image srcs.
+  exportPdfNative: (args: {
+    html: string;
+    outputPath: string;
+    baseDir: string | null;
+  }) => call<void>("export_pdf_native", args),
 };
 
 // ---------------------------------------------------------------------------

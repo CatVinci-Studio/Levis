@@ -765,33 +765,11 @@ body {
   opacity: 1 !important;
 }
 
-/* Menu > File > Export as PDF (see export-doc.ts's exportPdf) drives the
-   system print panel's "Save as PDF" after a themed-render pass. These rules
-   pin the current editor theme onto the printed page and hide app chrome, so
-   the PDF matches what's on screen. */
+/* PDF export does NOT go through window.print() - it renders themed HTML in an
+   offscreen WKWebView (see export-doc.ts's exportPdf + commands/export.rs),
+   because wry's print panel is broken on macOS. These rules only cover an
+   incidental live-window print: hide app chrome and let the content flow. */
 @media print {
-  /* Without this the print engine drops every background colour, flattening
-     the editor theme (code blocks, quotes, the dark-mode page) to white. */
-  :root {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* Zero the sheet margin and inset the content instead, so the theme's page
-     background (--editor-bg) fills the whole page edge-to-edge - matters most
-     for dark themes, which the user asked to keep faithful. */
-  @page {
-    margin: 0;
-  }
-
-  html,
-  body,
-  .app-shell,
-  .main-pane,
-  .editor-scroll {
-    background: var(--editor-bg, var(--bg)) !important;
-  }
-
   .sidebar,
   .titlebar-drag-region,
   .tab-bar,
@@ -816,18 +794,10 @@ body {
     height: auto;
     overflow: visible;
   }
-
-  /* Page margins live here (not @page) so the theme background bleeds to the
-     sheet edge. Typewriter mode's huge centering padding is dropped - it's
-     meaningless on a printed page and would waste most of it. */
-  .editor-content,
-  .editor-content.typewriter-active {
-    padding: 16mm 18mm;
-  }
 }
 
-/* "Preparing PDF…" overlay shown by exportPdf while the document renders,
-   before the system print panel opens. Hidden from the print output above. */
+/* "Preparing PDF…" progress overlay shown by exportPdf while the offscreen
+   render + file write runs. */
 .pdf-export-overlay {
   position: fixed;
   inset: 0;

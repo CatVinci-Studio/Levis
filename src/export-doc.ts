@@ -37,22 +37,94 @@ function exportBaseName(tab: DocTab, t: Strings): string {
     : tabTitle(tab, t);
 }
 
-// --- PDF export -----------------------------------------------------------
+// --- Standalone document HTML (shared by HTML and PDF export) --------------
 //
-// PDF hands off to the system print panel (WKWebView's "Save as PDF"), but
-// unlike a bare window.print() this first shows a progress overlay and waits
-// for the document to finish rendering, so large docs (many images, mermaid
-// diagrams, KaTeX) don't hit the panel half-painted. The print output itself
-// is the live editor DOM under App.css's @media print rules, which pin the
-// current editor theme (--editor-* colors, backgrounds) onto the page.
+// Both exports serialize the live editor DOM - what you see is what exports -
+// into a self-contained page with every stylesheet inlined. The current
+// editor theme is reproduced by mirroring the app root's data-theme /
+// data-content-theme onto the exported <html> (that's what content-themes.css
+// keys its --editor-* variables off) and keeping the same ancestor classes.
 
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-// Injects the "Preparing PDF…" overlay. It carries .pdf-export-overlay, which
-// App.css's @media print hides, so it never bleeds into the printed page even
-// though it's still mounted when window.print() fires.
+// Inlines every same-origin stylesheet's rules into one string.
+function collectInlinedCss(): string {
+  let css = "";
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      css += Array.from(sheet.cssRules)
+        .map((rule) => rule.cssText)
+        .join("\n");
+      css += "\n";
+    } catch {
+      // Cross-origin sheet (none in practice) - skip.
+    }
+  }
+  return css;
+}
+
+// Clones the editor subtree, stripping contenteditable so the export is inert.
+function cloneEditorContent(editor: Element): string {
+  const clone = editor.cloneNode(true) as HTMLElement;
+  clone
+    .querySelectorAll("[contenteditable]")
+    .forEach((el) => el.removeAttribute("contenteditable"));
+  return clone.outerHTML;
+}
+
+// Wraps serialized editor content in a full themed document. `layoutCss` frees
+// it from the app's fixed-viewport layout (each export tunes its own page).
+function buildStandaloneHtml(
+  base: string,
+  contentHtml: string,
+  layoutCss: string,
+): string {
+  const root = document.documentElement;
+  const dataTheme = root.getAttribute("data-theme");
+  const contentTheme = root.getAttribute("data-content-theme");
+  const rootAttrs =
+    (dataTheme ? ` data-theme="${escapeHtml(dataTheme)}"` : "") +
+    (contentTheme ? ` data-content-theme="${escapeHtml(contentTheme)}"` : "");
+  return `<!doctype html>
+<html${rootAttrs}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(base)}</title>
+<style>${collectInlinedCss()}</style>
+<style>${layoutCss}</style>
+</head>
+<body class="${document.body.className}">
+<div class="app-shell"><div class="main-pane"><div class="editor-scroll"><div class="editor-content">${contentHtml}</div></div></div></div>
+</body>
+</html>`;
+}
+
+// --- PDF export -------------------------------------------------------------
+//
+// wry's window.print() on macOS drives a broken NSPrintPanel (flashes and
+// self-dismisses - tauri-apps/wry#713, tauri#6202), so PDF doesn't go through
+// printing at all. Instead we build the same self-contained themed document as
+// HTML export and hand it to a Rust command that renders it in an offscreen
+// WKWebView and writes a real .pdf via -createPDFWithConfiguration:. A progress
+// overlay covers the render/write, since createPDF is async and can take a
+// moment on large docs.
+
+// Fills the page with the theme background and uses padding as page margins,
+// so the PDF matches the editor theme (dark themes included). The page width
+// is fixed by the offscreen WKWebView frame on the Rust side.
+const PDF_LAYOUT_CSS =
+  "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
+  ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
+  ".editor-content, .editor-content.typewriter-active { padding: 56px; }";
+
+const HTML_LAYOUT_CSS =
+  ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } " +
+  ".editor-content { padding: 2rem 0; }";
+
+// Injects the "Preparing PDF…" progress overlay (removed when export ends).
 function showPdfOverlay(t: Strings): HTMLElement {
   const el = document.createElement("div");
   el.className = "pdf-export-overlay";
@@ -61,15 +133,14 @@ function showPdfOverlay(t: Strings): HTMLElement {
   return el;
 }
 
-// Waits for the async parts of the render to settle before printing: web
-// fonts (theme fonts like the Parchment script face) and every image the
-// editor holds. Diagrams and math are already inline SVG/HTML in the DOM by
-// the time this runs, so no extra pass is needed for them.
-async function settleForPrint(editor: HTMLElement): Promise<void> {
+// Lets web fonts (theme fonts like Parchment's script face) and images settle
+// before serializing, so the offscreen render doesn't miss them. Diagrams and
+// math are already inline SVG/HTML in the DOM, so no extra pass is needed.
+async function settleRender(editor: Element): Promise<void> {
   try {
     await document.fonts.ready;
   } catch {
-    // Font loading API unavailable or rejected - print with what's loaded.
+    // Font loading API unavailable or rejected - continue with what's loaded.
   }
   const images = Array.from(editor.querySelectorAll("img"));
   await Promise.all(
@@ -79,28 +150,36 @@ async function settleForPrint(editor: HTMLElement): Promise<void> {
         : img.decode().catch(() => undefined),
     ),
   );
-  // One more frame so any layout from decoded images/fonts is committed.
   await nextFrame();
 }
 
 // File > Export as PDF. Requires the WYSIWYG view (source mode has no themed
-// DOM to print) and prints the active tab as-is - unsaved edits included.
-export async function exportPdf(_tab: DocTab, t: Strings): Promise<void> {
-  const editor = document.querySelector<HTMLElement>(
-    '[data-active-tab="true"] .milkdown',
-  );
+// DOM) and exports the active tab as-is - unsaved edits included.
+export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
+  const editor = document.querySelector('[data-active-tab="true"] .milkdown');
   if (!editor) {
     await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
     return;
   }
+  const base = exportBaseName(tab, t);
+  const picked = await exportDoc.exportSaveDialog(`${base}.pdf`, "PDF", "pdf");
+  if (!picked) return;
   const overlay = showPdfOverlay(t);
   try {
-    // Two frames so the overlay actually paints before the (synchronous,
-    // blocking) print panel takes over the window.
     await nextFrame();
-    await nextFrame();
-    await settleForPrint(editor);
-    window.print();
+    await settleRender(editor);
+    const html = buildStandaloneHtml(
+      base,
+      cloneEditorContent(editor),
+      PDF_LAYOUT_CSS,
+    );
+    await exportDoc.exportPdfNative({
+      html,
+      outputPath: picked,
+      // Resolves relative image srcs (assets/...) against the document folder.
+      baseDir: tab.path ? dirname(tab.path) : null,
+    });
+    void exportDoc.revealInDir(picked);
   } catch (err) {
     await message(`${t.pdfFailed} ${String(err)}`, {
       title: t.exportFailedTitle,
@@ -111,10 +190,9 @@ export async function exportPdf(_tab: DocTab, t: Strings): Promise<void> {
   }
 }
 
-// Serializes the tab's live editor DOM - what you see is what exports -
-// with every stylesheet inlined so the file is self-contained. Relative
-// image paths (assets/...) are kept as-is, like Typora's HTML export next
-// to the document.
+// Serializes the tab's live editor DOM into a self-contained HTML file.
+// Relative image paths (assets/...) are kept as-is, like Typora's HTML export
+// next to the document.
 export async function exportHtml(tab: DocTab, t: Strings): Promise<void> {
   const editor = document.querySelector('[data-active-tab="true"] .milkdown');
   if (!editor) {
@@ -128,36 +206,11 @@ export async function exportHtml(tab: DocTab, t: Strings): Promise<void> {
     "html",
   );
   if (!picked) return;
-  const clone = editor.cloneNode(true) as HTMLElement;
-  clone
-    .querySelectorAll("[contenteditable]")
-    .forEach((el) => el.removeAttribute("contenteditable"));
-  let css = "";
-  for (const sheet of Array.from(document.styleSheets)) {
-    try {
-      css += Array.from(sheet.cssRules)
-        .map((rule) => rule.cssText)
-        .join("\n");
-      css += "\n";
-    } catch {
-      // Cross-origin sheet (none in practice) - skip.
-    }
-  }
-  // Same ancestor classes as the app so theme selectors keep applying,
-  // plus overrides freeing the page from the app's fixed-viewport layout.
-  const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(base)}</title>
-<style>${css}</style>
-<style>.app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } .editor-content { padding: 2rem 0; }</style>
-</head>
-<body class="${document.body.className}">
-<div class="app-shell"><div class="main-pane"><div class="editor-scroll"><div class="editor-content">${clone.outerHTML}</div></div></div></div>
-</body>
-</html>`;
+  const html = buildStandaloneHtml(
+    base,
+    cloneEditorContent(editor),
+    HTML_LAYOUT_CSS,
+  );
   await fs.writeTextFile(picked, html);
   void exportDoc.revealInDir(picked);
 }

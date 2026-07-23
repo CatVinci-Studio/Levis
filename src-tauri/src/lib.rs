@@ -26,7 +26,8 @@ use commands::drafts::{
     clear_all_drafts, clear_draft_snapshot, save_draft_snapshot, take_draft_snapshots,
 };
 use commands::export::{
-    detect_pandoc, export_save_dialog, export_via_pandoc, open_pandoc_install_page, reveal_in_dir,
+    detect_pandoc, export_pdf_native, export_save_dialog, export_via_pandoc,
+    open_pandoc_install_page, reveal_in_dir,
 };
 use commands::fs::{
     file_mtime_ms, list_dir, migrate_draft_images, open_css_file_dialog, open_file_dialog,
@@ -290,6 +291,7 @@ pub fn run() {
             detect_pandoc,
             export_via_pandoc,
             export_save_dialog,
+            export_pdf_native,
             open_pandoc_install_page,
             reveal_in_dir,
             save_draft_snapshot,
