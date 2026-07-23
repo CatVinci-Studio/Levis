@@ -46,7 +46,16 @@ export const mathBlockSchema = $nodeSchema("math_block", () => ({
   parseDOM: [
     { tag: 'div[data-type="math_block"]', preserveWhitespace: "full" },
   ],
-  toDOM: () => ["div", { "data-type": "math_block", class: "math-block" }, 0],
+  // Wrapped in an outer div so the editing state (enclosure.ts's
+  // .math-block-revealed, which decorates the node's OUTERMOST DOM
+  // regardless of this nesting) can get its own panel styling in
+  // milkdown-theme.css, independent of the inner div's white-space/content
+  // handling.
+  toDOM: () => [
+    "div",
+    { class: "math-block-wrapper" },
+    ["div", { "data-type": "math_block", class: "math-block" }, 0],
+  ],
   parseMarkdown: {
     match: (node) => node.type === "math",
     runner: (state, node, type) => {

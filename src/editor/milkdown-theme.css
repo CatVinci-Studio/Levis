@@ -305,19 +305,25 @@
 }
 
 /* Block math edits like a fenced block: while the cursor touches it
-   (enclosure.ts adds .math-block-revealed), the "$$" fences render as
-   whole lines above/below the source, leaving the source area its own
+   (enclosure.ts adds .math-block-revealed), leaving the source area its own
    line(s) for the cursor - even when the block is still empty. */
 .math-block {
   white-space: pre-wrap;
 }
 
-.math-block-revealed::before,
-.math-block-revealed::after {
-  content: "$$";
+/* Editing-state panel for block math - mirrors .math-block-rendered's
+   bordered, centered card below so the block doesn't visually flatten to
+   plain left-aligned text the moment the cursor lands in it. Lands on the
+   node's outer wrapper div (see math-schema.ts's nested toDOM), not the
+   inner .math-block content div. The border itself is the "this is a math
+   block" cue now, so no separate "$$" fence markers on top of it. */
+.math-block-revealed {
   display: block;
-  color: var(--editor-muted);
-  user-select: none;
+  margin: 0.6em 0;
+  padding: 0.35em 0.7em;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  text-align: center;
 }
 
 .math-float-preview {
@@ -371,13 +377,14 @@
   padding: 0 0.15em;
 }
 
+/* No border/box here on purpose - at rest a formula should read as part of
+   the document, not as a distinct UI card. The panel look only appears
+   while actively editing (.math-block-revealed below), triggered by the
+   cursor touching the block. */
 .math-block-rendered {
   display: block;
   cursor: pointer;
   margin: 0.6em 0;
-  padding: 0.6em 0.9em;
-  border: 1px solid var(--editor-border);
-  border-radius: 8px;
   overflow-x: auto;
   text-align: center;
 }

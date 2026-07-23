@@ -333,12 +333,12 @@ function buildDecorations(state: EditorState): DecorationSet {
     // in the paragraph itself, not be tucked inside the enclosure node,
     // for that workaround to engage.
     //
-    // math_block is the exception: it's a block node, so its "$$" fences
-    // render as whole lines above/below the source via CSS generated
-    // content (.math-block-revealed), not as inline widgets - inline
-    // widgets would squeeze the fences and the source onto one line, and
-    // the content area must keep a real line box of its own so the caret
-    // has somewhere to sit even while the block is empty.
+    // math_block is the exception: it's a block node, so it gets a node
+    // decoration (.math-block-revealed in milkdown-theme.css, a bordered
+    // panel around the source) instead of inline delimiter widgets - inline
+    // widgets would squeeze onto one line with the source, and the content
+    // area must keep a real line box of its own so the caret has somewhere
+    // to sit even while the block is empty.
     const delim = enclosureDelimText(node);
     if (node.isBlock) {
       decorations.push(
