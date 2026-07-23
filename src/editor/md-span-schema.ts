@@ -54,24 +54,54 @@ export const mdSpanSchema = $nodeSchema("md_span", () => ({
   },
   parseDOM: [
     {
-      tag: 'span[data-type="md_span"]',
+      // Not tag-specific ([data-type=...] alone) because toDOM below picks
+      // the wrapper tag by delim/rung (strong/em/del/mark) rather than
+      // always "span" - this must still recognize Levis's own re-pasted
+      // content regardless of which tag it rendered as.
+      tag: '[data-type="md_span"]',
       getAttrs: (dom) => ({
         delim: (dom as HTMLElement).dataset.delim || "*",
         rung: Number((dom as HTMLElement).dataset.rung) || 1,
       }),
     },
+    // Standard semantic tags - recognizes bold/italic/strikethrough/highlight
+    // pasted in from anywhere else (a browser, Notion, another editor),
+    // which otherwise carried no formatting this schema could see at all.
+    // Lower priority than the rule above: Levis's own data-type-marked
+    // content must always resolve through its own attrs, never get
+    // re-derived from (and second-guessed via) the tag name.
+    { tag: "strong", priority: 40, getAttrs: () => ({ delim: "*", rung: 2 }) },
+    { tag: "b", priority: 40, getAttrs: () => ({ delim: "*", rung: 2 }) },
+    { tag: "em", priority: 40, getAttrs: () => ({ delim: "*", rung: 1 }) },
+    { tag: "i", priority: 40, getAttrs: () => ({ delim: "*", rung: 1 }) },
+    { tag: "del", priority: 40, getAttrs: () => ({ delim: "~", rung: 2 }) },
+    { tag: "s", priority: 40, getAttrs: () => ({ delim: "~", rung: 2 }) },
+    { tag: "strike", priority: 40, getAttrs: () => ({ delim: "~", rung: 2 }) },
+    { tag: "mark", priority: 40, getAttrs: () => ({ delim: "=", rung: 2 }) },
   ],
-  toDOM: (node) => [
-    "span",
-    {
+  toDOM: (node) => {
+    const delim = node.attrs.delim as string;
+    const rung = node.attrs.rung as number;
+    const attrs = {
       "data-type": "md_span",
-      "data-delim": node.attrs.delim,
-      "data-rung": String(node.attrs.rung),
+      "data-delim": delim,
+      "data-rung": String(rung),
       "data-syntax": spanDelimText(node),
       class: "md-span",
-    },
-    0,
-  ],
+    };
+    // A semantic tag Levis's own parseDOM rule above still recognizes via
+    // data-type, so pasting this into an EXTERNAL app (which reads only the
+    // tag, not the attrs) shows real bold/italic/strikethrough/highlight
+    // instead of an unstyled <span>. Bold+italic together (rung 3) has no
+    // single tag for it - nested strong>em is how remark itself represents
+    // "***text***", and how every other app pasting bold+italic in expects
+    // to see it too.
+    if (delim === "~") return ["del", attrs, 0];
+    if (delim === "=") return ["mark", attrs, 0];
+    if (rung === 3) return ["strong", attrs, ["em", 0]];
+    if (rung === 2) return ["strong", attrs, 0];
+    return ["em", attrs, 0];
+  },
   parseMarkdown: {
     match: (node) =>
       node.type === "strong" ||
@@ -132,7 +162,21 @@ export const mdCodeSpanSchema = $nodeSchema("md_code_span", () => ({
   marks: "",
   code: true,
   attrs: {},
-  parseDOM: [{ tag: 'code[data-type="md_code_span"]' }],
+  parseDOM: [
+    { tag: 'code[data-type="md_code_span"]' },
+    // A bare <code> from anywhere else (a web page, GitHub, another
+    // editor) - excluding one inside <pre> (a fenced code BLOCK), whose own
+    // parseDOM already owns that shape; without this exclusion an entire
+    // pasted code block's content would get misread as one inline code
+    // span. Lower priority so Levis's own data-type-marked rule above wins
+    // when both could match.
+    {
+      tag: "code",
+      priority: 40,
+      getAttrs: (dom) =>
+        (dom as HTMLElement).parentElement?.tagName === "PRE" ? false : {},
+    },
+  ],
   toDOM: () => [
     "code",
     { "data-type": "md_code_span", "data-syntax": "`", class: "md-code-span" },

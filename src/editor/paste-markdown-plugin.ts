@@ -51,6 +51,16 @@ const RICH_HTML_SELECTOR = [
 function htmlIsStyledPlainText(html: string): boolean {
   const template = document.createElement("template");
   template.innerHTML = html;
+  // Every custom node type this editor defines (md_span, md_code_span,
+  // math_inline, math_block, ...) marks its wrapper element with data-type -
+  // that's real node data, not styling, regardless of which (possibly bare
+  // span/div) tag it rides on. Content copied from Levis itself - even back
+  // into Levis - would otherwise get misread as "styled plain text" here:
+  // its wrapper tags aren't in RICH_HTML_SELECTOR, so this plugin would
+  // discard the HTML and re-parse the plain-text fallback as markdown
+  // instead, which for math nodes (whose text content is bare LaTeX with no
+  // $ delimiters) silently drops the formula entirely.
+  if (template.content.querySelector("[data-type]")) return false;
   return !template.content.querySelector(RICH_HTML_SELECTOR);
 }
 
