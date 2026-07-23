@@ -694,12 +694,35 @@
   width: 100%;
   margin: 0.8em 0;
   font-size: 0.95em;
+  /* Fixed layout so the <colgroup> widths written by column resizing (see
+     table-hover-view.ts) actually take effect; a resized table renders exactly
+     the per-column widths dragged. */
+  table-layout: fixed;
 }
 
 .milkdown th,
 .milkdown td {
   padding: 0.5em 0.8em;
   border: 1px solid var(--editor-border);
+  /* Positioning context for the column-resize handle below. */
+  position: relative;
+}
+
+/* Drag handle prosemirror-tables draws on the right border of each column;
+   .resize-cursor is toggled on the editor while a handle is hovered/dragged. */
+.milkdown .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -2px;
+  width: 4px;
+  z-index: 20;
+  background: var(--editor-accent);
+  pointer-events: none;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
 }
 
 .milkdown thead th {

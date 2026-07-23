@@ -37,7 +37,7 @@ import { headingMarkerPlugin } from "./heading-marker-plugin";
 import { taskListClickPlugin } from "./task-list-plugin";
 import { syntaxHighlightPlugin } from "./syntax-highlight-plugin";
 import { codeBlockLanguageView } from "./code-block-language-view";
-import { tableHoverView } from "./table-hover-view";
+import { tableColumnResizing, tableHoverView } from "./table-hover-view";
 import { createMermaidPreviewPlugin } from "./mermaid-plugin";
 import { tabExtendPlugin } from "./tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
@@ -157,6 +157,7 @@ export function withEditorExtensions(
       .use(syntaxHighlightPlugin)
       .use(codeBlockLanguageView)
       .use(tableHoverView)
+      .use(tableColumnResizing)
       .use(
         createMermaidPreviewPlugin({
           enabled: () => settings.current.enableMermaid,
