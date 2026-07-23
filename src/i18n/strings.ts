@@ -389,7 +389,6 @@ export const strings = {
     themeNameForest: "Forest",
     themeNameParchment: "Parchment",
     pdfPreparing: "Preparing PDF…",
-    pdfPreparingHint: "Rendering the document with your current theme.",
     pdfFailed: "Could not prepare the PDF:",
   },
   zh: {
@@ -764,7 +763,6 @@ export const strings = {
     themeNameForest: "森林",
     themeNameParchment: "羊皮纸",
     pdfPreparing: "正在准备 PDF…",
-    pdfPreparingHint: "正在用当前主题渲染文档。",
     pdfFailed: "无法准备 PDF：",
   },
   ja: {
@@ -1153,7 +1151,6 @@ export const strings = {
     themeNameForest: "フォレスト",
     themeNameParchment: "パーチメント",
     pdfPreparing: "PDF を準備中…",
-    pdfPreparingHint: "現在のテーマでドキュメントをレンダリングしています。",
     pdfFailed: "PDF を準備できませんでした:",
   },
 } as const;
