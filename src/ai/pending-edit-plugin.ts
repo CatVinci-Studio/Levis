@@ -4,6 +4,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
+import { renderMarkdownInlineHtml } from "./markdown-render";
 import type { EditProposal } from "./types";
 
 /**
@@ -102,15 +103,6 @@ function maybeSettle(callId: string) {
   }, 0);
 }
 
-/** What the widget's span actually shows. The proposal text is markdown
- *  SOURCE, where paragraphs are separated by blank lines - rendered through
- *  `white-space: pre-wrap` at the editor's line-height those become huge
- *  gaps, so runs of newlines collapse to one for display. Display only:
- *  the `replacement` applied on accept keeps the real separators. */
-function displayText(text: string): string {
-  return text.replace(/\n{2,}/g, "\n");
-}
-
 export function prefersReducedMotion(): boolean {
   return (
     typeof window.matchMedia === "function" &&
@@ -127,7 +119,16 @@ function stopTimer(anim: InsertAnimation) {
 
 function renderAnimation(anim: InsertAnimation) {
   if (!anim.span) return;
-  anim.span.textContent = displayText(anim.target.slice(0, anim.shown));
+  // Re-parses the growing revealed prefix every tick, not just the final
+  // text: a partial markdown token (an unclosed "**") can render as its
+  // literal characters for a frame until it closes, then flip to real
+  // formatting - a small, expected artifact of live-formatting a stream,
+  // not a bug (every streaming markdown renderer has it). Preferred over
+  // revealing raw source and snapping to formatted HTML only once done,
+  // which pops the widget's width/wrapping at the very end instead.
+  anim.span.innerHTML = renderMarkdownInlineHtml(
+    anim.target.slice(0, anim.shown),
+  );
   anim.span.classList.toggle(
     "pending-insert-typing",
     anim.shown < anim.target.length || !anim.done,
@@ -235,7 +236,7 @@ function textWidget(
       span.contentEditable = "false";
       const text = p.proposal.text ?? "";
       if (!animate || prefersReducedMotion()) {
-        span.textContent = displayText(text);
+        span.innerHTML = renderMarkdownInlineHtml(text);
         return span;
       }
       let anim = animations.get(p.callId);

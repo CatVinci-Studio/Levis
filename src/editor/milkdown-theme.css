@@ -85,9 +85,20 @@
   background: rgba(22, 163, 74, 0.14);
   border-radius: 3px;
   padding: 0 2px;
-  white-space: pre-wrap;
+  /* Renders real markdown (renderMarkdownInlineHtml), not source text - the
+     ProseMirror root's own base stylesheet sets white-space: pre-wrap on
+     the whole editable area (to preserve typed whitespace), which would
+     otherwise double up on the spacing marked's own <br>/paragraph elements
+     already provide, the same fix .raw-html-rendered uses for the same
+     reason. */
+  white-space: normal;
   user-select: none;
   animation: pending-insert-fade 0.25s ease-out;
+}
+
+.pending-insert code {
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
 }
 
 @keyframes pending-insert-fade {
