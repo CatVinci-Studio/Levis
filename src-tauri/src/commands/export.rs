@@ -142,24 +142,27 @@ pub async fn reveal_in_dir(app: tauri::AppHandle, path: String) -> Result<(), St
         .map_err(|e| e.to_string())
 }
 
-/// Renders self-contained, already-themed document HTML to a PDF file. wry's
-/// window.print() on macOS drives a broken NSPrintPanel (flashes and
-/// self-dismisses - tauri-apps/wry#713, tauri#6202), so instead of printing we
-/// load the HTML into a fresh offscreen WKWebView and ask WebKit for a PDF via
-/// -createPDFWithConfiguration:, writing the bytes to `output_path`. WKWebView
-/// is main-thread-only, so the work is dispatched to the main thread and this
-/// async command blocks on a channel until the PDF completion handler fires.
+/// Shows the system print panel for a themed document, so the user can "Save as
+/// PDF" (vector, selectable text) - the cross-platform browser way of exporting
+/// a page. On Windows/Linux the frontend just calls window.print(); only macOS
+/// needs this native path, because wry's window.print() there drives a broken
+/// NSPrintPanel that flashes and self-dismisses (tauri-apps/wry#713,
+/// tauri#6202). We load the self-contained themed HTML into a fresh offscreen
+/// WKWebView (wry's own webview subclass doesn't respond to
+/// printOperationWithPrintInfo:) and drive an NSPrintOperation through the
+/// documented async path. WKWebView is main-thread-only, so this dispatches to
+/// the main thread and returns once the panel is on screen (or the render
+/// failed); the panel then handles saving.
 #[cfg(target_os = "macos")]
 #[tauri::command]
 pub async fn export_pdf_native(
     app: tauri::AppHandle,
     html: String,
-    output_path: String,
     base_dir: Option<String>,
 ) -> Result<(), String> {
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
     app.run_on_main_thread(move || {
-        pdf_macos::start_pdf_export(html, output_path, base_dir, tx);
+        pdf_macos::start_pdf_export(html, base_dir, tx);
     })
     .map_err(|e| e.to_string())?;
     // Bounded wait so a hung render can never leave the frontend spinner stuck.
@@ -180,10 +183,11 @@ pub async fn export_pdf_native(
 pub async fn export_pdf_native(
     _app: tauri::AppHandle,
     _html: String,
-    _output_path: String,
     _base_dir: Option<String>,
 ) -> Result<(), String> {
-    Err("Native PDF export is only available on macOS".to_string())
+    // Non-macOS platforms use the webview's own window.print() from the
+    // frontend, so this native path is never invoked there.
+    Err("Native PDF export is only used on macOS".to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -193,22 +197,23 @@ mod pdf_macos {
     use std::sync::mpsc::Sender;
 
     use objc2::rc::Retained;
-    use objc2::runtime::{NSObject, ProtocolObject};
-    use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly};
+    use objc2::runtime::{AnyObject, Bool, NSObject, ProtocolObject};
+    use objc2::{define_class, msg_send, sel, DefinedClass, MainThreadOnly, Message};
+    use objc2_app_kit::{NSApplication, NSPrintInfo, NSPrintingPaginationMode};
     use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-    use objc2_foundation::{MainThreadMarker, NSData, NSError, NSObjectProtocol, NSString, NSURL};
+    use objc2_foundation::{MainThreadMarker, NSError, NSObjectProtocol, NSString, NSURL};
     use objc2_web_kit::{WKNavigation, WKNavigationDelegate, WKWebView, WKWebViewConfiguration};
 
-    // A4 width at 96dpi. createPDF captures the document's full content height,
-    // so this only pins the page (and thus text) width; the result is a single
-    // continuous page as tall as the document.
-    const PAGE_WIDTH: f64 = 794.0;
-    const PAGE_HEIGHT: f64 = 1123.0;
+    // A4 in PostScript points (1pt = 1/72") with 0.5" margins - the panel's
+    // defaults; the user can still change paper/scale there.
+    const PAPER_WIDTH: f64 = 595.0;
+    const PAPER_HEIGHT: f64 = 842.0;
+    const MARGIN: f64 = 36.0;
 
-    // Keeps the webview and its delegate alive until the PDF completion handler
-    // runs. WKWebView's navigationDelegate is a weak reference, and the main
-    // dispatch closure returns long before navigation finishes, so without this
-    // both would be dropped and the load would never complete.
+    // Keeps the offscreen webview and its delegate alive from load until the
+    // print panel is dismissed. navigationDelegate is weak and the dispatch that
+    // starts the export returns immediately, so without this the graph would drop
+    // mid-flight.
     struct Pending {
         _webview: Retained<WKWebView>,
         _delegate: Retained<PdfExporter>,
@@ -221,11 +226,10 @@ mod pdf_macos {
 
     struct PdfExporterIvars {
         id: usize,
-        output_path: String,
         result_tx: Sender<Result<(), String>>,
-        // Guards against reporting a result twice (finish + a late delegate
-        // callback), which would panic the mpsc send on a dropped receiver.
-        settled: Cell<bool>,
+        // The channel is signalled once (panel shown, or render failed);
+        // `signalled` guards against a second send on a possibly-gone receiver.
+        signalled: Cell<bool>,
     }
 
     define_class!(
@@ -239,7 +243,7 @@ mod pdf_macos {
         unsafe impl WKNavigationDelegate for PdfExporter {
             #[unsafe(method(webView:didFinishNavigation:))]
             fn did_finish_navigation(&self, webview: &WKWebView, _navigation: &WKNavigation) {
-                self.generate_pdf(webview);
+                self.present_panel(webview);
             }
 
             #[unsafe(method(webView:didFailNavigation:withError:))]
@@ -249,10 +253,10 @@ mod pdf_macos {
                 _navigation: &WKNavigation,
                 error: &NSError,
             ) {
-                self.finish(Err(format!(
+                self.fail(format!(
                     "Failed to render page: {}",
                     error.localizedDescription()
-                )));
+                ));
             }
 
             #[unsafe(method(webView:didFailProvisionalNavigation:withError:))]
@@ -262,58 +266,108 @@ mod pdf_macos {
                 _navigation: &WKNavigation,
                 error: &NSError,
             ) {
-                self.finish(Err(format!(
+                self.fail(format!(
                     "Failed to load page: {}",
                     error.localizedDescription()
-                )));
+                ));
+            }
+        }
+
+        // Async did-run callback for runOperationModalForWindow (not part of any
+        // protocol - it lives in its own runtime-exposed impl). Fires when the
+        // user dismisses the print panel; the channel is long signalled by then,
+        // so this only tears the webview down.
+        impl PdfExporter {
+            #[unsafe(method(printOperationDidRun:success:contextInfo:))]
+            fn print_operation_did_run(
+                &self,
+                _operation: *mut AnyObject,
+                _success: Bool,
+                _context: *mut core::ffi::c_void,
+            ) {
+                self.cleanup();
             }
         }
     );
 
     impl PdfExporter {
-        fn generate_pdf(&self, webview: &WKWebView) {
-            let ivars = self.ivars();
-            if ivars.settled.replace(true) {
+        // Builds an NSPrintOperation for the loaded webview and shows the system
+        // print panel. Per Apple (developer.apple.com/forums/thread/705138), the
+        // reliable way to print a WKWebView is the async runOperationModalForWindow
+        // (a synchronous runOperation deadlocks its async render), with the
+        // operation view's frame set to the paper size (omitting it crashes).
+        fn present_panel(&self, webview: &WKWebView) {
+            if self.ivars().signalled.get() {
                 return;
             }
-            let id = ivars.id;
-            let output_path = ivars.output_path.clone();
-            let tx = ivars.result_tx.clone();
-            let handler = block2::RcBlock::new(move |data: *mut NSData, error: *mut NSError| {
-                let result = if !error.is_null() {
-                    let error = unsafe { &*error };
-                    Err(format!(
-                        "createPDF failed: {}",
-                        error.localizedDescription()
-                    ))
-                } else if data.is_null() {
-                    Err("createPDF returned no data".to_string())
-                } else {
-                    let data = unsafe { &*data };
-                    let path = NSString::from_str(&output_path);
-                    if data.writeToFile_atomically(&path, true) {
-                        Ok(())
-                    } else {
-                        Err(format!("Could not write PDF to {output_path}"))
-                    }
-                };
-                let _ = tx.send(result);
-                PENDING.with(|pending| {
-                    pending.borrow_mut().remove(&id);
+            let Some(mtm) = MainThreadMarker::new() else {
+                self.fail("PDF export left the main thread".to_string());
+                return;
+            };
+
+            let print_info = NSPrintInfo::new();
+            print_info.setPaperSize(CGSize::new(PAPER_WIDTH, PAPER_HEIGHT));
+            print_info.setTopMargin(MARGIN);
+            print_info.setBottomMargin(MARGIN);
+            print_info.setLeftMargin(MARGIN);
+            print_info.setRightMargin(MARGIN);
+            print_info.setHorizontalPagination(NSPrintingPaginationMode::Fit);
+            print_info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
+
+            let operation = unsafe { webview.printOperationWithPrintInfo(&print_info) };
+            // Required: without a sized view the operation crashes.
+            if let Some(view) = operation.view() {
+                view.setFrame(CGRect {
+                    origin: CGPoint::new(0.0, 0.0),
+                    size: print_info.paperSize(),
                 });
-            });
-            unsafe {
-                webview.createPDFWithConfiguration_completionHandler(None, &handler);
             }
+            operation.setShowsPrintPanel(true);
+            operation.setShowsProgressPanel(true);
+
+            let app = NSApplication::sharedApplication(mtm);
+            let Some(window) = app.mainWindow().or_else(|| app.keyWindow()) else {
+                self.fail("No window to host the print panel".to_string());
+                return;
+            };
+
+            // SAFETY: `self` is an NSObject; the print machinery calls our
+            // printOperationDidRun:success:contextInfo: on it when done.
+            let delegate = unsafe { &*(self as *const Self as *const AnyObject) };
+            unsafe {
+                operation.runOperationModalForWindow_delegate_didRunSelector_contextInfo(
+                    &window,
+                    Some(delegate),
+                    Some(sel!(printOperationDidRun:success:contextInfo:)),
+                    core::ptr::null_mut(),
+                );
+            }
+            // Panel is on screen now - let the frontend drop its "preparing"
+            // overlay. Saving happens in the panel; teardown waits for did-run.
+            self.signal(Ok(()));
         }
 
-        fn finish(&self, result: Result<(), String>) {
-            let ivars = self.ivars();
-            if ivars.settled.replace(true) {
+        // Sends the one-shot channel result (panel shown, or an error).
+        fn signal(&self, result: Result<(), String>) {
+            if self.ivars().signalled.replace(true) {
                 return;
             }
-            let _ = ivars.result_tx.send(result);
-            let id = ivars.id;
+            let _ = self.ivars().result_tx.send(result);
+        }
+
+        // Reports an error and tears down (the render never reached the panel).
+        fn fail(&self, message: String) {
+            self.signal(Err(message));
+            self.cleanup();
+        }
+
+        // Drops this export's webview + delegate. Retains self first: the PENDING
+        // map holds our only strong reference (the webview points back weakly),
+        // and we may be inside a delegate method, so removing our own entry would
+        // otherwise be a use-after-free.
+        fn cleanup(&self) {
+            let _keep = self.retain();
+            let id = self.ivars().id;
             PENDING.with(|pending| {
                 pending.borrow_mut().remove(&id);
             });
@@ -322,7 +376,6 @@ mod pdf_macos {
 
     pub fn start_pdf_export(
         html: String,
-        output_path: String,
         base_dir: Option<String>,
         tx: Sender<Result<(), String>>,
     ) {
@@ -337,9 +390,10 @@ mod pdf_macos {
         });
 
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
+        // Printable width x A4 height, so on-screen wrapping ~ matches print.
         let frame = CGRect {
             origin: CGPoint::new(0.0, 0.0),
-            size: CGSize::new(PAGE_WIDTH, PAGE_HEIGHT),
+            size: CGSize::new(PAPER_WIDTH - 2.0 * MARGIN, PAPER_HEIGHT),
         };
         let webview =
             unsafe { WKWebView::initWithFrame_configuration(mtm.alloc(), frame, &config) };
@@ -347,9 +401,8 @@ mod pdf_macos {
         let delegate = {
             let this = mtm.alloc::<PdfExporter>().set_ivars(PdfExporterIvars {
                 id,
-                output_path,
                 result_tx: tx,
-                settled: Cell::new(false),
+                signalled: Cell::new(false),
             });
             let this: Retained<PdfExporter> = unsafe { msg_send![super(this), init] };
             this

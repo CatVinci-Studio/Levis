@@ -765,11 +765,22 @@ body {
   opacity: 1 !important;
 }
 
-/* PDF export does NOT go through window.print() - it renders themed HTML in an
-   offscreen WKWebView (see export-doc.ts's exportPdf + commands/export.rs),
-   because wry's print panel is broken on macOS. These rules only cover an
-   incidental live-window print: hide app chrome and let the content flow. */
+/* PDF export on Windows/Linux is window.print() on this live window (macOS
+   renders offscreen instead - see export-doc.ts's exportPdf). These rules make
+   that print look like the themed document: hide app chrome, flow the content,
+   and keep the editor theme's colours. */
 @media print {
+  /* Without this the print engine drops every background colour, flattening the
+     editor theme (code blocks, quotes, dark pages) to white. */
+  :root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+
   .sidebar,
   .titlebar-drag-region,
   .tab-bar,
@@ -780,19 +791,28 @@ body {
     display: none !important;
   }
 
+  html,
+  body,
+  .app-shell,
+  .main-pane,
+  .editor-scroll {
+    height: auto;
+    overflow: visible;
+    background: var(--editor-bg, var(--bg)) !important;
+  }
+
+  /* Page margins come from @page; drop typewriter mode's centering padding. */
+  .editor-content,
+  .editor-content.typewriter-active {
+    padding: 0;
+  }
+
   /* Keep indivisible blocks off page seams. */
   pre,
   blockquote,
   table,
   img {
     break-inside: avoid;
-  }
-
-  .app-shell,
-  .main-pane,
-  .editor-scroll {
-    height: auto;
-    overflow: visible;
   }
 }
 

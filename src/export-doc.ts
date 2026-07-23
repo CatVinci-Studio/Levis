@@ -104,21 +104,24 @@ function buildStandaloneHtml(
 
 // --- PDF export -------------------------------------------------------------
 //
-// wry's window.print() on macOS drives a broken NSPrintPanel (flashes and
-// self-dismisses - tauri-apps/wry#713, tauri#6202), so PDF doesn't go through
-// printing at all. Instead we build the same self-contained themed document as
-// HTML export and hand it to a Rust command that renders it in an offscreen
-// WKWebView and writes a real .pdf via -createPDFWithConfiguration:. A progress
-// overlay covers the render/write, since createPDF is async and can take a
-// moment on large docs.
+// PDF export is "print the page → Save as PDF" - vector, selectable text, and
+// the same mechanism every browser has. Windows/Linux use window.print()
+// directly (their engines print fine). macOS can't: wry's window.print() drives
+// a broken NSPrintPanel (flashes and self-dismisses - tauri-apps/wry#713,
+// tauri#6202), so there we render the themed document in an offscreen WKWebView
+// and show the print panel natively (see export_pdf_native in Rust).
 
-// Fills the page with the theme background and uses padding as page margins,
-// so the PDF matches the editor theme (dark themes included). The page width
-// is fixed by the offscreen WKWebView frame on the Rust side.
+const isMac = navigator.userAgent.includes("Mac");
+
+// Theme + page CSS for the offscreen macOS render. Page margins come from the
+// print operation (NSPrintInfo), so the content carries none; print-color-adjust
+// keeps the editor theme's backgrounds from being flattened to white per page.
 const PDF_LAYOUT_CSS =
+  ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
   "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
-  ".editor-content, .editor-content.typewriter-active { padding: 56px; }";
+  ".editor-content, .editor-content.typewriter-active { padding: 0; } " +
+  "pre, blockquote, table, img { break-inside: avoid; }";
 
 const HTML_LAYOUT_CSS =
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } " +
@@ -161,9 +164,13 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
     return;
   }
+  if (!isMac) {
+    // Windows/Linux: the webview's own print → Save as PDF. App.css's @media
+    // print hides the app chrome and themes the page.
+    window.print();
+    return;
+  }
   const base = exportBaseName(tab, t);
-  const picked = await exportDoc.exportSaveDialog(`${base}.pdf`, "PDF", "pdf");
-  if (!picked) return;
   const overlay = showPdfOverlay(t);
   try {
     await nextFrame();
@@ -173,13 +180,12 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
       cloneEditorContent(editor),
       PDF_LAYOUT_CSS,
     );
+    // Returns once the print panel is on screen; the panel handles saving.
     await exportDoc.exportPdfNative({
       html,
-      outputPath: picked,
       // Resolves relative image srcs (assets/...) against the document folder.
       baseDir: tab.path ? dirname(tab.path) : null,
     });
-    void exportDoc.revealInDir(picked);
   } catch (err) {
     await message(`${t.pdfFailed} ${String(err)}`, {
       title: t.exportFailedTitle,

@@ -35,17 +35,17 @@ aicompat = { path = "crates/aicompat" }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
-# macOS-native PDF export (commands/export.rs). We drive an offscreen
-# WKWebView + -createPDFWithConfiguration: directly because wry's
-# window.print() presents a broken NSPrintPanel on macOS. Versions and the
-# objc2 ecosystem are already in the tree via wry; features here just switch
-# on the WebKit/PDF bits wry doesn't itself use (e.g. WKPDFConfiguration).
+# macOS-native PDF export (commands/export.rs). Only macOS needs native code:
+# it renders the themed document in an offscreen WKWebView and shows the system
+# print panel via NSPrintOperation, because wry's window.print() is broken there
+# (Windows/Linux use window.print() straight from the frontend). Versions and
+# the objc2 ecosystem are already in the tree via wry; features here switch on
+# the AppKit printing + WebKit bits wry doesn't itself use.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = [
     "NSString",
     "NSURL",
-    "NSData",
     "NSError",
     "NSObject",
 ] }
@@ -54,13 +54,21 @@ objc2-core-foundation = { version = "0.3", default-features = false, features = 
     "CFCGTypes",
     "objc2",
 ] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "NSApplication",
+    "NSResponder",
+    "NSWindow",
+    "NSView",
+    "NSPrintInfo",
+    "NSPrintOperation",
+] }
 objc2-web-kit = { version = "0.3", features = [
     "WKWebView",
     "WKWebViewConfiguration",
     "WKNavigation",
     "WKNavigationDelegate",
-    "WKPDFConfiguration",
-    "block2",
     "objc2-core-foundation",
+    "objc2-app-kit",
 ] }
-block2 = "0.6"
