@@ -108,19 +108,17 @@ function buildStandaloneHtml(
 // self-dismisses - tauri-apps/wry#713, tauri#6202), so PDF doesn't go through
 // printing at all. Instead we build the same self-contained themed document as
 // HTML export and hand it to a Rust command that renders it in an offscreen
-// WKWebView and writes a real, A4-paginated .pdf via a panel-less
-// NSPrintOperation. A progress overlay covers the render/write.
+// WKWebView and writes a real .pdf via -createPDFWithConfiguration:. A progress
+// overlay covers the render/write, since createPDF is async and can take a
+// moment on large docs.
 
-// Page margins and pagination come from the Rust print operation (NSPrintInfo),
-// so the content itself carries no page padding. print-color-adjust keeps the
-// editor theme's backgrounds (page colour, code blocks) from being flattened to
-// white on every printed page.
+// Fills the page with the theme background and uses padding as page margins,
+// so the PDF matches the editor theme (dark themes included). The page width
+// is fixed by the offscreen WKWebView frame on the Rust side.
 const PDF_LAYOUT_CSS =
-  ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
   "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
-  ".editor-content, .editor-content.typewriter-active { padding: 0; } " +
-  "pre, blockquote, table, img { break-inside: avoid; }";
+  ".editor-content, .editor-content.typewriter-active { padding: 56px; }";
 
 const HTML_LAYOUT_CSS =
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } " +
