@@ -35,11 +35,21 @@ Possible issues get underlined; hover to see the explanation and apply the fix w
 Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to open a chat at the cursor — a single input bar anchored where you invoked it. As the conversation grows, it stacks upward above the input instead of pushing the input around the screen. It knows the whole document, and if text was selected when you opened it, the selection is included as context.
 
 - **History**: the sidebar's **Chats** tab stores past conversations. Click one to reopen it in the current editor and continue.
-- **Attach files**: the **+** button on the left of the input attaches any text file to that message (research notes, an outline, another chapter).
+- **Attach files**: the **+** button on the left of the input attaches a PDF, Word document, PowerPoint deck, spreadsheet, image, or plain text file to that message. Everything except images is extracted to text locally and travels inside the message; images are sent as real images to providers that can see (ones that can't say so up front rather than dropping them silently). A long file is sent only in part, and the chip says "(shortened)" when that happens.
 - **Web search**: once enabled in Settings (ChatGPT and OpenAI API Key providers), the agent can search the web on its own when a request needs it.
-- **Workspace files**: for saved documents, a tool-calling provider (ChatGPT, API Key, or Claude) can list and read files in the document's folder by itself — keep reference material next to the document.
+- **Workspace files**: a tool-calling provider (ChatGPT, API Key, or Claude) can list and read files in the workspace folder by itself — keep reference material there (see The Agent Workspace below).
 
 Replies are read-only commentary — the chat never writes to your document directly. Whenever a reply changes the document, it arrives as an in-document edit preview instead (see below).
+
+#### Two surfaces: in-document vs its own window
+
+The chat has two surfaces, and they differ in **what they are about**, not in size:
+
+- **Quick Ask**, in the document, is about this one file. It captures the document and selection at the moment it opens and keeps them — a command bar that re-targeted itself mid-conversation would be unpredictable. Use it for one-shot instructions like "rewrite this paragraph".
+- **The detached window** (⧉ in the panel's header, or "open full conversation" beside a reply) is the **cross-file** surface. It follows you: switch tabs or windows and its document, title and selection follow. Highlight a new passage and it arrives as a new selection chip in the input, with no need to reopen anything. Edits it proposes land in whichever file you are actually editing.
+- There is only ever **one** detached window. Popping the chat out from a second file reveals the one already open and switches it to that file, rather than starting a rival conversation.
+- **📌** in its header keeps it above the editor, so clicking back into your document doesn't bury it.
+- By default each editor window has its own Agent window. Turn on **Settings > Agent > Share the Agent window across windows** and a single window serves the whole app.
 
 ### 4. In-document edit previews
 
@@ -49,7 +59,7 @@ Multiple proposals in one reply preview at once; the floating panel shows "1 of 
 
 ## The Agent Workspace
 
-Different writing projects need different instructions, skills, and reference files. A workspace is simply **the folder containing your document**, configured with a `.levis/` directory inside it:
+Different writing projects need different instructions, skills, and reference files. A workspace is, by default, **the folder containing your document**, configured with a `.levis/` directory inside it:
 
 ```
 my-novel/
@@ -64,6 +74,12 @@ my-novel/
 ```
 
 There is also a **global layer** with the same structure that applies to every document (Settings > Agent > Open Global Folder). A workspace skill with the same name overrides the global one.
+
+### Choosing a different workspace
+
+The workspace folder is two things at once: where `.levis/` is read from, and the only place the agent's file tools may read (`..`, absolute paths, and symlinks pointing outside are all refused). So the default stops being enough as soon as your reference material and your draft don't live in the same folder.
+
+Set it explicitly under **Settings > Agent > Workspace Folder**: "Switch…" picks a folder, "Use document folder" goes back to the default. If the folder you chose is later moved or unmounted, the document's own folder is used again rather than leaving the agent with no workspace at all.
 
 ### agent.md — standing instructions
 
