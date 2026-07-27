@@ -59,7 +59,19 @@ fn emit_to_focused(app: &tauri::AppHandle, event: &str) {
     emit_to_focused_payload(app, event, ());
 }
 
-/// Menu commands go to the focused EDITOR window.
+fn emit_to_focused_payload<S: serde::Serialize + Clone>(
+    app: &tauri::AppHandle,
+    event: &str,
+    payload: S,
+) {
+    if let Some(label) = focused_editor_window(app) {
+        let _ = app.emit_to(EventTarget::webview_window(&label), event, payload);
+    }
+}
+
+/// The editor window a window-addressed message should go to - menu commands
+/// here, and lib.rs's OS-open handling, which has the same "which of several
+/// windows means *this* one" question.
 ///
 /// "Focused window" alone is not enough once a detached chat window exists:
 /// the chat holds focus for as long as the user is typing in it, but it has
@@ -67,18 +79,14 @@ fn emit_to_focused(app: &tauri::AppHandle, event: &str) {
 /// Find would all quietly do nothing. A focused chat is resolved back to the
 /// editor it belongs to; failing that, any editor window is a better target
 /// than none.
-fn emit_to_focused_payload<S: serde::Serialize + Clone>(
-    app: &tauri::AppHandle,
-    event: &str,
-    payload: S,
-) {
+pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
     let windows = app.webview_windows();
     let focused = windows
         .iter()
         .find(|(_, w)| w.is_focused().unwrap_or(false))
         .map(|(label, _)| label.clone());
 
-    let target = match focused {
+    match focused {
         Some(label) if crate::commands::chat_window::is_editor_window(&label) => Some(label),
         Some(label) => app
             .try_state::<crate::commands::chat_window::OpenChatWindows>()
@@ -90,11 +98,7 @@ fn emit_to_focused_payload<S: serde::Serialize + Clone>(
             .keys()
             .find(|label| crate::commands::chat_window::is_editor_window(label))
             .cloned()
-    });
-
-    if let Some(label) = target {
-        let _ = app.emit_to(EventTarget::webview_window(&label), event, payload);
-    }
+    })
 }
 
 /// Handle to the File > Open Recent submenu, kept so add_recent_file can
@@ -451,12 +455,9 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
             // windowless), spawn one that drains the pending doc on
             // mount.
             let doc = id.as_ref()[HELP_DOC_PREFIX.len()..].to_string();
-            if app_handle
-                .webview_windows()
-                .iter()
-                .any(|(label, _)| crate::commands::chat_window::is_editor_window(label))
-            {
-                emit_to_focused_payload(app_handle, "menu-open-help", doc);
+            if let Some(label) = focused_editor_window(app_handle) {
+                let _ =
+                    app_handle.emit_to(EventTarget::webview_window(&label), "menu-open-help", doc);
             } else {
                 *crate::PENDING_SHOW_HELP.lock().unwrap() = Some(doc);
                 let _ = crate::open_new_window(app_handle);

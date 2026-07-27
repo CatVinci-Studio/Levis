@@ -102,6 +102,16 @@ fn take_pending_open_paths(pending: State<PendingOpenPaths>) -> Vec<String> {
     std::mem::take(&mut *paths)
 }
 
+/// Park paths for the next window to drain (see take_pending_open_path(s),
+/// which the frontend calls as it mounts).
+fn queue_pending(app: &tauri::AppHandle, paths: Vec<String>) {
+    app.state::<PendingOpenPaths>()
+        .0
+        .lock()
+        .unwrap()
+        .extend(paths);
+}
+
 pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     if paths.is_empty() {
         return;
@@ -109,29 +119,32 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     let ui_ready = UI_READY.load(Ordering::Relaxed);
 
     if commands::prefs::read_new_document_mode(app) == "tab" {
-        {
-            let pending = app.state::<PendingOpenPaths>();
-            pending.0.lock().unwrap().extend(paths.clone());
-        }
-        if !ui_ready {
-            // The about-to-mount initial window will drain every queued path
-            // as its own tab - no extra windows needed.
-            return;
-        }
-        // Already running: hand the whole batch to a live window as tabs
-        // instead of spawning one window per path. Only fall back to a fresh
-        // window if there's truly nothing to receive them.
-        if let Some((label, _)) = app
-            .webview_windows()
-            .iter()
-            .find(|(label, _)| commands::chat_window::is_editor_window(label))
-        {
+        // Already running: hand the whole batch to ONE live window as tabs
+        // instead of spawning a window per path. The focused window, not
+        // whichever one webview_windows() happens to yield first (it's a
+        // HashMap - the order is arbitrary), so the file lands where the
+        // user is looking. Nothing is queued on this path: the receiving
+        // window opens the paths straight from the event, and a leftover
+        // queue entry would be opened a second time by the next window to
+        // mount.
+        let target = if ui_ready {
+            menu::focused_editor_window(app)
+        } else {
+            None
+        };
+        if let Some(label) = target {
             let _ = app.emit_to(
-                EventTarget::webview_window(label),
+                EventTarget::webview_window(&label),
                 "open-paths-as-tabs",
                 paths,
             );
-        } else {
+            return;
+        }
+        // Still launching, or no window alive to receive them: park the whole
+        // batch for the window that mounts next - the initial one, or the
+        // fresh one opened here - which drains all of it as its own tabs.
+        queue_pending(app, paths);
+        if ui_ready {
             let _ = open_new_window(app);
         }
         return;
@@ -141,10 +154,7 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     // window while the app is still launching; everything else gets a
     // window of its own, which drains one path when its frontend mounts.
     let count = paths.len();
-    {
-        let pending = app.state::<PendingOpenPaths>();
-        pending.0.lock().unwrap().extend(paths);
-    }
+    queue_pending(app, paths);
     let extra_windows = if ui_ready { count } else { count - 1 };
     for _ in 0..extra_windows {
         let _ = open_new_window(app);
