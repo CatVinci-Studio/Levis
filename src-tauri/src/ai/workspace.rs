@@ -148,9 +148,37 @@ fn read_layer(dir: &Path) -> (Option<String>, Vec<AgentSkill>) {
     (instructions, skills)
 }
 
+/// Resolves the workspace root: the folder `.levis/` is read from and the
+/// sandbox boundary the `list_files`/`read_file` tools may not escape.
+///
+/// The document's own folder is the default and covers the common case (a
+/// folder of chapters, notes next to the draft). `root_override` is the
+/// Settings > Agent "workspace" picker: without it, reference material one
+/// folder over is simply unreachable, and so is any attachment the user
+/// picked from elsewhere on disk - which is exactly the wall a user hits the
+/// first time their sources and their draft don't live together.
+///
+/// An override that no longer exists (a moved or unmounted folder) falls
+/// back to the document's folder rather than leaving the agent with no
+/// workspace at all.
+fn resolve_root(doc_path: Option<&str>, root_override: Option<&str>) -> Option<PathBuf> {
+    let picked = root_override
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(PathBuf::from)
+        .filter(|p| p.is_dir());
+    picked.or_else(|| {
+        doc_path
+            .map(Path::new)
+            .and_then(|p| p.parent())
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(Path::to_path_buf)
+    })
+}
+
 /// Loads the merged agent workspace for a document: global layer first,
-/// then the document folder's `.levis/` layer on top.
-pub fn load(app: &AppHandle, doc_path: Option<&str>) -> AgentWorkspace {
+/// then the workspace root's `.levis/` layer on top.
+pub fn load(app: &AppHandle, doc_path: Option<&str>, root_override: Option<&str>) -> AgentWorkspace {
     let mut ws = AgentWorkspace::default();
 
     if let Ok(global_dir) = global_agent_dir(app) {
@@ -159,11 +187,8 @@ pub fn load(app: &AppHandle, doc_path: Option<&str>) -> AgentWorkspace {
         ws.skills.extend(skills);
     }
 
-    let root = doc_path
-        .map(Path::new)
-        .and_then(|p| p.parent())
-        .filter(|p| !p.as_os_str().is_empty());
-    if let Some(root) = root {
+    if let Some(root) = resolve_root(doc_path, root_override) {
+        let root = root.as_path();
         ws.root = Some(root.to_string_lossy().to_string());
         let (instructions, skills) = read_layer(&root.join(WORKSPACE_DIR_NAME));
         ws.instructions.extend(instructions);
@@ -178,13 +203,32 @@ pub fn load(app: &AppHandle, doc_path: Option<&str>) -> AgentWorkspace {
 }
 
 /// The workspace as the frontend needs it: the skill list for the `/name`
-/// picker in the chat input. Loaded fresh each time the chat opens so file
-/// edits are picked up without restarting.
+/// picker in the chat input, plus the resolved `root` the Settings row
+/// displays. Loaded fresh each time the chat opens so file edits are picked
+/// up without restarting.
 #[tauri::command]
-pub async fn load_agent_workspace(app: AppHandle, doc_path: Option<String>) -> AgentWorkspace {
-    tauri::async_runtime::spawn_blocking(move || load(&app, doc_path.as_deref()))
-        .await
-        .unwrap_or_default()
+pub async fn load_agent_workspace(
+    app: AppHandle,
+    doc_path: Option<String>,
+    root_override: Option<String>,
+) -> AgentWorkspace {
+    tauri::async_runtime::spawn_blocking(move || {
+        load(&app, doc_path.as_deref(), root_override.as_deref())
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Folder picker behind Settings > Agent's "switch workspace" button.
+#[tauri::command]
+pub async fn pick_workspace_root(app: AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog().file().blocking_pick_folder()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(picked.map(|p| p.to_string()))
 }
 
 /// Creates the global agent directory (with a starter agent.md and skills/
@@ -384,6 +428,47 @@ mod tests {
         assert_eq!(skill.name, "outline");
         assert_eq!(skill.description, "");
         assert_eq!(skill.prompt, "Make an outline of the document.");
+    }
+
+    #[test]
+    fn workspace_root_defaults_to_the_documents_folder() {
+        assert_eq!(
+            resolve_root(Some("/tmp/novel/chapter-1.md"), None),
+            Some(PathBuf::from("/tmp/novel"))
+        );
+        assert_eq!(resolve_root(None, None), None);
+    }
+
+    #[test]
+    fn an_explicit_root_wins_over_the_documents_folder() {
+        // The whole point of the setting: sources and draft in different
+        // folders. Uses a directory guaranteed to exist, since resolve_root
+        // only honours an override that is really there.
+        let existing = std::env::temp_dir();
+        assert_eq!(
+            resolve_root(
+                Some("/tmp/novel/chapter-1.md"),
+                Some(&existing.to_string_lossy())
+            ),
+            Some(existing)
+        );
+    }
+
+    #[test]
+    fn a_stale_root_falls_back_instead_of_leaving_no_workspace() {
+        // A moved or unmounted folder must not cost the agent its skills and
+        // file tools entirely - that would look like the feature breaking.
+        assert_eq!(
+            resolve_root(
+                Some("/tmp/novel/chapter-1.md"),
+                Some("/definitely/not/a/real/folder")
+            ),
+            Some(PathBuf::from("/tmp/novel"))
+        );
+        assert_eq!(
+            resolve_root(Some("/tmp/novel/chapter-1.md"), Some("   ")),
+            Some(PathBuf::from("/tmp/novel"))
+        );
     }
 
     #[test]

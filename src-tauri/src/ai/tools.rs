@@ -10,8 +10,10 @@ pub struct ToolContext<'a> {
     pub document: &'a str,
     /// Skills from the agent workspace (global + document folder).
     pub skills: &'a [AgentSkill],
-    /// The document's folder - the sandbox root for the file tools. None for
-    /// unsaved drafts (the file tools aren't offered then).
+    /// The workspace root - the sandbox boundary for the file tools. The
+    /// document's own folder by default, or the folder chosen in Settings >
+    /// Agent (see workspace::resolve_root). None for an unsaved draft with no
+    /// override, in which case the file tools aren't offered at all.
     pub root: Option<&'a Path>,
 }
 

@@ -3,7 +3,7 @@ use crate::ai::catalog;
 use crate::ai::route::{self, OpenaiAuth, NOT_CONFIGURED};
 use crate::ai::tools::{self, ToolContext};
 use crate::ai::workspace::{self, AgentWorkspace};
-use aicompat::agent::{run_agent_loop, AgentTurn, ProviderEvent};
+use aicompat::agent::{run_agent_loop, AgentTurn, ImageAttachment, ProviderEvent};
 use aicompat::providers::{
     anthropic, custom, openai_api_key, openai_codex, openai_responses_compatible,
 };
@@ -205,8 +205,15 @@ pub async fn ai_agent_message(
     provider: String,
     document: String,
     doc_path: Option<String>,
+    // `workspace_root`: Settings > Agent's explicit workspace override. None
+    // keeps the default - the document's own folder (see workspace::load).
+    workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
+    // `images`: attachments with no text to extract. The text-shaped ones
+    // (PDF, Word, spreadsheets) were already extracted and inlined into
+    // `message` by the frontend; only images travel as their own parts.
+    images: Vec<ImageAttachment>,
     web_search: bool,
     model: Option<String>,
     request_id: String,
@@ -214,7 +221,7 @@ pub async fn ai_agent_message(
 ) -> Result<Vec<AgentTurn>, String> {
     let cancel_rx = cancel::register(request_id.clone());
     let result = tokio::select! {
-        result = ai_agent_message_inner(app, provider, document, doc_path, history, message, web_search, model, on_event) => result,
+        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, model, on_event) => result,
         _ = cancel_rx => Err(cancel::CANCELLED.to_string()),
     };
     cancel::unregister(&request_id);
@@ -227,14 +234,33 @@ async fn ai_agent_message_inner(
     provider: String,
     document: String,
     doc_path: Option<String>,
+    // `workspace_root`: Settings > Agent's explicit workspace override. None
+    // keeps the default - the document's own folder (see workspace::load).
+    workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
+    images: Vec<ImageAttachment>,
     web_search: bool,
     model: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
-    let workspace = workspace::load(&app, doc_path.as_deref());
+    let workspace = workspace::load(&app, doc_path.as_deref(), workspace_root.as_deref());
     let entry = catalog::find(&provider).ok_or_else(|| format!("unknown provider: {provider}"))?;
+
+    // Refuse rather than drop. Sending the images to a provider that can't
+    // read them would get an answer confidently written about a picture the
+    // model never saw - the frontend hides the attach affordance for these
+    // providers, so reaching here means something got out of step.
+    if !images.is_empty() && !entry.supports_vision {
+        return Err(format!(
+            "{} can't read images. Remove the image, or switch provider in Settings.",
+            entry.label
+        ));
+    }
+    let user_turn = AgentTurn::User {
+        text: message.clone(),
+        images,
+    };
 
     match entry.dialect {
         "openai-responses" => {
@@ -253,12 +279,15 @@ async fn ai_agent_message_inner(
                     access_token,
                     account_id,
                 } => {
-                    let agent_model = model.unwrap_or_else(|| {
+                    // Clamped, not just defaulted: a model saved while the
+                    // API-key auth method was active is a hard 400 here.
+                    let agent_model = openai_codex::usable_model(
+                        model.as_deref(),
                         entry
                             .agent_default_model
-                            .unwrap_or(openai_codex::COMPLETION_MODEL)
-                            .to_string()
-                    });
+                            .unwrap_or(openai_codex::COMPLETION_MODEL),
+                    )
+                    .to_string();
                     let step = |turns: Vec<AgentTurn>| {
                         let instructions = instructions.clone();
                         let tool_specs = tool_specs.clone();
@@ -284,7 +313,7 @@ async fn ai_agent_message_inner(
                     };
                     run_agent_loop(
                         history,
-                        message,
+                        user_turn,
                         MAX_STEPS,
                         step,
                         |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
@@ -323,7 +352,7 @@ async fn ai_agent_message_inner(
                     };
                     run_agent_loop(
                         history,
-                        message,
+                        user_turn,
                         MAX_STEPS,
                         step,
                         |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
@@ -376,7 +405,7 @@ async fn ai_agent_message_inner(
 
             run_agent_loop(
                 history,
-                message,
+                user_turn,
                 MAX_STEPS,
                 step,
                 |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
@@ -487,7 +516,7 @@ async fn ai_agent_message_inner(
             // has them; `run_agent_loop` would otherwise have consumed them.
             match run_agent_loop(
                 history.clone(),
-                message.clone(),
+                user_turn,
                 MAX_STEPS,
                 step,
                 |name, arguments| tools::execute(&tools, &tool_ctx, name, arguments),
@@ -540,13 +569,19 @@ async fn flattened_chat_turn(
 ) -> Result<Vec<AgentTurn>, String> {
     fn turn_to_plain_text(turn: &AgentTurn) -> Option<String> {
         match turn {
-            AgentTurn::User { text } => Some(format!("User: {text}")),
+            // Images are dropped here on purpose: this path exists for
+            // providers with no tool calling and no vision, and the command
+            // has already refused an image-carrying message for those.
+            AgentTurn::User { text, .. } => Some(format!("User: {text}")),
             AgentTurn::Assistant { text } => Some(format!("Assistant: {text}")),
             _ => None,
         }
     }
 
-    let user_turn = AgentTurn::User { text: message };
+    let user_turn = AgentTurn::User {
+        text: message,
+        images: Vec::new(),
+    };
     let mut transcript: Vec<String> = history.iter().filter_map(turn_to_plain_text).collect();
     if let Some(t) = turn_to_plain_text(&user_turn) {
         transcript.push(t);
