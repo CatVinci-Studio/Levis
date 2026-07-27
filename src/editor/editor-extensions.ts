@@ -86,7 +86,10 @@ export function withEditorExtensions(
   /** Hands the Quick Ask widget's DOM container to MilkdownEditor as it
    *  mounts/unmounts - ref-indirected the same way `pendingEdits` is (this
    *  is built before the real callback exists). */
-  quickAskWidget: { onMount: (el: HTMLElement | null) => void },
+  quickAskWidget: {
+    onMount: (el: HTMLElement) => void;
+    onUnmount: (el: HTMLElement) => void;
+  },
   /** True while the onboarding tour runs: the typing-triggered AI plugins
    *  go quiet so the tour's PRE-WRITTEN suggestions (utils/events.ts's
    *  TUTORIAL_MOCK_GHOST_EVENT) are the only AI-looking thing on screen -

@@ -175,8 +175,14 @@ export function MilkdownEditor({
         },
         // setQuickAskEl is a useState setter - always stable, no ref
         // indirection needed (unlike pendingEdits above, whose real
-        // callbacks don't exist yet at chain-construction time).
-        { onMount: setQuickAskEl },
+        // callbacks don't exist yet at chain-construction time). The
+        // unmount only clears if the element going away is still the
+        // current one; see the plugin's onUnmount for why that matters.
+        {
+          onMount: setQuickAskEl,
+          onUnmount: (el) =>
+            setQuickAskEl((current) => (current === el ? null : current)),
+        },
         tutorialMockRef,
         () => tRef.current.imagePasteFailedMessage,
       ),

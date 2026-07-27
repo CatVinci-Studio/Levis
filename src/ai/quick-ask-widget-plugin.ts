@@ -40,9 +40,16 @@ export function setQuickAskWidget(
  * the same trick code-block-language-view relies on for its picker.
  */
 export function createQuickAskWidgetPlugin(options: {
-  /** Hands React the widget's DOM container; null when it leaves the
-   *  document (hide, or the whole decoration set being dropped). */
-  onMount: (el: HTMLElement | null) => void;
+  /** Hands React the widget's DOM container. */
+  onMount: (el: HTMLElement) => void;
+  /** That container has left the document (hide, or the decoration moving to
+   *  a new position). Passed the element that went away rather than a bare
+   *  null: when the widget MOVES, ProseMirror may well build the replacement
+   *  before tearing the old one down (placeWidget inserts as it walks the
+   *  document; the unmatched old desc is destroyed afterwards), and a
+   *  React setter that just clears would then land last and unmount the
+   *  panel that was supposed to survive the move. */
+  onUnmount: (el: HTMLElement) => void;
 }) {
   function build(doc: ProseNode, pos: number): DecorationSet {
     return DecorationSet.create(doc, [
@@ -60,7 +67,7 @@ export function createQuickAskWidgetPlugin(options: {
           side: 1,
           stopEvent: () => true,
           ignoreSelection: true,
-          destroy: () => options.onMount(null),
+          destroy: (node) => options.onUnmount(node as HTMLElement),
         },
       ),
     ]);
