@@ -19,8 +19,14 @@ jobs:
             args: --target aarch64-apple-darwin
           - platform: ubuntu-22.04
             args: ""
+          # NSIS only for a pre-release. The MSI target requires a semver
+          # pre-release identifier to be numeric ("optional pre-release
+          # identifier in app version must be numeric-only ... for msi
+          # target"), so a readable v0.9.0-rc.1 cannot be bundled as MSI at
+          # all. NSIS has no such rule and is Tauri v2's recommended Windows
+          # installer; a stable tag still produces both.
           - platform: windows-latest
-            args: ""
+            args: ${{ contains(github.ref_name, '-') && '--bundles nsis' || '' }}
 
     runs-on: ${{ matrix.platform }}
     steps:

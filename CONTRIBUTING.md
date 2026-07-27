@@ -132,6 +132,8 @@ is published as a GitHub pre-release and skips the Homebrew cask, so it
 reaches nobody who did not go looking for it - the in-app updater reads
 `releases/latest`, which excludes pre-releases.
 
-One constraint the bundler imposes: the Windows MSI target requires a
-pre-release identifier to be **numeric only**, so `0.9.0-rc.1` fails to bundle
-while `0.9.0-1` succeeds. macOS and Linux accept either.
+One constraint the bundler imposes: the Windows **MSI** target requires a
+semver pre-release identifier to be numeric, so `0.9.0-rc.1` cannot be
+bundled as MSI at all. The workflow therefore builds Windows pre-releases as
+**NSIS only** (`-setup.exe`); a stable tag still produces both. macOS and
+Linux accept either form.
