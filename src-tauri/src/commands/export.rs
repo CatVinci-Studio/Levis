@@ -222,7 +222,7 @@ mod pdf_macos {
 
     thread_local! {
         static PENDING: RefCell<HashMap<usize, Pending>> = RefCell::new(HashMap::new());
-        static NEXT_ID: Cell<usize> = Cell::new(0);
+        static NEXT_ID: Cell<usize> = const { Cell::new(0) };
     }
 
     struct PdfExporterIvars {
