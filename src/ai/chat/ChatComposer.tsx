@@ -87,7 +87,21 @@ export function ChatComposer({
     const el = inputRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    let needed = el.scrollHeight;
+    el.style.height = `${needed}px`;
+    // scrollHeight is an integer, so the height just written can land a
+    // fraction of a pixel short of the line box it was measured from -
+    // WebKit then treats the textarea as scrolled by that hair, which clips
+    // the caret (most visible with CJK text, whose glyph box fills the line
+    // completely). One correction pass, and it fits whatever the font does.
+    if (el.scrollHeight > el.clientHeight) {
+      needed += el.scrollHeight - el.clientHeight;
+      el.style.height = `${needed}px`;
+    }
+    // Scrolling is enabled only once the content genuinely outgrows the box;
+    // leaving it permanently on is what drew scrollbars around an EMPTY input.
+    const max = parseFloat(getComputedStyle(el).maxHeight);
+    el.style.overflowY = needed > max ? "auto" : "hidden";
   }, [input]);
 
   async function attachFile() {

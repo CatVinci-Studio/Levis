@@ -51,6 +51,16 @@
   caret-color: transparent;
 }
 
+/* caret-color INHERITS, and the editor root is an ancestor of every zone
+   widget - so the rule above also blanked the caret of the Quick Ask
+   composer, which is a real textarea living inside the document flow
+   (quick-ask-widget-plugin). Typing worked, nothing blinked. Form fields
+   own their caret; the ghost-text swap only ever meant the document's. */
+.milkdown .ProseMirror input,
+.milkdown .ProseMirror textarea {
+  caret-color: auto;
+}
+
 .milkdown .ProseMirror.ghost-text-caret:focus .ghost-text::before {
   content: "\200b";
   border-left: 1.5px solid var(--editor-text);

@@ -233,11 +233,23 @@
   color: var(--editor-text);
   font: inherit;
   font-size: 13px;
-  line-height: 1.5;
+  /* A WHOLE number of pixels, not a 1.5 ratio: 13 * 1.5 = 19.5px, and the
+     auto-resize effect can only set an integer height, so every line box
+     left the content a half pixel taller than the box it sits in. WebKit
+     took that as a scrollable textarea - permanent scrollbars around an
+     EMPTY input, and a caret painted against a hair of scroll offset. */
+  line-height: 20px;
   padding: 4px 6px;
-  /* Grows with content via the auto-resize effect, up to ~6 lines. */
+  /* Grows with content via the auto-resize effect, up to ~6 lines. That
+     effect owns overflow-y too, flipping it to auto only once this
+     max-height actually clamps the box - see ChatComposer. */
   max-height: 120px;
-  overflow-y: auto;
+  overflow-y: hidden;
+  /* A textarea wraps; it has nothing to scroll sideways to. Explicit
+     because `overflow-y` alone would compute the x axis to `auto`
+     (a non-visible axis drags the other one out of `visible` with it),
+     which is where the full-width bar under the placeholder came from. */
+  overflow-x: hidden;
 }
 
 .inline-chat-send {
