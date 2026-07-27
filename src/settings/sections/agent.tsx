@@ -6,7 +6,7 @@ import {
   OPENAI_OAUTH_AGENT_MODEL_PRESETS,
   OPENAI_OAUTH_WRITING_MODEL_PRESETS,
 } from "../agent-models";
-import { useProviderCatalog } from "../../ai/provider-catalog";
+import { useActiveProvider } from "../../ai/provider-catalog";
 import { ai, auth } from "../../ipc";
 
 // The Agent category's sections. The agent workspace itself is file-managed
@@ -32,7 +32,6 @@ function ProviderModelSection({
 }) {
   const { settings, setSettings } = useSettings();
   const provider = settings.aiProvider;
-  const catalog = useProviderCatalog();
   const [fetched, setFetched] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -81,7 +80,7 @@ function ProviderModelSection({
     },
     [kind, provider, setSettings, settings.agentModels, settings.writingModels],
   );
-  const entry = catalog.find((e) => e.id === provider);
+  const entry = useActiveProvider();
 
   // An API model id can be left behind when the user later enables Codex
   // OAuth. The OAuth backend only accepts its preset family; normalize an
@@ -239,6 +238,58 @@ export function AgentWorkspaceSection({ t }: { t: Strings }) {
   );
 }
 
+/// WHICH folder is the workspace.
+///
+/// The default - the folder of the document being edited - is right until
+/// the user's sources and their draft don't live together, and then there is
+/// no way out of it: `.levis/` is looked for there, and the agent's
+/// list_files/read_file are sandboxed to it (ai/workspace.rs), so material
+/// one folder over is simply unreachable. This makes the root explicit while
+/// keeping the default for everyone it already suits.
+export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
+  const { settings, setSettings } = useSettings();
+  const [error, setError] = useState<string | null>(null);
+  const root = settings.agentWorkspaceRoot;
+
+  async function pickRoot() {
+    setError(null);
+    try {
+      const picked = await ai.pickWorkspaceRoot();
+      if (picked) setSettings({ agentWorkspaceRoot: picked });
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  return (
+    <div className="settings-row">
+      <div>
+        <div className="settings-row-label">{t.agentWorkspaceRootLabel}</div>
+        <div className="settings-row-hint settings-workspace-hint">
+          {t.agentWorkspaceRootHint}
+        </div>
+        <div className="settings-workspace-root" title={root || undefined}>
+          {root || t.agentWorkspaceRootDefault}
+        </div>
+        {error && <div className="settings-error">{error}</div>}
+      </div>
+      <div className="settings-inline-buttons">
+        <button className="text-button settings-inline-button" onClick={pickRoot}>
+          {t.agentWorkspaceRootPick}
+        </button>
+        {root && (
+          <button
+            className="text-button settings-inline-button"
+            onClick={() => setSettings({ agentWorkspaceRoot: "" })}
+          >
+            {t.agentWorkspaceRootReset}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /// The GLOBAL agent.md - the standing instructions in every chat's system
 /// prompt. Levis IS a markdown editor, so the button just opens the file as
 /// a document (creating an empty starter on first use) instead of embedding
@@ -293,9 +344,9 @@ export function AgentSkillsSection({ t }: { t: Strings }) {
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // docPath null = the global layer only, which is exactly what's editable here.
+  // Both null = the global layer only, which is exactly what's editable here.
   useEffect(() => {
-    ai.loadAgentWorkspace(null)
+    ai.loadAgentWorkspace(null, null)
       .then((ws) => setSkills(ws?.skills ?? []))
       .catch(() => {});
   }, []);

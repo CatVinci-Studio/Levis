@@ -15,6 +15,11 @@ import {
 } from "../i18n/strings";
 import { ai, prefs, themes } from "../ipc";
 
+/// Light/dark, orthogonal to which content theme is selected: `themeId`
+/// picks the palette, this picks which of its two forms is shown. Every
+/// theme defines BOTH (see content-themes.css) - one that only has a single
+/// design defines the same values twice - so the two axes compose without
+/// any combination being undefined.
 export type ThemeMode = "system" | "light" | "dark";
 /// A provider catalog id (src-tauri/src/ai/catalog.rs) - "openai",
 /// "anthropic", "google", "custom", etc. Not a closed union: the catalog is
@@ -36,6 +41,8 @@ export type ShortcutAction =
 
 export type Shortcuts = Record<ShortcutAction, string>;
 
+export const THEME_MODES: ThemeMode[] = ["system", "light", "dark"];
+
 const DEFAULT_SHORTCUTS: Shortcuts = {
   triggerCompletion: "mod+shift+space",
   triggerGrammarCheck: "mod+shift+g",
@@ -55,6 +62,11 @@ export type BuiltinContentThemeId =
 /// `nameKey` points at an i18n string so the picker label follows the app
 /// language (see settings/sections/theme.tsx); `name` stays as a stable
 /// English fallback. User-imported themes keep their filename, untranslated.
+///
+/// Every one of these defines a light AND a dark palette in
+/// content-themes.css; `ThemeMode` chooses between them. A theme with only
+/// one design still defines both, with identical values, so that switching
+/// appearance leaves it alone instead of half-applying.
 export const BUILTIN_CONTENT_THEMES: {
   id: BuiltinContentThemeId;
   name: string;
@@ -100,6 +112,7 @@ export interface UserThemeMeta {
 
 export interface Settings {
   language: Lang;
+  /// Appearance: follow the OS, or pin light/dark. Independent of `themeId`.
   theme: ThemeMode;
   enableCompletion: boolean;
   enableGrammarCheck: boolean;
@@ -125,6 +138,23 @@ export interface Settings {
   /// Whether an agent edit's green in-document preview streams/types itself
   /// in (pending-edit-plugin's typewriter) or appears complete at once.
   enableEditAnimation: boolean;
+  /// How far the detached Agent window is shared. Off (default): one chat
+  /// window per editor window, shared by that window's tabs. On: a single
+  /// chat window for the whole app, following whichever document is active
+  /// in whichever window. Either way there is never more than one per
+  /// scope - the detached window IS the cross-file surface, so popping the
+  /// chat out of a second file reveals it rather than spawning a rival
+  /// (see commands/chat_window.rs).
+  shareAgentWindowAcrossWindows: boolean;
+  /// Whether the detached Agent window floats above other windows. Kept
+  /// here rather than per-window so the choice survives closing it.
+  pinAgentWindow: boolean;
+  /// Explicit agent workspace root, or "" for the default (the folder of
+  /// the document being edited). This is the folder `.levis/agent.md` and
+  /// `.levis/skills/` are read from AND the sandbox boundary of the agent's
+  /// list_files/read_file tools, so setting it is what lets the agent reach
+  /// reference material that doesn't live next to the draft.
+  agentWorkspaceRoot: string;
   /// Proxy all AI provider requests route through, as type + host + port
   /// ("none" or an empty host means direct connection). Mirrored to Rust as
   /// a URL (see the effect below) because requests are sent from Rust, which
@@ -181,6 +211,9 @@ const DEFAULT_SETTINGS: Settings = {
   completionTone: "default",
   enableWebSearch: false,
   enableEditAnimation: true,
+  shareAgentWindowAcrossWindows: false,
+  pinAgentWindow: false,
+  agentWorkspaceRoot: "",
   proxyType: "none",
   proxyHost: "",
   proxyPort: "",
@@ -260,20 +293,27 @@ export function loadSettings(): Settings {
         ...(parsed.writingModels as Record<string, string> | undefined),
       },
       shortcuts: { ...DEFAULT_SETTINGS.shortcuts, ...(parsed.shortcuts ?? {}) },
-      // The light/dark picker was removed from Settings - appearance always
-      // follows the system now, including for users who had picked one back
-      // when the control existed.
-      theme: "system",
+      theme: THEME_MODES.includes(parsed.theme)
+        ? (parsed.theme as ThemeMode)
+        : DEFAULT_SETTINGS.theme,
     };
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 
+/// Optional-called: an environment without matchMedia (jsdom, an odd
+/// webview) must not throw here - `isEffectiveDark` is reachable from
+/// render, and inside `loadSettings` a throw would discard the ENTIRE
+/// settings blob to answer one question that has a fine default.
+function systemPrefersDark(): boolean {
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
 function isEffectiveDark(themeMode: ThemeMode): boolean {
   if (themeMode === "dark") return true;
   if (themeMode === "light") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return systemPrefersDark();
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -330,6 +370,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     ai.setAiProxy(proxy).catch(() => {});
   }, [settings.proxyType, settings.proxyHost, settings.proxyPort]);
 
+  // "system" removes the attribute rather than resolving it here, so the
+  // @media (prefers-color-scheme) rules in App.css/content-themes.css are
+  // what answer - and the app follows an OS switch live, with no listener.
   useEffect(() => {
     const root = document.documentElement;
     if (settings.theme === "system") {
@@ -381,6 +424,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const theme = userTheme;
 
     async function applyUserTheme() {
+      // A single-design import has no dark stylesheet, so it keeps its one
+      // look in either appearance rather than being half-applied.
       const variant =
         isEffectiveDark(settings.theme) && theme.hasDark ? "dark" : "light";
       try {
@@ -402,11 +447,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     void applyUserTheme();
 
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener("change", applyUserTheme);
+    // Injected CSS can't be swapped by a media query - in "system" mode this
+    // is what re-picks the variant when the OS flips.
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    mq?.addEventListener("change", applyUserTheme);
     return () => {
       cancelled = true;
-      mq.removeEventListener("change", applyUserTheme);
+      mq?.removeEventListener("change", applyUserTheme);
     };
   }, [settings.themeId, settings.theme, settings.userThemes]);
 

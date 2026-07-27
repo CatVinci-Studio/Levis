@@ -761,7 +761,6 @@
   border-radius: 5px;
   background: var(--editor-bg, #fff);
   color: var(--editor-muted);
-  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   opacity: 0;

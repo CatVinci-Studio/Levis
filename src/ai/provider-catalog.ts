@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ai } from "../ipc";
+import { useSettings } from "../settings/SettingsContext";
 
 /**
  * Structural facts about each AI provider, fetched from the Rust catalog
@@ -22,6 +23,10 @@ export interface ProviderCatalogEntry {
   /** Stronger default used only by Agent chat. */
   agentDefaultModel: string | null;
   keyOptional: boolean;
+  /** Whether this provider's API accepts image content parts at all - what
+   *  gates the chat's image attachments. A provider-level claim, not a
+   *  model-level one; see the Rust field's comment for why. */
+  supportsVision: boolean;
   /** False when a live model-list fetch is known not to work. */
   modelsListable: boolean;
   /** A small pre-supplied set of current model ids (pi.dev's models.json
@@ -46,6 +51,7 @@ export const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
     defaultModel: "gpt-5.4-nano",
     agentDefaultModel: "gpt-5.6-sol",
     keyOptional: false,
+    supportsVision: true,
     modelsListable: true,
     knownModels: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
   },
@@ -58,6 +64,7 @@ export const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
     defaultModel: "claude-haiku-4-5-20251001",
     agentDefaultModel: "claude-sonnet-5",
     keyOptional: false,
+    supportsVision: true,
     modelsListable: true,
     knownModels: [
       "claude-fable-5",
@@ -75,10 +82,25 @@ export const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
     defaultModel: null,
     agentDefaultModel: null,
     keyOptional: true,
+    supportsVision: true,
     modelsListable: true,
     knownModels: [],
   },
 ];
+
+/// The catalog entry for whichever provider is selected in Settings, or
+/// undefined while the catalog is still loading and the fallback doesn't
+/// carry it.
+///
+/// For callers that want only the active entry - it saves them wiring up
+/// both the catalog and the settings. A component that already holds the
+/// catalog for other reasons should keep doing its own `find` instead:
+/// calling this as well would subscribe to the catalog twice.
+export function useActiveProvider(): ProviderCatalogEntry | undefined {
+  const { settings } = useSettings();
+  const catalog = useProviderCatalog();
+  return catalog.find((entry) => entry.id === settings.aiProvider);
+}
 
 /// Shared catalog fetch (fallback -> real list once it resolves) - both the
 /// provider picker and the Agent tab's model picker need the same data, so

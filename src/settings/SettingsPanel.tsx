@@ -10,12 +10,14 @@ import {
 } from "./SettingsContext";
 import type { Lang, Strings } from "../i18n/strings";
 import { ToggleRow, ShortcutRow } from "./sections/controls";
+import { CloseIcon } from "../ui/icons";
 import { UpdateSection, CliCommandSection } from "./sections/general";
 import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
   AgentModelSection,
   WritingModelSection,
+  AgentWorkspaceRootSection,
   AgentWorkspaceSection,
   AgentSystemPromptSection,
   AgentSkillsSection,
@@ -79,7 +81,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
             className="icon-button settings-close-button"
             onClick={onClose}
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
@@ -289,7 +291,16 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           setSettings({ enableEditAnimation: v })
                         }
                       />
+                      <ToggleRow
+                        label={t.agentShareWindowLabel}
+                        hint={t.agentShareWindowHint}
+                        checked={settings.shareAgentWindowAcrossWindows}
+                        onChange={(v) =>
+                          setSettings({ shareAgentWindowAcrossWindows: v })
+                        }
+                      />
                       <AgentWorkspaceSection t={t} />
+                      <AgentWorkspaceRootSection t={t} />
                       <AgentSystemPromptSection
                         t={t}
                         onOpenFile={onOpenFile}

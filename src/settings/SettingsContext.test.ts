@@ -51,3 +51,41 @@ describe("separate writing and Agent models", () => {
     expect(settings.agentModels.openai).toBe("gpt-5.6");
   });
 });
+
+describe("appearance and theme are independent", () => {
+  beforeAll(installTestLocalStorage);
+  beforeEach(() => localStorage.clear());
+
+  it("follows the system until told otherwise", () => {
+    expect(loadSettings().theme).toBe("system");
+  });
+
+  it("keeps a pinned appearance", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ theme: "dark" }));
+    expect(loadSettings().theme).toBe("dark");
+  });
+
+  it("keeps the two axes independent", () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ theme: "dark", themeId: "paper" }),
+    );
+    const settings = loadSettings();
+    expect(settings.theme).toBe("dark");
+    expect(settings.themeId).toBe("paper");
+  });
+
+  it("falls back to system for an appearance it does not recognise", () => {
+    // A value written by a future (or corrupted) build must not become a
+    // `data-theme` nothing has styles for.
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ theme: "sepia", themeId: "paper", zoom: 1.25 }),
+    );
+    const settings = loadSettings();
+    expect(settings.theme).toBe("system");
+    // ...and the rest of the blob survives that rejection.
+    expect(settings.themeId).toBe("paper");
+    expect(settings.zoom).toBe(1.25);
+  });
+});

@@ -2,6 +2,8 @@ import { useState } from "react";
 import {
   useSettings,
   BUILTIN_CONTENT_THEMES,
+  THEME_MODES,
+  type ThemeMode,
   type UserThemeMeta,
 } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
@@ -96,6 +98,32 @@ export function ThemeSection({ t }: { t: Strings }) {
             {t.themeImportButton}
           </button>
         </div>
+      </div>
+
+      {/* Independent of the theme above: that picks the palette, this picks
+          which of its two forms is shown. Every theme defines both. */}
+      <div className="settings-row">
+        <div>
+          <div className="settings-row-label">{t.appearanceLabel}</div>
+          <div className="settings-row-hint">{t.appearanceHint}</div>
+        </div>
+        <select
+          className="settings-select"
+          value={settings.theme}
+          onChange={(e) =>
+            setSettings({ theme: e.target.value as ThemeMode })
+          }
+        >
+          {THEME_MODES.map((mode) => (
+            <option key={mode} value={mode}>
+              {mode === "system"
+                ? t.appearanceSystem
+                : mode === "light"
+                  ? t.appearanceLight
+                  : t.appearanceDark}
+            </option>
+          ))}
+        </select>
       </div>
     </>
   );

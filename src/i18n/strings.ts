@@ -42,6 +42,15 @@ export const strings = {
     agentWorkspaceHint:
       "The agent is configured with plain files: a global folder applies to every document, and a .levis/ folder next to a document applies to that folder only. See Help > AI Agent Guide.",
     agentWorkspaceOpenButton: "Open Global Folder",
+    agentWorkspaceRootLabel: "Workspace Folder",
+    agentWorkspaceRootHint:
+      "The folder the agent reads .levis/ from, and the only folder its file tools may read. Defaults to the folder of the document you are editing - set it explicitly when your reference material lives somewhere else.",
+    agentWorkspaceRootDefault: "Folder of the current document",
+    agentWorkspaceRootPick: "Switch…",
+    agentWorkspaceRootReset: "Use document folder",
+    agentShareWindowLabel: "Share the Agent window across windows",
+    agentShareWindowHint:
+      "The detached Agent window already follows whichever file you are editing. Turn this on and a single window serves every editor window too, instead of one per window.",
     agentSystemPromptLabel: "System Prompt (agent.md)",
     agentSystemPromptHint:
       "Standing instructions added to every conversation - style, terminology, background. Opens agent.md in the editor.",
@@ -51,7 +60,11 @@ export const strings = {
       "Reusable prompts, one markdown file each, invoked with /name in the chat. Importing copies a .md file into the global skills folder.",
     agentSkillsImport: "Import Skill…",
     agentSkillsEmpty: "No skills yet.",
-    agentAttachFile: "Attach a text file to this message",
+    agentAttachFile:
+      "Attach a file: PDF, Word, PowerPoint, spreadsheet, image or plain text",
+    chatAttachmentTruncated: "(shortened)",
+    chatAttachmentNoVision:
+      "This provider can't read images. Switch provider in Settings, or attach a document instead.",
     aiGrammarLabel: "Enable grammar check",
     aiGrammarHint: "Underlines possible issues and suggests fixes.",
     aiAskLabel: "Agent Assistant",
@@ -141,6 +154,9 @@ export const strings = {
     useRegex: "Use regex",
     invalidRegex: "Invalid regex",
     noMatches: "No matches",
+    findPreviousMatch: "Previous match",
+    findNextMatch: "Next match",
+    findClose: "Close find bar",
     insertBulletList: "Bullet List",
     insertOrderedList: "Numbered List",
     insertBlockquote: "Blockquote",
@@ -181,6 +197,9 @@ export const strings = {
     chatDetach: "Open in its own window",
     chatExpandConversation: "Open full conversation",
     chatWindowTitle: "Levis Agent",
+    chatWindowPin: "Keep on top",
+    chatWindowPinHint: "Keep this window above the editor",
+    chatWindowUnpinHint: "Stop keeping this window above the editor",
     chatWindowLost:
       "This chat lost its editor window. Close this window and start a new chat.",
     chatCloseConfirm:
@@ -388,6 +407,12 @@ export const strings = {
     themeNameSlate: "Slate",
     themeNameForest: "Forest",
     themeNameParchment: "Parchment",
+    appearanceLabel: "Appearance",
+    appearanceHint:
+      "Which form of the theme above to show. Every theme has both.",
+    appearanceSystem: "Follow system",
+    appearanceLight: "Light",
+    appearanceDark: "Dark",
     pdfPreparing: "Preparing PDF…",
     pdfFailed: "Could not prepare the PDF:",
   },
@@ -431,6 +456,15 @@ export const strings = {
     agentWorkspaceHint:
       "Agent 通过纯文件定制：全局文件夹对所有文档生效，文档旁的 .levis/ 文件夹只对该文件夹生效。详见 帮助 > AI Agent 指南。",
     agentWorkspaceOpenButton: "打开全局文件夹",
+    agentWorkspaceRootLabel: "工作区文件夹",
+    agentWorkspaceRootHint:
+      "Agent 读取 .levis/ 的文件夹，也是它的文件工具唯一能读到的范围。默认是当前文档所在的文件夹——当参考资料放在别处时，在这里显式指定。",
+    agentWorkspaceRootDefault: "当前文档所在文件夹",
+    agentWorkspaceRootPick: "切换…",
+    agentWorkspaceRootReset: "改回文档所在文件夹",
+    agentShareWindowLabel: "跨窗口共享 Agent 窗口",
+    agentShareWindowHint:
+      "独立的 Agent 窗口本来就会跟随你正在编辑的文件。打开这个开关后，整个应用只有一个 Agent 窗口，为所有编辑器窗口服务，而不是每个窗口一个。",
     agentSystemPromptLabel: "System Prompt（agent.md）",
     agentSystemPromptHint:
       "附加到每次对话的常驻指令：文风、术语、背景信息等。将在编辑器中打开 agent.md。",
@@ -440,7 +474,10 @@ export const strings = {
       "可复用的提示词，每个是一个 markdown 文件，在对话里输入 /名字 调用。导入会把 .md 文件复制到全局 skills 文件夹。",
     agentSkillsImport: "导入 Skill…",
     agentSkillsEmpty: "还没有 skill。",
-    agentAttachFile: "附加一个文本文件到这条消息",
+    agentAttachFile: "附加文件：PDF、Word、PPT、表格、图片或纯文本",
+    chatAttachmentTruncated: "（已截断）",
+    chatAttachmentNoVision:
+      "当前服务商无法读取图片。请在设置里更换服务商，或改为附加文档。",
     aiGrammarLabel: "开启语法检查",
     aiGrammarHint: "对可能的问题加下划线并给出修改建议。",
     aiAskLabel: "Agent 助手",
@@ -527,6 +564,9 @@ export const strings = {
     useRegex: "使用正则表达式",
     invalidRegex: "正则表达式无效",
     noMatches: "无匹配项",
+    findPreviousMatch: "上一个匹配",
+    findNextMatch: "下一个匹配",
+    findClose: "关闭查找栏",
     insertBulletList: "无序列表",
     insertOrderedList: "有序列表",
     insertBlockquote: "引用",
@@ -567,6 +607,9 @@ export const strings = {
     chatDetach: "在独立窗口中打开",
     chatExpandConversation: "查看完整对话",
     chatWindowTitle: "Levis 助手",
+    chatWindowPin: "置顶",
+    chatWindowPinHint: "让这个窗口始终显示在编辑器上方",
+    chatWindowUnpinHint: "取消置顶",
     chatWindowLost:
       "这个对话已经和编辑器窗口失去联系。请关闭本窗口后重新开始对话。",
     chatCloseConfirm: "还有 {n} 处修改没有确认,要怎么处理?",
@@ -762,6 +805,11 @@ export const strings = {
     themeNameSlate: "石板",
     themeNameForest: "森林",
     themeNameParchment: "羊皮纸",
+    appearanceLabel: "外观",
+    appearanceHint: "显示上面那个主题的哪一种形态。每个主题都有两种。",
+    appearanceSystem: "跟随系统",
+    appearanceLight: "浅色",
+    appearanceDark: "深色",
     pdfPreparing: "正在准备 PDF…",
     pdfFailed: "无法准备 PDF：",
   },
@@ -805,6 +853,15 @@ export const strings = {
     agentWorkspaceHint:
       "Agentはプレーンなファイルで構成されます:グローバルフォルダはすべてのドキュメントに適用され、ドキュメント脇の .levis/ フォルダはそのフォルダにのみ適用されます。詳しくは ヘルプ > AI Agentガイド を参照してください。",
     agentWorkspaceOpenButton: "グローバルフォルダを開く",
+    agentWorkspaceRootLabel: "ワークスペースフォルダ",
+    agentWorkspaceRootHint:
+      "エージェントが .levis/ を読むフォルダであり、ファイルツールが読める唯一の範囲です。既定は編集中の文書のフォルダ。参考資料が別の場所にある場合はここで明示的に指定します。",
+    agentWorkspaceRootDefault: "現在の文書のフォルダ",
+    agentWorkspaceRootPick: "変更…",
+    agentWorkspaceRootReset: "文書のフォルダに戻す",
+    agentShareWindowLabel: "ウィンドウ間でAgentウィンドウを共有",
+    agentShareWindowHint:
+      "独立したAgentウィンドウは元々、編集中のファイルに追従します。これを有効にすると、ウィンドウごとに1つではなく、アプリ全体で1つのウィンドウがすべてのエディタウィンドウを担当します。",
     agentSystemPromptLabel: "System Prompt（agent.md）",
     agentSystemPromptHint:
       "すべての会話に追加される常設の指示 - 文体、用語、背景情報など。エディタでagent.mdを開きます。",
@@ -814,7 +871,11 @@ export const strings = {
       "再利用可能なプロンプト。1つのMarkdownファイルにつき1つで、チャット内で /名前 で呼び出します。インポートすると .md ファイルがグローバルskillsフォルダにコピーされます。",
     agentSkillsImport: "Skillをインポート…",
     agentSkillsEmpty: "まだSkillがありません。",
-    agentAttachFile: "このメッセージにテキストファイルを添付",
+    agentAttachFile:
+      "ファイルを添付：PDF、Word、PowerPoint、表計算、画像、テキスト",
+    chatAttachmentTruncated: "（一部のみ）",
+    chatAttachmentNoVision:
+      "このプロバイダーは画像を読めません。設定でプロバイダーを変更するか、文書を添付してください。",
     aiGrammarLabel: "文法チェックを有効にする",
     aiGrammarHint: "問題の可能性がある箇所に下線を引き、修正案を提示します。",
     aiAskLabel: "Agentアシスタント",
@@ -904,6 +965,9 @@ export const strings = {
     useRegex: "正規表現を使用",
     invalidRegex: "正規表現が無効です",
     noMatches: "一致する項目がありません",
+    findPreviousMatch: "前の一致",
+    findNextMatch: "次の一致",
+    findClose: "検索バーを閉じる",
     insertBulletList: "箇条書き",
     insertOrderedList: "番号付きリスト",
     insertBlockquote: "引用",
@@ -947,6 +1011,9 @@ export const strings = {
     chatDetach: "別ウィンドウで開く",
     chatExpandConversation: "会話全体を表示",
     chatWindowTitle: "Levis エージェント",
+    chatWindowPin: "最前面に固定",
+    chatWindowPinHint: "このウィンドウをエディタより前面に保つ",
+    chatWindowUnpinHint: "最前面固定を解除",
     chatWindowLost:
       "このチャットはエディタウィンドウとの接続を失いました。ウィンドウを閉じて、新しいチャットを開始してください。",
     chatCloseConfirm: "未確認の編集が {n} 件あります。どうしますか?",
@@ -1150,6 +1217,12 @@ export const strings = {
     themeNameSlate: "スレート",
     themeNameForest: "フォレスト",
     themeNameParchment: "パーチメント",
+    appearanceLabel: "外観",
+    appearanceHint:
+      "上のテーマのどちらの形を表示するか。どのテーマにも両方あります。",
+    appearanceSystem: "システムに従う",
+    appearanceLight: "ライト",
+    appearanceDark: "ダーク",
     pdfPreparing: "PDF を準備中…",
     pdfFailed: "PDF を準備できませんでした:",
   },
