@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
@@ -26,6 +25,7 @@ import { migrateDraftImages } from "./editor/image-migration";
 import { comboFromEvent, formatCombo } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { useZoom } from "./utils/useZoom";
+import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { dirname } from "./utils/path";
 import {
   helpDocContent,
@@ -504,14 +504,17 @@ function App() {
 
   // Runtime counterpart to the mount-time drain above: Finder "Open With"/
   // the CLI on an already-running instance, while in "tab" mode, arrives as
-  // a push instead (see lib.rs's queue_paths_to_open).
+  // a push instead (see lib.rs's queue_paths_to_open). Strictly this window:
+  // Rust addresses exactly one window, and a catch-all listener would open
+  // the file in every open window (see listenToThisWindow).
   useEffect(() => {
-    const unlisten = listen<string[]>("open-paths-as-tabs", async (event) => {
-      for (const p of event.payload) await openPathInTab(p);
-    });
-    return () => {
-      void unlisten.then((f) => f());
-    };
+    const unlisten = listenToThisWindow<string[]>(
+      "open-paths-as-tabs",
+      async (event) => {
+        for (const p of event.payload) await openPathInTab(p);
+      },
+    );
+    return unlistenAll(unlisten);
   }, [openPathInTab]);
 
   // Closing with unsaved changes swaps the native close for the
@@ -524,9 +527,7 @@ function App() {
       event.preventDefault();
       setPendingClose({ kind: "window" });
     });
-    return () => {
-      void unlisten.then((f) => f());
-    };
+    return unlistenAll(unlisten);
   }, []);
 
   // External-change pickup: whenever this window regains focus, compare each
@@ -573,9 +574,7 @@ function App() {
         });
       },
     );
-    return () => {
-      void unlisten.then((f) => f());
-    };
+    return unlistenAll(unlisten);
   }, [updateTab]);
 
   // Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help

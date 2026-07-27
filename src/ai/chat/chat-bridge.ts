@@ -1,4 +1,5 @@
-import { emitTo, listen } from "@tauri-apps/api/event";
+import { emitTo } from "@tauri-apps/api/event";
+import { listenToThisWindow } from "../../utils/tauri-events";
 import type { AgentTurn, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 
@@ -90,11 +91,13 @@ export function sendToWindow<T>(
   void emitTo(label, event, payload);
 }
 
-/** Typed `listen`, returning the same unlisten-promise shape callers already
- *  clean up elsewhere in this codebase. */
+/** Typed listen, returning the same unlisten-promise shape callers already
+ *  clean up elsewhere in this codebase. Scoped to the receiving window (see
+ *  listenToThisWindow): with a second editor window open, a catch-all
+ *  listener would pick up the other pair's chat traffic as its own. */
 export function onWindowEvent<T>(
   event: string,
   handler: (payload: T) => void,
 ): Promise<() => void> {
-  return listen<T>(event, (e) => handler(e.payload));
+  return listenToThisWindow<T>(event, (e) => handler(e.payload));
 }

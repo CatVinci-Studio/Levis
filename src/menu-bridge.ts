@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
 import type { DocTab, HelpDoc } from "./doc-tabs";
@@ -52,88 +52,57 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
   useEffect(() => {
     const activeTabNow = () =>
       tabsRef.current.find((tb) => tb.id === activeTabId);
-    const unlistenSettings = listen("menu-open-settings", () =>
-      onOpenSettings(),
-    );
-    // Only arrives in tab mode - in window mode the Rust menu handler opens
-    // a fresh window itself instead of emitting this.
-    const unlistenNewFile = listen("menu-new-file", () => addBlankTab());
-    const unlistenOpenFile = listen(
-      "menu-open-file",
-      () => void openFileDialog(),
-    );
-    const unlistenSaveFile = listen(
-      "menu-save-file",
-      () => void saveTab(activeTabId),
-    );
-    const unlistenSaveFileAs = listen(
-      "menu-save-file-as",
-      () => void saveTabAs(activeTabId),
-    );
-    // Dedicated PDF export: shows a progress overlay and waits for the
-    // document to finish rendering, then hands off to the system print panel
-    // (WKWebView's "Save as PDF"). App.css's @media print rules carry the
-    // current editor theme onto the printed page. See exportPdf in export-doc.
-    const unlistenExportPdf = listen("menu-export-pdf", () => {
-      const tab = activeTabNow();
-      if (tab) void exportPdf(tab, t);
-    });
-    const unlistenExportHtml = listen("menu-export-html", () => {
-      const tab = activeTabNow();
-      if (tab) void exportHtml(tab, t);
-    });
-    // Payload is the pandoc writer name (docx, epub, ...) from the menu id.
-    const unlistenExportPandoc = listen<string>(
-      "menu-export-pandoc",
-      (event) => {
+    return unlistenAll(
+      listenToThisWindow("menu-open-settings", () => onOpenSettings()),
+      // Only arrives in tab mode - in window mode the Rust menu handler opens
+      // a fresh window itself instead of emitting this.
+      listenToThisWindow("menu-new-file", () => addBlankTab()),
+      listenToThisWindow("menu-open-file", () => void openFileDialog()),
+      listenToThisWindow("menu-save-file", () => void saveTab(activeTabId)),
+      listenToThisWindow(
+        "menu-save-file-as",
+        () => void saveTabAs(activeTabId),
+      ),
+      // Dedicated PDF export: shows a progress overlay and waits for the
+      // document to finish rendering, then hands off to the system print panel
+      // (WKWebView's "Save as PDF"). App.css's @media print rules carry the
+      // current editor theme onto the printed page. See exportPdf in
+      // export-doc.
+      listenToThisWindow("menu-export-pdf", () => {
+        const tab = activeTabNow();
+        if (tab) void exportPdf(tab, t);
+      }),
+      listenToThisWindow("menu-export-html", () => {
+        const tab = activeTabNow();
+        if (tab) void exportHtml(tab, t);
+      }),
+      // Payload is the pandoc writer name (docx, epub, ...) from the menu id.
+      listenToThisWindow<string>("menu-export-pandoc", (event) => {
         const tab = activeTabNow();
         if (tab) void exportViaPandoc(tab, event.payload, t);
-      },
+      }),
+      listenToThisWindow("menu-toggle-source-mode", () => toggleSourceMode()),
+      listenToThisWindow("menu-toggle-typewriter-mode", () =>
+        onToggleTypewriter(),
+      ),
+      listenToThisWindow("menu-toggle-sidebar", () => onToggleSidebar()),
+      listenToThisWindow("menu-find-replace", () =>
+        window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT)),
+      ),
+      listenToThisWindow("menu-close-tab", () => requestCloseTab(activeTabId)),
+      // Payload is the block kind (h1..h6, bullet-list, ...) from the menu id -
+      // relayed to whichever editor is mounted as active (MilkdownEditor.tsx).
+      listenToThisWindow<string>("menu-insert-block", (event) => {
+        window.dispatchEvent(
+          new CustomEvent(INSERT_BLOCK_EVENT, { detail: event.payload }),
+        );
+      }),
+      listenToThisWindow<string>("menu-open-help", (event) => {
+        if (event.payload === "welcome") startWelcomeTutorial();
+        else if (event.payload === "markdown" || event.payload === "agent")
+          openHelpTab(event.payload);
+      }),
     );
-    const unlistenSourceMode = listen("menu-toggle-source-mode", () =>
-      toggleSourceMode(),
-    );
-    const unlistenTypewriter = listen("menu-toggle-typewriter-mode", () =>
-      onToggleTypewriter(),
-    );
-    const unlistenSidebar = listen("menu-toggle-sidebar", () =>
-      onToggleSidebar(),
-    );
-    const unlistenFindReplace = listen("menu-find-replace", () =>
-      window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT)),
-    );
-    const unlistenCloseTab = listen("menu-close-tab", () =>
-      requestCloseTab(activeTabId),
-    );
-    // Payload is the block kind (h1..h6, bullet-list, ...) from the menu id -
-    // relayed to whichever editor is mounted as active (see MilkdownEditor.tsx).
-    const unlistenInsertBlock = listen<string>("menu-insert-block", (event) => {
-      window.dispatchEvent(
-        new CustomEvent(INSERT_BLOCK_EVENT, { detail: event.payload }),
-      );
-    });
-    const unlistenHelp = listen<string>("menu-open-help", (event) => {
-      if (event.payload === "welcome") startWelcomeTutorial();
-      else if (event.payload === "markdown" || event.payload === "agent")
-        openHelpTab(event.payload);
-    });
-    return () => {
-      void unlistenSettings.then((f) => f());
-      void unlistenNewFile.then((f) => f());
-      void unlistenOpenFile.then((f) => f());
-      void unlistenSaveFile.then((f) => f());
-      void unlistenSaveFileAs.then((f) => f());
-      void unlistenExportPdf.then((f) => f());
-      void unlistenExportHtml.then((f) => f());
-      void unlistenExportPandoc.then((f) => f());
-      void unlistenSourceMode.then((f) => f());
-      void unlistenTypewriter.then((f) => f());
-      void unlistenSidebar.then((f) => f());
-      void unlistenFindReplace.then((f) => f());
-      void unlistenCloseTab.then((f) => f());
-      void unlistenInsertBlock.then((f) => f());
-      void unlistenHelp.then((f) => f());
-    };
   }, [
     openFileDialog,
     saveTab,

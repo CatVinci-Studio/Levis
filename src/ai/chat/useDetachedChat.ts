@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { windowIpc } from "../../ipc";
+import { unlistenAll } from "../../utils/tauri-events";
 import type { AgentTurn, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import {
@@ -44,7 +45,7 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
   latest.current = handlers;
 
   useEffect(() => {
-    const subscriptions = [
+    return unlistenAll(
       onWindowEvent<ProposalsMessage>(CHAT_TO_EDITOR.proposals, (payload) =>
         latest.current.onProposals(payload.proposals),
       ),
@@ -64,10 +65,7 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
         setChatLabel(null);
         latest.current.onReembed(payload.conversationId, payload.turns ?? []);
       }),
-    ];
-    return () => {
-      for (const sub of subscriptions) void sub.then((f) => f());
-    };
+    );
   }, []);
 
   /** Pops the chat out. Resolves once the window exists. */

@@ -7,7 +7,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Strings } from "./i18n/strings";
 import {
@@ -164,13 +164,14 @@ export function useTabDragMerge(opts: {
     // Ticks run strictly in order - two interleaved handlers could both
     // pass the "watching" check and hand the document off twice.
     let chain: Promise<void> = Promise.resolve();
-    const unlistenTick = listen<{ x: number; y: number; down: boolean }>(
-      "window-drag-tick",
-      (event) => {
-        const { x, y, down } = event.payload;
-        chain = chain.then(() => handleTick(x, y, down)).catch(() => {});
-      },
-    );
+    const unlistenTick = listenToThisWindow<{
+      x: number;
+      y: number;
+      down: boolean;
+    }>("window-drag-tick", (event) => {
+      const { x, y, down } = event.payload;
+      chain = chain.then(() => handleTick(x, y, down)).catch(() => {});
+    });
 
     const unlistenMoved = win.onMoved(() => {
       // Lazy trigger: nothing beyond this guard runs unless a SINGLE-tab
@@ -187,10 +188,7 @@ export function useTabDragMerge(opts: {
       });
     });
 
-    return () => {
-      void unlistenTick.then((f) => f());
-      void unlistenMoved.then((f) => f());
-    };
+    return unlistenAll(unlistenTick, unlistenMoved);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,7 +199,7 @@ export function useTabDragMerge(opts: {
   // hover-off first: the preview pill is replaced by the real tab in the
   // same render, so there's no empty-gap flash in between.
   useEffect(() => {
-    const unlisten = listen<DetachedTabDoc & { x: number }>(
+    const unlisten = listenToThisWindow<DetachedTabDoc & { x: number }>(
       "receive-detached-tab",
       (event) => {
         const { x, ...doc } = event.payload;
@@ -229,9 +227,7 @@ export function useTabDragMerge(opts: {
         setActiveTabId(newTab.id);
       },
     );
-    return () => {
-      void unlisten.then((f) => f());
-    };
+    return unlistenAll(unlisten);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -240,7 +236,7 @@ export function useTabDragMerge(opts: {
   // global cursor x; converted here to window-local so TabBar can slide
   // the preview pill to it. Purely a receiver.
   useEffect(() => {
-    const unlisten = listen<DragHoverPreview | null>(
+    const unlisten = listenToThisWindow<DragHoverPreview | null>(
       "drag-hover",
       async (event) => {
         if (!event.payload) {
@@ -262,9 +258,7 @@ export function useTabDragMerge(opts: {
         });
       },
     );
-    return () => {
-      void unlisten.then((f) => f());
-    };
+    return unlistenAll(unlisten);
   }, []);
 
   return { dragHoverPreview, handleTabDetach };

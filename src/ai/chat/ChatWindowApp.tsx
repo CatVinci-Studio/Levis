@@ -15,6 +15,7 @@ import {
   type ChatHandoff,
 } from "./chat-bridge";
 import { windowIpc } from "../../ipc";
+import { unlistenAll } from "../../utils/tauri-events";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,
 // ...) is declared on :root in App.css, which until now only App.tsx pulled
 // in. This window doesn't render App, so without this import every var()
@@ -92,18 +93,13 @@ export function ChatWindowApp() {
   // a send always goes out against what the document says NOW rather than
   // what it said when the window was detached.
   useEffect(() => {
-    const unlistenContext = onWindowEvent<ChatContext>(
-      EDITOR_TO_CHAT.context,
-      setContext,
+    return unlistenAll(
+      onWindowEvent<ChatContext>(EDITOR_TO_CHAT.context, setContext),
+      onWindowEvent<Record<string, PendingStatus>>(
+        EDITOR_TO_CHAT.statuses,
+        setStatuses,
+      ),
     );
-    const unlistenStatuses = onWindowEvent<Record<string, PendingStatus>>(
-      EDITOR_TO_CHAT.statuses,
-      setStatuses,
-    );
-    return () => {
-      void unlistenContext.then((f) => f());
-      void unlistenStatuses.then((f) => f());
-    };
   }, []);
 
   // Closing the window hands the conversation back so the editor can re-embed
@@ -117,9 +113,7 @@ export function ChatWindowApp() {
           turns: conversation.history,
         });
     });
-    return () => {
-      void unlisten.then((f) => f());
-    };
+    return unlistenAll(unlisten);
   }, [conversation.conversationId, conversation.history]);
 
   const send = useCallback((event: string, payload?: unknown) => {

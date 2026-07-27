@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenToThisWindow, unlistenAll } from "./tauri-events";
 
 /// Document zoom, scoped to the editor CONTENT - the window chrome (tab
 /// bar, titlebar filename, sidebar, toolbars) stays at 100%. The factor is
@@ -111,13 +111,15 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     window.addEventListener("gestureend", onGestureEnd);
     window.addEventListener("wheel", onWheel, { passive: false });
 
-    const unlistenIn = listen("menu-zoom-in", () =>
-      setZoom(zoomRef.current * MENU_STEP),
+    const unlistenMenu = unlistenAll(
+      listenToThisWindow("menu-zoom-in", () =>
+        setZoom(zoomRef.current * MENU_STEP),
+      ),
+      listenToThisWindow("menu-zoom-out", () =>
+        setZoom(zoomRef.current / MENU_STEP),
+      ),
+      listenToThisWindow("menu-zoom-reset", () => setZoom(1)),
     );
-    const unlistenOut = listen("menu-zoom-out", () =>
-      setZoom(zoomRef.current / MENU_STEP),
-    );
-    const unlistenReset = listen("menu-zoom-reset", () => setZoom(1));
 
     return () => {
       window.removeEventListener("gesturestart", onGestureStart);
@@ -126,9 +128,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       window.removeEventListener("wheel", onWheel);
       if (raf) cancelAnimationFrame(raf);
       clearTimeout(persistTimer);
-      void unlistenIn.then((f) => f());
-      void unlistenOut.then((f) => f());
-      void unlistenReset.then((f) => f());
+      unlistenMenu();
     };
     // Mount-only: everything reactive comes in through the refs above.
   }, []);
