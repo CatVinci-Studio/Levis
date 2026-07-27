@@ -300,8 +300,18 @@ export function MilkdownEditor({
       ) {
         drafts.delete(event.turn.call_id);
         const proposal = parseProposal(event.turn.arguments);
-        if (proposal?.text !== undefined)
-          streamPendingInsertText(event.turn.call_id, proposal.text, true);
+        // Closes the reveal even for a proposal that carries no text at all -
+        // a `delete` never has any. Its arguments still streamed through the
+        // branch above, which left an animation entry marked "more text may
+        // come"; without this final call that entry stays un-done forever,
+        // the preview stays in the un-decidable `streaming` state, and the
+        // accept/reject bar never appears for that edit.
+        if (proposal)
+          streamPendingInsertText(
+            event.turn.call_id,
+            proposal.text ?? "",
+            true,
+          );
       }
     },
     // settingsRef/chatInfoRef are stable refs; showPreviews is stable per
