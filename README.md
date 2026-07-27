@@ -70,6 +70,12 @@ npm run build          # tsc --noEmit + vite build
 
 Requires [Node.js](https://nodejs.org) 20+, [Rust](https://rustup.rs) (stable), and platform build tools (Xcode CLT on macOS; `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf` on Linux; MSVC Build Tools on Windows).
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks CI runs, commit
+conventions, and the release process. [docs/TESTING.md](docs/TESTING.md) maps
+what the test suites cover - and what they deliberately don't.
+
 ## License
 
 [MIT](./LICENSE) © CatVinci Studio
