@@ -125,7 +125,10 @@ export interface DetachedChatHandlers {
  * another window is exactly the kind of drift the 0.7.2 rework removed.
  */
 export function useDetachedChat(handlers: DetachedChatHandlers) {
-  const chatLabel = useSyncExternalStore(subscribeChatLabel, getSharedChatLabel);
+  const chatLabel = useSyncExternalStore(
+    subscribeChatLabel,
+    getSharedChatLabel,
+  );
   // Handlers change identity every render; the listeners are registered once,
   // so they read through a ref rather than re-subscribing constantly.
   const latest = useRef(handlers);

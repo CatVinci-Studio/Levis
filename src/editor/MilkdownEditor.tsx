@@ -63,10 +63,7 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
-import {
-  usePendingEdits,
-  type SelectionTarget,
-} from "../ai/usePendingEdits";
+import { usePendingEdits, type SelectionTarget } from "../ai/usePendingEdits";
 import {
   prefersReducedMotion,
   streamPendingInsertText,
@@ -526,7 +523,8 @@ export function MilkdownEditor({
   // one that pushes context: otherwise every hidden tab broadcasts its own
   // and whichever rendered last wins.
   useEffect(() => {
-    if (detachedChatLabel && isActive) pushChatStatuses(pendingEdits.allStatuses);
+    if (detachedChatLabel && isActive)
+      pushChatStatuses(pendingEdits.allStatuses);
   }, [detachedChatLabel, isActive, pushChatStatuses, pendingEdits.allStatuses]);
 
   /** Scrolls to a pending edit and, while Quick Ask is the active surface,

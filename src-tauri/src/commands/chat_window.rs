@@ -160,7 +160,10 @@ pub fn detach_chat_window(
         }
         // Registered but gone (closed without the destroy handler running) -
         // drop the stale entry and fall through to building a fresh window.
-        open.0.lock().unwrap().retain(|entry| entry.label != existing);
+        open.0
+            .lock()
+            .unwrap()
+            .retain(|entry| entry.label != existing);
     }
 
     let label = format!("{CHAT_LABEL_PREFIX}{}", crate::next_window_id());

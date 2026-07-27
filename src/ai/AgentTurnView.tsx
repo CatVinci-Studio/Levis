@@ -72,7 +72,10 @@ function UserMessage({
   // out of the prompt; images never had one to parse (they travel as provider
   // image parts, not as text), so they come straight off the turn. Without
   // this a message with a picture attached showed no chip at all.
-  const attachmentNames = [...attachments, ...images.map((image) => image.name)];
+  const attachmentNames = [
+    ...attachments,
+    ...images.map((image) => image.name),
+  ];
 
   return (
     <div className="agent-message agent-message-user">

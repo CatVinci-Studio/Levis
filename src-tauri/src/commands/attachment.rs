@@ -452,7 +452,10 @@ mod tests {
             <w:p><w:r><w:t>Hello</w:t></w:r><w:r><w:t> world</w:t></w:r></w:p>
             <w:p><w:r><w:t>Second</w:t></w:r></w:p>
         </w:body></w:document>"#;
-        assert_eq!(tidy_lines(&ooxml_part_text(xml, "t", "p")), "Hello world\nSecond");
+        assert_eq!(
+            tidy_lines(&ooxml_part_text(xml, "t", "p")),
+            "Hello world\nSecond"
+        );
     }
 
     #[test]

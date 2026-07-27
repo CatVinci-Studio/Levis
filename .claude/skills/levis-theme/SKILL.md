@@ -11,8 +11,8 @@ They are different mechanisms and the distinction decides everything else.
 
 **Built-in content themes** (`src/editor/content-themes.css`) set CSS custom
 properties and nothing else. They reskin the **writing area only** - never the
-app chrome. Shipping one means editing three files (see *Adding a built-in
-theme*).
+app chrome. Shipping one means editing three files (see _Adding a built-in
+theme_).
 
 **Imported themes** are arbitrary Typora-compatible CSS files a user picks in
 Settings. They are read, inlined, and injected into a `<style>` tag at
@@ -23,10 +23,10 @@ repo.
 
 Two independent settings compose into what the user sees:
 
-| Setting | Values | Attribute on `<html>` |
-|---|---|---|
+| Setting   | Values                                                                 | Attribute on `<html>`                       |
+| --------- | ---------------------------------------------------------------------- | ------------------------------------------- |
 | `themeId` | `default`, `paper`, `slate`, `forest`, `parchment`, or a user theme id | `data-content-theme` (absent for `default`) |
-| `theme` | `system`, `light`, `dark` | `data-theme` (**absent** for `system`) |
+| `theme`   | `system`, `light`, `dark`                                              | `data-theme` (**absent** for `system`)      |
 
 There is no such thing as "a dark theme". Every theme must define both forms,
 because the user can pick any combination. `system` deliberately removes
@@ -65,17 +65,17 @@ dark chrome around light content.
 
 Everything here is scoped to the writing area.
 
-| Variable | Controls |
-|---|---|
-| `--editor-bg` | Editor background. Falls back to `--bg`, so `default` leaves it unset. |
-| `--editor-text` | Body text. |
-| `--editor-muted` | Secondary text: placeholders, counts, tool lines, most icons. The single most-used variable - it carries the app's whole "quiet" layer. |
-| `--editor-accent` | Links, the caret, focus rings, active states, accepted-edit highlights. The most visible colour in the app. |
-| `--editor-border` | Hairlines, table rules, input outlines. |
-| `--editor-code-bg` | Inline code and code-block background. |
-| `--editor-quote-border` | The blockquote's leading rule. |
-| `--editor-highlight-bg` | `==marked==` text and find-match highlights. Defined in `App.css`; built-in content themes leave it alone. |
-| `--editor-font` | Content font stack. Only read once, as `var(--editor-font, var(--font-sans))`. Include CJK families - see *Gotchas*. |
+| Variable                | Controls                                                                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `--editor-bg`           | Editor background. Falls back to `--bg`, so `default` leaves it unset.                                                                  |
+| `--editor-text`         | Body text.                                                                                                                              |
+| `--editor-muted`        | Secondary text: placeholders, counts, tool lines, most icons. The single most-used variable - it carries the app's whole "quiet" layer. |
+| `--editor-accent`       | Links, the caret, focus rings, active states, accepted-edit highlights. The most visible colour in the app.                             |
+| `--editor-border`       | Hairlines, table rules, input outlines.                                                                                                 |
+| `--editor-code-bg`      | Inline code and code-block background.                                                                                                  |
+| `--editor-quote-border` | The blockquote's leading rule.                                                                                                          |
+| `--editor-highlight-bg` | `==marked==` text and find-match highlights. Defined in `App.css`; built-in content themes leave it alone.                              |
+| `--editor-font`         | Content font stack. Only read once, as `var(--editor-font, var(--font-sans))`. Include CJK families - see _Gotchas_.                    |
 
 ### Chrome variables — NOT for content themes
 

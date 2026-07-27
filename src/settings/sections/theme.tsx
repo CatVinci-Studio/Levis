@@ -110,9 +110,7 @@ export function ThemeSection({ t }: { t: Strings }) {
         <select
           className="settings-select"
           value={settings.theme}
-          onChange={(e) =>
-            setSettings({ theme: e.target.value as ThemeMode })
-          }
+          onChange={(e) => setSettings({ theme: e.target.value as ThemeMode })}
         >
           {THEME_MODES.map((mode) => (
             <option key={mode} value={mode}>

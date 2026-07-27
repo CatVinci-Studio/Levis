@@ -274,7 +274,10 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
         {error && <div className="settings-error">{error}</div>}
       </div>
       <div className="settings-inline-buttons">
-        <button className="text-button settings-inline-button" onClick={pickRoot}>
+        <button
+          className="text-button settings-inline-button"
+          onClick={pickRoot}
+        >
           {t.agentWorkspaceRootPick}
         </button>
         {root && (

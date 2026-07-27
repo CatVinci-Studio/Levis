@@ -414,17 +414,20 @@ mod tests {
     /// pinning here rather than discovering it from a user's bug report.
     #[test]
     fn user_turn_images_become_input_image_parts_before_the_text() {
-        let history = vec![AgentTurn::User {
+        let turn = AgentTurn::User {
             text: "what is this?".to_string(),
             images: vec![ImageAttachment {
                 name: "chart.png".to_string(),
                 mime: "image/png".to_string(),
-                data_base64: "AAAA".to_string(),
+                data_base64: "AAAA".into(),
             }],
-        }];
-        let item = turn_to_input_item(&history[0]);
+        };
+        let item = turn_to_input_item(&turn);
         assert_eq!(item["content"][0]["type"], "input_image");
-        assert_eq!(item["content"][0]["image_url"], "data:image/png;base64,AAAA");
+        assert_eq!(
+            item["content"][0]["image_url"],
+            "data:image/png;base64,AAAA"
+        );
         // The question follows the picture it is about.
         assert_eq!(item["content"][1]["type"], "input_text");
         assert_eq!(item["content"][1]["text"], "what is this?");

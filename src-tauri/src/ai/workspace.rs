@@ -178,7 +178,11 @@ fn resolve_root(doc_path: Option<&str>, root_override: Option<&str>) -> Option<P
 
 /// Loads the merged agent workspace for a document: global layer first,
 /// then the workspace root's `.levis/` layer on top.
-pub fn load(app: &AppHandle, doc_path: Option<&str>, root_override: Option<&str>) -> AgentWorkspace {
+pub fn load(
+    app: &AppHandle,
+    doc_path: Option<&str>,
+    root_override: Option<&str>,
+) -> AgentWorkspace {
     let mut ws = AgentWorkspace::default();
 
     if let Ok(global_dir) = global_agent_dir(app) {
@@ -223,11 +227,10 @@ pub async fn load_agent_workspace(
 #[tauri::command]
 pub async fn pick_workspace_root(app: AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
-    let picked = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog().file().blocking_pick_folder()
-    })
-    .await
-    .map_err(|e| e.to_string())?;
+    let picked =
+        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
+            .await
+            .map_err(|e| e.to_string())?;
     Ok(picked.map(|p| p.to_string()))
 }
 

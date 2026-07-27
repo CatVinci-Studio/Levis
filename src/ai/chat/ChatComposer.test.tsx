@@ -21,8 +21,7 @@ vi.mock("../provider-catalog", () => ({
 }));
 
 vi.mock("../../ipc", async () => {
-  const actual =
-    await vi.importActual<typeof import("../../ipc")>("../../ipc");
+  const actual = await vi.importActual<typeof import("../../ipc")>("../../ipc");
   return {
     ...actual,
     ai: {

@@ -145,9 +145,7 @@ export function ChatComposer({
       }
       setAttachments((prev) => [...prev, file]);
     } catch (err) {
-      setAttachError(
-        err instanceof IpcError ? String(err.cause) : String(err),
-      );
+      setAttachError(err instanceof IpcError ? String(err.cause) : String(err));
     }
   }
 

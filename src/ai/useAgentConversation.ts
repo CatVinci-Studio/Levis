@@ -127,7 +127,10 @@ export function useAgentConversation(
     setRetryable(null);
     // The user's message shows immediately as a streamed turn - the real
     // one only enters `history` when the whole exchange resolves.
-    setStreaming({ turns: [{ kind: "User", text: trimmed, images }], text: "" });
+    setStreaming({
+      turns: [{ kind: "User", text: trimmed, images }],
+      text: "",
+    });
     const requestId = crypto.randomUUID();
     const generation = generationRef.current;
     requestIdRef.current = requestId;
@@ -263,7 +266,11 @@ function withoutImageData(turn: AgentTurn): AgentTurn {
   if (turn.kind !== "User" || !turn.images?.length) return turn;
   return {
     ...turn,
-    images: turn.images.map(({ name, mime }) => ({ name, mime, dataBase64: "" })),
+    images: turn.images.map(({ name, mime }) => ({
+      name,
+      mime,
+      dataBase64: "",
+    })),
   };
 }
 
