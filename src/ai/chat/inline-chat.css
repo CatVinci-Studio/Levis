@@ -9,15 +9,25 @@
 
 .inline-chat {
   margin: 0.75em 0;
+  /* Room the first text row leaves for the floating header buttons:
+     4px edge + 20px + 2px gap + 20px, plus 6px of air. Only Quick Ask has
+     them - the detached window shows the same composer with no overlay, so
+     this is scoped to the panel rather than set on the input itself. */
+  --quick-ask-actions-width: 52px;
 }
 
-/* Just the pop-out and close buttons, right-aligned. Deliberately slim -
-   this is not a title bar; the panel has no title to show and nothing to
-   grab. */
+/* Just the pop-out and close buttons, pinned to the panel's top-right
+   corner. Deliberately slim - this is not a title bar; the panel has no
+   title to show and nothing to grab - and floated rather than given a row
+   of its own, which cost 26px of blank space above the input for the sake
+   of two icons. The input reserves width for them instead (see
+   --quick-ask-actions-width below). */
 .inline-chat-header {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   padding: 3px 4px;
 }
 
@@ -72,8 +82,9 @@
 
 /* The message list, skill menu and composer all live inside this one
    bordered/shadowed card - only one .floating-surface for the whole popup,
-   not one per section. */
+   not one per section. Positioned: the header buttons float in its corner. */
 .inline-chat-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
 }
@@ -250,6 +261,17 @@
      (a non-visible axis drags the other one out of `visible` with it),
      which is where the full-width bar under the placeholder came from. */
   overflow-x: hidden;
+}
+
+/* Whichever section ends up under the floating header buttons keeps clear of
+   them - the composer when the panel is fresh, the reply summary or the
+   pending bar once one of those is on top. Not the composer unconditionally:
+   in the detached window it has no buttons overhead, and here it usually
+   isn't the row they overlap. */
+.inline-chat-header + .inline-chat-bar .inline-chat-input,
+.inline-chat-header + .quick-ask-status,
+.inline-chat-header + .quick-ask-pending-bar {
+  padding-right: var(--quick-ask-actions-width);
 }
 
 .inline-chat-send {
