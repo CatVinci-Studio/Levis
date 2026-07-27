@@ -59,45 +59,9 @@ pub async fn save_file_dialog(app: tauri::AppHandle) -> Option<String> {
     .flatten()
 }
 
-#[derive(Serialize)]
-pub struct AttachedFile {
-    pub name: String,
-    pub content: String,
-}
-
-/// The inline chat's "+" button: pick any file and return its text content
-/// for attaching to the outgoing message. Capped and text-only - attachments
-/// ride inside the prompt, so a binary or huge file can't work anyway.
-const MAX_ATTACHMENT_BYTES: u64 = 200 * 1024;
-
-#[tauri::command]
-pub async fn pick_attachment_file(app: tauri::AppHandle) -> Result<Option<AttachedFile>, String> {
-    use tauri_plugin_dialog::DialogExt;
-    let picked =
-        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_file())
-            .await
-            .map_err(|e| e.to_string())?;
-    let Some(path) = picked.map(|p| p.to_string()) else {
-        return Ok(None);
-    };
-
-    let meta = fs::metadata(&path).await.map_err(|e| e.to_string())?;
-    if meta.len() > MAX_ATTACHMENT_BYTES {
-        return Err(format!(
-            "File is too large to attach ({} KB; the limit is {} KB).",
-            meta.len() / 1024,
-            MAX_ATTACHMENT_BYTES / 1024
-        ));
-    }
-    let content = fs::read_to_string(&path)
-        .await
-        .map_err(|_| "Only text files can be attached.".to_string())?;
-    let name = Path::new(&path)
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or(path);
-    Ok(Some(AttachedFile { name, content }))
-}
+// The chat's "+" button used to live here as a text-only `read_to_string`,
+// which is why a PDF looked like a dead button. It now has its own module -
+// see commands/attachment.rs.
 
 fn require_non_empty(path: &str) -> Result<(), String> {
     if path.trim().is_empty() {
