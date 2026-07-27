@@ -1,6 +1,29 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// An image riding along with a user turn.
+///
+/// Images are the one attachment kind with no text to extract, so they can't
+/// be inlined into the prompt the way a PDF or spreadsheet is (see the main
+/// crate's commands/attachment.rs). They have to reach the model as the
+/// provider's own image content part, which is what every `turns_to_*`
+/// function below builds. `data_base64` is the raw file, base64-encoded;
+/// `mime` is what the provider is told it is.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageAttachment {
+    pub name: String,
+    pub mime: String,
+    pub data_base64: String,
+}
+
+impl ImageAttachment {
+    /// `data:image/png;base64,...` - the form both OpenAI dialects want.
+    pub fn data_url(&self) -> String {
+        format!("data:{};base64,{}", self.mime, self.data_base64)
+    }
+}
+
 /// One entry in an agent conversation. Kept provider-agnostic so the main
 /// crate's loop doesn't need to know about each provider's wire format.
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -8,6 +31,11 @@ use serde_json::Value;
 pub enum AgentTurn {
     User {
         text: String,
+        /// Defaulted, because conversations saved before images existed are
+        /// still in users' localStorage (see chat-history.ts) and must keep
+        /// deserializing.
+        #[serde(default)]
+        images: Vec<ImageAttachment>,
     },
     Assistant {
         text: String,
@@ -81,7 +109,10 @@ pub type EventSink<'a> = &'a (dyn Fn(ProviderEvent<'_>) + Send + Sync);
 /// returned turn list is the authoritative ending either way.
 pub async fn run_agent_loop<Step, StepFut, ExecuteTool, OnTurn>(
     history: Vec<AgentTurn>,
-    user_message: String,
+    // `user_turn` is a whole AgentTurn rather than the bare message string it
+    // used to be, because the turn the user just sent may carry images
+    // alongside its text.
+    user_turn: AgentTurn,
     max_steps: usize,
     mut step: Step,
     mut execute_tool: ExecuteTool,
@@ -93,7 +124,6 @@ where
     ExecuteTool: FnMut(&str, &str) -> String,
     OnTurn: FnMut(&AgentTurn),
 {
-    let user_turn = AgentTurn::User { text: user_message };
     let mut turns = history;
     turns.push(user_turn.clone());
     let mut new_turns = vec![user_turn];

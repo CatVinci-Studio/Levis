@@ -20,6 +20,34 @@ const JWT_CLAIM_PATH: &str = "https://api.openai.com/auth";
 const CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
 pub const COMPLETION_MODEL: &str = "gpt-5.6-luna";
 
+/// The only models the ChatGPT-account backend accepts. Anything else comes
+/// back as `400 The '<model>' model is not supported when using Codex with a
+/// ChatGPT account` - including models that are perfectly valid on the public
+/// API-key endpoint, which is the same provider entry with the other auth
+/// method.
+///
+/// Mirrored by OPENAI_OAUTH_*_MODEL_PRESETS in src/settings/agent-models.ts,
+/// which is what the Settings picker offers while this login is active.
+pub const SUPPORTED_MODELS: &[&str] = &["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+
+/// Clamps a requested model to something this login can actually use.
+///
+/// The saved model outlives the auth method that was active when it was
+/// picked: sign in with an API key, choose `gpt-5.4`, later switch to "sign
+/// in with ChatGPT", and every request 400s. Worse, the model can arrive from
+/// a settings blob written by an older version and migrated forward
+/// (SettingsContext's migrateAgentModels), so the user never chose it at all
+/// and has no idea why the agent stopped answering.
+///
+/// The Settings panel normalizes the stored value too, but only while it is
+/// open - which is not where a request's correctness can live.
+pub fn usable_model<'a>(requested: Option<&'a str>, fallback: &'a str) -> &'a str {
+    match requested {
+        Some(model) if SUPPORTED_MODELS.contains(&model) => model,
+        _ => fallback,
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CodexCredential {
     pub access: String,
@@ -138,8 +166,12 @@ pub async fn call_completion(
     user_text: String,
     model: Option<&str>,
 ) -> Result<String, String> {
-    let body = ResponsesRequest::new(model.unwrap_or(COMPLETION_MODEL), instructions, user_text)
-        .streaming();
+    let body = ResponsesRequest::new(
+        usable_model(model, COMPLETION_MODEL),
+        instructions,
+        user_text,
+    )
+    .streaming();
 
     let client = crate::http::streaming_client();
     let res = client
@@ -196,4 +228,34 @@ pub async fn agent_step(
 
     let output = read_streamed_output(res, "Codex", on_event).await?;
     Ok(responses_api::parse_agent_output(&output))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The exact failure this guard exists for: a model saved while the
+    /// API-key auth method was active (or migrated forward from an older
+    /// settings blob) is a hard 400 once the login is a ChatGPT account.
+    #[test]
+    fn a_model_this_login_cannot_use_falls_back_to_the_default() {
+        assert_eq!(usable_model(Some("gpt-5.4"), "gpt-5.6-sol"), "gpt-5.6-sol");
+        assert_eq!(
+            usable_model(Some("gpt-4o-mini"), "gpt-5.6-sol"),
+            "gpt-5.6-sol"
+        );
+    }
+
+    #[test]
+    fn a_supported_model_is_passed_through() {
+        assert_eq!(
+            usable_model(Some("gpt-5.6-terra"), "gpt-5.6-sol"),
+            "gpt-5.6-terra"
+        );
+    }
+
+    #[test]
+    fn no_choice_means_the_default() {
+        assert_eq!(usable_model(None, "gpt-5.6-sol"), "gpt-5.6-sol");
+    }
 }

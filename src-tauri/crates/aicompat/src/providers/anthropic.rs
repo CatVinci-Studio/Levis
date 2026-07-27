@@ -292,8 +292,30 @@ fn turns_to_messages(history: &[AgentTurn]) -> Vec<Value> {
     let mut i = 0;
     while i < history.len() {
         match &history[i] {
-            AgentTurn::User { text } => {
-                messages.push(json!({"role": "user", "content": text}));
+            AgentTurn::User { text, images } => {
+                // A text-only turn keeps the plain-string `content` shape it
+                // always had; only a turn carrying images needs the block
+                // form. Same wire meaning, but it keeps the common request
+                // byte-identical to what shipped before images existed.
+                if images.is_empty() {
+                    messages.push(json!({"role": "user", "content": text}));
+                } else {
+                    let mut content: Vec<Value> = images
+                        .iter()
+                        .map(|image| {
+                            json!({
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": image.mime,
+                                    "data": image.data_base64,
+                                },
+                            })
+                        })
+                        .collect();
+                    content.push(json!({"type": "text", "text": text}));
+                    messages.push(json!({"role": "user", "content": content}));
+                }
                 i += 1;
             }
             AgentTurn::Assistant { text } => {
@@ -558,12 +580,14 @@ pub async fn agent_step(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::ImageAttachment;
 
     #[test]
     fn turns_to_messages_maps_plain_turns_1_to_1() {
         let history = vec![
             AgentTurn::User {
                 text: "hi".to_string(),
+                images: Vec::new(),
             },
             AgentTurn::Assistant {
                 text: "hello".to_string(),
@@ -577,6 +601,37 @@ mod tests {
         assert_eq!(messages[1]["content"], "hello");
     }
 
+    /// Two things worth pinning: the base64 source shape Claude requires,
+    /// and that a text-only turn keeps its plain-string `content`. The
+    /// second matters because it is the shape every request had before
+    /// images existed - regressing it would change every conversation, not
+    /// just the ones with a picture in them.
+    #[test]
+    fn images_use_the_base64_source_block_and_text_only_turns_stay_strings() {
+        let with_image = turns_to_messages(&[AgentTurn::User {
+            text: "what is this?".to_string(),
+            images: vec![ImageAttachment {
+                name: "chart.png".to_string(),
+                mime: "image/png".to_string(),
+                data_base64: "AAAA".to_string(),
+            }],
+        }]);
+        assert_eq!(with_image[0]["content"][0]["type"], "image");
+        assert_eq!(with_image[0]["content"][0]["source"]["type"], "base64");
+        assert_eq!(
+            with_image[0]["content"][0]["source"]["media_type"],
+            "image/png"
+        );
+        assert_eq!(with_image[0]["content"][0]["source"]["data"], "AAAA");
+        assert_eq!(with_image[0]["content"][1]["text"], "what is this?");
+
+        let text_only = turns_to_messages(&[AgentTurn::User {
+            text: "hi".to_string(),
+            images: Vec::new(),
+        }]);
+        assert_eq!(text_only[0]["content"], "hi");
+    }
+
     #[test]
     fn turns_to_messages_groups_interleaved_tool_calls_into_one_pair() {
         // run_agent_loop interleaves Call1, Result1, Call2, Result2 - this
@@ -586,6 +641,7 @@ mod tests {
         let history = vec![
             AgentTurn::User {
                 text: "do it".to_string(),
+                images: Vec::new(),
             },
             AgentTurn::ToolCall {
                 call_id: "1".to_string(),

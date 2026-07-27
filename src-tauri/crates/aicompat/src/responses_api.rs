@@ -230,11 +230,21 @@ pub fn text_from_streamed_output(output: &[Value]) -> String {
 
 fn turn_to_input_item(turn: &AgentTurn) -> Value {
     match turn {
-        AgentTurn::User { text } => json!({
-            "type": "message",
-            "role": "user",
-            "content": [{"type": "input_text", "text": text}],
-        }),
+        AgentTurn::User { text, images } => {
+            // Images come first: a request like "what does this chart show?"
+            // reads as a question about the picture above it, and putting the
+            // text last is what both OpenAI and Anthropic recommend.
+            let mut content: Vec<Value> = images
+                .iter()
+                .map(|image| json!({"type": "input_image", "image_url": image.data_url()}))
+                .collect();
+            content.push(json!({"type": "input_text", "text": text}));
+            json!({
+                "type": "message",
+                "role": "user",
+                "content": content,
+            })
+        }
         AgentTurn::Assistant { text } => json!({
             "type": "message",
             "role": "assistant",
@@ -357,12 +367,14 @@ pub fn parse_agent_output(output: &[Value]) -> StepResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::ImageAttachment;
 
     #[test]
     fn agent_request_body_round_trips_every_turn_kind() {
         let history = vec![
             AgentTurn::User {
                 text: "hi".to_string(),
+                images: Vec::new(),
             },
             AgentTurn::Assistant {
                 text: "hello".to_string(),
@@ -395,6 +407,27 @@ mod tests {
         assert_eq!(body["tools"][0]["name"], "search_document");
         // gpt-5* models get the verbosity hint, older ones don't.
         assert_eq!(body["text"]["verbosity"], "low");
+    }
+
+    /// The image part's exact shape is the whole contract with the provider,
+    /// and getting it wrong fails at request time with an opaque 400 - worth
+    /// pinning here rather than discovering it from a user's bug report.
+    #[test]
+    fn user_turn_images_become_input_image_parts_before_the_text() {
+        let history = vec![AgentTurn::User {
+            text: "what is this?".to_string(),
+            images: vec![ImageAttachment {
+                name: "chart.png".to_string(),
+                mime: "image/png".to_string(),
+                data_base64: "AAAA".to_string(),
+            }],
+        }];
+        let item = turn_to_input_item(&history[0]);
+        assert_eq!(item["content"][0]["type"], "input_image");
+        assert_eq!(item["content"][0]["image_url"], "data:image/png;base64,AAAA");
+        // The question follows the picture it is about.
+        assert_eq!(item["content"][1]["type"], "input_text");
+        assert_eq!(item["content"][1]["text"], "what is this?");
     }
 
     #[test]

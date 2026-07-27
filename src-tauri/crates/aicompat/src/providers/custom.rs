@@ -193,8 +193,26 @@ fn turns_to_messages(instructions: &str, history: &[AgentTurn]) -> Vec<Value> {
     let mut i = 0;
     while i < history.len() {
         match &history[i] {
-            AgentTurn::User { text } => {
-                messages.push(json!({"role": "user", "content": text}));
+            AgentTurn::User { text, images } => {
+                // Plain string `content` unless there are images: an
+                // OpenAI-compatible server that predates vision accepts the
+                // string form and may reject the content-part array, and the
+                // overwhelming majority of turns have no images.
+                if images.is_empty() {
+                    messages.push(json!({"role": "user", "content": text}));
+                } else {
+                    let mut content: Vec<Value> = images
+                        .iter()
+                        .map(|image| {
+                            json!({
+                                "type": "image_url",
+                                "image_url": {"url": image.data_url()},
+                            })
+                        })
+                        .collect();
+                    content.push(json!({"type": "text", "text": text}));
+                    messages.push(json!({"role": "user", "content": content}));
+                }
                 i += 1;
             }
             AgentTurn::Assistant { text } => {
@@ -476,12 +494,48 @@ pub async fn agent_step(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::ImageAttachment;
+
+    /// The chat-completions image part, plus the guarantee that a text-only
+    /// turn still sends a plain string. The second half is what keeps this
+    /// dialect working against OpenAI-compatible servers old enough to
+    /// reject a content-part array outright.
+    #[test]
+    fn images_use_image_url_parts_and_text_only_turns_stay_strings() {
+        let with_image = turns_to_messages(
+            "be helpful",
+            &[AgentTurn::User {
+                text: "what is this?".to_string(),
+                images: vec![ImageAttachment {
+                    name: "chart.png".to_string(),
+                    mime: "image/png".to_string(),
+                    data_base64: "AAAA".to_string(),
+                }],
+            }],
+        );
+        assert_eq!(with_image[1]["content"][0]["type"], "image_url");
+        assert_eq!(
+            with_image[1]["content"][0]["image_url"]["url"],
+            "data:image/png;base64,AAAA"
+        );
+        assert_eq!(with_image[1]["content"][1]["text"], "what is this?");
+
+        let text_only = turns_to_messages(
+            "be helpful",
+            &[AgentTurn::User {
+                text: "hi".to_string(),
+                images: Vec::new(),
+            }],
+        );
+        assert_eq!(text_only[1]["content"], "hi");
+    }
 
     #[test]
     fn turns_to_messages_starts_with_system_and_groups_tool_turns() {
         let history = vec![
             AgentTurn::User {
                 text: "do it".to_string(),
+                images: Vec::new(),
             },
             AgentTurn::ToolCall {
                 call_id: "1".to_string(),
