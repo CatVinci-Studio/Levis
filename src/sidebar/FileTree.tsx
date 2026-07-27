@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { DirEntryInfo } from "./types";
-import { ChevronIcon, FolderIcon, FolderOpenIcon, fileIconFor } from "./icons";
+import {
+  ChevronIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  fileIconFor,
+} from "../ui/icons";
 import { fs } from "../ipc";
 import "./FileTree.css";
 

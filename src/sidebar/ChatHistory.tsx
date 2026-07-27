@@ -1,6 +1,7 @@
 import { useSettings } from "../settings/SettingsContext";
 import { useChatHistory, deleteConversation } from "../ai/chat-history";
 import { RESTORE_CHAT_EVENT } from "../utils/events";
+import { CloseIcon } from "../ui/icons";
 
 /**
  * Sidebar panel over the saved agent conversations (see ai/chat-history.ts).
@@ -46,7 +47,7 @@ export function ChatHistory() {
               deleteConversation(entry.id);
             }}
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
       ))}

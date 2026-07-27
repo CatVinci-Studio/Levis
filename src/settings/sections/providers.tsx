@@ -7,7 +7,7 @@ import {
   useProviderCatalog,
   type ProviderCatalogEntry,
 } from "../../ai/provider-catalog";
-import { ChevronIcon } from "../../sidebar/icons";
+import { ChevronIcon } from "../../ui/icons";
 import { auth, type CustomEndpointConfig } from "../../ipc";
 
 // General > AI Login Settings: two compact disclosure rows (provider, then
@@ -76,6 +76,8 @@ export function ProviderListPanel({ t }: { t: Strings }) {
     );
   }, [catalog, query, t]);
 
+  // catalog is already in scope here, so this stays a plain find:
+  // useActiveProvider would subscribe to the catalog a second time.
   const active = catalog.find((e) => e.id === settings.aiProvider);
   const activeConnected = active ? connected[active.id] : undefined;
   const isConnected = !!(activeConnected?.oauth || activeConnected?.apiKey);

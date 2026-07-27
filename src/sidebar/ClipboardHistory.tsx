@@ -1,4 +1,5 @@
 import { useSettings } from "../settings/SettingsContext";
+import { CopyIcon } from "../ui/icons";
 import {
   useClipboardHistory,
   clearClipboardHistory,
@@ -59,7 +60,7 @@ export function ClipboardHistory() {
               recordClipboardEntry(entry.text);
             }}
           >
-            ⧉
+            <CopyIcon />
           </button>
         </div>
       ))}

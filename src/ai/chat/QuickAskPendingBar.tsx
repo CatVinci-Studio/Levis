@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronIcon } from "../../sidebar/icons";
+import { ChevronIcon } from "../../ui/icons";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
 
 export interface QuickAskPendingBarLabels {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSettings } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
 import { ToggleRow } from "./controls";
+import { CheckIcon } from "../../ui/icons";
 import { clearAllConversations } from "../../ai/chat-history";
 import { clearClipboardHistory } from "../../utils/clipboard-history";
 import { drafts } from "../../ipc";
@@ -37,7 +38,7 @@ function ClearRow({
           setCleared(true);
         }}
       >
-        {cleared ? "✓" : buttonLabel}
+        {cleared ? <CheckIcon /> : buttonLabel}
       </button>
     </div>
   );

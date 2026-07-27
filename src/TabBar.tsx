@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
+import { CloseIcon } from "./ui/icons";
 
 interface TabInfo {
   id: string;
@@ -427,7 +428,7 @@ function TabPill({
           onClose(tab.id);
         }}
       >
-        ✕
+        <CloseIcon />
       </button>
     </div>
   );

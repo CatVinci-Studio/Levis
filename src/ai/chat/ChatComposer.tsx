@@ -1,7 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
-import { ai } from "../../ipc";
+import { ai, IpcError } from "../../ipc";
+import { useActiveProvider } from "../provider-catalog";
+import {
+  CloseIcon,
+  GenericFileIcon,
+  ImageFileIcon,
+  PlusIcon,
+} from "../../ui/icons";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */
@@ -15,11 +22,18 @@ export interface ChatComposerLabels {
   attachFile: string;
   /** The selection chip's text; "{n}" is replaced with the char count. */
   selectedChars: string;
+  /** Suffix on an attachment chip whose text was cut at the extraction cap. */
+  attachmentTruncated: string;
+  /** Shown when an image is attached but the active provider has no vision. */
+  attachmentNoVision: string;
 }
 
 interface ChatComposerProps {
   /** Resolves the agent workspace (skills) - re-loaded whenever it changes. */
   docPath: string | null;
+  /** Explicit workspace root, or null for the document's own folder. Skills
+   *  come from whichever it resolves to. */
+  workspaceRoot: string | null;
   selectedText: string | null;
   busy: boolean;
   labels: ChatComposerLabels;
@@ -43,6 +57,7 @@ interface ChatComposerProps {
  */
 export function ChatComposer({
   docPath,
+  workspaceRoot,
   selectedText,
   busy,
   labels,
@@ -50,27 +65,41 @@ export function ChatComposer({
   onStop,
   onEscape,
 }: ChatComposerProps) {
+  // Derived here rather than passed in: this is the only place an image can
+  // be staged, so deriving it at the gate makes it impossible for a caller to
+  // forget - which is exactly what happened when it was a prop, leaving Quick
+  // Ask happy to attach an image to a provider that can't read one.
+  const supportsVision = useActiveProvider()?.supportsVision ?? true;
   const [input, setInput] = useState("");
   const [skillIndex, setSkillIndex] = useState(0);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  // Why an attachment couldn't be used ("this PDF has no text layer", "too
+  // large", ...). Shown, never swallowed: the previous version caught and
+  // discarded every failure, so picking a PDF - which could not work at all,
+  // the reader being read_to_string - looked exactly like a dead "+" button.
+  const [attachError, setAttachError] = useState<string | null>(null);
   // The selection rides along as context by default, but a question about
   // the document as a whole shouldn't be forced to carry whatever happened
   // to be highlighted - dropping it is a click, not a re-selection.
   //
-  // Dropping it is sticky for the rest of this chat: it is not reset after a
-  // send, because having the chip reappear on the next message after the user
-  // just dismissed it would read as the app arguing. Getting it back means
-  // reselecting and opening the chat again.
-  const [selectionDropped, setSelectionDropped] = useState(false);
+  // Dropping applies to THAT selection, not to the chat forever: in the
+  // detached window the user goes on highlighting new passages, and each one
+  // is a fresh request to talk about it. Remembering which text was
+  // dismissed (rather than a bare flag) gets both halves right - the chip
+  // stays gone while that selection is current, and a genuinely new
+  // selection brings it back without the user having to reopen anything.
+  const [droppedSelection, setDroppedSelection] = useState<string | null>(null);
+  const selectionDropped =
+    droppedSelection !== null && droppedSelection === selectedText;
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Skills come from the agent workspace on disk (global dir + the document
-  // folder's .levis/skills). Loaded fresh each time the chat opens, so
-  // editing a skill file takes effect on the next chat without a restart.
+  // Skills come from the agent workspace on disk (global dir + the workspace
+  // root's .levis/skills). Loaded fresh each time the chat opens, so editing
+  // a skill file takes effect on the next chat without a restart.
   useEffect(() => {
     let cancelled = false;
-    ai.loadAgentWorkspace(docPath)
+    ai.loadAgentWorkspace(docPath, workspaceRoot)
       .then((ws) => {
         if (!cancelled && ws?.skills) setSkills(ws.skills);
       })
@@ -78,7 +107,7 @@ export function ChatComposer({
     return () => {
       cancelled = true;
     };
-  }, [docPath]);
+  }, [docPath, workspaceRoot]);
 
   // The input grows with its content (Shift+Enter newlines) up to the CSS
   // max-height, then scrolls - a fixed single row just scrolled horizontally
@@ -105,8 +134,21 @@ export function ChatComposer({
   }, [input]);
 
   async function attachFile() {
-    const file = await ai.pickAttachmentFile().catch(() => null);
-    if (file) setAttachments((prev) => [...prev, file]);
+    setAttachError(null);
+    try {
+      const file = await ai.pickAttachmentFile();
+      // null means the picker was cancelled - not something to report.
+      if (!file) return;
+      if (file.kind === "image" && !supportsVision) {
+        setAttachError(labels.attachmentNoVision);
+        return;
+      }
+      setAttachments((prev) => [...prev, file]);
+    } catch (err) {
+      setAttachError(
+        err instanceof IpcError ? String(err.cause) : String(err),
+      );
+    }
   }
 
   // Skill picker: open while the input is a single /token still being typed
@@ -192,18 +234,37 @@ export function ChatComposer({
         </div>
       )}
       <div className="inline-chat-bar">
+        {attachError && (
+          <div className="inline-chat-attach-error">{attachError}</div>
+        )}
         {attachments.length > 0 && (
           <div className="inline-chat-attachments">
             {attachments.map((file, i) => (
               <span key={i} className="inline-chat-attachment">
+                {/* The two kinds reach the model in completely different
+                    ways - extracted text in the prompt, or a native image
+                    part - so the chip says which this is. */}
+                {file.kind === "image" ? (
+                  <ImageFileIcon className="inline-chat-attachment-kind" />
+                ) : (
+                  <GenericFileIcon className="inline-chat-attachment-kind" />
+                )}
                 {file.name}
+                {/* A file cut at the extraction cap must say so - otherwise
+                    a partial answer looks like the model misread the whole
+                    document rather than having seen only part of it. */}
+                {file.kind === "text" && file.truncated && (
+                  <span className="inline-chat-attachment-note">
+                    {labels.attachmentTruncated}
+                  </span>
+                )}
                 <button
                   className="inline-chat-attachment-remove"
                   onClick={() =>
                     setAttachments((prev) => prev.filter((_, j) => j !== i))
                   }
                 >
-                  ✕
+                  <CloseIcon />
                 </button>
               </span>
             ))}
@@ -226,9 +287,10 @@ export function ChatComposer({
           <button
             className="inline-chat-attach"
             title={labels.attachFile}
+            aria-label={labels.attachFile}
             onClick={attachFile}
           >
-            +
+            <PlusIcon />
           </button>
           {selectedText && !selectionDropped && (
             <span className="inline-chat-selection-chip">
@@ -241,9 +303,9 @@ export function ChatComposer({
                 className="inline-chat-chip-remove"
                 aria-label={labels.dropSelection}
                 title={labels.dropSelection}
-                onClick={() => setSelectionDropped(true)}
+                onClick={() => setDroppedSelection(selectedText)}
               >
-                ✕
+                <CloseIcon />
               </button>
             </span>
           )}

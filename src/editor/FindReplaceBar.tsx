@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Strings } from "../i18n/strings";
 import type { FindReplace } from "./useFindReplace";
+import { ArrowUpIcon, ChevronIcon, CloseIcon } from "../ui/icons";
 import "./FindReplaceBar.css";
 
 type FindReplaceBarLabels = Pick<
@@ -13,6 +14,9 @@ type FindReplaceBarLabels = Pick<
   | "useRegex"
   | "invalidRegex"
   | "noMatches"
+  | "findPreviousMatch"
+  | "findNextMatch"
+  | "findClose"
 >;
 
 interface FindReplaceBarProps {
@@ -66,7 +70,7 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
           title={labels.replace}
           onClick={() => setReplaceOpen((v) => !v)}
         >
-          ▸
+          <ChevronIcon />
         </button>
         <div className="find-replace-field">
           <input
@@ -105,22 +109,29 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
             type="button"
             onClick={findReplace.prev}
             disabled={status.matchCount === 0}
+            aria-label={labels.findPreviousMatch}
+            title={labels.findPreviousMatch}
           >
-            ↑
+            <ArrowUpIcon />
           </button>
           <button
             type="button"
             onClick={findReplace.next}
             disabled={status.matchCount === 0}
+            aria-label={labels.findNextMatch}
+            title={labels.findNextMatch}
           >
-            ↓
+            {/* Same arrow, flipped - see ArrowUpIcon. */}
+            <ArrowUpIcon className="find-replace-arrow-down" />
           </button>
           <button
             type="button"
             className="find-replace-close"
             onClick={findReplace.close}
+            aria-label={labels.findClose}
+            title={labels.findClose}
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
       </div>

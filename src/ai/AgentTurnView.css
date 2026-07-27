@@ -60,7 +60,21 @@ button.agent-context-chip:hover {
 }
 
 .agent-context-chip-caret {
-  font-size: 9px;
+  /* One chevron, rotated - a separate "down" glyph is a second thing to keep
+     in sync, and the rotation animates for free. */
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+
+.agent-context-chip-caret-open {
+  transform: rotate(90deg);
+}
+
+/* Tool-call and attachment chips: the icon sits on the text's baseline row
+   rather than being a leading character, so a wrapped name doesn't tuck
+   under it. */
+.agent-tool-icon {
+  flex-shrink: 0;
 }
 
 /* The expanded selection: monospaced and scroll-capped, so checking what was
@@ -148,6 +162,9 @@ button.agent-context-chip:hover {
    invisible if not. */
 .agent-tool-line {
   align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   color: var(--editor-muted);
   padding: 1px 6px;

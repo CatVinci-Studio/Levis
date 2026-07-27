@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { AgentTurn } from "./types";
+import type { AgentTurn, ImageAttachment } from "./types";
 import { MarkdownText } from "./MarkdownText";
 import { parseUserMessage } from "./chat/user-message";
+import { ChevronIcon, PaperclipIcon, SearchIcon } from "../ui/icons";
 import "./AgentTurnView.css";
 
 export interface AgentTurnLabels {
@@ -18,7 +19,13 @@ export function AgentTurnView({
 }) {
   switch (turn.kind) {
     case "User":
-      return <UserMessage text={turn.text} labels={labels} />;
+      return (
+        <UserMessage
+          text={turn.text}
+          images={turn.images ?? []}
+          labels={labels}
+        />
+      );
     case "Assistant":
       return (
         <div className="agent-message agent-message-assistant">
@@ -26,7 +33,12 @@ export function AgentTurnView({
         </div>
       );
     case "ToolCall":
-      return <div className="agent-tool-line">🔍 {turn.name}</div>;
+      return (
+        <div className="agent-tool-line">
+          <SearchIcon className="agent-tool-icon" />
+          {turn.name}
+        </div>
+      );
     case "ToolResult":
       return (
         <details className="agent-tool-result">
@@ -47,17 +59,24 @@ export function AgentTurnView({
  */
 function UserMessage({
   text,
+  images,
   labels,
 }: {
   text: string;
+  images: ImageAttachment[];
   labels: AgentTurnLabels;
 }) {
   const { body, selection, attachments } = parseUserMessage(text);
   const [expanded, setExpanded] = useState(false);
+  // Text attachments are recovered by re-parsing the <attached-file> blocks
+  // out of the prompt; images never had one to parse (they travel as provider
+  // image parts, not as text), so they come straight off the turn. Without
+  // this a message with a picture attached showed no chip at all.
+  const attachmentNames = [...attachments, ...images.map((image) => image.name)];
 
   return (
     <div className="agent-message agent-message-user">
-      {(selection !== null || attachments.length > 0) && (
+      {(selection !== null || attachmentNames.length > 0) && (
         <div className="agent-message-context">
           {selection !== null && (
             <button
@@ -66,18 +85,21 @@ function UserMessage({
               aria-expanded={expanded}
               onClick={() => setExpanded((prev) => !prev)}
             >
-              <span className="agent-context-chip-caret">
-                {expanded ? "▾" : "▸"}
-              </span>
+              <ChevronIcon
+                className={`agent-context-chip-caret ${
+                  expanded ? "agent-context-chip-caret-open" : ""
+                }`}
+              />
               {labels.selectionChip.replace(
                 "{n}",
                 String([...selection].length),
               )}
             </button>
           )}
-          {attachments.map((name, i) => (
+          {attachmentNames.map((name, i) => (
             <span className="agent-context-chip" key={`${name}-${i}`}>
-              📎 {name}
+              <PaperclipIcon />
+              {name}
             </span>
           ))}
         </div>

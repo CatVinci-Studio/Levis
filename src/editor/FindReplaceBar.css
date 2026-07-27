@@ -23,10 +23,14 @@
   height: 26px;
   border: none !important;
   padding: 0 !important;
-  font-size: 10px !important;
   color: var(--editor-muted);
   background: transparent;
   transition: transform 0.1s ease;
+  /* The chevron is now an SVG, so the button has to centre it rather than
+     rely on a glyph's own line box. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .find-replace-chevron-open {
@@ -81,6 +85,14 @@
   gap: 4px;
 }
 
+/* Prev / next / close hold icons, not glyphs, so their buttons centre the
+   SVG instead of inheriting a text button's baseline padding. */
+.find-replace-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .find-replace-bar button {
   border: 1px solid var(--editor-border);
   border-radius: 5px;
@@ -119,10 +131,14 @@
 
 .find-replace-close {
   border: none !important;
-  font-size: 15px !important;
   line-height: 1;
   padding: 4px 6px !important;
   color: var(--editor-muted);
+}
+
+/* Prev/next share one arrow (see ArrowUpIcon); this is the "next" half. */
+.find-replace-arrow-down {
+  transform: rotate(180deg);
 }
 
 .find-match {

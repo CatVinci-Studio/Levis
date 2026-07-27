@@ -14,6 +14,7 @@ const DEFAULT_CELL_MIN_WIDTH = 100;
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { PLUS_ICON_HTML } from "../ui/icons";
 
 type TableCommand = (
   state: EditorState,
@@ -61,7 +62,7 @@ function makeInsertButton(className: string): HTMLButtonElement {
   button.type = "button";
   button.className = className;
   button.contentEditable = "false";
-  button.textContent = "+";
+  button.innerHTML = PLUS_ICON_HTML;
   return button;
 }
 
