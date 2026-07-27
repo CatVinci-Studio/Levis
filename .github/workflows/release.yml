@@ -78,16 +78,27 @@ jobs:
           # invisible to the in-app updater, so drafts left unpublished
           # silently stall every user on the previous version.
           releaseDraft: false
-          prerelease: false
+          # A semver pre-release suffix (v0.9.0-rc.1, -beta.2, -alpha) marks
+          # the GitHub release as a pre-release. That is what keeps it away
+          # from everyone else: the updater endpoint in tauri.conf.json points
+          # at `releases/latest/...`, and GitHub's "latest" excludes
+          # pre-releases - so a stable install never even sees this build's
+          # latest.json. Without this the tag pattern below (v*.*.*) matches
+          # an rc tag too and would ship it to every user as the new stable.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
 
   # Points the Homebrew cask (CatVinci-Studio/homebrew-tap) at the DMG this
   # release just published, so `brew install --cask catvinci-studio/tap/levis`
   # always serves the newest version. Pushes via a write deploy key on the
   # tap repo (GITHUB_TOKEN can't push to another repository).
+  #
+  # Skipped for pre-releases: the cask has no channel of its own, so pointing
+  # it at an rc would hand that build to every `brew upgrade` - the same
+  # mistake marking the GitHub release as a pre-release exists to prevent.
   update-homebrew-tap:
     needs: release
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-')
     runs-on: ubuntu-22.04
     steps:
       - name: Update cask version and sha256
