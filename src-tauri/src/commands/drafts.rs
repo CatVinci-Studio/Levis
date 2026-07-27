@@ -9,6 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager};
 use tokio::fs;
 
@@ -56,12 +57,30 @@ pub async fn save_draft_snapshot(
         .map_err(|e| e.to_string())
 }
 
+/// Whether the drafts pool has already been offered to a window this run.
+///
+/// Recovery is a LAUNCH-time question - "what did the last run leave behind
+/// that was never resolved" - but the drain is per-window, and a window can
+/// be created at any time. Once the app is up, every snapshot on disk belongs
+/// to a live, dirty tab in some window, so a window opened later (Cmd+T)
+/// would "recover" documents that are still open and unsaved elsewhere -
+/// duplicating them, and deleting the snapshot that was protecting the
+/// original. The destructive drain alone doesn't prevent this: the first
+/// window commonly starts with an empty pool and the snapshot only appears
+/// once the user types.
+static DRAFTS_CLAIMED: AtomicBool = AtomicBool::new(false);
+
 /// Reads every pending draft and removes its file in the same pass - a
 /// destructive "take", same pattern as lib.rs's PendingOpenPaths, so at most
 /// one window claims a given recovered document even if several windows are
 /// restoring a session at once.
+///
+/// Answers with nothing after the first caller: see DRAFTS_CLAIMED.
 #[tauri::command]
 pub async fn take_draft_snapshots(app: AppHandle) -> Result<Vec<DraftSnapshot>, String> {
+    if DRAFTS_CLAIMED.swap(true, Ordering::SeqCst) {
+        return Ok(Vec::new());
+    }
     let dir = drafts_dir(&app)?;
     let mut reader = match fs::read_dir(&dir).await {
         Ok(r) => r,
