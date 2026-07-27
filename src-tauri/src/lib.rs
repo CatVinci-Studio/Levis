@@ -29,10 +29,10 @@ use commands::export::{
     detect_pandoc, export_pdf_native, export_save_dialog, export_via_pandoc,
     open_pandoc_install_page, reveal_in_dir,
 };
+use commands::attachment::{pick_attachment_file, read_attachment_file};
 use commands::fs::{
     file_mtime_ms, list_dir, migrate_draft_images, open_css_file_dialog, open_file_dialog,
-    pick_attachment_file, read_binary_file_base64, read_text_file, save_file_dialog,
-    save_pasted_image, write_text_file,
+    read_binary_file_base64, read_text_file, save_file_dialog, save_pasted_image, write_text_file,
 };
 use commands::prefs::{
     get_new_document_mode, get_restore_session_on_startup, set_new_document_mode,
@@ -161,24 +161,37 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     }
 }
 
+/// Places a window and gives it this app's chrome: the overlay title bar,
+/// where the macOS traffic lights float over the content and the app draws
+/// its own top row. Shared by editor windows and the detached chat window so
+/// the platform cfg lives in exactly one place - the two used to carry
+/// byte-identical copies of it.
+pub(crate) fn with_app_chrome(
+    builder: WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle>,
+    position: Option<(f64, f64)>,
+) -> WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle> {
+    let mut builder = builder;
+    if let Some((x, y)) = position {
+        builder = builder.position(x, y);
+    }
+    // macOS-only API - Linux/Windows don't compile these methods at all, and
+    // keep their native title bar.
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
+    builder
+}
+
 pub(crate) fn build_window(
     app: &tauri::AppHandle,
     label: &str,
     position: Option<(f64, f64)>,
 ) -> tauri::Result<()> {
-    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(app_identity::APP_NAME)
         .inner_size(800.0, 600.0);
-    if let Some((x, y)) = position {
-        builder = builder.position(x, y);
-    }
-    // The overlay title bar (traffic lights floating over the content) is a
-    // macOS-only API - Linux/Windows don't compile these methods at all.
-    #[cfg(target_os = "macos")]
-    let builder = builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true);
-    builder.build()?;
+    with_app_chrome(builder, position).build()?;
     Ok(())
 }
 
@@ -201,16 +214,25 @@ pub fn run() {
             HashMap::new(),
         )))
         .manage(commands::chat_window::OpenChatWindows(Mutex::new(
-            HashMap::new(),
+            Vec::new(),
         )))
+        .manage(commands::chat_window::LastActiveEditor(Mutex::new(None)))
         .on_window_event(|window, event| {
+            let app = window.app_handle();
             if matches!(event, tauri::WindowEvent::Destroyed) {
-                let app = window.app_handle();
                 if let Some(state) = app.try_state::<SessionTabsState>() {
                     commands::session::forget_window(app, window.label(), &state);
                 }
                 if let Some(state) = app.try_state::<commands::chat_window::OpenChatWindows>() {
-                    commands::chat_window::forget_chat_window(window.label(), &state);
+                    commands::chat_window::forget_chat_window(app, window.label(), &state);
+                }
+            }
+            // A chat window shared across editor windows has no owning
+            // editor, so "which document is this about" is answered by which
+            // editor window was focused last (see editor_for_chat).
+            if matches!(event, tauri::WindowEvent::Focused(true)) {
+                if let Some(state) = app.try_state::<commands::chat_window::LastActiveEditor>() {
+                    commands::chat_window::note_focused_window(window.label(), &state);
                 }
             }
         })
@@ -248,6 +270,7 @@ pub fn run() {
             commands::chat_window::detach_chat_window,
             commands::chat_window::take_chat_handoff,
             commands::chat_window::close_chat_window,
+            commands::chat_window::current_chat_window,
             tab_drag::list_window_bounds,
             tab_drag::start_window_drag_tracking,
             tab_drag::start_floating_tab_drag,
@@ -284,10 +307,12 @@ pub fn run() {
             set_ai_proxy,
             crate::ai::catalog::list_providers,
             crate::ai::workspace::load_agent_workspace,
+            crate::ai::workspace::pick_workspace_root,
             crate::ai::workspace::open_global_agent_dir,
             crate::ai::workspace::ensure_global_agent_md,
             crate::ai::workspace::import_agent_skill,
             pick_attachment_file,
+            read_attachment_file,
             set_provider_api_key,
             provider_api_key_status,
             clear_provider_api_key,

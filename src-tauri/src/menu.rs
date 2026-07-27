@@ -90,7 +90,10 @@ pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
         Some(label) if crate::commands::chat_window::is_editor_window(&label) => Some(label),
         Some(label) => app
             .try_state::<crate::commands::chat_window::OpenChatWindows>()
-            .and_then(|state| crate::commands::chat_window::editor_for_chat(&label, &state)),
+            .zip(app.try_state::<crate::commands::chat_window::LastActiveEditor>())
+            .and_then(|(open, last_active)| {
+                crate::commands::chat_window::editor_for_chat(&label, &open, &last_active)
+            }),
         None => None,
     }
     .or_else(|| {
