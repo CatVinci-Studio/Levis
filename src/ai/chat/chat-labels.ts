@@ -16,6 +16,8 @@ export function chatLabels(t: Strings): InlineChatLabels {
     retry: t.agentRetry,
     thinking: t.agentThinking,
     attachFile: t.agentAttachFile,
+    attachmentTruncated: t.chatAttachmentTruncated,
+    attachmentNoVision: t.chatAttachmentNoVision,
     selectedChars: t.chatSelectedChars,
     selectionChip: t.chatSelectionChip,
     proposalTitle: t.agentProposalTitle,

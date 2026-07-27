@@ -100,6 +100,18 @@ export function installDevTauriShim(): void {
           }, 30);
         });
       }
+      // A canned text attachment, so the "+" button's staged-chip and
+      // inlining path can be smoke-tested in the browser. The real command
+      // (commands/attachment.rs) is where format handling actually lives -
+      // extracting a PDF or a spreadsheet needs the native side.
+      if (cmd === "pick_attachment_file") {
+        return Promise.resolve({
+          kind: "text",
+          name: "dev-shim-notes.md",
+          content: "Canned dev-shim attachment content.",
+          truncated: false,
+        });
+      }
       return Promise.resolve(null);
     },
     // Mirrors the real runtime: the callback is parked on window under

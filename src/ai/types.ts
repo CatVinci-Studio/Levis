@@ -46,14 +46,47 @@ export interface AgentSkill {
   prompt: string;
 }
 
-/** A file attached to an outgoing chat message via the "+" button. */
-export interface ChatAttachment {
+/**
+ * A file attached to an outgoing chat message via the "+" button.
+ *
+ * Two destinations, decided in Rust by format (commands/attachment.rs):
+ * anything with text in it - PDF, Word, spreadsheets, plain files - is
+ * EXTRACTED and inlined into the message as an `<attached-file>` block, which
+ * works with every provider. Images have no text to extract, so they travel
+ * as base64 and become the provider's own image content part.
+ *
+ * A discriminated union, mirroring the Rust enum: the two carry nothing in
+ * common but a name, so `kind` narrows to exactly the fields that mean
+ * something rather than leaving the other half documented as empty.
+ */
+export type ChatAttachment =
+  | {
+      kind: "text";
+      name: string;
+      /** Extracted text, inlined into the outgoing message. */
+      content: string;
+      /** `content` was cut at the extraction cap. Shown on the chip - a
+       *  silent truncation reads as "the model has my whole file". */
+      truncated: boolean;
+    }
+  | {
+      kind: "image";
+      name: string;
+      /** "image/png", ... */
+      mime: string;
+      dataBase64: string;
+    };
+
+/** The image half of a ChatAttachment, as `ai_agent_message` takes it.
+ *  Mirrors ImageAttachment in src-tauri/crates/aicompat/src/agent.rs. */
+export interface ImageAttachment {
   name: string;
-  content: string;
+  mime: string;
+  dataBase64: string;
 }
 
 export type AgentTurn =
-  | { kind: "User"; text: string }
+  | { kind: "User"; text: string; images?: ImageAttachment[] }
   | { kind: "Assistant"; text: string }
   | { kind: "ToolCall"; call_id: string; name: string; arguments: string }
   | { kind: "ToolResult"; call_id: string; output: string };

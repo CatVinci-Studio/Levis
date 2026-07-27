@@ -3,7 +3,12 @@ import type { ChatHandoff, ChatHandoffState } from "./ai/chat/chat-bridge";
 import type { DetachedTabDoc, HelpDoc } from "./doc-tabs";
 import type { DirEntryInfo } from "./sidebar/types";
 import type { ProviderCatalogEntry } from "./ai/provider-catalog";
-import type { AgentSkill, AgentTurn, ChatAttachment } from "./ai/types";
+import type {
+  AgentSkill,
+  AgentTurn,
+  ChatAttachment,
+  ImageAttachment,
+} from "./ai/types";
 import type { GrammarIssue } from "./ai/grammar-check-plugin";
 
 /**
@@ -47,11 +52,6 @@ async function call<T>(command: string, args?: object): Promise<T> {
 // fs (src-tauri/src/commands/fs.rs)
 // ---------------------------------------------------------------------------
 
-export interface AttachedFile {
-  name: string;
-  content: string;
-}
-
 export interface SavedImage {
   src: string;
 }
@@ -67,7 +67,6 @@ export const fs = {
   openFileDialog: () => call<string | null>("open_file_dialog"),
   openCssFileDialog: () => call<string | null>("open_css_file_dialog"),
   saveFileDialog: () => call<string | null>("save_file_dialog"),
-  pickAttachmentFile: () => call<AttachedFile | null>("pick_attachment_file"),
   listDir: (path: string) => call<DirEntryInfo[]>("list_dir", { path }),
   fileMtimeMs: (path: string) => call<number | null>("file_mtime_ms", { path }),
   readTextFile: (path: string) => call<string>("read_text_file", { path }),
@@ -139,14 +138,23 @@ export const windowIpc = {
   takePendingOpenPath: () => call<string | null>("take_pending_open_path"),
   takePendingOpenPaths: () => call<string[]>("take_pending_open_paths"),
   /** Pops the chat panel out into its own OS window; resolves to its label,
-   *  which is the address every later message to it is sent to. */
+   *  which is the address every later message to it is sent to. `shared` is
+   *  the cross-window setting: false gives this editor window its own chat
+   *  (shared by its tabs), true makes one chat serve the whole app. If one
+   *  already serves this window, it is focused and its label returned. */
   detachChatWindow: (args: {
     state: ChatHandoffState;
     position: [number, number] | null;
     title: string;
+    shared: boolean;
+    pinned: boolean;
   }) => call<string>("detach_chat_window", args),
   takeChatHandoff: () => call<ChatHandoff | null>("take_chat_handoff"),
   closeChatWindow: () => call<void>("close_chat_window"),
+  /** The chat window serving THIS editor window, if any. How a window that
+   *  never detached anything itself learns where to push context - i.e. the
+   *  cross-window case, where the chat was opened from another window. */
+  currentChatWindow: () => call<string | null>("current_chat_window"),
 };
 
 // ---------------------------------------------------------------------------
@@ -296,8 +304,15 @@ export const ai = {
     provider: string;
     document: string;
     docPath: string | null;
+    /** Settings > Agent's explicit workspace root; null keeps the default
+     *  (the document's own folder). Decides where .levis/ is read from and
+     *  how far list_files/read_file may reach. */
+    workspaceRoot: string | null;
     history: AgentTurn[];
     message: string;
+    /** Attached images. Text-shaped attachments were already extracted and
+     *  inlined into `message` by the caller. */
+    images: ImageAttachment[];
     webSearch: boolean;
     model: string | null;
     requestId: string;
@@ -314,17 +329,24 @@ export const ai = {
   cancelAgentMessage: (requestId: string) =>
     call<void>("ai_cancel", { requestId }),
 
-  loadAgentWorkspace: (docPath: string | null) =>
+  loadAgentWorkspace: (docPath: string | null, rootOverride: string | null) =>
     call<{ instructions: string[]; skills: AgentSkill[]; root: string | null }>(
       "load_agent_workspace",
-      { docPath },
+      { docPath, rootOverride },
     ),
+  /** Folder picker behind Settings > Agent's "switch workspace" button. */
+  pickWorkspaceRoot: () => call<string | null>("pick_workspace_root"),
   openGlobalAgentDir: (lang: string) =>
     call<void>("open_global_agent_dir", { lang }),
   ensureGlobalAgentMd: (lang: string) =>
     call<string>("ensure_global_agent_md", { lang }),
   importAgentSkill: () => call<AgentSkill[] | null>("import_agent_skill"),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),
+  /** Reads a path the app already has (dragged onto the composer, pasted,
+   *  or otherwise known) into an attachment - the same conversion the
+   *  picker does, without the dialog. */
+  readAttachmentFile: (path: string) =>
+    call<ChatAttachment>("read_attachment_file", { path }),
 };
 
 // ---------------------------------------------------------------------------
