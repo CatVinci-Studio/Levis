@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { AgentTurn } from "./types";
+import { userMessageBody } from "./chat/user-message";
 import { loadSettings } from "../settings/SettingsContext";
 
 /**
@@ -100,9 +101,9 @@ export function clearAllConversations() {
 export function conversationTitle(turns: AgentTurn[]): string {
   const first = turns.find((t) => t.kind === "User");
   if (!first || first.kind !== "User") return "";
-  const cleaned = first.text
-    .replace(/<selected-text>[\s\S]*?<\/selected-text>/g, "")
-    .replace(/<attached-file[^>]*>[\s\S]*?<\/attached-file>/g, "")
+  // The context blocks are stripped by the one module that owns their
+  // format (user-message.ts), not by a third copy of the regexes.
+  const cleaned = userMessageBody(first.text)
     .replace(/\(If this asks you to rewrite[\s\S]*?\)\s*$/, "")
     .trim();
   const line = cleaned.split("\n").find((l) => l.trim()) ?? "";

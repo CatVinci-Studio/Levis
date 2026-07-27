@@ -4,7 +4,7 @@ import {
   saveConversation,
   type ChatHistoryEntry,
 } from "./chat-history";
-import type { AgentTurn } from "./types";
+import type { AgentTurn, ImageAttachment } from "./types";
 import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
 
 /** What has streamed in so far for the in-flight exchange: completed
@@ -22,6 +22,9 @@ export interface StreamingState {
 export interface RetryableSend {
   document: string;
   message: string;
+  /** Resent as-is: a retry that dropped the attached images would answer a
+   *  question about a picture the model can no longer see. */
+  images: ImageAttachment[];
 }
 
 /** A first-run lesson can return ordinary assistant prose or a realistic
@@ -41,6 +44,10 @@ export type MockAgentReply = (message: string) => string | AgentTurn[];
 /// opened.
 export function useAgentConversation(
   docPath: string | null,
+  /** Settings > Agent's explicit workspace root, or null for the default
+   *  (the document's folder). Decides where `.levis/` is read from and how
+   *  far the agent's file tools may reach - see ai/workspace.rs. */
+  workspaceRoot: string | null,
   provider: string,
   webSearch: boolean,
   model: string | undefined,
@@ -89,7 +96,7 @@ export function useAgentConversation(
       docPath,
       title: conversationTitle(history),
       updatedAt: Date.now(),
-      turns: history,
+      turns: history.map(withoutImageData),
     });
   }, [history, conversationId, docPath]);
 
@@ -108,6 +115,10 @@ export function useAgentConversation(
   async function send(
     document: string,
     message: string,
+    /** Attached images. Text-shaped attachments (PDF, Word, spreadsheets)
+     *  were extracted and inlined into `message` by the caller; images have
+     *  no text to inline and travel as provider image parts instead. */
+    images: ImageAttachment[] = [],
   ): Promise<AgentTurn[] | undefined> {
     const trimmed = message.trim();
     if (!trimmed || busy) return undefined;
@@ -116,7 +127,7 @@ export function useAgentConversation(
     setRetryable(null);
     // The user's message shows immediately as a streamed turn - the real
     // one only enters `history` when the whole exchange resolves.
-    setStreaming({ turns: [{ kind: "User", text: trimmed }], text: "" });
+    setStreaming({ turns: [{ kind: "User", text: trimmed, images }], text: "" });
     const requestId = crypto.randomUUID();
     const generation = generationRef.current;
     requestIdRef.current = requestId;
@@ -128,8 +139,10 @@ export function useAgentConversation(
             provider,
             document,
             docPath,
+            workspaceRoot,
             history,
             message: trimmed,
+            images,
             webSearch,
             model: model || null,
             requestId,
@@ -162,7 +175,7 @@ export function useAgentConversation(
       if (err instanceof IpcError && err.cause === AI_CANCELLED)
         return undefined;
       setError(String(err));
-      setRetryable({ document, message: trimmed });
+      setRetryable({ document, message: trimmed, images });
       return undefined;
     } finally {
       if (generation === generationRef.current) {
@@ -182,7 +195,7 @@ export function useAgentConversation(
   /** Resends the last failed message unchanged. */
   function retry(): Promise<AgentTurn[] | undefined> {
     if (!retryable) return Promise.resolve(undefined);
-    return send(retryable.document, retryable.message);
+    return send(retryable.document, retryable.message, retryable.images);
   }
 
   // Used when leaving mock mode and whenever the ordinary right-click /
@@ -234,6 +247,25 @@ export function useAgentConversation(
 }
 
 export type AgentConversation = ReturnType<typeof useAgentConversation>;
+
+/**
+ * A turn with its image payloads dropped, keeping only what the transcript
+ * displays (name and type).
+ *
+ * Attached images are REQUEST data: base64 inflates a file by 4/3, and chat
+ * history lives in localStorage under a ~5-10 MB quota that `store()`
+ * deliberately swallows the overflow error of. Persisting one 6 MB screenshot
+ * would therefore not just fail to save that conversation - it would silently
+ * stop ALL conversation history from saving, with nothing on screen. A retry
+ * still has the real payloads; they hang off `RetryableSend`, not off history.
+ */
+function withoutImageData(turn: AgentTurn): AgentTurn {
+  if (turn.kind !== "User" || !turn.images?.length) return turn;
+  return {
+    ...turn,
+    images: turn.images.map(({ name, mime }) => ({ name, mime, dataBase64: "" })),
+  };
+}
 
 /** A canned user/assistant exchange with a believable "thinking" pause. */
 async function mockExchange(
