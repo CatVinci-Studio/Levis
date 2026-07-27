@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { AgentConversation } from "../useAgentConversation";
 import type { PendingStatus } from "../usePendingEdits";
 import type { EditProposal } from "../types";
@@ -7,6 +8,7 @@ import {
   useCloseConfirm,
   type CloseConfirmLabels,
 } from "./CloseConfirm";
+import { useQuickAskReveal } from "./useQuickAskReveal";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
@@ -93,9 +95,13 @@ export function InlineChat({
   onClose,
 }: InlineChatProps) {
   const confirm = useCloseConfirm(pendingCount, onClose);
+  // Sitting in the document flow means the panel can open - or grow - below
+  // the fold with nothing on screen to say so. See useQuickAskReveal.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useQuickAskReveal(panelRef);
 
   return (
-    <div className="inline-chat">
+    <div className="inline-chat" ref={panelRef}>
       <div className="inline-chat-shell floating-surface">
         <div className="inline-chat-header">
           <div className="inline-chat-header-actions">
