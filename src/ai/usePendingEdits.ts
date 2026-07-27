@@ -14,7 +14,6 @@ import { nextFocusAfterChange, orderForReview } from "./pending-edit-focus";
 import { locatePlainText } from "./text-locate";
 import type { EditProposal } from "./types";
 import type { EditorRunner } from "../editor/useEditorRunner";
-import type { InlineChatInfo } from "./useInlineChat";
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 
@@ -23,6 +22,24 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
  *  document (pending-edit-plugin settles it when the reveal completes). */
 export type PendingStatus =
   "pending" | "streaming" | "accepted" | "rejected" | "invalid";
+
+/**
+ * What a `replace_selection` proposal targets: the selection the request was
+ * sent with, in this window's coordinates.
+ *
+ * Narrower than the whole `InlineChatInfo` on purpose, because there are now
+ * two things that can supply it and only one of them is Quick Ask. The
+ * detached window is the cross-file surface, so it can be asked to rewrite a
+ * selection in a tab that never opened the in-document bar at all - and then
+ * there is no chatInfo to resolve against. Each surface passes the selection
+ * IT sent (MilkdownEditor's showProposals), which is also the only one the
+ * model was actually shown. `InlineChatInfo` satisfies this structurally, so
+ * the Quick Ask path is unchanged.
+ */
+export interface SelectionTarget {
+  range: { from: number; to: number } | null;
+  selectionMarkdown: string | null;
+}
 
 /**
  * A tighter strike range for `replace`/`delete`, covering just the text
@@ -134,7 +151,7 @@ export function usePendingEdits(run: EditorRunner) {
         proposal: EditProposal;
         streaming?: boolean;
       }[],
-      chatInfo: InlineChatInfo | null,
+      chatInfo: SelectionTarget | null,
     ) => {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);

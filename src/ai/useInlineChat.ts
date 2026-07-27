@@ -3,8 +3,8 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import {
   documentMarkdown,
+  readSelection,
   serializeBlocks,
-  serializeRange,
 } from "./doc-markdown";
 import type { EditorRunner } from "../editor/useEditorRunner";
 
@@ -73,22 +73,11 @@ export function useInlineChat(run: EditorRunner) {
         const view = ctx.get(editorViewCtx);
         setChatInfo((prev) => {
           const { selection } = view.state;
-          const selectedText = selection.empty
-            ? null
-            : view.state.doc.textBetween(selection.from, selection.to, " ");
-          const selectionMarkdown = selection.empty
-            ? null
-            : serializeRange(ctx, view.state.doc, selection.from, selection.to);
-          const widgetPos = blockPositionAfter(view.state.doc, selection.to);
           return next(prev, {
             document: documentMarkdown(serializeBlocks(ctx, view.state.doc)),
-            selectedText,
-            selectionMarkdown,
-            range: selection.empty
-              ? null
-              : { from: selection.from, to: selection.to },
+            ...readSelection(ctx, view.state),
             anchor: selection.from,
-            widgetPos,
+            widgetPos: blockPositionAfter(view.state.doc, selection.to),
           });
         });
       });

@@ -1,6 +1,7 @@
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { serializerCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import { escapeRegExp } from "../utils/regexp";
 import type { EditAction } from "./types";
 
@@ -36,6 +37,36 @@ export interface MarkdownBlock {
   markdown: string;
   /** Where this block's markdown starts inside documentMarkdown()'s output. */
   offset: number;
+}
+
+/** The current selection, in the three forms every AI surface needs it in.
+ *
+ * Shared because there are two of those surfaces and they must agree on what
+ * counts as "the selection": Quick Ask captures it once when it opens
+ * (useInlineChat) and the detached window re-reads it as the user works
+ * (chat/live-context). Two copies of these four expressions would drift the
+ * first time either grew a special case. */
+export interface SelectionSnapshot {
+  /** Plain text - display only (the composer's "{n} chars" chip). */
+  selectedText: string | null;
+  /** Markdown - what the model is actually shown, and what a
+   *  replace_selection proposal's staleness check compares against. */
+  selectionMarkdown: string | null;
+  /** ProseMirror bounds, or null when the selection is empty. */
+  range: { from: number; to: number } | null;
+}
+
+export function readSelection(ctx: Ctx, state: EditorState): SelectionSnapshot {
+  const { doc, selection } = state;
+  if (selection.empty) {
+    return { selectedText: null, selectionMarkdown: null, range: null };
+  }
+  const range = { from: selection.from, to: selection.to };
+  return {
+    selectedText: doc.textBetween(range.from, range.to, " "),
+    selectionMarkdown: serializeRange(ctx, doc, range.from, range.to),
+    range,
+  };
 }
 
 /** Markdown source of a ProseMirror range - the selection, a block, a slice. */

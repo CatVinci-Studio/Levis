@@ -10,7 +10,30 @@
  * Parsing it back apart at render time keeps both: the wire format is
  * untouched (and conversations restored from history parse the same way),
  * while the bubble shows the prose and folds the context into chips.
+ *
+ * WRITING the format lives here too. It used to be written inline in
+ * ChatBody's send path and read by two different regexes (here and in
+ * chat-history's title cleaner), so three places had to agree on it with
+ * nothing checking that they did - and every way of getting it wrong is
+ * silent: chips stop appearing, or a wall of raw XML shows up as a
+ * conversation's title.
  */
+
+/** Wraps the selection the message rode out with. */
+export function selectedTextBlock(markdown: string): string {
+  return `<selected-text>\n${markdown}\n</selected-text>`;
+}
+
+/** Wraps one attachment's extracted text. */
+export function attachedFileBlock(name: string, content: string): string {
+  return `<attached-file name="${name}">\n${content}\n</attached-file>`;
+}
+
+/** The message with every context block stripped and nothing parsed out -
+ *  for callers that only want the prose, like the history list's title. */
+export function userMessageBody(text: string): string {
+  return parseUserMessage(text).body;
+}
 
 export interface ParsedUserMessage {
   /** What the user actually typed, with the context blocks removed. */

@@ -10,6 +10,10 @@ interface EditorPaneProps {
   filePath: string | null;
   initialValue: string;
   onChange: (markdown: string) => void;
+  /** See MilkdownEditor: the tab's display name, for the chat window title. */
+  docTitle: string;
+  /** See MilkdownEditor: whether this is the tab the user is looking at. */
+  isActive?: boolean;
   /** See MilkdownEditor: onboarding tour running, real AI muted/mocked. */
   tutorialMock?: boolean;
   /** Bundled guides already contain text, but that is not the user's first
@@ -18,8 +22,10 @@ interface EditorPaneProps {
 
 export function EditorPane({
   filePath,
+  docTitle,
   initialValue,
   onChange,
+  isActive,
   tutorialMock,
 }: EditorPaneProps) {
   // No file open yet -> still show an editable blank canvas (draft mode).
@@ -37,8 +43,10 @@ export function EditorPane({
           <MilkdownProvider key={editorKey}>
             <MilkdownEditor
               filePath={filePath}
+              docTitle={docTitle}
               initialValue={initialValue}
               onChange={onChange}
+              isActive={isActive}
               tutorialMock={tutorialMock}
             />
           </MilkdownProvider>

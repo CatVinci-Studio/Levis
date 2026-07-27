@@ -14,9 +14,17 @@ import type { PendingStatus } from "../usePendingEdits";
  * panel already has (see usePendingEdits) instead of growing a second
  * implementation that could drift.
  *
+ * The chat window is also the CROSS-FILE surface (the in-document Quick Ask
+ * bar is the per-file one), so which editor it is talking to is not fixed
+ * for its lifetime. It re-addresses itself on every context push: whichever
+ * editor last sent one is the editor its proposals and accept/reject calls
+ * go back to. That is why `ChatContext` carries `editorLabel` - one
+ * mechanism keeps "which document is on screen" and "where do replies go" in
+ * lockstep, rather than two that can disagree.
+ *
  * Transport is Tauri's window-targeted events (`emitTo`), so no Rust relay is
- * involved - the backend only creates the window and hands over the initial
- * state (commands/chat_window.rs).
+ * involved - the backend only creates the window, decides how many may exist
+ * (commands/chat_window.rs), and hands over the initial state.
  */
 
 /** Chat -> editor. */
@@ -28,9 +36,20 @@ export const CHAT_TO_EDITOR = {
   rejectAll: "chat:reject-all",
   /** The chat window is going away; the editor re-embeds the panel. */
   reembed: "chat:reembed",
-  /** Chat needs the document as it reads right now, before sending. */
+  /** Chat needs the document as it reads right now, before sending. The
+   *  editor answers with a fresh `context`. Pull rather than push, because
+   *  re-serializing the whole document on every keystroke to keep a pushed
+   *  copy fresh would be pure waste - a send is the only moment it has to
+   *  be exact. */
   requestContext: "chat:request-context",
 } as const;
+
+/** Rust -> every editor window: the set of open chat windows changed (one
+ *  opened, one closed, an editor window holding one was destroyed). Only the
+ *  backend knows - a chat closed from ANOTHER editor window is invisible
+ *  here, and pushing context at a destroyed label fails silently. Mirrors
+ *  CHAT_WINDOWS_CHANGED in src-tauri/src/commands/chat_window.rs. */
+export const CHAT_WINDOWS_CHANGED = "chat:windows-changed";
 
 /** Editor -> chat. */
 export const EDITOR_TO_CHAT = {
@@ -47,6 +66,13 @@ export interface ChatContext {
   /** Selection as markdown - what actually rides with the request. */
   selectionMarkdown: string | null;
   docPath: string | null;
+  /** The tab's display name (doc-tabs' `tabTitle`), for the window title.
+   *  On the wire rather than derived from `docPath` on the receiving side:
+   *  a Help doc has no path, so `basename` would call it "Untitled". */
+  docTitle: string;
+  /** Window label of the editor that sent this. The chat replies here - see
+   *  the file comment on why the address travels with the context. */
+  editorLabel: string;
 }
 
 /** Everything a detaching panel hands to its new window. */
@@ -67,13 +93,25 @@ export interface ChatHandoff {
   state: ChatHandoffState;
 }
 
-export interface ProposalsMessage {
+/** Every chat -> editor message naming a document carries the path it was
+ *  meant for. With one chat window serving several files, the editor window
+ *  that receives it may have moved on to a different tab, and applying an
+ *  edit to the wrong document is silent and destructive. */
+export interface DocScopedMessage {
+  docPath: string | null;
+}
+
+export interface ProposalsMessage extends DocScopedMessage {
   proposals: { callId: string; proposal: EditProposal }[];
 }
 
-export interface CallIdMessage {
+export interface CallIdMessage extends DocScopedMessage {
   callId: string;
 }
+
+/** Accept-all / reject-all carry no call id, but they are just as
+ *  doc-affecting as the rest - applying them to the wrong tab is silent. */
+export type BulkDecisionMessage = DocScopedMessage;
 
 /** Sent back when the detached window closes, so the editor can resume the
  *  same conversation in the embedded panel. */

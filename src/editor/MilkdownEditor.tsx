@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Editor,
   rootCtx,
@@ -50,6 +51,7 @@ import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
+import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -61,7 +63,10 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
-import { usePendingEdits } from "../ai/usePendingEdits";
+import {
+  usePendingEdits,
+  type SelectionTarget,
+} from "../ai/usePendingEdits";
 import {
   prefersReducedMotion,
   streamPendingInsertText,
@@ -105,6 +110,15 @@ interface MilkdownEditorProps {
   filePath: string | null;
   initialValue: string;
   onChange: (markdown: string) => void;
+  /** The tab's display name (doc-tabs' `tabTitle`) - what the detached chat
+   *  window puts in its title bar. Passed down rather than derived from
+   *  `filePath`, which is null for the bundled Help documents. */
+  docTitle: string;
+  /** Whether this is the tab the user is looking at. Every open tab stays
+   *  mounted (App.tsx hides the rest with display:none), so the detached
+   *  chat - which follows the ACTIVE document - needs to know which of them
+   *  should be feeding it. */
+  isActive?: boolean;
   /** True while the onboarding tour runs: real AI is muted end to end -
    *  typing-triggered plugins go quiet (editor-extensions), on-demand
    *  triggers are ignored, and the chat answers from a pre-written script
@@ -114,8 +128,10 @@ interface MilkdownEditorProps {
 
 export function MilkdownEditor({
   filePath,
+  docTitle,
   initialValue,
   onChange,
+  isActive = true,
   tutorialMock = false,
 }: MilkdownEditorProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -132,6 +148,8 @@ export function MilkdownEditor({
   // captured at construction time.
   const settingsRef = useLatest(settings);
   const filePathRef = useLatest(filePath);
+  const docTitleRef = useLatest(docTitle);
+  const isActiveRef = useLatest(isActive);
   const tutorialMockRef = useLatest(tutorialMock);
   const tRef = useLatest(t);
 
@@ -148,6 +166,10 @@ export function MilkdownEditor({
     onPreviewsChange: () => {},
     getFocusedCallId: () => null,
   });
+  // Same bridge, for the selection listener registered in the chain below:
+  // the real handler needs `run` and the detached-chat bridge, neither of
+  // which exists yet at construction time.
+  const onSelectionChangeRef = useRef<() => void>(() => {});
 
   useEditor(
     (root) =>
@@ -161,7 +183,12 @@ export function MilkdownEditor({
           ctx.set(editorViewOptionsCtx, { attributes: { id: "write" } });
           ctx
             .get(listenerCtx)
-            .markdownUpdated((_ctx, markdown) => onChange(markdown));
+            .markdownUpdated((_ctx, markdown) => onChange(markdown))
+            // Every new selection has to reach the detached chat window as a
+            // fresh selection chip - that surface is defined by following
+            // the user's work rather than a snapshot. Read through a ref
+            // because this chain is built once, on mount.
+            .selectionUpdated(() => onSelectionChangeRef.current());
         }),
         settingsRef,
         filePathRef,
@@ -331,6 +358,7 @@ export function MilkdownEditor({
   const agentModel = settings.agentModels[settings.aiProvider] || undefined;
   const conversation = useAgentConversation(
     filePath,
+    settings.agentWorkspaceRoot || null,
     settings.aiProvider,
     settings.enableWebSearch,
     agentModel,
@@ -360,12 +388,48 @@ export function MilkdownEditor({
     [pendingEdits.showPreviews],
   );
 
+  // The selection this window last SENT to the detached chat. A
+  // replace_selection proposal from that window has to resolve against it
+  // and not against Quick Ask's snapshot: the window is the cross-file
+  // surface, so the tab it is asking about may never have opened Quick Ask
+  // at all, and chatInfo would then be null - the rewrite would come back
+  // un-appliable with nothing on screen explaining why.
+  const sentSelection = useRef<SelectionTarget | null>(null);
+
+  // Every open tab in this window receives the chat's events, and with one
+  // chat window serving several files they are NOT all for this tab.
+  // Matching on the path the chat addressed is exact whenever the document
+  // has one; an unsaved draft has no path to match, so the active tab (the
+  // only one the chat could have been showing) stands in.
+  const isChatTarget = useCallback(
+    (docPath: string | null) =>
+      docPath !== null ? docPath === filePathRef.current : isActiveRef.current,
+    // filePathRef/isActiveRef are stable refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const detachedChat = useDetachedChat({
-    onProposals: showProposals,
-    onAccept: (callId) => pendingEdits.accept(callId),
-    onReject: (callId) => pendingEdits.reject(callId),
-    onAcceptAll: () => pendingEdits.acceptAll(),
-    onRejectAll: () => pendingEdits.rejectAll(),
+    onProposals: (proposals, docPath) => {
+      if (isChatTarget(docPath))
+        pendingEdits.showPreviews(proposals, sentSelection.current);
+    },
+    onAccept: (callId, docPath) => {
+      if (isChatTarget(docPath)) pendingEdits.accept(callId);
+    },
+    onReject: (callId, docPath) => {
+      if (isChatTarget(docPath)) pendingEdits.reject(callId);
+    },
+    onAcceptAll: (docPath) => {
+      if (isChatTarget(docPath)) pendingEdits.acceptAll();
+    },
+    onRejectAll: (docPath) => {
+      if (isChatTarget(docPath)) pendingEdits.rejectAll();
+    },
+    // A send is about to go out and needs the document as it reads NOW - not
+    // as it read when the selection last changed. Forced: the selection is
+    // usually unchanged, but the document almost certainly isn't.
+    onContextRequest: () => forcePushLiveContextRef.current(),
     // The window handed its conversation back on close - carry on with it
     // in the Quick Ask bar (which shows the last reply's one-line summary)
     // rather than dropping the exchange. Reopening the full conversation is
@@ -393,21 +457,77 @@ export function MilkdownEditor({
     pushStatuses: pushChatStatuses,
   } = detachedChat;
 
-  // The detached window has no editor state of its own, so it's fed: the
-  // document/selection as they now read, and every proposal's status.
-  useEffect(() => {
-    if (!detachedChatLabel || !inlineChat.chatInfo) return;
-    pushChatContext({
-      document: inlineChat.chatInfo.document,
-      selectedText: inlineChat.chatInfo.selectedText,
-      selectionMarkdown: inlineChat.chatInfo.selectionMarkdown,
-      docPath: filePath,
-    });
-  }, [detachedChatLabel, pushChatContext, inlineChat.chatInfo, filePath]);
+  // The detached window holds no editor state of its own: what it shows is
+  // whatever the ACTIVE editor last told it. Pushing from here is therefore
+  // also how the window learns which file it is about - one message carries
+  // the document, the live selection, the title and the reply address (see
+  // chat-bridge.ts).
+  //
+  // Only the active tab may push. Otherwise every hidden tab in the window
+  // would announce its own document too, and the last one to render would
+  // win - the chat would show a file the user isn't looking at.
+  //
+  // What was last sent, so a push saying nothing new can be skipped. The
+  // whole document is cheap to re-read (live-context caches it against the
+  // ProseMirror doc, which is immutable), but the emit JSON-encodes it and
+  // the chat window re-renders on receipt - and ProseMirror reports a
+  // selection change for EVERY transaction, so typing and drag-selecting
+  // would each fire one per keystroke/mousemove.
+  const pushed = useRef<{ selection: string; docPath: string | null } | null>(
+    null,
+  );
+  const pushLiveContext = useCallback(() => {
+    if (!detachedChatLabel || !isActiveRef.current) return;
+    const live = readChatContext(
+      run,
+      filePathRef.current,
+      docTitleRef.current,
+      getCurrentWindow().label,
+    );
+    if (!live) return;
+    const selection = live.context.selectedText ?? "";
+    if (
+      pushed.current?.selection === selection &&
+      pushed.current.docPath === live.context.docPath
+    ) {
+      return;
+    }
+    pushed.current = { selection, docPath: live.context.docPath };
+    // Remembered here, not derived later: this is the selection the chat was
+    // actually shown, and a replace_selection proposal coming back is checked
+    // for staleness against exactly it.
+    sentSelection.current = live.selection;
+    pushChatContext(live.context);
+    // run is stable per editor; filePathRef/isActiveRef are refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detachedChatLabel, pushChatContext, run]);
 
+  /** Re-sends even when nothing the guard tracks has changed - for the two
+   *  callers where something ELSE did: the document (a send is imminent) or
+   *  which tab is active. */
+  const forcePushLiveContext = useCallback(() => {
+    pushed.current = null;
+    pushLiveContext();
+  }, [pushLiveContext]);
+  const forcePushLiveContextRef = useLatest(forcePushLiveContext);
+
+  // A new selection becomes a new chip in the detached window - "re-drag to
+  // highlight and it goes in" is the behaviour that separates this surface
+  // from the in-document Quick Ask bar, which keeps its opening snapshot.
+  onSelectionChangeRef.current = pushLiveContext;
+
+  // Becoming the active tab, or saving under a new path, re-points the chat
+  // at this document.
   useEffect(() => {
-    if (detachedChatLabel) pushChatStatuses(pendingEdits.allStatuses);
-  }, [detachedChatLabel, pushChatStatuses, pendingEdits.allStatuses]);
+    forcePushLiveContext();
+  }, [forcePushLiveContext, isActive, filePath]);
+
+  // Only the active tab reports statuses, for the same reason it is the only
+  // one that pushes context: otherwise every hidden tab broadcasts its own
+  // and whichever rendered last wins.
+  useEffect(() => {
+    if (detachedChatLabel && isActive) pushChatStatuses(pendingEdits.allStatuses);
+  }, [detachedChatLabel, isActive, pushChatStatuses, pendingEdits.allStatuses]);
 
   /** Scrolls to a pending edit and, while Quick Ask is the active surface,
    *  moves its zone widget to follow - the direct, synchronous result of a
@@ -476,21 +596,29 @@ export function MilkdownEditor({
   }
 
   function handleDetachChat() {
-    const info = inlineChat.chatInfo;
-    if (!info) return;
+    // The window opens against the document as it reads NOW, not against the
+    // snapshot Quick Ask took when it opened - it is the cross-file surface
+    // and starts by following this file, so it must start from the truth.
+    const live = readChatContext(
+      run,
+      filePath,
+      docTitle,
+      getCurrentWindow().label,
+    );
+    if (!live) return;
+    sentSelection.current = live.selection;
     void detachedChat.detach(
       {
-        context: {
-          document: info.document,
-          selectedText: info.selectedText,
-          selectionMarkdown: info.selectionMarkdown,
-          docPath: filePath,
-        },
+        context: live.context,
         conversationId: conversation.conversationId,
         turns: conversation.history,
         statuses: pendingEdits.allStatuses,
       },
       t.chatWindowTitle,
+      {
+        shared: settings.shareAgentWindowAcrossWindows,
+        pinned: settings.pinAgentWindow,
+      },
     );
     // The Quick Ask bar gives way to the window; chatInfo stays set so
     // proposals arriving from the window still resolve against this
@@ -875,6 +1003,7 @@ export function MilkdownEditor({
             selectedText={inlineChat.chatInfo.selectedText}
             selectionMarkdown={inlineChat.chatInfo.selectionMarkdown}
             docPath={filePath}
+            workspaceRoot={settings.agentWorkspaceRoot || null}
             conversation={conversation}
             tutorialMock={tutorialMock}
             labels={chatLabels(t)}

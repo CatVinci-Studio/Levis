@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseUserMessage } from "./user-message";
+import {
+  attachedFileBlock,
+  parseUserMessage,
+  selectedTextBlock,
+  userMessageBody,
+} from "./user-message";
 
 describe("parseUserMessage", () => {
   it("leaves a plain message alone", () => {
@@ -43,5 +48,27 @@ describe("parseUserMessage", () => {
     const parsed = parseUserMessage("<selected-text>\nonly\n</selected-text>");
     expect(parsed.body).toBe("");
     expect(parsed.selection).toBe("only");
+  });
+});
+
+describe("the wire format's writer and reader agree", () => {
+  // The whole reason writing moved into this module: three places used to
+  // hand-roll the same tags, and every way of drifting apart is silent.
+  it("round-trips a message built from the block writers", () => {
+    const text = [
+      attachedFileBlock("notes.md", "reference material"),
+      selectedTextBlock("the **selected** passage"),
+      "tighten this",
+    ].join("\n\n");
+
+    const parsed = parseUserMessage(text);
+    expect(parsed.attachments).toEqual(["notes.md"]);
+    expect(parsed.selection).toBe("the **selected** passage");
+    expect(parsed.body).toBe("tighten this");
+  });
+
+  it("strips every block for a display-only body", () => {
+    const text = `${attachedFileBlock("a.md", "x")}\n\n${selectedTextBlock("y")}\n\nwhat is this?`;
+    expect(userMessageBody(text)).toBe("what is this?");
   });
 });

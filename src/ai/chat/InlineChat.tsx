@@ -9,6 +9,7 @@ import {
   type CloseConfirmLabels,
 } from "./CloseConfirm";
 import { useQuickAskReveal } from "./useQuickAskReveal";
+import { CloseIcon, DetachIcon } from "../../ui/icons";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
@@ -25,6 +26,8 @@ interface InlineChatProps {
   selectionMarkdown: string | null;
   /** The document's path - resolves the agent workspace (skills, files). */
   docPath: string | null;
+  /** Explicit agent workspace root, or null for the document's own folder. */
+  workspaceRoot: string | null;
   /** Conversation state owned by the editor so it can be saved after close;
    *  a normal subsequent open resets it, while history restores resume it. */
   conversation: AgentConversation;
@@ -76,6 +79,7 @@ export function InlineChat({
   selectedText,
   selectionMarkdown,
   docPath,
+  workspaceRoot,
   conversation,
   tutorialMock,
   labels,
@@ -112,7 +116,7 @@ export function InlineChat({
               title={labels.detach}
               onClick={onDetach}
             >
-              ⧉
+              <DetachIcon />
             </button>
             <button
               type="button"
@@ -121,7 +125,7 @@ export function InlineChat({
               title={labels.close}
               onClick={confirm.requestClose}
             >
-              ✕
+              <CloseIcon />
             </button>
           </div>
         </div>
@@ -130,6 +134,7 @@ export function InlineChat({
           selectedText={selectedText}
           selectionMarkdown={selectionMarkdown}
           docPath={docPath}
+          workspaceRoot={workspaceRoot}
           conversation={conversation}
           tutorialMock={tutorialMock}
           labels={labels}

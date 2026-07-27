@@ -1,7 +1,12 @@
 import { useEffect, useRef } from "react";
 import type { AgentConversation } from "../useAgentConversation";
 import type { PendingStatus } from "../usePendingEdits";
-import type { AgentTurn, ChatAttachment, EditProposal } from "../types";
+import type {
+  AgentTurn,
+  ChatAttachment,
+  EditProposal,
+  ImageAttachment,
+} from "../types";
 import { ChatMessages, type ChatMessagesLabels } from "./ChatMessages";
 import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
 import {
@@ -9,6 +14,7 @@ import {
   type QuickAskPendingBarLabels,
 } from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
+import { attachedFileBlock, selectedTextBlock } from "./user-message";
 import {
   AI_MESSAGE_SENT_EVENT,
   TUTORIAL_AGENT_PROPOSAL_EVENT,
@@ -34,6 +40,8 @@ export interface ChatBodyProps {
   selectedText: string | null;
   selectionMarkdown: string | null;
   docPath: string | null;
+  /** Explicit agent workspace root, or null for the document's own folder. */
+  workspaceRoot: string | null;
   conversation: AgentConversation;
   tutorialMock?: boolean;
   labels: ChatBodyLabels;
@@ -62,6 +70,19 @@ export interface ChatBodyProps {
    *  a one-line reply summary, the pending bar, and the composer. Edits are
    *  the output; reading happens in the detached window ("full", default). */
   variant?: "quick" | "full";
+  /** Detached window only: fetches the editor's document and selection as
+   *  they read at this instant, immediately before a send.
+   *
+   *  The window is the cross-file surface, so it must not send against
+   *  whatever was last pushed to it - the user may have typed, or moved to
+   *  another file, since. Pulling once per send is exact and costs nothing
+   *  in between; keeping a pushed copy fresh would mean re-serializing the
+   *  whole document on every keystroke. Resolves null if the editor doesn't
+   *  answer, in which case the last pushed context is used. */
+  refreshContext?: () => Promise<{
+    document: string;
+    selectionMarkdown: string | null;
+  } | null>;
   /** Quick variant only: opens the full conversation (detach to a window). */
   onExpand?: () => void;
   /** Quick variant only: the "review one at a time" nav bar's state/actions
@@ -101,6 +122,7 @@ export function ChatBody({
   selectedText,
   selectionMarkdown,
   docPath,
+  workspaceRoot,
   conversation,
   tutorialMock,
   labels,
@@ -115,6 +137,7 @@ export function ChatBody({
   footer,
   fillHeight,
   variant = "full",
+  refreshContext,
   onExpand,
   onRevealPending,
   focusIndex = -1,
@@ -166,9 +189,31 @@ export function ChatBody({
     });
   }
 
-  function dispatchSend(message: string) {
+  /**
+   * Composes a NEW message and sends it - the user's own, and the relocate
+   * request, which are the two that have to be written against the document
+   * as it reads at send time rather than as it read when this component last
+   * rendered. `buildMessage` therefore receives that state: the detached
+   * window pulls a fresh copy first (`refreshContext`), while the in-document
+   * bar has nothing to pull - its opening snapshot IS the point - and falls
+   * back to the props.
+   *
+   * `handleRetry` deliberately does NOT come through here: a retry resends
+   * the failed message verbatim, against the document it was composed for
+   * (useAgentConversation's RetryableSend), so re-resolving it would make
+   * "retry" mean something else.
+   */
+  function dispatchSend(
+    buildMessage: (state: {
+      document: string;
+      selectionMarkdown: string | null;
+    }) => { message: string; images?: ImageAttachment[] },
+  ) {
     void (async () => {
-      afterSend(await send(document, message));
+      const latest = refreshContext ? await refreshContext() : null;
+      const state = latest ?? { document, selectionMarkdown };
+      const { message, images } = buildMessage(state);
+      afterSend(await send(state.document, message, images));
     })();
   }
 
@@ -180,29 +225,46 @@ export function ChatBody({
     // Signals the interactive tutorial's "ask AI something" step - a real
     // send, not just opening the panel.
     if (tutorialMock) window.dispatchEvent(new Event(AI_MESSAGE_SENT_EVENT));
-    // Rewrites of the selection come back as replace_selection tool calls
-    // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs); the tag
-    // carries the selection's MARKDOWN so formatting survives the round trip.
-    const tagged =
-      selectionMarkdown && includeSelection
-        ? `<selected-text>\n${selectionMarkdown}\n</selected-text>\n\n${message}`
-        : message;
-    const attachmentBlocks = attachments
-      .map(
-        (f) =>
-          `<attached-file name="${f.name}">\n${f.content}\n</attached-file>`,
-      )
-      .join("\n\n");
-    dispatchSend(
-      attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged,
-    );
+    dispatchSend(({ selectionMarkdown: selection }) => {
+      // Rewrites of the selection come back as replace_selection tool calls
+      // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs); the tag
+      // carries the selection's MARKDOWN so formatting survives the trip.
+      const tagged =
+        selection && includeSelection
+          ? `${selectedTextBlock(selection)}\n\n${message}`
+          : message;
+      // Text-shaped attachments were already extracted in Rust (PDF, Word,
+      // spreadsheets and plain files all arrive as text) and ride inside the
+      // prompt. Images have nothing to extract and go as provider image
+      // parts instead - see commands/attachment.rs.
+      const attachmentBlocks = attachments
+        .filter((f) => f.kind === "text")
+        .map((f) => attachedFileBlock(f.name, f.content))
+        .join("\n\n");
+      return {
+        message: attachmentBlocks ? `${attachmentBlocks}\n\n${tagged}` : tagged,
+        // Not filtered on vision here: the composer refuses to stage an image
+        // for a provider that can't read one, and the backend refuses the
+        // whole message if one gets through anyway. Silently dropping it
+        // would be a third policy contradicting both.
+        images: attachments
+          .filter((f) => f.kind === "image")
+          .map((f) => ({
+            name: f.name,
+            mime: f.mime,
+            dataBase64: f.dataBase64,
+          })),
+      };
+    });
   }
 
   /** An anchor that no longer resolves: ask the model to re-issue the edit
    *  against the document as it now reads, rather than writing text whose
    *  target we can't locate. */
   function handleRelocate(proposal: EditProposal) {
-    dispatchSend(labels.relocateRequest.replace("{text}", proposal.text ?? ""));
+    dispatchSend(() => ({
+      message: labels.relocateRequest.replace("{text}", proposal.text ?? ""),
+    }));
   }
 
   function handleRetry() {
@@ -332,6 +394,7 @@ export function ChatBody({
       )}
       <ChatComposer
         docPath={docPath}
+        workspaceRoot={workspaceRoot}
         selectedText={selectedText}
         busy={busy}
         labels={labels}
