@@ -100,7 +100,7 @@
   max-width: 60ch;
   padding: 8px 14px;
   font-size: 13px;
-  color: var(--text-color);
+  color: var(--editor-text);
 }
 
 html,
@@ -134,26 +134,44 @@ body {
   margin-left: -240px;
 }
 
-/* Invisible strip over the overlay title bar area that lets the window be
-   dragged. Below the floating toolbar (50) and every overlay, so it never
-   steals their clicks; editor text that scrolls under it trades click-through
-   for draggability, matching native hidden-titlebar apps. */
-.titlebar-drag-region {
+/* The window's title strip, drawn by the app because the overlay title bar
+   (build_window's TitleBarStyle::Overlay) hides the native one. One strip
+   holding everything that used to float separately up here: the drag region,
+   the filename, and the document's status readouts.
+   
+   Floats over the content on the theme background. Opacity is the whole
+   point: the strip this replaces was fully TRANSPARENT, so text scrolling
+   under it stayed perfectly legible and collided with the centered filename.
+   Solid, that text simply ends at the strip - and with no content theme
+   active the fill matches the editor behind it, so the bar itself reads as
+   nothing more than the top margin of the page.
+   
+   Below every overlay (find bar, popovers) so it never steals their clicks. */
+.window-bar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: 28px;
-  z-index: 40;
+  z-index: 45;
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* Left inset is room for the macOS traffic lights, which float over the
+     top-left corner. Unconditional, as the insets it replaces were - on
+     Windows/Linux it reads as breathing room before the title. */
+  padding: 0 12px 0 78px;
+  background: var(--bg);
 }
 
-/* Only rendered when there's a single tab (no tab bar to show it in) -
-   centered like a native window title, small enough to clear the
-   traffic-light buttons on the left. */
-.titlebar-filename {
+/* Centered on the WINDOW (not on the space left over after the traffic-light
+   inset), which is where a native title sits. Absolute rather than a flex
+   child for that reason; the status group below stays in flow on the right
+   and the two only meet on a very narrow window, where the title ellipses. */
+.window-bar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 45%;
   font-size: 12px;
   color: var(--editor-muted);
   pointer-events: none;
@@ -161,13 +179,21 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 50%;
+}
+
+.window-bar-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  /* Non-interactive readouts - let the drag region have the whole bar. */
+  pointer-events: none;
 }
 
 .sidebar-header {
-  /* The overlay title bar floats the macOS traffic lights over the top-left
-     corner of the content - the tabs must start below them. */
-  padding: 36px 10px 10px;
+  /* Clears the window bar floating over the top of the window. */
+  padding: 38px 10px 10px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -254,14 +280,14 @@ body {
 
 /* Only rendered when Settings > General > "Open Documents In" is set to
    tabs - window-mode users never see this, so it's zero visual change for
-   the default. padding-top clears the fixed titlebar-drag-region (28px,
-   z-index 40): its own top strip must stay fully below y=28 or its clicks
-   would be swallowed by the drag region instead of reaching the tabs. */
+   the default. padding-top clears the floating window bar (28px): its own
+   top strip must stay below that or its clicks would be swallowed by the
+   drag region instead of reaching the tabs. */
 .tab-bar {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 30px 10px 6px;
+  padding: 34px 10px 6px;
   overflow-x: auto;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
@@ -350,8 +376,9 @@ body {
   cursor: pointer;
   color: inherit;
   opacity: 0.6;
+  display: flex;
+  align-items: center;
   padding: 0 2px;
-  font-size: 12px;
   line-height: 1;
   border-radius: 4px;
 }
@@ -374,21 +401,6 @@ body {
 
 .tab-bar-add:hover {
   background: var(--sidebar-hover);
-}
-
-.floating-toolbar {
-  position: absolute;
-  /* Vertically centers with the macOS traffic-light buttons. */
-  top: 2px;
-  right: 14px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg) 75%, transparent);
-  backdrop-filter: blur(6px);
 }
 
 .word-count {
@@ -444,6 +456,8 @@ body {
 .editor-content {
   max-width: calc(760px * var(--content-zoom, 1));
   margin: 0 auto;
+  /* Enough to clear the floating window bar (28px) and still leave the text
+     air beneath it, so nothing sits under the glass until you scroll. */
   padding: 3rem 1.5rem 6rem;
 }
 
@@ -672,7 +686,8 @@ body {
   background: none;
   color: var(--sidebar-text);
   cursor: pointer;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
   padding: 0 2px;
   border-radius: 4px;
   opacity: 0;
@@ -750,7 +765,8 @@ body {
   background: none;
   color: var(--sidebar-text);
   cursor: pointer;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
   padding: 2px 4px;
   border-radius: 4px;
   opacity: 0;
@@ -784,9 +800,8 @@ body {
   }
 
   .sidebar,
-  .titlebar-drag-region,
   .tab-bar,
-  .floating-toolbar,
+  .window-bar,
   .close-prompt-overlay,
   .update-toast,
   .pdf-export-overlay {

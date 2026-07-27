@@ -34,7 +34,9 @@
 }
 
 .settings-close-button {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   padding: 6px;
 }
@@ -202,6 +204,25 @@ button.settings-inline-button {
   flex-shrink: 0;
   white-space: nowrap;
   background: var(--bg);
+}
+
+/* A row with two actions (switch / reset), stacked so a long folder path
+   next to them still has room to breathe. */
+.settings-inline-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* The resolved workspace folder. A path is long and matters exactly, so it
+   gets its own line in a mono face rather than being squeezed into the hint. */
+.settings-workspace-root {
+  margin-top: 6px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  color: var(--editor-text);
+  overflow-wrap: anywhere;
 }
 
 .shortcut-row-controls {

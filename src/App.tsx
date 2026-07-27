@@ -10,7 +10,7 @@ import {
   OutlineTabIcon,
   ClipboardTabIcon,
   ChatTabIcon,
-} from "./sidebar/icons";
+} from "./ui/icons";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
@@ -651,17 +651,29 @@ function App() {
 
   return (
     <div className="app-shell">
-      {/* The overlay title bar hides the native drag area behind the webview,
-          so an explicit drag region is required for the window to be movable. */}
-      <div className="titlebar-drag-region" data-tauri-drag-region>
-        {/* No tab bar to show the filename otherwise (single-tab window) -
-            also doubles as the handle for the whole-window drag-to-merge
-            gesture (see useTabDragMerge.ts), so knowing which document is
-            in which window while dragging actually matters. */}
-        {!showTabBar && (
-          <span className="titlebar-filename">{tabTitle(activeTab, t)}</span>
-        )}
-      </div>
+      {/* The window's one top strip: traffic-light room, which document this
+          is, and its status. A real row in the layout, not an overlay - the
+          overlay title bar hides the native drag area behind the webview, so
+          the app has to draw this itself, and drawing it as a transparent
+          fixed strip meant the document scrolled underneath and the filename
+          sat on top of the text. It is also the drag region (both for moving
+          the window and for the drag-to-merge gesture in useTabDragMerge). */}
+      <header className="window-bar" data-tauri-drag-region>
+        <span className="window-bar-title">{tabTitle(activeTab, t)}</span>
+        <div className="window-bar-status">
+          {activeDirty && (
+            <span className="unsaved-dot" title={t.unsavedIndicator} />
+          )}
+          {isLargeDoc && (
+            <span className="large-doc-badge" title={t.largeDocHint}>
+              {t.largeDocBadge}
+            </span>
+          )}
+          <span className="word-count">
+            {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
+          </span>
+        </div>
+      </header>
       <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
         {/* Contents only render while open - a collapsed sidebar is just
             shifted out of view via margin, not unmounted, so without this
@@ -741,20 +753,6 @@ function App() {
           />
         )}
 
-        <div className="floating-toolbar">
-          {activeDirty && (
-            <span className="unsaved-dot" title={t.unsavedIndicator} />
-          )}
-          {isLargeDoc && (
-            <span className="large-doc-badge" title={t.largeDocHint}>
-              {t.largeDocBadge}
-            </span>
-          )}
-          <span className="word-count">
-            {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
-          </span>
-        </div>
-
         {/* Every open tab's editor stays mounted (just hidden) so switching
             tabs preserves undo history, scroll position, and in-flight AI
             state - only the active one is ever unmounted-on-purpose (via
@@ -776,8 +774,10 @@ function App() {
               <EditorPane
                 key={`${tab.id}-${tab.reloadKey}`}
                 filePath={tab.path}
+                docTitle={tabTitle(tab, t)}
                 initialValue={tab.content}
                 onChange={(md) => handleChange(tab.id, md)}
+                isActive={tab.id === activeTabId}
                 tutorialMock={tutorial.active && tab.id === tutorial.tabId}
               />
             )}

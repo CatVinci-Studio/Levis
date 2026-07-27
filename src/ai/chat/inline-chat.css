@@ -132,32 +132,33 @@
 }
 
 .inline-chat-chip-remove {
+  display: flex;
+  align-items: center;
   border: none;
   background: none;
   padding: 0;
   color: inherit;
   opacity: 0.6;
   cursor: pointer;
-  font-size: 9px;
-  line-height: 1;
 }
 
 .inline-chat-chip-remove:hover {
   opacity: 1;
 }
 
-/* The "+" attach-file button, kept as quiet as the input itself. */
+/* The attach-file button, kept as quiet as the input itself. */
 .inline-chat-attach {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--editor-border);
   border-radius: 6px;
   background: transparent;
   color: var(--editor-muted);
   cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
 }
 
 .inline-chat-attach:hover {
@@ -184,12 +185,38 @@
 }
 
 .inline-chat-attachment-remove {
+  display: flex;
+  align-items: center;
   border: none;
   background: transparent;
   color: var(--editor-muted);
   cursor: pointer;
-  font-size: 10px;
   padding: 0;
+}
+
+/* Document vs image: the two ride to the model in completely different ways
+   (extracted text in the prompt, or a native image part), so the chip says
+   which one this is. */
+.inline-chat-attachment-kind {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  opacity: 0.8;
+}
+
+/* Only part of the file reached the model. Said out loud, because a partial
+   answer otherwise looks like the model misread the whole document. */
+.inline-chat-attachment-note {
+  opacity: 0.75;
+  font-style: italic;
+}
+
+/* Why an attachment could not be used. The old code caught and discarded
+   these, which is what made the "+" button look dead on a PDF. */
+.inline-chat-attach-error {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--danger);
 }
 
 /* Skill picker: opens while the input holds a /prefix being typed - a flow

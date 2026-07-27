@@ -29,12 +29,11 @@ import { windowIpc, type WindowBounds } from "./ipc";
 //
 // Within-bar reordering is NOT here - that's TabBar.tsx's own DOM drag.
 
-// The drop target is a window's TAB ROW specifically (the tab bar if it has
-// one, or just its title strip if it's a single-tab window showing only the
-// filename) - not the window's whole body. Matches this app's other top
-// strip (.titlebar-drag-region is 28px; the tab bar itself runs a bit
-// taller with its own padding) with headroom.
-const TAB_ROW_HEIGHT_LOGICAL = 60;
+// The drop target is a window's TOP STRIP - the floating window bar, plus the
+// tab bar beneath it when the window has one - not the window's whole body.
+// Sized to cover both with headroom: .window-bar is 28px and .tab-bar's own
+// padding puts its pills at roughly 34-66px.
+const TAB_ROW_HEIGHT_LOGICAL = 72;
 
 // All drag hit-testing happens in the global LOGICAL coordinate space -
 // PointerEvent.screenX/Y and the Rust drag-tick cursor are both logical

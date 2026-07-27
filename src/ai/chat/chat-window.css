@@ -12,6 +12,66 @@
   overflow: hidden;
 }
 
+/* The window's top row: which document this chat is currently about, and the
+   pin. It stands in for the title bar (detach_chat_window hides the native
+   one on macOS), so it is the same 28px the editor's drag region uses and
+   carries no border - a rule under it would read as a second bar on a panel
+   this narrow.
+
+   The document name earns its place because this window follows the active
+   file and is often on another monitor with the editor out of sight. It is
+   right-aligned along with the pin so both clear the traffic lights floating
+   over the top-left, without hardcoding a macOS-only inset. */
+.chat-window-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px;
+}
+
+.chat-window-doc {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--editor-muted);
+  /* The row is the window's drag handle; the label must not swallow that. */
+  pointer-events: none;
+  user-select: none;
+}
+
+.chat-window-pin {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--editor-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  /* Off reads as "available but not doing anything"; on has to be obvious at
+     a glance, since the whole point is that the window then behaves
+     differently. Colour carries that, so the icon itself never changes. */
+  opacity: 0.5;
+}
+
+.chat-window-pin:hover {
+  opacity: 0.9;
+  background: var(--sidebar-hover);
+}
+
+.chat-window-pin-on {
+  opacity: 1;
+  color: var(--editor-accent);
+}
+
 .chat-window-body {
   flex: 1;
   min-height: 0;
