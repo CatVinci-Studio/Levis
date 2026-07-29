@@ -76,6 +76,7 @@ Everything here is scoped to the writing area.
 | `--editor-quote-border` | The blockquote's leading rule.                                                                                                          |
 | `--editor-highlight-bg` | `==marked==` text and find-match highlights. Defined in `App.css`; built-in content themes leave it alone.                              |
 | `--editor-font`         | Content font stack. Only read once, as `var(--editor-font, var(--font-sans))`. Include CJK families - see _Gotchas_.                    |
+| `--editor-list-gap`     | Vertical gap between list rows: the margin on an item's paragraph and on nested lists. Falls back to `0.4em` (tighter than prose).      |
 
 ### Chrome variables — NOT for content themes
 

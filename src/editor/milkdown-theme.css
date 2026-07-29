@@ -749,6 +749,19 @@
   top: 0.75em;
 }
 
+/* The vertical rhythm of a list. Every item's content is a paragraph
+   (list_item content is "paragraph block*"), so without this rule each row
+   carries .milkdown p's prose margin and a list reads as a stack of
+   separate paragraphs. Rows sit tighter than prose by default;
+   --editor-list-gap is the theme hook (see the levis-theme skill's
+   variable table). Nested ul/ol are included because their UA margin
+   (1em) is what makes the step into a sublist read wide. */
+.milkdown li > p,
+.milkdown li > ul,
+.milkdown li > ol {
+  margin: var(--editor-list-gap, 0.4em) 0;
+}
+
 .milkdown li[data-item-type="task"] {
   list-style: none;
   position: relative;
