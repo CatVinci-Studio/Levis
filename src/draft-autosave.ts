@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { tabIsDirty, type DocTab } from "./doc-tabs";
 import { drafts } from "./ipc";
 
@@ -24,8 +24,15 @@ interface Pending {
  * `enabled` is Settings > Privacy > Draft Recovery - while off, no new
  * snapshots are scheduled (existing on-disk ones are left as they are; the
  * privacy section's own "Clear" button is what removes them).
+ *
+ * Returns a cancel function that drops every scheduled-but-unflushed
+ * snapshot write. For the window-teardown paths in App.tsx (whole-window
+ * close, last-tab removeTab): those clear the on-disk snapshots and then
+ * destroy() the window, and a debounce timer firing in that gap would
+ * silently re-save what was just cleared - resurrecting a discarded
+ * document as a "recovered draft" on the next launch.
  */
-export function useDraftAutosave(tabs: DocTab[], enabled: boolean): void {
+export function useDraftAutosave(tabs: DocTab[], enabled: boolean): () => void {
   const pendingRef = useRef<Map<string, Pending>>(new Map());
   const knownIdsRef = useRef<Set<string>>(new Set());
 
@@ -69,4 +76,9 @@ export function useDraftAutosave(tabs: DocTab[], enabled: boolean): void {
       pending.set(tab.id, { content: tab.content, timer, firstPendingAt });
     }
   }, [tabs, enabled]);
+
+  return useCallback(() => {
+    for (const p of pendingRef.current.values()) clearTimeout(p.timer);
+    pendingRef.current.clear();
+  }, []);
 }

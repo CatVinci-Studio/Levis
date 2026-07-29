@@ -88,7 +88,10 @@ function App() {
     tutorial,
     t,
   );
-  useDraftAutosave(tabs, settings.enableDraftRecovery);
+  const cancelDraftFlushes = useDraftAutosave(
+    tabs,
+    settings.enableDraftRecovery,
+  );
   const [draftsRestoredCount, setDraftsRestoredCount] = useState(0);
 
   // Mirrors `tabs` synchronously so callbacks (open/save/close) can read the
@@ -362,23 +365,33 @@ function App() {
   // Removes a tab outright (no prompt - callers that need one show it
   // first). Closing the last tab closes the window; closing the active tab
   // hands focus to its right-hand neighbor, or the new last tab.
-  const removeTab = useCallback((id: string) => {
-    const closedIndex = tabsRef.current.findIndex((tb) => tb.id === id);
-    setTabs((prev) => {
-      const next = prev.filter((tb) => tb.id !== id);
-      if (next.length === 0) {
-        void getCurrentWindow().destroy();
-        return prev;
-      }
-      return next;
-    });
-    setActiveTabId((prevActive) => {
-      if (prevActive !== id) return prevActive;
-      const remaining = tabsRef.current.filter((tb) => tb.id !== id);
-      if (remaining.length === 0) return prevActive;
-      return remaining[Math.min(closedIndex, remaining.length - 1)].id;
-    });
-  }, []);
+  const removeTab = useCallback(
+    (id: string) => {
+      const closedIndex = tabsRef.current.findIndex((tb) => tb.id === id);
+      setTabs((prev) => {
+        const next = prev.filter((tb) => tb.id !== id);
+        if (next.length === 0) {
+          // Closing the last tab destroys the window, so useDraftAutosave's
+          // cleanup effect (which clears a departed tab's snapshot) never gets
+          // another run - without the explicit clear here, a dirty tab closed
+          // via "Don't Save" comes back as a recovered draft on next launch.
+          cancelDraftFlushes();
+          void drafts
+            .clearDraftSnapshot(id)
+            .finally(() => void getCurrentWindow().destroy());
+          return prev;
+        }
+        return next;
+      });
+      setActiveTabId((prevActive) => {
+        if (prevActive !== id) return prevActive;
+        const remaining = tabsRef.current.filter((tb) => tb.id !== id);
+        if (remaining.length === 0) return prevActive;
+        return remaining[Math.min(closedIndex, remaining.length - 1)].id;
+      });
+    },
+    [cancelDraftFlushes],
+  );
 
   const requestCloseTab = useCallback(
     (id: string) => {
@@ -606,10 +619,13 @@ function App() {
    *  rather than clearAllDrafts: the draft store is shared by every window,
    *  and other windows' drafts must survive. */
   const clearWindowDrafts = useCallback(async () => {
+    // Scheduled flushes first: a debounce timer firing between the clears
+    // below and destroy() would re-save a snapshot that was just deleted.
+    cancelDraftFlushes();
     await Promise.all(
       tabsRef.current.map((tab) => drafts.clearDraftSnapshot(tab.id)),
     );
-  }, []);
+  }, [cancelDraftFlushes]);
 
   const closeSaving = useCallback(async () => {
     const action = pendingClose;
