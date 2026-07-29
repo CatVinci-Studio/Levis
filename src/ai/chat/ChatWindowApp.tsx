@@ -7,16 +7,17 @@ import type { EditProposal } from "../types";
 import { ChatBody } from "./ChatBody";
 import { chatLabels } from "./chat-labels";
 import {
+  CHAT_ADOPT_HANDOFF,
   CHAT_TO_EDITOR,
   EDITOR_TO_CHAT,
   onWindowEvent,
   sendToWindow,
   type ChatContext,
-  type ChatHandoff,
 } from "./chat-bridge";
 import { windowIpc } from "../../ipc";
 import { PinIcon } from "../../ui/icons";
-import { unlistenAll } from "../../utils/tauri-events";
+import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
+import { useLatest } from "../../utils/useLatest";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,
 // ...) is declared on :root in App.css, which until now only App.tsx pulled
 // in. This window doesn't render App, so without this import every var()
@@ -57,7 +58,6 @@ const CONTEXT_REQUEST_TIMEOUT_MS = 400;
  */
 export function ChatWindowApp() {
   const { t, settings, setSettings } = useSettings();
-  const [handoff, setHandoff] = useState<ChatHandoff | null>(null);
   const [context, setContext] = useState<ChatContext | null>(null);
   const [statuses, setStatuses] = useState<Record<string, PendingStatus>>({});
   const [lost, setLost] = useState(false);
@@ -77,36 +77,61 @@ export function ChatWindowApp() {
   );
   const restored = useRef(false);
 
-  // Claim the handoff this window was created for. Destructive and
-  // once-only, same contract as takeDetachedTab - the module-level guard
-  // exists because StrictMode double-runs mount effects in dev.
+  // Whether any handoff has been claimed. The ref is what the async mount
+  // check reads after its await (state would be a stale closure there); the
+  // state is what gates rendering.
+  const claimedRef = useRef(false);
+  const [claimed, setClaimed] = useState(false);
+
+  /**
+   * Claims the handoff parked under this window's label and takes on what it
+   * carries. Destructive, same contract as takeDetachedTab.
+   *
+   * Read through a ref because `conversation` is a fresh object every render
+   * and both callers subscribe once, at mount.
+   */
+  const claimHandoff = useLatest(async () => {
+    const handoff = await windowIpc.takeChatHandoff();
+    if (!handoff) return false;
+    claimedRef.current = true;
+    setClaimed(true);
+    editorLabel.current = handoff.editorLabel;
+    setContext(handoff.state.context);
+    setStatuses(handoff.state.statuses);
+    if (handoff.state.turns.length > 0)
+      conversation.restore(handoff.state.conversationId, handoff.state.turns);
+    return true;
+  });
+
+  // Claim the handoff this window was created for. Once-only - the
+  // module-level guard exists because StrictMode double-runs mount effects in
+  // dev.
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
     void (async () => {
-      const claimed = await windowIpc.takeChatHandoff();
-      if (!claimed) {
-        // Nothing to carry on from - the editor went away between creating
-        // this window and it mounting.
-        setLost(true);
-        return;
-      }
-      editorLabel.current = claimed.editorLabel;
-      setHandoff(claimed);
-      setContext(claimed.state.context);
-      setStatuses(claimed.state.statuses);
-      if (claimed.state.turns.length > 0) {
-        conversation.restore({
-          id: claimed.state.conversationId,
-          docPath: claimed.state.context.docPath,
-          title: "",
-          updatedAt: Date.now(),
-          turns: claimed.state.turns,
-        });
-      }
+      // Nothing to carry on from - the editor went away between creating this
+      // window and it mounting. `claimedRef` keeps a detach that lands while
+      // this claim is still in flight from being read as that: the adopt
+      // listener below would have taken the handoff first, leaving nothing
+      // here even though the window is perfectly alive.
+      if (!(await claimHandoff.current()) && !claimedRef.current) setLost(true);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [claimHandoff]);
+
+  // Detaching while this window is already open parks a SECOND handoff
+  // instead of building a window (commands/chat_window.rs) - this event is
+  // how the window finds out. Without it that state was dropped: the window
+  // kept showing its previous exchange while the Quick Ask bar that handed it
+  // over had already hidden itself, leaving the edits it proposed with no
+  // accept/reject surface at all.
+  useEffect(() => {
+    return unlistenAll(
+      listenToThisWindow(CHAT_ADOPT_HANDOFF, () => {
+        void claimHandoff.current();
+      }),
+    );
+  }, [claimHandoff]);
 
   // A send parked waiting for a fresh context (see refreshContext below).
   // At most one: `send` refuses to start while another is in flight.
@@ -211,7 +236,7 @@ export function ChatWindowApp() {
   const labels = useMemo(() => chatLabels(t), [t]);
 
   if (lost) return <div className="chat-window-lost">{t.chatWindowLost}</div>;
-  if (!handoff || !context)
+  if (!claimed || !context)
     return <div className="chat-window-loading">{t.agentThinking}</div>;
 
   return (

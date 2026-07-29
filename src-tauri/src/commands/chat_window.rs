@@ -155,6 +155,29 @@ pub fn detach_chat_window(
                 entry.scope = scope;
             }
             drop(entries);
+            // The window mounted long ago and so will never call
+            // take_chat_handoff by itself again - park the new state under its
+            // label and tell it to claim it, the same destructive claim the
+            // mount path uses. Dropping the state here (which is what used to
+            // happen) lost the whole handoff: the window went on showing its
+            // previous exchange, never learned the conversation the user had
+            // just had in Quick Ask, and - because Quick Ask hides itself on
+            // detach - the edits that conversation proposed were left with no
+            // accept/reject surface anywhere.
+            pending.0.lock().unwrap().insert(
+                existing.clone(),
+                ChatHandoff {
+                    editor_label: editor_label.clone(),
+                    state,
+                },
+            );
+            // emit_to, never the broadcasting `emit`: every event in this app
+            // is window-addressed (see src/utils/tauri-events.ts).
+            let _ = app.emit_to(
+                tauri::EventTarget::webview_window(&existing),
+                CHAT_ADOPT_HANDOFF,
+                (),
+            );
             let _ = win.set_focus();
             return Ok(existing);
         }
@@ -217,7 +240,15 @@ pub fn current_chat_window(
     chat_serving(window.label(), &open)
 }
 
-/// Claimed once, by the chat window's frontend at mount.
+/// Rust -> one chat window: a fresh handoff is waiting under your label, claim
+/// it. Emitted only when `detach_chat_window` reveals a window that already
+/// exists instead of building one; a window being built claims its handoff at
+/// mount without being asked. Mirrors CHAT_ADOPT_HANDOFF in
+/// src/ai/chat/chat-bridge.ts.
+pub const CHAT_ADOPT_HANDOFF: &str = "chat:adopt-handoff";
+
+/// Claimed by the chat window's frontend at mount, and again whenever
+/// CHAT_ADOPT_HANDOFF says another one is waiting. Destructive either way.
 #[tauri::command]
 pub fn take_chat_handoff(
     window: tauri::Window,

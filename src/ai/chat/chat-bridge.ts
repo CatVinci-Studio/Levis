@@ -51,6 +51,14 @@ export const CHAT_TO_EDITOR = {
  *  CHAT_WINDOWS_CHANGED in src-tauri/src/commands/chat_window.rs. */
 export const CHAT_WINDOWS_CHANGED = "chat:windows-changed";
 
+/** Rust -> one chat window: another handoff is parked under your label, claim
+ *  it (`takeChatHandoff`) and adopt what it carries. Sent when detaching
+ *  reveals a window that is already open rather than building a new one -
+ *  that window mounted long ago, so nothing else would ever make it re-read
+ *  the pending state. Mirrors CHAT_ADOPT_HANDOFF in
+ *  src-tauri/src/commands/chat_window.rs. */
+export const CHAT_ADOPT_HANDOFF = "chat:adopt-handoff";
+
 /** Editor -> chat. */
 export const EDITOR_TO_CHAT = {
   context: "chat:context",

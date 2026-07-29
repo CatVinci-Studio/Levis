@@ -141,7 +141,10 @@ export const windowIpc = {
    *  which is the address every later message to it is sent to. `shared` is
    *  the cross-window setting: false gives this editor window its own chat
    *  (shared by its tabs), true makes one chat serve the whole app. If one
-   *  already serves this window, it is focused and its label returned. */
+   *  already serves this window, it is focused and its label returned - and
+   *  `state` is parked for it to claim (CHAT_ADOPT_HANDOFF), so a second
+   *  detach hands over its conversation and pending edits just like the
+   *  first one did. */
   detachChatWindow: (args: {
     state: ChatHandoffState;
     position: [number, number] | null;

@@ -636,23 +636,33 @@ export function MilkdownEditor({
     );
     if (!live) return;
     sentSelection.current = live.selection;
-    void detachedChat.detach(
-      {
-        context: live.context,
-        conversationId: conversation.conversationId,
-        turns: conversation.history,
-        statuses: pendingEdits.allStatuses,
-      },
-      t.chatWindowTitle,
-      {
-        shared: settings.shareAgentWindowAcrossWindows,
-        pinned: settings.pinAgentWindow,
-      },
-    );
-    // The Quick Ask bar gives way to the window; chatInfo stays set so
-    // proposals arriving from the window still resolve against this
-    // request's context.
-    inlineChat.hide();
+    void (async () => {
+      try {
+        await detachedChat.detach(
+          {
+            context: live.context,
+            conversationId: conversation.conversationId,
+            turns: conversation.history,
+            statuses: pendingEdits.allStatuses,
+          },
+          t.chatWindowTitle,
+          {
+            shared: settings.shareAgentWindowAcrossWindows,
+            pinned: settings.pinAgentWindow,
+          },
+        );
+      } catch {
+        // The window never opened. Keeping the bar is the point: hiding it
+        // anyway would leave pending edits with no accept/reject surface at
+        // all, which is only ever safe once the window that takes them over
+        // actually exists.
+        return;
+      }
+      // The Quick Ask bar gives way to the window; chatInfo stays set so
+      // proposals arriving from the window still resolve against this
+      // request's context.
+      inlineChat.hide();
+    })();
   }
 
   function openNewAgentConversation() {
