@@ -1,9 +1,9 @@
 # Testing map
 
-175 tests, in three suites. Run all of them with:
+192 tests, in three suites. Run all of them with:
 
 ```sh
-npm run check                                       # 104 frontend (vitest)
+npm run check                                       # 121 frontend (vitest)
 cd src-tauri && cargo test --workspace              # 43 app crate + 28 aicompat
 ```
 
@@ -51,7 +51,7 @@ pinned rather than trusted.
 | `ai::agent`             | 5     | Long-document truncation with char-boundary safety.                                                                                                                                |
 | `ai::tools`             | 3     | `propose_edit` anchor validation.                                                                                                                                                  |
 
-### 4. Frontend state and rendering — 59 tests
+### 4. Frontend state and rendering — 76 tests
 
 - `settings/SettingsContext` (9) — settings migration. Notably: a rejected
   value must not discard the rest of the blob.
@@ -59,6 +59,13 @@ pinned rather than trusted.
   selection, attachment errors being shown rather than swallowed, vision
   gating.
 - `ai/chat/partial-tool-args` (10) — parsing half-arrived streaming JSON.
+- `ai/proposal-stream` (8) — the writing-phase state machine
+  (docs/AI-PROPOSALS.md): when a streamed draft is placed, what a stop
+  freezes, what a failure or invalid final arguments discard.
+- `ai/proposal-status` (5) — proposal statuses annotated onto history at
+  send time; unrelated tool results untouched, stored turns never mutated.
+- `ai/cancelled-turns` (4) — what a stop keeps, and that an unanswered
+  ToolCall gets a synthetic result before entering history.
 - `onboarding/*` (18) — tutorial step progression and evaluation.
 - `ai/chat/useQuickAskReveal` (5), `editor/code-block-indent-plugin` (5),
   `utils/tauri-events` (2), `settings/sections/providers` (2).
