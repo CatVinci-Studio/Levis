@@ -74,6 +74,8 @@ export function ChatWindowApp() {
     settings.enableWebSearch,
     agentModel,
     null,
+    undefined,
+    statuses,
   );
   const restored = useRef(false);
 

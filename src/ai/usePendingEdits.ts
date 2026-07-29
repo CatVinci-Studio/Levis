@@ -89,7 +89,8 @@ function computeStrikeRange(
  * Anchors resolve in MARKDOWN SOURCE (doc-markdown.ts), matching what the
  * model was shown. This is the only path that writes a reply into the
  * document; there is deliberately no direct-apply fallback that skips the
- * preview.
+ * preview. The full proposal lifecycle - streaming, stop/failure endings,
+ * what a consecutive prompt supersedes - is laid out in docs/AI-PROPOSALS.md.
  */
 export function usePendingEdits(run: EditorRunner) {
   const [previews, setPreviews] = useState<PendingPreview[]>([]);
@@ -311,18 +312,25 @@ export function usePendingEdits(run: EditorRunner) {
     [run],
   );
 
+  // Reads the ids from the plugin's own state rather than the `previews`
+  // mirror so the callback stays STABLE ([run] only): MilkdownEditor's
+  // ProposalStream machine closes over it, and a rejectAll that changed
+  // identity on every preview change would rebuild the machine mid-stream,
+  // dropping its accumulated drafts.
   const rejectAll = useCallback(() => {
-    const ids = previews.map((p) => p.callId);
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
+      const ids = (pendingEditKey.getState(view.state)?.previews ?? []).map(
+        (p) => p.callId,
+      );
       view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "clear" }));
+      setStatuses((prev) => {
+        const copy = { ...prev };
+        for (const id of ids) copy[id] = "rejected";
+        return copy;
+      });
     });
-    setStatuses((prev) => {
-      const copy = { ...prev };
-      for (const id of ids) copy[id] = "rejected";
-      return copy;
-    });
-  }, [run, previews]);
+  }, [run]);
 
   /** Accepts every currently pending preview, one transaction each (so a
    *  mid-batch failure - text one of them depended on changed - doesn't

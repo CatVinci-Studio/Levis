@@ -133,6 +133,9 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
         }
     }
 
+    // On later requests the frontend appends a bracketed status note to this
+    // result (accepted / rejected / still undecided) - see
+    // annotateProposalStatuses in src/ai/proposal-status.ts.
     "Edit proposed - the user now sees it with an Apply button. Don't repeat the full text in your reply; just say briefly what you changed and why.".to_string()
 }
 

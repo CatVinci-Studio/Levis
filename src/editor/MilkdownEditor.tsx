@@ -2,6 +2,7 @@ import {
   type MouseEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -71,8 +72,7 @@ import {
   streamPendingInsertText,
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
-import { draftProposal } from "../ai/chat/partial-tool-args";
-import { parseProposal } from "../ai/chat/proposal";
+import { ProposalStream } from "../ai/proposal-stream";
 import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
@@ -319,16 +319,60 @@ export function MilkdownEditor({
     pendingEdits.syncFromPlugin,
     pendingEdits.focusedPreview,
   ]);
+  // Re-prompting supersedes: the first proposal a new exchange writes into
+  // the document clears whatever previews the user left undecided - the new
+  // suggestion replaces the old one on screen instead of stacking under it.
+  // Armed when an exchange starts (the busy effect below for the embedded
+  // bar; onContextRequest for detached sends), consumed by the first preview
+  // add that follows - so a question exchange that proposes nothing leaves
+  // existing previews alone, and later proposals of the SAME exchange
+  // coexist as siblings. The superseded proposals read as "rejected"
+  // everywhere downstream (chat cards, next request's status notes).
+  const supersedePending = useRef(false);
+  const addPreviews = useCallback(
+    (
+      proposals: {
+        callId: string;
+        proposal: EditProposal;
+        streaming?: boolean;
+      }[],
+      target: SelectionTarget | null,
+    ) => {
+      if (supersedePending.current) {
+        supersedePending.current = false;
+        pendingEdits.rejectAll();
+      }
+      pendingEdits.showPreviews(proposals, target);
+    },
+    // Member functions only - both are stable per editor ([run]), and
+    // depending on the whole `pendingEdits` object (fresh every render)
+    // would destabilize the ProposalStream memo below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingEdits.rejectAll, pendingEdits.showPreviews],
+  );
   // A streaming propose_edit grows its green preview in the document while
-  // the model is still writing it: argument fragments accumulate here, the
-  // preview is placed as soon as the action+anchor are complete
-  // (partial-tool-args), and the text after that goes straight into the
-  // widget's typewriter (streamPendingInsertText). The final ToolCall turn
-  // then delivers the authoritative proposal (ChatBody re-shows it without
-  // the streaming flag). Gated on the animation setting: off means previews
-  // appear complete, at once.
-  const streamedProposals = useRef(
-    new Map<string, { args: string; placed: boolean }>(),
+  // the model is still writing it. All lifecycle decisions - when a draft is
+  // placed, what a stop keeps, what a failure discards - live in the
+  // ProposalStream machine (proposal-stream.ts); this component only wires
+  // its effects to the editor. Gated on the animation setting: off means
+  // previews appear complete, at once.
+  const proposalStream = useMemo(
+    () =>
+      new ProposalStream({
+        place: (callId, proposal) =>
+          addPreviews(
+            [{ callId, proposal, streaming: true }],
+            inlineChat.chatInfoRef.current,
+          ),
+        feed: streamPendingInsertText,
+        finalize: (callId, proposal) =>
+          addPreviews([{ callId, proposal }], inlineChat.chatInfoRef.current),
+        discard: pendingEdits.reject,
+      }),
+    // chatInfoRef is a stable ref; addPreviews/reject are stable per editor
+    // (useCallback on `run`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [addPreviews, pendingEdits.reject],
   );
   const handleStreamEvent = useCallback(
     (event: StreamEvent) => {
@@ -336,59 +380,20 @@ export function MilkdownEditor({
       // create animation entries nothing ever reveals (or settles).
       if (!settingsRef.current.enableEditAnimation || prefersReducedMotion())
         return;
-      const drafts = streamedProposals.current;
-      if (event.type === "toolStart") {
-        if (event.name === "propose_edit")
-          drafts.set(event.callId, { args: "", placed: false });
-      } else if (event.type === "toolArgsDelta") {
-        const draft = drafts.get(event.callId);
-        if (!draft) return;
-        draft.args += event.delta;
-        const parsed = draftProposal(draft.args);
-        if (!parsed) return;
-        if (!draft.placed) {
-          draft.placed = true;
-          pendingEdits.showPreviews(
-            [
-              {
-                callId: event.callId,
-                proposal: parsed.proposal,
-                streaming: true,
-              },
-            ],
-            inlineChat.chatInfoRef.current,
-          );
-        }
-        streamPendingInsertText(
-          event.callId,
-          parsed.proposal.text ?? "",
-          false,
-        );
-      } else if (
+      if (event.type === "toolStart")
+        proposalStream.toolStart(event.callId, event.name);
+      else if (event.type === "toolArgsDelta")
+        proposalStream.argsDelta(event.callId, event.delta);
+      else if (
         event.type === "turn" &&
         event.turn.kind === "ToolCall" &&
         event.turn.name === "propose_edit"
-      ) {
-        drafts.delete(event.turn.call_id);
-        const proposal = parseProposal(event.turn.arguments);
-        // Closes the reveal even for a proposal that carries no text at all -
-        // a `delete` never has any. Its arguments still streamed through the
-        // branch above, which left an animation entry marked "more text may
-        // come"; without this final call that entry stays un-done forever,
-        // the preview stays in the un-decidable `streaming` state, and the
-        // accept/reject bar never appears for that edit.
-        if (proposal)
-          streamPendingInsertText(
-            event.turn.call_id,
-            proposal.text ?? "",
-            true,
-          );
-      }
+      )
+        proposalStream.finalCall(event.turn.call_id, event.turn.arguments);
     },
-    // settingsRef/chatInfoRef are stable refs; showPreviews is stable per
-    // editor (useCallback on `run`).
+    // settingsRef is a stable ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pendingEdits.showPreviews],
+    [proposalStream],
   );
   // Owned here rather than by the popup so a completed exchange can be saved
   // to history when the popup closes. Every ordinary NEW open resets it;
@@ -402,28 +407,30 @@ export function MilkdownEditor({
     agentModel,
     tutorialMock ? createTutorialMockAgent(t) : null,
     handleStreamEvent,
+    pendingEdits.allStatuses,
   );
-  // A send that ended without its propose_edit calls completing (stopped
-  // mid-stream, or the request failed) must not leave a half-written,
-  // un-acceptable preview in the document.
+  // Exchange boundaries. Start (busy rising): arm the supersede flag so this
+  // exchange's first proposal clears the undecided leftovers of the previous
+  // one. End with drafts still open: a user stop keeps what was already
+  // typed into the document (frozen as a decidable preview), a failure
+  // discards it - Retry would otherwise duplicate the proposal. A normal
+  // completion left the machine empty and finish is a no-op.
   useEffect(() => {
-    if (conversation.busy) return;
-    const drafts = streamedProposals.current;
-    for (const [callId, draft] of drafts) {
-      if (draft.placed) pendingEdits.reject(callId);
+    if (conversation.busy) {
+      supersedePending.current = true;
+      return;
     }
-    drafts.clear();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation.busy, pendingEdits.reject]);
+    proposalStream.finish(conversation.error ? "failed" : "stopped");
+  }, [conversation.busy, conversation.error, proposalStream]);
   // Proposals always resolve HERE, whether the chat that produced them is
   // the embedded popup or a detached window - one implementation of the
   // anchor/apply logic, addressed two ways (see chat-bridge.ts).
   const showProposals = useCallback(
     (proposals: { callId: string; proposal: EditProposal }[]) => {
-      pendingEdits.showPreviews(proposals, inlineChat.chatInfoRef.current);
+      addPreviews(proposals, inlineChat.chatInfoRef.current);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pendingEdits.showPreviews],
+    [addPreviews],
   );
 
   // The selection this window last SENT to the detached chat. A
@@ -444,16 +451,23 @@ export function MilkdownEditor({
     // can forget the check.
     isTarget: (docPath) =>
       docPath !== null ? docPath === filePathRef.current : isActiveRef.current,
-    onProposals: (proposals) =>
-      pendingEdits.showPreviews(proposals, sentSelection.current),
+    onProposals: (proposals) => addPreviews(proposals, sentSelection.current),
     onAccept: pendingEdits.accept,
     onReject: pendingEdits.reject,
     onAcceptAll: pendingEdits.acceptAll,
     onRejectAll: pendingEdits.rejectAll,
     // A send is about to go out and needs the document as it reads NOW - not
     // as it read when the selection last changed. Forced: the selection is
-    // usually unchanged, but the document almost certainly isn't.
-    onContextRequest: () => forcePushLiveContextRef.current(),
+    // usually unchanged, but the document almost certainly isn't. The
+    // request only ever precedes a send, so it doubles as the detached
+    // window's exchange-start signal for the supersede flag - a detached
+    // send runs in the chat window's own conversation and never flips this
+    // editor's `conversation.busy` (whose rising edge arms the embedded
+    // bar's sends, in the busy effect above).
+    onContextRequest: () => {
+      supersedePending.current = true;
+      forcePushLiveContextRef.current();
+    },
     // The window handed its conversation back on close - carry on with it
     // in the Quick Ask bar (which shows the last reply's one-line summary)
     // rather than dropping the exchange. Reopening the full conversation is

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { keepCancelledTurns } from "./cancelled-turns";
 import { conversationTitle, saveConversation } from "./chat-history";
+import { annotateProposalStatuses } from "./proposal-status";
 import type { AgentTurn, ImageAttachment } from "./types";
+import type { PendingStatus } from "./usePendingEdits";
 import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
 import { useLatest } from "../utils/useLatest";
 
@@ -59,12 +62,26 @@ export function useAgentConversation(
    *  preview while the model is still writing it. Read through a ref, so a
    *  re-render mid-request picks up the newest callback. */
   onStreamEvent?: (event: StreamEvent) => void,
+  /** Per-callId status of every propose_edit proposal so far
+   *  (usePendingEdits' `allStatuses`, or the copy pushed to the detached
+   *  window). Annotated onto the history at send time - see
+   *  proposal-status.ts - so a follow-up prompt doesn't leave the model
+   *  assuming its still-undecided previous proposal is in the document. */
+  proposalStatuses?: Record<string, PendingStatus>,
 ) {
   const [conversationId, setConversationId] = useState<string>(() =>
     crypto.randomUUID(),
   );
   const [history, setHistory] = useState<AgentTurn[]>([]);
-  const [streaming, setStreaming] = useState<StreamingState | null>(null);
+  const [streaming, setStreamingState] = useState<StreamingState | null>(null);
+  // Mirror of `streaming`, readable synchronously inside `send`'s catch:
+  // a stop must fold what already streamed into history, and the state
+  // value in that closure is stale by then.
+  const streamingRef = useRef<StreamingState | null>(null);
+  const setStreaming = (value: StreamingState | null) => {
+    streamingRef.current = value;
+    setStreamingState(value);
+  };
   const [busy, setBusy] = useState(false);
   const onStreamEventRef = useLatest(onStreamEvent);
   const [error, setError] = useState<string | null>(null);
@@ -105,9 +122,11 @@ export function useAgentConversation(
     wasMock.current = !!mockReply;
   });
 
-  /** Returns the newly arrived turns (undefined if the send was skipped or
-   *  failed) - the caller's hook for reacting to what came back, e.g. the
-   *  chat bar turning propose_edit tool calls into in-document previews. */
+  /** Returns the newly arrived turns - the caller's hook for reacting to
+   *  what came back, e.g. the chat bar turning propose_edit tool calls into
+   *  in-document previews. A stop returns the partial turns it kept (so
+   *  completed proposals still get their afterSend re-show); undefined means
+   *  the send was skipped, failed, or was stopped before anything streamed. */
   async function send(
     document: string,
     message: string,
@@ -139,7 +158,7 @@ export function useAgentConversation(
             document,
             docPath,
             workspaceRoot,
-            history,
+            history: annotateProposalStatuses(history, proposalStatuses ?? {}),
             message: trimmed,
             images,
             webSearch,
@@ -149,18 +168,20 @@ export function useAgentConversation(
               if (generation !== generationRef.current) return;
               onStreamEventRef.current?.(event);
               if (event.type === "delta") {
-                setStreaming((prev) => ({
+                const prev = streamingRef.current;
+                setStreaming({
                   turns: prev?.turns ?? [],
                   text: (prev?.text ?? "") + event.text,
-                }));
+                });
               } else if (event.type === "turn") {
                 // Interim prose that streamed before a tool call is dropped,
                 // mirroring how the backend's step parsers prefer tool calls
                 // over accompanying text - it never enters history either.
-                setStreaming((prev) => ({
+                const prev = streamingRef.current;
+                setStreaming({
                   turns: [...(prev?.turns ?? []), event.turn],
                   text: "",
-                }));
+                });
               }
             },
           });
@@ -170,9 +191,20 @@ export function useAgentConversation(
     } catch (err) {
       if (generation !== generationRef.current) return undefined;
       // A user-initiated stop() isn't a failure - no error, and nothing to
-      // retry (the message wasn't the problem).
-      if (err instanceof IpcError && err.cause === AI_CANCELLED)
-        return undefined;
+      // retry (the message wasn't the problem). What already streamed stays:
+      // the user watched that content arrive, and stopping means "that's
+      // enough", not "throw it away" - so it enters history the same way a
+      // completed exchange would (see cancelled-turns.ts for what's kept).
+      if (err instanceof IpcError && err.cause === AI_CANCELLED) {
+        const partial = streamingRef.current;
+        const kept = keepCancelledTurns(
+          partial?.turns ?? [],
+          partial?.text ?? "",
+        );
+        if (kept.length === 0) return undefined;
+        setHistory((prev) => [...prev, ...kept]);
+        return kept;
+      }
       setError(String(err));
       setRetryable({ document, message: trimmed, images });
       return undefined;
