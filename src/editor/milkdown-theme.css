@@ -657,6 +657,98 @@
   --md-alert-caution: #f85149;
 }
 
+/* List markers are drawn as an out-of-flow ::before instead of the native
+   ::marker. Reason is the caret, not the looks: in WKWebView a caret at the
+   very start of a list item's first line gets painted a few pixels INTO the
+   first glyph rather than in front of it, and it only happens while that
+   line box carries a native marker - the same family as the heading "# "
+   prefix bug (see heading-marker-plugin.ts), and why task items, whose
+   checkbox has always been an absolutely positioned ::before, never showed
+   it. Taking the marker out of the line box removes what the caret was
+   being measured against.
+
+   Numbering is a CSS counter, NOT the item's data-label attribute. Milkdown
+   keeps that attribute up to date from an appendTransaction
+   (syncListOrderPlugin), which bails out on any non-generic transaction -
+   and an input rule's transaction is non-generic, so the item "1. " creates
+   still reads "•" until the next keystroke. The native ::marker never looked
+   at the attribute, so nothing exposed that lag before. A counter is derived
+   from the DOM itself and cannot lag; --levis-ol-start carries a list's
+   `start` (see orderedListAttr in MilkdownEditor.tsx), which is the one thing
+   the structure alone doesn't say. Bullets are keyed off the parent element
+   rather than the item's own data-list-type, which can go stale when a list
+   changes type. */
+.milkdown ol {
+  /* Declared here, not just read with a fallback: custom properties inherit,
+     so a nested list inside an "3. " one would otherwise pick up its parent's
+     start and begin at 4. The inline style the attr writes still wins over
+     this rule for the list that actually has a start. */
+  --levis-ol-start: 0;
+  counter-reset: levis-ol var(--levis-ol-start);
+}
+
+.milkdown ol > li,
+.milkdown ul > li {
+  list-style: none;
+  position: relative;
+}
+
+.milkdown ol > li {
+  counter-increment: levis-ol;
+}
+
+/* Deliberately no `color`: a native ::marker paints in the inherited text
+   colour, and anything else here would make lists read as dimmer than the
+   prose around them. */
+.milkdown ol > li::before,
+.milkdown ul > li:not([data-item-type="task"])::before {
+  position: absolute;
+  right: 100%;
+  pointer-events: none;
+}
+
+/* The gap is the trailing NBSP - the same suffix the native marker carries
+   inside its own box, so right-aligning against the content edge lands the
+   digits where they used to sit rather than at some hand-picked margin. */
+.milkdown ol > li::before {
+  content: counter(levis-ol) ".\00a0";
+  top: 0;
+  white-space: nowrap;
+}
+
+/* Bullets are DRAWN, not the font's "•"/"◦"/"▪" glyphs: a native disc
+   marker is a geometric shape WebKit paints itself, noticeably larger than
+   the bullet characters most text fonts carry - swapping in the glyphs
+   visibly shrank every list dot (and made the size depend on the content
+   font). Same box-drawing idiom as the task checkbox below. The `top`
+   values centre on the first line of a 1.8 line-height row (0.9em minus
+   half the shape); like the checkbox's 0.4em, they assume the .milkdown
+   line-height. */
+.milkdown ul > li:not([data-item-type="task"])::before {
+  content: "";
+  margin-right: 0.4em;
+  width: 0.34em;
+  height: 0.34em;
+  top: 0.73em;
+  border-radius: 50%;
+  background: currentColor;
+  box-sizing: border-box;
+}
+
+.milkdown ul ul > li:not([data-item-type="task"])::before {
+  background: transparent;
+  border: 0.075em solid currentColor;
+}
+
+.milkdown ul ul ul > li:not([data-item-type="task"])::before {
+  background: currentColor;
+  border: none;
+  border-radius: 0;
+  width: 0.3em;
+  height: 0.3em;
+  top: 0.75em;
+}
+
 .milkdown li[data-item-type="task"] {
   list-style: none;
   position: relative;

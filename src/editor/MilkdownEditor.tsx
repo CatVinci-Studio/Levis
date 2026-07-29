@@ -17,6 +17,7 @@ import {
   type CmdKey,
 } from "@milkdown/kit/core";
 import {
+  orderedListAttr,
   wrapInBulletListCommand,
   wrapInOrderedListCommand,
   wrapInBlockquoteCommand,
@@ -178,6 +179,17 @@ export function MilkdownEditor({
           // aliasing it here lets most community Typora themes' CSS apply
           // directly to our content with no rewriting.
           ctx.set(editorViewOptionsCtx, { attributes: { id: "write" } });
+          // A list starting somewhere other than 1 ("3. ") is the one thing
+          // the DOM structure alone doesn't tell the counter that numbers
+          // ordered lists (see .milkdown ol in milkdown-theme.css), so the
+          // node's `order` rides along as a custom property. Minus one
+          // because counter-reset sets the value BEFORE the first increment.
+          ctx.set(orderedListAttr.key, (node) => {
+            const order = (node.attrs.order as number) ?? 1;
+            return order === 1
+              ? {}
+              : { style: `--levis-ol-start: ${order - 1}` };
+          });
           ctx
             .get(listenerCtx)
             .markdownUpdated((_ctx, markdown) => onChange(markdown))
