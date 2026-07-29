@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { windowIpc } from "../../ipc";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
+import { useLatest } from "../../utils/useLatest";
 import type { AgentTurn, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import {
@@ -11,6 +12,7 @@ import {
   onWindowEvent,
   sendToWindow,
   type BulkDecisionMessage,
+  type DocScopedMessage,
   type CallIdMessage,
   type ChatContext,
   type ChatHandoffState,
@@ -83,12 +85,14 @@ function watchChatWindows(): () => void {
   if (watchers++ === 0) {
     const onFocus = () => void refreshChatLabel();
     window.addEventListener("focus", onFocus);
-    const unlisten = listenToThisWindow(CHAT_WINDOWS_CHANGED, () => {
-      void refreshChatLabel();
-    });
+    const unlisten = unlistenAll(
+      listenToThisWindow(CHAT_WINDOWS_CHANGED, () => {
+        void refreshChatLabel();
+      }),
+    );
     stopWatching = () => {
       window.removeEventListener("focus", onFocus);
-      void unlisten.then((f) => f());
+      unlisten();
     };
     void refreshChatLabel();
   }
@@ -101,14 +105,19 @@ function watchChatWindows(): () => void {
 }
 
 export interface DetachedChatHandlers {
+  /** Whether a doc-scoped message addressed to `docPath` is for THIS tab.
+   *  Applied by the hook itself before any of the five handlers below fires
+   *  (see the file comment on chat-bridge.ts's DocScopedMessage) - the
+   *  doc-scoping contract is enforced once at the boundary instead of
+   *  relying on every handler remembering to check. */
+  isTarget: (docPath: string | null) => boolean;
   onProposals: (
     proposals: { callId: string; proposal: EditProposal }[],
-    docPath: string | null,
   ) => void;
-  onAccept: (callId: string, docPath: string | null) => void;
-  onReject: (callId: string, docPath: string | null) => void;
-  onAcceptAll: (docPath: string | null) => void;
-  onRejectAll: (docPath: string | null) => void;
+  onAccept: (callId: string) => void;
+  onReject: (callId: string) => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
   /** The chat window closed and handed its conversation back. */
   onReembed: (conversationId: string, turns: AgentTurn[]) => void;
   /** The chat is about to send and wants the document as it reads NOW. */
@@ -131,25 +140,38 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
   );
   // Handlers change identity every render; the listeners are registered once,
   // so they read through a ref rather than re-subscribing constantly.
-  const latest = useRef(handlers);
-  latest.current = handlers;
+  const latest = useLatest(handlers);
 
   useEffect(() => {
+    /** Dispatch for the five doc-scoped messages: the isTarget check runs
+     *  here, once, so no individual handler can forget it. */
+    const scoped = <T extends DocScopedMessage>(
+      handle: (payload: T) => void,
+    ) => {
+      return (payload: T) => {
+        if (latest.current.isTarget(payload.docPath)) handle(payload);
+      };
+    };
     return unlistenAll(
-      onWindowEvent<ProposalsMessage>(CHAT_TO_EDITOR.proposals, (payload) =>
-        latest.current.onProposals(payload.proposals, payload.docPath),
+      onWindowEvent<ProposalsMessage>(
+        CHAT_TO_EDITOR.proposals,
+        scoped((payload) => latest.current.onProposals(payload.proposals)),
       ),
-      onWindowEvent<CallIdMessage>(CHAT_TO_EDITOR.accept, (payload) =>
-        latest.current.onAccept(payload.callId, payload.docPath),
+      onWindowEvent<CallIdMessage>(
+        CHAT_TO_EDITOR.accept,
+        scoped((payload) => latest.current.onAccept(payload.callId)),
       ),
-      onWindowEvent<CallIdMessage>(CHAT_TO_EDITOR.reject, (payload) =>
-        latest.current.onReject(payload.callId, payload.docPath),
+      onWindowEvent<CallIdMessage>(
+        CHAT_TO_EDITOR.reject,
+        scoped((payload) => latest.current.onReject(payload.callId)),
       ),
-      onWindowEvent<BulkDecisionMessage>(CHAT_TO_EDITOR.acceptAll, (payload) =>
-        latest.current.onAcceptAll(payload.docPath),
+      onWindowEvent<BulkDecisionMessage>(
+        CHAT_TO_EDITOR.acceptAll,
+        scoped(() => latest.current.onAcceptAll()),
       ),
-      onWindowEvent<BulkDecisionMessage>(CHAT_TO_EDITOR.rejectAll, (payload) =>
-        latest.current.onRejectAll(payload.docPath),
+      onWindowEvent<BulkDecisionMessage>(
+        CHAT_TO_EDITOR.rejectAll,
+        scoped(() => latest.current.onRejectAll()),
       ),
       onWindowEvent(CHAT_TO_EDITOR.requestContext, () =>
         latest.current.onContextRequest(),
@@ -159,6 +181,8 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
         latest.current.onReembed(payload.conversationId, payload.turns ?? []);
       }),
     );
+    // `latest` is a stable ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(watchChatWindows, []);

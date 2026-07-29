@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
+import { editorViewCtx } from "@milkdown/kit/core";
+import { parseMarkdownSource } from "../editor/parse-markdown-source";
 import {
   composeMarkdownEdit,
   findMarkdownMatch,
@@ -66,14 +67,12 @@ function computeStrikeRange(
   );
   if (!matched) return null;
 
-  let parsedText: string;
-  try {
-    const parsed = ctx.get(parserCtx)(matched);
-    if (!parsed || typeof parsed === "string") return null;
-    parsedText = parsed.textContent;
-  } catch {
-    return null;
-  }
+  // The shared guarded parse (its math normalization is a no-op here -
+  // `matched` came from this editor's own serializer, so math is already
+  // $-delimited).
+  const parsed = parseMarkdownSource(ctx, matched);
+  if (!parsed || typeof parsed === "string") return null;
+  const parsedText = parsed.textContent;
   if (!parsedText) return null;
 
   return locatePlainText(doc, match.from, match.to, parsedText);
@@ -332,29 +331,27 @@ export function usePendingEdits(run: EditorRunner) {
     for (const p of previews) accept(p.callId);
   }, [previews, accept]);
 
-  /** Moves the review pointer and returns what it now points at (or null
-   *  if there's nothing to navigate) - the caller (MilkdownEditor) reveals
-   *  that preview immediately, synchronously, rather than waiting on an
-   *  effect: unlike accept/reject, moving the pointer doesn't change the
-   *  navigable set, so there's nothing to wait for. */
-  const focusNext = useCallback((): PendingPreview | null => {
-    if (decidable.length === 0) return null;
-    const next = focusIndex === -1 ? 0 : (focusIndex + 1) % decidable.length;
-    const preview = decidable[next];
-    setFocusedCallId(preview.callId);
-    return preview;
-  }, [decidable, focusIndex]);
-
-  const focusPrevious = useCallback((): PendingPreview | null => {
-    if (decidable.length === 0) return null;
-    const prev =
-      focusIndex === -1
-        ? 0
-        : (focusIndex - 1 + decidable.length) % decidable.length;
-    const preview = decidable[prev];
-    setFocusedCallId(preview.callId);
-    return preview;
-  }, [decidable, focusIndex]);
+  /** Moves the review pointer by `delta` (wrapping; a fresh pointer starts
+   *  at the first preview either way) and returns what it now points at, or
+   *  null if there's nothing to navigate - the caller (MilkdownEditor)
+   *  reveals that preview immediately, synchronously, rather than waiting
+   *  on an effect: unlike accept/reject, moving the pointer doesn't change
+   *  the navigable set, so there's nothing to wait for. */
+  const step = useCallback(
+    (delta: 1 | -1): PendingPreview | null => {
+      if (decidable.length === 0) return null;
+      const next =
+        focusIndex === -1
+          ? 0
+          : (focusIndex + delta + decidable.length) % decidable.length;
+      const preview = decidable[next];
+      setFocusedCallId(preview.callId);
+      return preview;
+    },
+    [decidable, focusIndex],
+  );
+  const focusNext = useCallback(() => step(1), [step]);
+  const focusPrevious = useCallback(() => step(-1), [step]);
 
   /** Accept/reject the currently focused preview - the Quick Ask nav bar's
    *  primary buttons. Unlike focusNext/Previous, WHERE the pointer lands
@@ -370,25 +367,23 @@ export function usePendingEdits(run: EditorRunner) {
     if (focusedCallId) reject(focusedCallId);
   }, [focusedCallId, reject]);
 
-  const status = useCallback(
-    (callId: string): PendingStatus => {
-      const preview = previews.find((p) => p.callId === callId);
-      if (preview) return preview.streaming ? "streaming" : "pending";
-      return statuses[callId] ?? "pending";
-    },
-    [previews, statuses],
-  );
-
-  /** Every known proposal's status in one object. The per-callId `status`
-   *  above is what the local chat card asks; this is what gets pushed to a
+  /** Every known proposal's status in one object - what gets pushed to a
    *  detached chat window, which has no access to editor state and so can't
-   *  derive "pending" from the live preview list itself. */
+   *  derive "pending" from the live preview list itself. Live previews win
+   *  over recorded terminal statuses. */
   const allStatuses = useMemo(() => {
     const merged: Record<string, PendingStatus> = { ...statuses };
     for (const preview of previews)
       merged[preview.callId] = preview.streaming ? "streaming" : "pending";
     return merged;
   }, [previews, statuses]);
+
+  /** Per-callId view of `allStatuses` - what the local chat card asks; one
+   *  merge rule, not two that could drift. */
+  const status = useCallback(
+    (callId: string): PendingStatus => allStatuses[callId] ?? "pending",
+    [allStatuses],
+  );
 
   return {
     previews,

@@ -25,7 +25,7 @@ import type { EditAction } from "./types";
  */
 
 /** What documentMarkdown joins blocks with - one blank line, as markdown. */
-export const BLOCK_SEPARATOR = "\n\n";
+const BLOCK_SEPARATOR = "\n\n";
 
 /** One top-level block, in both coordinate systems at once. */
 export interface MarkdownBlock {
@@ -100,6 +100,29 @@ export function serializeBlocks(ctx: Ctx, doc: ProseNode): MarkdownBlock[] {
 /** The whole document as one markdown string - what the model is shown. */
 export function documentMarkdown(blocks: MarkdownBlock[]): string {
   return blocks.map((block) => block.markdown).join(BLOCK_SEPARATOR);
+}
+
+/**
+ * `documentMarkdown(serializeBlocks(...))`, cached against the ProseMirror
+ * doc it came from.
+ *
+ * ProseMirror documents are immutable, so `doc === lastDoc` is an O(1) exact
+ * test for "nothing to re-serialize" - and during the gesture the detached
+ * chat's live context exists for, drag-selecting a passage, the document does
+ * not change at all while the selection changes on every mousemove. Without
+ * the cache each of those re-ran the serializer once per top-level block.
+ * Quick Ask's open-time snapshot reads through the same cache, so opening the
+ * bar right after a push reuses the identical string. A WeakMap so a
+ * superseded doc is collectable the moment nothing else holds it.
+ */
+const documentCache = new WeakMap<ProseNode, string>();
+
+export function cachedDocumentMarkdown(ctx: Ctx, doc: ProseNode): string {
+  const cached = documentCache.get(doc);
+  if (cached !== undefined) return cached;
+  const markdown = documentMarkdown(serializeBlocks(ctx, doc));
+  documentCache.set(doc, markdown);
+  return markdown;
 }
 
 /**

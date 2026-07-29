@@ -40,10 +40,20 @@ function completionContext(
   view: EditorView,
   cursorPos: number,
 ): { before: string; after: string } {
-  const before = view.state.doc.textBetween(0, cursorPos, "\n\n");
-  const after = view.state.doc.textBetween(
+  // Scanned over a bounded window around the cursor, not the whole document:
+  // this runs on every keystroke at a block end, BEFORE the debounce. A
+  // character occupies at least one position, so a 4x-margin position window
+  // always covers the characters actually kept below (block boundaries eat
+  // positions without emitting characters - hence the margin, not 1x).
+  const { doc } = view.state;
+  const before = doc.textBetween(
+    Math.max(0, cursorPos - 4 * MAX_CONTEXT_CHARS),
     cursorPos,
-    view.state.doc.content.size,
+    "\n\n",
+  );
+  const after = doc.textBetween(
+    cursorPos,
+    Math.min(doc.content.size, cursorPos + 4 * MAX_AFTER_CONTEXT_CHARS),
     "\n\n",
   );
   return {
@@ -145,18 +155,25 @@ export function showGhostSuggestion(
   );
 }
 
-interface GhostMeta {
-  type: "set" | "clear";
-  decoration?: DecorationSet;
-  suggestion?: string;
-  from?: number;
-}
+/** Tagged union (like pending-edit-plugin's PendingMeta) so the "set" arm
+ *  carries its payload as required fields - no assertions at the read site. */
+type GhostMeta =
+  | { type: "set"; decoration: DecorationSet; suggestion: string; from: number }
+  | { type: "clear" };
 
 interface GhostState {
   decoration: DecorationSet;
   suggestion: string | null;
   from: number;
 }
+
+/** The no-suggestion state - shared by init, clear, and the edit-invalidated
+ *  branch. Immutable by convention (never mutated, only replaced). */
+const CLEARED: GhostState = {
+  decoration: DecorationSet.empty,
+  suggestion: null,
+  from: 0,
+};
 
 export function createGhostTextPlugin(options: {
   enabled: () => boolean;
@@ -173,36 +190,14 @@ export function createGhostTextPlugin(options: {
       new Plugin<GhostState>({
         key: ghostTextKey,
         state: {
-          init(): GhostState {
-            return {
-              decoration: DecorationSet.empty,
-              suggestion: null,
-              from: 0,
-            };
-          },
+          init: (): GhostState => CLEARED,
           apply(tr, prev): GhostState {
             const meta = tr.getMeta(ghostTextKey) as GhostMeta | undefined;
             if (meta?.type === "set") {
-              return {
-                decoration: meta.decoration!,
-                suggestion: meta.suggestion!,
-                from: meta.from!,
-              };
+              const { decoration, suggestion, from } = meta;
+              return { decoration, suggestion, from };
             }
-            if (meta?.type === "clear") {
-              return {
-                decoration: DecorationSet.empty,
-                suggestion: null,
-                from: 0,
-              };
-            }
-            if (tr.docChanged) {
-              return {
-                decoration: DecorationSet.empty,
-                suggestion: null,
-                from: 0,
-              };
-            }
+            if (meta?.type === "clear" || tr.docChanged) return CLEARED;
             return prev;
           },
         },

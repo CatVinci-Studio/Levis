@@ -434,36 +434,22 @@ export function MilkdownEditor({
   // un-appliable with nothing on screen explaining why.
   const sentSelection = useRef<SelectionTarget | null>(null);
 
-  // Every open tab in this window receives the chat's events, and with one
-  // chat window serving several files they are NOT all for this tab.
-  // Matching on the path the chat addressed is exact whenever the document
-  // has one; an unsaved draft has no path to match, so the active tab (the
-  // only one the chat could have been showing) stands in.
-  const isChatTarget = useCallback(
-    (docPath: string | null) =>
-      docPath !== null ? docPath === filePathRef.current : isActiveRef.current,
-    // filePathRef/isActiveRef are stable refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
   const detachedChat = useDetachedChat({
-    onProposals: (proposals, docPath) => {
-      if (isChatTarget(docPath))
-        pendingEdits.showPreviews(proposals, sentSelection.current);
-    },
-    onAccept: (callId, docPath) => {
-      if (isChatTarget(docPath)) pendingEdits.accept(callId);
-    },
-    onReject: (callId, docPath) => {
-      if (isChatTarget(docPath)) pendingEdits.reject(callId);
-    },
-    onAcceptAll: (docPath) => {
-      if (isChatTarget(docPath)) pendingEdits.acceptAll();
-    },
-    onRejectAll: (docPath) => {
-      if (isChatTarget(docPath)) pendingEdits.rejectAll();
-    },
+    // Every open tab in this window receives the chat's events, and with one
+    // chat window serving several files they are NOT all for this tab.
+    // Matching on the path the chat addressed is exact whenever the document
+    // has one; an unsaved draft has no path to match, so the active tab (the
+    // only one the chat could have been showing) stands in. The hook applies
+    // this before dispatching any doc-scoped handler below, so none of them
+    // can forget the check.
+    isTarget: (docPath) =>
+      docPath !== null ? docPath === filePathRef.current : isActiveRef.current,
+    onProposals: (proposals) =>
+      pendingEdits.showPreviews(proposals, sentSelection.current),
+    onAccept: pendingEdits.accept,
+    onReject: pendingEdits.reject,
+    onAcceptAll: pendingEdits.acceptAll,
+    onRejectAll: pendingEdits.rejectAll,
     // A send is about to go out and needs the document as it reads NOW - not
     // as it read when the selection last changed. Forced: the selection is
     // usually unchanged, but the document almost certainly isn't.
@@ -473,14 +459,7 @@ export function MilkdownEditor({
     // rather than dropping the exchange. Reopening the full conversation is
     // the same explicit detach step as any other Quick Ask.
     onReembed: (conversationId, turns) => {
-      if (turns.length > 0)
-        conversation.restore({
-          id: conversationId,
-          docPath: filePathRef.current,
-          title: "",
-          updatedAt: Date.now(),
-          turns,
-        });
+      if (turns.length > 0) conversation.restore(conversationId, turns);
       inlineChat.open();
     },
   });
@@ -516,6 +495,24 @@ export function MilkdownEditor({
   );
   const pushLiveContext = useCallback(() => {
     if (!detachedChatLabel || !isActiveRef.current) return;
+    // The guard runs BEFORE any serialization: selectionUpdated fires on
+    // every transaction, so this path also runs per keystroke - and typing
+    // replaces the doc, which is exactly when the document cache inside
+    // readChatContext misses. The plain-text selection and the path are all
+    // the guard needs, and both are cheap reads.
+    const selection = run((ctx) => {
+      const { state } = ctx.get(editorViewCtx);
+      return state.selection.empty
+        ? ""
+        : state.doc.textBetween(state.selection.from, state.selection.to, " ");
+    });
+    if (
+      selection === undefined ||
+      (pushed.current?.selection === selection &&
+        pushed.current.docPath === filePathRef.current)
+    ) {
+      return;
+    }
     const live = readChatContext(
       run,
       filePathRef.current,
@@ -523,13 +520,6 @@ export function MilkdownEditor({
       getCurrentWindow().label,
     );
     if (!live) return;
-    const selection = live.context.selectedText ?? "";
-    if (
-      pushed.current?.selection === selection &&
-      pushed.current.docPath === live.context.docPath
-    ) {
-      return;
-    }
     pushed.current = { selection, docPath: live.context.docPath };
     // Remembered here, not derived later: this is the selection the chat was
     // actually shown, and a replace_selection proposal coming back is checked
@@ -790,7 +780,7 @@ export function MilkdownEditor({
     if (!isOnScreen()) return;
     const entry = (e as CustomEvent<ChatHistoryEntry>).detail;
     if (!entry || !Array.isArray(entry.turns)) return;
-    conversation.restore(entry);
+    conversation.restore(entry.id, entry.turns);
     inlineChat.open();
   });
 

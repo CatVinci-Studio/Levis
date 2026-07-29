@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  conversationTitle,
-  saveConversation,
-  type ChatHistoryEntry,
-} from "./chat-history";
+import { conversationTitle, saveConversation } from "./chat-history";
 import type { AgentTurn, ImageAttachment } from "./types";
 import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
+import { useLatest } from "../utils/useLatest";
 
 /** What has streamed in so far for the in-flight exchange: completed
  *  intermediate turns (the user's own message, tool calls/results as they
@@ -69,8 +66,7 @@ export function useAgentConversation(
   const [history, setHistory] = useState<AgentTurn[]>([]);
   const [streaming, setStreaming] = useState<StreamingState | null>(null);
   const [busy, setBusy] = useState(false);
-  const onStreamEventRef = useRef(onStreamEvent);
-  onStreamEventRef.current = onStreamEvent;
+  const onStreamEventRef = useLatest(onStreamEvent);
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState<RetryableSend | null>(null);
   // The in-flight request's id, for stop() to cancel by - null when nothing
@@ -201,15 +197,17 @@ export function useAgentConversation(
     return send(retryable.document, retryable.message, retryable.images);
   }
 
-  // Used when leaving mock mode and whenever the ordinary right-click /
-  // shortcut entry point opens a fresh popup. History restoration bypasses
-  // this and explicitly loads the selected conversation instead.
-  function reset() {
+  /** Replaces the live conversation wholesale: cancels anything in flight,
+   *  fences off late responses (generation bump), and clears every piece of
+   *  per-exchange state. The one teardown `reset` and `restore` share, so a
+   *  new step (say, clearing a future draft field) can't land in only one
+   *  of them. */
+  function load(id: string, turns: AgentTurn[]) {
     generationRef.current += 1;
     if (requestIdRef.current) void ai.cancelAgentMessage(requestIdRef.current);
     requestIdRef.current = null;
-    setConversationId(crypto.randomUUID());
-    setHistory([]);
+    setConversationId(id);
+    setHistory(turns);
     setStreaming(null);
     setBusy(false);
     setError(null);
@@ -217,18 +215,20 @@ export function useAgentConversation(
     mockTainted.current = !!mockReply;
   }
 
-  /** Restores a saved conversation as the live one - sending continues it. */
-  function restore(entry: ChatHistoryEntry) {
-    generationRef.current += 1;
-    if (requestIdRef.current) void ai.cancelAgentMessage(requestIdRef.current);
-    requestIdRef.current = null;
-    setConversationId(entry.id);
-    setHistory(entry.turns);
-    setStreaming(null);
-    setBusy(false);
-    setError(null);
-    setRetryable(null);
-    mockTainted.current = !!mockReply;
+  // Used when leaving mock mode and whenever the ordinary right-click /
+  // shortcut entry point opens a fresh popup. History restoration bypasses
+  // this and explicitly loads the selected conversation instead.
+  function reset() {
+    load(crypto.randomUUID(), []);
+  }
+
+  /** Restores a saved (or handed-over) conversation as the live one -
+   *  sending continues it. Takes the id/turns pair rather than a full
+   *  ChatHistoryEntry because two of the three callers are surface hops
+   *  (detach handoff, window re-embed) that have no entry - they'd have to
+   *  fabricate display-only fields restore never read. */
+  function restore(id: string, turns: AgentTurn[]) {
+    load(id, turns);
   }
 
   return {

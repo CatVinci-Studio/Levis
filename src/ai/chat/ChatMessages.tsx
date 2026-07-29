@@ -94,19 +94,18 @@ export function ChatMessages({
     [history, streamingTurns],
   );
 
-  // propose_edit calls render as proposal cards; their paired tool results
-  // are backend->model bookkeeping and would only add noise.
-  const proposalCallIds = useMemo(
-    () =>
-      new Set(
-        shown.flatMap((turn) =>
-          turn.kind === "ToolCall" && turn.name === "propose_edit"
-            ? [turn.call_id]
-            : [],
-        ),
-      ),
-    [shown],
-  );
+  // propose_edit calls render as proposal cards (parsed here once per
+  // turn-list change, NOT per render - streaming deltas re-render this
+  // component many times a second and JSON.parse of a full edit per card
+  // per delta added up); their paired tool results are backend->model
+  // bookkeeping and would only add noise.
+  const parsedProposals = useMemo(() => {
+    const map = new Map<string, EditProposal | null>();
+    for (const turn of shown)
+      if (turn.kind === "ToolCall" && turn.name === "propose_edit")
+        map.set(turn.call_id, parseProposal(turn.arguments));
+    return map;
+  }, [shown]);
 
   return (
     <>
@@ -120,7 +119,7 @@ export function ChatMessages({
             } as CSSProperties)
           : undefined;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
-          const proposal = parseProposal(turn.arguments);
+          const proposal = parsedProposals.get(turn.call_id);
           if (!proposal)
             return <AgentTurnView key={i} turn={turn} labels={labels} />;
           const status = proposalStatus(turn.call_id);
@@ -182,7 +181,7 @@ export function ChatMessages({
             </div>
           );
         }
-        if (turn.kind === "ToolResult" && proposalCallIds.has(turn.call_id))
+        if (turn.kind === "ToolResult" && parsedProposals.has(turn.call_id))
           return null;
         return (
           <div
@@ -203,29 +202,57 @@ export function ChatMessages({
         </div>
       )}
       {busy && !streaming?.text && (
-        <div className="agent-thinking">
-          <span className="agent-thinking-label">{labels.thinking}</span>
-          <span className="agent-thinking-dots">
-            <span />
-            <span />
-            <span />
-          </span>
-        </div>
+        <ThinkingIndicator label={labels.thinking} />
       )}
       {error && (
-        <div className="agent-error">
-          {error}
-          {canRetry && (
-            <button
-              className="inline-chat-action agent-error-retry"
-              onClick={onRetry}
-            >
-              {labels.retry}
-            </button>
-          )}
-        </div>
+        <ErrorRow
+          error={error}
+          retryLabel={labels.retry}
+          onRetry={canRetry ? onRetry : null}
+        />
       )}
     </>
+  );
+}
+
+/** The three-dot "thinking" row. Shared with ChatBody's quick variant so the
+ *  two chat surfaces can't drift on this markup. */
+export function ThinkingIndicator({ label }: { label: string }) {
+  return (
+    <div className="agent-thinking">
+      <span className="agent-thinking-label">{label}</span>
+      <span className="agent-thinking-dots">
+        <span />
+        <span />
+        <span />
+      </span>
+    </div>
+  );
+}
+
+/** The error row, with a retry button when the failed send is resendable
+ *  (`onRetry` null otherwise). Shared with ChatBody's quick variant. */
+export function ErrorRow({
+  error,
+  retryLabel,
+  onRetry,
+}: {
+  error: string;
+  retryLabel: string;
+  onRetry: (() => void) | null;
+}) {
+  return (
+    <div className="agent-error">
+      {error}
+      {onRetry && (
+        <button
+          className="inline-chat-action agent-error-retry"
+          onClick={onRetry}
+        >
+          {retryLabel}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -274,7 +301,9 @@ function ProposalDiff({
     if (defaultExpanded) setExpanded(true);
   }, [defaultExpanded]);
 
-  const lines = diffLines(before, after);
+  // Memoized because this re-renders on every streaming delta while a later
+  // turn is still arriving, and the LCS diff is up to 400x400 lines.
+  const lines = useMemo(() => diffLines(before, after), [before, after]);
   const added = lines.filter((line) => line.kind === "add").length;
   const removed = lines.filter((line) => line.kind === "remove").length;
 

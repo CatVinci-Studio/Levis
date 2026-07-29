@@ -1,12 +1,6 @@
 import { editorViewCtx } from "@milkdown/kit/core";
-import type { Ctx } from "@milkdown/kit/ctx";
-import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorRunner } from "../../editor/useEditorRunner";
-import {
-  documentMarkdown,
-  readSelection,
-  serializeBlocks,
-} from "../doc-markdown";
+import { cachedDocumentMarkdown, readSelection } from "../doc-markdown";
 import type { SelectionTarget } from "../usePendingEdits";
 import type { ChatContext } from "./chat-bridge";
 
@@ -34,26 +28,6 @@ export interface LiveEditorState {
    *  coming back from the chat targets, so it has to be remembered here at
    *  the moment the selection is sent. */
   selection: SelectionTarget;
-}
-
-/**
- * The document's markdown, cached against the ProseMirror doc it came from.
- *
- * ProseMirror documents are immutable, so `doc === lastDoc` is an O(1) exact
- * test for "nothing to re-serialize" - and during the gesture this whole
- * feature exists for, drag-selecting a passage, the document does not change
- * at all while the selection changes on every mousemove. Without the cache
- * each of those re-ran the serializer once per top-level block. A WeakMap so
- * a superseded doc is collectable the moment nothing else holds it.
- */
-const documentCache = new WeakMap<ProseNode, string>();
-
-function cachedDocumentMarkdown(ctx: Ctx, doc: ProseNode): string {
-  const cached = documentCache.get(doc);
-  if (cached !== undefined) return cached;
-  const markdown = documentMarkdown(serializeBlocks(ctx, doc));
-  documentCache.set(doc, markdown);
-  return markdown;
 }
 
 export function readChatContext(

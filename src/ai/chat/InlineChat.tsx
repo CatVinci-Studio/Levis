@@ -148,11 +148,13 @@ export function InlineChat({
           onEscape={confirm.requestClose}
           variant="quick"
           onExpand={onDetach}
-          focusIndex={focusIndex}
-          onFocusNext={onFocusNext}
-          onFocusPrevious={onFocusPrevious}
-          onAcceptFocused={onAcceptFocused}
-          onRejectFocused={onRejectFocused}
+          quickReview={{
+            focusIndex,
+            onFocusNext,
+            onFocusPrevious,
+            onAcceptFocused,
+            onRejectFocused,
+          }}
           footer={
             confirm.confirming && (
               <CloseConfirmBar

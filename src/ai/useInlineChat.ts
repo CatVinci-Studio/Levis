@@ -1,12 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import {
-  documentMarkdown,
-  readSelection,
-  serializeBlocks,
-} from "./doc-markdown";
+import { cachedDocumentMarkdown, readSelection } from "./doc-markdown";
 import type { EditorRunner } from "../editor/useEditorRunner";
+import { useLatest } from "../utils/useLatest";
 
 /** The document position right after the top-level block containing `pos` -
  *  where the Quick Ask zone widget goes (quick-ask-widget-plugin), both when
@@ -59,38 +56,28 @@ export function useInlineChat(run: EditorRunner) {
   const [visible, setVisible] = useState(false);
   // Read from callbacks registered once (the detached-chat bridge), which
   // would otherwise close over a stale chatInfo.
-  const chatInfoRef = useRef<InlineChatInfo | null>(null);
-  chatInfoRef.current = chatInfo;
-
-  const openWith = useCallback(
-    (
-      next: (
-        prev: InlineChatInfo | null,
-        computed: InlineChatInfo,
-      ) => InlineChatInfo | null,
-    ) => {
-      run((ctx) => {
-        const view = ctx.get(editorViewCtx);
-        setChatInfo((prev) => {
-          const { selection } = view.state;
-          return next(prev, {
-            document: documentMarkdown(serializeBlocks(ctx, view.state.doc)),
-            ...readSelection(ctx, view.state),
-            anchor: selection.from,
-            widgetPos: blockPositionAfter(view.state.doc, selection.to),
-          });
-        });
-      });
-    },
-    [run],
-  );
+  const chatInfoRef = useLatest(chatInfo);
 
   /** Opens the bar (or keeps it open). The caller decides whether this is a
-   *  fresh conversation or a restored history entry before opening. */
+   *  fresh conversation or a restored history entry before opening. An
+   *  already-open panel keeps its snapshot - `prev` short-circuits before
+   *  any serialization happens. */
   const open = useCallback(() => {
     setVisible(true);
-    openWith((prev, computed) => prev ?? computed);
-  }, [openWith]);
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      setChatInfo((prev) => {
+        if (prev) return prev;
+        const { selection } = view.state;
+        return {
+          document: cachedDocumentMarkdown(ctx, view.state.doc),
+          ...readSelection(ctx, view.state),
+          anchor: selection.from,
+          widgetPos: blockPositionAfter(view.state.doc, selection.to),
+        };
+      });
+    });
+  }, [run]);
 
   /** Panel off, context kept - what detaching into a window does. */
   const hide = useCallback(() => setVisible(false), []);

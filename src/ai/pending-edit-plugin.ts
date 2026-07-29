@@ -459,14 +459,36 @@ export function createPendingEditPlugin(options: {
                 : { previews: [], decoration: DecorationSet.empty };
             }
             if (tr.docChanged && prev.previews.length > 0) {
+              let changed = false;
               const survivors: PendingPreview[] = [];
               for (const p of prev.previews) {
                 const from = tr.mapping.map(p.from, -1);
                 const to = tr.mapping.map(p.to, 1);
-                if (from > to) continue;
-                if (tr.doc.textBetween(from, to, " ") !== p.expectedText)
+                if (
+                  from > to ||
+                  tr.doc.textBetween(from, to, " ") !== p.expectedText
+                ) {
+                  changed = true;
                   continue;
-                survivors.push({ ...p, from, to });
+                }
+                if (from !== p.from || to !== p.to) changed = true;
+                survivors.push(
+                  from === p.from && to === p.to ? p : { ...p, from, to },
+                );
+              }
+              if (!changed) {
+                // Typing below the last pending edit - the common case while
+                // a preview sits mid-document. Keeping the ARRAY's identity
+                // is what stops view.update's `previews !== last` check from
+                // re-notifying React (and, downstream, re-emitting the
+                // statuses IPC push) on every keystroke; mapping the
+                // existing DecorationSet instead of rebuilding it is the
+                // same pattern chat-selection-plugin and
+                // quick-ask-widget-plugin use.
+                return {
+                  previews: prev.previews,
+                  decoration: prev.decoration.map(tr.mapping, tr.doc),
+                };
               }
               dropRemovedAnimations(prev.previews, survivors);
               return {

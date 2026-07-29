@@ -7,7 +7,12 @@ import type {
   EditProposal,
   ImageAttachment,
 } from "../types";
-import { ChatMessages, type ChatMessagesLabels } from "./ChatMessages";
+import {
+  ChatMessages,
+  ErrorRow,
+  ThinkingIndicator,
+  type ChatMessagesLabels,
+} from "./ChatMessages";
 import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
 import {
   QuickAskPendingBar,
@@ -86,12 +91,20 @@ export interface ChatBodyProps {
   /** Quick variant only: opens the full conversation (detach to a window). */
   onExpand?: () => void;
   /** Quick variant only: the "review one at a time" nav bar's state/actions
-   *  (usePendingEdits' focus* API) - required whenever `variant === "quick"`. */
-  focusIndex?: number;
-  onFocusNext?: () => void;
-  onFocusPrevious?: () => void;
-  onAcceptFocused?: () => void;
-  onRejectFocused?: () => void;
+   *  (usePendingEdits' focus* API), as one required-together object -
+   *  without it the quick variant renders no pending bar at all, rather
+   *  than a bar whose buttons silently do nothing. */
+  quickReview?: QuickReview;
+}
+
+/** The Quick Ask nav bar's whole contract - see ChatBodyProps.quickReview. */
+export interface QuickReview {
+  /** 0-based position of the currently focused edit, or -1 if none. */
+  focusIndex: number;
+  onFocusNext: () => void;
+  onFocusPrevious: () => void;
+  onAcceptFocused: () => void;
+  onRejectFocused: () => void;
 }
 
 /**
@@ -140,11 +153,7 @@ export function ChatBody({
   refreshContext,
   onExpand,
   onRevealPending,
-  focusIndex = -1,
-  onFocusNext,
-  onFocusPrevious,
-  onAcceptFocused,
-  onRejectFocused,
+  quickReview,
 }: ChatBodyProps) {
   const { history, streaming, busy, error, retryable, send, stop, retry } =
     conversation;
@@ -298,17 +307,11 @@ export function ChatBody({
         ? (busy || error || summaryText) && (
             <div className="quick-ask-status">
               {error && (
-                <div className="agent-error">
-                  {error}
-                  {retryable && (
-                    <button
-                      className="inline-chat-action agent-error-retry"
-                      onClick={handleRetry}
-                    >
-                      {labels.retry}
-                    </button>
-                  )}
-                </div>
+                <ErrorRow
+                  error={error}
+                  retryLabel={labels.retry}
+                  onRetry={retryable ? handleRetry : null}
+                />
               )}
               {!error && summaryText && (
                 <div className="quick-ask-summary-row">
@@ -324,16 +327,7 @@ export function ChatBody({
                 </div>
               )}
               {!error && busy && !summaryText && (
-                <div className="agent-thinking">
-                  <span className="agent-thinking-label">
-                    {labels.thinking}
-                  </span>
-                  <span className="agent-thinking-dots">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </div>
+                <ThinkingIndicator label={labels.thinking} />
               )}
             </div>
           )
@@ -355,43 +349,43 @@ export function ChatBody({
               />
             </div>
           )}
-      {variant === "quick" ? (
-        <QuickAskPendingBar
-          total={pendingCount}
-          focusIndex={focusIndex}
-          onFocusNext={onFocusNext ?? (() => {})}
-          onFocusPrevious={onFocusPrevious ?? (() => {})}
-          onAcceptFocused={onAcceptFocused ?? (() => {})}
-          onRejectFocused={onRejectFocused ?? (() => {})}
-          onAcceptAll={onAcceptAll}
-          onRejectAll={onRejectAll}
-          labels={labels}
-        />
-      ) : (
-        pendingCount > 0 && (
-          <div className="inline-chat-pending-bar">
-            <span className="inline-chat-pending-count">
-              {labels.pendingSummary.replace("{n}", String(pendingCount))}
-            </span>
-            <div className="inline-chat-pending-actions">
-              {onRevealPending && (
-                <button
-                  className="inline-chat-action"
-                  onClick={onRevealPending}
-                >
-                  {labels.pendingReveal}
+      {variant === "quick"
+        ? quickReview && (
+            <QuickAskPendingBar
+              total={pendingCount}
+              focusIndex={quickReview.focusIndex}
+              onFocusNext={quickReview.onFocusNext}
+              onFocusPrevious={quickReview.onFocusPrevious}
+              onAcceptFocused={quickReview.onAcceptFocused}
+              onRejectFocused={quickReview.onRejectFocused}
+              onAcceptAll={onAcceptAll}
+              onRejectAll={onRejectAll}
+              labels={labels}
+            />
+          )
+        : pendingCount > 0 && (
+            <div className="inline-chat-pending-bar">
+              <span className="inline-chat-pending-count">
+                {labels.pendingSummary.replace("{n}", String(pendingCount))}
+              </span>
+              <div className="inline-chat-pending-actions">
+                {onRevealPending && (
+                  <button
+                    className="inline-chat-action"
+                    onClick={onRevealPending}
+                  >
+                    {labels.pendingReveal}
+                  </button>
+                )}
+                <button className="inline-chat-action" onClick={onAcceptAll}>
+                  {labels.proposalAcceptAll}
                 </button>
-              )}
-              <button className="inline-chat-action" onClick={onAcceptAll}>
-                {labels.proposalAcceptAll}
-              </button>
-              <button className="inline-chat-action" onClick={onRejectAll}>
-                {labels.proposalRejectAll}
-              </button>
+                <button className="inline-chat-action" onClick={onRejectAll}>
+                  {labels.proposalRejectAll}
+                </button>
+              </div>
             </div>
-          </div>
-        )
-      )}
+          )}
       <ChatComposer
         docPath={docPath}
         workspaceRoot={workspaceRoot}
