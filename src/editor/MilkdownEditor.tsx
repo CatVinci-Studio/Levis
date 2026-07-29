@@ -14,6 +14,7 @@ import {
   commandsCtx,
   editorViewCtx,
   editorViewOptionsCtx,
+  remarkStringifyOptionsCtx,
   type CmdKey,
 } from "@milkdown/kit/core";
 import {
@@ -104,6 +105,26 @@ import "katex/dist/katex.min.css";
 import "./milkdown-theme.css";
 import "./content-themes.css";
 
+/**
+ * Serializes a thematic break as "---", except as the document's very first
+ * block, where it stays "***".
+ *
+ * A leading "---" is the frontmatter OPENING fence: remark-frontmatter
+ * (frontmatter-schema.ts) would then take the next "---" in the file as the
+ * closing one and swallow everything between them into a YAML block the next
+ * time the file is opened. remark-frontmatter does register an unsafe pattern
+ * against exactly this, but mdast-util-to-markdown never runs a thematic
+ * break through its escaping - the handler's return value is used verbatim -
+ * so the one ambiguous position has to avoid the dash form itself.
+ */
+function thematicBreakRule(
+  node: unknown,
+  parent: { type: string; children: unknown[] } | undefined,
+): string {
+  const isFirstBlock = parent?.type === "root" && parent.children[0] === node;
+  return isFirstBlock ? "***" : "---";
+}
+
 interface MilkdownEditorProps {
   filePath: string | null;
   initialValue: string;
@@ -190,6 +211,14 @@ export function MilkdownEditor({
               ? {}
               : { style: `--levis-ol-start: ${order - 1}` };
           });
+          // Thematic breaks are written as "---" (remark-stringify's default
+          // is "***"). `update`, not `set`: the slice already carries
+          // Milkdown's own text/strong/emphasis handlers, and replacing it
+          // wholesale would drop them.
+          ctx.update(remarkStringifyOptionsCtx, (options) => ({
+            ...options,
+            handlers: { ...options.handlers, thematicBreak: thematicBreakRule },
+          }));
           ctx
             .get(listenerCtx)
             .markdownUpdated((_ctx, markdown) => onChange(markdown))
