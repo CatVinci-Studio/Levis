@@ -164,8 +164,14 @@ pub(crate) fn rebuild_recent_menu(app: &tauri::AppHandle, list: Vec<String>) {
 /// Build and set the whole menu bar, then register the id -> event dispatch.
 /// Called once from setup.
 pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
+    // Accelerators below are written "CmdOrCtrl+X", never "Cmd+X". They read
+    // the same on macOS - both parse to ⌘ - but muda maps a bare CMD to
+    // SUPER, which on Windows is the WINDOWS key. That silently handed our
+    // shortcuts to the OS: Cmd+P became Win+P (the projection panel),
+    // Cmd+Shift+S became Win+Shift+S (the screenshot tool), and none of them
+    // ever reached the app.
     let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "Settings…")
-        .accelerator("Cmd+,")
+        .accelerator("CmdOrCtrl+,")
         .build(app)?;
 
     // Custom Quit instead of the predefined one: quitting must give
@@ -173,38 +179,39 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
     // so it goes through each window's normal close request rather
     // than exiting the process outright.
     let quit_item = MenuItemBuilder::with_id(QUIT_ID, format!("Quit {}", app_identity::APP_NAME))
-        .accelerator("Cmd+Q")
+        .accelerator("CmdOrCtrl+Q")
         .build(app)?;
 
-    let app_menu = SubmenuBuilder::new(app, app_identity::APP_NAME)
-        .about(None)
-        .separator()
-        .item(&settings_item)
-        .separator()
-        .hide()
-        .hide_others()
-        .show_all()
-        .separator()
-        .item(&quit_item)
-        .build()?;
+    let app_menu = {
+        let builder = SubmenuBuilder::new(app, app_identity::APP_NAME)
+            .about(None)
+            .separator()
+            .item(&settings_item);
+        // Hide / Hide Others / Show All are macOS application-menu concepts.
+        // muda still renders them elsewhere, so on Windows they were three
+        // entries that did nothing when clicked.
+        #[cfg(target_os = "macos")]
+        let builder = builder.separator().hide().hide_others().show_all();
+        builder.separator().item(&quit_item).build()?
+    };
 
     let new_file_item = MenuItemBuilder::with_id(NEW_FILE_ID, "New File")
-        .accelerator("Cmd+N")
+        .accelerator("CmdOrCtrl+N")
         .build(app)?;
     let open_file_item = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…")
-        .accelerator("Cmd+O")
+        .accelerator("CmdOrCtrl+O")
         .build(app)?;
     // Built empty here; rebuild_recent_menu below fills it from the
     // persisted list and keeps it current as files are opened.
     let open_recent_menu = SubmenuBuilder::new(app, "Open Recent").build()?;
     let save_file_item = MenuItemBuilder::with_id(SAVE_FILE_ID, "Save")
-        .accelerator("Cmd+S")
+        .accelerator("CmdOrCtrl+S")
         .build(app)?;
     let save_file_as_item = MenuItemBuilder::with_id(SAVE_FILE_AS_ID, "Save As…")
-        .accelerator("Cmd+Shift+S")
+        .accelerator("CmdOrCtrl+Shift+S")
         .build(app)?;
     let export_pdf_item = MenuItemBuilder::with_id(EXPORT_PDF_ID, "PDF…")
-        .accelerator("Cmd+P")
+        .accelerator("CmdOrCtrl+P")
         .build(app)?;
     let export_html_item = MenuItemBuilder::with_id(EXPORT_HTML_ID, "HTML…").build(app)?;
     let mut export_menu_builder = SubmenuBuilder::new(app, "Export")
@@ -233,7 +240,7 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
     // Cmd+W closes the current tab (not the window - see
     // CLOSE_WINDOW_ID below, which owns Cmd+Shift+W instead).
     let close_tab_item = MenuItemBuilder::with_id(CLOSE_TAB_ID, "Close Tab")
-        .accelerator("Cmd+W")
+        .accelerator("CmdOrCtrl+W")
         .build(app)?;
 
     let file_menu = SubmenuBuilder::new(app, "File")
@@ -317,13 +324,13 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
     // native accelerators. Zoom itself is applied by the frontend
     // (utils/useZoom.ts), which also handles pinch and mod+wheel.
     let zoom_in_item = MenuItemBuilder::with_id(ZOOM_IN_ID, "Zoom In")
-        .accelerator("Cmd+=")
+        .accelerator("CmdOrCtrl+=")
         .build(app)?;
     let zoom_out_item = MenuItemBuilder::with_id(ZOOM_OUT_ID, "Zoom Out")
-        .accelerator("Cmd+-")
+        .accelerator("CmdOrCtrl+-")
         .build(app)?;
     let zoom_reset_item = MenuItemBuilder::with_id(ZOOM_RESET_ID, "Actual Size")
-        .accelerator("Cmd+0")
+        .accelerator("CmdOrCtrl+0")
         .build(app)?;
 
     let view_menu = SubmenuBuilder::new(app, "View")
@@ -339,25 +346,29 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
 
     let new_window_item = MenuItemBuilder::with_id(NEW_WINDOW_ID, "New Window")
-        .accelerator("Cmd+T")
+        .accelerator("CmdOrCtrl+T")
         .build(app)?;
     // Built manually (not the .close_window() predefined item) so it
     // doesn't own the OS-default Cmd+W accelerator - that's Close
     // Tab's now (see CLOSE_TAB_ID above).
     let close_window_item = MenuItemBuilder::with_id(CLOSE_WINDOW_ID, "Close Window")
-        .accelerator("Cmd+Shift+W")
+        .accelerator("CmdOrCtrl+Shift+W")
         .build(app)?;
 
-    let window_menu = SubmenuBuilder::new(app, "Window")
-        .item(&new_window_item)
-        .separator()
-        .minimize()
-        .maximize()
-        .separator()
-        .item(&close_window_item)
-        .separator()
-        .bring_all_to_front()
-        .build()?;
+    let window_menu = {
+        let builder = SubmenuBuilder::new(app, "Window")
+            .item(&new_window_item)
+            .separator()
+            .minimize()
+            .maximize()
+            .separator()
+            .item(&close_window_item);
+        // Same story as Hide/Show All above: "Bring All to Front" is an
+        // NSApplication command with no Windows counterpart.
+        #[cfg(target_os = "macos")]
+        let builder = builder.separator().bring_all_to_front();
+        builder.build()?
+    };
 
     let help_menu = SubmenuBuilder::new(app, "Help")
         .text(format!("{HELP_DOC_PREFIX}welcome"), "Welcome and Tutorial")
