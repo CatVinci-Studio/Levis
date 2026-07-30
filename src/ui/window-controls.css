@@ -1,0 +1,68 @@
+/* The app-drawn window caption. Only ever on screen where the OS frame is
+   gone (Windows - see ui/window-chrome.ts); on macOS these components render
+   null and none of this applies.
+
+   Sized and spaced to Windows' own caption rather than to this app's icon
+   buttons: a 46x28 hit area per glyph, no rounding, no gap. Next to the
+   system's other windows a rounded, inset close button reads as a page
+   control that happens to say X, not as the window's close button. */
+
+.window-caption {
+  display: flex;
+  align-items: stretch;
+  /* The rows these sit in centre their items; the caption has to fill the
+     row's full height instead, or the hit areas end up a glyph tall. */
+  align-self: stretch;
+  flex-shrink: 0;
+  /* Cancels .window-bar's right padding so the buttons run to the very edge
+     of the window, which is where the pointer throws itself at them. */
+  margin-right: -12px;
+  /* The bar is the drag region; the buttons must take their own clicks back
+     (.window-bar-status next to them deliberately does not). */
+  pointer-events: auto;
+}
+
+.window-caption-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  align-self: stretch;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--editor-text);
+  opacity: 0.75;
+  cursor: default;
+}
+
+.window-caption-button:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--editor-text) 12%, transparent);
+}
+
+.window-caption-button:active {
+  background: color-mix(in srgb, var(--editor-text) 20%, transparent);
+}
+
+/* Close is the one caption button Windows colours, and the one where hitting
+   it by accident costs the most - it gets the platform's red rather than the
+   theme's accent so it reads the same as every other window on the desktop. */
+.window-caption-close:hover,
+.window-caption-close:active {
+  background: #c42b1c;
+  color: #fff;
+  opacity: 1;
+}
+
+/* The menu button sits at the LEFT end of the same row, where the traffic
+   lights would be on macOS - so the inset that row reserves for them is not
+   wasted, it just holds something else. Narrower than a caption button: it
+   is one of ours, not one of the system's. */
+.window-menu-button {
+  width: 34px;
+  margin-left: -8px;
+  color: var(--editor-muted);
+  pointer-events: auto;
+}

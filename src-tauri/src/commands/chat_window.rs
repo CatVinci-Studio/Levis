@@ -234,9 +234,7 @@ pub fn detach_chat_window(
     // Same chrome as the editor windows: the app draws its own top row rather
     // than sitting under a native title bar with a second row of ours beneath
     // it - on a 420px-wide panel that second row was most of the chrome.
-    crate::with_app_chrome(builder, position)
-        .build()
-        .map_err(|err| err.to_string())?;
+    crate::build_with_app_chrome(builder, position).map_err(|err| err.to_string())?;
     notify_chat_windows_changed(&app);
     Ok(label)
 }

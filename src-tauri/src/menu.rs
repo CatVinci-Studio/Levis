@@ -108,8 +108,42 @@ pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
 /// rebuild its entries at runtime without touching the rest of the menu.
 struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
 
+/// Drops the whole menu bar open as a popup, anchored at `x`/`y` (logical
+/// points from the window's top-left - i.e. under the button that called).
+///
+/// This is how the menu is reached on Windows, where the app draws its own
+/// title row and `hide_native_menu_bar` takes the native menu bar away with
+/// the frame (see lib.rs). Popping the SAME `Menu` the rest of this file
+/// builds is the whole point: every id, label and handler below keeps
+/// working, with no second copy of the menu in HTML to drift from it. The
+/// frontend only calls this where it draws the button (see
+/// src/ui/window-chrome.ts).
+///
+/// `command(async)` for the same reason detach_chat_window is: Windows runs a
+/// popup menu on a modal TrackPopupMenu loop, and starting one from inside
+/// the calling webview's own IPC callback is the re-entrancy that hangs.
+#[tauri::command(async)]
+pub fn popup_app_menu(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    x: f64,
+    y: f64,
+) -> Result<(), String> {
+    let Some(menu) = app.menu() else {
+        return Ok(());
+    };
+    window
+        .popup_menu_at(&menu, tauri::LogicalPosition::new(x, y))
+        .map_err(|err| err.to_string())
+}
+
 fn abbreviate_home(path: &str) -> String {
-    if let Ok(home) = std::env::var("HOME") {
+    // Windows has no HOME; without USERPROFILE every recent file there shows
+    // its full C:\Users\... prefix and the submenu is unreadable.
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .ok();
+    if let Some(home) = home {
         if let Some(rest) = path.strip_prefix(&home) {
             return format!("~{rest}");
         }

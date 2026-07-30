@@ -32,6 +32,12 @@
   padding: 0 6px;
 }
 
+/* This row's padding is 6px, not the editor bar's 12px, so the caption's
+   edge-to-edge offset has to be re-cancelled to match. */
+:root[data-window-chrome="app"] .chat-window-header .window-caption {
+  margin-right: -6px;
+}
+
 .chat-window-doc {
   min-width: 0;
   overflow: hidden;
@@ -93,12 +99,16 @@
   border-top: 1px solid var(--editor-border);
 }
 
+/* Both now sit UNDER the header rather than replacing the whole window (the
+   header carries the only close button this window has on Windows), so they
+   take the space left over instead of the full viewport. */
 .chat-window-loading,
 .chat-window-lost {
   display: flex;
+  flex: 1;
+  min-height: 0;
   align-items: center;
   justify-content: center;
-  height: 100vh;
   padding: 24px;
   text-align: center;
   font-size: 13px;

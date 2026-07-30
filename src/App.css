@@ -134,18 +134,19 @@ body {
   margin-left: -240px;
 }
 
-/* The window's title strip, drawn by the app because the overlay title bar
-   (build_window's TitleBarStyle::Overlay) hides the native one. One strip
-   holding everything that used to float separately up here: the drag region,
-   the filename, and the document's status readouts.
-   
+/* The window's title strip, drawn by the app because the native title bar is
+   either overlaid (macOS) or gone entirely (Windows) - see
+   build_with_app_chrome in src-tauri/src/lib.rs. One strip holding everything
+   that used to float separately up here: the drag region, the filename, and
+   the document's status readouts.
+
    Floats over the content on the theme background. Opacity is the whole
    point: the strip this replaces was fully TRANSPARENT, so text scrolling
    under it stayed perfectly legible and collided with the centered filename.
    Solid, that text simply ends at the strip - and with no content theme
    active the fill matches the editor behind it, so the bar itself reads as
    nothing more than the top margin of the page.
-   
+
    Below every overlay (find bar, popovers) so it never steals their clicks. */
 .window-bar {
   position: fixed;
@@ -157,10 +158,21 @@ body {
   display: flex;
   align-items: center;
   /* Left inset is room for the macOS traffic lights, which float over the
-     top-left corner. Unconditional, as the insets it replaces were - on
-     Windows/Linux it reads as breathing room before the title. */
+     top-left corner. */
   padding: 0 12px 0 78px;
   background: var(--bg);
+}
+
+/* Where the app owns the whole frame (Windows - main.tsx sets the attribute
+   from ui/window-chrome.ts), that left inset holds no traffic lights: the
+   menu button takes it, and the caption buttons take the right edge. Both
+   are flush to the window edge, so the row's own padding gets out of their
+   way and the components cancel what's left with a negative margin. The
+   HEIGHT deliberately does not change - .tab-bar and .sidebar-header clear
+   this bar with hardcoded offsets, and one row of chrome at one height on
+   both platforms is the point of the exercise. */
+:root[data-window-chrome="app"] .window-bar {
+  padding: 0 12px 0 12px;
 }
 
 /* Centered on the WINDOW (not on the space left over after the traffic-light
@@ -179,6 +191,13 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Same centring, but bounded so it can never slide under the caption buttons
+   the app draws on the right (3 x 46px) - the title is positioned on the
+   window, so on a narrow window it would otherwise run straight into them. */
+:root[data-window-chrome="app"] .window-bar-title {
+  max-width: max(0px, calc(100% - 300px));
 }
 
 .window-bar-status {

@@ -161,26 +161,67 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     }
 }
 
-/// Places a window and gives it this app's chrome: the overlay title bar,
-/// where the macOS traffic lights float over the content and the app draws
-/// its own top row. Shared by editor windows and the detached chat window so
-/// the platform cfg lives in exactly one place - the two used to carry
-/// byte-identical copies of it.
-pub(crate) fn with_app_chrome(
+/// Places a window, gives it this app's chrome, and builds it. Shared by
+/// editor windows and the detached chat window so the platform cfgs live in
+/// exactly one place - the two used to carry byte-identical copies of them.
+///
+/// The chrome is the same idea on both platforms - ONE top row, drawn by the
+/// app (src/App.tsx's `.window-bar`) - but the platforms reach it from
+/// opposite directions:
+///
+/// - macOS has a style for exactly this: an overlay title bar keeps the
+///   window's native behaviour while letting the traffic lights float over
+///   our own row.
+/// - Windows has no equivalent, so the only way to stop stacking a native
+///   title bar AND a native menu bar AND our row is to drop the native frame
+///   entirely and draw the caption ourselves (src/ui/WindowControls.tsx).
+///   tao keeps WS_SIZEBOX on undecorated windows and hit-tests the border in
+///   its own WM_NCHITTEST, so edge resizing, Aero snap and Win+Arrow all
+///   still work - only the painted frame is gone.
+///
+/// The one window that never comes through here is the one tauri.conf.json
+/// declares; `decorations: false` is set for it in tauri.windows.conf.json,
+/// which Tauri merges over the base config on that target only.
+pub(crate) fn build_with_app_chrome(
     builder: WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle>,
     position: Option<(f64, f64)>,
-) -> WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle> {
+) -> tauri::Result<tauri::WebviewWindow> {
     let mut builder = builder;
     if let Some((x, y)) = position {
         builder = builder.position(x, y);
     }
-    // macOS-only API - Linux/Windows don't compile these methods at all, and
-    // keep their native title bar.
+    // macOS-only API - the other platforms don't compile these methods at all.
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true);
-    builder
+    #[cfg(windows)]
+    let builder = builder.decorations(false);
+    let window = builder.build()?;
+    hide_native_menu_bar(&window);
+    Ok(window)
+}
+
+/// Takes the native menu BAR off a window without detaching its menu.
+///
+/// WINDOWS ONLY, and the cfg here has to keep matching `appDrawsWindowFrame`
+/// in src/ui/window-chrome.ts - that flag is what decides whether the
+/// frontend draws the menu button this hides the menu behind. Windows and
+/// Linux both draw the app menu inside the window (macOS has the system menu
+/// bar and ignores this entirely), but only Windows loses its frame here, so
+/// only Windows gets the button. Hiding the bar on Linux too would leave that
+/// build with no way to reach the menu at all.
+///
+/// Hiding rather than removing is the point: `hide_menu` only unsets the
+/// menu bar (muda's `SetMenu(hwnd, null)`) and leaves muda's window subclass
+/// in place, which is what keeps the menu's accelerators firing - Tauri
+/// translates them through a message hook that doesn't care whether the bar
+/// is visible. `remove_menu` would take the accelerators with it.
+pub(crate) fn hide_native_menu_bar(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    let _ = window.hide_menu();
+    #[cfg(not(windows))]
+    let _ = window;
 }
 
 pub(crate) fn build_window(
@@ -191,7 +232,7 @@ pub(crate) fn build_window(
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(app_identity::APP_NAME)
         .inner_size(800.0, 600.0);
-    with_app_chrome(builder, position).build()?;
+    build_with_app_chrome(builder, position)?;
     Ok(())
 }
 
@@ -260,12 +301,23 @@ pub fn run() {
 
             menu::install(app)?;
 
+            // Every window that already exists got its menu bar from the
+            // set_menu inside install() just now, which is AFTER the point
+            // build_with_app_chrome had to hide it: the config window never
+            // goes through that helper at all, and the startup windows
+            // queue_paths_to_open opened above did, back when there was no
+            // menu yet to hide. One sweep here covers both.
+            for (_, window) in app.webview_windows() {
+                hide_native_menu_bar(&window);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             take_pending_open_path,
             take_pending_open_paths,
             take_pending_show_help,
+            menu::popup_app_menu,
             tab_drag::take_detached_tab,
             commands::chat_window::detach_chat_window,
             commands::chat_window::take_chat_handoff,

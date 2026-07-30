@@ -494,6 +494,114 @@ export function ArrowUpIcon({ className }: IconProps) {
   );
 }
 
+/* The window caption, drawn only where the app owns the frame - Windows, see
+   ui/window-chrome.ts. These four deliberately break the 16-unit stroked
+   grid the rest of the set keeps to: Windows caption glyphs are a fixed
+   10x10 hairline shape that every other app on the desktop draws the same
+   way, and a rounder, heavier "house style" close button next to the
+   system's own would read as the wrong control rather than as ours. */
+
+/** The way into the app menu, once the native menu bar is gone. */
+export function HamburgerIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+    >
+      <path
+        d="M1.5 3h9M1.5 6h9M1.5 9h9"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function WindowMinimizeIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+    >
+      <path d="M1 5h8" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+export function WindowMaximizeIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+    >
+      <rect
+        x="1.5"
+        y="1.5"
+        width="7"
+        height="7"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+    </svg>
+  );
+}
+
+/** Maximized state: the two offset squares Windows uses for "restore down". */
+export function WindowRestoreIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+    >
+      <path
+        d="M3 3V1.5h5.5V7H7"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+      <rect
+        x="1.5"
+        y="3.5"
+        width="5.5"
+        height="5"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+    </svg>
+  );
+}
+
+export function WindowCloseIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+    >
+      <path
+        d="M1.5 1.5l7 7M8.5 1.5l-7 7"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+    </svg>
+  );
+}
+
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp"]);
 
 export function fileIconFor(name: string) {

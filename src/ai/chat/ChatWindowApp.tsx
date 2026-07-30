@@ -16,6 +16,7 @@ import {
 } from "./chat-bridge";
 import { windowIpc } from "../../ipc";
 import { PinIcon } from "../../ui/icons";
+import { WindowCaptionButtons } from "../../ui/WindowControls";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
 import { useLatest } from "../../utils/useLatest";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,
@@ -237,33 +238,57 @@ export function ChatWindowApp() {
 
   const labels = useMemo(() => chatLabels(t), [t]);
 
-  if (lost) return <div className="chat-window-lost">{t.chatWindowLost}</div>;
+  // The window's top row, and the only chrome this view draws. It sits where
+  // the title bar would be (see build_with_app_chrome), so it doubles as the
+  // drag handle - without one, a window with no title bar of its own can't be
+  // moved. Content is right-aligned so it clears the traffic lights on macOS
+  // without a hardcoded platform-specific inset.
+  //
+  // On Windows there is no frame at all, so this row also carries the caption
+  // - including the close button, which is what sends the conversation back
+  // to the editor to be re-embedded.
+  //
+  // Rendered in EVERY state below, not just the loaded one. The two fallbacks
+  // used to be bare full-height divs; on Windows that leaves a window with no
+  // drag handle and no close button, so a chat whose handoff never arrived
+  // (or whose editor went away) could not be moved or dismissed at all.
+  const header = (
+    <div className="chat-window-header" data-tauri-drag-region>
+      <span className="chat-window-doc" title={context?.docPath ?? undefined}>
+        {context?.docTitle ?? ""}
+      </span>
+      <button
+        type="button"
+        className={`chat-window-pin ${pinned ? "chat-window-pin-on" : ""}`}
+        aria-pressed={pinned}
+        aria-label={t.chatWindowPin}
+        title={pinned ? t.chatWindowUnpinHint : t.chatWindowPinHint}
+        onClick={() => setSettings({ pinAgentWindow: !pinned })}
+      >
+        <PinIcon />
+      </button>
+      <WindowCaptionButtons />
+    </div>
+  );
+
+  if (lost)
+    return (
+      <div className="chat-window">
+        {header}
+        <div className="chat-window-lost">{t.chatWindowLost}</div>
+      </div>
+    );
   if (!claimed || !context)
-    return <div className="chat-window-loading">{t.agentThinking}</div>;
+    return (
+      <div className="chat-window">
+        {header}
+        <div className="chat-window-loading">{t.agentThinking}</div>
+      </div>
+    );
 
   return (
     <div className="chat-window">
-      {/* The window's top row, and the only chrome this view draws. It sits
-          where the title bar would be (see detach_chat_window's overlay
-          style), so it doubles as the drag handle - without one, a window
-          with hidden title bar can't be moved. Content is right-aligned so
-          it clears the traffic lights on macOS without a hardcoded
-          platform-specific inset. */}
-      <div className="chat-window-header" data-tauri-drag-region>
-        <span className="chat-window-doc" title={context.docPath ?? undefined}>
-          {context.docTitle}
-        </span>
-        <button
-          type="button"
-          className={`chat-window-pin ${pinned ? "chat-window-pin-on" : ""}`}
-          aria-pressed={pinned}
-          aria-label={t.chatWindowPin}
-          title={pinned ? t.chatWindowUnpinHint : t.chatWindowPinHint}
-          onClick={() => setSettings({ pinAgentWindow: !pinned })}
-        >
-          <PinIcon />
-        </button>
-      </div>
+      {header}
       <div className="chat-window-body">
         <ChatBody
           document={context.document}

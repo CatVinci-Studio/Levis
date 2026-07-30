@@ -158,6 +158,11 @@ export const windowIpc = {
    *  never detached anything itself learns where to push context - i.e. the
    *  cross-window case, where the chat was opened from another window. */
   currentChatWindow: () => call<string | null>("current_chat_window"),
+  /** Drops the app menu open under the title row's menu button (window-
+   *  relative logical points). Only used where the app draws its own frame
+   *  and there is no native menu bar left - see ui/window-chrome.ts. */
+  popupAppMenu: (x: number, y: number) =>
+    call<void>("popup_app_menu", { x, y }),
 };
 
 // ---------------------------------------------------------------------------

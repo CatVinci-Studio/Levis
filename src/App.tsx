@@ -11,6 +11,7 @@ import {
   ClipboardTabIcon,
   ChatTabIcon,
 } from "./ui/icons";
+import { AppMenuButton, WindowCaptionButtons } from "./ui/WindowControls";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
@@ -673,8 +674,14 @@ function App() {
           the app has to draw this itself, and drawing it as a transparent
           fixed strip meant the document scrolled underneath and the filename
           sat on top of the text. It is also the drag region (both for moving
-          the window and for the drag-to-merge gesture in useTabDragMerge). */}
+          the window and for the drag-to-merge gesture in useTabDragMerge).
+
+          Where the OS supplies no frame at all (Windows), this same row is
+          ALSO the caption and the way into the app menu - the two components
+          below render nothing anywhere else, so this stays one strip on
+          every platform. See ui/window-chrome.ts. */}
       <header className="window-bar" data-tauri-drag-region>
+        <AppMenuButton />
         <span className="window-bar-title">{tabTitle(activeTab, t)}</span>
         <div className="window-bar-status">
           {activeDirty && (
@@ -689,6 +696,7 @@ function App() {
             {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
           </span>
         </div>
+        <WindowCaptionButtons />
       </header>
       <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
         {/* Contents only render while open - a collapsed sidebar is just
