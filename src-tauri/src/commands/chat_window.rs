@@ -123,8 +123,23 @@ fn chat_serving(editor_label: &str, open: &OpenChatWindows) -> Option<String> {
 /// `shared` is the "share across windows" setting: false gives this editor
 /// window its own chat (shared by its tabs), true makes one chat window serve
 /// every editor window in the app.
+///
+/// `command(async)` is load-bearing, not a style choice. A plain `#[command]`
+/// is a BLOCKING command: Tauri runs it inline on the main thread, inside the
+/// calling webview's IPC callback. On Windows, building a webview from there
+/// deadlocks - wry has to pump a nested message loop waiting for
+/// `CreateCoreWebView2Controller` to call back, and WebView2 will not
+/// re-enter one of its own event handlers to deliver it. Tauri says as much
+/// on `WebviewWindowBuilder::build` ("deadlocks when used in a synchronous
+/// command"). The whole app froze and, because this `invoke` never resolved,
+/// the Quick Ask bar that was waiting on the returned label never hid itself
+/// either. macOS never hit it: WKWebView creation is synchronous.
+///
+/// `async` on a non-async fn runs the body on the async runtime instead, so
+/// window creation reaches the main thread as an ordinary event-loop message.
+/// Nothing in here awaits, so no lock is held across a suspension point.
 #[allow(clippy::too_many_arguments)]
-#[tauri::command]
+#[tauri::command(async)]
 pub fn detach_chat_window(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
