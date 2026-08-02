@@ -1,9 +1,9 @@
 # Testing map
 
-192 tests, in three suites. Run all of them with:
+199 tests, in three suites. Run all of them with:
 
 ```sh
-npm run check                                       # 121 frontend (vitest)
+npm run check                                       # 128 frontend (vitest)
 cd src-tauri && cargo test --workspace              # 43 app crate + 28 aicompat
 ```
 
@@ -51,7 +51,7 @@ pinned rather than trusted.
 | `ai::agent`             | 5     | Long-document truncation with char-boundary safety.                                                                                                                                |
 | `ai::tools`             | 3     | `propose_edit` anchor validation.                                                                                                                                                  |
 
-### 4. Frontend state and rendering — 76 tests
+### 4. Frontend state and rendering — 83 tests
 
 - `settings/SettingsContext` (9) — settings migration. Notably: a rejected
   value must not discard the rest of the blob.
@@ -67,6 +67,12 @@ pinned rather than trusted.
 - `ai/cancelled-turns` (4) — what a stop keeps, and that an unanswered
   ToolCall gets a synthetic result before entering history.
 - `onboarding/*` (18) — tutorial step progression and evaluation.
+- `ui/WindowControls` (7) — the app-drawn window frame, which only exists on
+  Windows and so is the half of the UI nobody developing on macOS ever sees:
+  that it draws nothing at all where the OS still supplies a frame, that the
+  app menu is labelled in the app's language rather than English, that items
+  reach the backend by the id their native twin carries, and that the menu
+  button closes a menu it opened.
 - `ai/chat/useQuickAskReveal` (5), `editor/code-block-indent-plugin` (5),
   `utils/tauri-events` (2), `settings/sections/providers` (2).
 

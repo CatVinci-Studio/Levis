@@ -1,0 +1,93 @@
+/* The app-drawn menu (ui/AppMenu.tsx). Windows only - where the OS frame is
+   gone there is no native menu bar left, and this is the whole way in.
+
+   Sized to the app rather than to Win32: the same 13px body text, the same
+   --editor-* colours and the same rounded floating-surface the context menu
+   and the chat popovers use, so opening the menu doesn't drop a grey system
+   panel into an otherwise themed window. */
+
+.app-menu {
+  position: fixed;
+  z-index: 300;
+  font-size: 13px;
+}
+
+.app-menu-list {
+  min-width: 200px;
+  /* Caps how far a long label (a recent file's name, a translated "Toggle
+     Typewriter Mode") can stretch the panel; past this they ellipsize. */
+  max-width: 340px;
+  padding: 5px;
+  /* Long lists (Open Recent with ten files, the export formats) scroll
+     rather than run off the bottom of a short window. */
+  max-height: min(78vh, 560px);
+  overflow-y: auto;
+}
+
+.app-menu-row {
+  /* The anchor a flyout is measured against; the flyout itself is fixed, so
+     this only has to be a stable box, not a containing block. */
+  position: relative;
+}
+
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 5px 9px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--editor-text);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.app-menu-item:hover:not(:disabled),
+.app-menu-item:focus-visible,
+.app-menu-item[aria-expanded="true"] {
+  background: var(--sidebar-hover);
+  outline: none;
+}
+
+.app-menu-item:disabled {
+  color: var(--editor-muted);
+}
+
+.app-menu-label {
+  flex: 1;
+  /* A flex item's min-width defaults to auto, which is its content width -
+     without this the label refuses to shrink and never ellipsizes. */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The shortcut hint. Deliberately quiet and never the reason the panel is
+   wide - the label pushes it right, it doesn't push the label. */
+.app-menu-accel {
+  flex-shrink: 0;
+  color: var(--editor-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-menu-chevron {
+  flex-shrink: 0;
+  margin-right: -2px;
+  color: var(--editor-muted);
+}
+
+.app-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-color);
+}
+
+.app-menu-flyout {
+  position: fixed;
+  z-index: 301;
+}

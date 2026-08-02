@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useSettings } from "../settings/SettingsContext";
-import { windowIpc } from "../ipc";
+import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
+import { AppMenu } from "./AppMenu";
 import {
   HamburgerIcon,
   WindowCloseIcon,
@@ -22,35 +23,58 @@ import "./window-controls.css";
  */
 
 /**
- * Opens the app menu.
- *
- * Deliberately pops the REAL menu (Rust's `popup_app_menu` shows the same
- * `Menu` the menu bar was built from) rather than re-declaring seven
- * submenus in HTML. Every id, accelerator label, enabled state and handler
- * keeps working, and there is no second copy of the menu to drift from
- * src-tauri/src/menu.rs.
+ * Opens the app menu, and owns everything about it that is not the menu
+ * itself: where it is anchored, what dismisses it, and where focus goes
+ * afterwards. AppMenu.tsx draws the items and says why they are drawn here
+ * at all rather than popped as the real `Menu` through Rust.
  */
 export function AppMenuButton() {
   const { t } = useSettings();
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  // Whatever had focus when the menu opened - almost always the document.
+  // The menu takes focus so the arrow keys work in it, and hands it straight
+  // back on the way out, so using the menu never costs the user their caret.
+  const focusOnClose = useRef<HTMLElement | null>(null);
+
+  const close = useCallback(() => {
+    setAnchor(null);
+    focusOnClose.current?.focus();
+    focusOnClose.current = null;
+  }, []);
+
+  // Deliberately wrapped round the button AS WELL as the menu (the same
+  // shape QuickAskPendingBar's split button uses). The hook listens on
+  // document in the capture phase, so a click on the button while the menu
+  // is open would otherwise count as "outside": it would close the menu a
+  // moment before the button's own onClick ran and reopened it, and the
+  // button would appear not to close the menu at all.
+  const ref = useCloseOnOutsideClick<HTMLDivElement>(close, true);
+
   if (!appDrawsWindowFrame) return null;
 
   return (
-    <button
-      type="button"
-      className="window-caption-button window-menu-button"
-      aria-label={t.appMenu}
-      title={t.appMenu}
-      onClick={(e) => {
-        // Anchor the popup under the button, in window-relative logical
-        // points - which is what popup_menu_at expects. getBoundingClientRect
-        // is already in CSS pixels relative to the viewport, and the webview
-        // fills the window now that the frame is gone, so the two agree.
-        const rect = e.currentTarget.getBoundingClientRect();
-        void windowIpc.popupAppMenu(rect.left, rect.bottom);
-      }}
-    >
-      <HamburgerIcon />
-    </button>
+    <div ref={ref} className="window-menu-anchor">
+      <button
+        type="button"
+        className="window-caption-button window-menu-button"
+        aria-label={t.appMenu}
+        title={t.appMenu}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        onClick={(e) => {
+          if (anchor) {
+            close();
+            return;
+          }
+          focusOnClose.current = document.activeElement as HTMLElement | null;
+          const rect = e.currentTarget.getBoundingClientRect();
+          setAnchor({ x: rect.left, y: rect.bottom + 2 });
+        }}
+      >
+        <HamburgerIcon />
+      </button>
+      {anchor && <AppMenu x={anchor.x} y={anchor.y} onClose={close} />}
+    </div>
   );
 }
 

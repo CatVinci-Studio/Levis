@@ -66,3 +66,11 @@
   color: var(--editor-muted);
   pointer-events: auto;
 }
+
+/* Wraps the menu button together with its open menu, so a click on the
+   button counts as inside the popover (AppMenuButton explains why that
+   matters). `contents` because the button has to stay a direct flex item of
+   the title row - a real box here would break its stretch and its inset. */
+.window-menu-anchor {
+  display: contents;
+}

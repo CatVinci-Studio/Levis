@@ -27,6 +27,7 @@ import {
   wrapInHeadingCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { insertTableCommand } from "@milkdown/kit/preset/gfm";
+import { undoCommand, redoCommand } from "@milkdown/kit/plugin/history";
 import {
   isInTable,
   addRowAfter,
@@ -88,6 +89,7 @@ import {
   INSERT_CLIPBOARD_TEXT_EVENT,
   RESTORE_CHAT_EVENT,
   INSERT_BLOCK_EVENT,
+  EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,
 } from "../utils/events";
@@ -793,6 +795,34 @@ export function MilkdownEditor({
         break;
       case "table":
         setTableDialogOpen(true);
+        break;
+    }
+  });
+
+  // The app-drawn menu's Edit submenu (Windows - see ui/app-menu-actions.ts).
+  // These are `PredefinedMenuItem`s in the native menu, which gives them no
+  // id to dispatch by, so they arrive as an event and run the very commands
+  // the right-click menu below runs.
+  useWindowEvent(EDIT_ACTION_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    switch ((e as CustomEvent<string>).detail) {
+      case "undo":
+        runCommand(undoCommand.key);
+        break;
+      case "redo":
+        runCommand(redoCommand.key);
+        break;
+      case "cut":
+        copyOrCut(true);
+        break;
+      case "copy":
+        copyOrCut(false);
+        break;
+      case "paste":
+        paste();
+        break;
+      case "select-all":
+        selectAll();
         break;
     }
   });

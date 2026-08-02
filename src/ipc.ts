@@ -158,11 +158,20 @@ export const windowIpc = {
    *  never detached anything itself learns where to push context - i.e. the
    *  cross-window case, where the chat was opened from another window. */
   currentChatWindow: () => call<string | null>("current_chat_window"),
-  /** Drops the app menu open under the title row's menu button (window-
-   *  relative logical points). Only used where the app draws its own frame
-   *  and there is no native menu bar left - see ui/window-chrome.ts. */
-  popupAppMenu: (x: number, y: number) =>
-    call<void>("popup_app_menu", { x, y }),
+};
+
+// ---------------------------------------------------------------------------
+// menu (src-tauri/src/menu.rs) - only used where the app draws its own menu
+// because the native bar is gone; see ui/window-chrome.ts.
+// ---------------------------------------------------------------------------
+
+export const menuIpc = {
+  /** Runs a menu id exactly as clicking its native twin would. The ids come
+   *  from ui/app-menu-model.ts and are defined in src-tauri/src/menu.rs. */
+  triggerMenuItem: (id: string) => call<void>("trigger_menu_item", { id }),
+  /** Backs File > Open Recent, whose native submenu the app-drawn menu
+   *  cannot read. */
+  listRecentFiles: () => call<string[]>("list_recent_files"),
 };
 
 // ---------------------------------------------------------------------------

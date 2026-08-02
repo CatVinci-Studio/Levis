@@ -3,6 +3,12 @@
 //! a payload do it in the id string ("recent:<path>", "export-pandoc:<fmt>",
 //! "help-doc:<doc>", "insert-block:<kind>"); the frontend listener for each
 //! menu-* event lives in App.tsx.
+//!
+//! On Windows the bar built here is never seen - it is hidden with the
+//! window frame and kept only for its accelerators, and the menu the user
+//! opens is drawn in HTML (src/ui/app-menu-model.ts, which lists the same
+//! ids) and comes back through `trigger_menu_item`. Renaming an id here
+//! means renaming it there.
 
 use std::sync::Mutex;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder};
@@ -108,33 +114,35 @@ pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
 /// rebuild its entries at runtime without touching the rest of the menu.
 struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
 
-/// Drops the whole menu bar open as a popup, anchored at `x`/`y` (logical
-/// points from the window's top-left - i.e. under the button that called).
+/// Runs a menu id exactly as clicking that item in the native menu would.
 ///
-/// This is how the menu is reached on Windows, where the app draws its own
-/// title row and `hide_native_menu_bar` takes the native menu bar away with
-/// the frame (see lib.rs). Popping the SAME `Menu` the rest of this file
-/// builds is the whole point: every id, label and handler below keeps
-/// working, with no second copy of the menu in HTML to drift from it. The
-/// frontend only calls this where it draws the button (see
-/// src/ui/window-chrome.ts).
+/// The way in for the app-drawn menu on Windows (src/ui/AppMenu.tsx): there
+/// the native menu bar is hidden and the menu is redrawn in HTML, so its
+/// items have no native click to dispatch - they send their id here instead.
+/// The ids are the contract between the two, and `dispatch` below is the one
+/// implementation both entry points run, so an HTML item can never drift
+/// into doing something different from its native twin.
 ///
-/// `command(async)` for the same reason detach_chat_window is: Windows runs a
-/// popup menu on a modal TrackPopupMenu loop, and starting one from inside
-/// the calling webview's own IPC callback is the re-entrancy that hangs.
+/// Ids the HTML menu invents (there is no such native item) are simply not
+/// matched by `dispatch` and do nothing, so a typo fails quietly rather than
+/// firing the wrong command.
+///
+/// `command(async)`, like detach_chat_window, and for the same reason: half
+/// of what dispatch does is create or close windows, and on Windows doing
+/// that from inside the calling webview's own IPC callback - which a plain
+/// `command` runs on the main thread - is the re-entrancy that freezes the
+/// whole app.
 #[tauri::command(async)]
-pub fn popup_app_menu(
-    app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
-    x: f64,
-    y: f64,
-) -> Result<(), String> {
-    let Some(menu) = app.menu() else {
-        return Ok(());
-    };
-    window
-        .popup_menu_at(&menu, tauri::LogicalPosition::new(x, y))
-        .map_err(|err| err.to_string())
+pub fn trigger_menu_item(app: tauri::AppHandle, id: String) {
+    dispatch(&app, &id);
+}
+
+/// The recent-file list behind File > Open Recent, for the app-drawn menu -
+/// the native submenu is filled by `rebuild_recent_menu`, which the HTML one
+/// can't read.
+#[tauri::command]
+pub fn list_recent_files(app: tauri::AppHandle) -> Vec<String> {
+    commands::recents::read_recent_files(&app)
 }
 
 fn abbreviate_home(path: &str) -> String {
@@ -367,17 +375,25 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .accelerator("CmdOrCtrl+0")
         .build(app)?;
 
-    let view_menu = SubmenuBuilder::new(app, "View")
-        .item(&toggle_source_mode_item)
-        .item(&toggle_typewriter_mode_item)
-        .item(&toggle_sidebar_item)
-        .separator()
-        .item(&zoom_in_item)
-        .item(&zoom_out_item)
-        .item(&zoom_reset_item)
-        .separator()
-        .fullscreen()
-        .build()?;
+    let view_menu = {
+        let builder = SubmenuBuilder::new(app, "View")
+            .item(&toggle_source_mode_item)
+            .item(&toggle_typewriter_mode_item)
+            .item(&toggle_sidebar_item)
+            .separator()
+            .item(&zoom_in_item)
+            .item(&zoom_out_item)
+            .item(&zoom_reset_item);
+        // Same story as Hide/Show All and Bring All to Front: muda documents
+        // its predefined fullscreen item as unsupported on Windows and
+        // Linux, where it renders as an entry that does nothing when
+        // clicked. Windows reaches fullscreen through the app-drawn menu
+        // instead, which calls the window API directly
+        // (src/ui/app-menu-actions.ts).
+        #[cfg(target_os = "macos")]
+        let builder = builder.separator().fullscreen();
+        builder.build()?
+    };
 
     let new_window_item = MenuItemBuilder::with_id(NEW_WINDOW_ID, "New Window")
         .accelerator("CmdOrCtrl+T")
@@ -424,94 +440,91 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         .build()?;
     app.set_menu(menu)?;
 
-    app.on_menu_event(move |app_handle, event| {
-        let id = event.id();
-        if id == SETTINGS_MENU_ID {
-            emit_to_focused(app_handle, "menu-open-settings");
-        } else if id == NEW_FILE_ID {
-            // Honors the same Settings choice as opening files: a
-            // new tab in the focused window in tab mode, a fresh
-            // window otherwise (or when there's no window at all).
-            if app_handle.webview_windows().is_empty()
-                || commands::prefs::read_new_document_mode(app_handle) != "tab"
-            {
-                let _ = crate::open_new_window(app_handle);
-            } else {
-                emit_to_focused(app_handle, "menu-new-file");
-            }
-        } else if id == OPEN_FILE_ID {
-            emit_to_focused(app_handle, "menu-open-file");
-        } else if id == SAVE_FILE_ID {
-            emit_to_focused(app_handle, "menu-save-file");
-        } else if id == SAVE_FILE_AS_ID {
-            emit_to_focused(app_handle, "menu-save-file-as");
-        } else if id == RECENT_CLEAR_ID {
-            commands::recents::clear_recent_files(app_handle);
-        } else if id.as_ref().starts_with(RECENT_PREFIX) {
-            // Routes through the same queue as Finder/CLI opens, so
-            // it lands as a tab or a window per the user's setting.
-            let path = id.as_ref()[RECENT_PREFIX.len()..].to_string();
-            crate::queue_paths_to_open(app_handle, vec![path]);
-        } else if id == EXPORT_PDF_ID {
-            emit_to_focused(app_handle, "menu-export-pdf");
-        } else if id == EXPORT_HTML_ID {
-            emit_to_focused(app_handle, "menu-export-html");
-        } else if id.as_ref().starts_with(EXPORT_PANDOC_PREFIX) {
-            let format = id.as_ref()[EXPORT_PANDOC_PREFIX.len()..].to_string();
-            emit_to_focused_payload(app_handle, "menu-export-pandoc", format);
-        } else if id == QUIT_ID {
-            // close() (not destroy()) so each frontend gets its
-            // close-requested prompt; the app exits once the last
-            // window actually closes.
-            for (_, window) in app_handle.webview_windows() {
-                let _ = window.close();
-            }
-        } else if id.as_ref().starts_with(INSERT_BLOCK_PREFIX) {
-            let kind = id.as_ref()[INSERT_BLOCK_PREFIX.len()..].to_string();
-            emit_to_focused_payload(app_handle, "menu-insert-block", kind);
-        } else if id == TOGGLE_SOURCE_MODE_ID {
-            emit_to_focused(app_handle, "menu-toggle-source-mode");
-        } else if id == TOGGLE_TYPEWRITER_MODE_ID {
-            emit_to_focused(app_handle, "menu-toggle-typewriter-mode");
-        } else if id == TOGGLE_SIDEBAR_ID {
-            emit_to_focused(app_handle, "menu-toggle-sidebar");
-        } else if id == FIND_REPLACE_ID {
-            emit_to_focused(app_handle, "menu-find-replace");
-        } else if id == ZOOM_IN_ID {
-            emit_to_focused(app_handle, "menu-zoom-in");
-        } else if id == ZOOM_OUT_ID {
-            emit_to_focused(app_handle, "menu-zoom-out");
-        } else if id == ZOOM_RESET_ID {
-            emit_to_focused(app_handle, "menu-zoom-reset");
-        } else if id == CLOSE_TAB_ID {
-            emit_to_focused(app_handle, "menu-close-tab");
-        } else if id == CLOSE_WINDOW_ID {
-            // close() (not destroy()) so the frontend's dirty-tab
-            // prompt still runs, same as the red traffic-light button.
-            if let Some((_, window)) = app_handle
-                .webview_windows()
-                .iter()
-                .find(|(_, w)| w.is_focused().unwrap_or(false))
-            {
-                let _ = window.close();
-            }
-        } else if id == NEW_WINDOW_ID {
-            let _ = crate::open_new_window(app_handle);
-        } else if id.as_ref().starts_with(HELP_DOC_PREFIX) {
-            // A help doc opens as a tab in the focused window; with
-            // no window to receive it (macOS keeps the app alive
-            // windowless), spawn one that drains the pending doc on
-            // mount.
-            let doc = id.as_ref()[HELP_DOC_PREFIX.len()..].to_string();
-            if let Some(label) = focused_editor_window(app_handle) {
-                let _ =
-                    app_handle.emit_to(EventTarget::webview_window(&label), "menu-open-help", doc);
-            } else {
-                *crate::PENDING_SHOW_HELP.lock().unwrap() = Some(doc);
-                let _ = crate::open_new_window(app_handle);
-            }
-        }
-    });
+    app.on_menu_event(move |app_handle, event| dispatch(app_handle, event.id().as_ref()));
 
     Ok(())
+}
+
+/// What a menu id does. Reached from a native menu click (`on_menu_event`
+/// above) and from the app-drawn menu's `trigger_menu_item`, so both entry
+/// points stay one behaviour.
+fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
+    if id == SETTINGS_MENU_ID {
+        emit_to_focused(app_handle, "menu-open-settings");
+    } else if id == NEW_FILE_ID {
+        // Honors the same Settings choice as opening files: a new tab in the
+        // focused window in tab mode, a fresh window otherwise (or when
+        // there's no window at all).
+        if app_handle.webview_windows().is_empty()
+            || commands::prefs::read_new_document_mode(app_handle) != "tab"
+        {
+            let _ = crate::open_new_window(app_handle);
+        } else {
+            emit_to_focused(app_handle, "menu-new-file");
+        }
+    } else if id == OPEN_FILE_ID {
+        emit_to_focused(app_handle, "menu-open-file");
+    } else if id == SAVE_FILE_ID {
+        emit_to_focused(app_handle, "menu-save-file");
+    } else if id == SAVE_FILE_AS_ID {
+        emit_to_focused(app_handle, "menu-save-file-as");
+    } else if id == RECENT_CLEAR_ID {
+        commands::recents::clear_recent_files(app_handle);
+    } else if let Some(path) = id.strip_prefix(RECENT_PREFIX) {
+        // Routes through the same queue as Finder/CLI opens, so it lands as
+        // a tab or a window per the user's setting.
+        crate::queue_paths_to_open(app_handle, vec![path.to_string()]);
+    } else if id == EXPORT_PDF_ID {
+        emit_to_focused(app_handle, "menu-export-pdf");
+    } else if id == EXPORT_HTML_ID {
+        emit_to_focused(app_handle, "menu-export-html");
+    } else if let Some(format) = id.strip_prefix(EXPORT_PANDOC_PREFIX) {
+        emit_to_focused_payload(app_handle, "menu-export-pandoc", format);
+    } else if id == QUIT_ID {
+        // close() (not destroy()) so each frontend gets its close-requested
+        // prompt; the app exits once the last window actually closes.
+        for (_, window) in app_handle.webview_windows() {
+            let _ = window.close();
+        }
+    } else if let Some(kind) = id.strip_prefix(INSERT_BLOCK_PREFIX) {
+        emit_to_focused_payload(app_handle, "menu-insert-block", kind);
+    } else if id == TOGGLE_SOURCE_MODE_ID {
+        emit_to_focused(app_handle, "menu-toggle-source-mode");
+    } else if id == TOGGLE_TYPEWRITER_MODE_ID {
+        emit_to_focused(app_handle, "menu-toggle-typewriter-mode");
+    } else if id == TOGGLE_SIDEBAR_ID {
+        emit_to_focused(app_handle, "menu-toggle-sidebar");
+    } else if id == FIND_REPLACE_ID {
+        emit_to_focused(app_handle, "menu-find-replace");
+    } else if id == ZOOM_IN_ID {
+        emit_to_focused(app_handle, "menu-zoom-in");
+    } else if id == ZOOM_OUT_ID {
+        emit_to_focused(app_handle, "menu-zoom-out");
+    } else if id == ZOOM_RESET_ID {
+        emit_to_focused(app_handle, "menu-zoom-reset");
+    } else if id == CLOSE_TAB_ID {
+        emit_to_focused(app_handle, "menu-close-tab");
+    } else if id == CLOSE_WINDOW_ID {
+        // close() (not destroy()) so the frontend's dirty-tab prompt still
+        // runs, same as the red traffic-light button.
+        if let Some((_, window)) = app_handle
+            .webview_windows()
+            .iter()
+            .find(|(_, w)| w.is_focused().unwrap_or(false))
+        {
+            let _ = window.close();
+        }
+    } else if id == NEW_WINDOW_ID {
+        let _ = crate::open_new_window(app_handle);
+    } else if let Some(doc) = id.strip_prefix(HELP_DOC_PREFIX) {
+        // A help doc opens as a tab in the focused window; with no window to
+        // receive it (macOS keeps the app alive windowless), spawn one that
+        // drains the pending doc on mount.
+        if let Some(label) = focused_editor_window(app_handle) {
+            let _ = app_handle.emit_to(EventTarget::webview_window(&label), "menu-open-help", doc);
+        } else {
+            *crate::PENDING_SHOW_HELP.lock().unwrap() = Some(doc.to_string());
+            let _ = crate::open_new_window(app_handle);
+        }
+    }
 }
