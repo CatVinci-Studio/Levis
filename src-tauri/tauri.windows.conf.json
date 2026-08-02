@@ -11,6 +11,18 @@
     ]
   },
   "bundle": {
-    "targets": ["nsis"]
+    "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "template": "installer/installer.nsi",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "installMode": "currentUser",
+        "languages": ["English", "SimpChinese", "Japanese"],
+        "compression": "lzma"
+      }
+    }
   }
 }

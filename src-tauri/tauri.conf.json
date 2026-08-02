@@ -31,6 +31,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "copyright": "© 2026 CatVinci Studio",
+    "homepage": "https://github.com/CatVinci-Studio/Levis",
     "fileAssociations": [
       {
         "ext": ["md", "markdown"],
