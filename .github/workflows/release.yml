@@ -19,14 +19,20 @@ jobs:
             args: --target aarch64-apple-darwin
           - platform: ubuntu-22.04
             args: ""
-          # NSIS only for a pre-release. The MSI target requires a semver
-          # pre-release identifier to be numeric ("optional pre-release
+          # Windows ships the NSIS .exe and nothing else; the target list
+          # itself lives in src-tauri/tauri.windows.conf.json, so a local
+          # `tauri build` produces the same one artifact this does.
+          #
+          # It used to bundle MSI as well on stable tags, and that is what
+          # made Windows upgrades ask to uninstall first: the two installers
+          # register in different places, so neither recognises the other's
+          # copy - take the .msi once and the next .exe cannot replace it.
+          # MSI also cannot build a pre-release at all ("optional pre-release
           # identifier in app version must be numeric-only ... for msi
-          # target"), so a readable v0.9.0-rc.1 cannot be bundled as MSI at
-          # all. NSIS has no such rule and is Tauri v2's recommended Windows
-          # installer; a stable tag still produces both.
+          # target"), so rc tags were NSIS-only regardless, and the updater
+          # has always shipped NSIS. One installer, one upgrade path.
           - platform: windows-latest
-            args: ${{ contains(github.ref_name, '-') && '--bundles nsis' || '' }}
+            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
