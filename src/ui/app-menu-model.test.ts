@@ -1,3 +1,9 @@
+// @vitest-environment jsdom
+//
+// Only formatCombo needs it - it reads navigator to decide between "⌘" and
+// "Ctrl". Node 21+ happens to define a global navigator, so without this the
+// file passes locally on a current Node and fails on CI's Node 20.
+
 import { describe, expect, it } from "vitest";
 import type { Shortcuts } from "../settings/SettingsContext";
 import type { Strings } from "../i18n/strings";
