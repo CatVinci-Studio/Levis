@@ -162,8 +162,11 @@ export function buildAppMenu(
           action: { native: "new-file" },
         },
         {
+          // Ctrl+Shift+N, not the Cmd+T this has on macOS: Ctrl+T is "new
+          // tab" to a Windows user and this app has tabs. Bound to match in
+          // menu.rs (NEW_WINDOW_ACCEL).
           label: t.menuNewWindow,
-          accel: "mod+t",
+          accel: "mod+shift+n",
           action: { native: "new-window" },
         },
         {
@@ -197,7 +200,10 @@ export function buildAppMenu(
       label: t.menuEdit,
       submenu: [
         { label: t.menuUndo, accel: "mod+z", action: { local: "undo" } },
-        { label: t.menuRedo, accel: "mod+shift+z", action: { local: "redo" } },
+        // Ctrl+Y is the redo Windows advertises; milkdown's history keymap
+        // binds "Mod-y" alongside "Shift-Mod-z", so both really work and this
+        // shows the one the platform expects.
+        { label: t.menuRedo, accel: "mod+y", action: { local: "redo" } },
         "separator",
         { label: t.cut, accel: "mod+x", action: { local: "cut" } },
         { label: t.copy, accel: "mod+c", action: { local: "copy" } },
@@ -243,11 +249,16 @@ export function buildAppMenu(
           action: { native: "zoom-reset" },
         },
         "separator",
-        // No F11 hint: nothing binds it. muda's predefined fullscreen item
-        // is documented as unsupported on Windows, which is why this runs
-        // the window API here instead of dispatching a menu id - and why
-        // there is no accelerator to advertise.
-        { label: t.menuFullscreen, action: { local: "fullscreen" } },
+        // muda's predefined fullscreen item is documented as unsupported on
+        // Windows, which is why this runs the window API here instead of
+        // dispatching a menu id. F11 is bound to the same action by App.tsx's
+        // keydown handler rather than by a native accelerator, for the same
+        // reason - there is no native item to hang one on.
+        {
+          label: t.menuFullscreen,
+          accel: "f11",
+          action: { local: "fullscreen" },
+        },
       ],
     },
     {
@@ -264,6 +275,11 @@ export function buildAppMenu(
     },
     "separator",
     { label: t.menuSettings, accel: "mod+,", action: { native: "settings" } },
-    { label: t.menuExit, accel: "mod+q", action: { native: "quit" } },
+    // Alt+F4, not the Cmd+Q this has on macOS - Ctrl+Q closes nothing on
+    // Windows and menu.rs deliberately no longer registers it. The hint is
+    // the OS's own: Alt+F4 closes the focused window, which for the usual
+    // single window is exactly this item; with several windows open this
+    // one closes them all and Alt+F4 closes the front one.
+    { label: t.menuExit, accel: "alt+f4", action: { native: "quit" } },
   ];
 }

@@ -12,6 +12,8 @@ import {
   ChatTabIcon,
 } from "./ui/icons";
 import { AppMenuButton, WindowCaptionButtons } from "./ui/WindowControls";
+import { appDrawsWindowFrame } from "./ui/window-chrome";
+import { runLocalMenuAction } from "./ui/app-menu-actions";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { SettingsPanel } from "./settings/SettingsPanel";
@@ -442,6 +444,19 @@ function App() {
       if (combo === "mod+w") {
         e.preventDefault();
         requestCloseTab(activeTabId);
+        return;
+      }
+
+      // F11 is THE fullscreen key on Windows, and the only way to reach
+      // fullscreen where the app draws its own frame: macOS has the native
+      // View > Enter Full Screen item (Ctrl+Cmd+F), but muda's predefined
+      // fullscreen item does nothing on Windows, so there is no native
+      // accelerator to register and it has to be caught here. Gated on the
+      // same flag the app-drawn menu is, so macOS's F11 keeps whatever the
+      // system does with it.
+      if (appDrawsWindowFrame && combo === "f11") {
+        e.preventDefault();
+        runLocalMenuAction("fullscreen");
         return;
       }
       const { shortcuts } = settings;

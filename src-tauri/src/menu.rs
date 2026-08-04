@@ -220,9 +220,17 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
     // every window's unsaved document its close-confirmation prompt,
     // so it goes through each window's normal close request rather
     // than exiting the process outright.
-    let quit_item = MenuItemBuilder::with_id(QUIT_ID, format!("Quit {}", app_identity::APP_NAME))
-        .accelerator("CmdOrCtrl+Q")
-        .build(app)?;
+    let quit_item = {
+        let builder = MenuItemBuilder::with_id(QUIT_ID, format!("Quit {}", app_identity::APP_NAME));
+        // Cmd+Q on macOS, Ctrl+Q on Linux - but Windows has no such combo.
+        // There the app is closed with Alt+F4, which the OS delivers on its
+        // own, and Ctrl+Q means nothing, so claiming it would only take a
+        // shortcut Windows users never aim at Quit. The app-drawn menu
+        // advertises Alt+F4 instead (src/ui/app-menu-model.ts).
+        #[cfg(not(windows))]
+        let builder = builder.accelerator("CmdOrCtrl+Q");
+        builder.build(app)?
+    };
 
     let app_menu = {
         let builder = SubmenuBuilder::new(app, app_identity::APP_NAME)
@@ -395,8 +403,15 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         builder.build()?
     };
 
+    // Cmd+T on macOS. On Windows Ctrl+T is "new tab" in every browser, and
+    // this app has tabs - so there New Window takes Ctrl+Shift+N, which is
+    // what Explorer, Edge and VS Code all open a window with.
+    #[cfg(windows)]
+    const NEW_WINDOW_ACCEL: &str = "CmdOrCtrl+Shift+N";
+    #[cfg(not(windows))]
+    const NEW_WINDOW_ACCEL: &str = "CmdOrCtrl+T";
     let new_window_item = MenuItemBuilder::with_id(NEW_WINDOW_ID, "New Window")
-        .accelerator("CmdOrCtrl+T")
+        .accelerator(NEW_WINDOW_ACCEL)
         .build(app)?;
     // Built manually (not the .close_window() predefined item) so it
     // doesn't own the OS-default Cmd+W accelerator - that's Close
