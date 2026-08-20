@@ -75,10 +75,17 @@ static DRAFTS_CLAIMED: AtomicBool = AtomicBool::new(false);
 /// one window claims a given recovered document even if several windows are
 /// restoring a session at once.
 ///
-/// Answers with nothing after the first caller: see DRAFTS_CLAIMED.
+/// Answers with nothing outside the config-defined main window, or after
+/// that window's first call: see DRAFTS_CLAIMED. Restricting the claim to
+/// `main` also closes a startup race where a newly spawned file window could
+/// mount first, drain a live tab's snapshot, and show that tab beside the file
+/// it was created to open.
 #[tauri::command]
-pub async fn take_draft_snapshots(app: AppHandle) -> Result<Vec<DraftSnapshot>, String> {
-    if DRAFTS_CLAIMED.swap(true, Ordering::SeqCst) {
+pub async fn take_draft_snapshots(
+    app: AppHandle,
+    window: tauri::Window,
+) -> Result<Vec<DraftSnapshot>, String> {
+    if window.label() != "main" || DRAFTS_CLAIMED.swap(true, Ordering::SeqCst) {
         return Ok(Vec::new());
     }
     let dir = drafts_dir(&app)?;
