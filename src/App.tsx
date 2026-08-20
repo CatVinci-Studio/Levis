@@ -44,7 +44,7 @@ import { useTabDragMerge } from "./useTabDragMerge";
 import { useDraftAutosave } from "./draft-autosave";
 import { useMenuBridge } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
-import { drafts, fs, session } from "./ipc";
+import { drafts, fs, menuIpc, session } from "./ipc";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
@@ -438,6 +438,19 @@ function App() {
       const combo = comboFromEvent(e);
       if (!combo) return;
 
+      // Windows has no visible native menu bar. Its menu is kept internally
+      // for most accelerators, but Open/New are handled here so they remain
+      // reliable while focus is inside the webview/editor. The backend still
+      // owns their behaviour (including tab-vs-window mode), exactly as if
+      // the corresponding menu item had been clicked.
+      if (appDrawsWindowFrame && (combo === "mod+n" || combo === "mod+o")) {
+        e.preventDefault();
+        void menuIpc.triggerMenuItem(
+          combo === "mod+n" ? "new-file" : "open-file",
+        );
+        return;
+      }
+
       // Fixed OS-convention shortcut like Cmd+S above, not a configurable
       // settings.shortcuts entry - it mirrors the File > Close Tab menu
       // accelerator. (Close Window keeps its native Cmd+Shift+W.)
@@ -483,8 +496,10 @@ function App() {
         setSettings({ typewriterMode: !settings.typewriterMode });
       }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // Capture before the editor's keymaps: shortcuts such as Ctrl+F must not
+    // disappear merely because an editor plugin stops the bubbling event.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
     saveTab,
     requestCloseTab,

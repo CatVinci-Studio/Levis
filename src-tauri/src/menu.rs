@@ -245,12 +245,20 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         builder.separator().item(&quit_item).build()?
     };
 
-    let new_file_item = MenuItemBuilder::with_id(NEW_FILE_ID, "New File")
-        .accelerator("CmdOrCtrl+N")
-        .build(app)?;
-    let open_file_item = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…")
-        .accelerator("CmdOrCtrl+O")
-        .build(app)?;
+    // Windows draws its menu inside the webview, so New/Open are captured by
+    // App.tsx and routed back through dispatch below. Keeping native
+    // accelerators there as well risks either losing them while editor focus
+    // is active or firing both paths. macOS/Linux keep their visible native
+    // menu accelerators.
+    let new_file_builder = MenuItemBuilder::with_id(NEW_FILE_ID, "New File");
+    #[cfg(not(windows))]
+    let new_file_builder = new_file_builder.accelerator("CmdOrCtrl+N");
+    let new_file_item = new_file_builder.build(app)?;
+
+    let open_file_builder = MenuItemBuilder::with_id(OPEN_FILE_ID, "Open…");
+    #[cfg(not(windows))]
+    let open_file_builder = open_file_builder.accelerator("CmdOrCtrl+O");
+    let open_file_item = open_file_builder.build(app)?;
     // Built empty here; rebuild_recent_menu below fills it from the
     // persisted list and keeps it current as files are opened.
     let open_recent_menu = SubmenuBuilder::new(app, "Open Recent").build()?;
