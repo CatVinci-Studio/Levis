@@ -504,6 +504,13 @@ fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
     } else if let Some(format) = id.strip_prefix(EXPORT_PANDOC_PREFIX) {
         emit_to_focused_payload(app_handle, "menu-export-pandoc", format);
     } else if id == QUIT_ID {
+        // Capture every editor before destruction order can progressively
+        // shrink the session. A cancelled dirty-window prompt resets this
+        // through cancel_session_quit.
+        commands::session::begin_app_quit(
+            app_handle,
+            &app_handle.state::<commands::session::SessionTabsState>(),
+        );
         // close() (not destroy()) so each frontend gets its close-requested
         // prompt; the app exits once the last window actually closes.
         for (_, window) in app_handle.webview_windows() {

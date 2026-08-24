@@ -668,7 +668,10 @@ function App() {
       for (const tab of tabsRef.current) {
         if (!tabIsDirty(tab)) continue;
         const ok = await saveTab(tab.id);
-        if (!ok) return;
+        if (!ok) {
+          await session.cancelQuit();
+          return;
+        }
       }
       // The just-saved tabs' snapshot cleanup would race destroy() below
       // (it runs on a later effect tick) - do it synchronously instead.
@@ -858,7 +861,12 @@ function App() {
                 {t.closePromptDiscard}
               </button>
               <div className="close-prompt-spacer" />
-              <button onClick={() => setPendingClose(null)}>
+              <button
+                onClick={() => {
+                  setPendingClose(null);
+                  void session.cancelQuit();
+                }}
+              >
                 {t.closePromptCancel}
               </button>
               <button

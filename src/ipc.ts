@@ -87,6 +87,7 @@ export const fs = {
 export const session = {
   updateSessionPaths: (paths: string[]) =>
     call<void>("update_session_paths", { paths }),
+  cancelQuit: () => call<void>("cancel_session_quit"),
   addRecentFile: (path: string) => call<void>("add_recent_file", { path }),
 };
 

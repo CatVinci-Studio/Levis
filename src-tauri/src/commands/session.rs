@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
@@ -10,6 +11,11 @@ use tauri::{AppHandle, Manager};
 /// can restore whatever documents were open. Unsaved/untitled tabs have no
 /// path and can't be restored, so they're simply dropped.
 pub struct SessionTabsState(pub Mutex<HashMap<String, Vec<String>>>);
+
+/// Set while File > Quit is closing every window. Those Destroyed events must
+/// not progressively shrink the complete session snapshot captured at the
+/// start of the quit operation.
+static APP_QUITTING: AtomicBool = AtomicBool::new(false);
 
 fn session_file(app: &AppHandle) -> Option<PathBuf> {
     app.path()
@@ -69,13 +75,122 @@ pub fn update_session_paths(
     write_session_paths(&app, &merged);
 }
 
-/// Drops a closed window's contribution so its documents don't come back on
-/// the next restore just because they happened to be open at some point.
-pub fn forget_window(app: &AppHandle, label: &str, state: &SessionTabsState) {
+/// Captures the complete session before File > Quit starts closing windows.
+/// Each ensuing Destroyed event removes live bookkeeping but leaves this disk
+/// snapshot untouched, regardless of destruction order.
+pub fn begin_app_quit(app: &AppHandle, state: &SessionTabsState) {
+    APP_QUITTING.store(true, Ordering::SeqCst);
+    let paths = merge_paths(&state.0.lock().unwrap());
+    write_session_paths(app, &paths);
+}
+
+pub fn app_quitting() -> bool {
+    APP_QUITTING.load(Ordering::SeqCst)
+}
+
+/// A dirty-window prompt can cancel File > Quit after other windows have
+/// already closed. Resume ordinary close bookkeeping and persist only the
+/// windows that remain alive.
+#[tauri::command]
+pub fn cancel_session_quit(app: AppHandle, state: tauri::State<SessionTabsState>) {
+    APP_QUITTING.store(false, Ordering::SeqCst);
+    let paths = merge_paths(&state.0.lock().unwrap());
+    write_session_paths(&app, &paths);
+}
+
+/// Removes a destroyed editor from the live map and returns the paths that
+/// should replace the disk snapshot. `None` means preserve the snapshot: the
+/// app is either quitting all windows, or this is the final application window
+/// on a platform where destroying it exits the process.
+fn remove_window_paths(
+    map: &mut HashMap<String, Vec<String>>,
+    label: &str,
+    app_quitting: bool,
+    preserve_last: bool,
+) -> Option<Vec<String>> {
+    map.remove(label)?;
+    if app_quitting || (map.is_empty() && preserve_last) {
+        None
+    } else {
+        Some(merge_paths(map))
+    }
+}
+
+pub fn forget_window(app: &AppHandle, label: &str, state: &SessionTabsState, preserve_last: bool) {
     let merged = {
         let mut map = state.0.lock().unwrap();
-        map.remove(label);
-        merge_paths(&map)
+        remove_window_paths(
+            &mut map,
+            label,
+            APP_QUITTING.load(Ordering::SeqCst),
+            preserve_last,
+        )
     };
-    write_session_paths(app, &merged);
+    if let Some(paths) = merged {
+        write_session_paths(app, &paths);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paths(entries: &[(&str, &[&str])]) -> HashMap<String, Vec<String>> {
+        entries
+            .iter()
+            .map(|(label, paths)| {
+                (
+                    (*label).to_string(),
+                    paths.iter().map(|path| (*path).to_string()).collect(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn windows_exit_preserves_the_last_window_snapshot() {
+        let mut map = paths(&[("main", &["one.md"])]);
+
+        assert_eq!(remove_window_paths(&mut map, "main", false, true), None);
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn macos_windowless_state_persists_an_empty_session() {
+        let mut map = paths(&[("main", &["one.md"])]);
+
+        assert_eq!(
+            remove_window_paths(&mut map, "main", false, false),
+            Some(Vec::new())
+        );
+    }
+
+    #[test]
+    fn closing_one_of_multiple_windows_persists_the_remainder() {
+        let mut map = paths(&[("main", &["one.md"]), ("window-1", &["two.md"])]);
+
+        assert_eq!(
+            remove_window_paths(&mut map, "main", false, false),
+            Some(vec!["two.md".to_string()])
+        );
+    }
+
+    #[test]
+    fn app_quit_never_shrinks_the_captured_snapshot() {
+        let mut map = paths(&[("main", &["one.md"]), ("window-1", &["two.md"])]);
+
+        assert_eq!(remove_window_paths(&mut map, "main", true, false), None);
+        assert_eq!(remove_window_paths(&mut map, "window-1", true, false), None);
+    }
+
+    #[test]
+    fn unrelated_window_does_not_rewrite_the_session() {
+        let mut map = paths(&[("main", &["one.md"])]);
+
+        assert_eq!(
+            remove_window_paths(&mut map, "chat-main", false, false),
+            None
+        );
+        assert_eq!(map.len(), 1);
+    }
 }

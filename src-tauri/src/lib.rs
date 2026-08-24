@@ -38,7 +38,7 @@ use commands::prefs::{
     get_new_document_mode, get_restore_session_on_startup, set_new_document_mode,
     set_restore_session_on_startup,
 };
-use commands::session::{update_session_paths, SessionTabsState};
+use commands::session::{cancel_session_quit, update_session_paths, SessionTabsState};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -261,11 +261,29 @@ pub fn run() {
         .on_window_event(|window, event| {
             let app = window.app_handle();
             if matches!(event, tauri::WindowEvent::Destroyed) {
+                let no_other_windows = app
+                    .webview_windows()
+                    .keys()
+                    .all(|label| label == window.label());
                 if let Some(state) = app.try_state::<SessionTabsState>() {
-                    commands::session::forget_window(app, window.label(), &state);
+                    // Windows/Linux exit when their final application window
+                    // is destroyed. Preserve that last editor's snapshot, but
+                    // not when another window (for example detached chat)
+                    // keeps the process alive. macOS deliberately supports a
+                    // windowless running state, so an ordinary final-window
+                    // close there persists an empty session instead.
+                    let preserve_last = cfg!(not(target_os = "macos")) && no_other_windows;
+                    commands::session::forget_window(app, window.label(), &state, preserve_last);
                 }
                 if let Some(state) = app.try_state::<commands::chat_window::OpenChatWindows>() {
                     commands::chat_window::forget_chat_window(app, window.label(), &state);
+                }
+                // File > Quit is implemented as close() on every window so
+                // dirty editors can still cancel. macOS otherwise stays alive
+                // with no windows, so finish the successful quit explicitly
+                // only after the final window has actually been destroyed.
+                if no_other_windows && commands::session::app_quitting() {
+                    app.exit(0);
                 }
             }
             // A chat window shared across editor windows has no owning
@@ -332,6 +350,7 @@ pub fn run() {
             get_restore_session_on_startup,
             set_restore_session_on_startup,
             update_session_paths,
+            cancel_session_quit,
             commands::recents::add_recent_file,
             open_file_dialog,
             open_css_file_dialog,
