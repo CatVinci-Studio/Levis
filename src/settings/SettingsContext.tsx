@@ -110,6 +110,9 @@ export interface UserThemeMeta {
   hasDark: boolean;
 }
 
+export type ImageStorageMode = "local" | "image-host";
+export type ImageNamingMode = "auto" | "original" | "ask";
+
 export interface Settings {
   language: Lang;
   /// Appearance: follow the OS, or pin light/dark. Independent of `themeId`.
@@ -122,6 +125,15 @@ export interface Settings {
   enableAskAi: boolean;
   enableMath: boolean;
   enableMermaid: boolean;
+  /** Where newly pasted images go. Existing markdown image references are
+   *  never migrated when this changes. */
+  imageStorageMode: ImageStorageMode;
+  /** Filename policy used only by the remote image-host uploader. */
+  imageNamingMode: ImageNamingMode;
+  /** A user-owned multipart endpoint. It receives the image in `file`. */
+  imageUploadEndpoint: string;
+  /** Dot-separated path to the public URL in the endpoint's JSON response. */
+  imageUploadUrlField: string;
   aiProvider: AiProvider;
   /// Shared model for inline completion and grammar checking, per provider.
   /// Missing/"" keeps the provider's low-cost writing default.
@@ -205,6 +217,10 @@ const DEFAULT_SETTINGS: Settings = {
   enableAskAi: true,
   enableMath: true,
   enableMermaid: true,
+  imageStorageMode: "local",
+  imageNamingMode: "auto",
+  imageUploadEndpoint: "",
+  imageUploadUrlField: "url",
   aiProvider: "openai",
   writingModels: {},
   agentModels: {},

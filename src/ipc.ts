@@ -74,6 +74,20 @@ export const fs = {
     call<string>("read_binary_file_base64", { path }),
   savePastedImage: (docPath: string | null, dataBase64: string, ext: string) =>
     call<SavedImage>("save_pasted_image", { docPath, dataBase64, ext }),
+  uploadImage: (
+    dataBase64: string,
+    mime: string,
+    filename: string,
+    endpoint: string,
+    urlField: string,
+  ) =>
+    call<SavedImage>("upload_image", {
+      dataBase64,
+      mime,
+      filename,
+      endpoint,
+      urlField,
+    }),
   migrateDraftImages: (docPath: string, srcs: string[]) =>
     call<ImageMigration[]>("migrate_draft_images", { docPath, srcs }),
   writeTextFile: (path: string, contents: string) =>
@@ -269,6 +283,16 @@ export const auth = {
     call<string[]>("fetch_custom_models", { baseUrl, apiKey }),
   testCustomEndpoint: (baseUrl: string, apiKey: string | null) =>
     call<void>("test_custom_endpoint", { baseUrl, apiKey }),
+};
+
+/** Image-host credentials reuse the same private 0600 credential store as
+ * provider keys, under a reserved id that is never shown as an AI provider. */
+const IMAGE_HOST_CREDENTIAL_ID = "__image_host";
+export const imageHostAuth = {
+  tokenStatus: () => auth.providerApiKeyStatus(IMAGE_HOST_CREDENTIAL_ID),
+  setToken: (token: string) =>
+    auth.setProviderApiKey(IMAGE_HOST_CREDENTIAL_ID, token),
+  clearToken: () => auth.clearProviderApiKey(IMAGE_HOST_CREDENTIAL_ID),
 };
 
 // ---------------------------------------------------------------------------

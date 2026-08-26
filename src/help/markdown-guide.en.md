@@ -122,6 +122,8 @@ sequenceDiagram
 
 Paste an image straight from the clipboard — Levis saves it to an `assets/` folder next to the document and inserts the reference. Or write it by hand:
 
+In **Settings → Editor & Appearance → Images**, you can instead send newly pasted images to your own image host. The endpoint receives `multipart/form-data` with a `file` field and may return either the public URL as plain text or in a configurable JSON field. Uploaded files can be renamed automatically, keep their original name, or ask you for a name before every upload. Existing image references are never changed when you switch storage modes.
+
 ```markdown
 ![alt text](assets/screenshot.png)
 ```

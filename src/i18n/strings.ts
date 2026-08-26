@@ -426,6 +426,30 @@ export const strings = {
     imageMigrationFailedMessage:
       "These pasted images couldn't be moved next to the saved document, so they're still at their original location:",
     imagePasteFailedMessage: "Couldn't save the pasted image.",
+    imageStorageGroupLabel: "Images",
+    imageStorageLabel: "Image storage",
+    imageStorageHint: "Choose where newly pasted images are stored.",
+    imageStorageLocal: "Local assets folder",
+    imageStorageRemote: "Image host",
+    imageUploadEndpointLabel: "Upload endpoint",
+    imageUploadEndpointHint:
+      "Receives multipart/form-data with the image in the file field.",
+    imageUploadUrlFieldLabel: "Response URL field",
+    imageUploadUrlFieldHint:
+      "Dot-separated JSON path to the public image URL; plain URL responses also work.",
+    imageUploadTokenLabel: "Bearer token",
+    imageUploadTokenHint:
+      "Optional. Stored privately and sent in the Authorization header.",
+    imageUploadTokenPlaceholder: "Optional token",
+    imageNamingLabel: "Uploaded filename",
+    imageNamingHint: "How a filename is chosen before each upload.",
+    imageNamingAuto: "Rename automatically",
+    imageNamingOriginal: "Keep original name",
+    imageNamingAsk: "Ask every time",
+    imageNameDialogTitle: "Upload image",
+    imageNameDialogLabel: "Filename",
+    imageNameDialogUpload: "Upload",
+    imageNameDialogInvalid: "Enter a valid filename without / or \\.",
     privacyChatHistoryLabel: "Chat History",
     privacyChatHistoryToggle: "Save chat conversations",
     privacyChatHistoryHint:
@@ -879,6 +903,29 @@ export const strings = {
     imageMigrationFailedMessage:
       "以下粘贴的图片未能移动到文档旁边，仍保留在原位置：",
     imagePasteFailedMessage: "粘贴的图片保存失败。",
+    imageStorageGroupLabel: "图片",
+    imageStorageLabel: "图片存储",
+    imageStorageHint: "选择之后粘贴的图片保存到哪里。",
+    imageStorageLocal: "本地 assets 目录",
+    imageStorageRemote: "网络图床",
+    imageUploadEndpointLabel: "上传地址",
+    imageUploadEndpointHint:
+      "接收 multipart/form-data，请从 file 字段读取图片。",
+    imageUploadUrlFieldLabel: "响应 URL 字段",
+    imageUploadUrlFieldHint:
+      "图片公开地址在 JSON 中的点分路径；也支持直接返回纯 URL。",
+    imageUploadTokenLabel: "Bearer 令牌",
+    imageUploadTokenHint: "可选。令牌会单独安全保存并通过 Authorization 发送。",
+    imageUploadTokenPlaceholder: "可选令牌",
+    imageNamingLabel: "上传文件名",
+    imageNamingHint: "上传前如何决定图片文件名。",
+    imageNamingAuto: "自动重命名",
+    imageNamingOriginal: "保留原名",
+    imageNamingAsk: "每次询问",
+    imageNameDialogTitle: "上传图片",
+    imageNameDialogLabel: "文件名",
+    imageNameDialogUpload: "上传",
+    imageNameDialogInvalid: "请输入不包含 / 或 \\ 的有效文件名。",
     privacyChatHistoryLabel: "聊天历史",
     privacyChatHistoryToggle: "保存聊天记录",
     privacyChatHistoryHint:
@@ -1342,6 +1389,31 @@ export const strings = {
     imageMigrationFailedMessage:
       "次の貼り付けた画像はドキュメントの隣に移動できず、元の場所に残っています:",
     imagePasteFailedMessage: "貼り付けた画像を保存できませんでした。",
+    imageStorageGroupLabel: "画像",
+    imageStorageLabel: "画像の保存先",
+    imageStorageHint: "今後貼り付ける画像の保存先を選択します。",
+    imageStorageLocal: "ローカル assets フォルダー",
+    imageStorageRemote: "画像ホスト",
+    imageUploadEndpointLabel: "アップロード先",
+    imageUploadEndpointHint:
+      "multipart/form-data の file フィールドで画像を受信します。",
+    imageUploadUrlFieldLabel: "レスポンスの URL フィールド",
+    imageUploadUrlFieldHint:
+      "公開 URL へのドット区切り JSON パス。URL の直接返却にも対応します。",
+    imageUploadTokenLabel: "Bearer トークン",
+    imageUploadTokenHint:
+      "任意。安全に保存し、Authorization ヘッダーで送信します。",
+    imageUploadTokenPlaceholder: "任意のトークン",
+    imageNamingLabel: "アップロード名",
+    imageNamingHint: "アップロード前のファイル名の決め方です。",
+    imageNamingAuto: "自動で変更",
+    imageNamingOriginal: "元の名前を保持",
+    imageNamingAsk: "毎回確認",
+    imageNameDialogTitle: "画像をアップロード",
+    imageNameDialogLabel: "ファイル名",
+    imageNameDialogUpload: "アップロード",
+    imageNameDialogInvalid:
+      "/ または \\ を含まない有効な名前を入力してください。",
     privacyChatHistoryLabel: "チャット履歴",
     privacyChatHistoryToggle: "チャット履歴を保存",
     privacyChatHistoryHint:

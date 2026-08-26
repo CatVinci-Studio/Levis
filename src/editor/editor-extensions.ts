@@ -99,6 +99,7 @@ export function withEditorExtensions(
   /** A pasted image failed to save to disk - the message to show in a
    *  native alert (localized, since this plugin has no i18n access itself). */
   onImagePasteError: () => string,
+  requestImageName: (stem: string, extension: string) => Promise<string | null>,
 ): Editor {
   return (
     editor
@@ -174,6 +175,8 @@ export function withEditorExtensions(
       .use(
         createImagePlugin({
           docPath: () => docPath.current,
+          settings: () => settings.current,
+          requestName: requestImageName,
           onError: onImagePasteError,
         }),
       )

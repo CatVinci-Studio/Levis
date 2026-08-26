@@ -58,6 +58,7 @@ import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
+import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
 import { useEditorRunner } from "./useEditorRunner";
@@ -157,6 +158,8 @@ export function MilkdownEditor({
 }: MilkdownEditorProps) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
+  const [imageNameRequest, setImageNameRequest] =
+    useState<ImageNameRequest | null>(null);
   // The Quick Ask zone widget's DOM container (quick-ask-widget-plugin) -
   // null whenever no widget is in the document. InlineChat portals into it,
   // so the panel's actual pixels sit wherever ProseMirror placed the
@@ -191,6 +194,21 @@ export function MilkdownEditor({
   // the real handler needs `run` and the detached-chat bridge, neither of
   // which exists yet at construction time.
   const onSelectionChangeRef = useRef<() => void>(() => {});
+
+  const requestImageName = useCallback(
+    (stem: string, extension: string) =>
+      new Promise<string | null>((resolve) =>
+        setImageNameRequest({ stem, extension, resolve }),
+      ),
+    [],
+  );
+
+  const closeImageNameDialog = useCallback((stem: string | null) => {
+    setImageNameRequest((request) => {
+      request?.resolve(stem);
+      return null;
+    });
+  }, []);
 
   useEditor(
     (root) =>
@@ -252,6 +270,7 @@ export function MilkdownEditor({
         },
         tutorialMockRef,
         () => tRef.current.imagePasteFailedMessage,
+        requestImageName,
       ),
     [],
   );
@@ -1061,6 +1080,17 @@ export function MilkdownEditor({
           cancelLabel={t.closePromptCancel}
           onInsert={insertTable}
           onClose={() => setTableDialogOpen(false)}
+        />
+      )}
+      {imageNameRequest && (
+        <ImageNameDialog
+          request={imageNameRequest}
+          title={t.imageNameDialogTitle}
+          label={t.imageNameDialogLabel}
+          invalidLabel={t.imageNameDialogInvalid}
+          uploadLabel={t.imageNameDialogUpload}
+          cancelLabel={t.closePromptCancel}
+          onClose={closeImageNameDialog}
         />
       )}
       {grammar.popover && (

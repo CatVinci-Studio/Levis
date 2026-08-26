@@ -23,6 +23,7 @@ import {
   AgentSkillsSection,
 } from "./sections/agent";
 import { PrivacySection } from "./sections/privacy";
+import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
@@ -179,6 +180,9 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     checked={settings.enableMermaid}
                     onChange={(v) => setSettings({ enableMermaid: v })}
                   />
+                </SettingsGroup>
+                <SettingsGroup title={t.imageStorageGroupLabel}>
+                  <ImageStorageSection t={t} />
                 </SettingsGroup>
               </>
             )}

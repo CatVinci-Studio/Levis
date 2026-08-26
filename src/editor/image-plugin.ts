@@ -6,6 +6,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { message } from "@tauri-apps/plugin-dialog";
 import { dirname } from "../utils/path";
 import { fs } from "../ipc";
+import type { Settings, ImageNamingMode } from "../settings/SettingsContext";
 
 /**
  * Image support, Typora-style, in two halves:
@@ -56,21 +57,64 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+export function safeImageStem(name: string): string {
+  const withoutExtension = name.replace(/\.[^.]*$/, "");
+  return (
+    Array.from(withoutExtension)
+      .filter((character) => (character.codePointAt(0) ?? 0) >= 32)
+      .join("")
+      .replace(/[<>:"/\\|?*]/g, "-")
+      .replace(/[. ]+$/g, "")
+      .trim() || "image"
+  );
+}
+
+function automaticImageStem(): string {
+  const now = new Date();
+  const two = (value: number) => String(value).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}-${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
+  const random = Math.random().toString(36).slice(2, 6).padEnd(4, "0");
+  return `${stamp}-${random}`;
+}
+
+export function imageStemForMode(file: File, mode: ImageNamingMode): string {
+  return mode === "auto" ? automaticImageStem() : safeImageStem(file.name);
+}
+
 async function saveAndInsertImages(
   view: EditorView,
   files: File[],
   docPath: string | null,
+  settings: () => Settings,
+  requestName: (stem: string, extension: string) => Promise<string | null>,
   onError: () => string,
 ): Promise<void> {
   for (const file of files) {
     const ext = EXT_BY_MIME[file.type];
     if (!ext) continue;
     try {
-      const { src } = await fs.savePastedImage(
-        docPath,
-        await fileToBase64(file),
-        ext,
-      );
+      const current = settings();
+      const data = await fileToBase64(file);
+      let src: string;
+      if (current.imageStorageMode === "image-host") {
+        if (!current.imageUploadEndpoint.trim())
+          throw new Error("image host upload endpoint is not configured");
+        let stem = imageStemForMode(file, current.imageNamingMode);
+        if (current.imageNamingMode === "ask") {
+          const chosen = await requestName(stem, ext);
+          if (chosen === null) continue;
+          stem = safeImageStem(chosen);
+        }
+        ({ src } = await fs.uploadImage(
+          data,
+          file.type,
+          `${stem}.${ext}`,
+          current.imageUploadEndpoint,
+          current.imageUploadUrlField || "url",
+        ));
+      } else {
+        ({ src } = await fs.savePastedImage(docPath, data, ext));
+      }
       const image = view.state.schema.nodes.image;
       if (!image) return;
       view.dispatch(
@@ -87,6 +131,8 @@ async function saveAndInsertImages(
 
 export function createImagePlugin(options: {
   docPath: () => string | null;
+  settings: () => Settings;
+  requestName: (stem: string, extension: string) => Promise<string | null>;
   onError: () => string;
 }) {
   return $prose(
@@ -107,6 +153,8 @@ export function createImagePlugin(options: {
               view,
               files,
               options.docPath(),
+              options.settings,
+              options.requestName,
               options.onError,
             );
             return true;

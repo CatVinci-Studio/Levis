@@ -4,6 +4,7 @@ pub mod cli;
 pub mod drafts;
 pub mod export;
 pub mod fs;
+pub mod image_host;
 pub mod prefs;
 pub mod recents;
 pub mod session;

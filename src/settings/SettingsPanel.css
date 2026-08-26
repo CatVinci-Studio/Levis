@@ -337,6 +337,15 @@ button.settings-inline-button {
   border-color: var(--editor-accent);
 }
 
+.image-settings-row {
+  align-items: flex-start;
+}
+
+.image-settings-input {
+  width: min(270px, 48%);
+  flex: 0 1 270px;
+}
+
 /* ---- General > AI account: two disclosure rows + expanding panels ---- */
 
 .provider-picker {

@@ -34,6 +34,7 @@ use commands::fs::{
     file_mtime_ms, list_dir, migrate_draft_images, open_css_file_dialog, open_file_dialog,
     read_binary_file_base64, read_text_file, save_file_dialog, save_pasted_image, write_text_file,
 };
+use commands::image_host::upload_image;
 use commands::prefs::{
     get_new_document_mode, get_restore_session_on_startup, set_new_document_mode,
     set_restore_session_on_startup,
@@ -361,6 +362,7 @@ pub fn run() {
             read_binary_file_base64,
             write_text_file,
             save_pasted_image,
+            upload_image,
             migrate_draft_images,
             save_theme_css,
             load_theme_css,
