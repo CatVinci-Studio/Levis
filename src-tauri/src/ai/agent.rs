@@ -74,6 +74,8 @@ const AGENT_ROLE: &str = "You are a professional writing assistant embedded in L
 /// tool-less provider to call tools would just confuse it.
 const AGENT_TOOL_INSTRUCTIONS: &str = "Use the search_document tool to locate something specific in a long document rather than guessing. The document's folder may hold reference material - use list_files/read_file to consult it when the user's request depends on it. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, delete to remove text, append to add text at the end of the document. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and use `-` or `1.` for list items (never `•`, `●` or other bullet symbols) and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. The user reviews and applies each proposal themselves, so your reply should only say briefly what you changed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided (see annotateProposalStatuses in src/ai/proposal-status.ts, which appends it). Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change. When a message is genuinely ambiguous, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it.";
 
+const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document rather than guessing. The document's folder may hold reference material - use list_files/read_file when the request depends on it. Use use_skill when an available skill matches. These tools are for inspection and research only; no document edit tool is available in this mode.";
+
 /// Above this, the document is embedded in full; past it, the prompt gets
 /// an outline plus a head/tail excerpt instead - every chat message used to
 /// re-send the whole document verbatim, which got slow and expensive for
@@ -141,11 +143,29 @@ fn document_section(document: &str, with_tools: bool) -> String {
 /// The static half of the layering: role + workspace instructions + skill
 /// index + document go into the system prompt; skill bodies and workspace
 /// files stay out of it and are pulled in dynamically through tools.
-fn build_instructions(workspace: &AgentWorkspace, document: &str, with_tools: bool) -> String {
+fn build_instructions(
+    workspace: &AgentWorkspace,
+    document: &str,
+    with_tools: bool,
+    mode: &str,
+) -> String {
     let mut sections = vec![AGENT_ROLE.to_string()];
 
+    sections.push(match mode {
+        "edit" => "---interaction mode: edit---\nCarry out the user's request. When document changes are needed, submit them through propose_edit so the user can review them before applying.".to_string(),
+        "plan" => "---interaction mode: plan---\nProduce a concrete, structured implementation plan only. You may research and inspect context, but do not call propose_edit and do not modify the document. Wait for the user to approve the plan in a later request.".to_string(),
+        _ => "---interaction mode: ask---\nAnswer, explain, discuss, or research in read-only mode. Do not call propose_edit and do not modify the document.".to_string(),
+    });
+
     if with_tools {
-        sections.push(AGENT_TOOL_INSTRUCTIONS.to_string());
+        sections.push(
+            if mode == "edit" {
+                AGENT_TOOL_INSTRUCTIONS
+            } else {
+                AGENT_READ_ONLY_TOOL_INSTRUCTIONS
+            }
+            .to_string(),
+        );
     }
 
     // agent.md layers (global, then the document folder's) - the user's own
@@ -215,13 +235,14 @@ pub async fn ai_agent_message(
     // `message` by the frontend; only images travel as their own parts.
     images: Vec<ImageAttachment>,
     web_search: bool,
+    mode: String,
     model: Option<String>,
     request_id: String,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let cancel_rx = cancel::register(request_id.clone());
     let result = tokio::select! {
-        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, model, on_event) => result,
+        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, mode, model, on_event) => result,
         _ = cancel_rx => Err(cancel::CANCELLED.to_string()),
     };
     cancel::unregister(&request_id);
@@ -241,6 +262,7 @@ async fn ai_agent_message_inner(
     message: String,
     images: Vec<ImageAttachment>,
     web_search: bool,
+    mode: String,
     model: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
@@ -264,9 +286,12 @@ async fn ai_agent_message_inner(
 
     match entry.dialect {
         "openai-responses" => {
-            let instructions = build_instructions(&workspace, &document, true);
-            let tools =
-                tools::builtin_tools(!workspace.skills.is_empty(), workspace.root.is_some());
+            let instructions = build_instructions(&workspace, &document, true, &mode);
+            let tools = tools::builtin_tools(
+                !workspace.skills.is_empty(),
+                workspace.root.is_some(),
+                mode == "edit",
+            );
             let tool_specs = tools::tool_specs(&tools);
             let tool_ctx = ToolContext {
                 document: &document,
@@ -365,10 +390,13 @@ async fn ai_agent_message_inner(
             }
         }
         "anthropic-messages" => {
-            let instructions = build_instructions(&workspace, &document, true);
+            let instructions = build_instructions(&workspace, &document, true, &mode);
             let auth = route::resolve_anthropic_auth(&app).await?;
-            let tools =
-                tools::builtin_tools(!workspace.skills.is_empty(), workspace.root.is_some());
+            let tools = tools::builtin_tools(
+                !workspace.skills.is_empty(),
+                workspace.root.is_some(),
+                mode == "edit",
+            );
             let tool_specs = tools::tool_specs(&tools);
             let tool_ctx = ToolContext {
                 document: &document,
@@ -422,15 +450,18 @@ async fn ai_agent_message_inner(
                 .or_else(|| entry.agent_default_model.map(str::to_string))
                 .or(default_model)
                 .ok_or_else(|| NOT_CONFIGURED.to_string())?;
-            let tools =
-                tools::builtin_tools(!workspace.skills.is_empty(), workspace.root.is_some());
+            let tools = tools::builtin_tools(
+                !workspace.skills.is_empty(),
+                workspace.root.is_some(),
+                mode == "edit",
+            );
             let tool_specs = tools::tool_specs(&tools);
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
                 root: workspace.root.as_deref().map(Path::new),
             };
-            let instructions_with_tools = build_instructions(&workspace, &document, true);
+            let instructions_with_tools = build_instructions(&workspace, &document, true, &mode);
 
             // These providers expose server-side search through their
             // current Chat Completions compatibility layer. Other providers
@@ -528,7 +559,7 @@ async fn ai_agent_message_inner(
             {
                 Ok(turns) => Ok(turns),
                 Err(_) => {
-                    let instructions = build_instructions(&workspace, &document, false);
+                    let instructions = build_instructions(&workspace, &document, false, &mode);
                     flattened_chat_turn(
                         &app,
                         &provider,
@@ -542,7 +573,7 @@ async fn ai_agent_message_inner(
             }
         }
         _ => {
-            let instructions = build_instructions(&workspace, &document, false);
+            let instructions = build_instructions(&workspace, &document, false, &mode);
             flattened_chat_turn(
                 &app,
                 &provider,
@@ -647,5 +678,20 @@ mod tests {
         let doc = "中".repeat(FULL_DOCUMENT_LIMIT + 500);
         let section = document_section(&doc, true);
         assert!(section.contains('中'));
+    }
+
+    #[test]
+    fn interaction_mode_is_explicit_in_the_system_instructions() {
+        let workspace = AgentWorkspace {
+            instructions: vec![],
+            skills: vec![],
+            root: None,
+        };
+        let plan = build_instructions(&workspace, "draft", true, "plan");
+        assert!(plan.contains("interaction mode: plan"));
+        assert!(plan.contains("do not call propose_edit"));
+
+        let edit = build_instructions(&workspace, "draft", true, "edit");
+        assert!(edit.contains("interaction mode: edit"));
     }
 }

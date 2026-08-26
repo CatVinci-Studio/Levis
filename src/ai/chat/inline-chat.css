@@ -113,7 +113,20 @@
 .inline-chat-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.inline-chat-mode {
+  min-width: 72px;
+  height: 24px;
+  padding: 0 22px 0 7px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  font: inherit;
+  font-size: 11px;
 }
 
 /* How much text rides along as context, and a way to drop it. */
@@ -147,7 +160,8 @@
 }
 
 /* The attach-file button, kept as quiet as the input itself. */
-.inline-chat-attach {
+.inline-chat-attach,
+.inline-chat-web-search {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
@@ -161,9 +175,16 @@
   cursor: pointer;
 }
 
-.inline-chat-attach:hover {
+.inline-chat-attach:hover,
+.inline-chat-web-search:hover {
   background: var(--editor-border);
   color: var(--editor-text);
+}
+
+.inline-chat-web-search.is-active {
+  border-color: var(--editor-accent);
+  background: color-mix(in srgb, var(--editor-accent) 14%, transparent);
+  color: var(--editor-accent);
 }
 
 .inline-chat-attachments {
@@ -327,8 +348,8 @@
   gap: 6px;
 }
 
-/* Quick Ask's reply area (ChatBody's "quick" variant): no conversation, just
-   a one-line status - this is what replaces .inline-chat-messages there. */
+/* Quick Ask starts as a compact answer preview and can expand in place into
+   the complete transcript. The detached window remains optional. */
 .quick-ask-status {
   padding: 8px 10px;
 }
@@ -343,15 +364,39 @@
 .quick-ask-summary {
   flex: 1;
   min-width: 0;
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  white-space: pre-wrap;
   font-size: 13px;
   color: var(--editor-text);
 }
 
+.quick-ask-transcript {
+  max-height: min(52vh, 520px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.quick-ask-answer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .quick-ask-expand {
   flex-shrink: 0;
+}
+
+.agent-plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
 }
 
 .inline-chat-action {

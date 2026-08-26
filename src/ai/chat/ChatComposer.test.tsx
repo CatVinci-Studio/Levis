@@ -43,6 +43,10 @@ const labels = {
   selectedChars: "{n} chars selected",
   attachmentTruncated: "(shortened)",
   attachmentNoVision: "This provider can't read images.",
+  modeAsk: "Ask",
+  modeEdit: "Edit",
+  modePlan: "Plan",
+  webSearch: "Web search",
 };
 
 type ComposerOptions = {
@@ -62,6 +66,8 @@ function composer({ selectedText = null, onSend = () => {} }: ComposerOptions) {
       selectedText={selectedText}
       busy={false}
       labels={labels}
+      defaultMode="ask"
+      defaultWebSearch={false}
       onSend={onSend}
       onStop={() => {}}
       onEscape={() => {}}
@@ -122,7 +128,27 @@ describe("ChatComposer selection chip", () => {
       target: { value: "tighten this" },
     });
     fireEvent.click(screen.getByText("Send"));
-    expect(onSend).toHaveBeenCalledWith("tighten this", [], true);
+    expect(onSend).toHaveBeenCalledWith("tighten this", [], true, {
+      mode: "ask",
+      webSearch: false,
+    });
+  });
+
+  it("sends the selected interaction mode and web-search choice", () => {
+    const { onSend } = renderComposer();
+    fireEvent.change(screen.getByLabelText("Ask"), {
+      target: { value: "plan" },
+    });
+    fireEvent.click(screen.getByLabelText("Web search"));
+    fireEvent.change(screen.getByPlaceholderText("Ask anything"), {
+      target: { value: "research this" },
+    });
+    fireEvent.click(screen.getByText("Send"));
+
+    expect(onSend).toHaveBeenCalledWith("research this", [], true, {
+      mode: "plan",
+      webSearch: true,
+    });
   });
 });
 
@@ -192,6 +218,7 @@ describe("ChatComposer attachments", () => {
       "what is this?",
       [imageAttachment],
       true,
+      { mode: "ask", webSearch: false },
     );
     await waitFor(() =>
       expect(screen.queryByText("chart.png")).not.toBeInTheDocument(),

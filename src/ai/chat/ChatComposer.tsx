@@ -3,11 +3,13 @@ import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
 import { ai, IpcError } from "../../ipc";
 import { useActiveProvider } from "../provider-catalog";
+import type { AgentMode } from "../../settings/SettingsContext";
 import {
   CloseIcon,
   GenericFileIcon,
   ImageFileIcon,
   PlusIcon,
+  SearchIcon,
 } from "../../ui/icons";
 
 export interface ChatComposerLabels {
@@ -26,6 +28,10 @@ export interface ChatComposerLabels {
   attachmentTruncated: string;
   /** Shown when an image is attached but the active provider has no vision. */
   attachmentNoVision: string;
+  modeAsk: string;
+  modeEdit: string;
+  modePlan: string;
+  webSearch: string;
 }
 
 interface ChatComposerProps {
@@ -37,6 +43,8 @@ interface ChatComposerProps {
   selectedText: string | null;
   busy: boolean;
   labels: ChatComposerLabels;
+  defaultMode: AgentMode;
+  defaultWebSearch: boolean;
   /** The resolved message (skill expanded) plus any attachments - InlineChat
    *  owns tagging it with selected-text/chatInfo and actually sending it. */
   onSend: (
@@ -44,6 +52,7 @@ interface ChatComposerProps {
     attachments: ChatAttachment[],
     /** False once the user has removed the selection chip. */
     includeSelection: boolean,
+    options: { mode: AgentMode; webSearch: boolean },
   ) => void;
   onStop: () => void;
   onEscape: () => void;
@@ -61,6 +70,8 @@ export function ChatComposer({
   selectedText,
   busy,
   labels,
+  defaultMode,
+  defaultWebSearch,
   onSend,
   onStop,
   onEscape,
@@ -74,6 +85,8 @@ export function ChatComposer({
   const [skillIndex, setSkillIndex] = useState(0);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [mode, setMode] = useState<AgentMode>(defaultMode);
+  const [webSearch, setWebSearch] = useState(defaultWebSearch);
   // Why an attachment couldn't be used ("this PDF has no text layer", "too
   // large", ...). Shown, never swallowed: the previous version caught and
   // discarded every failure, so picking a PDF - which could not work at all,
@@ -174,7 +187,7 @@ export function ChatComposer({
     setInput("");
     const staged = attachments;
     setAttachments([]);
-    onSend(message, staged, !selectionDropped);
+    onSend(message, staged, !selectionDropped, { mode, webSearch });
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -282,6 +295,16 @@ export function ChatComposer({
           autoFocus
         />
         <div className="inline-chat-toolbar">
+          <select
+            className="inline-chat-mode"
+            value={mode}
+            aria-label={labels.modeAsk}
+            onChange={(event) => setMode(event.target.value as AgentMode)}
+          >
+            <option value="ask">{labels.modeAsk}</option>
+            <option value="edit">{labels.modeEdit}</option>
+            <option value="plan">{labels.modePlan}</option>
+          </select>
           <button
             className="inline-chat-attach"
             title={labels.attachFile}
@@ -289,6 +312,16 @@ export function ChatComposer({
             onClick={attachFile}
           >
             <PlusIcon />
+          </button>
+          <button
+            type="button"
+            className={`inline-chat-web-search${webSearch ? " is-active" : ""}`}
+            title={labels.webSearch}
+            aria-label={labels.webSearch}
+            aria-pressed={webSearch}
+            onClick={() => setWebSearch((value) => !value)}
+          >
+            <SearchIcon />
           </button>
           {selectedText && !selectionDropped && (
             <span className="inline-chat-selection-chip">

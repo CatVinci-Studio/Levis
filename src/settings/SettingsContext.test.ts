@@ -12,11 +12,13 @@ describe("newcomer guide eligibility", () => {
 
   it("marks a brand-new installation as needing onboarding", () => {
     expect(loadSettings().onboardingShown).toBe(false);
+    expect(loadSettings().languageChosen).toBe(false);
   });
 
   it("does not surprise installations whose old settings predate the flag", () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ language: "zh" }));
     expect(loadSettings().onboardingShown).toBe(true);
+    expect(loadSettings().languageChosen).toBe(true);
   });
 
   it("preserves a deferred first-use guide until it is actually shown", () => {
@@ -25,6 +27,23 @@ describe("newcomer guide eligibility", () => {
       JSON.stringify({ language: "zh", onboardingShown: false }),
     );
     expect(loadSettings().onboardingShown).toBe(false);
+  });
+});
+
+describe("Agent mode migration", () => {
+  beforeAll(installTestLocalStorage);
+  beforeEach(() => localStorage.clear());
+
+  it("starts new conversations in Ask mode", () => {
+    expect(loadSettings().agentDefaultMode).toBe("ask");
+  });
+
+  it("rejects an unknown saved mode", () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ agentDefaultMode: "destroy" }),
+    );
+    expect(loadSettings().agentDefaultMode).toBe("ask");
   });
 });
 

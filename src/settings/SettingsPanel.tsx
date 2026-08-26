@@ -4,6 +4,7 @@ import {
   useSettings,
   COMPLETION_TONES,
   type CompletionTone,
+  type AgentMode,
   type GrammarStrictness,
   type NewDocumentMode,
   type ProxyType,
@@ -16,6 +17,7 @@ import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
   AgentModelSection,
+  AgentCapabilitySection,
   WritingModelSection,
   AgentWorkspaceRootSection,
   AgentWorkspaceSection,
@@ -36,7 +38,7 @@ interface SettingsPanelProps {
   onOpenFile: (path: string) => void;
 }
 
-type Category = "general" | "editor" | "ai" | "shortcuts" | "privacy";
+type Category = "general" | "editor" | "ai" | "agent" | "shortcuts" | "privacy";
 
 function SettingsGroup({
   title,
@@ -69,6 +71,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
     { id: "general", label: t.navGeneral },
     { id: "editor", label: t.navEditor },
     { id: "ai", label: t.navAi },
+    { id: "agent", label: t.navAgent },
     { id: "shortcuts", label: t.navShortcuts },
     { id: "privacy", label: t.navPrivacy },
   ];
@@ -151,10 +154,6 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   />
                 </SettingsGroup>
 
-                <SettingsGroup title={t.aiAccountLabel}>
-                  <ProviderListPanel t={t} />
-                </SettingsGroup>
-
                 <SettingsGroup title={t.generalSystemLabel}>
                   <CliCommandSection t={t} />
                   <UpdateSection t={t} />
@@ -189,6 +188,9 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
 
             {category === "ai" && (
               <>
+                <SettingsGroup title={t.aiAccountLabel}>
+                  <ProviderListPanel t={t} />
+                </SettingsGroup>
                 <SettingsGroup title={t.writingFeaturesLabel}>
                   <WritingModelSection t={t} />
                   <div className="settings-feature-grid">
@@ -271,50 +273,6 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   </div>
                 </SettingsGroup>
 
-                <SettingsGroup title={t.navAgent}>
-                  <ToggleRow
-                    label={t.aiAskLabel}
-                    hint={t.aiAskHint}
-                    checked={settings.enableAskAi}
-                    onChange={(v) => setSettings({ enableAskAi: v })}
-                  />
-                  {settings.enableAskAi && (
-                    <>
-                      <AgentModelSection t={t} />
-                      <ToggleRow
-                        label={t.webSearchLabel}
-                        hint={t.webSearchHint}
-                        checked={settings.enableWebSearch}
-                        onChange={(v) => setSettings({ enableWebSearch: v })}
-                      />
-                      <ToggleRow
-                        label={t.editAnimationLabel}
-                        hint={t.editAnimationHint}
-                        checked={settings.enableEditAnimation}
-                        onChange={(v) =>
-                          setSettings({ enableEditAnimation: v })
-                        }
-                      />
-                      <ToggleRow
-                        label={t.agentShareWindowLabel}
-                        hint={t.agentShareWindowHint}
-                        checked={settings.shareAgentWindowAcrossWindows}
-                        onChange={(v) =>
-                          setSettings({ shareAgentWindowAcrossWindows: v })
-                        }
-                      />
-                      <AgentWorkspaceSection t={t} />
-                      <AgentWorkspaceRootSection t={t} />
-                      <AgentSystemPromptSection
-                        t={t}
-                        onOpenFile={onOpenFile}
-                        onClose={onClose}
-                      />
-                      <AgentSkillsSection t={t} />
-                    </>
-                  )}
-                </SettingsGroup>
-
                 <SettingsGroup title={t.proxyLabel}>
                   <div className="settings-proxy-row">
                     <select
@@ -353,6 +311,94 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     )}
                   </div>
                 </SettingsGroup>
+              </>
+            )}
+
+            {category === "agent" && (
+              <>
+                <SettingsGroup title={t.navAgent}>
+                  <ToggleRow
+                    label={t.aiAskLabel}
+                    hint={t.aiAskHint}
+                    checked={settings.enableAskAi}
+                    onChange={(v) => setSettings({ enableAskAi: v })}
+                  />
+                  {settings.enableAskAi && (
+                    <>
+                      <AgentModelSection t={t} />
+                      <AgentCapabilitySection t={t} />
+                      <div className="settings-row">
+                        <div>
+                          <div className="settings-row-label">
+                            {t.agentDefaultModeLabel}
+                          </div>
+                          <div className="settings-row-hint">
+                            {t.agentDefaultModeHint}
+                          </div>
+                        </div>
+                        <select
+                          className="settings-select"
+                          value={settings.agentDefaultMode}
+                          onChange={(e) =>
+                            setSettings({
+                              agentDefaultMode: e.target.value as AgentMode,
+                            })
+                          }
+                        >
+                          <option value="ask">{t.agentModeAsk}</option>
+                          <option value="edit">{t.agentModeEdit}</option>
+                          <option value="plan">{t.agentModePlan}</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </SettingsGroup>
+
+                {settings.enableAskAi && (
+                  <>
+                    <SettingsGroup title={t.agentToolsGroupLabel}>
+                      <ToggleRow
+                        label={t.webSearchLabel}
+                        hint={t.webSearchHint}
+                        checked={settings.enableWebSearch}
+                        onChange={(v) => setSettings({ enableWebSearch: v })}
+                      />
+                      <AgentWorkspaceRootSection t={t} />
+                    </SettingsGroup>
+
+                    <SettingsGroup title={t.agentPersonalizationGroupLabel}>
+                      <AgentWorkspaceSection t={t} />
+                      <AgentSystemPromptSection
+                        t={t}
+                        onOpenFile={onOpenFile}
+                        onClose={onClose}
+                      />
+                      <AgentSkillsSection t={t} />
+                    </SettingsGroup>
+
+                    <details className="settings-advanced">
+                      <summary>{t.agentAdvancedGroupLabel}</summary>
+                      <div className="settings-advanced-body">
+                        <ToggleRow
+                          label={t.editAnimationLabel}
+                          hint={t.editAnimationHint}
+                          checked={settings.enableEditAnimation}
+                          onChange={(v) =>
+                            setSettings({ enableEditAnimation: v })
+                          }
+                        />
+                        <ToggleRow
+                          label={t.agentShareWindowLabel}
+                          hint={t.agentShareWindowHint}
+                          checked={settings.shareAgentWindowAcrossWindows}
+                          onChange={(v) =>
+                            setSettings({ shareAgentWindowAcrossWindows: v })
+                          }
+                        />
+                      </div>
+                    </details>
+                  </>
+                )}
               </>
             )}
 

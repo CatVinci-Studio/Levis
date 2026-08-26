@@ -6,6 +6,12 @@ import type { AgentTurn, ImageAttachment } from "./types";
 import type { PendingStatus } from "./usePendingEdits";
 import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
 import { useLatest } from "../utils/useLatest";
+import type { AgentMode } from "../settings/SettingsContext";
+
+export interface AgentRequestOptions {
+  mode: AgentMode;
+  webSearch: boolean;
+}
 
 /** What has streamed in so far for the in-flight exchange: completed
  *  intermediate turns (the user's own message, tool calls/results as they
@@ -25,6 +31,7 @@ export interface RetryableSend {
   /** Resent as-is: a retry that dropped the attached images would answer a
    *  question about a picture the model can no longer see. */
   images: ImageAttachment[];
+  options: AgentRequestOptions;
 }
 
 /** A first-run lesson can return ordinary assistant prose or a realistic
@@ -37,11 +44,10 @@ export type MockAgentReply = (message: string) => string | AgentTurn[];
 /// the same history bookkeeping instead of reimplementing it.
 ///
 /// Lives above the chat bar itself (see MilkdownEditor) so a completed
-/// exchange can be saved after the popup closes. A normal popup open calls
-/// `reset` and starts fresh; only `restore`, reached from sidebar history,
-/// resumes an earlier conversation. The document is passed per send, not
-/// held here, so each message sees the document as it was when the bar was
-/// opened.
+/// exchange can be saved after the popup closes. Closing and reopening keeps
+/// the current conversation; the header's explicit New Conversation action
+/// calls `reset`, while `restore` resumes a saved conversation. The document
+/// is passed per send, so each message can use the latest captured context.
 export function useAgentConversation(
   docPath: string | null,
   /** Settings > Agent's explicit workspace root, or null for the default
@@ -86,6 +92,7 @@ export function useAgentConversation(
   const onStreamEventRef = useLatest(onStreamEvent);
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState<RetryableSend | null>(null);
+  const [lastMode, setLastMode] = useState<AgentMode | null>(null);
   // The in-flight request's id, for stop() to cancel by - null when nothing
   // is running (or the running exchange is a mocked one, which has no
   // backend request to cancel).
@@ -134,10 +141,12 @@ export function useAgentConversation(
      *  were extracted and inlined into `message` by the caller; images have
      *  no text to inline and travel as provider image parts instead. */
     images: ImageAttachment[] = [],
+    options: AgentRequestOptions = { mode: "ask", webSearch },
   ): Promise<AgentTurn[] | undefined> {
     const trimmed = message.trim();
     if (!trimmed || busy) return undefined;
     setBusy(true);
+    setLastMode(options.mode);
     setError(null);
     setRetryable(null);
     // The user's message shows immediately as a streamed turn - the real
@@ -161,7 +170,8 @@ export function useAgentConversation(
             history: annotateProposalStatuses(history, proposalStatuses ?? {}),
             message: trimmed,
             images,
-            webSearch,
+            webSearch: options.webSearch,
+            mode: options.mode,
             model: model || null,
             requestId,
             onEvent: (event) => {
@@ -206,7 +216,7 @@ export function useAgentConversation(
         return kept;
       }
       setError(String(err));
-      setRetryable({ document, message: trimmed, images });
+      setRetryable({ document, message: trimmed, images, options });
       return undefined;
     } finally {
       if (generation === generationRef.current) {
@@ -226,7 +236,12 @@ export function useAgentConversation(
   /** Resends the last failed message unchanged. */
   function retry(): Promise<AgentTurn[] | undefined> {
     if (!retryable) return Promise.resolve(undefined);
-    return send(retryable.document, retryable.message, retryable.images);
+    return send(
+      retryable.document,
+      retryable.message,
+      retryable.images,
+      retryable.options,
+    );
   }
 
   /** Replaces the live conversation wholesale: cancels anything in flight,
@@ -244,6 +259,7 @@ export function useAgentConversation(
     setBusy(false);
     setError(null);
     setRetryable(null);
+    setLastMode(null);
     mockTainted.current = !!mockReply;
   }
 
@@ -273,6 +289,7 @@ export function useAgentConversation(
     busy,
     error,
     retryable,
+    lastMode,
     send,
     stop,
     retry,

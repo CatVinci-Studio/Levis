@@ -9,7 +9,8 @@ import {
   type CloseConfirmLabels,
 } from "./CloseConfirm";
 import { useQuickAskReveal } from "./useQuickAskReveal";
-import { CloseIcon, DetachIcon } from "../../ui/icons";
+import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
+import type { AgentMode } from "../../settings/SettingsContext";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
 
@@ -18,6 +19,7 @@ export interface InlineChatLabels extends ChatBodyLabels, CloseConfirmLabels {
   close: string;
   /** Accessible name / tooltip of the pop-out-to-OS-window button. */
   detach: string;
+  newConversation: string;
 }
 
 interface InlineChatProps {
@@ -28,9 +30,11 @@ interface InlineChatProps {
   docPath: string | null;
   /** Explicit agent workspace root, or null for the document's own folder. */
   workspaceRoot: string | null;
-  /** Conversation state owned by the editor so it can be saved after close;
-   *  a normal subsequent open resets it, while history restores resume it. */
+  /** Conversation state owned by the editor so close/reopen preserves it;
+   *  only the explicit New Conversation action resets it. */
   conversation: AgentConversation;
+  defaultMode: AgentMode;
+  defaultWebSearch: boolean;
   /** This chat is the onboarding tour's mock conversation - the only one
    *  whose sends/proposals may advance the tour. */
   tutorialMock?: boolean;
@@ -56,6 +60,7 @@ interface InlineChatProps {
   /** Pops the full conversation out into its own OS window (chat-bridge) -
    *  the explicit, user-initiated escalation path from this one-shot bar. */
   onDetach: () => void;
+  onNewConversation: () => void;
   onClose: () => void;
 }
 
@@ -67,9 +72,8 @@ interface InlineChatProps {
 /// so the content below is pushed down, never covered, and the panel
 /// follows its block through edits. It is a command bar, not a chat log:
 /// an instruction produces previews in the document plus the pending bar
-/// (the ONE in-app place edits are confirmed); a question produces a
-/// one-line reply summary with "open the full conversation" (detach)
-/// beside it. The conversation itself is never rendered here.
+/// (the ONE in-app place edits are confirmed); a question produces a compact
+/// reply preview that can expand in place, or detach into a full window.
 ///
 /// This file is only the panel's CHROME: the header and the close
 /// confirmation. The body is ChatBody in its "quick" variant, sharing send
@@ -81,6 +85,8 @@ export function InlineChat({
   docPath,
   workspaceRoot,
   conversation,
+  defaultMode,
+  defaultWebSearch,
   tutorialMock,
   labels,
   onProposals,
@@ -96,6 +102,7 @@ export function InlineChat({
   onAcceptFocused,
   onRejectFocused,
   onDetach,
+  onNewConversation,
   onClose,
 }: InlineChatProps) {
   const confirm = useCloseConfirm(pendingCount, onClose);
@@ -109,6 +116,15 @@ export function InlineChat({
       <div className="inline-chat-shell floating-surface">
         <div className="inline-chat-header">
           <div className="inline-chat-header-actions">
+            <button
+              type="button"
+              className="inline-chat-header-button"
+              aria-label={labels.newConversation}
+              title={labels.newConversation}
+              onClick={onNewConversation}
+            >
+              <PlusIcon />
+            </button>
             <button
               type="button"
               className="inline-chat-header-button"
@@ -136,6 +152,8 @@ export function InlineChat({
           docPath={docPath}
           workspaceRoot={workspaceRoot}
           conversation={conversation}
+          defaultMode={defaultMode}
+          defaultWebSearch={defaultWebSearch}
           tutorialMock={tutorialMock}
           labels={labels}
           proposalStatus={proposalStatus}

@@ -1,5 +1,9 @@
-import { useEffect, useRef } from "react";
-import type { AgentConversation } from "../useAgentConversation";
+import { useEffect, useRef, useState } from "react";
+import type {
+  AgentConversation,
+  AgentRequestOptions,
+} from "../useAgentConversation";
+import type { AgentMode } from "../../settings/SettingsContext";
 import type { PendingStatus } from "../usePendingEdits";
 import type {
   AgentTurn,
@@ -35,6 +39,10 @@ export interface ChatBodyLabels
   pendingReveal: string;
   /** The quick variant's "open the full conversation" button. */
   expandConversation: string;
+  expandInline: string;
+  collapseInline: string;
+  approvePlan: string;
+  executePlanRequest: string;
 }
 
 export interface ChatBodyProps {
@@ -48,6 +56,8 @@ export interface ChatBodyProps {
   /** Explicit agent workspace root, or null for the document's own folder. */
   workspaceRoot: string | null;
   conversation: AgentConversation;
+  defaultMode: AgentMode;
+  defaultWebSearch: boolean;
   tutorialMock?: boolean;
   labels: ChatBodyLabels;
   proposalStatus: (callId: string) => PendingStatus;
@@ -137,6 +147,8 @@ export function ChatBody({
   docPath,
   workspaceRoot,
   conversation,
+  defaultMode,
+  defaultWebSearch,
   tutorialMock,
   labels,
   proposalStatus,
@@ -155,9 +167,19 @@ export function ChatBody({
   onRevealPending,
   quickReview,
 }: ChatBodyProps) {
-  const { history, streaming, busy, error, retryable, send, stop, retry } =
-    conversation;
+  const {
+    history,
+    streaming,
+    busy,
+    error,
+    retryable,
+    lastMode,
+    send,
+    stop,
+    retry,
+  } = conversation;
   const listRef = useRef<HTMLDivElement>(null);
+  const [quickExpanded, setQuickExpanded] = useState(false);
 
   // Streamed turns become pending previews the moment they land, not when
   // the whole exchange resolves - a propose_edit shows up in the document
@@ -217,12 +239,13 @@ export function ChatBody({
       document: string;
       selectionMarkdown: string | null;
     }) => { message: string; images?: ImageAttachment[] },
+    options: AgentRequestOptions,
   ) {
     void (async () => {
       const latest = refreshContext ? await refreshContext() : null;
       const state = latest ?? { document, selectionMarkdown };
       const { message, images } = buildMessage(state);
-      afterSend(await send(state.document, message, images));
+      afterSend(await send(state.document, message, images, options));
     })();
   }
 
@@ -230,6 +253,7 @@ export function ChatBody({
     message: string,
     attachments: ChatAttachment[],
     includeSelection: boolean,
+    options: AgentRequestOptions,
   ) {
     // Signals the interactive tutorial's "ask AI something" step - a real
     // send, not just opening the panel.
@@ -264,16 +288,26 @@ export function ChatBody({
             dataBase64: f.dataBase64,
           })),
       };
-    });
+    }, options);
   }
 
   /** An anchor that no longer resolves: ask the model to re-issue the edit
    *  against the document as it now reads, rather than writing text whose
    *  target we can't locate. */
   function handleRelocate(proposal: EditProposal) {
-    dispatchSend(() => ({
-      message: labels.relocateRequest.replace("{text}", proposal.text ?? ""),
-    }));
+    dispatchSend(
+      () => ({
+        message: labels.relocateRequest.replace("{text}", proposal.text ?? ""),
+      }),
+      { mode: "edit", webSearch: false },
+    );
+  }
+
+  function approvePlan() {
+    dispatchSend(() => ({ message: labels.executePlanRequest }), {
+      mode: "edit",
+      webSearch: defaultWebSearch,
+    });
   }
 
   function handleRetry() {
@@ -305,17 +339,52 @@ export function ChatBody({
     <>
       {variant === "quick"
         ? (busy || error || summaryText) && (
-            <div className="quick-ask-status">
-              {error && (
+            <div
+              className={`quick-ask-status${quickExpanded ? " quick-ask-status-expanded" : ""}`}
+            >
+              {!quickExpanded && error && (
                 <ErrorRow
                   error={error}
                   retryLabel={labels.retry}
                   onRetry={retryable ? handleRetry : null}
                 />
               )}
-              {!error && summaryText && (
+              {!quickExpanded && !error && summaryText && (
                 <div className="quick-ask-summary-row">
                   <span className="quick-ask-summary">{summaryText}</span>
+                </div>
+              )}
+              {!quickExpanded && !error && busy && !summaryText && (
+                <ThinkingIndicator label={labels.thinking} />
+              )}
+              {quickExpanded && (
+                <div className="quick-ask-transcript" ref={listRef}>
+                  <ChatMessages
+                    history={history}
+                    streaming={streaming}
+                    busy={busy}
+                    error={error}
+                    selectedText={selectedText}
+                    labels={labels}
+                    proposalStatus={proposalStatus}
+                    onAcceptProposal={onAcceptProposal}
+                    onRejectProposal={onRejectProposal}
+                    onRelocateProposal={handleRelocate}
+                    canRetry={!!retryable}
+                    onRetry={handleRetry}
+                  />
+                </div>
+              )}
+              {(summaryText || history.length > 0 || error) && (
+                <div className="quick-ask-answer-actions">
+                  <button
+                    className="inline-chat-action"
+                    onClick={() => setQuickExpanded((value) => !value)}
+                  >
+                    {quickExpanded
+                      ? labels.collapseInline
+                      : labels.expandInline}
+                  </button>
                   {onExpand && (
                     <button
                       className="inline-chat-action quick-ask-expand"
@@ -325,9 +394,6 @@ export function ChatBody({
                     </button>
                   )}
                 </div>
-              )}
-              {!error && busy && !summaryText && (
-                <ThinkingIndicator label={labels.thinking} />
               )}
             </div>
           )
@@ -386,12 +452,24 @@ export function ChatBody({
               </div>
             </div>
           )}
+      {lastMode === "plan" && !busy && history.length > 0 && (
+        <div className="agent-plan-actions">
+          <button
+            className="inline-chat-action inline-chat-action-primary"
+            onClick={approvePlan}
+          >
+            {labels.approvePlan}
+          </button>
+        </div>
+      )}
       <ChatComposer
         docPath={docPath}
         workspaceRoot={workspaceRoot}
         selectedText={selectedText}
         busy={busy}
         labels={labels}
+        defaultMode={defaultMode}
+        defaultWebSearch={defaultWebSearch}
         onSend={handleSend}
         onStop={stop}
         onEscape={onEscape ?? (() => {})}

@@ -20,6 +20,7 @@ import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
+import { LanguageWelcome } from "./onboarding/LanguageWelcome";
 import { useTutorialDocumentEvaluation } from "./onboarding/useTutorialDocumentEvaluation";
 import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
@@ -933,7 +934,7 @@ function App() {
         </div>
       )}
 
-      {tutorial.active && (
+      {tutorial.active && settings.languageChosen && (
         <TutorialExperience
           tutorial={tutorial}
           t={t}
@@ -942,6 +943,13 @@ function App() {
             grammar: formatCombo(settings.shortcuts.triggerGrammarCheck),
             agent: formatCombo(settings.shortcuts.toggleFloatingChat),
           }}
+        />
+      )}
+      {!settings.languageChosen && (
+        <LanguageWelcome
+          language={settings.language}
+          onLanguage={(language) => setSettings({ language })}
+          onContinue={() => setSettings({ languageChosen: true })}
         />
       )}
     </div>

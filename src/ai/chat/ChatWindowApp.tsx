@@ -297,6 +297,8 @@ export function ChatWindowApp() {
           docPath={context.docPath}
           workspaceRoot={settings.agentWorkspaceRoot || null}
           conversation={conversation}
+          defaultMode={settings.agentDefaultMode}
+          defaultWebSearch={settings.enableWebSearch}
           labels={labels}
           proposalStatus={proposalStatus}
           pendingCount={pendingCount}

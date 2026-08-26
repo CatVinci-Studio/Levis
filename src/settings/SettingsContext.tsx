@@ -112,9 +112,13 @@ export interface UserThemeMeta {
 
 export type ImageStorageMode = "local" | "image-host";
 export type ImageNamingMode = "auto" | "original" | "ask";
+export type AgentMode = "ask" | "edit" | "plan";
 
 export interface Settings {
   language: Lang;
+  /** False only on a fresh install, until the language welcome screen is
+   *  confirmed. Existing installations are migrated to true. */
+  languageChosen: boolean;
   /// Appearance: follow the OS, or pin light/dark. Independent of `themeId`.
   theme: ThemeMode;
   enableCompletion: boolean;
@@ -142,6 +146,8 @@ export interface Settings {
   /// default. Keyed by catalog id, so adding a provider needs no Settings
   /// shape change.
   agentModels: Record<string, string>;
+  /** Initial mode shown in a newly mounted Agent composer. */
+  agentDefaultMode: AgentMode;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
   /// Offer the active provider's native server-side web search to Agent;
@@ -210,6 +216,7 @@ export interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   language: "en",
+  languageChosen: false,
   theme: "system",
   enableCompletion: true,
   enableGrammarCheck: true,
@@ -224,6 +231,7 @@ const DEFAULT_SETTINGS: Settings = {
   aiProvider: "openai",
   writingModels: {},
   agentModels: {},
+  agentDefaultMode: "ask",
   completionTone: "default",
   enableWebSearch: false,
   enableEditAnimation: true,
@@ -287,7 +295,18 @@ function migrateAgentModels(
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
+    if (!raw) {
+      const locale =
+        typeof navigator === "undefined"
+          ? ""
+          : navigator.language.toLowerCase();
+      const language: Lang = locale.startsWith("zh")
+        ? "zh"
+        : locale.startsWith("ja")
+          ? "ja"
+          : "en";
+      return { ...DEFAULT_SETTINGS, language };
+    }
     const parsed = JSON.parse(raw);
     return {
       ...DEFAULT_SETTINGS,
@@ -300,6 +319,10 @@ export function loadSettings(): Settings {
         typeof parsed.onboardingShown === "boolean"
           ? parsed.onboardingShown
           : true,
+      languageChosen:
+        typeof parsed.languageChosen === "boolean"
+          ? parsed.languageChosen
+          : true,
       aiProvider:
         LEGACY_PROVIDER_IDS[parsed.aiProvider] ??
         parsed.aiProvider ??
@@ -308,6 +331,11 @@ export function loadSettings(): Settings {
       writingModels: {
         ...(parsed.writingModels as Record<string, string> | undefined),
       },
+      agentDefaultMode: ["ask", "edit", "plan"].includes(
+        parsed.agentDefaultMode,
+      )
+        ? (parsed.agentDefaultMode as AgentMode)
+        : DEFAULT_SETTINGS.agentDefaultMode,
       shortcuts: { ...DEFAULT_SETTINGS.shortcuts, ...(parsed.shortcuts ?? {}) },
       theme: THEME_MODES.includes(parsed.theme)
         ? (parsed.theme as ThemeMode)

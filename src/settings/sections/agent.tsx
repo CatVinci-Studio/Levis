@@ -203,6 +203,33 @@ export function AgentModelSection({ t }: { t: Strings }) {
   return <ProviderModelSection t={t} kind="agent" />;
 }
 
+export function AgentCapabilitySection({ t }: { t: Strings }) {
+  const { settings } = useSettings();
+  const provider = useActiveProvider();
+  return (
+    <div
+      className="settings-capabilities"
+      aria-label={t.agentCapabilitiesLabel}
+    >
+      <div className="settings-row-label">{t.agentCapabilitiesLabel}</div>
+      <div className="settings-capability-list">
+        <span>{t.agentCapabilityConversation}</span>
+        <span>{t.agentCapabilityDocumentTools}</span>
+        <span className={provider?.supportsVision === false ? "is-muted" : ""}>
+          {provider?.supportsVision === false
+            ? t.agentCapabilityImagesUnavailable
+            : t.agentCapabilityImages}
+        </span>
+        <span className={!settings.enableWebSearch ? "is-muted" : ""}>
+          {settings.enableWebSearch
+            ? t.agentCapabilityWebOn
+            : t.agentCapabilityWebOff}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /// The agent workspace is configured through files, not settings controls -
 /// this section just explains the .levis/ convention and opens the global
 /// folder.

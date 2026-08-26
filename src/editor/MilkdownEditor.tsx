@@ -705,14 +705,19 @@ export function MilkdownEditor({
     })();
   }
 
-  function openNewAgentConversation() {
-    conversation.reset();
+  function openAgentConversation() {
     inlineChat.open();
   }
 
-  function toggleNewAgentConversation() {
-    if (inlineChat.chatInfo) inlineChat.close();
-    else openNewAgentConversation();
+  function startNewAgentConversation() {
+    conversation.reset();
+    inlineChat.close();
+    inlineChat.open();
+  }
+
+  function toggleAgentConversation() {
+    if (inlineChat.visible) inlineChat.close();
+    else openAgentConversation();
   }
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
   const findReplace = useFindReplace(run);
@@ -753,7 +758,7 @@ export function MilkdownEditor({
     () =>
       isOnScreen() &&
       (settings.enableAskAi || tutorialMock) &&
-      toggleNewAgentConversation(),
+      toggleAgentConversation(),
   );
   useWindowEvent(
     TOGGLE_FIND_REPLACE_EVENT,
@@ -1020,7 +1025,7 @@ export function MilkdownEditor({
     // disabled Agent chat before replaying the guide from Help.
     const aiItems: ContextMenuItem[] = [
       ...(settings.enableAskAi || tutorialMock
-        ? [{ label: t.askAi, onSelect: openNewAgentConversation }]
+        ? [{ label: t.askAi, onSelect: openAgentConversation }]
         : []),
       ...(settings.enableCompletion
         ? [{ label: t.triggerCompletion, onSelect: triggerCompletion }]
@@ -1181,6 +1186,8 @@ export function MilkdownEditor({
             docPath={filePath}
             workspaceRoot={settings.agentWorkspaceRoot || null}
             conversation={conversation}
+            defaultMode={settings.agentDefaultMode}
+            defaultWebSearch={settings.enableWebSearch}
             tutorialMock={tutorialMock}
             labels={chatLabels(t)}
             onProposals={showProposals}
@@ -1196,6 +1203,7 @@ export function MilkdownEditor({
             onAcceptFocused={handleAcceptFocused}
             onRejectFocused={handleRejectFocused}
             onDetach={handleDetachChat}
+            onNewConversation={startNewAgentConversation}
             onClose={inlineChat.close}
           />,
           quickAskEl,

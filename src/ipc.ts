@@ -356,6 +356,7 @@ export const ai = {
      *  inlined into `message` by the caller. */
     images: ImageAttachment[];
     webSearch: boolean;
+    mode: "ask" | "edit" | "plan";
     model: string | null;
     requestId: string;
     /** Live fragments while the request runs - see StreamEvent. */

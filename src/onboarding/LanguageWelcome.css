@@ -1,0 +1,122 @@
+.language-welcome-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.language-welcome {
+  width: min(520px, 100%);
+  padding: 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--editor-text);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.24);
+}
+
+.language-welcome-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 22px;
+  border-radius: 10px;
+  background: var(--editor-text);
+  color: var(--bg);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.language-welcome-eyebrow {
+  color: var(--editor-muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.language-welcome h1 {
+  margin: 5px 0 7px;
+  font-size: 26px;
+  font-weight: 650;
+}
+
+.language-welcome > p {
+  margin: 0 0 24px;
+  color: var(--editor-muted);
+  font-size: 13px;
+}
+
+.language-welcome-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.language-welcome-option {
+  min-width: 0;
+  padding: 14px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sidebar-bg) 55%, var(--bg));
+  color: var(--editor-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.language-welcome-option:hover {
+  background: var(--sidebar-hover);
+}
+
+.language-welcome-option.is-selected {
+  border-color: var(--editor-accent);
+  box-shadow: inset 0 0 0 1px var(--editor-accent);
+}
+
+.language-welcome-option span,
+.language-welcome-option small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.language-welcome-option span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.language-welcome-option small {
+  margin-top: 3px;
+  color: var(--editor-muted);
+  font-size: 11px;
+}
+
+.language-welcome-continue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 18px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--editor-accent);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .language-welcome {
+    padding: 26px 20px;
+  }
+
+  .language-welcome-options {
+    grid-template-columns: 1fr;
+  }
+}

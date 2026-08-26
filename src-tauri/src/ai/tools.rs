@@ -274,9 +274,8 @@ fn read_file(ctx: &ToolContext, arguments: &str) -> String {
 /// only offered when there's something for them to work on - a tool that can
 /// only report "nothing there" would just waste the model's steps. Append
 /// here (or extend to merge in MCP-provided tools) as the toolset grows.
-pub fn builtin_tools(has_skills: bool, has_root: bool) -> Vec<Tool> {
-    let mut tools = vec![
-        Tool {
+pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec<Tool> {
+    let mut tools = vec![Tool {
             spec: ToolSpec {
                 name: SEARCH_TOOL_NAME,
                 description: "Search the current document for a query string (case-insensitive). Returns matching lines with their line numbers.",
@@ -292,8 +291,13 @@ pub fn builtin_tools(has_skills: bool, has_root: bool) -> Vec<Tool> {
                 }),
             },
             run: search_document,
-        },
-        Tool {
+        }];
+
+    // Ask and Plan are structurally read-only: the model never receives the
+    // edit tool, so a provider cannot accidentally ignore a prompt-only mode
+    // instruction and create a proposal anyway.
+    if allow_edits {
+        tools.push(Tool {
             spec: ToolSpec {
                 name: PROPOSE_EDIT_TOOL_NAME,
                 description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `replace_selection` swaps the user's currently selected text (the <selected-text> block in their message; no `anchor` needed) for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once - if the text you need to target appears more than once, keep `anchor` as the exact text being edited and also pass `context`. `text` must be valid markdown: `-` or `1.` for lists (never `•` or other bullet symbols), `#` for headings.",
@@ -322,8 +326,8 @@ pub fn builtin_tools(has_skills: bool, has_root: bool) -> Vec<Tool> {
                 }),
             },
             run: propose_edit,
-        },
-    ];
+        });
+    }
 
     if has_skills {
         tools.push(Tool {
@@ -397,6 +401,19 @@ mod tests {
             skills: &[],
             root: None,
         }
+    }
+
+    #[test]
+    fn read_only_modes_do_not_receive_the_edit_tool() {
+        let read_only = builtin_tools(true, true, false);
+        assert!(!read_only
+            .iter()
+            .any(|tool| tool.spec.name == PROPOSE_EDIT_TOOL_NAME));
+
+        let editing = builtin_tools(true, true, true);
+        assert!(editing
+            .iter()
+            .any(|tool| tool.spec.name == PROPOSE_EDIT_TOOL_NAME));
     }
 
     #[test]
