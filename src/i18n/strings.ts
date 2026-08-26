@@ -450,6 +450,11 @@ export const strings = {
     imageNameDialogLabel: "Filename",
     imageNameDialogUpload: "Upload",
     imageNameDialogInvalid: "Enter a valid filename without / or \\.",
+    imageWidthAuto: "Image width: Auto",
+    imageWidth30: "Image width: 30%",
+    imageWidth50: "Image width: 50%",
+    imageWidth70: "Image width: 70%",
+    imageWidth100: "Image width: 100%",
     privacyChatHistoryLabel: "Chat History",
     privacyChatHistoryToggle: "Save chat conversations",
     privacyChatHistoryHint:
@@ -926,6 +931,11 @@ export const strings = {
     imageNameDialogLabel: "文件名",
     imageNameDialogUpload: "上传",
     imageNameDialogInvalid: "请输入不包含 / 或 \\ 的有效文件名。",
+    imageWidthAuto: "图片宽度：自动",
+    imageWidth30: "图片宽度：30%",
+    imageWidth50: "图片宽度：50%",
+    imageWidth70: "图片宽度：70%",
+    imageWidth100: "图片宽度：100%",
     privacyChatHistoryLabel: "聊天历史",
     privacyChatHistoryToggle: "保存聊天记录",
     privacyChatHistoryHint:
@@ -1414,6 +1424,11 @@ export const strings = {
     imageNameDialogUpload: "アップロード",
     imageNameDialogInvalid:
       "/ または \\ を含まない有効な名前を入力してください。",
+    imageWidthAuto: "画像の幅：自動",
+    imageWidth30: "画像の幅：30%",
+    imageWidth50: "画像の幅：50%",
+    imageWidth70: "画像の幅：70%",
+    imageWidth100: "画像の幅：100%",
     privacyChatHistoryLabel: "チャット履歴",
     privacyChatHistoryToggle: "チャット履歴を保存",
     privacyChatHistoryHint:

@@ -281,7 +281,7 @@
   max-width: 100%;
 }
 
-.milkdown img {
+.milkdown img:not(.ProseMirror-separator) {
   max-width: 100%;
   display: block;
   margin: 0.9em auto;
@@ -289,7 +289,7 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
-.milkdown img.ProseMirror-selectednode {
+.milkdown img:not(.ProseMirror-separator).ProseMirror-selectednode {
   outline: 2px solid var(--editor-accent);
   outline-offset: 3px;
 }

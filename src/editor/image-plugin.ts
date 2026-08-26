@@ -35,6 +35,38 @@ function resolveImageSrc(src: string, docPath: string | null): string {
   return convertFileSrc(`${dirname(docPath)}/${src}`);
 }
 
+const IMAGE_WIDTH_METADATA = /\s*\{levis-width=(\d{1,3})%\}\s*$/;
+
+/** Store image width in a standard Markdown image title suffix. */
+export function readImagePresentation(title: string | null | undefined): {
+  title: string;
+  widthPercent: number | null;
+} {
+  const value = title ?? "";
+  const match = IMAGE_WIDTH_METADATA.exec(value);
+  if (!match) return { title: value, widthPercent: null };
+
+  const widthPercent = Number(match[1]);
+  if (widthPercent < 1 || widthPercent > 100)
+    return { title: value, widthPercent: null };
+  return {
+    title: value.slice(0, match.index).trimEnd(),
+    widthPercent,
+  };
+}
+
+export function writeImageWidth(
+  title: string | null | undefined,
+  widthPercent: number | null,
+): string | null {
+  const visibleTitle = readImagePresentation(title).title.trimEnd();
+  if (widthPercent === null)
+    return visibleTitle.length > 0 ? visibleTitle : null;
+
+  const metadata = `{levis-width=${Math.min(100, Math.max(1, Math.round(widthPercent)))}%}`;
+  return visibleTitle.length > 0 ? `${visibleTitle} ${metadata}` : metadata;
+}
+
 const EXT_BY_MIME: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -163,12 +195,19 @@ export function createImagePlugin(options: {
             image: (node: ProseNode) => {
               const img = document.createElement("img");
               const apply = (n: ProseNode) => {
+                const presentation = readImagePresentation(
+                  n.attrs.title as string | null,
+                );
                 img.src = resolveImageSrc(
                   (n.attrs.src as string) ?? "",
                   options.docPath(),
                 );
                 img.alt = (n.attrs.alt as string) ?? "";
-                if (n.attrs.title) img.title = n.attrs.title as string;
+                if (presentation.title) img.title = presentation.title;
+                else img.removeAttribute("title");
+                img.style.width = presentation.widthPercent
+                  ? `${presentation.widthPercent}%`
+                  : "";
               };
               apply(node);
               return {

@@ -59,6 +59,7 @@ import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
+import { readImagePresentation, writeImageWidth } from "./image-plugin";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
 import { useEditorRunner } from "./useEditorRunner";
@@ -156,7 +157,11 @@ export function MilkdownEditor({
   isActive = true,
   tutorialMock = false,
 }: MilkdownEditorProps) {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    imagePos: number | null;
+  } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
   const [imageNameRequest, setImageNameRequest] =
     useState<ImageNameRequest | null>(null);
@@ -935,23 +940,80 @@ export function MilkdownEditor({
     // selection (its readback is async). Pushing the state's selection back
     // into the DOM here undoes the word-select before it's ever painted or
     // read back, so AI context capture and the completion cursor never see it.
+    const imagePos =
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const { anchor, head } = view.state.selection;
+        try {
+          const a = view.domAtPos(anchor);
+          const h = view.domAtPos(head);
+          window
+            .getSelection()
+            ?.setBaseAndExtent(a.node, a.offset, h.node, h.offset);
+        } catch {
+          // Selection not representable in the DOM right now - leave it alone.
+        }
+
+        const target = e.target;
+        if (
+          !(target instanceof HTMLImageElement) ||
+          target.classList.contains("ProseMirror-separator")
+        )
+          return null;
+        try {
+          const pos = view.posAtDOM(target, 0);
+          return view.state.doc.nodeAt(pos)?.type.name === "image" ? pos : null;
+        } catch {
+          return null;
+        }
+      }) ?? null;
+    setMenu({ x: e.clientX, y: e.clientY, imagePos });
+  }
+
+  function setImageWidth(pos: number, widthPercent: number | null) {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      const { anchor, head } = view.state.selection;
-      try {
-        const a = view.domAtPos(anchor);
-        const h = view.domAtPos(head);
-        window
-          .getSelection()
-          ?.setBaseAndExtent(a.node, a.offset, h.node, h.offset);
-      } catch {
-        // Selection not representable in the DOM right now - leave it alone.
-      }
+      const node = view.state.doc.nodeAt(pos);
+      if (node?.type.name !== "image") return;
+      view.dispatch(
+        view.state.tr.setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          title: writeImageWidth(
+            node.attrs.title as string | null,
+            widthPercent,
+          ),
+        }),
+      );
+      view.focus();
     });
-    setMenu({ x: e.clientX, y: e.clientY });
   }
 
   function buildMenuItems(): (ContextMenuItem | "separator")[] {
+    const imageItems: (ContextMenuItem | "separator")[] = [];
+    if (menu?.imagePos !== null && menu?.imagePos !== undefined) {
+      const imagePos = menu.imagePos;
+      const currentWidth =
+        run((ctx) => {
+          const node = ctx.get(editorViewCtx).state.doc.nodeAt(imagePos);
+          return node?.type.name === "image"
+            ? readImagePresentation(node.attrs.title as string | null)
+                .widthPercent
+            : null;
+        }) ?? null;
+      const widthItem = (widthPercent: number | null, label: string) => ({
+        label: `${currentWidth === widthPercent ? "✓ " : ""}${label}`,
+        onSelect: () => setImageWidth(imagePos, widthPercent),
+      });
+      imageItems.push(
+        widthItem(null, t.imageWidthAuto),
+        widthItem(30, t.imageWidth30),
+        widthItem(50, t.imageWidth50),
+        widthItem(70, t.imageWidth70),
+        widthItem(100, t.imageWidth100),
+        "separator",
+      );
+    }
+
     // Each AI item is only offered while its feature is enabled in Settings.
     // The provider-free newcomer guide always exposes Ask AI so its real
     // right-click entry point remains available even if the user previously
@@ -1003,10 +1065,11 @@ export function MilkdownEditor({
     const inTable =
       run((ctx) => isInTable(ctx.get(editorViewCtx).state)) ?? false;
     if (!inTable) {
-      return [...clipboardItems, "separator", ...insertItems];
+      return [...imageItems, ...clipboardItems, "separator", ...insertItems];
     }
 
     return [
+      ...imageItems,
       ...clipboardItems,
       "separator",
       { label: t.alignLeft, onSelect: () => alignTableColumn("left") },
