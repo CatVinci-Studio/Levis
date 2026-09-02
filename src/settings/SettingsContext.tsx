@@ -201,6 +201,8 @@ export interface Settings {
   /// exists; this is also what lets an app-update relaunch (which starts
   /// with no file arguments at all) reopen whatever was open before it.
   restoreSessionOnStartup: boolean;
+  /** Suggest an H1 or first content line as a draft's Save As filename. */
+  autoSuggestFilename: boolean;
   /// Set once the first-run tutorial has been shown (or skipped) - belt and
   /// suspenders alongside `isFreshInstall` below, in case a window closes
   /// mid-tutorial before the user reaches the end.
@@ -248,6 +250,7 @@ const DEFAULT_SETTINGS: Settings = {
   userThemes: [],
   newDocumentMode: "window",
   restoreSessionOnStartup: true,
+  autoSuggestFilename: true,
   onboardingShown: false,
   enableChatHistory: true,
   enableClipboardHistory: true,

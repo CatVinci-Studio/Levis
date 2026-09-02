@@ -44,12 +44,17 @@ pub async fn open_css_file_dialog(app: tauri::AppHandle) -> Option<String> {
 
 /// Opens a native "Save As" dialog for a new, never-saved document.
 #[tauri::command]
-pub async fn save_file_dialog(app: tauri::AppHandle) -> Option<String> {
+pub async fn save_file_dialog(app: tauri::AppHandle, default_name: String) -> Option<String> {
     use tauri_plugin_dialog::DialogExt;
     tauri::async_runtime::spawn_blocking(move || {
+        let default_name = if default_name.trim().is_empty() {
+            "Untitled.md"
+        } else {
+            default_name.trim()
+        };
         app.dialog()
             .file()
-            .set_file_name("未命名.md")
+            .set_file_name(default_name)
             .add_filter("Markdown", &["md"])
             .blocking_save_file()
             .map(|p| p.to_string())

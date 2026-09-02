@@ -152,6 +152,12 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       setSettings({ restoreSessionOnStartup: v })
                     }
                   />
+                  <ToggleRow
+                    label={t.autoSuggestFilenameLabel}
+                    hint={t.autoSuggestFilenameHint}
+                    checked={settings.autoSuggestFilename}
+                    onChange={(v) => setSettings({ autoSuggestFilename: v })}
+                  />
                 </SettingsGroup>
 
                 <SettingsGroup title={t.generalSystemLabel}>

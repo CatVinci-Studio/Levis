@@ -335,6 +335,9 @@ export const strings = {
     restoreSessionLabel: "Restore Previous Session on Startup",
     restoreSessionHint:
       "Reopen the documents that were open last time, instead of starting blank.",
+    autoSuggestFilenameLabel: "Suggest Filename from Document",
+    autoSuggestFilenameHint:
+      "For an untitled document, suggest its first level-one heading, or otherwise its first content line.",
     untitledTab: "Untitled",
     markdownGuideTab: "Markdown Guide",
     agentGuideTab: "AI Features Guide",
@@ -846,6 +849,9 @@ export const strings = {
     newDocumentModeTab: "当前窗口的新标签页",
     restoreSessionLabel: "启动时恢复上次会话",
     restoreSessionHint: "重新打开上次退出时打开的文档，而不是从空白开始。",
+    autoSuggestFilenameLabel: "根据文档内容自动建议文件名",
+    autoSuggestFilenameHint:
+      "保存未命名文档时，优先使用首个一级标题；没有标题则使用第一条正文内容。",
     untitledTab: "未命名",
     markdownGuideTab: "Markdown 指南",
     agentGuideTab: "AI 功能指南",
@@ -1353,6 +1359,9 @@ export const strings = {
     restoreSessionLabel: "起動時に前回のセッションを復元",
     restoreSessionHint:
       "空の状態で始める代わりに、前回開いていた文書を再度開きます。",
+    autoSuggestFilenameLabel: "文書からファイル名を自動提案",
+    autoSuggestFilenameHint:
+      "無題の文書では最初のレベル1見出しを、なければ最初の本文行を候補ファイル名にします。",
     untitledTab: "無題",
     markdownGuideTab: "Markdownガイド",
     agentGuideTab: "AI機能ガイド",

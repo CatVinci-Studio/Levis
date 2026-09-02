@@ -11,8 +11,10 @@ describe("newcomer guide eligibility", () => {
   beforeEach(() => localStorage.clear());
 
   it("marks a brand-new installation as needing onboarding", () => {
-    expect(loadSettings().onboardingShown).toBe(false);
-    expect(loadSettings().languageChosen).toBe(false);
+    const settings = loadSettings();
+    expect(settings.onboardingShown).toBe(false);
+    expect(settings.languageChosen).toBe(false);
+    expect(settings.autoSuggestFilename).toBe(true);
   });
 
   it("does not surprise installations whose old settings predate the flag", () => {

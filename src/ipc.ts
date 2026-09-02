@@ -66,7 +66,8 @@ export interface ImageMigration {
 export const fs = {
   openFileDialog: () => call<string | null>("open_file_dialog"),
   openCssFileDialog: () => call<string | null>("open_css_file_dialog"),
-  saveFileDialog: () => call<string | null>("save_file_dialog"),
+  saveFileDialog: (defaultName: string) =>
+    call<string | null>("save_file_dialog", { defaultName }),
   listDir: (path: string) => call<DirEntryInfo[]>("list_dir", { path }),
   fileMtimeMs: (path: string) => call<number | null>("file_mtime_ms", { path }),
   readTextFile: (path: string) => call<string>("read_text_file", { path }),

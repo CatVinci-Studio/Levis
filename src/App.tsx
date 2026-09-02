@@ -30,7 +30,7 @@ import { comboFromEvent, formatCombo } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { useZoom } from "./utils/useZoom";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
-import { dirname } from "./utils/path";
+import { basename, dirname } from "./utils/path";
 import {
   helpDocContent,
   makeBlankTab,
@@ -46,6 +46,7 @@ import { useDraftAutosave } from "./draft-autosave";
 import { useMenuBridge } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
 import { drafts, fs, menuIpc, session } from "./ipc";
+import { defaultMarkdownFilename } from "./save-default-name";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,
@@ -282,7 +283,14 @@ function App() {
     async (tabId: string): Promise<boolean> => {
       const tab = tabsRef.current.find((tb) => tb.id === tabId);
       if (!tab) return false;
-      const picked = await fs.saveFileDialog();
+      const defaultName = tab.path
+        ? basename(tab.path)
+        : defaultMarkdownFilename(
+            tab.content,
+            tab.helpDoc ? tabTitle(tab, t) : t.untitledTab,
+            settings.autoSuggestFilename,
+          );
+      const picked = await fs.saveFileDialog(defaultName);
       if (!picked) return false;
       await fs.writeTextFile(picked, tab.content);
       void session.addRecentFile(picked);
@@ -318,7 +326,7 @@ function App() {
       });
       return true;
     },
-    [updateTab, t],
+    [updateTab, t, settings.autoSuggestFilename],
   );
 
   const saveTab = useCallback(
