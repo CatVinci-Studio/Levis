@@ -44,6 +44,9 @@ jobs:
       - name: Install frontend dependencies
         working-directory: .
         run: npm ci
+      - name: Validate frontend on this platform
+        working-directory: .
+        run: npm run check
       - name: Build frontend assets for the native app
         working-directory: .
         run: npm run build

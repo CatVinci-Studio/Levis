@@ -5,6 +5,14 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to rebuild (for example v0.8.11)
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -36,7 +44,18 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Validate version tag
+        shell: bash
+        run: '[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]'
+
+      # Older tags predate .gitattributes. Match the source blobs on Windows
+      # too, so a rebuild does not fail Prettier after an automatic CRLF checkout.
+      - name: Preserve source line endings
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -90,8 +109,8 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Levis ${{ github.ref_name }}"
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: "Levis ${{ env.RELEASE_TAG }}"
           # Keep partial matrix builds away from the updater. The publish
           # job exposes the release only after all three platforms succeed.
           releaseDraft: true
@@ -102,7 +121,7 @@ jobs:
           # pre-releases - so a stable install never even sees this build's
           # latest.json. Without this the tag pattern below (v*.*.*) matches
           # an rc tag too and would ship it to every user as the new stable.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           args: ${{ matrix.args }}
 
   publish:
@@ -110,10 +129,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - name: Publish completed release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           NOTES="docs/releases/${RELEASE_TAG#v}.md"
           if [ -f "$NOTES" ]; then
@@ -131,7 +151,7 @@ jobs:
   # mistake marking the GitHub release as a pre-release exists to prevent.
   update-homebrew-tap:
     needs: publish
-    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-')
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
     runs-on: ubuntu-22.04
     steps:
       - name: Update cask version and sha256
@@ -142,9 +162,9 @@ jobs:
             echo "TAP_DEPLOY_KEY not set - skipping tap update"
             exit 0
           fi
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           curl -fsSL -o levis.dmg \
-            "https://github.com/CatVinci-Studio/Levis/releases/download/${GITHUB_REF_NAME}/Levis_${VERSION}_aarch64.dmg"
+            "https://github.com/CatVinci-Studio/Levis/releases/download/${RELEASE_TAG}/Levis_${VERSION}_aarch64.dmg"
           SHA=$(sha256sum levis.dmg | cut -d' ' -f1)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
