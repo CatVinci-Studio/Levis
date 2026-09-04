@@ -21,7 +21,7 @@ jobs:
       - run: npm run check
       - run: npm run build
 
-  rust:
+  rust-platforms:
     strategy:
       fail-fast: false
       matrix:
@@ -55,3 +55,15 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+
+  # Preserve the required "rust" check used by branch protection. It passes
+  # only when every platform passes, including when one job fails or skips.
+  rust:
+    needs: rust-platforms
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require all native checks
+        env:
+          NATIVE_RESULT: ${{ needs.rust-platforms.result }}
+        run: test "$NATIVE_RESULT" = success
