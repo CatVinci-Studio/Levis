@@ -42,7 +42,11 @@ pub struct PendingDetachedTabs(pub Mutex<HashMap<String, DetachedTab>>);
 /// Windows that currently have a live drag-tracking thread (see
 /// start_window_drag_tracking) - guards against spawning a second poller for
 /// the same window when onMoved fires again before the first tick lands.
-pub struct DragTrackers(pub Mutex<std::collections::HashSet<String>>);
+#[derive(Default)]
+pub struct DragTrackers {
+    #[cfg(target_os = "macos")]
+    active: Mutex<std::collections::HashSet<String>>,
+}
 
 #[tauri::command]
 pub fn take_detached_tab(
@@ -459,7 +463,7 @@ pub fn start_window_drag_tracking(
             return false;
         }
         let label = window.label().to_string();
-        if !trackers.0.lock().unwrap().insert(label.clone()) {
+        if !trackers.active.lock().unwrap().insert(label.clone()) {
             return true; // already streaming to this window
         }
         let app = window.app_handle().clone();
@@ -482,7 +486,11 @@ pub fn start_window_drag_tracking(
                 }
                 std::thread::sleep(std::time::Duration::from_millis(40));
             }
-            app.state::<DragTrackers>().0.lock().unwrap().remove(&label);
+            app.state::<DragTrackers>()
+                .active
+                .lock()
+                .unwrap()
+                .remove(&label);
         });
         true
     }

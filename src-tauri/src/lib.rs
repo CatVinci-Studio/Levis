@@ -250,7 +250,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(PendingOpenPaths(Mutex::new(Vec::new())))
         .manage(PendingDetachedTabs(Mutex::new(HashMap::new())))
-        .manage(DragTrackers(Mutex::new(std::collections::HashSet::new())))
+        .manage(DragTrackers::default())
         .manage(SessionTabsState(Mutex::new(HashMap::new())))
         .manage(commands::chat_window::PendingChatHandoffs(Mutex::new(
             HashMap::new(),
