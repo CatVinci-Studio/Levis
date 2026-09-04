@@ -24,4 +24,28 @@ describe("useTutorial navigation", () => {
     expect(result.current.step.id).toBe("markdownPractice");
     expect(result.current.phase).toBe(127);
   });
+  it.each([2.5, -1, 999, "invalid", null])(
+    "normalizes persisted step %s",
+    (stepIndex) => {
+      localStorage.setItem(
+        "levis-tutorial-progress",
+        JSON.stringify({ active: true, stepIndex, tabId: "practice" }),
+      );
+      const { result } = renderHook(() => useTutorial());
+      expect(result.current.step).toBeDefined();
+      expect(Number.isInteger(result.current.stepIndex)).toBe(true);
+    },
+  );
+
+  it("ignores delayed navigation after exit", () => {
+    const { result } = renderHook(() => useTutorial());
+    act(() => result.current.start("practice"));
+    act(() => result.current.exit());
+    act(() => {
+      result.current.next();
+      result.current.back();
+    });
+    expect(result.current.active).toBe(false);
+    expect(result.current.stepIndex).toBe(0);
+  });
 });

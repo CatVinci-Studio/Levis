@@ -46,7 +46,7 @@
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-small);
   background: none;
   color: var(--editor-muted);
   font-size: 11px;
@@ -122,7 +122,7 @@
   height: 24px;
   padding: 0 22px 0 7px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--editor-bg);
   color: var(--editor-text);
   font: inherit;
@@ -137,7 +137,7 @@
   font-size: 11px;
   color: var(--editor-muted);
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 2px 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -169,7 +169,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-muted);
   cursor: pointer;
@@ -200,7 +200,7 @@
   gap: 4px;
   padding: 2px 6px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: 11px;
   color: var(--editor-muted);
 }
@@ -257,7 +257,7 @@
   gap: 8px;
   padding: 5px 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-text);
   cursor: pointer;
@@ -327,8 +327,8 @@
   margin-left: auto;
   padding: 5px 12px;
   border: none;
-  border-radius: 6px;
-  background: var(--editor-accent);
+  border-radius: var(--radius-control);
+  background: var(--chrome-primary);
   color: #fff;
   cursor: pointer;
   font-size: 13px;
@@ -402,7 +402,7 @@
 .inline-chat-action {
   padding: 4px 10px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-text);
   cursor: pointer;
@@ -414,13 +414,13 @@
 }
 
 .inline-chat-action-primary {
-  background: var(--editor-accent);
-  border-color: var(--editor-accent);
+  background: var(--chrome-primary);
+  border-color: var(--chrome-primary);
   color: #fff;
 }
 
 .inline-chat-action-primary:hover {
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
   opacity: 0.9;
 }
 
@@ -435,7 +435,7 @@
   gap: 6px;
   padding: 8px;
   border: 1px solid var(--editor-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 12px;
 }
 
@@ -451,7 +451,7 @@
 .agent-proposal-diff {
   display: flex;
   flex-direction: column;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   overflow: hidden;
   font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
   font-size: 11.5px;
@@ -516,7 +516,7 @@
 
 .agent-diff-chip {
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
 }
 
 .agent-diff-summary-label {
@@ -640,7 +640,7 @@
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: none;
   color: var(--editor-muted);
   font-size: 13px;
@@ -705,7 +705,7 @@
   padding: 5px 10px;
   border: none;
   background: none;
-  border-radius: 5px;
+  border-radius: var(--radius-small);
   font-size: 12px;
   text-align: left;
   color: var(--editor-text);

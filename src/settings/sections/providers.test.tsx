@@ -85,4 +85,25 @@ describe("ProviderAuthPanel", () => {
     fireEvent.click(credentials);
     expect(screen.getByPlaceholderText("sk-…")).toBeInTheDocument();
   });
+  it("closes the provider list with Escape without closing its parent dialog", () => {
+    const parentKey = vi.fn();
+    render(
+      <div onKeyDown={parentKey}>
+        <ProviderListPanel t={strings.en} />
+      </div>,
+    );
+    const trigger = screen.getByRole("button", {
+      name: /Provider: Google Gemini/i,
+    });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(
+      screen.getByRole("textbox", {
+        name: strings.en.providerSearchPlaceholder,
+      }),
+      { key: "Escape" },
+    );
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
+    expect(parentKey).not.toHaveBeenCalled();
+  });
 });

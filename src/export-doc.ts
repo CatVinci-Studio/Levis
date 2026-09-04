@@ -3,6 +3,7 @@ import type { Strings } from "./i18n/strings";
 import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
+import { isMacPlatform } from "./utils/platform";
 
 // File > Export implementations (HTML serializes the live editor DOM;
 // everything else converts through a user-installed pandoc; PDF drives the
@@ -111,7 +112,7 @@ function buildStandaloneHtml(
 // tauri#6202), so there we render the themed document in an offscreen WKWebView
 // and show the print panel natively (see export_pdf_native in Rust).
 
-const isMac = navigator.userAgent.includes("Mac");
+const isMac = isMacPlatform();
 
 // Theme + page CSS for the offscreen macOS render. Print margins are zero (Rust
 // side) so the theme background bleeds to the sheet edge (full-bleed); the text

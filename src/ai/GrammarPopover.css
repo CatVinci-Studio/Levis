@@ -20,8 +20,8 @@
 .grammar-popover-apply {
   padding: 4px 10px;
   border: none;
-  border-radius: 5px;
-  background: var(--editor-accent);
+  border-radius: var(--radius-small);
+  background: var(--chrome-primary);
   color: #fff;
   cursor: pointer;
   font-size: 13px;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   useSettings,
@@ -27,6 +27,8 @@ import {
 import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
+import { useModalDialog } from "../ui/useModalDialog";
+import { formatCombo } from "../utils/shortcuts";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
 // with its own state or backend round-trips lives in sections/ - this file
@@ -59,13 +61,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const modal = useModalDialog(onClose);
 
   const categories: { id: Category; label: string }[] = [
     { id: "general", label: t.navGeneral },
@@ -78,11 +74,19 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
 
   return (
     <div className="settings-backdrop" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        {...modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t.settingsTitle}
+        className="settings-panel"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="settings-header">
           <span>{t.settingsTitle}</span>
           <button
             className="icon-button settings-close-button"
+            aria-label={t.windowClose}
             onClick={onClose}
           >
             <CloseIcon />
@@ -94,6 +98,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
             {categories.map((c) => (
               <button
                 key={c.id}
+                aria-current={category === c.id ? "page" : undefined}
                 className={`settings-nav-item ${category === c.id ? "settings-nav-item-active" : ""}`}
                 onClick={() => setCategory(c.id)}
               >
@@ -102,7 +107,15 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
             ))}
           </nav>
 
-          <div className="settings-content">
+          <div
+            className="settings-content"
+            key={category}
+            role="region"
+            aria-label={categories.find((c) => c.id === category)?.label}
+          >
+            <h1 className="settings-category-title">
+              {categories.find((c) => c.id === category)?.label}
+            </h1>
             {category === "general" && (
               <>
                 <SettingsGroup title={t.generalBasicsLabel}>
@@ -112,6 +125,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     </span>
                     <select
                       className="settings-select"
+                      aria-label={t.languageLabel}
                       value={settings.language}
                       onChange={(e) =>
                         setSettings({ language: e.target.value as Lang })
@@ -128,11 +142,15 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                         {t.newDocumentModeLabel}
                       </div>
                       <div className="settings-row-hint">
-                        {t.newDocumentModeHint}
+                        {t.newDocumentModeHint.replace(
+                          "{shortcut}",
+                          formatCombo("mod+o"),
+                        )}
                       </div>
                     </div>
                     <select
                       className="settings-select"
+                      aria-label={t.newDocumentModeLabel}
                       value={settings.newDocumentMode}
                       onChange={(e) =>
                         setSettings({
@@ -219,6 +237,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           </div>
                           <select
                             className="settings-select"
+                            aria-label={t.completionToneLabel}
                             value={settings.completionTone}
                             onChange={(e) =>
                               setSettings({
@@ -255,6 +274,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           </div>
                           <select
                             className="settings-select"
+                            aria-label={t.grammarStrictnessLabel}
                             value={settings.grammarStrictness}
                             onChange={(e) =>
                               setSettings({
@@ -283,6 +303,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   <div className="settings-proxy-row">
                     <select
                       className="settings-select"
+                      aria-label={t.proxyLabel}
                       value={settings.proxyType}
                       onChange={(e) =>
                         setSettings({ proxyType: e.target.value as ProxyType })
@@ -299,6 +320,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           type="text"
                           className="settings-text-input settings-proxy-host"
                           placeholder={t.proxyHostPlaceholder}
+                          aria-label={t.proxyHostPlaceholder}
                           value={settings.proxyHost}
                           onChange={(e) =>
                             setSettings({ proxyHost: e.target.value })
@@ -308,6 +330,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           type="text"
                           className="settings-text-input settings-proxy-port"
                           placeholder={t.proxyPortPlaceholder}
+                          aria-label={t.proxyPortPlaceholder}
                           value={settings.proxyPort}
                           onChange={(e) =>
                             setSettings({ proxyPort: e.target.value })
@@ -344,6 +367,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                         </div>
                         <select
                           className="settings-select"
+                          aria-label={t.agentDefaultModeLabel}
                           value={settings.agentDefaultMode}
                           onChange={(e) =>
                             setSettings({

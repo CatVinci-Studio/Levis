@@ -18,8 +18,8 @@ function buildDecorations(state: EditorState): DecorationSet {
   const { selection } = state;
   const decorations: Decoration[] = [];
 
-  state.doc.descendants((node, pos) => {
-    if (node.type.name !== "heading") return;
+  state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
+    if (node.type.name !== "heading") return !node.isTextblock;
 
     const from = pos;
     const to = pos + node.nodeSize;

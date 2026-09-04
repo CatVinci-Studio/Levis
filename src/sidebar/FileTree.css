@@ -15,7 +15,7 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   white-space: nowrap;
 }
 

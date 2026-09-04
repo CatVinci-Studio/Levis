@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useModalDialog } from "../ui/useModalDialog";
 import "./ImageNameDialog.css";
 
 export interface ImageNameRequest {
@@ -24,6 +25,7 @@ export function ImageNameDialog({
   cancelLabel: string;
   onClose: (stem: string | null) => void;
 }) {
+  const modal = useModalDialog(() => onClose(null));
   const [stem, setStem] = useState(request.stem);
   const valid = !!stem.trim() && !/[\\/]/.test(stem);
 
@@ -34,14 +36,26 @@ export function ImageNameDialog({
   return (
     <div className="image-name-overlay" onClick={() => onClose(null)}>
       <div
+        {...modal}
         className="image-name-dialog"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
-          if (event.key === "Enter") submit();
-          if (event.key === "Escape") onClose(null);
+          modal.onKeyDown(event);
+          if (
+            event.nativeEvent.isComposing ||
+            event.nativeEvent.keyCode === 229
+          )
+            return;
+          if (
+            event.key === "Enter" &&
+            event.target instanceof HTMLInputElement
+          ) {
+            event.preventDefault();
+            submit();
+          }
         }}
       >
         <div className="image-name-title">{title}</div>
@@ -49,7 +63,6 @@ export function ImageNameDialog({
           <span>{label}</span>
           <span className="image-name-input-row">
             <input
-              autoFocus
               aria-label={label}
               value={stem}
               aria-invalid={!valid}

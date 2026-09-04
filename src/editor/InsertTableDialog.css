@@ -5,16 +5,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--overlay-bg);
 }
 
 .insert-table-dialog {
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-sizing: border-box;
+
   min-width: 260px;
   padding: 18px 20px;
   border: 1px solid var(--editor-border);
-  border-radius: 12px;
+  border-radius: var(--radius-dialog);
   background: var(--bg);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-dialog);
   font-size: 14px;
 }
 
@@ -41,7 +46,7 @@
   width: 70px;
   padding: 5px 8px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-text);
   font: inherit;
@@ -59,7 +64,7 @@
 
 .insert-table-buttons button {
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 6px 12px;
   font-size: 13px;
   cursor: pointer;
@@ -72,7 +77,12 @@
 }
 
 .insert-table-primary {
-  background: var(--editor-accent) !important;
-  border-color: var(--editor-accent) !important;
+  background: var(--chrome-primary) !important;
+  border-color: var(--chrome-primary) !important;
   color: #fff !important;
+}
+
+.insert-table-buttons button:disabled {
+  cursor: default;
+  opacity: 0.5;
 }

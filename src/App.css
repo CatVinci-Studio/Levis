@@ -1,24 +1,30 @@
+@import "./ui/design-system.css";
+
 :root {
   --font-sans:
     -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", Inter,
     system-ui, sans-serif;
 
-  --bg: #fbfaf8;
-  --editor-text: #2b2b2b;
-  --editor-muted: #7a7a7a;
-  --editor-accent: #3a6bd6;
-  --editor-border: #e4e1db;
+  color-scheme: light;
+  --chrome-text: #24272e;
+  --chrome-muted: #646b77;
+  --chrome-accent: #315ed1;
+  --bg: #ffffff;
+  --editor-text: #24272e;
+  --editor-muted: #707070;
+  --editor-accent: #315ed1;
+  --editor-border: #e1e4ea;
   --editor-quote-border: #d8d4cc;
   --editor-code-bg: #f1efe9;
   --editor-highlight-bg: #fbe89a;
-  --danger: #c1495a;
+  --danger: #be364b;
 
-  --sidebar-bg: #f4f2ee;
-  --sidebar-text: #4a4a4a;
-  --sidebar-hover: #e9e6df;
-  --sidebar-active: #e3e0f5;
-  --sidebar-active-text: #2b2b2b;
-  --border-color: #e4e1db;
+  --sidebar-bg: #f5f6f8;
+  --sidebar-text: #505866;
+  --sidebar-hover: #e9ecf1;
+  --sidebar-active: #e9effc;
+  --sidebar-active-text: #24272e;
+  --border-color: #e1e4ea;
 
   color: var(--editor-text);
   background-color: var(--bg);
@@ -39,40 +45,50 @@
    dark mode in Settings regardless of the system preference. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1e1e1e;
-    --editor-text: #d8d6d0;
-    --editor-muted: #8c8c8c;
-    --editor-accent: #6c9bf7;
+    color-scheme: dark;
+    --danger: #f18b99;
+    --chrome-text: #e4e7ed;
+    --chrome-muted: #a2aab8;
+    --chrome-accent: #96b5ff;
+    --bg: #1b1e24;
+    --editor-text: #e4e7ed;
+    --editor-muted: #989da6;
+    --editor-accent: #96b5ff;
     --editor-border: #333230;
     --editor-quote-border: #3a3936;
     --editor-code-bg: #2a2a28;
     --editor-highlight-bg: #4a3f1f;
 
-    --sidebar-bg: #191919;
-    --sidebar-text: #b8b6b0;
-    --sidebar-hover: #272725;
-    --sidebar-active: #2e2c3d;
-    --sidebar-active-text: #f0efe9;
-    --border-color: #2c2b28;
+    --sidebar-bg: #16191f;
+    --sidebar-text: #b9c0cd;
+    --sidebar-hover: #262b34;
+    --sidebar-active: #293754;
+    --sidebar-active-text: #dce6ff;
+    --border-color: #343a46;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #1e1e1e;
-  --editor-text: #d8d6d0;
-  --editor-muted: #8c8c8c;
-  --editor-accent: #6c9bf7;
+  color-scheme: dark;
+  --danger: #f18b99;
+  --chrome-text: #e4e7ed;
+  --chrome-muted: #a2aab8;
+  --chrome-accent: #96b5ff;
+  --bg: #1b1e24;
+  --editor-text: #e4e7ed;
+  --editor-muted: #989da6;
+  --editor-accent: #96b5ff;
   --editor-border: #333230;
   --editor-quote-border: #3a3936;
   --editor-code-bg: #2a2a28;
   --editor-highlight-bg: #4a3f1f;
 
-  --sidebar-bg: #191919;
-  --sidebar-text: #b8b6b0;
-  --sidebar-hover: #272725;
-  --sidebar-active: #2e2c3d;
-  --sidebar-active-text: #f0efe9;
-  --border-color: #2c2b28;
+  --sidebar-bg: #16191f;
+  --sidebar-text: #b9c0cd;
+  --sidebar-hover: #262b34;
+  --sidebar-active: #293754;
+  --sidebar-active-text: #dce6ff;
+  --border-color: #343a46;
 }
 
 * {
@@ -85,8 +101,8 @@
 .floating-surface {
   background: var(--bg);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-popover);
 }
 
 /* Self-dismissing message from an on-demand AI trigger (MilkdownEditor's
@@ -250,7 +266,7 @@ body {
   padding: 6px 10px;
   font-size: 13px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--sidebar-text);
   cursor: pointer;
@@ -274,7 +290,7 @@ body {
   justify-content: center;
   padding: 6px 4px;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--editor-muted);
   cursor: pointer;
@@ -341,7 +357,7 @@ body {
   min-width: 90px;
   max-width: 200px;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: 12px;
   color: var(--editor-muted);
   cursor: pointer;
@@ -399,7 +415,7 @@ body {
   align-items: center;
   padding: 0 2px;
   line-height: 1;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
 }
 
 .tab-pill-close:hover {
@@ -415,7 +431,7 @@ body {
   color: var(--editor-muted);
   font-size: 15px;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 
 .tab-bar-add:hover {
@@ -451,7 +467,7 @@ body {
   cursor: pointer;
   color: var(--editor-muted);
   padding: 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 
 .icon-button:hover {
@@ -499,7 +515,7 @@ body {
   border: none;
   outline: none;
   resize: none;
-  background: var(--bg);
+  background: var(--editor-bg, var(--bg));
   color: var(--editor-text);
   font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
   font-size: 14px;
@@ -518,22 +534,22 @@ body {
   gap: 10px;
   padding: 10px 14px;
   border: 1px solid var(--editor-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-popover);
   font-size: 13px;
 }
 
 .update-toast button {
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 5px 10px;
   font-size: 12px;
   cursor: pointer;
 }
 
 .update-toast-primary {
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
   color: #fff;
 }
 
@@ -555,15 +571,15 @@ body {
   gap: 10px;
   padding: 10px 14px;
   border: 1px solid var(--editor-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-popover);
   font-size: 13px;
 }
 
 .draft-restored-toast button {
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 5px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -586,7 +602,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--overlay-bg);
 }
 
 .close-prompt {
@@ -594,9 +610,9 @@ body {
   max-width: 420px;
   padding: 18px 20px;
   border: 1px solid var(--editor-border);
-  border-radius: 12px;
+  border-radius: var(--radius-dialog);
   background: var(--bg);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-dialog);
   font-size: 14px;
 }
 
@@ -616,7 +632,7 @@ body {
 
 .close-prompt-buttons button {
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 6px 12px;
   font-size: 13px;
   cursor: pointer;
@@ -629,8 +645,8 @@ body {
 }
 
 .close-prompt-primary {
-  background: var(--editor-accent) !important;
-  border-color: var(--editor-accent) !important;
+  background: var(--chrome-primary) !important;
+  border-color: var(--chrome-primary) !important;
   color: #fff !important;
 }
 
@@ -662,7 +678,7 @@ body {
   opacity: 0.7;
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
 }
 
 .clipboard-clear:hover {
@@ -675,7 +691,7 @@ body {
   align-items: flex-start;
   gap: 4px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-size: 12px;
   color: var(--sidebar-text);
@@ -708,7 +724,7 @@ body {
   display: flex;
   align-items: center;
   padding: 0 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   opacity: 0;
   flex-shrink: 0;
 }
@@ -742,7 +758,7 @@ body {
   align-items: flex-start;
   gap: 4px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-size: 12px;
   color: var(--sidebar-text);
@@ -787,7 +803,7 @@ body {
   display: flex;
   align-items: center;
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   opacity: 0;
   flex-shrink: 0;
 }
@@ -862,8 +878,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(2px);
+  background: var(--overlay-bg);
 }
 
 .pdf-export-card {
@@ -872,11 +887,11 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 1.75rem 2.25rem;
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   background: var(--bg);
   color: var(--editor-text);
   border: 1px solid var(--border-color);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-dialog);
   text-align: center;
 }
 

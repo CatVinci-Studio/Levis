@@ -1,9 +1,12 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useModalDialog } from "../ui/useModalDialog";
 import type { TutorialStepId } from "./tutorial-steps";
 import "./TutorialOverlay.css";
 
 export interface TutorialOverlayLabels {
   back: string;
+  collapse?: string;
+  expand?: string;
   skip: string;
   /** The per-lesson escape hatch shown while an exercise is incomplete. */
   skipStep: string;
@@ -62,7 +65,7 @@ interface TutorialOverlayProps {
 }
 
 const STEP_GLYPHS: Record<TutorialStepId, string> = {
-  welcome: "✦",
+  welcome: "L",
   markdownIntro: "M↓",
   markdownPractice: "#",
   aiIntro: "AI",
@@ -105,6 +108,12 @@ export function TutorialOverlay({
   const titleId = useId();
   const bodyId = useId();
   const primaryRef = useRef<HTMLButtonElement>(null);
+  const modal = useModalDialog(onSkip, layout === "overlay");
+  const [collapsedStep, setCollapsedStep] = useState<TutorialStepId | null>(
+    null,
+  );
+  const collapsed = collapsedStep === stepId;
+  const contentId = useId();
   const progressLabel = labels.stepOfCount
     .replace("{i}", String(stepIndex + 1))
     .replace("{n}", String(totalSteps));
@@ -232,9 +241,7 @@ export function TutorialOverlay({
     <div className="tutorial-roadmap">
       {roadmap.map((item, index) => (
         <div className="tutorial-roadmap-item" key={item}>
-          <span>
-            {stepId === "done" ? "✓" : String(index + 1).padStart(2, "0")}
-          </span>
+          <span>{String(index + 1).padStart(2, "0")}</span>
           {item}
         </div>
       ))}
@@ -243,11 +250,12 @@ export function TutorialOverlay({
 
   const card = (
     <div
+      {...modal}
       className={`tutorial-surface tutorial-${layout} tutorial-step-${stepId} floating-surface`}
       role="dialog"
       aria-modal={layout === "overlay"}
       aria-labelledby={titleId}
-      aria-describedby={bodyId}
+      aria-describedby={collapsed ? undefined : bodyId}
     >
       {progress}
       <header className="tutorial-header">
@@ -260,16 +268,33 @@ export function TutorialOverlay({
             {title}
           </h2>
         </div>
+        {layout === "card" && labels.collapse && labels.expand && (
+          <button
+            type="button"
+            className="tutorial-collapse"
+            aria-expanded={!collapsed}
+            aria-controls={contentId}
+            onClick={() => setCollapsedStep(collapsed ? null : stepId)}
+          >
+            {collapsed ? labels.expand : labels.collapse}
+          </button>
+        )}
       </header>
-      <p className="tutorial-body" id={bodyId}>
-        {body}
-      </p>
-      {roadmapView}
-      {activity}
-      {statusLine}
-      {complete && layout === "card" && (
-        <div className="tutorial-learned">✦ {labels.learned}</div>
-      )}
+      <div
+        id={contentId}
+        className="tutorial-lesson-content"
+        hidden={collapsed}
+      >
+        <p className="tutorial-body" id={bodyId}>
+          {body}
+        </p>
+        {roadmapView}
+        {activity}
+        {statusLine}
+        {complete && layout === "card" && (
+          <div className="tutorial-learned">{labels.learned}</div>
+        )}
+      </div>
       {actions}
     </div>
   );

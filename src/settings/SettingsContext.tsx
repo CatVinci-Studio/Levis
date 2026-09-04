@@ -14,6 +14,7 @@ import {
   type StringKey,
 } from "../i18n/strings";
 import { ai, prefs, themes } from "../ipc";
+import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
 
 /// Light/dark, orthogonal to which content theme is selected: `themeId`
 /// picks the palette, this picks which of its two forms is shown. Every
@@ -442,6 +443,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     function clearInjectedStyle() {
       document.getElementById(STYLE_ID)?.remove();
+      clearThemeChrome();
     }
 
     const builtin = BUILTIN_CONTENT_THEMES.find(
@@ -468,16 +470,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     root.removeAttribute("data-content-theme");
     let cancelled = false;
+    let revision = 0;
     const theme = userTheme;
 
     async function applyUserTheme() {
       // A single-design import has no dark stylesheet, so it keeps its one
       // look in either appearance rather than being half-applied.
+      const request = ++revision;
       const variant =
         isEffectiveDark(settings.theme) && theme.hasDark ? "dark" : "light";
       try {
         const css = await themes.loadThemeCss(theme.id, variant);
-        if (cancelled) return;
+        if (cancelled || request !== revision) return;
         let styleEl = document.getElementById(
           STYLE_ID,
         ) as HTMLStyleElement | null;
@@ -487,6 +491,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
         styleEl.textContent = css ?? "";
         document.head.appendChild(styleEl);
+        applyThemeChrome(css ?? "", isEffectiveDark(settings.theme));
       } catch {
         // Theme file missing/unreadable - leave whatever was there before.
       }

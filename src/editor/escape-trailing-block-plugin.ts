@@ -3,17 +3,19 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import { isInTable, selectedRect } from "@milkdown/kit/prose/tables";
 import { isImeKeyEvent } from "./enclosure";
+import type { Node, ResolvedPos } from "@milkdown/kit/prose/model";
+import type { EditorView } from "@milkdown/kit/prose/view";
 
 const ESCAPABLE_BLOCK_TYPES = new Set(["code_block", "math_block"]);
 
-function isLastTopLevelNode($from: any, doc: any): boolean {
+function isLastTopLevelNode($from: ResolvedPos, doc: Node): boolean {
   if ($from.depth < 1) return false;
   const topPos = $from.before(1);
   const topNode = $from.node(1);
   return topPos + topNode.nodeSize === doc.content.size;
 }
 
-function isFirstTopLevelNode($from: any): boolean {
+function isFirstTopLevelNode($from: ResolvedPos): boolean {
   return $from.depth >= 1 && $from.index(0) === 0;
 }
 
@@ -22,21 +24,21 @@ function isFirstTopLevelNode($from: any): boolean {
 // also the last/first child of its own parent - so e.g. the last item of a
 // list still correctly reports "nothing after" even though the list itself
 // has siblings before it.
-function hasNothingAfter($pos: any): boolean {
+function hasNothingAfter($pos: ResolvedPos): boolean {
   for (let d = 0; d < $pos.depth; d++) {
     if ($pos.index(d) < $pos.node(d).childCount - 1) return false;
   }
   return true;
 }
 
-function hasNothingBefore($pos: any): boolean {
+function hasNothingBefore($pos: ResolvedPos): boolean {
   for (let d = 0; d < $pos.depth; d++) {
     if ($pos.index(d) > 0) return false;
   }
   return true;
 }
 
-function escapeAfterLastNode(view: any): boolean {
+function escapeAfterLastNode(view: EditorView): boolean {
   const { state } = view;
   const paragraph = state.schema.nodes.paragraph.create();
   const insertPos = state.doc.content.size;
@@ -47,7 +49,7 @@ function escapeAfterLastNode(view: any): boolean {
   return true;
 }
 
-function escapeBeforeFirstNode(view: any): boolean {
+function escapeBeforeFirstNode(view: EditorView): boolean {
   const { state } = view;
   const paragraph = state.schema.nodes.paragraph.create();
   const tr = state.tr.insert(0, paragraph);
@@ -64,13 +66,13 @@ function escapeBeforeFirstNode(view: any): boolean {
  * nothing and it's stuck. Fall back to converting it into a paragraph,
  * same as backspacing an empty heading/blockquote normally would.
  */
-function backspaceOutOfLeadingEmptyCodeBlock(view: any): boolean {
+function backspaceOutOfLeadingEmptyCodeBlock(view: EditorView): boolean {
   const { state } = view;
   const { $from, empty } = state.selection;
   if (!empty) return false;
   if ($from.parent.type.name !== "code_block") return false;
   if ($from.parentOffset !== 0 || $from.parent.content.size !== 0) return false;
-  if ($from.index(0) !== 0) return false; // there's a top-level sibling before it; default handling applies
+  if (!hasNothingBefore($from)) return false;
 
   const paragraphType = state.schema.nodes.paragraph;
   const pos = $from.before($from.depth);
@@ -92,90 +94,96 @@ function backspaceOutOfLeadingEmptyCodeBlock(view: any): boolean {
  * line too, just for the vertical arrows: pressing Down on the document's
  * very last line, or Up on its very first, otherwise does nothing.
  */
-export const escapeTrailingBlockPlugin = $prose(
-  () =>
-    new Plugin({
-      props: {
-        handleKeyDown(view, event) {
-          if (isImeKeyEvent(view, event)) return false;
-          if (event.key === "Backspace") {
-            return backspaceOutOfLeadingEmptyCodeBlock(view);
-          }
+export function createEscapeTrailingBlockPlugin() {
+  return new Plugin({
+    props: {
+      handleKeyDown(view, event) {
+        if (isImeKeyEvent(view, event)) return false;
+        // Modified arrows navigate/select; they must never insert paragraphs.
+        if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
+          return false;
+        if (event.key === "Backspace") {
+          return backspaceOutOfLeadingEmptyCodeBlock(view);
+        }
 
-          const isForwardKey =
-            event.key === "ArrowDown" ||
-            event.key === "ArrowRight" ||
-            event.key === "Enter";
-          const isBackwardKey =
-            event.key === "ArrowUp" || event.key === "ArrowLeft";
-          if (!isForwardKey && !isBackwardKey) return false;
+        const isForwardKey =
+          event.key === "ArrowDown" ||
+          event.key === "ArrowRight" ||
+          event.key === "Enter";
+        const isBackwardKey =
+          event.key === "ArrowUp" || event.key === "ArrowLeft";
+        if (!isForwardKey && !isBackwardKey) return false;
 
-          const { state } = view;
-          const { $from, empty } = state.selection;
-          if (!empty) return false;
+        const { state } = view;
+        const { $from, empty } = state.selection;
+        if (!empty) return false;
 
-          const inEscapableBlock = ESCAPABLE_BLOCK_TYPES.has(
-            $from.parent.type.name,
-          );
-          const inTable = isInTable(state);
+        const inEscapableBlock = ESCAPABLE_BLOCK_TYPES.has(
+          $from.parent.type.name,
+        );
+        const inTable = isInTable(state);
 
-          if (!inEscapableBlock && !inTable) {
-            // Plain block (paragraph, heading, list item, ...): pressing
-            // straight down off the document's last line, or up off its
-            // first, has nowhere to go by default. Only vertical arrows get
-            // this - Enter/horizontal arrows already behave as expected via
-            // ProseMirror's own defaults - and only when that boundary line
-            // actually has content, so it doesn't keep stacking empty lines.
-            if (event.key === "ArrowDown") {
-              if (!view.endOfTextblock("down") || !hasNothingAfter($from))
-                return false;
-              if ($from.parent.content.size === 0) return false;
-              return escapeAfterLastNode(view);
-            }
-            if (event.key === "ArrowUp") {
-              if (!view.endOfTextblock("up") || !hasNothingBefore($from))
-                return false;
-              if ($from.parent.content.size === 0) return false;
-              return escapeBeforeFirstNode(view);
-            }
-            return false;
-          }
-
-          if (inEscapableBlock) {
-            if (isBackwardKey) {
-              if (!isFirstTopLevelNode($from)) return false;
-              if ($from.parentOffset !== 0) return false;
-              return escapeBeforeFirstNode(view);
-            }
-
-            if (!isLastTopLevelNode($from, state.doc)) return false;
-            const atEndOfBlock =
-              $from.parentOffset === $from.parent.content.size;
-            if (!atEndOfBlock) return false;
-
-            if (event.key === "Enter") {
-              const textBeforeCursor = $from.parent.textBetween(
-                0,
-                $from.parentOffset,
-                "\n",
-              );
-              const onEmptyLastLine =
-                textBeforeCursor.length === 0 ||
-                textBeforeCursor.endsWith("\n");
-              if (!onEmptyLastLine) return false;
-            }
+        if (!inEscapableBlock && !inTable) {
+          // Plain block (paragraph, heading, list item, ...): pressing
+          // straight down off the document's last line, or up off its
+          // first, has nowhere to go by default. Only vertical arrows get
+          // this - Enter/horizontal arrows already behave as expected via
+          // ProseMirror's own defaults - and only when that boundary line
+          // actually has content, so it doesn't keep stacking empty lines.
+          if (event.key === "ArrowDown") {
+            if (!view.endOfTextblock("down") || !hasNothingAfter($from))
+              return false;
+            if ($from.parent.content.size === 0) return false;
             return escapeAfterLastNode(view);
           }
+          if (event.key === "ArrowUp") {
+            if (!view.endOfTextblock("up") || !hasNothingBefore($from))
+              return false;
+            if ($from.parent.content.size === 0) return false;
+            return escapeBeforeFirstNode(view);
+          }
+          return false;
+        }
 
-          // Table: only escape from the bottom-right-most cell, moving down.
-          if (event.key !== "ArrowDown") return false;
-          const rect = selectedRect(state);
-          const atLastCell =
-            rect.bottom === rect.map.height && rect.right === rect.map.width;
-          if (!atLastCell) return false;
+        if (inEscapableBlock) {
+          if (isBackwardKey) {
+            if (!isFirstTopLevelNode($from)) return false;
+            if ($from.parentOffset !== 0) return false;
+            return escapeBeforeFirstNode(view);
+          }
 
+          if (!isLastTopLevelNode($from, state.doc)) return false;
+          const atEndOfBlock = $from.parentOffset === $from.parent.content.size;
+          if (!atEndOfBlock) return false;
+
+          if (event.key === "Enter") {
+            const textBeforeCursor = $from.parent.textBetween(
+              0,
+              $from.parentOffset,
+              "\n",
+            );
+            const onEmptyLastLine =
+              textBeforeCursor.length === 0 || textBeforeCursor.endsWith("\n");
+            if (!onEmptyLastLine) return false;
+          }
           return escapeAfterLastNode(view);
-        },
+        }
+
+        // Table: only escape from the bottom-right-most cell, moving down.
+        if (event.key !== "ArrowDown") return false;
+        const rect = selectedRect(state);
+        const atLastCell =
+          rect.bottom === rect.map.height && rect.right === rect.map.width;
+        if (!atLastCell) return false;
+        if (!isLastTopLevelNode($from, state.doc)) return false;
+        if (!view.endOfTextblock("down")) return false;
+
+        return escapeAfterLastNode(view);
       },
-    }),
+    },
+  });
+}
+
+export const escapeTrailingBlockPlugin = $prose(
+  createEscapeTrailingBlockPlugin,
 );

@@ -437,15 +437,20 @@ function App() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const isSave = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s";
-      if (isSave) {
+      if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
+      // Dialogs (including shortcut recording) own their keyboard input.
+      if (
+        e.target instanceof Element &&
+        e.target.closest('[aria-modal="true"]')
+      )
+        return;
+      const combo = comboFromEvent(e);
+      if (!combo) return;
+      if (combo === "mod+s") {
         e.preventDefault();
         void saveTab(activeTabId);
         return;
       }
-
-      const combo = comboFromEvent(e);
-      if (!combo) return;
 
       // Windows has no visible native menu bar. Its menu is kept internally
       // for most accelerators, but Open/New are handled here so they remain

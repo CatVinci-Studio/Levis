@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TutorialOverlay } from "./TutorialOverlay";
 
+afterEach(cleanup);
+
 const labels = {
+  collapse: "Minimize",
+  expand: "Show instructions",
   back: "Back",
   skip: "Leave lesson",
   skipStep: "Skip this step",
@@ -140,5 +144,55 @@ describe("TutorialOverlay", () => {
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onSkip).not.toHaveBeenCalled();
+  });
+  it("can minimize a practice without disabling navigation or editing", () => {
+    render(
+      <TutorialOverlay
+        layout="card"
+        stepId="completion"
+        stepIndex={4}
+        totalSteps={9}
+        sections={sections}
+        title="Completion"
+        body="Type the sample."
+        task="Sample text"
+        primaryLabel="Continue"
+        onPrimary={vi.fn()}
+        onBack={vi.fn()}
+        onSkip={vi.fn()}
+        labels={labels}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Minimize" }));
+    expect(screen.getByText("Sample text")).not.toBeVisible();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Show instructions" }));
+    expect(screen.getByText("Sample text")).toBeVisible();
+  });
+
+  it("keeps Tab inside reading lessons and closes them with Escape", () => {
+    const onSkip = vi.fn();
+    render(
+      <TutorialOverlay
+        layout="overlay"
+        stepId="welcome"
+        stepIndex={0}
+        totalSteps={9}
+        sections={sections}
+        title="Welcome"
+        body="Read the introduction."
+        primaryLabel="Start"
+        onPrimary={vi.fn()}
+        onBack={vi.fn()}
+        onSkip={onSkip}
+        labels={labels}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: "Start" }), {
+      key: "Tab",
+    });
+    expect(screen.getByRole("button", { name: "Leave lesson" })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onSkip).toHaveBeenCalledTimes(1);
   });
 });

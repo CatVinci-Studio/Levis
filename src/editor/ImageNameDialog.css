@@ -5,16 +5,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--overlay-bg);
 }
 
 .image-name-dialog {
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-sizing: border-box;
+
   width: min(390px, calc(100vw - 40px));
   padding: 18px 20px;
   border: 1px solid var(--editor-border);
-  border-radius: 12px;
+  border-radius: var(--radius-dialog);
   background: var(--bg);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-dialog);
   color: var(--editor-text);
   font-size: 14px;
 }
@@ -43,7 +47,7 @@
   flex: 1;
   padding: 7px 9px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-text);
   font: inherit;
@@ -70,7 +74,7 @@
 .image-name-buttons button {
   padding: 6px 12px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-text);
   cursor: pointer;
@@ -82,7 +86,7 @@
 }
 
 .image-name-primary {
-  border-color: var(--editor-accent) !important;
-  background: var(--editor-accent) !important;
+  border-color: var(--chrome-primary) !important;
+  background: var(--chrome-primary) !important;
   color: #fff !important;
 }

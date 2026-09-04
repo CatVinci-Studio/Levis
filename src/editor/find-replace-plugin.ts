@@ -78,7 +78,7 @@ function textblockCharMap(
   return { text, posMap };
 }
 
-function computeMatches(
+export function computeMatches(
   doc: ProseNode,
   query: string,
   caseSensitive: boolean,
@@ -99,7 +99,13 @@ function computeMatches(
     while ((m = regex.exec(text)) !== null) {
       const start = m.index;
       const end = start + m[0].length;
-      matches.push({ from: posMap[start], to: posMap[end], text: m[0] });
+      matches.push({
+        from: posMap[start],
+        // The next character may live OUTSIDE an inline enclosure. Its
+        // start includes closing/opening node tokens that aren't matched.
+        to: end > start ? posMap[end - 1] + 1 : posMap[start],
+        text: m[0],
+      });
       // Zero-width matches (e.g. an all-optional regex) would otherwise spin forever.
       regex.lastIndex = end > start ? end : end + 1;
     }

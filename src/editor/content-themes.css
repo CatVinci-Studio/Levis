@@ -27,10 +27,10 @@
 [data-content-theme="paper"] {
   --editor-bg: #faf6ee;
   --editor-text: #2b2620;
-  --editor-muted: #8a7f6d;
+  --editor-muted: #706758;
   --editor-border: #e4dcc8;
   --editor-quote-border: #b5652f;
-  --editor-accent: #b5652f;
+  --editor-accent: #9a5628;
   --editor-code-bg: #f1e9d8;
   --editor-font: Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", serif;
 }
@@ -62,12 +62,14 @@
 [data-content-theme="slate"] {
   --editor-bg: #f7f8fa;
   --editor-text: #1c2128;
-  --editor-muted: #6e7681;
+  --editor-muted: #656d77;
   --editor-border: #d8dee4;
   --editor-quote-border: #3568d4;
-  --editor-accent: #3568d4;
+  --editor-accent: #3467d2;
   --editor-code-bg: #eef1f5;
-  --editor-font: -apple-system, "Inter", "PingFang SC", sans-serif;
+  --editor-font:
+    -apple-system, "Inter", "PingFang SC", "Noto Sans CJK SC",
+    "Noto Sans CJK JP", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,12 +99,14 @@
 [data-content-theme="forest"] {
   --editor-bg: #f5f7f2;
   --editor-text: #22301f;
-  --editor-muted: #6f7d68;
+  --editor-muted: #616d5a;
   --editor-border: #dbe3d3;
   --editor-quote-border: #4c7a4c;
-  --editor-accent: #4c7a4c;
+  --editor-accent: #487448;
   --editor-code-bg: #e9efe3;
-  --editor-font: -apple-system, "Inter", "PingFang SC", sans-serif;
+  --editor-font:
+    -apple-system, "Inter", "PingFang SC", "Noto Sans CJK SC",
+    "Noto Sans CJK JP", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -132,7 +136,7 @@
 [data-content-theme="parchment"] {
   --editor-bg: #f1e6c8;
   --editor-text: #4a3826;
-  --editor-muted: #8a7357;
+  --editor-muted: #6d5b45;
   --editor-border: #c9b587;
   --editor-quote-border: #a68a55;
   --editor-accent: #8c3a2b;
@@ -146,7 +150,7 @@
   :root:not([data-theme="light"])[data-content-theme="parchment"] {
     --editor-bg: #241d13;
     --editor-text: #d8c9a3;
-    --editor-muted: #9c8a68;
+    --editor-muted: #9e8c6b;
     --editor-border: #4a3d28;
     --editor-quote-border: #5c4a30;
     --editor-accent: #c97a5c;
@@ -157,7 +161,7 @@
 :root[data-theme="dark"][data-content-theme="parchment"] {
   --editor-bg: #241d13;
   --editor-text: #d8c9a3;
-  --editor-muted: #9c8a68;
+  --editor-muted: #9e8c6b;
   --editor-border: #4a3d28;
   --editor-quote-border: #5c4a30;
   --editor-accent: #c97a5c;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useModalDialog } from "../ui/useModalDialog";
 import "./InsertTableDialog.css";
 
 interface InsertTableDialogProps {
@@ -20,22 +21,41 @@ export function InsertTableDialog({
   onInsert,
   onClose,
 }: InsertTableDialogProps) {
-  const [rows, setRows] = useState(3);
-  const [cols, setCols] = useState(3);
+  const [rows, setRows] = useState("3");
+  const [cols, setCols] = useState("3");
+
+  const modal = useModalDialog(onClose);
+  const rowCount = Number(rows);
+  const columnCount = Number(cols);
+  const validRows =
+    Number.isInteger(rowCount) && rowCount >= 1 && rowCount <= 50;
+  const validColumns =
+    Number.isInteger(columnCount) && columnCount >= 1 && columnCount <= 20;
+  const valid = validRows && validColumns;
 
   function submit() {
-    onInsert(Math.min(50, Math.max(1, rows)), Math.min(20, Math.max(1, cols)));
+    if (!valid) return;
+    onInsert(rowCount, columnCount);
     onClose();
   }
 
   return (
     <div className="insert-table-overlay" onClick={onClose}>
       <div
+        {...modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="insert-table-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === "Enter") submit();
-          if (e.key === "Escape") onClose();
+          modal.onKeyDown(e);
+          if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229)
+            return;
+          if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+            e.preventDefault();
+            submit();
+          }
         }}
       >
         <div className="insert-table-title">{title}</div>
@@ -47,8 +67,9 @@ export function InsertTableDialog({
               min={1}
               max={50}
               value={rows}
-              autoFocus
-              onChange={(e) => setRows(Number(e.target.value))}
+              step={1}
+              aria-invalid={!validRows}
+              onChange={(e) => setRows(e.target.value)}
             />
           </label>
           <label>
@@ -58,14 +79,20 @@ export function InsertTableDialog({
               min={1}
               max={20}
               value={cols}
-              onChange={(e) => setCols(Number(e.target.value))}
+              step={1}
+              aria-invalid={!validColumns}
+              onChange={(e) => setCols(e.target.value)}
             />
           </label>
         </div>
         <div className="insert-table-buttons">
           <div className="insert-table-spacer" />
           <button onClick={onClose}>{cancelLabel}</button>
-          <button className="insert-table-primary" onClick={submit}>
+          <button
+            className="insert-table-primary"
+            disabled={!valid}
+            onClick={submit}
+          >
             {confirmLabel}
           </button>
         </div>

@@ -1,0 +1,134 @@
+/* Application UI contract. Content themes remain scoped to the document. */
+:root {
+  --radius-small: 4px;
+  --radius-control: 6px;
+  --radius-surface: 10px;
+  --radius-dialog: 14px;
+  --control-height: 32px;
+  --chrome-subtle: #f8f9fb;
+  --chrome-primary: #315ed1;
+  --success-color: #24734d;
+  --overlay-bg: rgb(20 27 40 / 30%);
+  --shadow-popover: 0 4px 16px rgb(20 27 40 / 10%);
+  --shadow-dialog: 0 16px 48px rgb(20 27 40 / 16%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --chrome-subtle: #20242c;
+    --chrome-primary: #4168ce;
+    --success-color: #79cba1;
+    --danger: #f18b99;
+    --overlay-bg: rgb(0 0 0 / 48%);
+    --shadow-popover: 0 4px 16px rgb(0 0 0 / 24%);
+    --shadow-dialog: 0 16px 48px rgb(0 0 0 / 32%);
+  }
+}
+
+:root[data-theme="dark"] {
+  --chrome-subtle: #20242c;
+  --chrome-primary: #4168ce;
+  --success-color: #79cba1;
+  --danger: #f18b99;
+  --overlay-bg: rgb(0 0 0 / 48%);
+  --shadow-popover: 0 4px 16px rgb(0 0 0 / 24%);
+  --shadow-dialog: 0 16px 48px rgb(0 0 0 / 32%);
+}
+
+/* Existing component styles use editor aliases. Rebind them at UI boundaries
+   rather than changing document colors or relying on stylesheet load order. */
+:is(
+  .window-bar,
+  .sidebar,
+  .tab-bar,
+  .floating-surface,
+  .settings-panel,
+  .language-welcome,
+  .tutorial-surface,
+  .image-name-dialog,
+  .insert-table-dialog,
+  .close-prompt,
+  .update-toast,
+  .draft-restored-toast,
+  .pdf-export-card,
+  .chat-window
+) {
+  --editor-text: var(--chrome-text);
+  --editor-muted: var(--chrome-muted);
+  --editor-accent: var(--chrome-accent);
+  --editor-border: var(--border-color);
+  --editor-code-bg: var(--chrome-subtle);
+  --editor-bg: var(--bg);
+  color: var(--chrome-text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+:where(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--chrome-accent);
+  outline-offset: 3px;
+}
+
+:where(button):disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+:where(
+    .settings-panel,
+    .language-welcome,
+    .tutorial-surface,
+    .image-name-dialog,
+    .insert-table-dialog,
+    .close-prompt
+  )
+  button {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+:is(
+  .settings-select,
+  .settings-text-input,
+  .settings-button,
+  .image-name-input-row input,
+  .insert-table-fields input,
+  .image-name-buttons button,
+  .insert-table-buttons button,
+  .close-prompt-buttons button,
+  .language-welcome-continue
+) {
+  min-height: var(--control-height);
+}
+
+:where(
+    .settings-panel,
+    .find-replace-bar,
+    .image-name-dialog,
+    .insert-table-dialog
+  )
+  input:not([type="checkbox"]):not([type="radio"]),
+:where(.settings-panel) select,
+:where(.settings-panel) textarea {
+  background-color: var(--bg);
+}
+
+.find-replace-field:focus-within {
+  border-color: var(--chrome-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

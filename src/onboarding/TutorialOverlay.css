@@ -5,17 +5,15 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    radial-gradient(
-      circle at 50% 42%,
-      color-mix(in srgb, var(--editor-accent) 12%, transparent),
-      transparent 34%
-    ),
-    rgba(18, 18, 20, 0.58);
-  backdrop-filter: blur(3px);
+  background: var(--overlay-bg);
 }
 
-.tutorial-surface {
+.tutorial-surface.floating-surface {
+  --editor-text: var(--chrome-text);
+  --editor-muted: var(--chrome-muted);
+  --editor-accent: var(--chrome-accent);
+  --editor-code-bg: var(--sidebar-bg);
+  color: var(--editor-text);
   --tutorial-soft: color-mix(in srgb, var(--editor-accent) 9%, var(--bg));
   --tutorial-line: color-mix(
     in srgb,
@@ -26,11 +24,13 @@
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
-  border-radius: 16px;
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.24);
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-dialog);
 }
 
 .tutorial-overlay {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
   width: min(570px, calc(100vw - 48px));
   padding: 22px 24px 24px;
 }
@@ -66,7 +66,7 @@
   min-width: 0;
   padding: 7px 9px;
   border: 1px solid var(--border-color);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   color: var(--editor-muted);
   background: color-mix(in srgb, var(--bg) 94%, var(--editor-code-bg));
   font-size: 11px;
@@ -128,7 +128,7 @@
   height: 42px;
   flex: 0 0 42px;
   border: 1px solid var(--tutorial-line);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   color: var(--editor-accent);
   background: var(--tutorial-soft);
   font:
@@ -136,7 +136,6 @@
     SFMono-Regular,
     Menlo,
     monospace;
-  transform: rotate(-2deg);
 }
 
 .tutorial-step-label,
@@ -167,12 +166,8 @@
 .tutorial-practice {
   padding: 13px;
   border: 1px solid var(--tutorial-line);
-  border-radius: 12px;
-  background: linear-gradient(
-    135deg,
-    var(--tutorial-soft),
-    color-mix(in srgb, var(--bg) 96%, transparent)
-  );
+  border-radius: var(--radius-surface);
+  background: var(--chrome-subtle);
 }
 
 .tutorial-section-label {
@@ -188,16 +183,16 @@
   place-items: center;
   width: 21px;
   height: 17px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   color: #fff;
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
   font-size: 9px;
 }
 
 .tutorial-task-text {
   padding: 10px 12px;
   border: 1px dashed var(--tutorial-line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   color: var(--editor-text);
   font:
@@ -267,9 +262,9 @@
 }
 
 .tutorial-check.is-done .tutorial-check-icon {
-  border-color: var(--editor-accent);
+  border-color: var(--chrome-primary);
   color: #fff;
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
 }
 
 .tutorial-status {
@@ -290,7 +285,7 @@
   height: 16px;
   border-radius: 50%;
   color: #fff;
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
   font-size: 10px;
 }
 
@@ -332,7 +327,7 @@
   min-height: 42px;
   padding: 9px 11px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   color: var(--editor-text);
   background: color-mix(in srgb, var(--bg) 92%, var(--editor-code-bg));
   font-size: 12px;
@@ -355,7 +350,7 @@
   height: 17px;
   border-radius: 50%;
   color: #fff;
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
 }
 
 .tutorial-actions {
@@ -381,7 +376,7 @@
   min-height: 32px;
   padding: 6px 12px;
   border: 1px solid var(--editor-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--editor-text);
   background: transparent;
   cursor: pointer;
@@ -400,14 +395,14 @@
 
 .tutorial-btn-primary {
   min-width: 80px;
-  border-color: var(--editor-accent);
+  border-color: var(--chrome-primary);
   color: #fff;
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
   font-weight: 620;
 }
 
 .tutorial-btn-primary:hover:not(:disabled) {
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
   opacity: 0.92;
 }
 
@@ -495,4 +490,45 @@
   .tutorial-learned {
     animation: none;
   }
+}
+
+.tutorial-surface > * {
+  flex-shrink: 0;
+}
+
+.tutorial-lesson-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
+}
+
+.tutorial-lesson-content[hidden] {
+  display: none;
+}
+
+.tutorial-collapse {
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-control);
+  padding: 5px 8px;
+  background: var(--bg);
+  color: var(--editor-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tutorial-surface button:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 3px;
+}
+
+.tutorial-lesson-content > * {
+  flex-shrink: 0;
 }

@@ -61,7 +61,7 @@
   background: none;
   color: var(--editor-muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   /* Off reads as "available but not doing anything"; on has to be obvious at
      a glance, since the whole point is that the window then behaves
      differently. Colour carries that, so the icon itself never changes. */

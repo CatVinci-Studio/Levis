@@ -43,4 +43,19 @@ describe("ImageNameDialog", () => {
     ).toBe(true);
     expect(close).not.toHaveBeenCalled();
   });
+  it("does not submit from Cancel or while composing text", () => {
+    const close = renderDialog();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), {
+      key: "Enter",
+    });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Filename" }), {
+      key: "Enter",
+      isComposing: true,
+    });
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Filename" }), {
+      key: "Escape",
+    });
+    expect(close).toHaveBeenCalledExactlyOnceWith(null);
+  });
 });

@@ -1,0 +1,67 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ShortcutRow } from "./controls";
+import { strings } from "../../i18n/strings";
+import type { Shortcuts } from "../SettingsContext";
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+const shortcuts: Shortcuts = {
+  triggerCompletion: "mod+shift+space",
+  triggerGrammarCheck: "mod+shift+g",
+  toggleFloatingChat: "mod+shift+k",
+  findReplace: "mod+f",
+  toggleSidebar: "mod+\\",
+  toggleSourceMode: "mod+/",
+  toggleTypewriterMode: "",
+};
+function setup() {
+  vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+  const save = vi.fn();
+  render(
+    <ShortcutRow
+      label="Find"
+      action="findReplace"
+      shortcuts={shortcuts}
+      setSettings={save}
+      t={strings.en}
+    />,
+  );
+  const button = screen.getByRole("button", { name: "Find: ⌘F" });
+  fireEvent.click(button);
+  return { save, button };
+}
+describe("shortcut recording", () => {
+  it("reports a duplicate without changing either shortcut", () => {
+    const { save, button } = setup();
+    fireEvent.keyDown(button, { key: "g", metaKey: true, shiftKey: true });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      strings.en.shortcutTriggerGrammarCheck,
+    );
+    expect(save).not.toHaveBeenCalled();
+  });
+  it("rejects a fixed app shortcut, then accepts a valid replacement", () => {
+    const { save, button } = setup();
+    fireEvent.keyDown(button, { key: "s", metaKey: true });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      strings.en.shortcutReserved,
+    );
+    fireEvent.keyDown(button, { key: "j", metaKey: true, shiftKey: true });
+    expect(save).toHaveBeenCalledWith({
+      shortcuts: { ...shortcuts, findReplace: "mod+shift+j" },
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("stops recording on Escape or blur without changing settings", () => {
+    const { save, button } = setup();
+    fireEvent.keyDown(button, { key: "Escape" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    fireEvent.blur(button);
+    fireEvent.keyDown(window, { key: "j", metaKey: true });
+    expect(save).not.toHaveBeenCalled();
+  });
+});

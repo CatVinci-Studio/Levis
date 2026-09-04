@@ -1,3 +1,4 @@
+import { useModalDialog } from "../ui/useModalDialog";
 import type { Lang } from "../i18n/strings";
 import "./LanguageWelcome.css";
 
@@ -41,9 +42,11 @@ export function LanguageWelcome({
   onContinue: () => void;
 }) {
   const copy = COPY[language];
+  const modal = useModalDialog(() => {}, true, ".language-welcome-continue");
   return (
     <div className="language-welcome-backdrop">
-      <section
+      <div
+        {...modal}
         className="language-welcome"
         role="dialog"
         aria-modal="true"
@@ -73,12 +76,11 @@ export function LanguageWelcome({
           type="button"
           className="language-welcome-continue"
           onClick={onContinue}
-          autoFocus
         >
           {copy.continue}
           <span aria-hidden>→</span>
         </button>
-      </section>
+      </div>
     </div>
   );
 }

@@ -54,7 +54,12 @@ export function TutorialExperience({
           ? shortcuts.agent
           : "";
   const text = (value: string) => value.replace("{shortcut}", shortcut);
-  const body = text(t[step.bodyKey]);
+  const body = [
+    text(t[step.bodyKey]),
+    shortcut ? t.tutorialShortcut.replace("{shortcut}", shortcut) : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   let task: string | undefined;
   let checklist: TutorialChecklistItem[] | undefined;
   let status: string | null = null;
@@ -112,10 +117,10 @@ export function TutorialExperience({
   const roadmap =
     step.id === "welcome" || step.id === "done"
       ? [
-          t.tutorialMarkdownIntroTitle,
           t.tutorialMarkdownPracticeTitle,
           t.tutorialRoadmapAiTools,
           t.tutorialAgentChatTitle,
+          t.tutorialAgentEditTitle,
         ]
       : undefined;
   const sectionIndex = TUTORIAL_SECTIONS.findIndex(
@@ -166,6 +171,8 @@ export function TutorialExperience({
       onSkipStep={step.layout === "card" ? tutorial.next : undefined}
       labels={{
         back: t.tutorialBack,
+        collapse: t.tutorialCollapse,
+        expand: t.tutorialExpand,
         skip: t.tutorialSkip,
         skipStep: t.tutorialSkipStep,
         practice: t.tutorialPractice,

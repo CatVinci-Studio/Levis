@@ -50,7 +50,7 @@
   min-width: 0;
   padding: 2px 4px;
   border: 1px solid var(--editor-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 
 .find-replace-input {
@@ -95,7 +95,7 @@
 
 .find-replace-bar button {
   border: 1px solid var(--editor-border);
-  border-radius: 5px;
+  border-radius: var(--radius-small);
   padding: 4px 7px;
   font-size: 12px;
   cursor: pointer;
@@ -125,7 +125,7 @@
 }
 
 .find-replace-toggle-active {
-  background: var(--editor-accent) !important;
+  background: var(--chrome-primary) !important;
   color: #fff !important;
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { Strings } from "../../i18n/strings";
 import type { AiProvider } from "../SettingsContext";
 import { useSettings } from "../SettingsContext";
@@ -51,6 +51,7 @@ export function ProviderListPanel({ t }: { t: Strings }) {
     Partial<Record<AiProvider, ConnectedState>>
   >({});
   const [open, setOpen] = useState(false);
+  const popoverId = useId();
   const [authOpen, setAuthOpen] = useState(false);
   const [query, setQuery] = useState("");
   const popoverRef = useCloseOnOutsideClick<HTMLDivElement>(
@@ -98,14 +99,37 @@ export function ProviderListPanel({ t }: { t: Strings }) {
     setOpen(false);
     setAuthOpen(false);
     setQuery("");
+    popoverRef.current
+      ?.querySelector<HTMLButtonElement>(".combobox-trigger")
+      ?.focus();
   }
 
   return (
     <div className="provider-picker">
-      <div className="combobox" ref={popoverRef}>
+      <div
+        className="combobox"
+        ref={popoverRef}
+        onKeyDown={(event) => {
+          if (
+            open &&
+            event.key === "Escape" &&
+            !event.nativeEvent.isComposing &&
+            event.nativeEvent.keyCode !== 229
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(false);
+            popoverRef.current
+              ?.querySelector<HTMLButtonElement>(".combobox-trigger")
+              ?.focus();
+          }
+        }}
+      >
         <button
           type="button"
           className="combobox-trigger"
+          aria-expanded={open}
+          aria-controls={open ? popoverId : undefined}
           onClick={() => setOpen((v) => !v)}
           aria-label={`${t.providerDropdownLabel}: ${active ? localizedLabel(active, t) : settings.aiProvider}`}
         >
@@ -118,10 +142,11 @@ export function ProviderListPanel({ t }: { t: Strings }) {
           <ChevronIcon className="combobox-caret" />
         </button>
         {open && (
-          <div className="combobox-popover">
+          <div className="combobox-popover" id={popoverId}>
             <input
               type="text"
               className="combobox-search"
+              aria-label={t.providerSearchPlaceholder}
               placeholder={t.providerSearchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}

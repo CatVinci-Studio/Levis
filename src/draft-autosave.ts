@@ -7,6 +7,7 @@ const MAX_WAIT_MS = 30000;
 
 interface Pending {
   content: string;
+  path: string | null;
   timer: ReturnType<typeof setTimeout>;
   firstPendingAt: number;
 }
@@ -35,6 +36,12 @@ interface Pending {
 export function useDraftAutosave(tabs: DocTab[], enabled: boolean): () => void {
   const pendingRef = useRef<Map<string, Pending>>(new Map());
   const knownIdsRef = useRef<Set<string>>(new Set());
+  const cancel = useCallback(() => {
+    for (const p of pendingRef.current.values()) clearTimeout(p.timer);
+    pendingRef.current.clear();
+  }, []);
+
+  useEffect(() => cancel, [cancel]);
 
   useEffect(() => {
     const pending = pendingRef.current;
@@ -48,7 +55,10 @@ export function useDraftAutosave(tabs: DocTab[], enabled: boolean): () => void {
     }
     knownIdsRef.current = seenIds;
 
-    if (!enabled) return;
+    if (!enabled) {
+      cancel();
+      return;
+    }
 
     for (const tab of tabs) {
       const existing = pending.get(tab.id);
@@ -60,12 +70,19 @@ export function useDraftAutosave(tabs: DocTab[], enabled: boolean): () => void {
         }
         continue;
       }
-      if (existing && existing.content === tab.content) continue; // nothing new since last schedule
+      if (
+        existing &&
+        existing.content === tab.content &&
+        existing.path === tab.path
+      )
+        continue;
       if (existing) clearTimeout(existing.timer);
 
       const firstPendingAt = existing?.firstPendingAt ?? Date.now();
-      const delay =
-        Date.now() - firstPendingAt >= MAX_WAIT_MS ? 0 : DEBOUNCE_MS;
+      const delay = Math.max(
+        0,
+        Math.min(DEBOUNCE_MS, MAX_WAIT_MS - (Date.now() - firstPendingAt)),
+      );
       const path = tab.path;
       const content = tab.content;
       const timer = setTimeout(() => {
@@ -73,12 +90,14 @@ export function useDraftAutosave(tabs: DocTab[], enabled: boolean): () => void {
         const p = pending.get(tab.id);
         if (p) p.firstPendingAt = Date.now(); // restart the hard-cap clock after a flush
       }, delay);
-      pending.set(tab.id, { content: tab.content, timer, firstPendingAt });
+      pending.set(tab.id, {
+        content: tab.content,
+        path,
+        timer,
+        firstPendingAt,
+      });
     }
-  }, [tabs, enabled]);
+  }, [tabs, enabled, cancel]);
 
-  return useCallback(() => {
-    for (const p of pendingRef.current.values()) clearTimeout(p.timer);
-    pendingRef.current.clear();
-  }, []);
+  return cancel;
 }

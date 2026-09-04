@@ -1,7 +1,7 @@
 .settings-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--overlay-bg);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -9,16 +9,21 @@
 }
 
 .settings-panel {
-  width: 100%;
-  max-width: 780px;
-  height: 82vh;
-  max-height: 640px;
+  /* Settings belong to app chrome, independently of document themes. */
+  --editor-text: var(--chrome-text);
+  --editor-muted: var(--chrome-muted);
+  --editor-accent: var(--chrome-accent);
+  color: var(--editor-text);
+  width: calc(100% - 32px);
+  max-width: 840px;
+  height: min(82dvh, 720px);
+  max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-dialog);
   overflow: hidden;
 }
 
@@ -48,7 +53,7 @@
 }
 
 .settings-nav {
-  width: 160px;
+  width: 176px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -62,10 +67,10 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 7px 12px;
+  padding: 9px 12px;
   font-size: 13px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--sidebar-text, var(--editor-muted));
   cursor: pointer;
@@ -82,10 +87,12 @@
 }
 
 .settings-content {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 20px 24px 28px;
+  padding: 24px 28px 32px;
 }
 
 /* Information architecture: each group is a quiet inset card - the title
@@ -99,8 +106,8 @@
 .settings-advanced {
   margin-top: 24px;
   border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--sidebar-bg) 55%, var(--bg));
+  border-radius: var(--radius-surface);
+  background: var(--chrome-subtle);
   overflow: hidden;
 }
 
@@ -164,9 +171,9 @@
 
 .settings-group-body {
   padding: 2px 16px;
-  background: color-mix(in srgb, var(--sidebar-bg) 55%, var(--bg));
+  background: var(--chrome-subtle);
   border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 
 /* The one divider in the design: an inset hairline between adjacent rows of
@@ -284,7 +291,11 @@ button.settings-inline-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .shortcut-capture-button {
@@ -354,12 +365,14 @@ button.settings-inline-button {
    native dropdown arrow is replaced (appearance:none) with a drawn chevron
    matching the app's iconography. */
 .settings-select {
+  min-width: 0;
+  max-width: 100%;
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--bg);
   color: var(--editor-text);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 5px 26px 5px 10px;
   font-size: 13px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.8L5 6.8L8 3.8' stroke='%23888888' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -381,7 +394,7 @@ button.settings-inline-button {
   min-width: 0;
   padding: 5px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--bg);
   color: var(--editor-text);
   font-size: 13px;
@@ -419,7 +432,7 @@ button.settings-inline-button {
   width: 100%;
   padding: 12px 4px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: none;
   color: inherit;
   font: inherit;
@@ -466,8 +479,8 @@ button.settings-inline-button {
   flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-popover);
   overflow: hidden;
 }
 
@@ -497,7 +510,7 @@ button.settings-inline-button {
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-small);
   background: none;
   color: inherit;
   font: inherit;
@@ -534,14 +547,14 @@ button.settings-inline-button {
 }
 
 .status-pill-connected {
-  color: var(--success-color, #2a9d5c);
+  color: var(--success-color);
 }
 
 .status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--success-color, #2a9d5c);
+  background: var(--success-color);
   flex-shrink: 0;
 }
 
@@ -572,13 +585,13 @@ button.settings-inline-button {
   padding: 2px;
   background: var(--sidebar-bg);
   border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
 }
 
 .auth-tab {
   padding: 4px 12px;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--editor-muted);
   font-size: 12.5px;
@@ -593,7 +606,7 @@ button.settings-inline-button {
   background: var(--bg);
   color: var(--editor-text);
   font-weight: 550;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 
 /* ---- Label + control rows that aren't toggle rows ---- */
@@ -624,12 +637,14 @@ button.settings-inline-button {
 /* Proxy setting: type select + host + port on one line. */
 .settings-proxy-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 12px 0;
 }
 
 .settings-proxy-host {
-  flex: 1;
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .settings-proxy-port {
@@ -724,7 +739,8 @@ button.settings-inline-button {
 .custom-model-row select,
 .custom-model-row input {
   flex: 1;
-  min-width: 180px;
+  min-width: 0;
+  width: 100%;
 }
 
 .custom-actions-row {
@@ -733,4 +749,137 @@ button.settings-inline-button {
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 0;
+}
+
+@media (max-width: 760px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 8px;
+    gap: 4px;
+    max-height: 120px;
+  }
+
+  .settings-nav-item {
+    width: auto;
+    padding: 7px 10px;
+  }
+
+  .settings-content {
+    padding: 14px 12px 20px;
+  }
+
+  .settings-row {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .settings-row > *:first-child {
+    flex-basis: 140px;
+  }
+
+  .settings-field,
+  .settings-feature-option,
+  .custom-model-row {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .custom-model-row {
+    flex-basis: 100%;
+  }
+
+  .settings-field-label {
+    flex-shrink: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .settings-feature-option > *,
+  .image-settings-input {
+    max-width: 100%;
+  }
+
+  .settings-feature-option > .settings-select,
+  .image-settings-input {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .settings-panel .api-key-input {
+    max-width: none;
+  }
+
+  .settings-panel .api-key-input-row {
+    flex-basis: 100%;
+  }
+}
+
+.settings-category-title {
+  margin: 0 0 20px;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--editor-text);
+}
+
+.settings-panel :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 3px;
+}
+
+.shortcut-setting {
+  min-width: 0;
+}
+
+.shortcut-setting .settings-error {
+  margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-panel *,
+  .settings-panel *::after {
+    transition: none;
+  }
+}
+
+.appearance-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-control);
+  background: var(--sidebar-bg);
+}
+
+.appearance-option {
+  position: relative;
+  padding: 7px 10px;
+  border-radius: var(--radius-control);
+  color: var(--editor-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.appearance-option.is-selected {
+  background: var(--bg);
+  color: var(--editor-text);
+  box-shadow: none;
+}
+
+.appearance-option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.appearance-option:focus-within {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 2px;
 }

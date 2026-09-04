@@ -34,6 +34,7 @@ import {
 import { mathAutopairPlugin } from "./math-autopair-plugin";
 import { createMathPreviewPlugin } from "./math-preview-plugin";
 import { headingMarkerPlugin } from "./heading-marker-plugin";
+import { macNavigationPlugin } from "./mac-navigation-plugin";
 import { taskListClickPlugin } from "./task-list-plugin";
 import { syntaxHighlightPlugin } from "./syntax-highlight-plugin";
 import { codeBlockLanguageView } from "./code-block-language-view";
@@ -103,6 +104,7 @@ export function withEditorExtensions(
 ): Editor {
   return (
     editor
+      .use(macNavigationPlugin)
       // Markdown baseline: commonmark/GFM with bold/italic/strike marks
       // stripped - those are node-based below.
       .use(commonmarkWithoutMarks)

@@ -28,12 +28,17 @@ function loadProgress(): TutorialProgress {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return IDLE_PROGRESS;
     const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return IDLE_PROGRESS;
     const stepIndex = Math.min(
-      Math.max(0, Number(parsed.stepIndex) || 0),
+      Math.max(
+        0,
+        Number.isFinite(parsed.stepIndex) ? Math.trunc(parsed.stepIndex) : 0,
+      ),
       TUTORIAL_STEPS.length - 1,
     );
     return {
-      active: !!parsed.active,
+      active: parsed.active === true,
       stepIndex,
       tabId: typeof parsed.tabId === "string" ? parsed.tabId : null,
     };
@@ -85,13 +90,16 @@ export function useTutorial() {
 
   const next = useCallback(() => {
     setProgress((p) => {
+      if (!p.active) return p;
       if (p.stepIndex + 1 >= TUTORIAL_STEPS.length) return IDLE_PROGRESS;
       return { ...p, stepIndex: p.stepIndex + 1 };
     });
   }, []);
 
   const back = useCallback(() => {
-    setProgress((p) => ({ ...p, stepIndex: Math.max(0, p.stepIndex - 1) }));
+    setProgress((p) =>
+      p.active ? { ...p, stepIndex: Math.max(0, p.stepIndex - 1) } : p,
+    );
   }, []);
 
   const exit = useCallback(() => setProgress(IDLE_PROGRESS), []);

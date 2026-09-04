@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   useSettings,
   BUILTIN_CONTENT_THEMES,
   THEME_MODES,
-  type ThemeMode,
   type UserThemeMeta,
 } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
 import { importThemeCss } from "../../utils/theme-import";
 import { basename } from "../../utils/path";
 import { fs, themes } from "../../ipc";
+import { useLatest } from "../../utils/useLatest";
 
 export function ThemeSection({ t }: { t: Strings }) {
   const { settings, setSettings } = useSettings();
+  const appearanceId = useId();
+  const working = useRef(false);
+  const latest = useLatest(settings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,12 +23,14 @@ export function ThemeSection({ t }: { t: Strings }) {
   // named after the file. (A dark variant can still exist in the data model
   // for themes that shipped one; imports are single-file.)
   async function importTheme() {
-    const picked = await fs.openCssFileDialog();
-    if (!picked) return;
+    if (working.current) return;
+    working.current = true;
     setBusy(true);
     setError(null);
     try {
-      const id = `user-${Date.now()}`;
+      const picked = await fs.openCssFileDialog();
+      if (!picked) return;
+      const id = `user-${crypto.randomUUID()}`;
       const css = await importThemeCss(picked);
       await themes.saveThemeCss(id, "light", css);
       const meta: UserThemeMeta = {
@@ -33,10 +38,14 @@ export function ThemeSection({ t }: { t: Strings }) {
         name: basename(picked).replace(/\.css$/i, ""),
         hasDark: false,
       };
-      setSettings({ userThemes: [...settings.userThemes, meta], themeId: id });
+      setSettings({
+        userThemes: [...latest.current.userThemes, meta],
+        themeId: id,
+      });
     } catch (err) {
       setError(String(err));
     } finally {
+      working.current = false;
       setBusy(false);
     }
   }
@@ -46,11 +55,26 @@ export function ThemeSection({ t }: { t: Strings }) {
       (th) => th.id === settings.themeId,
     );
     if (!current) return;
-    await themes.deleteTheme(current.id);
-    setSettings({
-      userThemes: settings.userThemes.filter((th) => th.id !== current.id),
-      themeId: "default",
-    });
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      await themes.deleteTheme(current.id);
+      setSettings({
+        userThemes: latest.current.userThemes.filter(
+          (th) => th.id !== current.id,
+        ),
+        ...(latest.current.themeId === current.id
+          ? { themeId: "default" }
+          : {}),
+      });
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      working.current = false;
+      setBusy(false);
+    }
   }
 
   const isUserThemeSelected = settings.userThemes.some(
@@ -59,7 +83,11 @@ export function ThemeSection({ t }: { t: Strings }) {
 
   return (
     <>
-      {error && <div className="settings-error">{error}</div>}
+      {error && (
+        <div className="settings-error" role="alert">
+          {error}
+        </div>
+      )}
       <div className="settings-row">
         <div>
           <div className="settings-row-label">{t.contentThemeLabel}</div>
@@ -68,6 +96,8 @@ export function ThemeSection({ t }: { t: Strings }) {
         <div className="shortcut-row-controls">
           <select
             className="settings-select"
+            aria-label={t.contentThemeLabel}
+            disabled={busy}
             value={settings.themeId}
             onChange={(e) => setSettings({ themeId: e.target.value })}
           >
@@ -85,6 +115,7 @@ export function ThemeSection({ t }: { t: Strings }) {
           {isUserThemeSelected && (
             <button
               className="text-button settings-inline-button"
+              disabled={busy}
               onClick={deleteCurrentTheme}
             >
               {t.themeDeleteButton}
@@ -107,21 +138,31 @@ export function ThemeSection({ t }: { t: Strings }) {
           <div className="settings-row-label">{t.appearanceLabel}</div>
           <div className="settings-row-hint">{t.appearanceHint}</div>
         </div>
-        <select
-          className="settings-select"
-          value={settings.theme}
-          onChange={(e) => setSettings({ theme: e.target.value as ThemeMode })}
+        <div
+          className="appearance-options"
+          role="radiogroup"
+          aria-label={t.appearanceLabel}
         >
           {THEME_MODES.map((mode) => (
-            <option key={mode} value={mode}>
+            <label
+              key={mode}
+              className={`appearance-option${settings.theme === mode ? " is-selected" : ""}`}
+            >
+              <input
+                type="radio"
+                name={appearanceId}
+                value={mode}
+                checked={settings.theme === mode}
+                onChange={() => setSettings({ theme: mode })}
+              />
               {mode === "system"
                 ? t.appearanceSystem
                 : mode === "light"
                   ? t.appearanceLight
                   : t.appearanceDark}
-            </option>
+            </label>
           ))}
-        </select>
+        </div>
       </div>
     </>
   );
