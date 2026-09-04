@@ -41,11 +41,12 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Install frontend dependencies
+        working-directory: .
+        run: npm ci
       - name: Build frontend assets for the native app
         working-directory: .
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

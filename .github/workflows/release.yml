@@ -62,10 +62,11 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Validate before publishing
-        run: |
-          npm run check
-          cargo test --workspace --manifest-path src-tauri/Cargo.toml
+      - name: Validate frontend before publishing
+        run: npm run check
+
+      - name: Test native app before publishing
+        run: cargo test --workspace --manifest-path src-tauri/Cargo.toml
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
