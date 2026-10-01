@@ -66,18 +66,60 @@ function collectInlinedCss(): string {
   return css;
 }
 
+// Editing affordances that live in the editor DOM but are not document
+// content: heading "#" markers, the code-block language picker, table
+// insert buttons, delimiters shown around the caret, AI previews. Kept in
+// step with the @media print list in App.css (the Windows/Linux PDF path
+// prints the live DOM, so it can only hide them).
+const EDITOR_CHROME_SELECTOR = [
+  ".heading-marker",
+  ".enclosure-delimiter",
+  ".code-block-header",
+  ".table-add-row-btn",
+  ".table-add-col-btn",
+  ".ghost-text",
+  ".quick-ask-anchor",
+  ".pending-insert",
+].join(", ");
+
+// A resized table carries pixel widths (an inline table width plus one per
+// <col>, see table-hover-view.ts) sized for the editor column. On a page
+// narrower than that column they overflow and are cut off at the page edge,
+// so the export keeps each column's share of the width instead.
+function fitTablesToWidth(root: HTMLElement): void {
+  root.querySelectorAll("table").forEach((table) => {
+    table.style.width = "";
+    table.style.minWidth = "";
+    const cols = Array.from(table.querySelectorAll(":scope > colgroup > col"));
+    const widths = cols.map(
+      (col) => parseFloat((col as HTMLElement).style.width) || 0,
+    );
+    const total = widths.reduce((sum, width) => sum + width, 0);
+    cols.forEach((col, i) => {
+      const style = (col as HTMLElement).style;
+      // Unsized columns share what the sized ones leave.
+      style.width =
+        total > 0 && widths[i] > 0 && widths.every((w) => w > 0)
+          ? `${((widths[i] / total) * 100).toFixed(3)}%`
+          : "";
+    });
+  });
+}
+
 // Clones the editor subtree, stripping contenteditable so the export is inert.
-function cloneEditorContent(editor: Element): string {
+export function cloneEditorContent(editor: Element): string {
   const clone = editor.cloneNode(true) as HTMLElement;
   clone
     .querySelectorAll("[contenteditable]")
     .forEach((el) => el.removeAttribute("contenteditable"));
+  clone.querySelectorAll(EDITOR_CHROME_SELECTOR).forEach((el) => el.remove());
+  fitTablesToWidth(clone);
   return clone.outerHTML;
 }
 
 // Wraps serialized editor content in a full themed document. `layoutCss` frees
 // it from the app's fixed-viewport layout (each export tunes its own page).
-function buildStandaloneHtml(
+export function buildStandaloneHtml(
   base: string,
   contentHtml: string,
   layoutCss: string,
@@ -114,20 +156,37 @@ function buildStandaloneHtml(
 
 const isMac = isMacPlatform();
 
-// Theme + page CSS for the offscreen macOS render. Print margins are zero (Rust
-// side) so the theme background bleeds to the sheet edge (full-bleed); the text
-// is inset with padding here instead. print-color-adjust keeps the editor
+// Layout shared by every export: content too wide for a page wraps or
+// shrinks to fit instead of being clipped at the sheet edge. Display math
+// is a scroll box on screen; a page cannot scroll, so let KaTeX break at
+// its top-level operators like inline math does.
+const EXPORT_FIT_CSS =
+  ".milkdown table { width: 100%; } " +
+  ".math-block-rendered, .katex-display { overflow: visible; } " +
+  ".katex-display > .katex { white-space: normal; } " +
+  ".milkdown a, .milkdown p, .milkdown li, .milkdown td, .milkdown th { overflow-wrap: anywhere; } ";
+
+// Theme + page CSS for the offscreen macOS render. The vertical page margin
+// comes from @page, not padding: padding only insets the first and last
+// page, which left every page seam's text flush against the sheet edge
+// (printers clip it). Rust sets the NSPrintInfo margins to zero; WebKit
+// honours @page on top of that. The side inset stays padding so the theme
+// background still reaches the left and right edges - WebKit leaves the
+// top and bottom margins unpainted. print-color-adjust keeps the editor
 // theme's backgrounds from being flattened to white per page.
-const PDF_LAYOUT_CSS =
+export const PDF_LAYOUT_CSS =
   ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
+  "@page { margin: 14mm 0; } " +
   "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
-  ".editor-content, .editor-content.typewriter-active { padding: 48px 56px; } " +
-  "pre, blockquote, table, img { break-inside: avoid; }";
+  ".editor-content, .editor-content.typewriter-active { max-width: none; padding: 0 56px; } " +
+  "pre, blockquote, table, img { break-inside: avoid; } " +
+  EXPORT_FIT_CSS;
 
 const HTML_LAYOUT_CSS =
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } " +
-  ".editor-content { padding: 2rem 0; }";
+  ".editor-content { padding: 2rem 1.5rem; } " +
+  EXPORT_FIT_CSS;
 
 // Injects the "Preparing PDF…" progress overlay (removed when export ends).
 function showPdfOverlay(t: Strings): HTMLElement {

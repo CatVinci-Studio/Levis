@@ -849,10 +849,12 @@ body {
     print-color-adjust: exact;
   }
 
-  /* Zero page margins so the theme background bleeds to the sheet edge
-     (full-bleed); the text is inset with padding below instead. */
+  /* A real vertical page margin on every page - padding alone insets only
+     the first and last, leaving text at each page seam flush against the
+     sheet edge where printers clip it. Chromium still paints the root
+     background into the margin, so the theme stays full-bleed. */
   @page {
-    margin: 0;
+    margin: 12mm 0;
   }
 
   .sidebar,
@@ -862,6 +864,51 @@ body {
   .update-toast,
   .pdf-export-overlay {
     display: none !important;
+  }
+
+  /* Editing affordances, not content - keep in step with
+     EDITOR_CHROME_SELECTOR in export-doc.ts. */
+  .heading-marker,
+  .enclosure-delimiter,
+  .code-block-header,
+  .table-add-row-btn,
+  .table-add-col-btn,
+  .ghost-text,
+  .quick-ask-anchor,
+  .pending-insert {
+    display: none !important;
+  }
+
+  /* Wide content wraps or fits instead of running off the sheet: a page
+     cannot scroll a code/math box, and a resized table's pixel widths were
+     sized for the screen column (export-doc.ts rescales them for the other
+     exports; the live DOM printed here can only be capped). */
+  .milkdown table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Only the screen-sized pixel columns: the exports' rescaled clone
+     carries percentages, which already fit. */
+  .milkdown col[style*="px"] {
+    width: auto !important;
+  }
+
+  .math-block-rendered,
+  .katex-display {
+    overflow: visible !important;
+  }
+
+  .katex-display > .katex {
+    white-space: normal;
+  }
+
+  .milkdown a,
+  .milkdown p,
+  .milkdown li,
+  .milkdown td,
+  .milkdown th {
+    overflow-wrap: anywhere;
   }
 
   html,
@@ -878,7 +925,8 @@ body {
      mode's centering padding. */
   .editor-content,
   .editor-content.typewriter-active {
-    padding: 12mm 14mm;
+    max-width: none;
+    padding: 0 14mm;
   }
 
   /* Keep indivisible blocks off page seams. */
