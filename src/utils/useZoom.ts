@@ -23,6 +23,7 @@ const PERSIST_DELAY_MS = 400;
 /// lib.dom because no other engine implements them.
 interface WebKitGestureEvent extends UIEvent {
   readonly scale: number;
+  readonly clientY: number;
 }
 
 function clamp(zoom: number): number {
@@ -51,12 +52,45 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
   useEffect(() => {
     let raf = 0;
     let persistTimer: ReturnType<typeof setTimeout> | undefined;
+    // The zoom actually on screen, and the viewport y the next apply should
+    // hold still (the pointer for wheel/pinch; null = the pane's centre).
+    let appliedZoom = 1;
+    let anchorClientY: number | null = null;
 
     const apply = () => {
+      const next = zoomRef.current;
+      const prev = appliedZoom;
+      appliedZoom = next;
+      // Zooming scales the content's height but leaves scrollTop alone, so
+      // without this the text under the pointer slides up or down with
+      // every step. Hold the anchor's document position fixed instead.
+      const scroller = document.querySelector<HTMLElement>(
+        '[data-active-tab="true"] .editor-scroll',
+      );
+      const content = scroller?.querySelector(".milkdown");
+      if (!scroller || !content || prev === next) {
+        document.documentElement.style.setProperty(
+          "--content-zoom",
+          String(next),
+        );
+        return;
+      }
+      const box = scroller.getBoundingClientRect();
+      const anchor = Math.min(
+        box.height,
+        Math.max(0, (anchorClientY ?? box.top + box.height / 2) - box.top),
+      );
+      // The column's padding is outside the zoomed node, so only the
+      // distance INTO the content scales.
+      const contentTop = () =>
+        content.getBoundingClientRect().top - box.top + scroller.scrollTop;
+      const before = contentTop();
+      const into = Math.max(0, scroller.scrollTop + anchor - before);
       document.documentElement.style.setProperty(
         "--content-zoom",
-        String(zoomRef.current),
+        String(next),
       );
+      scroller.scrollTop = contentTop() + (into * next) / prev - anchor;
     };
 
     const applyFrame = () => {
@@ -67,7 +101,12 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     // `snapped: false` while a pinch is mid-flight, so the 100% snap zone
     // doesn't make the gesture feel sticky; the resting snap happens on
     // gestureend.
-    const setZoom = (zoom: number, snapped = true) => {
+    const setZoom = (
+      zoom: number,
+      snapped = true,
+      clientY: number | null = null,
+    ) => {
+      anchorClientY = clientY;
       zoomRef.current = snapped ? snap(zoom) : clamp(zoom);
       if (!raf) raf = requestAnimationFrame(applyFrame);
       clearTimeout(persistTimer);
@@ -77,7 +116,14 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       );
     };
 
-    if (zoomRef.current !== 1) apply();
+    // The restored zoom is the starting state, not a step to anchor.
+    if (zoomRef.current !== 1) {
+      appliedZoom = zoomRef.current;
+      document.documentElement.style.setProperty(
+        "--content-zoom",
+        String(zoomRef.current),
+      );
+    }
 
     // Trackpad pinch: scale is cumulative from the gesture's start, so the
     // zoom at gesturestart is the base it multiplies.
@@ -88,12 +134,12 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     };
     const onGestureChange = (e: Event) => {
       e.preventDefault();
-      const { scale } = e as WebKitGestureEvent;
-      if (scale > 0) setZoom(pinchBase * scale, false);
+      const { scale, clientY } = e as WebKitGestureEvent;
+      if (scale > 0) setZoom(pinchBase * scale, false, clientY);
     };
     const onGestureEnd = (e: Event) => {
       e.preventDefault();
-      setZoom(zoomRef.current);
+      setZoom(zoomRef.current, true, (e as WebKitGestureEvent).clientY);
     };
 
     // mod+wheel zoom (plain scrolling passes through untouched). The
@@ -103,7 +149,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     const onWheel = (e: WheelEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
       e.preventDefault();
-      setZoom(zoomRef.current * Math.exp(-e.deltaY * 0.0015));
+      setZoom(zoomRef.current * Math.exp(-e.deltaY * 0.0015), true, e.clientY);
     };
 
     window.addEventListener("gesturestart", onGestureStart);
