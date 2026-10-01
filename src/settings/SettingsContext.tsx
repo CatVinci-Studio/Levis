@@ -187,6 +187,10 @@ export interface Settings {
   proxyPort: string;
   typewriterMode: boolean;
   contentWidth: ContentWidth;
+  /// The user's own CSS, applied on top of whichever theme is selected -
+  /// for small changes (indent, line spacing, a font) without writing a
+  /// whole theme. Injected last, so it wins ties with the theme (#13).
+  customCss: string;
   /// Whole-page zoom factor (1 = 100%), driven by pinch / mod+wheel / the
   /// View menu (see ../utils/useZoom). Saved here so it survives restarts;
   /// each window applies it independently on mount.
@@ -251,6 +255,7 @@ const DEFAULT_SETTINGS: Settings = {
   proxyPort: "",
   typewriterMode: false,
   contentWidth: "auto",
+  customCss: "",
   zoom: 1,
   shortcuts: DEFAULT_SHORTCUTS,
   themeId: "default",
@@ -265,6 +270,8 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 const STORAGE_KEY = "catvinci-settings";
+/** The <style> holding Settings > Theme > Custom CSS. */
+const CUSTOM_CSS_STYLE_ID = "levis-user-css";
 
 interface SettingsContextValue {
   settings: Settings;
@@ -443,6 +450,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     else root.setAttribute("data-content-width", settings.contentWidth);
   }, [settings.contentWidth]);
 
+  useEffect(() => {
+    let styleEl = document.getElementById(
+      CUSTOM_CSS_STYLE_ID,
+    ) as HTMLStyleElement | null;
+    if (!settings.customCss.trim()) {
+      styleEl?.remove();
+      return;
+    }
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = CUSTOM_CSS_STYLE_ID;
+    }
+    styleEl.textContent = settings.customCss;
+    document.head.appendChild(styleEl);
+  }, [settings.customCss]);
+
   // Resolves the selected theme (built-in content theme, user-imported
   // theme, or "default") to either a `data-content-theme` attribute (for
   // built-ins, which are pure CSS-variable overlays - see
@@ -504,6 +527,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
         styleEl.textContent = css ?? "";
         document.head.appendChild(styleEl);
+        // The user's own CSS stays after the theme, whenever it loads.
+        const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
+        if (custom) document.head.appendChild(custom);
         applyThemeChrome(css ?? "", isEffectiveDark(settings.theme));
       } catch {
         // Theme file missing/unreadable - leave whatever was there before.

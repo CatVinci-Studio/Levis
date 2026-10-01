@@ -883,3 +883,36 @@ button.settings-inline-button {
   outline: 2px solid var(--editor-accent);
   outline-offset: 2px;
 }
+
+/* A row whose control needs the full width (Custom CSS): label above,
+   control below, actions under that. */
+.settings-row.settings-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.settings-code-input {
+  width: 100%;
+  min-height: 7.5em;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--editor-text);
+  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.settings-code-input:focus-visible {
+  outline: 2px solid var(--chrome-accent, var(--editor-accent));
+  outline-offset: 1px;
+}
+
+.settings-row-stacked .shortcut-row-controls {
+  justify-content: flex-end;
+}

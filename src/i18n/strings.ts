@@ -329,6 +329,10 @@ export const strings = {
     cliCommandReinstallButton: "Reinstall",
     cliCommandInstalling: "Installing…",
     cliCommandFailed: "Couldn't install:",
+    customCssLabel: "Custom CSS",
+    customCssHint:
+      "Applied on top of the current theme - for small changes like first-line indent, line spacing or fonts. Target the document with #write.",
+    themeExportButton: "Export as CSS…",
     contentWidthLabel: "Text Width",
     contentWidthHint:
       "Adaptive widens the text column on large windows; Standard keeps a fixed reading width.",
@@ -838,6 +842,10 @@ export const strings = {
     cliCommandReinstallButton: "重新安装",
     cliCommandInstalling: "安装中…",
     cliCommandFailed: "安装失败:",
+    customCssLabel: "自定义 CSS",
+    customCssHint:
+      "在当前主题之上生效，适合首行缩进、行距、字体等局部调整。用 #write 选中正文。",
+    themeExportButton: "导出为 CSS…",
     contentWidthLabel: "正文宽度",
     contentWidthHint: "自适应会在大窗口中加宽正文；标准保持固定的阅读宽度。",
     contentWidthAuto: "自适应",
@@ -1349,6 +1357,10 @@ export const strings = {
     cliCommandReinstallButton: "再インストール",
     cliCommandInstalling: "インストール中…",
     cliCommandFailed: "インストールできませんでした:",
+    customCssLabel: "カスタム CSS",
+    customCssHint:
+      "現在のテーマの上に適用されます。字下げ・行間・フォントなどの部分的な調整に。本文は #write で指定します。",
+    themeExportButton: "CSS として書き出す…",
     contentWidthLabel: "本文の幅",
     contentWidthHint:
       "自動では大きなウィンドウで本文を広げます。標準では一定の読みやすい幅を保ちます。",
