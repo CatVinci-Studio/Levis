@@ -9,11 +9,12 @@
  * - macOS has an overlay title-bar style. The window keeps its native frame
  *   and its native buttons; the traffic lights simply float over our row.
  *   Nothing here to draw.
- * - Windows has no such style. Its native title bar cannot be made to host
- *   our row, and the app menu is a second native bar under it, so the window
- *   was showing three stacked strips. The fix is to drop the native frame
- *   entirely - which means the caption buttons and the way into the menu
- *   become ours to draw (WindowControls.tsx).
+ * - Windows and Linux have no such style. Their native title bar cannot be
+ *   made to host our row, and the app menu is a second native bar under it,
+ *   so the window was showing three stacked strips (on Linux with the GTK
+ *   menu in English whatever the language setting). The fix is to drop the
+ *   native frame entirely - which means the caption buttons and the way
+ *   into the menu become ours to draw (WindowControls.tsx).
  *
  * Mirrors `build_with_app_chrome` and `hide_native_menu_bar` in
  * src-tauri/src/lib.rs; the two must agree, or the window either loses its
@@ -31,6 +32,15 @@ function detectWindows(): boolean {
   );
 }
 
+/** Linux desktop builds; Android also reports "Linux" and is excluded. */
+function detectLinux(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /linux/i.test(navigator.platform ?? "") &&
+    !/android/i.test(navigator.userAgent)
+  );
+}
+
 /**
  * Whether the OS frame is gone and the app owns the caption.
  *
@@ -38,7 +48,17 @@ function detectWindows(): boolean {
  * systems, and making it a hook would mean every consumer re-rendering for a
  * value that cannot change.
  */
-export const appDrawsWindowFrame = detectWindows();
+export const appDrawsWindowFrame = detectWindows() || detectLinux();
+
+/**
+ * Whether the native menu's accelerators are dead, so the frontend must
+ * handle those keys itself. Linux only: GTK fires the accelerator of a menu
+ * item only while it is drawable, and the menu bar is hidden there (see
+ * `hide_native_menu_bar` in src-tauri/src/lib.rs). Windows keeps them
+ * firing with the bar hidden, so handling them here too would run each
+ * action twice.
+ */
+export const ownsMenuAccelerators = detectLinux();
 
 /**
  * Publishes {@link appDrawsWindowFrame} to CSS as `data-window-chrome` on

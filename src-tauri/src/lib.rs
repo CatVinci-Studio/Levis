@@ -173,16 +173,22 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
 /// - macOS has a style for exactly this: an overlay title bar keeps the
 ///   window's native behaviour while letting the traffic lights float over
 ///   our own row.
-/// - Windows has no equivalent, so the only way to stop stacking a native
-///   title bar AND a native menu bar AND our row is to drop the native frame
-///   entirely and draw the caption ourselves (src/ui/WindowControls.tsx).
-///   tao keeps WS_SIZEBOX on undecorated windows and hit-tests the border in
-///   its own WM_NCHITTEST, so edge resizing, Aero snap and Win+Arrow all
-///   still work - only the painted frame is gone.
+/// - Windows and Linux have no equivalent, so the only way to stop stacking a
+///   native title bar AND a native menu bar AND our row is to drop the native
+///   frame entirely and draw the caption ourselves (src/ui/WindowControls.tsx).
+///   On Windows tao keeps WS_SIZEBOX on undecorated windows and hit-tests the
+///   border in its own WM_NCHITTEST, so edge resizing, Aero snap and
+///   Win+Arrow all still work; on Linux tao hit-tests an undecorated window's
+///   edges itself and starts a GTK resize drag (X11 and Wayland alike). Only
+///   the painted frame is gone. Linux kept its frame until users reported the
+///   result: a title bar, an English-only GTK menu bar (it is built once, in
+///   English - the app-drawn menu is the localized one) and our row with the
+///   document title, three strips deep.
 ///
 /// The one window that never comes through here is the one tauri.conf.json
-/// declares; `decorations: false` is set for it in tauri.windows.conf.json,
-/// which Tauri merges over the base config on that target only.
+/// declares; `decorations: false` is set for it in tauri.windows.conf.json
+/// and tauri.linux.conf.json, which Tauri merges over the base config on
+/// those targets only.
 pub(crate) fn build_with_app_chrome(
     builder: WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle>,
     position: Option<(f64, f64)>,
@@ -196,7 +202,7 @@ pub(crate) fn build_with_app_chrome(
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true);
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     let builder = builder.decorations(false);
     let window = builder.build()?;
     hide_native_menu_bar(&window);
@@ -205,23 +211,23 @@ pub(crate) fn build_with_app_chrome(
 
 /// Takes the native menu BAR off a window without detaching its menu.
 ///
-/// WINDOWS ONLY, and the cfg here has to keep matching `appDrawsWindowFrame`
-/// in src/ui/window-chrome.ts - that flag is what decides whether the
-/// frontend draws the menu button this hides the menu behind. Windows and
-/// Linux both draw the app menu inside the window (macOS has the system menu
-/// bar and ignores this entirely), but only Windows loses its frame here, so
-/// only Windows gets the button. Hiding the bar on Linux too would leave that
-/// build with no way to reach the menu at all.
+/// Windows and Linux, and the cfg here has to keep matching
+/// `appDrawsWindowFrame` in src/ui/window-chrome.ts - that flag is what
+/// decides whether the frontend draws the menu button this hides the menu
+/// behind (macOS has the system menu bar and ignores this entirely).
 ///
-/// Hiding rather than removing is the point: `hide_menu` only unsets the
-/// menu bar (muda's `SetMenu(hwnd, null)`) and leaves muda's window subclass
-/// in place, which is what keeps the menu's accelerators firing - Tauri
-/// translates them through a message hook that doesn't care whether the bar
-/// is visible. `remove_menu` would take the accelerators with it.
+/// Hiding rather than removing: on Windows `hide_menu` only unsets the menu
+/// bar (muda's `SetMenu(hwnd, null)`) and leaves muda's window subclass in
+/// place, which keeps the menu's accelerators firing - Tauri translates them
+/// through a message hook that doesn't care whether the bar is visible.
+/// `remove_menu` would take the accelerators with it. GTK is different: it
+/// only activates the accelerator of a menu item that is drawable, so on
+/// Linux a hidden bar's accelerators are dead, and the frontend handles
+/// those keys itself (`ownsMenuAccelerators` in window-chrome.ts).
 pub(crate) fn hide_native_menu_bar(window: &tauri::WebviewWindow) {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     let _ = window.hide_menu();
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     let _ = window;
 }
 

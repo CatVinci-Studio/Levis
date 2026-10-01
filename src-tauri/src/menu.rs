@@ -4,8 +4,9 @@
 //! "help-doc:<doc>", "insert-block:<kind>"); the frontend listener for each
 //! menu-* event lives in App.tsx.
 //!
-//! On Windows the bar built here is never seen - it is hidden with the
-//! window frame and kept only for its accelerators, and the menu the user
+//! On Windows and Linux the bar built here is never seen - it is hidden with
+//! the window frame (kept on Windows for its accelerators; on Linux GTK stops
+//! firing them, and the frontend handles those keys), and the menu the user
 //! opens is drawn in HTML (src/ui/app-menu-model.ts, which lists the same
 //! ids) and comes back through `trigger_menu_item`. Renaming an id here
 //! means renaming it there.
@@ -411,12 +412,13 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         builder.build()?
     };
 
-    // Cmd+T on macOS. On Windows Ctrl+T is "new tab" in every browser, and
-    // this app has tabs - so there New Window takes Ctrl+Shift+N, which is
-    // what Explorer, Edge and VS Code all open a window with.
-    #[cfg(windows)]
+    // Cmd+T on macOS. On Windows and Linux Ctrl+T is "new tab" in every
+    // browser, and this app has tabs - so there New Window takes
+    // Ctrl+Shift+N, which is what file managers, browsers and VS Code all
+    // open a window with (and what the app-drawn menu advertises).
+    #[cfg(any(windows, target_os = "linux"))]
     const NEW_WINDOW_ACCEL: &str = "CmdOrCtrl+Shift+N";
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     const NEW_WINDOW_ACCEL: &str = "CmdOrCtrl+T";
     let new_window_item = MenuItemBuilder::with_id(NEW_WINDOW_ID, "New Window")
         .accelerator(NEW_WINDOW_ACCEL)

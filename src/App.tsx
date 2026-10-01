@@ -12,7 +12,7 @@ import {
   ChatTabIcon,
 } from "./ui/icons";
 import { AppMenuButton, WindowCaptionButtons } from "./ui/WindowControls";
-import { appDrawsWindowFrame } from "./ui/window-chrome";
+import { appDrawsWindowFrame, ownsMenuAccelerators } from "./ui/window-chrome";
 import { runLocalMenuAction } from "./ui/app-menu-actions";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
@@ -71,6 +71,23 @@ type PendingClose =
 // drain effect - OS-open paths, recovered drafts, etc. - has its own analogous
 // guard; see startup-restore.ts's `drained`.)
 let tutorialTabRecoveryDone = false;
+
+/** The native menu's fixed accelerators (src-tauri/src/menu.rs), for
+ *  Linux, where the hidden menu bar no longer fires them. Save, Close Tab,
+ *  New and Open are handled above on every platform that needs them. */
+const LINUX_MENU_ACCELERATORS: Record<string, string> = {
+  "mod+,": "settings",
+  "mod+shift+s": "save-file-as",
+  "mod+p": "export-pdf",
+  "mod+=": "zoom-in",
+  "mod++": "zoom-in",
+  "mod+shift++": "zoom-in",
+  "mod+-": "zoom-out",
+  "mod+0": "zoom-reset",
+  "mod+shift+n": "new-window",
+  "mod+shift+w": "close-window",
+  "mod+q": "quit",
+};
 
 function App() {
   const { t, settings, setSettings } = useSettings();
@@ -463,6 +480,18 @@ function App() {
           combo === "mod+n" ? "new-file" : "open-file",
         );
         return;
+      }
+
+      // Linux: the hidden GTK menu bar's accelerators no longer fire (see
+      // ownsMenuAccelerators), so its fixed shortcuts are routed through the
+      // same dispatch a menu click uses.
+      if (ownsMenuAccelerators) {
+        const menuId = LINUX_MENU_ACCELERATORS[combo];
+        if (menuId) {
+          e.preventDefault();
+          void menuIpc.triggerMenuItem(menuId);
+          return;
+        }
       }
 
       // Fixed OS-convention shortcut like Cmd+S above, not a configurable
