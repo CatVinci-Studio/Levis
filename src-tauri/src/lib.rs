@@ -342,6 +342,7 @@ pub fn run() {
             commands::chat_window::detach_chat_window,
             commands::chat_window::take_chat_handoff,
             commands::chat_window::close_chat_window,
+            commands::chat_window::focus_chat_window,
             commands::chat_window::current_chat_window,
             tab_drag::list_window_bounds,
             tab_drag::start_window_drag_tracking,

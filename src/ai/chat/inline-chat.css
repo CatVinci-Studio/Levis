@@ -8,12 +8,25 @@
    the chat is about is the most common reason to click away from it. */
 
 .inline-chat {
-  margin: 0.75em 0;
+  /* A command bar, not a second text column: on a wide adaptive column it
+     stays at a comfortable width, centred under the text it is about,
+     instead of stretching a one-line input and summary past 1000px. */
+  max-width: min(100%, 720px);
+  margin: var(--md-gap-box, 1.1em) auto;
   /* Room the first text row leaves for the floating header buttons:
-     4px edge + 20px + 2px gap + 20px, plus 6px of air. Only Quick Ask has
-     them - the detached window shows the same composer with no overlay, so
-     this is scoped to the panel rather than set on the input itself. */
-  --quick-ask-actions-width: 52px;
+     4px edge + three 22px buttons with 2px gaps, plus 6px of air. Only
+     Quick Ask has them - the detached window shows the same composer with
+     no overlay, so this is scoped to the panel rather than set on the
+     input itself. (It was sized for two buttons after the third, New
+     Conversation, arrived - the input ran under it.) */
+  --quick-ask-actions-width: 80px;
+  /* The panel is portaled INSIDE the editable root, whose base stylesheet
+     sets white-space: pre-wrap; inherited, the newlines between the
+     rendered reply's block elements showed as blank lines. Same fix as
+     .pending-insert. (The textarea and the summary set their own.) */
+  white-space: normal;
+  /* Nor is it document text: no editor line height or caret colour. */
+  line-height: 1.5;
 }
 
 /* Just the pop-out and close buttons, pinned to the panel's top-right
@@ -40,8 +53,8 @@
 
 .inline-chat-header-button {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -318,7 +331,9 @@
    isn't the row they overlap. */
 .inline-chat-header + .inline-chat-bar .inline-chat-input,
 .inline-chat-header + .quick-ask-status,
-.inline-chat-header + .quick-ask-pending-bar {
+.inline-chat-header + .quick-ask-pending-bar,
+.inline-chat-header + .agent-plan-actions,
+.inline-chat-header + .inline-chat-confirm {
   padding-right: var(--quick-ask-actions-width);
 }
 
@@ -351,7 +366,17 @@
 /* Quick Ask starts as a compact answer preview and can expand in place into
    the complete transcript. The detached window remains optional. */
 .quick-ask-status {
-  padding: 8px 10px;
+  padding: 10px 12px;
+}
+
+/* What was asked, one quiet line above the answer. */
+.quick-ask-prompt {
+  margin-bottom: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--editor-muted);
 }
 
 .quick-ask-summary-row {
@@ -361,16 +386,19 @@
   min-width: 0;
 }
 
+/* The reply at a glance: rendered markdown, cut to a few lines with a
+   fade rather than a hard ellipsis (a line clamp cannot cut through
+   block elements like lists and code). */
 .quick-ask-summary {
   flex: 1;
   min-width: 0;
-  display: -webkit-box;
+  max-height: 8.2em;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  white-space: pre-wrap;
   font-size: 13px;
+  line-height: 1.6;
   color: var(--editor-text);
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
 }
 
 .quick-ask-transcript {
@@ -380,6 +408,20 @@
   flex-direction: column;
   gap: 6px;
   padding: 2px 0;
+  animation: quick-ask-expand-in 0.18s ease-out;
+}
+
+@keyframes quick-ask-expand-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-ask-transcript {
+    animation: none;
+  }
 }
 
 .quick-ask-answer-actions {
@@ -783,4 +825,117 @@
   .turn-reveal {
     animation: none;
   }
+}
+
+/* Quick Ask lives inside the editor's .milkdown root, so the DOCUMENT's
+   element styles reach the rendered replies too: drawn list bullets tuned
+   to the document's 1.8 line height, the h2 rule and h3 bar, the h4 dot,
+   tinted quotes, centred block images, full-width tables. A reply is chat
+   text, so they are undone here - prefixed to outrank the .milkdown rules,
+   whatever order the stylesheets load in. (The detached window has no
+   .milkdown around it and never needed this.) */
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown p {
+  margin: 0.5em 0;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown li {
+  position: static;
+  counter-increment: none;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown ul > li {
+  list-style: disc;
+}
+
+.inline-chat
+  :is(.agent-message, .quick-ask-summary)
+  .agent-markdown
+  ul
+  ul
+  > li {
+  list-style: circle;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown ol > li {
+  list-style: decimal;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown li::before,
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown li::after,
+.inline-chat
+  :is(.agent-message, .quick-ask-summary)
+  .agent-markdown
+  h4::before {
+  content: none;
+  display: none;
+}
+
+.inline-chat
+  :is(.agent-message, .quick-ask-summary)
+  .agent-markdown
+  li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown h2,
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown h3 {
+  padding: 0;
+  border: none;
+}
+
+.inline-chat
+  :is(.agent-message, .quick-ask-summary)
+  .agent-markdown
+  blockquote {
+  margin: 0.5em 0;
+  padding: 0 0 0 8px;
+  border-left: 2px solid var(--editor-border);
+  border-radius: 0;
+  background: none;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown img {
+  display: inline;
+  margin: 0;
+  box-shadow: none;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown table {
+  width: auto;
+  table-layout: auto;
+  margin: 0.5em 0;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown pre {
+  margin: 0.5em 0;
+  padding: 6px 8px;
+  font-size: 0.92em;
+  line-height: 1.5;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown hr {
+  margin: 0.8em 0;
+  border-top: 1px solid var(--editor-border);
+  opacity: 1;
+}
+
+.inline-chat
+  :is(.agent-message, .quick-ask-summary)
+  .agent-markdown
+  :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0.9em 0 0.35em;
+  line-height: 1.35;
+  font-size: 1em;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown h1 {
+  font-size: 1.3em;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown h2 {
+  font-size: 1.18em;
+}
+
+.inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown h3 {
+  font-size: 1.08em;
 }

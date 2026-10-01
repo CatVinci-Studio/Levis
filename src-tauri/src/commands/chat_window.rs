@@ -270,6 +270,29 @@ pub fn take_chat_handoff(
     pending.0.lock().unwrap().remove(window.label())
 }
 
+/// Brings the detached chat serving this editor to the front, without
+/// handing it anything. Opening Ask AI while a chat window exists means "go
+/// to the conversation", and the conversation there has moved on since it
+/// left the editor - re-running `detach_chat_window` would park the editor's
+/// older copy for the window to adopt, overwriting what the user did in it.
+/// Returns whether there was a window to focus.
+#[tauri::command]
+pub fn focus_chat_window(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    open: State<OpenChatWindows>,
+) -> bool {
+    let Some(label) = chat_serving(window.label(), &open) else {
+        return false;
+    };
+    let Some(win) = app.get_webview_window(&label) else {
+        return false;
+    };
+    let _ = win.unminimize();
+    let _ = win.show();
+    win.set_focus().is_ok()
+}
+
 /// Closes the detached chat serving this editor, if one is open - what the
 /// editor calls when the user re-embeds the panel.
 #[tauri::command]

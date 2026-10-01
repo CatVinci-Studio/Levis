@@ -18,12 +18,17 @@ import {
   type ChatMessagesLabels,
 } from "./ChatMessages";
 import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
+import { MarkdownText } from "../MarkdownText";
 import {
   QuickAskPendingBar,
   type QuickAskPendingBarLabels,
 } from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
-import { attachedFileBlock, selectedTextBlock } from "./user-message";
+import {
+  attachedFileBlock,
+  selectedTextBlock,
+  userMessageBody,
+} from "./user-message";
 import {
   AI_MESSAGE_SENT_EVENT,
   TUTORIAL_AGENT_PROPOSAL_EVENT,
@@ -140,6 +145,35 @@ function proposalsFromTurns(turns: AgentTurn[]) {
   });
 }
 
+/** The newest exchange: the last user message and every turn after it. */
+function lastExchange(history: AgentTurn[]): {
+  prompt: string | null;
+  turns: AgentTurn[];
+} {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i];
+    if (turn.kind === "User") {
+      return { prompt: turn.text, turns: history.slice(i + 1) };
+    }
+  }
+  return { prompt: null, turns: history };
+}
+
+/**
+ * Whether the quick panel shows a finished exchange in full. A reply that
+ * only answers opens expanded - the answer IS the result, and a five-line
+ * clamp hid most of it. A reply that proposed edits stays compact: the
+ * edits in the document are the result, and the pending bar is where they
+ * are decided.
+ */
+export function quickReplyExpands(history: AgentTurn[]): boolean {
+  const { turns } = lastExchange(history);
+  const answered = turns.some(
+    (turn) => turn.kind === "Assistant" && turn.text.trim().length > 0,
+  );
+  return answered && proposalsFromTurns(turns).length === 0;
+}
+
 export function ChatBody({
   document,
   selectedText,
@@ -179,7 +213,36 @@ export function ChatBody({
     retry,
   } = conversation;
   const listRef = useRef<HTMLDivElement>(null);
-  const [quickExpanded, setQuickExpanded] = useState(false);
+  const [quickExpanded, setQuickExpanded] = useState(
+    () => variant === "quick" && quickReplyExpands(history),
+  );
+  // Collapsing by hand is a choice for the rest of this conversation: later
+  // answers in it arrive compact too. A new or restored conversation starts
+  // over.
+  const collapsedByUser = useRef(false);
+  const shownConversation = useRef(conversation.conversationId);
+  const awaitingReply = useRef(false);
+  useEffect(() => {
+    if (variant !== "quick") return;
+    if (shownConversation.current !== conversation.conversationId) {
+      shownConversation.current = conversation.conversationId;
+      collapsedByUser.current = false;
+      setQuickExpanded(quickReplyExpands(history));
+      return;
+    }
+    if (busy) {
+      awaitingReply.current = true;
+      return;
+    }
+    if (!awaitingReply.current) return;
+    awaitingReply.current = false;
+    if (!collapsedByUser.current) setQuickExpanded(quickReplyExpands(history));
+  }, [variant, busy, history, conversation.conversationId]);
+
+  function toggleQuickExpanded() {
+    collapsedByUser.current = quickExpanded;
+    setQuickExpanded(!quickExpanded);
+  }
 
   // Streamed turns become pending previews the moment they land, not when
   // the whole exchange resolves - a propose_edit shows up in the document
@@ -322,7 +385,12 @@ export function ChatBody({
   // arrives, else the conversation's last assistant reply (so a restored
   // conversation shows where it left off).
   let summaryText: string | null = null;
+  // The question the summary answers, echoed above it: once sent, the
+  // composer is empty and nothing on screen said what had been asked.
+  let promptText: string | null = null;
   if (variant === "quick") {
+    const prompt = lastExchange(history).prompt;
+    promptText = prompt ? userMessageBody(prompt).trim() || null : null;
     summaryText = streaming?.text || null;
     if (!summaryText) {
       for (let i = history.length - 1; i >= 0; i--) {
@@ -349,9 +417,16 @@ export function ChatBody({
                   onRetry={retryable ? handleRetry : null}
                 />
               )}
+              {!quickExpanded && promptText && (
+                <div className="quick-ask-prompt" title={promptText}>
+                  {promptText}
+                </div>
+              )}
               {!quickExpanded && !error && summaryText && (
                 <div className="quick-ask-summary-row">
-                  <span className="quick-ask-summary">{summaryText}</span>
+                  <div className="quick-ask-summary">
+                    <MarkdownText text={summaryText} />
+                  </div>
                 </div>
               )}
               {!quickExpanded && !error && busy && !summaryText && (
@@ -379,7 +454,7 @@ export function ChatBody({
                 <div className="quick-ask-answer-actions">
                   <button
                     className="inline-chat-action"
-                    onClick={() => setQuickExpanded((value) => !value)}
+                    onClick={toggleQuickExpanded}
                   >
                     {quickExpanded
                       ? labels.collapseInline

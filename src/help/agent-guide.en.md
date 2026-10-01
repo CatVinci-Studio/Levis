@@ -32,7 +32,11 @@ Possible issues get underlined; hover to see the explanation and apply the fix w
 
 ### 3. Ask AI (the chat popup)
 
-Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to open a chat at the cursor — a single input bar anchored where you invoked it. As the conversation grows, it stacks upward above the input instead of pushing the input around the screen. It knows the whole document, and if text was selected when you opened it, the selection is included as context.
+Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to open a chat panel right below the paragraph you are in. It sits in the document, pushing the text below it down rather than covering it. It knows the whole document, and if text was selected when you opened it, the selection is included as context.
+
+- **Replies**: a reply that only answers opens in full; a reply that edits the document stays compact, because the edits themselves appear in the document for you to accept or reject. Collapse an answer and later answers in that conversation stay collapsed.
+- **The shortcut again**: pressing <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> while the panel is open moves the cursor to its input; pressing it once more from the input closes it. <kbd>Esc</kbd> anywhere in the panel closes it too, and the cursor goes back to the document. With edits still undecided, closing (or starting a new conversation) asks first.
+- **Popped out**: while the chat is in its own window, the shortcut and Ask AI bring that window forward instead of opening a second chat in the document.
 
 - **History**: the sidebar's **Chats** tab stores past conversations. Click one to reopen it in the current editor and continue.
 - **Attach files**: the **+** button on the left of the input attaches a PDF, Word document, PowerPoint deck, spreadsheet, image, or plain text file to that message. Everything except images is extracted to text locally and travels inside the message; images are sent as real images to providers that can see (ones that can't say so up front rather than dropping them silently). A long file is sent only in part, and the chip says "(shortened)" when that happens.

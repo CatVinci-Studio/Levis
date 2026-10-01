@@ -76,7 +76,7 @@ import {
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
-import type { StreamEvent } from "../ipc";
+import { windowIpc, type StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
 import { useLatest } from "../utils/useLatest";
@@ -705,19 +705,74 @@ export function MilkdownEditor({
     })();
   }
 
+  // What Ask AI means, from every entry point:
+  // - a detached chat window serves this editor: bring it forward - the
+  //   conversation lives there now, and a second, in-document panel would
+  //   only race it for the same edits;
+  // - otherwise the in-document panel opens, its composer focused.
+  // The shortcut additionally closes a panel whose composer already has
+  // focus, so pressing it twice is "open, then put away".
+  // Closing, and starting a new conversation, are guarded: with edits still
+  // undecided the panel asks first (CloseConfirmBar), from every entry point.
+  const [chatGuard, setChatGuard] = useState<"close" | "new" | null>(null);
+
+  // The question is moot once the panel is gone (detached, say) or its
+  // edits are all decided some other way - in the document, for instance.
+  const decidableCount = pendingEdits.decidable.length;
+  useEffect(() => {
+    if (!inlineChat.visible || decidableCount === 0) setChatGuard(null);
+  }, [inlineChat.visible, decidableCount]);
+
+  const chatComposer = () =>
+    quickAskEl?.querySelector<HTMLTextAreaElement>(".inline-chat textarea") ??
+    null;
+
+  function focusEditor() {
+    run((ctx) => ctx.get(editorViewCtx).focus());
+  }
+
+  function performChatAction(action: "close" | "new") {
+    setChatGuard(null);
+    if (action === "close") {
+      inlineChat.close();
+      focusEditor();
+    } else {
+      conversation.reset();
+      inlineChat.close();
+      inlineChat.open();
+    }
+  }
+
+  function requestChatAction(action: "close" | "new") {
+    if (pendingEdits.decidable.length > 0) setChatGuard(action);
+    else performChatAction(action);
+  }
+
   function openAgentConversation() {
-    inlineChat.open();
+    if (detachedChat.chatLabel) {
+      void windowIpc.focusChatWindow();
+      return;
+    }
+    if (inlineChat.visible) chatComposer()?.focus();
+    else inlineChat.open();
   }
 
   function startNewAgentConversation() {
-    conversation.reset();
-    inlineChat.close();
-    inlineChat.open();
+    requestChatAction("new");
   }
 
   function toggleAgentConversation() {
-    if (inlineChat.visible) inlineChat.close();
-    else openAgentConversation();
+    const composer = chatComposer();
+    if (
+      inlineChat.visible &&
+      !detachedChat.chatLabel &&
+      composer &&
+      document.activeElement === composer
+    ) {
+      requestChatAction("close");
+    } else {
+      openAgentConversation();
+    }
   }
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
   const findReplace = useFindReplace(run);
@@ -1204,7 +1259,18 @@ export function MilkdownEditor({
             onRejectFocused={handleRejectFocused}
             onDetach={handleDetachChat}
             onNewConversation={startNewAgentConversation}
-            onClose={inlineChat.close}
+            onRequestClose={() => requestChatAction("close")}
+            confirm={
+              chatGuard
+                ? {
+                    onProceed: () => performChatAction(chatGuard),
+                    onCancel: () => {
+                      setChatGuard(null);
+                      chatComposer()?.focus();
+                    },
+                  }
+                : null
+            }
           />,
           quickAskEl,
         )}

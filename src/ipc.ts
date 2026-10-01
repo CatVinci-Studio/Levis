@@ -170,6 +170,9 @@ export const windowIpc = {
   }) => call<string>("detach_chat_window", args),
   takeChatHandoff: () => call<ChatHandoff | null>("take_chat_handoff"),
   closeChatWindow: () => call<void>("close_chat_window"),
+  /** Brings the chat window serving this editor to the front, handing it
+   *  nothing; false when there is none. */
+  focusChatWindow: () => call<boolean>("focus_chat_window"),
   /** The chat window serving THIS editor window, if any. How a window that
    *  never detached anything itself learns where to push context - i.e. the
    *  cross-window case, where the chat was opened from another window. */

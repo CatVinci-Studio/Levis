@@ -3,11 +3,7 @@ import type { AgentConversation } from "../useAgentConversation";
 import type { PendingStatus } from "../usePendingEdits";
 import type { EditProposal } from "../types";
 import { ChatBody, type ChatBodyLabels } from "./ChatBody";
-import {
-  CloseConfirmBar,
-  useCloseConfirm,
-  type CloseConfirmLabels,
-} from "./CloseConfirm";
+import { CloseConfirmBar, type CloseConfirmLabels } from "./CloseConfirm";
 import { useQuickAskReveal } from "./useQuickAskReveal";
 import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
 import type { AgentMode } from "../../settings/SettingsContext";
@@ -60,8 +56,14 @@ interface InlineChatProps {
   /** Pops the full conversation out into its own OS window (chat-bridge) -
    *  the explicit, user-initiated escalation path from this one-shot bar. */
   onDetach: () => void;
+  /** Close and New Conversation both go through the editor (MilkdownEditor),
+   *  which owns the pending-edits guard: every entry point - the header
+   *  buttons, Escape, the shortcut - asks the same question before
+   *  discarding a panel that still has undecided edits. */
   onNewConversation: () => void;
-  onClose: () => void;
+  onRequestClose: () => void;
+  /** Set while that guard is asking; the bar's answer runs `onProceed`. */
+  confirm: { onProceed: () => void; onCancel: () => void } | null;
 }
 
 /// QUICK ASK - the in-document half of the chat's two surfaces (the other
@@ -103,16 +105,29 @@ export function InlineChat({
   onRejectFocused,
   onDetach,
   onNewConversation,
-  onClose,
+  onRequestClose,
+  confirm,
 }: InlineChatProps) {
-  const confirm = useCloseConfirm(pendingCount, onClose);
   // Sitting in the document flow means the panel can open - or grow - below
   // the fold with nothing on screen to say so. See useQuickAskReveal.
   const panelRef = useRef<HTMLDivElement>(null);
   useQuickAskReveal(panelRef);
 
   return (
-    <div className="inline-chat" ref={panelRef}>
+    <div
+      className="inline-chat"
+      ref={panelRef}
+      // Escape anywhere in the panel - not only in the composer - asks to
+      // close it. An IME composition owns its own Escape (cancel the
+      // candidate), and a control that consumed the key says so.
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        if (confirm) confirm.onCancel();
+        else onRequestClose();
+      }}
+    >
       <div className="inline-chat-shell floating-surface">
         <div className="inline-chat-header">
           <div className="inline-chat-header-actions">
@@ -139,7 +154,7 @@ export function InlineChat({
               className="inline-chat-header-button inline-chat-close"
               aria-label={labels.close}
               title={labels.close}
-              onClick={confirm.requestClose}
+              onClick={onRequestClose}
             >
               <CloseIcon />
             </button>
@@ -163,7 +178,6 @@ export function InlineChat({
           onRejectProposal={onRejectProposal}
           onAcceptAll={onAcceptAll}
           onRejectAll={onRejectAll}
-          onEscape={confirm.requestClose}
           variant="quick"
           onExpand={onDetach}
           quickReview={{
@@ -174,14 +188,14 @@ export function InlineChat({
             onRejectFocused,
           }}
           footer={
-            confirm.confirming && (
+            confirm && (
               <CloseConfirmBar
                 labels={labels}
                 pendingCount={pendingCount}
                 onAcceptAll={onAcceptAll}
                 onRejectAll={onRejectAll}
-                onClose={onClose}
-                onCancel={confirm.cancel}
+                onClose={confirm.onProceed}
+                onCancel={confirm.onCancel}
               />
             )
           }
