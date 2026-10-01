@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { chromePalette, contrast, clearThemeChrome } from "./theme-chrome";
+import {
+  chromePalette,
+  contrast,
+  clearThemeChrome,
+  themeColumnWidth,
+} from "./theme-chrome";
 const parse = (s: string) =>
   s.match(/\d+/g)!.map(Number) as [number, number, number];
 describe("imported theme chrome", () => {
@@ -59,5 +64,20 @@ describe("imported theme chrome", () => {
     expect(document.getElementById("levis-imported-chrome")).toBeNull();
     expect(document.getElementById("levis-custom-theme")).not.toBeNull();
     document.getElementById("levis-custom-theme")?.remove();
+  });
+});
+
+describe("themeColumnWidth", () => {
+  it("gives a theme's #write max-width the column it asked for", () => {
+    expect(themeColumnWidth("1200px")).toBe("calc(1200px + 3rem)");
+  });
+
+  it("lets a percentage width span the pane", () => {
+    expect(themeColumnWidth("80%")).toBe("100%");
+  });
+
+  it("leaves the column alone when the theme sets no width", () => {
+    expect(themeColumnWidth("none")).toBeNull();
+    expect(themeColumnWidth("")).toBeNull();
   });
 });

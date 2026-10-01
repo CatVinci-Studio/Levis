@@ -59,6 +59,21 @@ export function chromePalette(background: RGB, foreground: RGB, accent: RGB) {
   };
 }
 
+/**
+ * The text column a theme's `#write { max-width }` asks for, or null when
+ * it sets none. A length becomes the column's width plus the column's own
+ * side padding (3rem, App.css), so #write gets exactly what it asked for;
+ * a percentage is relative to the pane, so the column spans the pane and
+ * #write narrows itself.
+ */
+export function themeColumnWidth(maxWidth: string): string | null {
+  const value = maxWidth.trim();
+  if (!value || value === "none") return null;
+  if (value.endsWith("%")) return "100%";
+  if (/^\d+(\.\d+)?px$/.test(value)) return `calc(${value} + 3rem)`;
+  return null;
+}
+
 const STYLE_ID = "levis-imported-chrome";
 export function clearThemeChrome() {
   document.getElementById(STYLE_ID)?.remove();
@@ -133,6 +148,13 @@ export function applyThemeChrome(css: string, dark: boolean) {
     })) {
       palette[key] = documentStyle.getPropertyValue(key).trim() || fallback;
     }
+    // Typora themes size the text column with `#write { max-width }`. Our
+    // column (.editor-content) caps the width first, so a theme asking for
+    // a wider page was silently ignored (#14). Publish the theme's own
+    // width for the column to use - App.css honours it while Text Width is
+    // "Adaptive"; picking Standard or Full Width still overrides it.
+    const themeWidth = themeColumnWidth(documentStyle.maxWidth);
+    if (themeWidth) palette["--theme-content-width"] = themeWidth;
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `:root { ${Object.entries(palette)

@@ -492,9 +492,10 @@ body {
    holds the classic 760px measure on ordinary windows and widens with the
    pane on large screens, where a fixed 760px left two thirds of the
    window empty. Percentages resolve against the scroll pane, so an open
-   sidebar narrows it too. */
+   sidebar narrows it too. An imported theme that sizes #write itself
+   (theme-chrome.ts's --theme-content-width) takes over "auto". */
 :root {
-  --content-width: max(760px, min(1080px, 64%));
+  --content-width: var(--theme-content-width, max(760px, min(1080px, 64%)));
 }
 
 :root[data-content-width="standard"] {
