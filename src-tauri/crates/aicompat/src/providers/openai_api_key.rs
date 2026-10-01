@@ -4,7 +4,7 @@ use crate::responses_api::{self, extract_response_text, read_streamed_output, Re
 const PUBLIC_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
 /// Low-cost default for completion and grammar requests. Agent chat chooses
 /// its stronger default from the provider catalog.
-pub const PUBLIC_API_MODEL: &str = "gpt-5.4-nano";
+pub const PUBLIC_API_MODEL: &str = "gpt-6-luna";
 
 /// Standard public OpenAI Responses API, authenticated with a plain user
 /// API key rather than Codex OAuth - the fallback path for users who'd

@@ -13,6 +13,11 @@ struct TextConfig {
 }
 
 #[derive(Serialize)]
+struct ReasoningConfig {
+    effort: &'static str,
+}
+
+#[derive(Serialize)]
 struct ContentPart {
     #[serde(rename = "type")]
     kind: &'static str,
@@ -34,6 +39,8 @@ pub struct ResponsesRequest {
     input: Vec<InputMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     text: Option<TextConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning: Option<ReasoningConfig>,
 }
 
 /// `text.verbosity` is a GPT-5-only Responses API field - sending it to
@@ -44,10 +51,28 @@ fn supports_verbosity(model: &str) -> bool {
     model.starts_with("gpt-5")
 }
 
+/// The lowest reasoning effort a model accepts, for the short one-shot
+/// requests (inline completion, grammar check) that `ResponsesRequest`
+/// carries. GPT-6 reasons at `medium` unless told otherwise, which turns a
+/// ghost-text suggestion into a multi-second wait. Luna can switch
+/// reasoning off; Astra and Sol reject `none` and bottom out at `low`.
+/// Older models get no field - GPT-4-era models reject it outright.
+fn quick_reasoning_effort(model: &str) -> Option<&'static str> {
+    if !model.starts_with("gpt-6") {
+        return None;
+    }
+    Some(if model.contains("luna") {
+        "none"
+    } else {
+        "low"
+    })
+}
+
 impl ResponsesRequest {
     pub fn new(model: impl Into<String>, instructions: String, user_text: String) -> Self {
         let model = model.into();
         let text = supports_verbosity(&model).then_some(TextConfig { verbosity: "low" });
+        let reasoning = quick_reasoning_effort(&model).map(|effort| ReasoningConfig { effort });
         Self {
             model,
             store: false,
@@ -61,6 +86,7 @@ impl ResponsesRequest {
                 }],
             }],
             text,
+            reasoning,
         }
     }
 
@@ -439,6 +465,23 @@ mod tests {
         assert_eq!(body["tools"].as_array().unwrap().len(), 1);
         assert_eq!(body["tools"][0]["type"], "web_search");
         assert!(body.get("text").is_none());
+    }
+
+    #[test]
+    fn quick_requests_ask_gpt6_for_its_lowest_reasoning_effort() {
+        let luna =
+            serde_json::to_value(ResponsesRequest::new("gpt-6-luna", "i".into(), "u".into()))
+                .unwrap();
+        assert_eq!(luna["reasoning"]["effort"], "none");
+        let sol =
+            serde_json::to_value(ResponsesRequest::new("gpt-6.1-sol", "i".into(), "u".into()))
+                .unwrap();
+        assert_eq!(sol["reasoning"]["effort"], "low");
+        assert!(sol.get("text").is_none());
+        let old =
+            serde_json::to_value(ResponsesRequest::new("gpt-4o-mini", "i".into(), "u".into()))
+                .unwrap();
+        assert!(old.get("reasoning").is_none());
     }
 
     #[test]

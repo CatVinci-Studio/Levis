@@ -18,7 +18,7 @@ const JWT_CLAIM_PATH: &str = "https://api.openai.com/auth";
 // api.openai.com Responses API. Confirmed against the equivalent open-source
 // client implementation (earendil-works/pi).
 const CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
-pub const COMPLETION_MODEL: &str = "gpt-5.6-luna";
+pub const COMPLETION_MODEL: &str = "gpt-6-luna";
 
 /// The only models the ChatGPT-account backend accepts. Anything else comes
 /// back as `400 The '<model>' model is not supported when using Codex with a
@@ -28,7 +28,7 @@ pub const COMPLETION_MODEL: &str = "gpt-5.6-luna";
 ///
 /// Mirrored by OPENAI_OAUTH_*_MODEL_PRESETS in src/settings/agent-models.ts,
 /// which is what the Settings picker offers while this login is active.
-pub const SUPPORTED_MODELS: &[&str] = &["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+pub const SUPPORTED_MODELS: &[&str] = &["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"];
 
 /// Clamps a requested model to something this login can actually use.
 ///
@@ -239,23 +239,33 @@ mod tests {
     /// settings blob) is a hard 400 once the login is a ChatGPT account.
     #[test]
     fn a_model_this_login_cannot_use_falls_back_to_the_default() {
-        assert_eq!(usable_model(Some("gpt-5.4"), "gpt-5.6-sol"), "gpt-5.6-sol");
+        assert_eq!(usable_model(Some("gpt-5.4"), "gpt-6.1-sol"), "gpt-6.1-sol");
         assert_eq!(
-            usable_model(Some("gpt-4o-mini"), "gpt-5.6-sol"),
-            "gpt-5.6-sol"
+            usable_model(Some("gpt-4o-mini"), "gpt-6.1-sol"),
+            "gpt-6.1-sol"
+        );
+    }
+
+    /// The GPT-5.6 family was the previous preset list; Codex no longer
+    /// serves it, so a choice saved by an older version must not survive.
+    #[test]
+    fn a_retired_preset_falls_back_to_the_default() {
+        assert_eq!(
+            usable_model(Some("gpt-5.6-terra"), "gpt-6.1-sol"),
+            "gpt-6.1-sol"
         );
     }
 
     #[test]
     fn a_supported_model_is_passed_through() {
         assert_eq!(
-            usable_model(Some("gpt-5.6-terra"), "gpt-5.6-sol"),
-            "gpt-5.6-terra"
+            usable_model(Some("gpt-6-astra"), "gpt-6.1-sol"),
+            "gpt-6-astra"
         );
     }
 
     #[test]
     fn no_choice_means_the_default() {
-        assert_eq!(usable_model(None, "gpt-5.6-sol"), "gpt-5.6-sol");
+        assert_eq!(usable_model(None, "gpt-6.1-sol"), "gpt-6.1-sol");
     }
 }
