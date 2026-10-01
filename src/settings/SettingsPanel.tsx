@@ -7,6 +7,7 @@ import {
   type AgentMode,
   type GrammarStrictness,
   type NewDocumentMode,
+  type ContentWidth,
   type ProxyType,
 } from "./SettingsContext";
 import type { Lang, Strings } from "../i18n/strings";
@@ -189,6 +190,30 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
               <>
                 <SettingsGroup title={t.navTheme}>
                   <ThemeSection t={t} />
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-row-label">
+                        {t.contentWidthLabel}
+                      </div>
+                      <div className="settings-row-hint">
+                        {t.contentWidthHint}
+                      </div>
+                    </div>
+                    <select
+                      className="settings-select"
+                      aria-label={t.contentWidthLabel}
+                      value={settings.contentWidth}
+                      onChange={(e) =>
+                        setSettings({
+                          contentWidth: e.target.value as ContentWidth,
+                        })
+                      }
+                    >
+                      <option value="auto">{t.contentWidthAuto}</option>
+                      <option value="standard">{t.contentWidthStandard}</option>
+                      <option value="full">{t.contentWidthFull}</option>
+                    </select>
+                  </div>
                 </SettingsGroup>
                 <SettingsGroup title={t.navMarkdown}>
                   <ToggleRow

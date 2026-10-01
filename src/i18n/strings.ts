@@ -329,6 +329,12 @@ export const strings = {
     cliCommandReinstallButton: "Reinstall",
     cliCommandInstalling: "Installing…",
     cliCommandFailed: "Couldn't install:",
+    contentWidthLabel: "Text Width",
+    contentWidthHint:
+      "Adaptive widens the text column on large windows; Standard keeps a fixed reading width.",
+    contentWidthAuto: "Adaptive",
+    contentWidthStandard: "Standard",
+    contentWidthFull: "Full Width",
     newDocumentModeLabel: "Open Documents In",
     newDocumentModeHint:
       "Choose a window or tab when opening a document from the sidebar or with {shortcut}.",
@@ -832,6 +838,11 @@ export const strings = {
     cliCommandReinstallButton: "重新安装",
     cliCommandInstalling: "安装中…",
     cliCommandFailed: "安装失败:",
+    contentWidthLabel: "正文宽度",
+    contentWidthHint: "自适应会在大窗口中加宽正文；标准保持固定的阅读宽度。",
+    contentWidthAuto: "自适应",
+    contentWidthStandard: "标准",
+    contentWidthFull: "铺满",
     newDocumentModeLabel: "打开文档方式",
     newDocumentModeHint:
       "从侧栏或用 {shortcut} 打开文档时，使用新窗口或标签页。",
@@ -1338,6 +1349,12 @@ export const strings = {
     cliCommandReinstallButton: "再インストール",
     cliCommandInstalling: "インストール中…",
     cliCommandFailed: "インストールできませんでした:",
+    contentWidthLabel: "本文の幅",
+    contentWidthHint:
+      "自動では大きなウィンドウで本文を広げます。標準では一定の読みやすい幅を保ちます。",
+    contentWidthAuto: "自動",
+    contentWidthStandard: "標準",
+    contentWidthFull: "全幅",
     newDocumentModeLabel: "文書を開く方法",
     newDocumentModeHint:
       "別の文書を開くとき（サイドバー、{shortcut}、または複数ファイルを一度に開く場合）の挙動。",

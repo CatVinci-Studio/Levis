@@ -27,6 +27,10 @@ export type ThemeMode = "system" | "light" | "dark";
 /// the source of truth for which providers exist, fetched at runtime.
 export type AiProvider = string;
 export type NewDocumentMode = "window" | "tab";
+/** How wide the text column runs: "auto" widens with the window, "standard"
+ *  keeps the classic fixed measure, "full" uses the whole pane. Applied as
+ *  `data-content-width` on the root (App.css). */
+export type ContentWidth = "auto" | "standard" | "full";
 export type ProxyType = "none" | "http" | "https" | "socks5";
 
 /// Keyboard-triggerable actions. Each maps to a normalized combo string
@@ -182,6 +186,7 @@ export interface Settings {
   proxyHost: string;
   proxyPort: string;
   typewriterMode: boolean;
+  contentWidth: ContentWidth;
   /// Whole-page zoom factor (1 = 100%), driven by pinch / mod+wheel / the
   /// View menu (see ../utils/useZoom). Saved here so it survives restarts;
   /// each window applies it independently on mount.
@@ -245,6 +250,7 @@ const DEFAULT_SETTINGS: Settings = {
   proxyHost: "",
   proxyPort: "",
   typewriterMode: false,
+  contentWidth: "auto",
   zoom: 1,
   shortcuts: DEFAULT_SHORTCUTS,
   themeId: "default",
@@ -429,6 +435,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       root.setAttribute("data-theme", settings.theme);
     }
   }, [settings.theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.contentWidth === "auto")
+      root.removeAttribute("data-content-width");
+    else root.setAttribute("data-content-width", settings.contentWidth);
+  }, [settings.contentWidth]);
 
   // Resolves the selected theme (built-in content theme, user-imported
   // theme, or "default") to either a `data-content-theme` attribute (for

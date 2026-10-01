@@ -488,12 +488,33 @@ body {
    CSS `zoom` (not transform) so the text truly reflows and scrolls. The
    fixed-position overlays (find bar, popovers) live OUTSIDE the zoomed
    nodes and keep their unzoomed viewport coordinates. */
+/* The column's unzoomed width (Settings > Editor > Text Width). "auto"
+   holds the classic 760px measure on ordinary windows and widens with the
+   pane on large screens, where a fixed 760px left two thirds of the
+   window empty. Percentages resolve against the scroll pane, so an open
+   sidebar narrows it too. */
+:root {
+  --content-width: max(760px, min(1080px, 64%));
+}
+
+:root[data-content-width="standard"] {
+  --content-width: 760px;
+}
+
+:root[data-content-width="full"] {
+  --content-width: 100%;
+}
+
 .editor-content {
-  max-width: calc(760px * var(--content-zoom, 1));
+  max-width: calc(var(--content-width) * var(--content-zoom, 1));
   margin: 0 auto;
   /* Enough to clear the floating window bar (28px) and still leave the text
      air beneath it, so nothing sits under the glass until you scroll. */
   padding: 3rem 1.5rem 6rem;
+}
+
+:root[data-content-width="full"] .editor-content {
+  padding-inline: max(1.5rem, 4%);
 }
 
 .editor-content .milkdown {
@@ -509,7 +530,7 @@ body {
   zoom: var(--content-zoom, 1);
   flex: 1;
   width: 100%;
-  max-width: 760px;
+  max-width: var(--content-width);
   margin: 0 auto;
   padding: 3rem 1.5rem 6rem;
   border: none;
