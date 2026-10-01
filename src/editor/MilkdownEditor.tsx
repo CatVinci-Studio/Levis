@@ -1014,12 +1014,9 @@ export function MilkdownEditor({
           // Selection not representable in the DOM right now - leave it alone.
         }
 
-        const target = e.target;
-        if (
-          !(target instanceof HTMLImageElement) ||
-          target.classList.contains("ProseMirror-separator")
-        )
-          return null;
+        const target =
+          e.target instanceof Element ? e.target.closest(".image-view") : null;
+        if (!target) return null;
         try {
           const pos = view.posAtDOM(target, 0);
           return view.state.doc.nodeAt(pos)?.type.name === "image" ? pos : null;

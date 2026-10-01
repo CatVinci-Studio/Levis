@@ -226,10 +226,8 @@
   display: inline;
 }
 
-/* .milkdown img (further down) turns MARKDOWN images into centered blocks;
-   an <img> written as inline HTML flows with its line instead (GitHub does
-   the same - badge rows rely on it). The .milkdown prefix keeps this
-   specific enough to beat that later rule. */
+/* An <img> written as inline HTML flows with its line (GitHub does the
+   same - badge rows rely on it). */
 .milkdown .raw-html-rendered-inline img {
   display: inline-block;
   margin: 0;
@@ -302,31 +300,82 @@
   max-width: 100%;
 }
 
-.milkdown img:not(.ProseMirror-separator) {
+/* Markdown images (image-plugin.ts's node view). The node is inline, so it
+   renders inline-block - an image mid-sentence flows with the text, and the
+   caret's line box stays beside the image instead of opening an empty line
+   under it. An image on a line of its own is laid out as a centred figure by
+   its paragraph (.image-paragraph). */
+.milkdown .image-view {
+  position: relative;
+  display: inline-block;
   max-width: 100%;
+  vertical-align: bottom;
+  line-height: 0;
+  border-radius: var(--md-radius);
+}
+
+.milkdown .image-view img {
   display: block;
-  margin: var(--md-gap-box) auto;
+  max-width: 100%;
+  margin: 0;
   border-radius: var(--md-radius);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
-/* ProseMirror ends a textblock whose last child is an inline leaf with a
-   zero-size separator <img> and a trailing <br>, so the caret has a line
-   box to sit in. With the image displayed as a block, that line box lands
-   UNDER it - every image paragraph grows a phantom empty line. Collapse
-   both; the caret after the image then paints at the image's edge.
-   !important because prosemirror.css pins the separator to inline. */
-.milkdown img:not(.ProseMirror-separator) + img.ProseMirror-separator,
-.milkdown
-  img:not(.ProseMirror-separator)
-  + img.ProseMirror-separator
-  + br.ProseMirror-trailingBreak {
-  display: none !important;
+/* A width set by the resize handle or the context menu is a share of the
+   paragraph, carried by the wrapper; the picture fills it. */
+.milkdown .image-view-sized img {
+  width: 100%;
 }
 
-.milkdown img:not(.ProseMirror-separator).ProseMirror-selectednode {
+.milkdown .image-view.ProseMirror-selectednode img {
   outline: 2px solid var(--editor-accent);
   outline-offset: 3px;
+}
+
+/* Mid-sentence, an image sits on the text like a glyph would. */
+.milkdown :not(.image-paragraph) > .image-view {
+  vertical-align: text-bottom;
+}
+
+.milkdown p.image-paragraph {
+  margin: var(--md-gap-box) 0;
+  text-align: center;
+}
+
+/* Drag to resize: a slim grip on the right edge, shown while the image is
+   hovered or selected. */
+.image-resize-handle {
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  width: 6px;
+  height: 36px;
+  max-height: 60%;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: var(--editor-accent);
+  box-shadow: 0 0 0 2px var(--editor-bg, var(--bg));
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  touch-action: none;
+}
+
+.milkdown .image-view:hover .image-resize-handle,
+.milkdown .image-view.ProseMirror-selectednode .image-resize-handle,
+.milkdown .image-view-resizing .image-resize-handle {
+  opacity: 1;
+}
+
+.milkdown .image-view-resizing img {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 3px;
+}
+
+/* Images inside rendered raw-HTML blocks keep within the column. */
+.milkdown .raw-html-rendered img {
+  max-width: 100%;
 }
 
 .math-inline,

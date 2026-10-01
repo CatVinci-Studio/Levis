@@ -877,7 +877,8 @@ body {
   .table-add-col-btn,
   .ghost-text,
   .quick-ask-anchor,
-  .pending-insert {
+  .pending-insert,
+  .image-resize-handle {
     display: none !important;
   }
 

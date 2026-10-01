@@ -81,6 +81,7 @@ const EDITOR_CHROME_SELECTOR = [
   ".ghost-text",
   ".quick-ask-anchor",
   ".pending-insert",
+  ".image-resize-handle",
 ].join(", ");
 
 // A resized table carries pixel widths (an inline table width plus one per
