@@ -25,6 +25,12 @@ export function installDevTauriShim(): void {
       currentWebview: { label: "main", windowLabel: "main" },
     },
     invoke: (cmd: string, args?: { event?: string; handler?: number }) => {
+      // `window.__devInvokeResults = { cmd: value }` answers a command with
+      // a canned value - e.g. take_chat_handoff, without which the chat
+      // window (?view=chat) has no conversation to show.
+      const canned = w.__devInvokeResults as
+        Record<string, unknown> | undefined;
+      if (canned && cmd in canned) return Promise.resolve(canned[cmd]);
       if (
         cmd === "plugin:event|listen" &&
         args?.event &&
