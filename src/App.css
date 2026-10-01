@@ -508,6 +508,8 @@ body {
 .editor-content {
   max-width: calc(var(--content-width) * var(--content-zoom, 1));
   margin: 0 auto;
+  /* The text size follows this column's width (milkdown-theme.css). */
+  container-type: inline-size;
   /* Enough to clear the floating window bar (28px) and still leave the text
      air beneath it, so nothing sits under the glass until you scroll. */
   padding: 3rem 1.5rem 6rem;
