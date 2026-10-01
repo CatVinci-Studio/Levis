@@ -33,4 +33,19 @@ describe("renderMarkdownHtml", () => {
       "onerror",
     );
   });
+
+  it("renders a $$ block written inside a list item without blank lines", () => {
+    const html = renderMarkdownHtml(
+      "- 法向量由梯度给出：\n  $$\n  \\nabla f=\\left(\\frac{\\partial f}{\\partial x}\\right)\n  $$\n- 下一条",
+    );
+    expect(html).not.toContain("$$");
+    expect(html).toContain("katex-display");
+    expect(html.match(/<li>/g)).toHaveLength(2);
+  });
+
+  it("renders a $$ block that follows a paragraph line directly", () => {
+    const html = renderMarkdownHtml("梯度：\n$$\nx^2\n$$\n结束");
+    expect(html).not.toContain("$$");
+    expect(html).toContain("katex-display");
+  });
 });
