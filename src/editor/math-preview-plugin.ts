@@ -8,15 +8,29 @@ import { cursorTouches } from "./enclosure";
 
 const mathPreviewKey = new PluginKey("math-preview");
 
+// Decorations are rebuilt on every transaction - each keystroke and each
+// arrow press - and used to re-run KaTeX on every formula in the document
+// each time. Renders are pure in (source, mode), so they are cached; the
+// cap only bounds a session that types through thousands of formulas.
+const RENDER_CACHE_LIMIT = 1000;
+const renderCache = new Map<string, string>();
+
 function renderKatex(value: string, displayMode: boolean): string {
+  const cacheKey = `${displayMode ? "B" : "I"}${value}`;
+  const cached = renderCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  let html: string;
   try {
-    return katex.renderToString(value || "\\,", {
+    html = katex.renderToString(value || "\\,", {
       throwOnError: false,
       displayMode,
     });
   } catch {
-    return value;
+    html = value;
   }
+  if (renderCache.size >= RENDER_CACHE_LIMIT) renderCache.clear();
+  renderCache.set(cacheKey, html);
+  return html;
 }
 
 function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
@@ -63,7 +77,13 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
           });
           return el;
         },
-        { side: -1 },
+        // Keyed by the source, so ProseMirror keeps the rendered element
+        // across transactions instead of rebuilding every formula's DOM on
+        // every keystroke - and still replaces it when the source changes.
+        {
+          side: -1,
+          key: `math:${displayMode ? "B" : "I"}:${node.textContent}`,
+        },
       ),
     );
   });
@@ -80,7 +100,8 @@ function findMathNodeAtSelection(state: EditorState): {
     node: { type: { name: string }; textContent: string };
     from: number;
   } | null = null;
-  state.doc.descendants((node, pos) => {
+  // Only nodes the selection lies in can contain it.
+  state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
     if (found) return false;
     if (node.type.name !== "math_inline" && node.type.name !== "math_block")
       return;

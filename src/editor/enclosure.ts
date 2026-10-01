@@ -307,7 +307,14 @@ function makeDelimiterEl(delimiter: string): HTMLElement {
 function buildDecorations(state: EditorState): DecorationSet {
   const decorations: Decoration[] = [];
 
-  state.doc.descendants((node, pos) => {
+  // Only enclosures the cursor touches are decorated - inside, or adjacent
+  // on either side - so only the selection, widened by one position each
+  // way for adjacency, needs walking. This runs on every keystroke and
+  // every arrow press; it used to walk the whole document each time.
+  const { selection, doc } = state;
+  const scanFrom = Math.max(0, selection.from - 1);
+  const scanTo = Math.min(doc.content.size, selection.to + 1);
+  doc.nodesBetween(scanFrom, scanTo, (node, pos) => {
     if (!isEnclosure(node)) return;
     const from = pos;
     const to = pos + node.nodeSize;
