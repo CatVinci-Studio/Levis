@@ -11,7 +11,9 @@ pub const CHAT_LABEL_PREFIX: &str = "chat-";
 /// Whether `label` names a window that hosts a document (i.e. not the drag
 /// pill and not a detached chat).
 pub fn is_editor_window(label: &str) -> bool {
-    label != crate::tab_drag::DRAG_PILL_LABEL && !label.starts_with(CHAT_LABEL_PREFIX)
+    label != crate::tab_drag::DRAG_PILL_LABEL
+        && !label.starts_with(CHAT_LABEL_PREFIX)
+        && !label.starts_with(crate::commands::export::PDF_EXPORT_LABEL_PREFIX)
 }
 
 /// One detached chat window.

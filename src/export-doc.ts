@@ -4,7 +4,12 @@ import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
 import { isMacPlatform } from "./utils/platform";
-import { PDF_PAGE_MARGIN, paginateHtml } from "./export-paginate";
+import {
+  MAC_PAGE,
+  WINDOWS_PAGE,
+  paginateHtml,
+  type PageGeometry,
+} from "./export-paginate";
 
 // File > Export implementations (HTML serializes the live editor DOM;
 // everything else converts through a user-installed pandoc; PDF drives the
@@ -196,13 +201,13 @@ export function buildStandaloneHtml(
 
 // --- PDF export -------------------------------------------------------------
 //
-// Windows/Linux export PDF by printing the page (window.print → Save as PDF;
-// their engines print fine, and Chromium paints the theme background into
-// the @page margin). macOS can't: wry's window.print() drives a broken
-// NSPrintPanel (flashes and self-dismisses - tauri-apps/wry#713, tauri#6202),
-// so there the themed document is laid out into A4 pages here
-// (export-paginate.ts) and rendered straight to a file natively - vector,
-// selectable text (see export_pdf_native in Rust).
+// PDF export never goes through a print dialog or a printer driver: the
+// themed document is laid out into A4 pages here and rendered straight to a
+// file natively - vector, selectable text (export_pdf_native in Rust:
+// WKWebView.createPDF on macOS, WebView2's PrintToPdf on Windows, WebKitGTK's
+// print-to-file on Linux). wry's window.print() was never an option on macOS
+// anyway - it drives a broken NSPrintPanel that flashes and self-dismisses
+// (tauri-apps/wry#713, tauri#6202).
 
 const isMac = isMacPlatform();
 
@@ -216,20 +221,37 @@ const EXPORT_FIT_CSS =
   ".katex-display > .katex { white-space: normal; } " +
   ".milkdown a, .milkdown p, .milkdown li, .milkdown td, .milkdown th { overflow-wrap: anywhere; } ";
 
-// Theme + page CSS for the offscreen macOS render. The sheet margin stays
-// zero so the theme background bleeds to every edge - WebKit never paints
-// an @page margin, which would leave white bands on tinted themes. The
-// top and bottom margins are laid out instead, by export-paginate.ts
-// pushing blocks off each page seam; the side inset is plain padding.
-// print-color-adjust keeps the editor theme's backgrounds from being
-// flattened to white per page.
-export const PDF_LAYOUT_CSS =
-  ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
-  "@page { margin: 0; } " +
-  "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
-  ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
-  `.editor-content, .editor-content.typewriter-active { max-width: none; padding: ${PDF_PAGE_MARGIN}px 56px 0; } ` +
-  EXPORT_FIT_CSS;
+// Theme + page CSS for the offscreen PDF render. print-color-adjust keeps
+// the editor theme's backgrounds from being flattened to white per page.
+//
+// With a known page geometry (macOS, Windows) the sheet margin stays zero so
+// the theme background bleeds to every edge - WebKit never paints an @page
+// margin, which would leave white bands on tinted themes - and the top and
+// bottom margins are laid out instead, by export-paginate.ts pushing blocks
+// off each page seam. Without one (Linux, where WebKitGTK's print geometry
+// isn't pinned down) the page gets a real @page margin: text stays clear of
+// the seams, at the cost of plain margins on a tinted theme.
+export function pdfLayoutCss(page: PageGeometry | null): string {
+  const side = Math.round((page?.width ?? 595) * 0.094);
+  return (
+    ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
+    (page ? "@page { margin: 0; } " : "@page { margin: 14mm 0; } ") +
+    "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
+    ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
+    `.editor-content, .editor-content.typewriter-active { max-width: none; padding: ${page ? page.margin : 0}px ${side}px 0; } ` +
+    (page ? "" : "pre, blockquote, table, img { break-inside: avoid; } ") +
+    EXPORT_FIT_CSS
+  );
+}
+
+/** The sheet geometry the native renderer on this platform lays out, or
+ *  null where it isn't known (see pdfLayoutCss). */
+function platformPage(): PageGeometry | null {
+  if (isMac) return MAC_PAGE;
+  if (/^win/i.test(navigator.platform) || /windows/i.test(navigator.userAgent))
+    return WINDOWS_PAGE;
+  return null;
+}
 
 const HTML_LAYOUT_CSS =
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; } " +
@@ -273,12 +295,6 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
     return;
   }
-  if (!isMac) {
-    // Windows/Linux: the webview's own print → Save as PDF. App.css's @media
-    // print hides the app chrome and themes the page.
-    window.print();
-    return;
-  }
   const base = exportBaseName(tab, t);
   const picked = await exportDoc.exportSaveDialog(`${base}.pdf`, "PDF", "pdf");
   if (!picked) return;
@@ -287,9 +303,9 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     await nextFrame();
     await settleRender(editor);
     const content = await inlineImages(cloneEditorContent(editor, "inline"));
-    const html = await paginateHtml(
-      buildStandaloneHtml(base, content, PDF_LAYOUT_CSS),
-    );
+    const page = platformPage();
+    const standalone = buildStandaloneHtml(base, content, pdfLayoutCss(page));
+    const html = page ? await paginateHtml(standalone, page) : standalone;
     // Resolves once the file is written.
     await exportDoc.exportPdfNative({
       html,

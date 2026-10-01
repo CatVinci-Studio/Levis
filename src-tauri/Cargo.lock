@@ -2116,6 +2116,7 @@ dependencies = [
  "base64 0.22.1",
  "block2",
  "calamine",
+ "gtk",
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
@@ -2134,6 +2135,9 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tokio",
+ "webkit2gtk",
+ "webview2-com",
+ "windows",
  "zip 4.6.1",
 ]
 

@@ -8,16 +8,30 @@
 // cross a page seam, or start inside the top or bottom margin band, is
 // pushed to the next page's top margin by a spacer.
 //
-// The PDF is rendered with WKWebView.createPDF at 1 CSS px = 1 pt (see
-// export.rs), so the sheet in CSS px is A4 in points. (NSPrintOperation was
-// not usable for this: its page height depends on the selected printer's
-// imageable area, so no layout computed here could line up with it.)
+// The layout must use the renderer's own sheet size in CSS px, or every
+// computed seam drifts - and the two renderers differ (see export.rs):
 
-/** A4 in PostScript points - matches PAPER_WIDTH/HEIGHT in export.rs. */
-export const PDF_PAGE_WIDTH = 595;
-export const PDF_PAGE_HEIGHT = 842;
-/** ~14mm: the band at the top and bottom of each sheet text stays out of. */
-export const PDF_PAGE_MARGIN = 40;
+/** The sheet as the PDF renderer lays it out, in CSS px. */
+export interface PageGeometry {
+  width: number;
+  height: number;
+  /** ~14mm: the band at the top and bottom of each sheet text stays out of. */
+  margin: number;
+}
+
+/** macOS: WKWebView.createPDF renders 1 CSS px as 1 pt, so the sheet is A4
+ *  in points - PAPER_WIDTH/HEIGHT in export.rs. (NSPrintOperation was not
+ *  usable: its page height depends on the selected printer's imageable
+ *  area, so no layout computed here could line up with it.) */
+export const MAC_PAGE: PageGeometry = { width: 595, height: 842, margin: 40 };
+
+/** Windows: WebView2's PrintToPdf at scale 1 lays out at 96 CSS px per
+ *  inch - A4 is 794 x 1122.5 px, and pages are cut at whole pixels. */
+export const WINDOWS_PAGE: PageGeometry = {
+  width: 794,
+  height: 1122,
+  margin: 53,
+};
 
 const SPACER_CLASS = "levis-page-spacer";
 
@@ -53,6 +67,24 @@ function setSpacerHeight(spacer: HTMLElement, height: number): void {
   target.style.height = `${Math.max(0, height)}px`;
 }
 
+/** The next sibling that takes up space - a diagram's hidden source block
+ *  sits between a label and the rendered diagram it introduces. */
+function nextVisible(el: Element): Element | null {
+  let next = el.nextElementSibling;
+  while (next && next.getBoundingClientRect().height === 0)
+    next = next.nextElementSibling;
+  return next;
+}
+
+/** A heading, or a paragraph ending in a colon ("Label:"): a line that
+ *  introduces the block after it. */
+function introduces(el: Element): boolean {
+  return (
+    /^H[1-6]$/.test(el.tagName) ||
+    (el.tagName === "P" && /[:：]\s*$/.test(el.textContent ?? ""))
+  );
+}
+
 /**
  * Inserts spacers into `root` (already laid out at the page width) so no
  * block straddles a page seam or sits inside a margin band. Blocks are
@@ -62,8 +94,8 @@ function setSpacerHeight(spacer: HTMLElement, height: number): void {
 export function paginateDocument(
   doc: Document,
   root: Element,
-  pageHeight = PDF_PAGE_HEIGHT,
-  margin = PDF_PAGE_MARGIN,
+  pageHeight = MAC_PAGE.height,
+  margin = MAC_PAGE.margin,
 ): number {
   const usable = pageHeight - 2 * margin;
   const scrollTop = () => doc.defaultView?.scrollY ?? 0;
@@ -82,10 +114,7 @@ export function paginateDocument(
     const contentEnd = pageTop + pageHeight - margin;
     // A heading - or a "Label:" line introducing what follows - travels
     // with the next block, so it never ends a page on its own.
-    const introduces =
-      /^H[1-6]$/.test(el.tagName) ||
-      (el.tagName === "P" && /[:：]\s*$/.test(el.textContent ?? ""));
-    const next = introduces ? el.nextElementSibling : null;
+    const next = introduces(el) ? nextVisible(el) : null;
     const withNext = next ? bottom(next) : 0;
     const end = next && withNext - start <= usable ? withNext : bottom(el);
 
@@ -103,11 +132,27 @@ export function paginateDocument(
     else if (end > contentEnd) target = contentTop + pageHeight;
     if (target === null) return;
 
-    const spacer = makeSpacer(doc, el);
-    el.parentNode?.insertBefore(spacer, el);
+    // Moving to the next page takes along the heading and label lines that
+    // introduce this block, if they would otherwise stay behind at the
+    // bottom of this one. (They were placed first and fit, since they only
+    // looked one block ahead.)
+    let anchor = el;
+    if (target > contentEnd) {
+      for (
+        let prev = anchor.previousElementSibling;
+        prev && introduces(prev) && top(prev) >= contentTop;
+        prev = anchor.previousElementSibling
+      ) {
+        if (bottom(el) - top(prev) > usable) break;
+        anchor = prev;
+      }
+    }
+
+    const spacer = makeSpacer(doc, anchor);
+    anchor.parentNode?.insertBefore(spacer, anchor);
     // Measured, not computed: the spacer breaks margin collapsing, so the
     // block's own top margin may now sit between the spacer and the block.
-    setSpacerHeight(spacer, target - top(el));
+    setSpacerHeight(spacer, target - top(anchor));
     inserted++;
   };
 
@@ -134,11 +179,14 @@ export function paginateDocument(
  * returns the result. Runs in the app's own webview, which is the same
  * engine as the offscreen print view, so line breaks and heights match.
  */
-export async function paginateHtml(html: string): Promise<string> {
+export async function paginateHtml(
+  html: string,
+  page: PageGeometry,
+): Promise<string> {
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.tabIndex = -1;
-  frame.style.cssText = `position:fixed;left:-${PDF_PAGE_WIDTH * 4}px;top:0;width:${PDF_PAGE_WIDTH}px;height:${PDF_PAGE_HEIGHT}px;border:0;visibility:hidden;pointer-events:none`;
+  frame.style.cssText = `position:fixed;left:-${page.width * 4}px;top:0;width:${page.width}px;height:${page.height}px;border:0;visibility:hidden;pointer-events:none`;
   try {
     const loaded = new Promise<void>((resolve) => {
       frame.onload = () => resolve();
@@ -162,7 +210,7 @@ export async function paginateHtml(html: string): Promise<string> {
       doc.querySelector(".milkdown .ProseMirror") ??
       doc.querySelector(".milkdown");
     if (!root) return html;
-    paginateDocument(doc, root);
+    paginateDocument(doc, root, page.height, page.margin);
     return `<!doctype html>\n${doc.documentElement.outerHTML}`;
   } finally {
     frame.remove();
