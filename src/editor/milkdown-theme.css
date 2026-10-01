@@ -289,6 +289,20 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
+/* ProseMirror ends a textblock whose last child is an inline leaf with a
+   zero-size separator <img> and a trailing <br>, so the caret has a line
+   box to sit in. With the image displayed as a block, that line box lands
+   UNDER it - every image paragraph grows a phantom empty line. Collapse
+   both; the caret after the image then paints at the image's edge.
+   !important because prosemirror.css pins the separator to inline. */
+.milkdown img:not(.ProseMirror-separator) + img.ProseMirror-separator,
+.milkdown
+  img:not(.ProseMirror-separator)
+  + img.ProseMirror-separator
+  + br.ProseMirror-trailingBreak {
+  display: none !important;
+}
+
 .milkdown img:not(.ProseMirror-separator).ProseMirror-selectednode {
   outline: 2px solid var(--editor-accent);
   outline-offset: 3px;
