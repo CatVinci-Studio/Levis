@@ -52,11 +52,11 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 quick-xml = "0.41"
 
 # macOS-native PDF export (commands/export.rs). Only macOS needs native code:
-# it renders the themed document in an offscreen WKWebView and shows the system
-# print panel via NSPrintOperation, because wry's window.print() is broken there
-# (Windows/Linux use window.print() straight from the frontend). Versions and
-# the objc2 ecosystem are already in the tree via wry; features here switch on
-# the AppKit printing + WebKit bits wry doesn't itself use.
+# wry's window.print() is broken there (Windows/Linux use window.print()
+# straight from the frontend), so the themed document is rendered in an
+# offscreen WKWebView with createPDF and cut into A4 sheets with PDFKit.
+# Versions and most of the objc2 ecosystem are already in the tree via wry;
+# features here switch on the WebKit bits wry doesn't itself use.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = [
@@ -64,6 +64,9 @@ objc2-foundation = { version = "0.3", features = [
     "NSURL",
     "NSError",
     "NSObject",
+    "NSData",
+    "NSDictionary",
+    "NSValue",
 ] }
 objc2-core-foundation = { version = "0.3", default-features = false, features = [
     "std",
@@ -77,14 +80,23 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSResponder",
     "NSWindow",
     "NSView",
-    "NSPrintInfo",
-    "NSPrintOperation",
 ] }
 objc2-web-kit = { version = "0.3", features = [
     "WKWebView",
     "WKWebViewConfiguration",
     "WKNavigation",
     "WKNavigationDelegate",
+    "WKPDFConfiguration",
+    "WKContentWorld",
+    "WKFrameInfo",
+    "block2",
     "objc2-core-foundation",
     "objc2-app-kit",
 ] }
+objc2-pdf-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "PDFDocument",
+    "PDFPage",
+    "objc2-core-foundation",
+] }
+block2 = "0.6"

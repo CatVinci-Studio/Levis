@@ -4,6 +4,7 @@ import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
 import { isMacPlatform } from "./utils/platform";
+import { PDF_PAGE_MARGIN, paginateHtml } from "./export-paginate";
 
 // File > Export implementations (HTML serializes the live editor DOM;
 // everything else converts through a user-installed pandoc; PDF drives the
@@ -106,15 +107,62 @@ function fitTablesToWidth(root: HTMLElement): void {
   });
 }
 
+// Local images render through asset: URLs (image-plugin.ts), which resolve
+// only inside this app. A file exported next to the document wants the
+// markdown's own paths back ("document"); a self-contained render wants the
+// pixels themselves ("inline", see inlineImages).
+export type ExportImages = "document" | "inline";
+
 // Clones the editor subtree, stripping contenteditable so the export is inert.
-export function cloneEditorContent(editor: Element): string {
+export function cloneEditorContent(
+  editor: Element,
+  images: ExportImages = "document",
+): string {
   const clone = editor.cloneNode(true) as HTMLElement;
   clone
     .querySelectorAll("[contenteditable]")
     .forEach((el) => el.removeAttribute("contenteditable"));
   clone.querySelectorAll(EDITOR_CHROME_SELECTOR).forEach((el) => el.remove());
   fitTablesToWidth(clone);
+  clone
+    .querySelectorAll<HTMLImageElement>("img[data-doc-src]")
+    .forEach((img) => {
+      if (images === "document")
+        img.setAttribute("src", img.dataset.docSrc ?? "");
+      img.removeAttribute("data-doc-src");
+    });
   return clone.outerHTML;
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Replaces every asset: image in `html` with a data URL, so a render in a
+// webview that has no asset protocol (the macOS PDF path) still shows it.
+// An image that can't be read is left as-is rather than failing the export.
+export async function inlineImages(html: string): Promise<string> {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const local = Array.from(
+    template.content.querySelectorAll<HTMLImageElement>("img[src]"),
+  ).filter((img) => /^(asset|https?:\/\/asset\.localhost)/i.test(img.src));
+  await Promise.all(
+    local.map(async (img) => {
+      try {
+        const response = await fetch(img.src);
+        if (response.ok) img.src = await blobToDataUrl(await response.blob());
+      } catch {
+        // Unreadable - keep the original src.
+      }
+    }),
+  );
+  return template.innerHTML;
 }
 
 // Wraps serialized editor content in a full themed document. `layoutCss` frees
@@ -147,12 +195,13 @@ export function buildStandaloneHtml(
 
 // --- PDF export -------------------------------------------------------------
 //
-// PDF export is "print the page → Save as PDF" - vector, selectable text, and
-// the same mechanism every browser has. Windows/Linux use window.print()
-// directly (their engines print fine). macOS can't: wry's window.print() drives
-// a broken NSPrintPanel (flashes and self-dismisses - tauri-apps/wry#713,
-// tauri#6202), so there we render the themed document in an offscreen WKWebView
-// and show the print panel natively (see export_pdf_native in Rust).
+// Windows/Linux export PDF by printing the page (window.print → Save as PDF;
+// their engines print fine, and Chromium paints the theme background into
+// the @page margin). macOS can't: wry's window.print() drives a broken
+// NSPrintPanel (flashes and self-dismisses - tauri-apps/wry#713, tauri#6202),
+// so there the themed document is laid out into A4 pages here
+// (export-paginate.ts) and rendered straight to a file natively - vector,
+// selectable text (see export_pdf_native in Rust).
 
 const isMac = isMacPlatform();
 
@@ -166,21 +215,19 @@ const EXPORT_FIT_CSS =
   ".katex-display > .katex { white-space: normal; } " +
   ".milkdown a, .milkdown p, .milkdown li, .milkdown td, .milkdown th { overflow-wrap: anywhere; } ";
 
-// Theme + page CSS for the offscreen macOS render. The vertical page margin
-// comes from @page, not padding: padding only insets the first and last
-// page, which left every page seam's text flush against the sheet edge
-// (printers clip it). Rust sets the NSPrintInfo margins to zero; WebKit
-// honours @page on top of that. The side inset stays padding so the theme
-// background still reaches the left and right edges - WebKit leaves the
-// top and bottom margins unpainted. print-color-adjust keeps the editor
-// theme's backgrounds from being flattened to white per page.
+// Theme + page CSS for the offscreen macOS render. The sheet margin stays
+// zero so the theme background bleeds to every edge - WebKit never paints
+// an @page margin, which would leave white bands on tinted themes. The
+// top and bottom margins are laid out instead, by export-paginate.ts
+// pushing blocks off each page seam; the side inset is plain padding.
+// print-color-adjust keeps the editor theme's backgrounds from being
+// flattened to white per page.
 export const PDF_LAYOUT_CSS =
   ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
-  "@page { margin: 14mm 0; } " +
+  "@page { margin: 0; } " +
   "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
   ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
-  ".editor-content, .editor-content.typewriter-active { max-width: none; padding: 0 56px; } " +
-  "pre, blockquote, table, img { break-inside: avoid; } " +
+  `.editor-content, .editor-content.typewriter-active { max-width: none; padding: ${PDF_PAGE_MARGIN}px 56px 0; } ` +
   EXPORT_FIT_CSS;
 
 const HTML_LAYOUT_CSS =
@@ -232,21 +279,24 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     return;
   }
   const base = exportBaseName(tab, t);
+  const picked = await exportDoc.exportSaveDialog(`${base}.pdf`, "PDF", "pdf");
+  if (!picked) return;
   const overlay = showPdfOverlay(t);
   try {
     await nextFrame();
     await settleRender(editor);
-    const html = buildStandaloneHtml(
-      base,
-      cloneEditorContent(editor),
-      PDF_LAYOUT_CSS,
+    const content = await inlineImages(cloneEditorContent(editor, "inline"));
+    const html = await paginateHtml(
+      buildStandaloneHtml(base, content, PDF_LAYOUT_CSS),
     );
-    // Returns once the print panel is on screen; the panel handles saving.
+    // Resolves once the file is written.
     await exportDoc.exportPdfNative({
       html,
       // Resolves relative image srcs (assets/...) against the document folder.
       baseDir: tab.path ? dirname(tab.path) : null,
+      outputPath: picked,
     });
+    void exportDoc.revealInDir(picked);
   } catch (err) {
     await message(`${t.pdfFailed} ${String(err)}`, {
       title: t.exportFailedTitle,

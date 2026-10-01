@@ -211,8 +211,11 @@ export const exportDoc = {
   // macOS only: renders self-contained themed HTML in an offscreen WKWebView
   // and shows the system print panel (Save as PDF). Windows/Linux use
   // window.print() from the frontend instead. baseDir resolves relative images.
-  exportPdfNative: (args: { html: string; baseDir: string | null }) =>
-    call<void>("export_pdf_native", args),
+  exportPdfNative: (args: {
+    html: string;
+    baseDir: string | null;
+    outputPath: string;
+  }) => call<void>("export_pdf_native", args),
 };
 
 // ---------------------------------------------------------------------------

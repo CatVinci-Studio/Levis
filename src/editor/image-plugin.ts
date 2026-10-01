@@ -198,10 +198,11 @@ export function createImagePlugin(options: {
                 const presentation = readImagePresentation(
                   n.attrs.title as string | null,
                 );
-                img.src = resolveImageSrc(
-                  (n.attrs.src as string) ?? "",
-                  options.docPath(),
-                );
+                const src = (n.attrs.src as string) ?? "";
+                img.src = resolveImageSrc(src, options.docPath());
+                // The markdown's own src, for exports: the rendered one is an
+                // asset: URL that only resolves inside this app.
+                img.dataset.docSrc = src;
                 img.alt = (n.attrs.alt as string) ?? "";
                 if (presentation.title) img.title = presentation.title;
                 else img.removeAttribute("title");

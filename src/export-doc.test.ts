@@ -49,4 +49,25 @@ describe("cloneEditorContent", () => {
     );
     expect(html).not.toContain("px");
   });
+
+  it("gives an exported file the document's own image paths back", () => {
+    const html = cloneEditorContent(
+      editor(
+        '<p><img src="asset://localhost/%2Fdocs%2Fassets%2Fa.png" data-doc-src="assets/a.png"></p>',
+      ),
+    );
+    expect(html).toContain('src="assets/a.png"');
+    expect(html).not.toContain("asset://");
+    expect(html).not.toContain("data-doc-src");
+  });
+
+  it("keeps the rendered image source for a self-contained render", () => {
+    const html = cloneEditorContent(
+      editor(
+        '<p><img src="asset://localhost/a.png" data-doc-src="assets/a.png"></p>',
+      ),
+      "inline",
+    );
+    expect(html).toContain('src="asset://localhost/a.png"');
+  });
 });
