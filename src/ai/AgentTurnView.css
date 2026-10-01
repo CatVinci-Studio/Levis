@@ -154,8 +154,109 @@ button.agent-context-chip:hover {
 }
 
 .agent-markdown a {
-  color: inherit;
+  color: var(--editor-accent);
+  text-decoration: none;
+}
+
+.agent-markdown a:hover {
   text-decoration: underline;
+}
+
+/* Headings stay close to the reply's own size - this is a chat answer,
+   not a document, so they mark sections without shouting. */
+.agent-markdown h1,
+.agent-markdown h2,
+.agent-markdown h3,
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 {
+  margin: 0.9em 0 0.35em;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.agent-markdown h1 {
+  font-size: 1.3em;
+}
+
+.agent-markdown h2 {
+  font-size: 1.18em;
+}
+
+.agent-markdown h3 {
+  font-size: 1.08em;
+}
+
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 {
+  font-size: 1em;
+}
+
+.agent-markdown li + li {
+  margin-top: 0.2em;
+}
+
+.agent-markdown li > p {
+  margin: 0;
+}
+
+/* GFM task list items carry their own checkbox. */
+.agent-markdown li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.2em;
+}
+
+.agent-markdown input[type="checkbox"] {
+  margin: 0 0.4em 0 0;
+  vertical-align: -0.1em;
+}
+
+.agent-markdown hr {
+  margin: 0.8em 0;
+  border: none;
+  border-top: 1px solid var(--editor-border);
+}
+
+.agent-markdown img {
+  max-width: 100%;
+  border-radius: var(--radius-control);
+}
+
+/* Tables scroll sideways inside the reply instead of widening it. */
+.agent-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.5em 0;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.agent-markdown th,
+.agent-markdown td {
+  padding: 4px 8px;
+  border: 1px solid var(--editor-border);
+  text-align: left;
+}
+
+.agent-markdown th {
+  background: var(--editor-code-bg);
+  font-weight: 600;
+}
+
+.agent-math {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.agent-markdown .katex {
+  font-size: 1.05em;
+}
+
+.agent-markdown .katex-display {
+  margin: 0;
 }
 
 /* Tool calls are progress notes, not content - readable if looked for,

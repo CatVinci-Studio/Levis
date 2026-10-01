@@ -1,5 +1,8 @@
 import { useMemo } from "react";
 import { renderMarkdownHtml } from "./markdown-render";
+// Replies render math with KaTeX; the detached chat window never loads the
+// editor, so the stylesheet has to come with the renderer.
+import "katex/dist/katex.min.css";
 
 /**
  * Renders an assistant reply as formatted markdown (bold, lists, code,
