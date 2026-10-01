@@ -12,11 +12,41 @@ type MermaidApi = (typeof import("mermaid"))["default"];
 let mermaidPromise: Promise<MermaidApi> | null = null;
 
 function loadMermaid(): Promise<MermaidApi> {
-  mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
-    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
-    return mermaid;
-  });
+  mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => mermaid);
   return mermaidPromise;
+}
+
+// Re-applied before every render pass because the diagram width follows the
+// text column. Gantt charts lay themselves out at a fixed width (1200px when
+// rendered offscreen, as here) and are then scaled to fit the preview box,
+// which shrank their 11px labels to unreadable; at the column's own width
+// they render at their real size. securityLevel "strict" is mermaid's
+// default, stated because the SVG lands in the editor as innerHTML.
+function configureMermaid(mermaid: MermaidApi, width: number): void {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "neutral",
+    securityLevel: "strict",
+    gantt: {
+      useWidth: Math.max(320, Math.round(width)),
+      fontSize: 13,
+      sectionFontSize: 13,
+      barHeight: 22,
+      barGap: 6,
+      // Full dates overlapped at column width; a diagram's own axisFormat
+      // directive still wins over this default.
+      axisFormat: "%m-%d",
+    },
+  });
+}
+
+// Cheap stable hash of a diagram's source, for the widget key below.
+function hashCode(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (Math.imul(31, hash) + text.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
 }
 
 interface MermaidBlock {
@@ -92,7 +122,10 @@ export function createMermaidPreviewPlugin(options: {
               });
               return container;
             },
-            { side: 1, key: `mermaid-${from}` },
+            // ProseMirror reuses a widget's DOM while its key is unchanged, so
+            // a position-only key kept showing the OLD diagram after its
+            // source was edited in place. The source is part of the key.
+            { side: 1, key: `mermaid-${from}-${hashCode(code)}` },
           ),
         );
       }
@@ -139,6 +172,8 @@ export function createMermaidPreviewPlugin(options: {
           // Markdown documents never pay its startup or parse cost.
           const mermaid = await loadMermaid();
           if (mySeq !== renderSeq) return;
+          // The preview box's inner width: the column less its padding.
+          configureMermaid(mermaid, editorView.dom.clientWidth - 40);
 
           const rendered = new Map<string, string>();
           for (const { code } of blocks) {
