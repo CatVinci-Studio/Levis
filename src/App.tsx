@@ -29,6 +29,13 @@ import { migrateDraftImages } from "./editor/image-migration";
 import { comboFromEvent, formatCombo } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { useZoom } from "./utils/useZoom";
+import {
+  applyTextareaCaret,
+  captureEditorCaret,
+  readTextareaCaret,
+  setPendingCaret,
+  takePendingCaret,
+} from "./editor/mode-switch";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { basename, dirname } from "./utils/path";
 import {
@@ -381,15 +388,39 @@ function App() {
   const toggleSourceMode = useCallback(() => {
     const tab = tabsRef.current.find((tb) => tb.id === activeTabId);
     if (!tab) return;
-    // Leaving source mode: force the WYSIWYG editor to remount so it picks
-    // up whatever was typed as raw text.
-    if (tab.sourceMode)
+    // Keep the user's place across the switch (editor/mode-switch.ts): the
+    // view being left records its caret, the one being entered places it.
+    if (tab.sourceMode) {
+      const textarea = document.querySelector<HTMLTextAreaElement>(
+        '[data-active-tab="true"] textarea.source-view',
+      );
+      setPendingCaret(textarea ? readTextareaCaret(textarea) : null);
+      // Leaving source mode: force the WYSIWYG editor to remount so it
+      // picks up whatever was typed as raw text.
       updateTab(activeTabId, {
         sourceMode: false,
         reloadKey: tab.reloadKey + 1,
       });
-    else updateTab(activeTabId, { sourceMode: true });
+    } else {
+      setPendingCaret(captureEditorCaret(tab.content));
+      updateTab(activeTabId, { sourceMode: true });
+    }
   }, [activeTabId, updateTab]);
+
+  // The source view just mounted: put the caret the editor left there.
+  const activeSourceMode =
+    tabs.find((tb) => tb.id === activeTabId)?.sourceMode ?? false;
+  useEffect(() => {
+    if (!activeSourceMode) return;
+    const caret = takePendingCaret();
+    if (!caret) return;
+    requestAnimationFrame(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>(
+        '[data-active-tab="true"] textarea.source-view',
+      );
+      if (textarea) applyTextareaCaret(textarea, caret);
+    });
+  }, [activeSourceMode, activeTabId]);
 
   // Removes a tab outright (no prompt - callers that need one show it
   // first). Closing the last tab closes the window; closing the active tab

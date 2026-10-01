@@ -62,6 +62,12 @@ import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { readImagePresentation, writeImageWidth } from "./image-plugin";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
+import {
+  applyEditorCaret,
+  readEditorCaret,
+  registerCaretReporter,
+  takePendingCaret,
+} from "./mode-switch";
 import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
 import { useAiActions } from "../ai/useAiActions";
@@ -722,6 +728,28 @@ export function MilkdownEditor({
   useEffect(() => {
     if (!inlineChat.visible || decidableCount === 0) setChatGuard(null);
   }, [inlineChat.visible, decidableCount]);
+
+  // Source/WYSIWYG switches keep the caret and scroll position
+  // (mode-switch.ts): while on screen this editor can report where its
+  // caret is, and on mounting it takes the caret the source view left.
+  useEffect(() => {
+    if (!isActive) return;
+    return registerCaretReporter(
+      (markdown) => run((ctx) => readEditorCaret(ctx, markdown)) ?? null,
+    );
+  }, [isActive, run]);
+  const runReady = run(() => true) === true;
+  useEffect(() => {
+    if (!isActive || !runReady) return;
+    const caret = takePendingCaret();
+    if (!caret) return;
+    // After layout, so coordinates for the scroll correction exist.
+    requestAnimationFrame(() =>
+      run((ctx) => applyEditorCaret(ctx, initialValue, caret)),
+    );
+    // Once per mount: the caret is handed across a single switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, runReady]);
 
   const chatComposer = () =>
     quickAskEl?.querySelector<HTMLTextAreaElement>(".inline-chat textarea") ??
