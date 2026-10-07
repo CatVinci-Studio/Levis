@@ -5,5 +5,5 @@ Comment=AI-native WYSIWYG Markdown editor
 Exec=levis %F
 Icon=levis
 Terminal=false
-Categories=Office;TextEditor;Utility;
+Categories=Utility;TextEditor;
 MimeType=text/markdown;text/x-markdown;
