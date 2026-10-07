@@ -45,10 +45,7 @@ brew install --cask catvinci-studio/tap/levis
 Arch Linux 可通过签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源安装（只需配置一次，之后 `sudo pacman -Syu` 会自动升级 Levis）：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/catvinci.asc | sudo pacman-key --add -
-sudo pacman-key --lsign-key B1B82E95327C63CCD15790F0B66D200DBA450FBC
-printf '\n[catvinci]\nServer = https://github.com/CatVinci-Studio/arch-repo/releases/download/$arch\n' | sudo tee -a /etc/pacman.conf
-sudo pacman -Syu levis-bin
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) levis-bin
 ```
 
 也可以从 [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest) 下载安装包：

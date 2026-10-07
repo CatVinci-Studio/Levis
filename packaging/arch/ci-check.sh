@@ -3,7 +3,7 @@
 #
 #   1. Install levis-bin from the [catvinci] repository
 #      (CatVinci-Studio/arch-repo) as it is now - the previous release -
-#      with the same steps its README gives users.
+#      with install.sh, the one-line setup its README gives users.
 #   2. Build the new package from the release tarball and upgrade to it.
 #   3. Check libraries, desktop entry, a 15 s start under Xvfb, removal.
 #
@@ -25,7 +25,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 work=/home/builder/levis-bin
 repo=catvinci
 server='https://github.com/CatVinci-Studio/arch-repo/releases/download/$arch'
-key_url="https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/catvinci.asc"
+install_sh="https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh"
 tarball="Levis_${version}_linux_x86_64.tar.gz"
 pkgfile="levis-bin-${pkgver}-1-x86_64.pkg.tar.zst"
 
@@ -39,12 +39,8 @@ as_builder() { sudo -u builder -H bash -c "cd '$1' && ${*:2}"; }
 previous=""
 if curl -fsIL "${server/\$arch/x86_64}/$repo.db" >/dev/null 2>&1; then
   pacman-key --init >/dev/null
-  curl -fsSL "$key_url" | pacman-key --add -
-  key="$(curl -fsSL "$key_url" | gpg --with-colons --import-options show-only --import |
-    awk -F: '/^fpr/ { print $10; exit }')"
-  pacman-key --lsign-key "$key"
-  printf '\n[%s]\nServer = %s\n' "$repo" "$server" >>/etc/pacman.conf
-  pacman -Sy --noconfirm levis-bin
+  bash <(curl -fsSL "$install_sh")
+  pacman -S --noconfirm levis-bin
   previous="$(pacman -Q levis-bin)"
   echo "Installed from [$repo]: $previous"
   sudo -u builder mkdir -p /home/builder/.config/levis-upgrade-check
