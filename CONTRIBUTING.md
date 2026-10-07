@@ -125,12 +125,13 @@ Maintainers only.
 2. Commit as `chore: bump version to X.Y.Z`.
 3. Tag `vX.Y.Z` and push the tag. `.github/workflows/release.yml` builds,
    signs and notarizes for macOS/Windows/Linux, publishes the GitHub release,
-   points the Homebrew cask at it, and tests and pushes the `levis-bin` AUR
-   package (`.github/workflows/aur.yml`, see `packaging/arch/README.md`).
+   points the Homebrew cask at it, and adds the tested, signed `levis-bin`
+   package to the `[catvinci]` pacman repository (see
+   `packaging/arch/README.md`).
 
 **Pre-releases**: a tag carrying a semver pre-release suffix (`v0.9.0-rc.1`)
-is published as a GitHub pre-release and skips the Homebrew cask and the
-AUR, so it reaches nobody who did not go looking for it - the in-app updater
+is published as a GitHub pre-release and skips the Homebrew cask, and the
+`[catvinci]` repository does not serve it, so it reaches nobody who did not go looking for it - the in-app updater
 reads `releases/latest`, which excludes pre-releases.
 
 One constraint the bundler imposes: the Windows **MSI** target requires a

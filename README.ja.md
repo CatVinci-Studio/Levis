@@ -42,6 +42,15 @@ macOS（Apple Silicon）は[Homebrew](https://brew.sh)から:
 brew install --cask catvinci-studio/tap/levis
 ```
 
+Arch Linux は署名付きの `[catvinci]` pacman リポジトリから（設定は一度だけ。以後 `sudo pacman -Syu` で Levis も更新されます）:
+
+```sh
+curl -fsSL https://github.com/CatVinci-Studio/Levis/releases/latest/download/catvinci.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key 98DB41F71D372A8190C1778130FBDF7CEF176258
+printf '\n[catvinci]\nServer = https://github.com/CatVinci-Studio/Levis/releases/latest/download\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Syu levis-bin
+```
+
 または[Releases](https://github.com/CatVinci-Studio/Levis/releases/latest)からインストーラーを取得:
 
 | プラットフォーム | インストーラー |

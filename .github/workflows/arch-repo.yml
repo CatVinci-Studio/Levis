@@ -1,0 +1,59 @@
+name: Arch repository
+
+# Builds levis-bin for a release, tests it in an Arch container (install the
+# previous version from [catvinci], upgrade, start, remove - see
+# packaging/arch/ci-check.sh), and uploads the signed package and the
+# catvinci.db repository database to that release.
+#
+# pacman reads the repository from releases/latest/download, so users see a
+# new version only when its release stops being a draft, and never see a
+# pre-release. release.yml calls this before it publishes the draft. Run it
+# by hand to rebuild the repository files of one tag.
+#
+# Needs the ARCH_REPO_GPG_KEY secret: the private key whose public half is
+# packaging/arch/catvinci.asc.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (for example v0.8.13)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  arch-repo:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Install git and gh
+        run: pacman -Syu --noconfirm --needed git github-cli
+
+      # The packaging scripts come from the commit this workflow runs at,
+      # not from the tag: a fix on main can then rebuild an older release.
+      - uses: actions/checkout@v4
+
+      - name: Download the Linux tarball
+        run: |
+          gh release download "$TAG" --dir tarball \
+            --pattern "Levis_${TAG#v}_linux_x86_64.tar.gz*"
+
+      - name: Build, upgrade, test and sign levis-bin
+        env:
+          ARCH_REPO_GPG_KEY: ${{ secrets.ARCH_REPO_GPG_KEY }}
+        run: packaging/arch/ci-check.sh "${TAG#v}" tarball repo
+
+      - name: Upload the repository files
+        run: gh release upload "$TAG" repo/* --clobber

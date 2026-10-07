@@ -1,4 +1,4 @@
-# levis-bin (AUR)
+# levis-bin and the [catvinci] pacman repository
 
 `PKGBUILD` repackages `Levis_<version>_linux_x86_64.tar.gz`, which
 `.github/workflows/release.yml` attaches to every GitHub Release. That
@@ -6,53 +6,53 @@ binary is built with `LEVIS_DISTRIBUTION=aur`
 (`src-tauri/src/distribution.rs`): it reports new versions, but the upgrade
 goes through pacman.
 
-## Test a build before a release exists
+## How users get it
 
-makepkg uses a source file that is already next to the `PKGBUILD` and does
-not download it.
+Each release also carries a signed pacman repository named `catvinci`:
+`levis-bin-<version>-1-x86_64.pkg.tar.zst`, `catvinci.db`, `catvinci.files`
+and their `.sig` files. Users point pacman at
+`https://github.com/CatVinci-Studio/Levis/releases/latest/download` (see the
+Install section of the top-level README). GitHub resolves `latest` to the
+newest published stable release, so:
 
-1. On a Linux machine with the build dependencies, build the binary:
-   `LEVIS_DISTRIBUTION=aur npx tauri build --no-bundle`
-2. Pack it:
-   `scripts/package-linux-tarball.sh 0.8.13 src-tauri/target/release/levis packaging/arch`
-3. On Arch, in `packaging/arch`, write the checksum: `updpkgsums`
-4. Build and install: `makepkg -si`
-5. Make sure that `pacman -Q levis-bin` shows `levis-bin 0.8.13-1`.
-6. Check: `levis` starts, the menu entry and icon show, `.md` files open
-   with Levis, and Settings > General shows "Update it there" instead of an
-   install button when a newer release exists.
-7. Remove it: `sudo pacman -R levis-bin`. Make sure that no file stays in
-   `/usr` (`pacman -Ql levis-bin` before removal lists them).
+- a draft is invisible until every platform built and the release is
+  published;
+- a pre-release is never served (`latest` excludes it).
 
-NOTE: `.gitignore` excludes the tarball and the makepkg outputs. Before you
-commit, set `sha256sums` back to `SKIP` or to the checksum of the real
-release tarball.
+## What CI does
 
-## Upgrade test
+`release.yml` calls `.github/workflows/arch-repo.yml` while the release is
+still a draft. In an `archlinux:base-devel` container, `ci-check.sh`:
 
-1. Build and install `pkgver=0.8.12` with the procedure above
-   (`sudo pacman -U levis-bin-0.8.12-1-x86_64.pkg.tar.zst`).
-2. Open Levis once and change a setting.
-3. Build `pkgver=0.8.13` and install it with `sudo pacman -U`.
-4. Make sure that `pacman -Q levis-bin` shows `levis-bin 0.8.13-1` and that
-   the setting from step 2 is still there.
+1. Installs `levis-bin` from `[catvinci]` as it is now (the previous
+   release), with the same steps a user runs.
+2. Builds the new package from the release tarball and upgrades to it.
+3. Checks the libraries, the desktop entry, a 15 s start under Xvfb, and
+   that `pacman -R` leaves no files behind.
+4. Signs the package and builds `catvinci.db`.
 
-## Publish a version to the AUR
+Then the workflow uploads the files to the draft. If any step fails, the
+release stays a draft and nobody gets the version.
 
-`.github/workflows/aur.yml` does this after every stable release:
-`ci-check.sh` fills in `pkgver` and `sha256sums`, writes `.SRCINFO`, and
-tests install, start, upgrade from the current AUR version, and removal in
-an Arch container. Then the workflow pushes `PKGBUILD` and `.SRCINFO` to
-the AUR. The `PKGBUILD` in this directory stays a template with `SKIP`.
+To rebuild the repository files of one tag (for example after a fix to
+these scripts), run Actions > Arch repository > Run workflow with that tag.
 
-To set up or repair the push:
+## Signing key
 
-1. Register an SSH public key on the AUR account that owns `levis-bin`.
-2. Store the private key as the repository secret `AUR_SSH_PRIVATE_KEY`.
-3. Run the AUR workflow by hand (Actions > AUR > Run workflow) with the
-   release tag.
+- Public key: `catvinci.asc`, fingerprint
+  `98DB41F71D372A8190C1778130FBDF7CEF176258`. Every release carries a copy.
+- Private key: the repository secret `ARCH_REPO_GPG_KEY` only.
 
-Without the secret the workflow still tests the package and keeps
-`PKGBUILD` and `.SRCINFO` as a workflow artifact. To push them by hand,
-copy both files into a clone of `ssh://aur@aur.archlinux.org/levis-bin.git`,
-then commit and push.
+To replace the key:
+
+1. Make a new key without a passphrase.
+2. Store the armored private key in `ARCH_REPO_GPG_KEY`.
+3. Replace `catvinci.asc` and the fingerprint in the READMEs.
+4. Release. Users then repeat the `pacman-key --add` and `--lsign-key` steps.
+
+## The AUR
+
+`PKGBUILD` is also a valid AUR `PKGBUILD`. To publish `levis-bin` there
+later: register an AUR account, then push the `PKGBUILD` and `SRCINFO`
+(renamed to `.SRCINFO`) that each release carries to
+`ssh://aur@aur.archlinux.org/levis-bin.git`.
