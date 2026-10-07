@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Levis
+Comment=AI-native WYSIWYG Markdown editor
+Exec=levis %F
+Icon=levis
+Terminal=false
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;text/x-markdown;

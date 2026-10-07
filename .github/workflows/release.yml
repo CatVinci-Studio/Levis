@@ -124,6 +124,22 @@ jobs:
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           args: ${{ matrix.args }}
 
+      # The AUR package (packaging/arch/PKGBUILD) installs this tarball. Its
+      # binary is a second build with LEVIS_DISTRIBUTION=aur: it reports new
+      # versions but does not install them, because pacman owns /usr/bin.
+      # --no-bundle recompiles only the levis crate and skips the installers.
+      - name: Build and upload AUR tarball
+        if: matrix.platform == 'ubuntu-22.04'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LEVIS_DISTRIBUTION: aur
+        run: |
+          npx tauri build --no-bundle
+          scripts/package-linux-tarball.sh "${RELEASE_TAG#v}" \
+            src-tauri/target/release/levis dist-aur
+          gh release upload "$RELEASE_TAG" dist-aur/* --clobber
+
   publish:
     needs: release
     runs-on: ubuntu-22.04
@@ -179,3 +195,14 @@ jobs:
               -c user.email="github-actions[bot]@users.noreply.github.com" \
               commit -am "levis ${VERSION}"
           git push
+
+  # Builds, installs and tests levis-bin in an Arch container, then pushes
+  # it to the AUR (see aur.yml). Skipped for pre-releases for the same
+  # reason as the Homebrew cask: levis-bin has no pre-release channel.
+  update-aur:
+    needs: publish
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    uses: ./.github/workflows/aur.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+    secrets: inherit

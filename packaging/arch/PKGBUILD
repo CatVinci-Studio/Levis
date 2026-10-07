@@ -1,0 +1,33 @@
+# Maintainer: CatVinci Studio
+#
+# Repackages the prebuilt tarball from the GitHub Release. That binary is
+# built with LEVIS_DISTRIBUTION=aur, so Levis reports new versions but leaves
+# the upgrade to pacman. See packaging/arch/README.md.
+pkgname=levis-bin
+pkgver=0.8.13
+pkgrel=1
+pkgdesc="AI-native WYSIWYG Markdown editor"
+arch=('x86_64')
+url="https://github.com/CatVinci-Studio/Levis"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'hicolor-icon-theme')
+optdepends=('pandoc: export to more formats')
+provides=('levis')
+conflicts=('levis')
+options=('!strip' '!debug')
+source=("https://github.com/CatVinci-Studio/Levis/releases/download/v${pkgver}/Levis_${pkgver}_linux_x86_64.tar.gz")
+# updpkgsums writes the real value. Do not publish SKIP to the AUR.
+sha256sums=('SKIP')
+
+package() {
+    cd "$srcdir/Levis"
+    install -Dm755 bin/levis "$pkgdir/usr/bin/levis"
+    install -Dm644 share/applications/levis.desktop \
+        "$pkgdir/usr/share/applications/levis.desktop"
+    install -Dm644 share/licenses/levis/LICENSE \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    local icon
+    for icon in share/icons/hicolor/*/apps/levis.png; do
+        install -Dm644 "$icon" "$pkgdir/usr/$icon"
+    done
+}

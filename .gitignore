@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# makepkg outputs (packaging/arch/README.md)
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.tar.gz
+packaging/arch/*.tar.gz.sha256
+packaging/arch/*.pkg.tar.zst

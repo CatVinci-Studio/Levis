@@ -1,0 +1,19 @@
+pkgbase = levis-bin
+	pkgdesc = AI-native WYSIWYG Markdown editor
+	pkgver = 0.8.13
+	pkgrel = 1
+	url = https://github.com/CatVinci-Studio/Levis
+	arch = x86_64
+	license = MIT
+	depends = webkit2gtk-4.1
+	depends = gtk3
+	depends = hicolor-icon-theme
+	optdepends = pandoc: export to more formats
+	provides = levis
+	conflicts = levis
+	options = !strip
+	options = !debug
+	source = https://github.com/CatVinci-Studio/Levis/releases/download/v0.8.13/Levis_0.8.13_linux_x86_64.tar.gz
+	sha256sums = SKIP
+
+pkgname = levis-bin
