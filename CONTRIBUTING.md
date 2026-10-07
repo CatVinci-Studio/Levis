@@ -130,9 +130,10 @@ Maintainers only.
    `packaging/arch/README.md`).
 
 **Pre-releases**: a tag carrying a semver pre-release suffix (`v0.9.0-rc.1`)
-is published as a GitHub pre-release and skips the Homebrew cask, and the
-`[catvinci]` repository does not serve it, so it reaches nobody who did not go looking for it - the in-app updater
-reads `releases/latest`, which excludes pre-releases.
+is published as a GitHub pre-release. It skips the Homebrew cask, and the
+`[catvinci]` repository does not serve it, so it reaches nobody who did not
+go looking for it - the in-app updater reads `releases/latest`, which
+excludes pre-releases.
 
 One constraint the bundler imposes: the Windows **MSI** target requires a
 semver pre-release identifier to be numeric, so `0.9.0-rc.1` cannot be
