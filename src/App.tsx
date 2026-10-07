@@ -974,12 +974,16 @@ function App() {
               <span>
                 {t.updateAvailable} v{appUpdate.version}
               </span>
-              <button
-                className="update-toast-primary"
-                onClick={() => void appUpdate.install()}
-              >
-                {t.updateInstall}
-              </button>
+              {appUpdate.selfUpdate ? (
+                <button
+                  className="update-toast-primary"
+                  onClick={() => void appUpdate.install()}
+                >
+                  {t.updateInstall}
+                </button>
+              ) : (
+                <span>{t.updateViaPackageManager}</span>
+              )}
               <button
                 className="update-toast-secondary"
                 onClick={appUpdate.dismiss}

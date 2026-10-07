@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { selfUpdateAllowed } from "./distribution";
 
 export type UpdateStatus = "idle" | "available" | "downloading" | "error";
 
@@ -12,14 +13,22 @@ export type UpdateStatus = "idle" | "available" | "downloading" | "error";
  * development are all normal situations, not something to bother the user
  * about. Installing is the opposite: the user explicitly asked, so errors
  * surface.
+ *
+ * A package-manager build (see utils/distribution.ts) still checks, but
+ * `selfUpdate` is false: the banner tells the user to upgrade through the
+ * package manager, and install() does nothing.
  */
 export function useAppUpdate() {
   const [update, setUpdate] = useState<Update | null>(null);
   const [status, setStatus] = useState<UpdateStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [selfUpdate, setSelfUpdate] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    void selfUpdateAllowed().then((allowed) => {
+      if (!cancelled) setSelfUpdate(allowed);
+    });
 
     const checkOnce = () => {
       check()
@@ -45,7 +54,7 @@ export function useAppUpdate() {
   }, []);
 
   async function install() {
-    if (!update) return;
+    if (!update || !(await selfUpdateAllowed())) return;
     setStatus("downloading");
     try {
       await update.downloadAndInstall();
@@ -61,5 +70,12 @@ export function useAppUpdate() {
     setStatus("idle");
   }
 
-  return { version: update?.version ?? null, status, error, install, dismiss };
+  return {
+    version: update?.version ?? null,
+    status,
+    error,
+    selfUpdate,
+    install,
+    dismiss,
+  };
 }

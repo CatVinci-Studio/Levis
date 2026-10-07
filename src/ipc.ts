@@ -409,6 +409,17 @@ export const cli = {
 };
 
 // ---------------------------------------------------------------------------
+// distribution (src-tauri/src/distribution.rs)
+// ---------------------------------------------------------------------------
+
+/** The channel this build was installed through - see distribution.rs. */
+export type Distribution = "direct" | "homebrew" | "aur";
+
+export const distribution = {
+  appDistribution: () => call<Distribution>("app_distribution"),
+};
+
+// ---------------------------------------------------------------------------
 // drafts (src-tauri/src/commands/drafts.rs) - best-effort autosave for
 // unsaved content, see 2.4 in the reliability plan.
 // ---------------------------------------------------------------------------

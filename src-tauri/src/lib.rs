@@ -8,6 +8,7 @@ mod app_identity;
 mod atomic;
 mod auth;
 mod commands;
+mod distribution;
 mod menu;
 mod tab_drag;
 
@@ -413,7 +414,8 @@ pub fn run() {
             save_draft_snapshot,
             take_draft_snapshots,
             clear_draft_snapshot,
-            clear_all_drafts
+            clear_all_drafts,
+            distribution::app_distribution
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

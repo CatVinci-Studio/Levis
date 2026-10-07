@@ -4,6 +4,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Strings } from "../../i18n/strings";
 import { cli } from "../../ipc";
+import { selfUpdateAllowed } from "../../utils/distribution";
 
 // The General category's sections beyond plain settings rows.
 
@@ -11,7 +12,8 @@ import { cli } from "../../ipc";
  * Current version + a manual "Check for Updates" button. The background
  * check (useAppUpdate) is silent about being up to date and about errors;
  * a manual check is the opposite - the user asked, so "already latest" and
- * failures both get an explicit answer here.
+ * failures both get an explicit answer here. A package-manager build only
+ * reports the new version - see utils/distribution.ts.
  */
 export function UpdateSection({ t }: { t: Strings }) {
   const [version, setVersion] = useState("");
@@ -20,8 +22,10 @@ export function UpdateSection({ t }: { t: Strings }) {
   >("idle");
   const [message, setMessage] = useState("");
   const [update, setUpdate] = useState<Update | null>(null);
+  const [selfUpdate, setSelfUpdate] = useState(true);
 
   useEffect(() => {
+    void selfUpdateAllowed().then(setSelfUpdate);
     getVersion()
       .then(setVersion)
       .catch(() => setVersion(""));
@@ -35,7 +39,11 @@ export function UpdateSection({ t }: { t: Strings }) {
       if (found) {
         setUpdate(found);
         setPhase("available");
-        setMessage(`${t.updateAvailable} v${found.version}`);
+        setMessage(
+          selfUpdate
+            ? `${t.updateAvailable} v${found.version}`
+            : `${t.updateAvailable} v${found.version} ${t.updateViaPackageManager}`,
+        );
       } else {
         setPhase("latest");
         setMessage(t.updateLatest);
@@ -47,7 +55,7 @@ export function UpdateSection({ t }: { t: Strings }) {
   }
 
   async function install() {
-    if (!update) return;
+    if (!update || !selfUpdate) return;
     setPhase("downloading");
     setMessage(t.updateDownloading);
     try {
@@ -76,7 +84,7 @@ export function UpdateSection({ t }: { t: Strings }) {
         )}
       </div>
       <div className="shortcut-row-controls">
-        {phase === "available" || phase === "downloading" ? (
+        {selfUpdate && (phase === "available" || phase === "downloading") ? (
           <button
             className="text-button settings-inline-button"
             onClick={install}

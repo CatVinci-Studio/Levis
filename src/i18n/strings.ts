@@ -320,6 +320,8 @@ export const strings = {
     updateLater: "Later",
     updateDownloading: "Downloading update…",
     updateFailed: "Update failed:",
+    updateViaPackageManager:
+      "Levis was installed by your package manager. Update it there.",
     cliCommandLabel: "'levis' Terminal Command",
     cliCommandHint:
       "Lets you open Levis (or a file) from the terminal, e.g. levis README.md",
@@ -833,6 +835,7 @@ export const strings = {
     updateLater: "稍后",
     updateDownloading: "正在下载更新…",
     updateFailed: "更新失败:",
+    updateViaPackageManager: "Levis 由系统包管理器安装，请用包管理器更新。",
     cliCommandLabel: "终端 'levis' 命令",
     cliCommandHint:
       "在终端中用 levis 打开 Levis，或 levis README.md 打开指定文件",
@@ -1348,6 +1351,8 @@ export const strings = {
     updateLater: "後で",
     updateDownloading: "アップデートをダウンロード中…",
     updateFailed: "アップデートに失敗しました:",
+    updateViaPackageManager:
+      "Levis はパッケージマネージャーでインストールされています。そちらで更新してください。",
     cliCommandLabel: "ターミナル 'levis' コマンド",
     cliCommandHint:
       "ターミナルからLevis（またはファイル）を開けます。例：levis README.md",
