@@ -42,12 +42,12 @@ macOS (Apple Silicon) via [Homebrew](https://brew.sh):
 brew install --cask catvinci-studio/tap/levis
 ```
 
-Arch Linux via the signed `[catvinci]` pacman repository (once; `sudo pacman -Syu` then keeps Levis up to date):
+Arch Linux via the signed [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman repository (once; `sudo pacman -Syu` then keeps Levis up to date):
 
 ```sh
-curl -fsSL https://github.com/CatVinci-Studio/Levis/releases/latest/download/catvinci.asc | sudo pacman-key --add -
-sudo pacman-key --lsign-key 98DB41F71D372A8190C1778130FBDF7CEF176258
-printf '\n[catvinci]\nServer = https://github.com/CatVinci-Studio/Levis/releases/latest/download\n' | sudo tee -a /etc/pacman.conf
+curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/catvinci.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key B1B82E95327C63CCD15790F0B66D200DBA450FBC
+printf '\n[catvinci]\nServer = https://github.com/CatVinci-Studio/arch-repo/releases/download/$arch\n' | sudo tee -a /etc/pacman.conf
 sudo pacman -Syu levis-bin
 ```
 

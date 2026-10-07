@@ -1,0 +1,54 @@
+name: Arch package
+
+# Builds levis-bin for a release and tests it in an Arch container: install
+# the previous version from [catvinci], upgrade, start, remove (see
+# packaging/arch/ci-check.sh). Then attaches the package, PKGBUILD and
+# SRCINFO to the release.
+#
+# release.yml calls this while the release is still a draft, so a failure
+# keeps the version from everyone. After publishing, its update-arch-repo
+# job asks CatVinci-Studio/arch-repo to sign the package and add it to
+# catvinci.db. Run this by hand to rebuild the package of one tag.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (for example v0.8.13)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  arch-package:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Install git and gh
+        run: pacman -Syu --noconfirm --needed git github-cli
+
+      # The packaging scripts come from the commit this workflow runs at,
+      # not from the tag: a fix on main can then rebuild an older release.
+      - uses: actions/checkout@v4
+
+      - name: Download the Linux tarball
+        run: |
+          gh release download "$TAG" --dir tarball \
+            --pattern "Levis_${TAG#v}_linux_x86_64.tar.gz*"
+
+      - name: Build, upgrade and test levis-bin
+        run: packaging/arch/ci-check.sh "${TAG#v}" tarball package
+
+      - name: Attach the package to the release
+        run: gh release upload "$TAG" package/* --clobber

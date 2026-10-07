@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Builds levis-bin for one release, tests it the way a user gets it, and
-# writes the signed pacman repository for that release:
+# Builds levis-bin for one release and tests it the way a user gets it:
 #
-#   1. Install levis-bin from the [catvinci] repository as it is now (the
-#      previous release), exactly as a user configured per README.md would.
+#   1. Install levis-bin from the [catvinci] repository
+#      (CatVinci-Studio/arch-repo) as it is now - the previous release -
+#      with the same steps its README gives users.
 #   2. Build the new package from the release tarball and upgrade to it.
 #   3. Check libraries, desktop entry, a 15 s start under Xvfb, removal.
-#   4. Sign the package and build catvinci.db for it.
+#
+# arch-repo signs the package and adds it to catvinci.db after the release
+# is published (release.yml, update-arch-repo).
 #
 # Runs as root in an archlinux:base-devel container (.github/workflows/
-# arch-repo.yml); makepkg itself runs as an unprivileged user.
+# arch-package.yml); makepkg itself runs as an unprivileged user.
 #
 # Usage: packaging/arch/ci-check.sh <version> <tarball-dir> <out-dir>
 #   <tarball-dir> holds Levis_<version>_linux_x86_64.tar.gz and its .sha256.
-#   ARCH_REPO_GPG_KEY holds the armored private signing key.
 set -euo pipefail
 
 version="$1"
@@ -23,7 +24,8 @@ pkgver="${version//-/_}"
 here="$(cd "$(dirname "$0")" && pwd)"
 work=/home/builder/levis-bin
 repo=catvinci
-server="https://github.com/CatVinci-Studio/Levis/releases/latest/download"
+server='https://github.com/CatVinci-Studio/arch-repo/releases/download/$arch'
+key_url="https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/catvinci.asc"
 tarball="Levis_${version}_linux_x86_64.tar.gz"
 pkgfile="levis-bin-${pkgver}-1-x86_64.pkg.tar.zst"
 
@@ -33,17 +35,14 @@ id builder >/dev/null 2>&1 || useradd -m builder
 echo 'builder ALL=(ALL) NOPASSWD: ALL' >/etc/sudoers.d/builder
 as_builder() { sudo -u builder -H bash -c "cd '$1' && ${*:2}"; }
 
-# Signing key, in a keyring of its own.
-export GNUPGHOME="$(mktemp -d)"
-printf '%s\n' "${ARCH_REPO_GPG_KEY:?ARCH_REPO_GPG_KEY is not set}" | gpg --batch --import
-key="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10; exit}')"
-pacman-key --init >/dev/null
-pacman-key --add "$here/catvinci.asc"
-pacman-key --lsign-key "$key"
-
 # 1. The previous release, through the same steps a user runs.
 previous=""
-if curl -fsIL "$server/$repo.db" >/dev/null 2>&1; then
+if curl -fsIL "${server/\$arch/x86_64}/$repo.db" >/dev/null 2>&1; then
+  pacman-key --init >/dev/null
+  curl -fsSL "$key_url" | pacman-key --add -
+  key="$(curl -fsSL "$key_url" | gpg --with-colons --import-options show-only --import |
+    awk -F: '/^fpr/ { print $10; exit }')"
+  pacman-key --lsign-key "$key"
   printf '\n[%s]\nServer = %s\n' "$repo" "$server" >>/etc/pacman.conf
   pacman -Sy --noconfirm levis-bin
   previous="$(pacman -Q levis-bin)"
@@ -114,20 +113,9 @@ for f in $files; do
   fi
 done
 
-# 4. Signed package and repository database. GitHub release assets cannot
-# be symlinks, so the .db and .files names are copies.
+# The package, plus PKGBUILD and SRCINFO for a later AUR import.
 mkdir -p "$out_dir"
-cp "$work/$pkgfile" "$out_dir/"
+cp "$work/$pkgfile" "$work/PKGBUILD" "$out_dir/"
 cp "$work/.SRCINFO" "$out_dir/SRCINFO"
-cp "$work/PKGBUILD" "$out_dir/"
-gpg --batch --yes --detach-sign --no-armor -u "$key" "$out_dir/$pkgfile"
-(cd "$out_dir" && repo-add --sign --key "$key" "$repo.db.tar.gz" "$pkgfile")
-for name in db files; do
-  rm -f "$out_dir/$repo.$name" "$out_dir/$repo.$name.sig"
-  cp "$out_dir/$repo.$name.tar.gz" "$out_dir/$repo.$name"
-  cp "$out_dir/$repo.$name.tar.gz.sig" "$out_dir/$repo.$name.sig"
-done
-cp "$here/catvinci.asc" "$out_dir/"
-gpg --batch --verify "$out_dir/$repo.db.sig" "$out_dir/$repo.db"
 echo "levis-bin ${pkgver}-1: all checks passed"
 ls -l "$out_dir"

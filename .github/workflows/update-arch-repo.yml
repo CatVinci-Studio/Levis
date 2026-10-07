@@ -1,0 +1,60 @@
+name: Update arch-repo
+
+# Points packages/levis-bin.json in CatVinci-Studio/arch-repo at the
+# levis-bin of a published release. That repository's Sync workflow then
+# signs the package and adds it to catvinci.db. release.yml calls this after
+# publishing; run it by hand to retry one tag.
+#
+# Needs ARCH_REPO_DEPLOY_KEY: the private half of a deploy key with write
+# access to CatVinci-Studio/arch-repo.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag (for example v0.8.13)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  update-arch-repo:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Point packages/levis-bin.json at this release
+        env:
+          ARCH_REPO_DEPLOY_KEY: ${{ secrets.ARCH_REPO_DEPLOY_KEY }}
+        run: |
+          VERSION="${TAG#v}"
+          FILE="levis-bin-${VERSION}-1-x86_64.pkg.tar.zst"
+          URL="https://github.com/CatVinci-Studio/Levis/releases/download/${TAG}/${FILE}"
+          curl -fsSL -o "$FILE" "$URL"
+          SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          printf '%s\n' "$ARCH_REPO_DEPLOY_KEY" > ~/.ssh/arch_repo_key
+          chmod 600 ~/.ssh/arch_repo_key
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/arch_repo_key"
+          git clone git@github.com:CatVinci-Studio/arch-repo.git
+          jq -n --arg v "${VERSION}-1" --arg url "$URL" --arg sha "$SHA" \
+            '{name: "levis-bin", version: $v, url: $url, sha256: $sha}' \
+            > arch-repo/packages/levis-bin.json
+          cd arch-repo
+          git add packages/levis-bin.json
+          if git diff --cached --quiet; then
+            echo "arch-repo already serves levis-bin ${VERSION}-1"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="github-actions[bot]@users.noreply.github.com" \
+              commit -m "levis-bin ${VERSION}-1"
+          git push

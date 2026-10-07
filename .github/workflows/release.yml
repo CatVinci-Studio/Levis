@@ -140,18 +140,18 @@ jobs:
             src-tauri/target/release/levis dist-aur
           gh release upload "$RELEASE_TAG" dist-aur/* --clobber
 
-  # Adds levis-bin and the signed [catvinci] pacman repository to the draft
-  # (see arch-repo.yml). Before publish, so the repository and the release
-  # become visible together.
-  arch-repo:
+  # Builds and tests levis-bin and attaches it to the draft (see
+  # arch-package.yml). Before publish, so a broken package keeps the whole
+  # release a draft.
+  arch-package:
     needs: release
-    uses: ./.github/workflows/arch-repo.yml
+    uses: ./.github/workflows/arch-package.yml
     with:
       tag: ${{ inputs.tag || github.ref_name }}
     secrets: inherit
 
   publish:
-    needs: [release, arch-repo]
+    needs: [release, arch-package]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -205,3 +205,15 @@ jobs:
               -c user.email="github-actions[bot]@users.noreply.github.com" \
               commit -am "levis ${VERSION}"
           git push
+
+  # Asks the [catvinci] pacman repository (CatVinci-Studio/arch-repo) to
+  # serve the levis-bin this release carries (see update-arch-repo.yml).
+  # Skipped for pre-releases, like the Homebrew cask: pacman sorts
+  # 0.9.0_rc.1 above 0.9.0.
+  update-arch-repo:
+    needs: publish
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    uses: ./.github/workflows/update-arch-repo.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+    secrets: inherit
