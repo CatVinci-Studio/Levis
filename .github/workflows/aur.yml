@@ -34,9 +34,9 @@ jobs:
       - name: Install git
         run: pacman -Syu --noconfirm --needed git
 
+      # The packaging scripts come from the commit this workflow runs at,
+      # not from the tag: a fix on main can then test an older release.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag }}
 
       - name: Build, install, upgrade and remove levis-bin
         run: |
@@ -55,6 +55,11 @@ jobs:
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
+          # pacman sorts 0.8.13_rc.1 above 0.8.13, so an rc on the AUR would
+          # block the stable release for everyone who installed it.
+          case "${{ inputs.tag }}" in
+            *-*) echo "Pre-release - not pushing to the AUR"; exit 0 ;;
+          esac
           if [ -z "$AUR_SSH_PRIVATE_KEY" ]; then
             echo "AUR_SSH_PRIVATE_KEY not set - skipping the AUR push"
             exit 0

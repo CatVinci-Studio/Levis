@@ -9,6 +9,7 @@
 set -euo pipefail
 
 version="$1"
+pkgver="${version//-/_}"
 here="$(cd "$(dirname "$0")" && pwd)"
 work=/home/builder/levis-bin
 release="https://github.com/CatVinci-Studio/Levis/releases/download/v${version}"
@@ -39,7 +40,8 @@ fi
 rm -rf "$work"
 mkdir -p "$work"
 cp "$here/PKGBUILD" "$work/"
-sed -i "s/^pkgver=.*/pkgver=${version}/; s/^pkgrel=.*/pkgrel=1/" "$work/PKGBUILD"
+sed -i "s/^pkgver=.*/pkgver=${pkgver}/; s/^_version=.*/_version=${version}/; s/^pkgrel=.*/pkgrel=1/" \
+  "$work/PKGBUILD"
 chown -R builder: "$work"
 
 as_builder "$work" updpkgsums
@@ -50,11 +52,11 @@ grep -q "sha256sums=('${expected}')" "$work/PKGBUILD" || {
 }
 as_builder "$work" 'makepkg --printsrcinfo > .SRCINFO'
 as_builder "$work" makepkg -sf --noconfirm
-pacman -U --noconfirm "$work"/levis-bin-"${version}"-1-x86_64.pkg.tar.zst
+pacman -U --noconfirm "$work"/levis-bin-"${pkgver}"-1-x86_64.pkg.tar.zst
 
 installed="$(pacman -Q levis-bin)"
-[ "$installed" = "levis-bin ${version}-1" ] || {
-  echo "expected levis-bin ${version}-1, got: $installed" >&2
+[ "$installed" = "levis-bin ${pkgver}-1" ] || {
+  echo "expected levis-bin ${pkgver}-1, got: $installed" >&2
   exit 1
 }
 if [ -n "$previous" ]; then
@@ -94,4 +96,4 @@ for f in $files; do
     exit 1
   fi
 done
-echo "levis-bin ${version}-1: all checks passed"
+echo "levis-bin ${pkgver}-1: all checks passed"

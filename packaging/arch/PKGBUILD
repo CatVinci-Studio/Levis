@@ -5,6 +5,9 @@
 # the upgrade to pacman. See packaging/arch/README.md.
 pkgname=levis-bin
 pkgver=0.8.13
+# The release version. It differs from pkgver only for a pre-release
+# (0.8.13-rc.1), because pkgver cannot contain "-".
+_version=$pkgver
 pkgrel=1
 pkgdesc="AI-native WYSIWYG Markdown editor"
 arch=('x86_64')
@@ -15,7 +18,7 @@ optdepends=('pandoc: export to more formats')
 provides=('levis')
 conflicts=('levis')
 options=('!strip' '!debug')
-source=("https://github.com/CatVinci-Studio/Levis/releases/download/v${pkgver}/Levis_${pkgver}_linux_x86_64.tar.gz")
+source=("https://github.com/CatVinci-Studio/Levis/releases/download/v${_version}/Levis_${_version}_linux_x86_64.tar.gz")
 # updpkgsums writes the real value. Do not publish SKIP to the AUR.
 sha256sums=('SKIP')
 
