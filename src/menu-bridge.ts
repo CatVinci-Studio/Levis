@@ -7,9 +7,10 @@ import type { Strings } from "./i18n/strings";
 
 export interface MenuBridgeHandlers {
   activeTabId: string;
-  /** Read fresh inside event handlers, not captured at effect-setup time -
-   *  same reason App.tsx keeps this ref (see its own comment on tabsRef). */
-  tabsRef: { readonly current: DocTab[] };
+  /** App.tsx's liveTabs: read inside event handlers, not captured at
+   *  effect-setup time, and with the editors' pending edits flushed so an
+   *  export carries what is on screen. */
+  liveTabs: () => DocTab[];
   t: Strings;
   onOpenSettings: () => void;
   onToggleTypewriter: () => void;
@@ -34,7 +35,7 @@ export interface MenuBridgeHandlers {
 export function useMenuBridge(handlers: MenuBridgeHandlers): void {
   const {
     activeTabId,
-    tabsRef,
+    liveTabs,
     t,
     onOpenSettings,
     onToggleTypewriter,
@@ -50,8 +51,7 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
   } = handlers;
 
   useEffect(() => {
-    const activeTabNow = () =>
-      tabsRef.current.find((tb) => tb.id === activeTabId);
+    const activeTabNow = () => liveTabs().find((tb) => tb.id === activeTabId);
     return unlistenAll(
       listenToThisWindow("menu-open-settings", () => onOpenSettings()),
       // Only arrives in tab mode - in window mode the Rust menu handler opens
@@ -116,7 +116,7 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
     onOpenSettings,
     onToggleTypewriter,
     onToggleSidebar,
-    tabsRef,
+    liveTabs,
     t,
   ]);
 }

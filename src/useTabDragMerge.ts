@@ -57,12 +57,15 @@ export interface DragHoverPreview {
 
 export function useTabDragMerge(opts: {
   tabsRef: MutableRefObject<DocTab[]>;
+  /** App.tsx's liveTabs - a handed-off document must carry the edit the
+   *  editor's debounce still holds, or it is lost with this window's copy. */
+  liveTabs: () => DocTab[];
   t: Strings;
   removeTab: (id: string) => void;
   setTabs: Dispatch<SetStateAction<DocTab[]>>;
   setActiveTabId: (id: string) => void;
 }) {
-  const { tabsRef, t, removeTab, setTabs, setActiveTabId } = opts;
+  const { tabsRef, liveTabs, t, removeTab, setTabs, setActiveTabId } = opts;
 
   // Set while a floating tab drag is hovering THIS window's tab row as a
   // merge target - rendered as a real-looking pill riding the cursor along
@@ -105,7 +108,7 @@ export function useTabDragMerge(opts: {
   // in the whole-window flow below, this window's very existence).
   const handleTabDetach = useCallback(
     async (id: string) => {
-      const tab = tabsRef.current.find((tb) => tb.id === id);
+      const tab = liveTabs().find((tb) => tb.id === id);
       if (!tab) return;
       try {
         await windowIpc.startFloatingTabDrag(floatingDragArgs(tab, t, false));
@@ -114,7 +117,7 @@ export function useTabDragMerge(opts: {
       }
       removeTab(id);
     },
-    [tabsRef, removeTab, t],
+    [liveTabs, removeTab, t],
   );
 
   // Single-tab windows have no tab bar to drag a pill out of (App.tsx's
@@ -154,7 +157,7 @@ export function useTabDragMerge(opts: {
       // Re-check the phase: a tick may have finished the handoff while
       // this hit test was in flight.
       if (!target || windowDragRef.current !== "watching") return;
-      const tab = tabsRef.current[0];
+      const tab = liveTabs()[0];
       if (!tab) return;
       windowDragRef.current = "handed-off";
       void windowIpc.startFloatingTabDrag(floatingDragArgs(tab, t, true));

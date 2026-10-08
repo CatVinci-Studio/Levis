@@ -15,6 +15,7 @@ import {
   commandsCtx,
   editorViewCtx,
   editorViewOptionsCtx,
+  serializerCtx,
   type CmdKey,
 } from "@milkdown/kit/core";
 import {
@@ -46,6 +47,8 @@ import {
   type Transaction,
 } from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
+import { registerEditorFlush } from "./editor-flush";
 import {
   withEditorExtensions,
   type PendingEditCallbacks,
@@ -116,6 +119,9 @@ import "./milkdown-theme.css";
 import "./content-themes.css";
 
 interface MilkdownEditorProps {
+  /** The owning tab - the key App.tsx flushes this editor under (see
+   *  editor-flush.ts). */
+  tabId: string;
   filePath: string | null;
   initialValue: string;
   onChange: (markdown: string) => void;
@@ -136,6 +142,7 @@ interface MilkdownEditorProps {
 }
 
 export function MilkdownEditor({
+  tabId,
   filePath,
   docTitle,
   initialValue,
@@ -167,6 +174,12 @@ export function MilkdownEditor({
   const isActiveRef = useLatest(isActive);
   const tutorialMockRef = useLatest(tutorialMock);
   const tRef = useLatest(t);
+  const onChangeRef = useLatest(onChange);
+  // The doc and markdown last handed to onChange (or the mount-time doc),
+  // for flushing an edit the listener's debounce still holds - see
+  // editor-flush.ts.
+  const reportedDocRef = useRef<ProseNode | null>(null);
+  const reportedMarkdownRef = useRef<string | null>(null);
 
   // The pending-edit plugin's callbacks need to exist at chain-construction
   // time below, but the real accept/reject/sync functions come from
@@ -224,7 +237,17 @@ export function MilkdownEditor({
           });
           ctx
             .get(listenerCtx)
-            .markdownUpdated((_ctx, markdown) => onChange(markdown))
+            .mounted((ctx) => {
+              reportedDocRef.current = ctx.get(editorViewCtx).state.doc;
+            })
+            // Fires just before markdownUpdated, from the same debounce.
+            .updated((_ctx, doc) => {
+              reportedDocRef.current = doc;
+            })
+            .markdownUpdated((_ctx, markdown) => {
+              reportedMarkdownRef.current = markdown;
+              onChangeRef.current(markdown);
+            })
             // Every new selection has to reach the detached chat window as a
             // fresh selection chip - that surface is defined by following
             // the user's work rather than a snapshot. Read through a ref
@@ -260,6 +283,28 @@ export function MilkdownEditor({
 
   const run = useEditorRunner();
   const { copyOrCut, paste, selectAll, insertText } = useEditorClipboard(run);
+
+  // The listener's debounce reports the same doc again later - a harmless
+  // repeat of the markdown already handed over here.
+  useEffect(
+    () =>
+      registerEditorFlush(
+        tabId,
+        () =>
+          run((ctx) => {
+            const { doc } = ctx.get(editorViewCtx).state;
+            const reported = reportedDocRef.current;
+            if (reported && !doc.eq(reported)) {
+              reportedDocRef.current = doc;
+              const markdown = ctx.get(serializerCtx)(doc);
+              reportedMarkdownRef.current = markdown;
+              onChangeRef.current(markdown);
+            }
+            return reportedMarkdownRef.current;
+          }) ?? null,
+      ),
+    [tabId, run, onChangeRef],
+  );
 
   // Transient, self-dismissing notice for on-demand AI triggers ("no issues
   // found", "not signed in", ...) - deliberately not a native alert():

@@ -16,6 +16,8 @@ import { appDrawsWindowFrame, ownsMenuAccelerators } from "./ui/window-chrome";
 import { runLocalMenuAction } from "./ui/app-menu-actions";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
+import { flushEditor } from "./editor/editor-flush";
+import { isMacPlatform } from "./utils/platform";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
@@ -125,9 +127,24 @@ function App() {
 
   // Mirrors `tabs` synchronously so callbacks (open/save/close) can read the
   // latest state without depending on - and thus re-creating - on every
-  // keystroke, the same pattern the old single-doc dirtyRef used.
+  // keystroke.
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+
+  // tabsRef with every editor's still-debounced edit pulled in (see
+  // editor-flush.ts). Anything that writes, hands off, reloads or judges
+  // dirtiness reads through this, never tabsRef directly. Patches the ref
+  // in place because the onChange the flush triggers only lands in `tabs`
+  // on the next render.
+  const liveTabs = useCallback((): DocTab[] => {
+    tabsRef.current = tabsRef.current.map((tab) => {
+      const content = flushEditor(tab.id);
+      return content === null || content === tab.content
+        ? tab
+        : { ...tab, content };
+    });
+    return tabsRef.current;
+  }, []);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
   // The tree always mirrors the active tab's folder; with no file open there
@@ -142,9 +159,6 @@ function App() {
   // editor/large-doc.ts) - close enough for a status indicator.
   const isLargeDoc = activeTab.content.length > LARGE_DOC_THRESHOLD;
   const activeDirty = tabIsDirty(activeTab);
-  const anyDirty = tabs.some(tabIsDirty);
-  const anyDirtyRef = useRef(anyDirty);
-  anyDirtyRef.current = anyDirty;
 
   // Reports this window's on-disk tab paths to Rust so a relaunch (an app
   // update, a crash, or just quitting and reopening) can restore what was
@@ -305,7 +319,7 @@ function App() {
   // has a path - File > Save As…, and the "first save of a draft" case.
   const saveTabAs = useCallback(
     async (tabId: string): Promise<boolean> => {
-      const tab = tabsRef.current.find((tb) => tb.id === tabId);
+      const tab = liveTabs().find((tb) => tb.id === tabId);
       if (!tab) return false;
       const defaultName = tab.path
         ? basename(tab.path)
@@ -350,12 +364,12 @@ function App() {
       });
       return true;
     },
-    [updateTab, t, settings.autoSuggestFilename],
+    [updateTab, liveTabs, t, settings.autoSuggestFilename],
   );
 
   const saveTab = useCallback(
     async (tabId: string): Promise<boolean> => {
-      const tab = tabsRef.current.find((tb) => tb.id === tabId);
+      const tab = liveTabs().find((tb) => tb.id === tabId);
       if (!tab) return false;
       // Draft never saved before: ask where to put it, then this document
       // graduates into a real file (the sidebar tree picks up its folder).
@@ -382,11 +396,13 @@ function App() {
       });
       return true;
     },
-    [updateTab, saveTabAs, t],
+    [updateTab, liveTabs, saveTabAs, t],
   );
 
   const toggleSourceMode = useCallback(() => {
-    const tab = tabsRef.current.find((tb) => tb.id === activeTabId);
+    // Live content: entering source mode unmounts the editor, and with it
+    // any edit its debounce still holds.
+    const tab = liveTabs().find((tb) => tb.id === activeTabId);
     if (!tab) return;
     // Keep the user's place across the switch (editor/mode-switch.ts): the
     // view being left records its caret, the one being entered places it.
@@ -403,9 +419,9 @@ function App() {
       });
     } else {
       setPendingCaret(captureEditorCaret(tab.content));
-      updateTab(activeTabId, { sourceMode: true });
+      updateTab(activeTabId, { content: tab.content, sourceMode: true });
     }
-  }, [activeTabId, updateTab]);
+  }, [activeTabId, updateTab, liveTabs]);
 
   // The source view just mounted: put the caret the editor left there.
   const activeSourceMode =
@@ -455,20 +471,21 @@ function App() {
 
   const requestCloseTab = useCallback(
     (id: string) => {
-      const tab = tabsRef.current.find((tb) => tb.id === id);
+      const tab = liveTabs().find((tb) => tb.id === id);
       if (!tab || !tabIsDirty(tab)) {
         removeTab(id);
         return;
       }
       setPendingClose({ kind: "tab", tabId: id });
     },
-    [removeTab],
+    [removeTab, liveTabs],
   );
 
   // Tabs moving BETWEEN windows, in both directions (drag out, drop in,
   // hover preview) - see useTabDragMerge.ts.
   const { dragHoverPreview, handleTabDetach } = useTabDragMerge({
     tabsRef,
+    liveTabs,
     t,
     removeTab,
     setTabs,
@@ -638,15 +655,16 @@ function App() {
   // Closing with unsaved changes swaps the native close for the
   // save/discard/cancel prompt, scoped to the whole window (every dirty tab
   // needs a decision, not just the active one). Registered once; reads
-  // dirtiness through a ref so the listener doesn't churn on every keystroke.
+  // dirtiness through liveTabs so the listener doesn't churn on every
+  // keystroke, and so an edit typed just before closing still counts.
   useEffect(() => {
     const unlisten = getCurrentWindow().onCloseRequested((event) => {
-      if (!anyDirtyRef.current) return;
+      if (!liveTabs().some(tabIsDirty)) return;
       event.preventDefault();
       setPendingClose({ kind: "window" });
     });
     return unlistenAll(unlisten);
-  }, []);
+  }, [liveTabs]);
 
   // External-change pickup: whenever this window regains focus, compare each
   // on-disk tab's live mtime against the snapshot taken at read/save time.
@@ -662,7 +680,7 @@ function App() {
         if (!focused || checking) return;
         checking = true;
         void (async () => {
-          for (const tab of tabsRef.current) {
+          for (const tab of liveTabs()) {
             if (!tab.path) continue;
             const mtime = await statMtime(tab.path);
             // Deleted or unreadable: keep the buffer as-is; Save recreates it.
@@ -678,7 +696,7 @@ function App() {
             // Re-check against the LIVE tab: the user may have started typing
             // (or the tab may be gone) while the read above was in flight, and
             // clobbering those fresh edits with disk content would lose them.
-            const live = tabsRef.current.find((tb) => tb.id === tab.id);
+            const live = liveTabs().find((tb) => tb.id === tab.id);
             if (!live || tabIsDirty(live)) continue;
             updateTab(tab.id, {
               content,
@@ -693,14 +711,14 @@ function App() {
       },
     );
     return unlistenAll(unlisten);
-  }, [updateTab]);
+  }, [updateTab, liveTabs]);
 
   // Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help
   // action the frontend owns arrives here as a window event; see
   // menu-bridge.ts for the actual subscriptions.
   useMenuBridge({
     activeTabId,
-    tabsRef,
+    liveTabs,
     t,
     onOpenSettings: () => setSettingsOpen(true),
     onToggleTypewriter: () =>
@@ -739,7 +757,7 @@ function App() {
     if (action.kind === "window") {
       // Whole window: save every dirty tab, aborting (leaving the window
       // open) if any of them hits a cancelled Save As.
-      for (const tab of tabsRef.current) {
+      for (const tab of liveTabs()) {
         if (!tabIsDirty(tab)) continue;
         const ok = await saveTab(tab.id);
         if (!ok) {
@@ -758,7 +776,14 @@ function App() {
       if (!(await saveTab(action.tabId))) return;
       await replaceTabWithFile(action.tabId, action.path);
     }
-  }, [pendingClose, saveTab, removeTab, replaceTabWithFile, clearWindowDrafts]);
+  }, [
+    pendingClose,
+    saveTab,
+    removeTab,
+    replaceTabWithFile,
+    clearWindowDrafts,
+    liveTabs,
+  ]);
 
   const closeDiscarding = useCallback(async () => {
     const action = pendingClose;
@@ -878,7 +903,10 @@ function App() {
             onActivate={setActiveTabId}
             onClose={requestCloseTab}
             onAdd={addBlankTab}
-            onDetach={handleTabDetach}
+            // Tear-off needs global cursor and window positions - macOS
+            // only (tab_drag.rs); on Linux, and above all under Wayland,
+            // the drag could only fail and cancel the reorder with it.
+            onDetach={isMacPlatform() ? handleTabDetach : undefined}
             onReorder={reorderTab}
             previewTab={dragHoverPreview}
           />
@@ -904,6 +932,7 @@ function App() {
             ) : (
               <EditorPane
                 key={`${tab.id}-${tab.reloadKey}`}
+                tabId={tab.id}
                 filePath={tab.path}
                 docTitle={tabTitle(tab, t)}
                 initialValue={tab.content}

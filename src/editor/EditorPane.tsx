@@ -7,6 +7,8 @@ const MilkdownEditor = lazy(() =>
 );
 
 interface EditorPaneProps {
+  /** See MilkdownEditor: the owning tab, for editor-flush.ts. */
+  tabId: string;
   filePath: string | null;
   initialValue: string;
   onChange: (markdown: string) => void;
@@ -21,6 +23,7 @@ interface EditorPaneProps {
 }
 
 export function EditorPane({
+  tabId,
   filePath,
   docTitle,
   initialValue,
@@ -42,6 +45,7 @@ export function EditorPane({
         <Suspense fallback={null}>
           <MilkdownProvider key={editorKey}>
             <MilkdownEditor
+              tabId={tabId}
               filePath={filePath}
               docTitle={docTitle}
               initialValue={initialValue}
