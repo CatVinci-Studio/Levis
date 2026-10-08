@@ -1,6 +1,6 @@
 import type { Strings } from "../i18n/strings";
 
-export type TutorialSectionId = "markdown" | "ai";
+type TutorialSectionId = "markdown" | "ai";
 
 export type TutorialStepId =
   | "welcome"

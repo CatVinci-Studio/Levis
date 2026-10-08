@@ -153,7 +153,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 // Replaces every asset: image in `html` with a data URL, so a render in a
 // webview that has no asset protocol (the macOS PDF path) still shows it.
 // An image that can't be read is left as-is rather than failing the export.
-export async function inlineImages(html: string): Promise<string> {
+async function inlineImages(html: string): Promise<string> {
   const template = document.createElement("template");
   template.innerHTML = html;
   const local = Array.from(
@@ -174,7 +174,7 @@ export async function inlineImages(html: string): Promise<string> {
 
 // Wraps serialized editor content in a full themed document. `layoutCss` frees
 // it from the app's fixed-viewport layout (each export tunes its own page).
-export function buildStandaloneHtml(
+function buildStandaloneHtml(
   base: string,
   contentHtml: string,
   layoutCss: string,
@@ -236,7 +236,7 @@ const EXPORT_FIT_CSS =
 // off each page seam. Without one (Linux, where WebKitGTK's print geometry
 // isn't pinned down) the page gets a real @page margin: text stays clear of
 // the seams, at the cost of plain margins on a tinted theme.
-export function pdfLayoutCss(page: PageGeometry | null): string {
+function pdfLayoutCss(page: PageGeometry | null): string {
   const side = Math.round((page?.width ?? 595) * 0.094);
   return (
     ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +

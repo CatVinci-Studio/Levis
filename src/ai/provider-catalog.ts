@@ -34,14 +34,14 @@ export interface ProviderCatalogEntry {
   knownModels: string[];
 }
 
-export function fetchProviderCatalog(): Promise<ProviderCatalogEntry[]> {
+function fetchProviderCatalog(): Promise<ProviderCatalogEntry[]> {
   return ai.listProviders();
 }
 
 /// Mirrors the Rust catalog's static entries (src-tauri/src/ai/catalog.rs) -
 /// used as the initial render and as the dev-shim fallback, where
 /// `invoke("list_providers")` resolves to `null` instead of the real list.
-export const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
+const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
   {
     id: "openai",
     label: "OpenAI",

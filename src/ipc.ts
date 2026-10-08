@@ -250,7 +250,7 @@ export interface CustomEndpointConfig {
 /** Provider ids with an OAuth flow and their command names - dynamic
  *  dispatch (not a fixed per-provider function) because the picker iterates
  *  the catalog and looks these up by provider id. */
-export const OAUTH_COMMANDS: Record<
+const OAUTH_COMMANDS: Record<
   string,
   { status: string; login: string; logout: string }
 > = {

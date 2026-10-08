@@ -15,7 +15,7 @@ const MAX_CONTEXT_CHARS = 2000;
 // prompt.
 const MAX_AFTER_CONTEXT_CHARS = 500;
 
-export const ghostTextKey = new PluginKey("ghost-text");
+const ghostTextKey = new PluginKey("ghost-text");
 
 /**
  * The completion context, split at the cursor - the model is told to write

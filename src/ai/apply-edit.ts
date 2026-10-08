@@ -9,7 +9,7 @@ import { parseMarkdownSource } from "../editor/parse-markdown-source";
  * and land verbatim in the document. Rewrite them to "-" so lists arrive as
  * lists. Shared by every path that writes an AI reply into the document.
  */
-export function normalizeAiMarkdown(text: string): string {
+function normalizeAiMarkdown(text: string): string {
   return text.replace(/^(\s*)[•●◦·]\s+/gm, "$1- ");
 }
 

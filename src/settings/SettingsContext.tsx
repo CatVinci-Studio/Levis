@@ -100,12 +100,6 @@ export const COMPLETION_TONES: CompletionTone[] = [
 
 export type GrammarStrictness = "typos" | "standard" | "strict";
 
-export const GRAMMAR_STRICTNESS_LEVELS: GrammarStrictness[] = [
-  "typos",
-  "standard",
-  "strict",
-];
-
 /// A user-imported (Typora-style) theme. The actual CSS lives on disk under
 /// the app's theme directory (see ../utils/theme-import and the Rust
 /// save_theme_css/load_theme_css commands) - only small metadata is kept

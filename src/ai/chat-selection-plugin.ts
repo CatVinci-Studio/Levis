@@ -11,9 +11,7 @@ interface ChatSelectionState {
   decoration: DecorationSet;
 }
 
-export const chatSelectionKey = new PluginKey<ChatSelectionState>(
-  "chat-selection",
-);
+const chatSelectionKey = new PluginKey<ChatSelectionState>("chat-selection");
 
 /** Highlight or clear the chat-context selection - dispatched by
  *  MilkdownEditor whenever `useInlineChat`'s captured range appears or the

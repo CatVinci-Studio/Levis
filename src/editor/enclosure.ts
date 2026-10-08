@@ -79,12 +79,12 @@ export function isEnclosureName(name: string): boolean {
   return ENCLOSURE_NODES.has(name);
 }
 
-export function isEnclosure(node: ProseNode): boolean {
+function isEnclosure(node: ProseNode): boolean {
   return ENCLOSURE_NODES.has(node.type.name);
 }
 
 /** The literal delimiter text an enclosure node's syntax is rendered as. */
-export function enclosureDelimText(node: ProseNode): string {
+function enclosureDelimText(node: ProseNode): string {
   if (node.type.name === "math_inline") return "$";
   if (node.type.name === "math_block") return "$$";
   return spanDelimText(node);
@@ -398,7 +398,7 @@ export interface ArrowMove {
  * us instead (see the module doc comment on why WKWebView can't be trusted
  * to land there on its own).
  */
-export function computeArrowRight(state: EditorState): ArrowMove | null {
+function computeArrowRight(state: EditorState): ArrowMove | null {
   const sel = state.selection;
   if (!sel.empty) return null;
   const $pos = sel.$from;
@@ -440,7 +440,7 @@ export function computeArrowRight(state: EditorState): ArrowMove | null {
 }
 
 /** Mirror of computeArrowRight - see its comment for the phase reasoning. */
-export function computeArrowLeft(state: EditorState): ArrowMove | null {
+function computeArrowLeft(state: EditorState): ArrowMove | null {
   const sel = state.selection;
   if (!sel.empty) return null;
   const $pos = sel.$from;
@@ -494,7 +494,7 @@ export type DeleteAction =
  * "delete opening delimiter" case - their multi-line source doesn't unwrap
  * into a paragraph sensibly, so they keep the block-level default instead.
  */
-export function computeBackspace(state: EditorState): DeleteAction | null {
+function computeBackspace(state: EditorState): DeleteAction | null {
   const sel = state.selection;
   if (!sel.empty) return null;
   const $pos = sel.$from;
@@ -522,7 +522,7 @@ export function computeBackspace(state: EditorState): DeleteAction | null {
 }
 
 /** Mirror of computeBackspace, deleting to the right instead of the left. */
-export function computeDelete(state: EditorState): DeleteAction | null {
+function computeDelete(state: EditorState): DeleteAction | null {
   const sel = state.selection;
   if (!sel.empty) return null;
   const $pos = sel.$from;
@@ -566,7 +566,7 @@ export function computeDelete(state: EditorState): DeleteAction | null {
  * delimiters are synthesized decorations with no real character of their
  * own to anchor a selection endpoint just inside them).
  */
-export function computeRangeDeleteInEnclosure(
+function computeRangeDeleteInEnclosure(
   state: EditorState,
 ): { node: ProseNode; nodeStart: number } | null {
   const sel = state.selection;

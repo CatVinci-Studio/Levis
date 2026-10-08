@@ -3,7 +3,7 @@ import { useModalDialog } from "../ui/useModalDialog";
 import type { TutorialStepId } from "./tutorial-steps";
 import "./TutorialOverlay.css";
 
-export interface TutorialOverlayLabels {
+interface TutorialOverlayLabels {
   back: string;
   collapse?: string;
   expand?: string;
@@ -25,7 +25,7 @@ export interface TutorialChecklistItem {
   onSkip?: () => void;
 }
 
-export interface TutorialSectionNavItem {
+interface TutorialSectionNavItem {
   label: string;
   active: boolean;
   done: boolean;

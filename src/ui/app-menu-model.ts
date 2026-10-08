@@ -61,7 +61,7 @@ type NativeMenuId =
 export type LocalMenuAction =
   "undo" | "redo" | "cut" | "copy" | "paste" | "select-all" | "fullscreen";
 
-export type MenuAction = { native: NativeMenuId } | { local: LocalMenuAction };
+type MenuAction = { native: NativeMenuId } | { local: LocalMenuAction };
 
 export interface MenuEntry {
   label: string;

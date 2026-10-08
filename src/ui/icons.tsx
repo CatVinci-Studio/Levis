@@ -78,7 +78,7 @@ export function FolderOpenIcon({ className }: IconProps) {
   );
 }
 
-export function MarkdownFileIcon({ className }: IconProps) {
+function MarkdownFileIcon({ className }: IconProps) {
   return (
     <svg
       className={className}

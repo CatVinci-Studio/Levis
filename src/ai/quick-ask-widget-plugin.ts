@@ -11,7 +11,7 @@ interface QuickAskState {
   decoration: DecorationSet;
 }
 
-export const quickAskKey = new PluginKey<QuickAskState>("quick-ask-widget");
+const quickAskKey = new PluginKey<QuickAskState>("quick-ask-widget");
 
 /** Shows the panel's widget after document position `pos` (MilkdownEditor,
  *  on open) - or hides it (close, or hide-for-detach). */

@@ -113,7 +113,7 @@ export interface ChatBodyProps {
 }
 
 /** The Quick Ask nav bar's whole contract - see ChatBodyProps.quickReview. */
-export interface QuickReview {
+interface QuickReview {
   /** 0-based position of the currently focused edit, or -1 if none. */
   focusIndex: number;
   onFocusNext: () => void;
