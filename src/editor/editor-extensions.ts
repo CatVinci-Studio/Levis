@@ -26,6 +26,7 @@ import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
 import { formatShortcutPlugin } from "./format-shortcut-plugin";
 import { enclosurePlugin } from "./enclosure";
 import { linuxImeEnterPlugin } from "./linux-ime-enter-plugin";
+import { configureMarkdownOutput } from "./markdown-output";
 import {
   remarkMathPlugin,
   mathInlineSchema,
@@ -105,6 +106,8 @@ export function withEditorExtensions(
 ): Editor {
   return (
     editor
+      // How saved markdown is written (markdown-output.ts).
+      .config(configureMarkdownOutput)
       .use(macNavigationPlugin)
       .use(linuxImeEnterPlugin)
       // Markdown baseline: commonmark/GFM with bold/italic/strike marks
