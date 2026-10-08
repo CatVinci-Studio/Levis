@@ -69,7 +69,7 @@
   --editor-code-bg: #eef1f5;
   --editor-font:
     -apple-system, "Inter", "PingFang SC", "Noto Sans CJK SC",
-    "Noto Sans CJK JP", sans-serif;
+    "Source Han Sans SC", "Noto Sans CJK JP", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -106,7 +106,7 @@
   --editor-code-bg: #e9efe3;
   --editor-font:
     -apple-system, "Inter", "PingFang SC", "Noto Sans CJK SC",
-    "Noto Sans CJK JP", sans-serif;
+    "Source Han Sans SC", "Noto Sans CJK JP", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -142,8 +142,8 @@
   --editor-accent: #8c3a2b;
   --editor-code-bg: #e8dab0;
   --editor-font:
-    "Bradley Hand", "Segoe Script", "STKaiti", "Kaiti SC", "楷体", cursive,
-    serif;
+    "Bradley Hand", "Segoe Script", "STKaiti", "Kaiti SC", "楷体",
+    "LXGW WenKai", "AR PL UKai CN", cursive, serif;
 }
 
 @media (prefers-color-scheme: dark) {

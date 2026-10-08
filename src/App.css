@@ -1,8 +1,14 @@
 @import "./ui/design-system.css";
 
 :root {
+  /* "Noto Sans CJK SC" / "Source Han Sans SC" are what Linux distributions
+     install (Arch's noto-fonts-cjk, adobe-source-han-sans); "Noto Sans SC"
+     is only the Google Fonts name. Without a CJK family named here, Chinese
+     falls through to fontconfig's per-glyph fallback, which can land on a
+     face with no bold. */
   --font-sans:
-    -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", Inter,
+    -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC",
+    "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", Inter,
     system-ui, sans-serif;
 
   color-scheme: light;
@@ -29,12 +35,13 @@
   color: var(--editor-text);
   background-color: var(--bg);
   font-family: var(--font-sans);
-  /* `style` (not `none`) so *emphasis* on CJK text synthesizes an oblique:
-     PingFang/Noto CJK ship no italic face, and without synthesis <em> on
-     Chinese/Japanese renders upright. Weight synthesis stays off (CJK fonts
-     have real bold), and Latin system fonts have real italics so nothing is
-     faux-slanted there. */
-  font-synthesis: style;
+  /* Synthesis only kicks in for a face that lacks the requested style, so
+     fonts with real bold/italics are never faked. `style`: PingFang/Noto
+     CJK ship no italic face, and without it <em> on Chinese/Japanese
+     renders upright. `weight`: plenty of Linux CJK fonts (WenQuanYi, most
+     Kai/Song faces, fontconfig fallback picks) ship a single weight, and
+     without it **bold** Chinese renders regular. */
+  font-synthesis: weight style;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
