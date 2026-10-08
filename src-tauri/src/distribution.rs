@@ -20,7 +20,10 @@ const DISTRIBUTION: &str = match option_env!("LEVIS_DISTRIBUTION") {
 // build that still updates itself. Fail the build instead.
 const _: () = {
     let ok = matches!(DISTRIBUTION.as_bytes(), b"direct" | b"homebrew" | b"aur");
-    assert!(ok, "LEVIS_DISTRIBUTION must be one of: direct, homebrew, aur");
+    assert!(
+        ok,
+        "LEVIS_DISTRIBUTION must be one of: direct, homebrew, aur"
+    );
 };
 
 #[tauri::command]
