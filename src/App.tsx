@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
@@ -150,9 +157,12 @@ function App() {
   // The tree always mirrors the active tab's folder; with no file open there
   // is nothing to show.
   const rootPath = activeTab.path ? dirname(activeTab.path) : null;
+  // Deferred: a whole-document count on every edit would otherwise sit in
+  // the same render as the edit itself; the status bar can lag a beat.
+  const deferredContent = useDeferredValue(activeTab.content);
   const wordCount = useMemo(
-    () => countWords(activeTab.content),
-    [activeTab.content],
+    () => countWords(deferredContent),
+    [deferredContent],
   );
   // A markdown-string-length proxy for the same threshold the editor
   // plugins check against the live ProseMirror doc size (see
@@ -936,7 +946,7 @@ function App() {
                 filePath={tab.path}
                 docTitle={tabTitle(tab, t)}
                 initialValue={tab.content}
-                onChange={(md) => handleChange(tab.id, md)}
+                onChange={handleChange}
                 isActive={tab.id === activeTabId}
                 tutorialMock={tutorial.active && tab.id === tutorial.tabId}
               />

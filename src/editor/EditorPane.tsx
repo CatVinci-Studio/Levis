@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, memo, Suspense, useCallback } from "react";
 import { MilkdownProvider } from "@milkdown/react";
 import { useSettings } from "../settings/SettingsContext";
 
@@ -10,8 +10,12 @@ interface EditorPaneProps {
   /** See MilkdownEditor: the owning tab, for editor-flush.ts. */
   tabId: string;
   filePath: string | null;
+  /** Read once, at mount (a reload remounts via the key in App.tsx), so
+   *  changes alone don't re-render the pane - see `sameProps` below. */
   initialValue: string;
-  onChange: (markdown: string) => void;
+  /** Stable across renders (App's handleChange): it takes the tab id rather
+   *  than closing over it, so memo isn't defeated by a fresh arrow. */
+  onChange: (tabId: string, markdown: string) => void;
   /** See MilkdownEditor: the tab's display name, for the chat window title. */
   docTitle: string;
   /** See MilkdownEditor: whether this is the tab the user is looking at. */
@@ -22,7 +26,19 @@ interface EditorPaneProps {
    * writing action and must not trigger contextual onboarding bubbles. */
 }
 
-export function EditorPane({
+/**
+ * Every edit lands in App's `tabs` state and re-renders App, which used to
+ * re-render every open tab's editor, hidden ones included, after each
+ * typing pause. Only `initialValue` changes on an edit, and the editor
+ * never reads it after mounting, so it is the one prop left out here.
+ */
+function sameProps(prev: EditorPaneProps, next: EditorPaneProps): boolean {
+  return (Object.keys(next) as (keyof EditorPaneProps)[]).every(
+    (key) => key === "initialValue" || prev[key] === next[key],
+  );
+}
+
+export const EditorPane = memo(function EditorPane({
   tabId,
   filePath,
   docTitle,
@@ -36,6 +52,10 @@ export function EditorPane({
   // (or between two different files) always remounts with a fresh document.
   const editorKey = filePath ?? "untitled";
   const { settings } = useSettings();
+  const handleChange = useCallback(
+    (markdown: string) => onChange(tabId, markdown),
+    [onChange, tabId],
+  );
 
   return (
     <div className="editor-scroll">
@@ -49,7 +69,7 @@ export function EditorPane({
               filePath={filePath}
               docTitle={docTitle}
               initialValue={initialValue}
-              onChange={onChange}
+              onChange={handleChange}
               isActive={isActive}
               tutorialMock={tutorialMock}
             />
@@ -58,4 +78,4 @@ export function EditorPane({
       </div>
     </div>
   );
-}
+}, sameProps);
