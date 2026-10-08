@@ -86,7 +86,7 @@ code to serve one caller usually means the fix is at the wrong depth.
 
 ## Tests
 
-175 tests: 104 frontend (vitest), 43 in the app crate, 28 in `aicompat`. They
+Three suites - frontend (vitest), the app crate, and `aicompat`. They
 cluster into four kinds - see `docs/TESTING.md` for the full map and for what
 is deliberately _not_ covered.
 

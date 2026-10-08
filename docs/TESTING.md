@@ -1,10 +1,10 @@
 # Testing map
 
-199 tests, in three suites. Run all of them with:
+Three suites. Run all of them with:
 
 ```sh
-npm run check                                       # 128 frontend (vitest)
-cd src-tauri && cargo test --workspace              # 43 app crate + 28 aicompat
+npm run check                                       # frontend (vitest)
+cd src-tauri && cargo test --workspace              # app crate + aicompat
 ```
 
 ## What is covered, by kind
@@ -12,7 +12,7 @@ cd src-tauri && cargo test --workspace              # 43 app crate + 28 aicompat
 The suites divide by _what kind of mistake they catch_, which is more useful
 than dividing by file.
 
-### 1. Text and position algebra — 45 tests
+### 1. Text and position algebra
 
 The largest group, and the one most worth having: this is where a bug is
 silent and destroys the user's document.
@@ -25,7 +25,7 @@ silent and destroys the user's document.
 | `ai/text-locate`        | 6     | Locating plain text inside a block for the strike range.                                                                       |
 | `ai/chat/user-message`  | 7     | The `<selected-text>`/`<attached-file>` wire format, **round-tripped through the writer** - three places used to hand-roll it. |
 
-### 2. Wire formats and provider dialects — 28 tests (`aicompat`)
+### 2. Wire formats and provider dialects (`aicompat`)
 
 Every one of these fails as an opaque HTTP 400 if it regresses, so they are
 pinned rather than trusted.
@@ -40,7 +40,7 @@ pinned rather than trusted.
 - `openai_codex::usable_model` — a model saved under one auth method is a
   hard 400 under another.
 
-### 3. Backend rules — 43 tests (app crate)
+### 3. Backend rules (app crate)
 
 | Module                  | Tests | Catches                                                                                                                                                                            |
 | ----------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -51,7 +51,7 @@ pinned rather than trusted.
 | `ai::agent`             | 5     | Long-document truncation with char-boundary safety.                                                                                                                                |
 | `ai::tools`             | 3     | `propose_edit` anchor validation.                                                                                                                                                  |
 
-### 4. Frontend state and rendering — 83 tests
+### 4. Frontend state and rendering
 
 - `settings/SettingsContext` (9) — settings migration. Notably: a rejected
   value must not discard the rest of the blob.
