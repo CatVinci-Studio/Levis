@@ -1,4 +1,9 @@
-/* Layout tokens for the writing area. Every block's outer rhythm comes
+/* What makes the editor work: carets, list markers, previews, AI
+   decorations, resize handles, table layout. How document elements LOOK
+   lives in content-base.css, in a cascade layer imported themes can
+   override; nothing here should be restyled away by a theme.
+
+   Layout tokens for the writing area. Every block's outer rhythm comes
    from these, so blocks sit on one consistent scale instead of each
    picking its own em literal:
    - --md-gap: between prose blocks (paragraphs, lists);
@@ -483,77 +488,6 @@
   text-align: center;
 }
 
-.milkdown h1,
-.milkdown h2,
-.milkdown h3,
-.milkdown h4 {
-  font-weight: 650;
-  line-height: 1.3;
-  /* In the heading's own em, so a larger heading takes proportionally more
-     air above it; less below, so it binds to the text it introduces. */
-  margin: 1.5em 0 0.55em;
-}
-
-/* A document (or a quote, list item, cell) shouldn't open with a gap. */
-.milkdown .ProseMirror > :first-child,
-.milkdown blockquote > :first-child,
-.milkdown li > :first-child,
-.milkdown td > :first-child,
-.milkdown th > :first-child {
-  margin-top: 0;
-}
-
-.milkdown blockquote > :last-child,
-.milkdown li > :last-child,
-.milkdown td > :last-child,
-.milkdown th > :last-child {
-  margin-bottom: 0;
-}
-
-.milkdown h1 {
-  font-size: 1.9em;
-}
-
-.milkdown h2 {
-  font-size: 1.5em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--editor-border);
-}
-
-.milkdown h3 {
-  font-size: 1.25em;
-  padding-left: 0.6em;
-  border-left: 4px solid var(--editor-accent);
-}
-
-.milkdown h4 {
-  font-size: 1.1em;
-}
-
-.milkdown h4::before {
-  content: "";
-  display: inline-block;
-  width: 0.4em;
-  height: 0.4em;
-  margin-right: 0.5em;
-  border-radius: 50%;
-  background: var(--editor-accent);
-  vertical-align: middle;
-}
-
-.milkdown p {
-  margin: var(--md-gap) 0;
-}
-
-.milkdown blockquote {
-  margin: var(--md-gap-box) 0;
-  padding: 0.75em 1.1em;
-  border-left: 3px solid var(--editor-quote-border);
-  border-radius: 0 var(--md-radius) var(--md-radius) 0;
-  background: var(--editor-code-bg);
-  color: var(--editor-muted);
-}
-
 /* GitHub-style alerts (github-alert-plugin.ts): a blockquote led by
    [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION] gets the
    matching accent on its border and a badge in place of the marker.
@@ -604,42 +538,8 @@
   display: none;
 }
 
-.milkdown a {
-  color: var(--editor-accent);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.milkdown a:hover {
-  text-decoration: underline;
-}
-
-.milkdown hr {
-  margin: calc(var(--md-gap-box) * 1.5) 0;
-  height: 0;
-  border: none;
-  border-top: 2px solid var(--editor-accent);
-  opacity: 0.6;
-}
-
-.milkdown code {
-  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
-  font-variant-ligatures: normal;
-  font-feature-settings:
-    "liga" 1,
-    "calt" 1;
-  font-size: 0.9em;
-  background: var(--editor-code-bg);
-  padding: 0.1em 0.35em;
-  border-radius: var(--md-radius-sm);
-}
-
 .code-block-wrapper {
   position: relative;
-  background: var(--editor-code-bg);
-  border: 1px solid var(--editor-border);
-  border-radius: var(--md-radius);
-  margin: var(--md-gap-box) 0;
   overflow: hidden;
 }
 
@@ -683,38 +583,18 @@
   color: var(--editor-text);
 }
 
-/* Size and line height live on the <pre>, not just its <code>: the pre's
-   own line box (its strut) is what each line is at least as tall as, so
-   leaving it at the prose 1.8 kept code double-spaced whatever the code
-   element said. */
-.milkdown pre {
-  font-size: 0.9em;
-  line-height: 1.55;
-  padding: 0.95em 1.1em;
-  margin: 0;
-  overflow-x: auto;
-}
-
-.milkdown pre code {
-  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
-  font-variant-ligatures: normal;
-  font-feature-settings:
-    "liga" 1,
-    "calt" 1;
-  font-size: 1em;
+/* Typora themes style inline code as `#write code`, which beats
+   content-base.css's layered `.milkdown pre code` and would put a pill
+   background and padding on every line of a code block; in Typora itself a
+   block's text is never a <code>. Unlayered, same id weight, one element
+   more. */
+#write pre > code {
   background: none;
   padding: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  /* .milkdown code (above) sets font-size: 0.9em for inline code, and
-     nothing here overrode line-height for the block case - so it kept
-     inheriting .milkdown's prose-tuned 1.8, which produces a line box
-     roughly twice the smaller monospace glyphs' own height. The native
-     caret sizes itself to that line box, so it rendered visibly oversized
-     next to the code text (most obvious on an empty line, with no glyph to
-     compare it against). Inherits the pre's code-editor spacing. */
-  line-height: inherit;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* Syntax highlighting tokens (via refractor/Prism token classes) */
@@ -882,19 +762,6 @@
   top: 0.75em;
 }
 
-/* The vertical rhythm of a list. Every item's content is a paragraph
-   (list_item content is "paragraph block*"), so without this rule each row
-   carries .milkdown p's prose margin and a list reads as a stack of
-   separate paragraphs. Rows sit tighter than prose by default;
-   --editor-list-gap is the theme hook (see the levis-theme skill's
-   variable table). Nested ul/ol are included because their UA margin
-   (1em) is what makes the step into a sublist read wide. */
-.milkdown li > p,
-.milkdown li > ul,
-.milkdown li > ol {
-  margin: var(--editor-list-gap, 0.4em) 0;
-}
-
 .milkdown li[data-item-type="task"] {
   list-style: none;
   position: relative;
@@ -938,10 +805,6 @@
 }
 
 .milkdown table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: var(--md-gap-box) 0;
-  font-size: 0.95em;
   /* Fixed layout so the <colgroup> widths written by column resizing (see
      table-hover-view.ts) actually take effect; a resized table renders exactly
      the per-column widths dragged. */
@@ -950,8 +813,6 @@
 
 .milkdown th,
 .milkdown td {
-  padding: 0.5em 0.8em;
-  border: 1px solid var(--editor-border);
   /* Positioning context for the column-resize handle below. */
   position: relative;
 }
@@ -971,10 +832,6 @@
 
 .ProseMirror.resize-cursor {
   cursor: col-resize;
-}
-
-.milkdown thead th {
-  text-align: left;
 }
 
 /* table-hover-view.ts wraps the table in this to anchor the add-row/

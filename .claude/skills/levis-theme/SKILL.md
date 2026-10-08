@@ -134,6 +134,23 @@ base URL, so nothing relative would resolve.
 specifically so community Typora themes apply without rewriting. Content also
 sits under `.milkdown`. Target `#write` for Typora compatibility.
 
+**Why a plain `blockquote {}` wins.** How document elements look (headings,
+quotes, links, rules, code, list rhythm, tables) lives in
+`src/editor/content-base.css`, inside `@layer levis-content`. Unlayered CSS
+beats layered CSS regardless of specificity, so an imported theme's bare
+element selectors override the built-in look. What makes the editor _work_
+(list markers, carets, previews, table layout and resize handles) stays
+unlayered in `milkdown-theme.css` so a theme can't break it. While an imported
+theme is active, `<html>` carries `data-user-theme` and Levis's own ornaments
+(h2 rule, h3 bar, h4 dot, tinted quote, accent hr) switch off, so a theme
+looks the way it does in Typora. A new built-in _look_ rule belongs in
+`content-base.css`; a new _behaviour_ rule in `milkdown-theme.css`.
+
+**DOM differences bridged on import.** Code blocks carry Typora's
+`md-fences` class. Milkdown has no `<thead>` (the header row is a
+`<tr data-is-header>` in `<tbody>`), so `src/settings/typora-compat.ts`
+rewrites `thead` selectors when the theme is applied.
+
 **Imports are single-file**: `hasDark` is `false` for anything imported through
 the UI, so the same stylesheet is used in both appearances - which is the right
 behaviour for a one-design theme (see the rule above). The data model supports

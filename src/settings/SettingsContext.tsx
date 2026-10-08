@@ -15,6 +15,7 @@ import {
 } from "../i18n/strings";
 import { ai, prefs, themes } from "../ipc";
 import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
+import { adaptTyporaCss } from "./typora-compat";
 
 /// Light/dark, orthogonal to which content theme is selected: `themeId`
 /// picks the palette, this picks which of its two forms is shown. Every
@@ -479,6 +480,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     function clearInjectedStyle() {
       document.getElementById(STYLE_ID)?.remove();
+      root.removeAttribute("data-user-theme");
       clearThemeChrome();
     }
 
@@ -505,6 +507,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
 
     root.removeAttribute("data-content-theme");
+    // Turns Levis's own content ornaments off (content-base.css): an
+    // imported theme should look the way it does in Typora.
+    root.setAttribute("data-user-theme", "");
     let cancelled = false;
     let revision = 0;
     const theme = userTheme;
@@ -525,7 +530,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           styleEl = document.createElement("style");
           styleEl.id = STYLE_ID;
         }
-        styleEl.textContent = css ?? "";
+        styleEl.textContent = adaptTyporaCss(css ?? "");
         document.head.appendChild(styleEl);
         // The user's own CSS stays after the theme, whenever it loads.
         const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);

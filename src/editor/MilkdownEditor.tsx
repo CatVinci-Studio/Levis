@@ -111,6 +111,7 @@ import type { EditProposal } from "../ai/types";
 import { Milkdown, useEditor } from "@milkdown/react";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "katex/dist/katex.min.css";
+import "./content-base.css";
 import "./milkdown-theme.css";
 import "./content-themes.css";
 

@@ -44,7 +44,9 @@ export const codeBlockLanguageView = $view(
   codeBlockSchema.node,
   () => (node, view, getPos) => {
     const wrapper = document.createElement("div");
-    wrapper.className = "code-block-wrapper";
+    // md-fences: Typora's class for a code block, so imported Typora
+    // themes' code-block rules reach it (see settings/typora-compat.ts).
+    wrapper.className = "code-block-wrapper md-fences";
 
     const header = document.createElement("div");
     header.className = "code-block-header";

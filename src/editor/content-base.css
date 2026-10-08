@@ -1,0 +1,215 @@
+/* How document elements look - headings, paragraphs, quotes, links, rules,
+   code, list rhythm, tables - kept apart from milkdown-theme.css, which
+   holds what makes the editor WORK (carets, markers, previews, resize
+   handles, table layout).
+
+   All of it sits in a cascade layer. Unlayered CSS beats layered CSS
+   whatever the selectors, so an imported Typora theme's plain
+   `blockquote {}` or `table td {}` now wins over the `.milkdown blockquote`
+   here instead of losing on specificity (#13), and so does the user's own
+   custom CSS. The functional rules stay unlayered on purpose: a theme
+   restyling a list must not be able to break its numbering or the caret.
+
+   Two tiers inside the layer. The plain rules are a neutral base, close to
+   Typora's own base.css, that every theme builds on. The
+   `:not([data-user-theme])` rules are Levis's own ornaments - the h2 rule,
+   the h3 bar, the h4 dot, the tinted quote - which an imported theme never
+   asked for: a theme that styles h3's colour but says nothing of borders
+   would otherwise keep Levis's accent bar. SettingsContext sets
+   data-user-theme while an imported theme is active. */
+
+@layer levis-content {
+  .milkdown h1,
+  .milkdown h2,
+  .milkdown h3,
+  .milkdown h4 {
+    font-weight: 650;
+    line-height: 1.3;
+    /* In the heading's own em, so a larger heading takes proportionally
+       more air above it; less below, so it binds to the text it
+       introduces. */
+    margin: 1.5em 0 0.55em;
+  }
+
+  /* A document (or a quote, list item, cell) shouldn't open with a gap. */
+  .milkdown .ProseMirror > :first-child,
+  .milkdown blockquote > :first-child,
+  .milkdown li > :first-child,
+  .milkdown td > :first-child,
+  .milkdown th > :first-child {
+    margin-top: 0;
+  }
+
+  .milkdown blockquote > :last-child,
+  .milkdown li > :last-child,
+  .milkdown td > :last-child,
+  .milkdown th > :last-child {
+    margin-bottom: 0;
+  }
+
+  .milkdown h1 {
+    font-size: 1.9em;
+  }
+
+  .milkdown h2 {
+    font-size: 1.5em;
+  }
+
+  .milkdown h3 {
+    font-size: 1.25em;
+  }
+
+  .milkdown h4 {
+    font-size: 1.1em;
+  }
+
+  .milkdown p {
+    margin: var(--md-gap) 0;
+  }
+
+  .milkdown blockquote {
+    margin: var(--md-gap-box) 0;
+    padding: 0 1em;
+    border-left: 4px solid var(--editor-border);
+    color: var(--editor-muted);
+  }
+
+  .milkdown a {
+    color: var(--editor-accent);
+    text-decoration: none;
+  }
+
+  .milkdown a:hover {
+    text-decoration: underline;
+  }
+
+  .milkdown hr {
+    margin: calc(var(--md-gap-box) * 1.5) 0;
+    height: 0;
+    border: none;
+    border-top: 1px solid var(--editor-border);
+  }
+
+  .milkdown code {
+    font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-variant-ligatures: normal;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1;
+    font-size: 0.9em;
+    background: var(--editor-code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: var(--md-radius-sm);
+  }
+
+  .code-block-wrapper {
+    background: var(--editor-code-bg);
+    border: 1px solid var(--editor-border);
+    border-radius: var(--md-radius);
+    margin: var(--md-gap-box) 0;
+  }
+
+  /* Size and line height live on the <pre>, not just its <code>: the
+     pre's own line box (its strut) is what each line is at least as tall
+     as, so leaving it at the prose 1.8 kept code double-spaced whatever
+     the code element said. */
+  .milkdown pre {
+    font-size: 0.9em;
+    line-height: 1.55;
+    padding: 0.95em 1.1em;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  .milkdown pre code {
+    font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-variant-ligatures: normal;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1;
+    font-size: 1em;
+    background: none;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    /* .milkdown code (above) sets font-size: 0.9em for inline code, and
+       without this the block case kept inheriting .milkdown's prose-tuned
+       1.8 - a line box roughly twice the monospace glyphs' height, which
+       the native caret sizes itself to (most visible on an empty line).
+       Inherits the pre's code-editor spacing. */
+    line-height: inherit;
+  }
+
+  /* The vertical rhythm of a list. Every item's content is a paragraph
+     (list_item content is "paragraph block*"), so without this rule each
+     row carries .milkdown p's prose margin and a list reads as a stack of
+     separate paragraphs. Rows sit tighter than prose by default;
+     --editor-list-gap is the theme hook (see the levis-theme skill's
+     variable table). Nested ul/ol are included because their UA margin
+     (1em) is what makes the step into a sublist read wide. */
+  .milkdown li > p,
+  .milkdown li > ul,
+  .milkdown li > ol {
+    margin: var(--editor-list-gap, 0.4em) 0;
+  }
+
+  .milkdown table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .milkdown th,
+  .milkdown td {
+    padding: 0.5em 0.8em;
+    border: 1px solid var(--editor-border);
+  }
+
+  /* Not `thead th`: Milkdown keeps the header row in <tbody> (see
+     settings/typora-compat.ts). */
+  .milkdown th {
+    text-align: left;
+  }
+
+  /* Levis's own ornaments - see the header comment. */
+  :root:not([data-user-theme]) .milkdown h2 {
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--editor-border);
+  }
+
+  :root:not([data-user-theme]) .milkdown h3 {
+    padding-left: 0.6em;
+    border-left: 4px solid var(--editor-accent);
+  }
+
+  :root:not([data-user-theme]) .milkdown h4::before {
+    content: "";
+    display: inline-block;
+    width: 0.4em;
+    height: 0.4em;
+    margin-right: 0.5em;
+    border-radius: 50%;
+    background: var(--editor-accent);
+    vertical-align: middle;
+  }
+
+  :root:not([data-user-theme]) .milkdown blockquote {
+    padding: 0.75em 1.1em;
+    border-left: 3px solid var(--editor-quote-border);
+    border-radius: 0 var(--md-radius) var(--md-radius) 0;
+    background: var(--editor-code-bg);
+  }
+
+  :root:not([data-user-theme]) .milkdown a {
+    font-weight: 600;
+  }
+
+  :root:not([data-user-theme]) .milkdown hr {
+    border-top: 2px solid var(--editor-accent);
+    opacity: 0.6;
+  }
+
+  :root:not([data-user-theme]) .milkdown table {
+    font-size: 0.95em;
+  }
+}
