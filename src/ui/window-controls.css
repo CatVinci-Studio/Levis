@@ -1,6 +1,6 @@
 /* The app-drawn window caption. Only ever on screen where the OS frame is
-   gone (Windows - see ui/window-chrome.ts); on macOS these components render
-   null and none of this applies.
+   gone (Windows and Linux - see ui/window-chrome.ts); on macOS these
+   components render null and none of this applies.
 
    Sized and spaced to Windows' own caption rather than to this app's icon
    buttons: a 46x28 hit area per glyph, no rounding, no gap. Next to the

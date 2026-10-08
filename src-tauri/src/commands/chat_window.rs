@@ -233,6 +233,19 @@ pub fn detach_chat_window(
     // Set at build time as well as from the frontend so a pinned chat never
     // flashes behind the editor for the frame before its React mounts.
     .always_on_top(pinned);
+    // Wayland ignores both the position and always_on_top above, so a
+    // window-scoped chat opened as just another toplevel: a new tiled
+    // column on niri and other tiling compositors, and sinking behind the
+    // editor elsewhere. As a transient of its editor it is a dialog to the
+    // compositor - niri floats windows that have a parent, and stacking
+    // compositors keep it above that editor. A shared chat serves every
+    // window, so no one editor can own it.
+    #[cfg(target_os = "linux")]
+    let builder = if !shared && crate::is_wayland() {
+        builder.parent(&window).map_err(|err| err.to_string())?
+    } else {
+        builder
+    };
     // Same chrome as the editor windows: the app draws its own top row rather
     // than sitting under a native title bar with a second row of ours beneath
     // it - on a 420px-wide panel that second row was most of the chrome.

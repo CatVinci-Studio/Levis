@@ -23,7 +23,7 @@
 
 /** `navigator.platform` is "Win32"/"Win64" even on 64-bit Windows; the UA
  *  check is the fallback for runtimes that have stopped reporting platform.
- *  Same detection style as utils/shortcuts.ts uses for macOS. */
+ *  Same detection style as utils/platform.ts uses for macOS. */
 function detectWindows(): boolean {
   if (typeof navigator === "undefined") return false;
   return (
@@ -59,6 +59,13 @@ export const appDrawsWindowFrame = detectWindows() || detectLinux();
  * action twice.
  */
 export const ownsMenuAccelerators = detectLinux();
+
+/**
+ * Whether the app draws the window's outline and resize edges itself
+ * (WindowEdges.tsx). Linux only: Windows keeps its native resize border and
+ * shadow without a caption, but an undecorated GTK window loses both.
+ */
+export const drawsWindowEdges = detectLinux();
 
 /**
  * Publishes {@link appDrawsWindowFrame} to CSS as `data-window-chrome` on

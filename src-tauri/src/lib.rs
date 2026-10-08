@@ -210,6 +210,16 @@ pub(crate) fn build_with_app_chrome(
     Ok(window)
 }
 
+/// Whether this process talks to a Wayland compositor rather than X11 (or
+/// XWayland). Wayland has no client-side window positions and no
+/// always-on-top, which the detached chat relies on elsewhere.
+#[cfg(target_os = "linux")]
+pub(crate) fn is_wayland() -> bool {
+    use gtk::prelude::*;
+    gtk::gdk::Display::default()
+        .is_some_and(|display| display.type_().name() == "GdkWaylandDisplay")
+}
+
 /// Takes the native menu BAR off a window without detaching its menu.
 ///
 /// Windows and Linux, and the cfg here has to keep matching
@@ -237,9 +247,10 @@ pub(crate) fn build_window(
     label: &str,
     position: Option<(f64, f64)>,
 ) -> tauri::Result<()> {
+    let (width, height) = commands::prefs::read_editor_window_size(app).unwrap_or((800.0, 600.0));
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(app_identity::APP_NAME)
-        .inner_size(800.0, 600.0);
+        .inner_size(width, height);
     build_with_app_chrome(builder, position)?;
     Ok(())
 }
@@ -294,6 +305,14 @@ pub fn run() {
                     app.exit(0);
                 }
             }
+            // Nothing else remembers a window's size between launches (the
+            // undecorated Linux window gets no help from the desktop either).
+            // Close, not Destroyed - by then the size can no longer be read.
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. })
+                && commands::chat_window::is_editor_window(window.label())
+            {
+                commands::prefs::remember_editor_window_size(app, window);
+            }
             // A chat window shared across editor windows has no owning
             // editor, so "which document is this about" is answered by which
             // editor window was focused last (see editor_for_chat).
@@ -335,6 +354,15 @@ pub fn run() {
             // menu yet to hide. One sweep here covers both.
             for (_, window) in app.webview_windows() {
                 hide_native_menu_bar(&window);
+            }
+
+            // The config window is built before setup runs, so it can only
+            // be resized after the fact; build_window covers the rest.
+            if let (Some(main), Some((width, height))) = (
+                app.get_webview_window("main"),
+                commands::prefs::read_editor_window_size(app.handle()),
+            ) {
+                let _ = main.set_size(tauri::LogicalSize::new(width, height));
             }
 
             Ok(())

@@ -19,7 +19,9 @@ interface TabBarProps {
   // leaves this window at that moment (App.tsx hands its document to
   // Rust's floating-tab drag and removes it here) - there is no
   // move/end tracking on this side, the native drag owns the rest.
-  onDetach: (id: string) => void;
+  /** Tear-off is macOS-only (tab_drag.rs); elsewhere omitted, and a
+   *  vertical pull stays an ordinary reorder gesture. */
+  onDetach?: (id: string) => void;
   // Horizontal drag-to-reorder within this bar: move the tab with the
   // given id so it sits at `index` among the OTHER tabs.
   onReorder: (id: string, index: number) => void;
@@ -278,7 +280,7 @@ function TabPill({
   isActive: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
-  onDetach: (id: string) => void;
+  onDetach?: (id: string) => void;
   onReorder: (id: string, index: number) => void;
   captureFlip: () => void;
 }) {
@@ -326,7 +328,7 @@ function TabPill({
     const g = gesture.current;
     if (!g) return;
 
-    if (Math.abs(e.clientY - g.startY) > DETACH_THRESHOLD_PX) {
+    if (onDetach && Math.abs(e.clientY - g.startY) > DETACH_THRESHOLD_PX) {
       // Pulled out of the bar - this pill is about to be removed
       // entirely, so any live reorder shifting on the neighbors must not
       // survive it; the FLIP capture right before removal is what makes

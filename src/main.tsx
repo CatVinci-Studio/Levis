@@ -5,6 +5,7 @@ import { ChatWindowApp } from "./ai/chat/ChatWindowApp";
 import { SettingsProvider } from "./settings/SettingsContext";
 import { installDevTauriShim } from "./dev-tauri-shim";
 import { publishWindowChrome } from "./ui/window-chrome";
+import { WindowEdges } from "./ui/WindowEdges";
 
 installDevTauriShim();
 
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <SettingsProvider>
       {view === "chat" ? <ChatWindowApp /> : <App />}
+      <WindowEdges />
     </SettingsProvider>
   </React.StrictMode>,
 );

@@ -15,7 +15,7 @@ import "./window-controls.css";
 
 /**
  * The pieces of the window frame the app draws when the OS no longer does -
- * Windows only today; see window-chrome.ts for why the two platforms differ.
+ * Windows and Linux; see window-chrome.ts for why they differ from macOS.
  *
  * Both components render nothing at all where the platform still supplies
  * its own frame, so call sites can place them unconditionally and the macOS

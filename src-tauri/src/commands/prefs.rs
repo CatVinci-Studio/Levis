@@ -5,7 +5,8 @@
 //! batch them into tabs in a single window, and whether startup should
 //! restore last session's documents. Settings otherwise live only in the
 //! frontend's localStorage (see SettingsContext.tsx); these two get mirrored
-//! here whenever the frontend changes them.
+//! here whenever the frontend changes them. The last editor window size is
+//! kept here too, written by Rust itself on close.
 
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -84,4 +85,37 @@ pub fn set_restore_session_on_startup(app: AppHandle, enabled: bool) -> Result<(
         "restore_session_on_startup",
         serde_json::json!(enabled),
     )
+}
+
+/// The inner size (logical px) the last closed editor window had, for the
+/// next one to open at. One size for every editor window rather than one
+/// per label: labels after "main" are minted fresh each run (window-N), so
+/// a per-label store would never be read back.
+pub fn read_editor_window_size(app: &AppHandle) -> Option<(f64, f64)> {
+    let size = read_prefs(app).get("editor_window_size")?.clone();
+    let width = size.get(0)?.as_f64()?;
+    let height = size.get(1)?.as_f64()?;
+    // A corrupt or hand-edited value must not open an unusable window.
+    (width >= 320.0 && height >= 240.0).then_some((width, height))
+}
+
+/// Records `window`'s size for read_editor_window_size, unless it is
+/// maximized, fullscreen or minimized - restoring that size would open a
+/// plain window filling the screen, or a degenerate one.
+pub fn remember_editor_window_size(app: &AppHandle, window: &tauri::Window) {
+    let unsized_state = window.is_maximized().unwrap_or(true)
+        || window.is_fullscreen().unwrap_or(true)
+        || window.is_minimized().unwrap_or(true);
+    if unsized_state {
+        return;
+    }
+    let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
+        return;
+    };
+    let size = size.to_logical::<f64>(scale);
+    let _ = write_pref(
+        app,
+        "editor_window_size",
+        serde_json::json!([size.width.round(), size.height.round()]),
+    );
 }
