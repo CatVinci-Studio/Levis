@@ -72,7 +72,9 @@ function makeInsertButton(className: string): HTMLButtonElement {
  * MilkdownEditor's buildMenuItems, which drives the very same
  * addRowAfter/addColumnAfter commands used here). This wraps that same
  * <table><tbody> (still the real contentDOM) in a positioned wrapper with
- * small "+" affordances along the bottom and right edges, shown on hover.
+ * small "+" affordances along the bottom and right edges, shown on hover,
+ * and a horizontal scroller between the two for tables wider than the
+ * text column.
  *
  * It also renders the <colgroup> that column resizing needs: the drag handled
  * by tableColumnResizing writes live widths straight into table.firstChild, so
@@ -102,7 +104,9 @@ export const tableHoverView = $view(
     const addColBtn = makeInsertButton("table-add-col-btn");
     bindInsertButton(addColBtn, view, getPos, addColumnAfter);
 
-    wrapper.appendChild(table);
+    const scroller = wrapper.appendChild(document.createElement("div"));
+    scroller.className = "table-scroll";
+    scroller.appendChild(table);
     wrapper.appendChild(addRowBtn);
     wrapper.appendChild(addColBtn);
 

@@ -655,6 +655,13 @@
   transition: opacity 0.15s ease;
 }
 
+/* Room above the first line for the picker: a long or wrapped first line
+   used to run straight under it (#16). Keyed on the header's presence so
+   exports, which strip it, keep the plain padding. */
+.code-block-header + pre {
+  padding-top: 2.1em;
+}
+
 .code-block-wrapper:hover .code-block-header,
 .code-block-wrapper:focus-within .code-block-header {
   opacity: 1;
@@ -980,6 +987,15 @@
 
 .table-wrapper table {
   margin: 0;
+}
+
+/* Column resizing gives every unsized column a 100px floor (as a min-width
+   on the table), so a wide table outgrows the text column; it scrolls
+   inside it instead of spilling past the page (#15). The "+" buttons stay
+   outside this box, where it can't clip them. */
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .table-add-row-btn,

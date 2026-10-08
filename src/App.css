@@ -899,6 +899,14 @@ body {
     min-width: 0 !important;
   }
 
+  .code-block-header + pre {
+    padding-top: 0.95em;
+  }
+
+  .table-scroll {
+    overflow: visible;
+  }
+
   /* Only the screen-sized pixel columns: the exports' rescaled clone
      carries percentages, which already fit. */
   .milkdown col[style*="px"] {
