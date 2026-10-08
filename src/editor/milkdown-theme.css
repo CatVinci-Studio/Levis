@@ -795,13 +795,11 @@
    it. Taking the marker out of the line box removes what the caret was
    being measured against.
 
-   Numbering is a CSS counter, NOT the item's data-label attribute. Milkdown
-   keeps that attribute up to date from an appendTransaction
-   (syncListOrderPlugin), which bails out on any non-generic transaction -
-   and an input rule's transaction is non-generic, so the item "1. " creates
-   still reads "•" until the next keystroke. The native ::marker never looked
-   at the attribute, so nothing exposed that lag before. A counter is derived
-   from the DOM itself and cannot lag; --levis-ol-start carries a list's
+   Numbering is a CSS counter, NOT the item's data-label attribute, which
+   nothing keeps current: Milkdown's syncListOrderPlugin, which did (a
+   keystroke late), is left out of the preset - see reduced-presets.ts for
+   the IME breakage it caused. A counter is derived from the DOM itself and
+   cannot lag; --levis-ol-start carries a list's
    `start` (see orderedListAttr in MilkdownEditor.tsx), which is the one thing
    the structure alone doesn't say. Bullets are keyed off the parent element
    rather than the item's own data-list-type, which can go stale when a list

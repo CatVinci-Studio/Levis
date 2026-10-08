@@ -19,6 +19,7 @@ import {
   htmlSchema,
   htmlAttr,
   remarkPreserveEmptyLinePlugin,
+  syncListOrderPlugin,
 } from "@milkdown/kit/preset/commonmark";
 import {
   gfm,
@@ -57,6 +58,17 @@ import {
 // is the only way to guarantee the replacement wins, rather than hoping
 // registration order works out.
 //
+// syncListOrderPlugin is excluded because it redraws the list item being
+// typed in. It rewrites each ordered item's `label`/`listType` attrs from an
+// appendTransaction, but skips non-generic transactions - Enter's split and
+// the "1. " input rule among them - so a fresh item is relabelled on the
+// NEXT edit instead. With an IME that edit is the first keystroke of a
+// composition: the attr change makes ProseMirror replace the <li> (and the
+// paragraph holding the preedit) mid-composition, and WebKitGTK commits the
+// text a second time, or garbles it, inside a stray empty line. Neither attr
+// does anything here: numbering is a CSS counter on the parent <ol> (see
+// milkdown-theme.css) and list_item's toMarkdown never reads them.
+//
 // $markSchema/$nodeSchema (and some other composable pieces) return
 // array-like tuples that get spread apart by the presets' own internal
 // `.flat()` calls - flattening this exclusion list the same way before
@@ -82,6 +94,7 @@ const excludedCommonmarkPieces = [
   htmlSchema,
   htmlAttr,
   remarkPreserveEmptyLinePlugin,
+  syncListOrderPlugin,
 ].flat();
 
 const excludedGfmPieces = [
