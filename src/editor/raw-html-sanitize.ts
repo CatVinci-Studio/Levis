@@ -142,9 +142,24 @@ function cleanNode(node: ChildNode, out: HTMLElement): void {
   out.appendChild(clean);
 }
 
-export function renderWhitelistedHtml(
-  raw: string,
-): { html: string; inline: boolean } | null {
+type RenderedHtml = { html: string; inline: boolean } | null;
+
+// The preview re-renders every fragment in the document on each edit, and
+// a fragment's output depends on its text alone. Bounded so a long session
+// of edits can't grow it without limit.
+const renderCache = new Map<string, RenderedHtml>();
+const RENDER_CACHE_MAX = 500;
+
+export function renderWhitelistedHtml(raw: string): RenderedHtml {
+  const cached = renderCache.get(raw);
+  if (cached !== undefined) return cached;
+  const rendered = renderUncached(raw);
+  if (renderCache.size >= RENDER_CACHE_MAX) renderCache.clear();
+  renderCache.set(raw, rendered);
+  return rendered;
+}
+
+function renderUncached(raw: string): RenderedHtml {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 

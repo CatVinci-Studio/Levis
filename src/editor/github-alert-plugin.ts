@@ -1,9 +1,9 @@
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Decoration } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { cursorTouches } from "./enclosure";
+import { applyReveal, buildReveal, type RevealState } from "./reveal-state";
 
 const githubAlertKey = new PluginKey("github-alert");
 
@@ -60,7 +60,14 @@ function buildTitle(
   return el;
 }
 
-function buildDecorations(state: EditorState): DecorationSet {
+function buildDecorations(state: EditorState): RevealState {
+  return buildReveal(state, (touches) => collectDecorations(state, touches));
+}
+
+function collectDecorations(
+  state: EditorState,
+  touches: (from: number, to: number) => boolean,
+): Decoration[] {
   const decorations: Decoration[] = [];
 
   state.doc.descendants((node, pos) => {
@@ -92,10 +99,7 @@ function buildDecorations(state: EditorState): DecorationSet {
     const hideLen =
       match[0].length + (/^[ \t]*\n?/.exec(rest)?.[0].length ?? 0);
     const markerTo = markerFrom + hideLen;
-    if (
-      cursorTouches(state.selection, markerFrom, markerFrom + match[0].length)
-    )
-      return;
+    if (touches(markerFrom, markerFrom + match[0].length)) return;
 
     decorations.push(
       Decoration.inline(markerFrom, markerTo, {
@@ -111,7 +115,7 @@ function buildDecorations(state: EditorState): DecorationSet {
     );
   });
 
-  return DecorationSet.create(state.doc, decorations);
+  return decorations;
 }
 
 /**
@@ -124,18 +128,16 @@ function buildDecorations(state: EditorState): DecorationSet {
 export function createGithubAlertPlugin() {
   return $prose(
     () =>
-      new Plugin<DecorationSet>({
+      new Plugin<RevealState>({
         key: githubAlertKey,
         state: {
           init: (_config, state) => buildDecorations(state),
-          apply(tr, prev, _oldState, newState) {
-            if (!tr.docChanged && !tr.selectionSet) return prev;
-            return buildDecorations(newState);
-          },
+          apply: (tr, prev, oldState, newState) =>
+            applyReveal(tr, prev, oldState, newState, buildDecorations),
         },
         props: {
           decorations(state) {
-            return githubAlertKey.getState(state);
+            return githubAlertKey.getState(state)?.set;
           },
         },
       }),

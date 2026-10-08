@@ -1,4 +1,5 @@
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
+import { Plugin, PluginKey, type Transaction } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
 // Attributes included (e.g. Word/Notion/Google Docs paste tends to emit
@@ -23,6 +24,10 @@ const TABLE_CELL_TYPES = new Set(["table_cell", "table_header"]);
  * newline) instead of literal `<br/>` text surviving in the saved file.
  */
 export const brToHardbreakPlugin = $prose(() => {
+  // A file's existing <br> nodes are normalized on its first edit, so that
+  // edit walks the whole document; every later one only re-checks the
+  // ranges it touched, the only places a new <br> can have appeared.
+  let normalizedAll = false;
   return new Plugin({
     key: new PluginKey("br-to-hardbreak"),
     appendTransaction(transactions, _oldState, newState) {
@@ -31,23 +36,59 @@ export const brToHardbreakPlugin = $prose(() => {
       if (!hardbreakType) return null;
 
       const targets: { from: number; to: number }[] = [];
-      newState.doc.descendants((node, pos) => {
+      const visit = (node: ProseNode, pos: number) => {
         if (node.type.name !== "html" || !BR_RE.test(node.textContent.trim()))
           return true;
         const $pos = newState.doc.resolve(pos);
         for (let d = $pos.depth; d >= 0; d--) {
           if (TABLE_CELL_TYPES.has($pos.node(d).type.name)) return true;
         }
-        targets.push({ from: pos, to: pos + node.nodeSize });
+        if (!targets.some((t) => t.from === pos))
+          targets.push({ from: pos, to: pos + node.nodeSize });
         return true;
-      });
+      };
+      if (normalizedAll) {
+        for (const [from, to] of changedRanges(transactions, newState.doc))
+          newState.doc.nodesBetween(from, to, visit);
+      } else {
+        newState.doc.descendants(visit);
+        normalizedAll = true;
+      }
       if (targets.length === 0) return null;
 
       let tr = newState.tr;
-      for (const { from, to } of targets.reverse()) {
+      targets.sort((a, b) => b.from - a.from);
+      for (const { from, to } of targets) {
         tr = tr.replaceWith(from, to, hardbreakType.create());
       }
       return tr;
     },
   });
 });
+
+/** The ranges `transactions` rewrote, in `doc`'s (the final) positions. */
+function changedRanges(
+  transactions: readonly Transaction[],
+  doc: ProseNode,
+): [number, number][] {
+  const ranges: [number, number][] = [];
+  transactions.forEach((tr, t) => {
+    tr.mapping.maps.forEach((map, i) => {
+      map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+        // Carried through every later step, this transaction's and the
+        // ones after it, to land in final-document positions.
+        let from = tr.mapping.slice(i + 1).map(newStart, -1);
+        let to = tr.mapping.slice(i + 1).map(newEnd, 1);
+        for (const later of transactions.slice(t + 1)) {
+          from = later.mapping.map(from, -1);
+          to = later.mapping.map(to, 1);
+        }
+        ranges.push([
+          Math.max(0, Math.min(from, doc.content.size)),
+          Math.max(0, Math.min(to, doc.content.size)),
+        ]);
+      });
+    });
+  });
+  return ranges;
+}

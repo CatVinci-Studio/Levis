@@ -1,10 +1,15 @@
 import katex from "katex";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Decoration } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { cursorTouches } from "./enclosure";
+import {
+  applyReveal,
+  buildReveal,
+  emptyReveal,
+  type RevealState,
+} from "./reveal-state";
 
 const mathPreviewKey = new PluginKey("math-preview");
 
@@ -33,9 +38,15 @@ function renderKatex(value: string, displayMode: boolean): string {
   return html;
 }
 
-function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
-  if (!enabled) return DecorationSet.empty;
+function buildDecorations(state: EditorState, enabled: boolean): RevealState {
+  if (!enabled) return emptyReveal;
+  return buildReveal(state, (touches) => collectDecorations(state, touches));
+}
 
+function collectDecorations(
+  state: EditorState,
+  touches: (from: number, to: number) => boolean,
+): Decoration[] {
   const decorations: Decoration[] = [];
 
   state.doc.descendants((node, pos) => {
@@ -48,7 +59,7 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
     // reveals the raw source with its synthesized $ / $$ delimiters - the
     // KaTeX swap below must stay out of the way for exactly that range, so
     // both sides share the same predicate.
-    if (cursorTouches(state.selection, from, to)) return;
+    if (touches(from, to)) return;
 
     const displayMode = node.type.name === "math_block";
     const html = renderKatex(node.textContent, displayMode);
@@ -88,7 +99,7 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
     );
   });
 
-  return DecorationSet.create(state.doc, decorations);
+  return decorations;
 }
 
 function findMathNodeAtSelection(state: EditorState): {
@@ -129,18 +140,18 @@ function findMathNodeAtSelection(state: EditorState): {
 export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
   return $prose(
     () =>
-      new Plugin<DecorationSet>({
+      new Plugin<RevealState>({
         key: mathPreviewKey,
         state: {
           init: (_config, state) => buildDecorations(state, options.enabled()),
-          apply(tr, prev, _oldState, newState) {
-            if (!tr.docChanged && !tr.selectionSet) return prev;
-            return buildDecorations(newState, options.enabled());
-          },
+          apply: (tr, prev, oldState, newState) =>
+            applyReveal(tr, prev, oldState, newState, (state) =>
+              buildDecorations(state, options.enabled()),
+            ),
         },
         props: {
           decorations(state) {
-            return mathPreviewKey.getState(state);
+            return mathPreviewKey.getState(state)?.set;
           },
         },
         view(editorView) {

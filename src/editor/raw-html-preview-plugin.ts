@@ -1,10 +1,15 @@
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Decoration } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { cursorTouches } from "./enclosure";
+import {
+  applyReveal,
+  buildReveal,
+  type RevealState,
+  type Touches,
+} from "./reveal-state";
 import { renderWhitelistedHtml } from "./raw-html-sanitize";
 
 const rawHtmlPreviewKey = new PluginKey("raw-html-preview");
@@ -84,7 +89,7 @@ function pairedLinkTitle(openTag: string): string | undefined {
 function decorateTextblock(
   block: ProseNode,
   blockPos: number,
-  state: EditorState,
+  touches: Touches,
   decorations: Decoration[],
 ) {
   const htmls: HtmlChild[] = [];
@@ -136,11 +141,10 @@ function decorateTextblock(
 
   for (const { tag, open, close } of pairs) {
     // Cursor on either tag reveals BOTH raw (the pair is one edit unit).
-    if (
-      cursorTouches(state.selection, open.from, open.to) ||
-      cursorTouches(state.selection, close.from, close.to)
-    )
-      continue;
+    // Both asked unconditionally: each is a range a caret move can flip.
+    const touchesOpen = touches(open.from, open.to);
+    const touchesClose = touches(close.from, close.to);
+    if (touchesOpen || touchesClose) continue;
     decorations.push(
       Decoration.inline(open.from, open.to, {
         class: "raw-html-source-hidden",
@@ -164,7 +168,7 @@ function decorateTextblock(
   }
 
   for (const item of fragments) {
-    if (cursorTouches(state.selection, item.from, item.to)) continue;
+    if (touches(item.from, item.to)) continue;
     const rendered = renderWhitelistedHtml(item.text);
     // Not whitelisted (or unparsable): raw text stays visible, the
     // existing fallback for anything outside the whitelist.
@@ -180,16 +184,18 @@ function decorateTextblock(
   }
 }
 
-function buildDecorations(state: EditorState): DecorationSet {
-  const decorations: Decoration[] = [];
-  state.doc.descendants((node, pos) => {
-    if (node.isTextblock) {
-      decorateTextblock(node, pos, state, decorations);
-      return false; // textblocks don't nest
-    }
-    return undefined;
+function buildDecorations(state: EditorState): RevealState {
+  return buildReveal(state, (touches) => {
+    const decorations: Decoration[] = [];
+    state.doc.descendants((node, pos) => {
+      if (node.isTextblock) {
+        decorateTextblock(node, pos, touches, decorations);
+        return false; // textblocks don't nest
+      }
+      return undefined;
+    });
+    return decorations;
   });
-  return DecorationSet.create(state.doc, decorations);
 }
 
 /**
@@ -202,18 +208,16 @@ function buildDecorations(state: EditorState): DecorationSet {
 export function createRawHtmlPreviewPlugin() {
   return $prose(
     () =>
-      new Plugin<DecorationSet>({
+      new Plugin<RevealState>({
         key: rawHtmlPreviewKey,
         state: {
           init: (_config, state) => buildDecorations(state),
-          apply(tr, prev, _oldState, newState) {
-            if (!tr.docChanged && !tr.selectionSet) return prev;
-            return buildDecorations(newState);
-          },
+          apply: (tr, prev, oldState, newState) =>
+            applyReveal(tr, prev, oldState, newState, buildDecorations),
         },
         props: {
           decorations(state) {
-            return rawHtmlPreviewKey.getState(state);
+            return rawHtmlPreviewKey.getState(state)?.set;
           },
         },
       }),

@@ -1,9 +1,14 @@
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Decoration } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { cursorTouches } from "./enclosure";
+import {
+  applyReveal,
+  buildReveal,
+  emptyReveal,
+  type RevealState,
+} from "./reveal-state";
 import { isLargeDoc } from "./large-doc";
 
 const mermaidKey = new PluginKey("mermaid-preview");
@@ -93,14 +98,22 @@ export function createMermaidPreviewPlugin(options: {
     // itself never changed.
     let lastRenders = new Map<string, string>();
 
-    function buildDecorations(state: EditorState): DecorationSet {
-      if (!options.enabled()) return DecorationSet.empty;
+    function buildDecorations(state: EditorState): RevealState {
+      if (!options.enabled()) return emptyReveal;
+      return buildReveal(state, (touches) =>
+        collectDecorations(state, touches),
+      );
+    }
 
+    function collectDecorations(
+      state: EditorState,
+      touches: (from: number, to: number) => boolean,
+    ): Decoration[] {
       const decorations: Decoration[] = [];
       for (const { from, to, code } of collectMermaidBlocks(state.doc)) {
         const svg = lastRenders.get(code);
         if (!svg) continue;
-        if (cursorTouches(state.selection, from, to)) continue; // editing it - keep source visible
+        if (touches(from, to)) continue; // editing it - keep source visible
 
         decorations.push(
           Decoration.node(from, to, { class: "mermaid-source-hidden" }),
@@ -129,22 +142,23 @@ export function createMermaidPreviewPlugin(options: {
           ),
         );
       }
-      return DecorationSet.create(state.doc, decorations);
+      return decorations;
     }
 
-    return new Plugin<DecorationSet>({
+    return new Plugin<RevealState>({
       key: mermaidKey,
       state: {
         init: (_config, state) => buildDecorations(state),
-        apply(tr, prev, _oldState, newState) {
-          const meta = tr.getMeta(mermaidKey) as "rerender" | undefined;
-          if (!meta && !tr.docChanged && !tr.selectionSet) return prev;
-          return buildDecorations(newState);
+        apply(tr, prev, oldState, newState) {
+          // A finished render has new SVG to show whatever the caret did.
+          if (tr.getMeta(mermaidKey) === "rerender")
+            return buildDecorations(newState);
+          return applyReveal(tr, prev, oldState, newState, buildDecorations);
         },
       },
       props: {
         decorations(state) {
-          return mermaidKey.getState(state);
+          return mermaidKey.getState(state)?.set;
         },
       },
       view(editorView) {
