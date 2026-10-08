@@ -1,14 +1,14 @@
-import { useSyncExternalStore } from "react";
 import type { AgentTurn } from "./types";
 import { userMessageBody } from "./chat/user-message";
 import { loadSettings } from "../settings/SettingsContext";
+import { createPersistedList } from "../utils/persisted-list";
 
 /**
  * Persisted agent conversations, so past chats can be reopened and continued
  * (the Chats sidebar panel). Stored in localStorage: small, synchronous, and
- * survives restarts; capped so it can't grow unbounded. Kept as a small
- * external store (same pattern as utils/clipboard-history.ts) so the sidebar
- * list re-renders live as conversations are saved or deleted.
+ * survives restarts; capped so it can't grow unbounded. A persisted list
+ * (utils/persisted-list.ts) so the sidebar list re-renders live as
+ * conversations are saved or deleted, in every window.
  */
 export interface ChatHistoryEntry {
   id: string;
@@ -24,73 +24,37 @@ const STORAGE_KEY = "levis-chat-history";
 const MAX_ENTRIES = 30;
 const MAX_TITLE_CHARS = 60;
 
-let entries: ChatHistoryEntry[] = load();
-const listeners = new Set<() => void>();
-
-function load(): ChatHistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.sort((a, b) => b.updatedAt - a.updatedAt);
-  } catch {
-    return [];
-  }
-}
-
-function store() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // Quota exceeded or storage unavailable - history is a convenience,
-    // never worth breaking the chat over.
-  }
-}
-
-function notify() {
-  for (const fn of listeners) fn();
-}
-
-function subscribe(fn: () => void): () => void {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-}
-
-// Other windows are their own SPA over the same localStorage - mirror their
-// writes into this window's list.
-window.addEventListener("storage", (e) => {
-  if (e.key !== STORAGE_KEY) return;
-  entries = load();
-  notify();
+const history = createPersistedList<ChatHistoryEntry>(STORAGE_KEY, {
+  max: MAX_ENTRIES,
+  isEntry: (e): e is ChatHistoryEntry => {
+    const entry = e as ChatHistoryEntry;
+    return (
+      typeof entry?.id === "string" &&
+      typeof entry.updatedAt === "number" &&
+      Array.isArray(entry.turns)
+    );
+  },
+  sort: (a, b) => b.updatedAt - a.updatedAt,
 });
 
 /** Reactive view of the saved conversations, most recently active first. */
 export function useChatHistory(): ChatHistoryEntry[] {
-  return useSyncExternalStore(subscribe, () => entries);
+  return history.useEntries();
 }
 
 /** Inserts or updates one conversation, dropping the stalest beyond the cap.
  *  A no-op while Settings > Privacy > Chat History is off. */
 export function saveConversation(entry: ChatHistoryEntry) {
   if (!loadSettings().enableChatHistory) return;
-  entries = [entry, ...entries.filter((e) => e.id !== entry.id)].slice(
-    0,
-    MAX_ENTRIES,
-  );
-  store();
-  notify();
+  history.set([entry, ...history.get().filter((e) => e.id !== entry.id)]);
 }
 
 export function deleteConversation(id: string) {
-  entries = entries.filter((e) => e.id !== id);
-  store();
-  notify();
+  history.set(history.get().filter((e) => e.id !== id));
 }
 
 export function clearAllConversations() {
-  entries = [];
-  store();
-  notify();
+  history.set([]);
 }
 
 /**
