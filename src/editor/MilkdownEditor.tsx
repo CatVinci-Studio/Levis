@@ -12,11 +12,9 @@ import {
   Editor,
   rootCtx,
   defaultValueCtx,
-  commandsCtx,
   editorViewCtx,
   editorViewOptionsCtx,
   serializerCtx,
-  type CmdKey,
 } from "@milkdown/kit/core";
 import {
   orderedListAttr,
@@ -24,31 +22,19 @@ import {
   wrapInOrderedListCommand,
   wrapInBlockquoteCommand,
   createCodeBlockCommand,
-  wrapInHeadingCommand,
 } from "@milkdown/kit/preset/commonmark";
-import { insertTableCommand } from "@milkdown/kit/preset/gfm";
 import { undoCommand, redoCommand } from "@milkdown/kit/plugin/history";
-import {
-  isInTable,
-  addRowAfter,
-  addRowBefore,
-  addColumnAfter,
-  addColumnBefore,
-  deleteRow,
-  deleteColumn,
-  deleteTable,
-  setCellAttr,
-  CellSelection,
-  selectionCell,
-} from "@milkdown/kit/prose/tables";
-import {
-  TextSelection,
-  type EditorState,
-  type Transaction,
-} from "@milkdown/kit/prose/state";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { registerEditorFlush } from "./editor-flush";
+import {
+  buildContextMenuItems,
+  contextMenuTarget,
+  insertHeading,
+  insertTable,
+  runCommand,
+} from "./editor-menu";
 import {
   withEditorExtensions,
   type PendingEditCallbacks,
@@ -58,10 +44,9 @@ import { InlineChat } from "../ai/chat/InlineChat";
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { readChatContext } from "../ai/chat/live-context";
-import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { ContextMenu } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
-import { readImagePresentation, writeImageWidth } from "./image-plugin";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
 import {
@@ -906,21 +891,21 @@ export function MilkdownEditor({
     const kind = (e as CustomEvent<string>).detail;
     const headingMatch = /^h([1-6])$/.exec(kind);
     if (headingMatch) {
-      insertHeading(Number(headingMatch[1]));
+      insertHeading(run, Number(headingMatch[1]));
       return;
     }
     switch (kind) {
       case "bullet-list":
-        runCommand(wrapInBulletListCommand.key);
+        runCommand(run, wrapInBulletListCommand.key);
         break;
       case "ordered-list":
-        runCommand(wrapInOrderedListCommand.key);
+        runCommand(run, wrapInOrderedListCommand.key);
         break;
       case "blockquote":
-        runCommand(wrapInBlockquoteCommand.key);
+        runCommand(run, wrapInBlockquoteCommand.key);
         break;
       case "code-block":
-        runCommand(createCodeBlockCommand.key);
+        runCommand(run, createCodeBlockCommand.key);
         break;
       case "table":
         setTableDialogOpen(true);
@@ -936,10 +921,10 @@ export function MilkdownEditor({
     if (!isOnScreen()) return;
     switch ((e as CustomEvent<string>).detail) {
       case "undo":
-        runCommand(undoCommand.key);
+        runCommand(run, undoCommand.key);
         break;
       case "redo":
-        runCommand(redoCommand.key);
+        runCommand(run, redoCommand.key);
         break;
       case "cut":
         copyOrCut(true);
@@ -967,250 +952,13 @@ export function MilkdownEditor({
     inlineChat.open();
   });
 
-  function runTableCommand(
-    command: (
-      state: EditorState,
-      dispatch: (tr: Transaction) => void,
-    ) => boolean,
-  ) {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      command(view.state, view.dispatch);
-      view.focus();
-    });
-  }
-
-  // Grows the selection to the whole row/column of the current cell - both
-  // as its own menu action and as the first step of column alignment.
-  function selectTableLine(kind: "row" | "column") {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const $cell = selectionCell(view.state);
-      if (!$cell) return;
-      const selection =
-        kind === "row"
-          ? CellSelection.rowSelection($cell)
-          : CellSelection.colSelection($cell);
-      view.dispatch(view.state.tr.setSelection(selection));
-      view.focus();
-    });
-  }
-
-  // Markdown table alignment is a per-COLUMN property (the `:---:` marker
-  // row), so aligning just the clicked cell serialized to something other
-  // than what the editor showed - align the whole column instead.
-  function alignTableColumn(alignment: "left" | "center" | "right") {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const $cell = selectionCell(view.state);
-      if (!$cell) return;
-      view.dispatch(
-        view.state.tr.setSelection(CellSelection.colSelection($cell)),
-      );
-      setCellAttr("alignment", alignment)(view.state, view.dispatch);
-      view.focus();
-    });
-  }
-
-  // CmdKey<any>: the preset command keys vary in payload type (some
-  // unknown, some undefined) and all are called here without a payload.
-  function runCommand(key: CmdKey<any>) {
-    run((ctx) => {
-      ctx.get(commandsCtx).call(key);
-      ctx.get(editorViewCtx).focus();
-    });
-  }
-
-  function insertTable(rows: number, cols: number) {
-    run((ctx) => {
-      ctx
-        .get(commandsCtx)
-        .call(insertTableCommand.key, { row: rows, col: cols });
-    });
-  }
-
-  function insertHeading(level: number) {
-    run((ctx) => {
-      ctx.get(commandsCtx).call(wrapInHeadingCommand.key, level);
-      ctx.get(editorViewCtx).focus();
-    });
-  }
-
   function onContextMenu(e: MouseEvent) {
     e.preventDefault();
-    // macOS WebKit selects the word under the pointer while handling a right
-    // click in editable content - inside the engine, before any DOM event,
-    // so it can't be prevented. But by the time contextmenu fires, only the
-    // DOM selection has moved; ProseMirror's state still holds the real
-    // selection (its readback is async). Pushing the state's selection back
-    // into the DOM here undoes the word-select before it's ever painted or
-    // read back, so AI context capture and the completion cursor never see it.
-    const imagePos =
-      run((ctx) => {
-        const view = ctx.get(editorViewCtx);
-        const { anchor, head } = view.state.selection;
-        try {
-          const a = view.domAtPos(anchor);
-          const h = view.domAtPos(head);
-          window
-            .getSelection()
-            ?.setBaseAndExtent(a.node, a.offset, h.node, h.offset);
-        } catch {
-          // Selection not representable in the DOM right now - leave it alone.
-        }
-
-        const target =
-          e.target instanceof Element ? e.target.closest(".image-view") : null;
-        if (!target) return null;
-        try {
-          const pos = view.posAtDOM(target, 0);
-          return view.state.doc.nodeAt(pos)?.type.name === "image" ? pos : null;
-        } catch {
-          return null;
-        }
-      }) ?? null;
-    setMenu({ x: e.clientX, y: e.clientY, imagePos });
-  }
-
-  function setImageWidth(pos: number, widthPercent: number | null) {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const node = view.state.doc.nodeAt(pos);
-      if (node?.type.name !== "image") return;
-      view.dispatch(
-        view.state.tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          title: writeImageWidth(
-            node.attrs.title as string | null,
-            widthPercent,
-          ),
-        }),
-      );
-      view.focus();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      imagePos: contextMenuTarget(run, e),
     });
-  }
-
-  function buildMenuItems(): (ContextMenuItem | "separator")[] {
-    const imageItems: (ContextMenuItem | "separator")[] = [];
-    if (menu?.imagePos !== null && menu?.imagePos !== undefined) {
-      const imagePos = menu.imagePos;
-      const currentWidth =
-        run((ctx) => {
-          const node = ctx.get(editorViewCtx).state.doc.nodeAt(imagePos);
-          return node?.type.name === "image"
-            ? readImagePresentation(node.attrs.title as string | null)
-                .widthPercent
-            : null;
-        }) ?? null;
-      const widthItem = (widthPercent: number | null, label: string) => ({
-        label: `${currentWidth === widthPercent ? "✓ " : ""}${label}`,
-        onSelect: () => setImageWidth(imagePos, widthPercent),
-      });
-      imageItems.push(
-        widthItem(null, t.imageWidthAuto),
-        widthItem(30, t.imageWidth30),
-        widthItem(50, t.imageWidth50),
-        widthItem(70, t.imageWidth70),
-        widthItem(100, t.imageWidth100),
-        "separator",
-      );
-    }
-
-    // Each AI item is only offered while its feature is enabled in Settings.
-    // The provider-free newcomer guide always exposes Ask AI so its real
-    // right-click entry point remains available even if the user previously
-    // disabled Agent chat before replaying the guide from Help.
-    const aiItems: ContextMenuItem[] = [
-      ...(settings.enableAskAi || tutorialMock
-        ? [{ label: t.askAi, onSelect: openAgentConversation }]
-        : []),
-      ...(settings.enableCompletion
-        ? [{ label: t.triggerCompletion, onSelect: triggerCompletion }]
-        : []),
-      ...(settings.enableGrammarCheck
-        ? [{ label: t.triggerGrammarCheck, onSelect: triggerGrammarCheck }]
-        : []),
-    ];
-
-    const clipboardItems: (ContextMenuItem | "separator")[] = [
-      { label: t.cut, onSelect: () => copyOrCut(true) },
-      { label: t.copy, onSelect: () => copyOrCut(false) },
-      { label: t.paste, onSelect: paste },
-      { label: t.selectAll, onSelect: selectAll },
-      "separator",
-      { label: t.findReplace, onSelect: findReplace.toggle },
-      ...(aiItems.length > 0
-        ? (["separator", ...aiItems] as (ContextMenuItem | "separator")[])
-        : []),
-    ];
-
-    const insertItems: (ContextMenuItem | "separator")[] = [
-      {
-        label: t.insertBulletList,
-        onSelect: () => runCommand(wrapInBulletListCommand.key),
-      },
-      {
-        label: t.insertOrderedList,
-        onSelect: () => runCommand(wrapInOrderedListCommand.key),
-      },
-      {
-        label: t.insertBlockquote,
-        onSelect: () => runCommand(wrapInBlockquoteCommand.key),
-      },
-      {
-        label: t.insertCodeBlock,
-        onSelect: () => runCommand(createCodeBlockCommand.key),
-      },
-      { label: t.insertTable, onSelect: () => setTableDialogOpen(true) },
-    ];
-
-    const inTable =
-      run((ctx) => isInTable(ctx.get(editorViewCtx).state)) ?? false;
-    if (!inTable) {
-      return [...imageItems, ...clipboardItems, "separator", ...insertItems];
-    }
-
-    return [
-      ...imageItems,
-      ...clipboardItems,
-      "separator",
-      { label: t.alignLeft, onSelect: () => alignTableColumn("left") },
-      { label: t.alignCenter, onSelect: () => alignTableColumn("center") },
-      { label: t.alignRight, onSelect: () => alignTableColumn("right") },
-      "separator",
-      { label: t.selectRow, onSelect: () => selectTableLine("row") },
-      { label: t.selectColumn, onSelect: () => selectTableLine("column") },
-      "separator",
-      {
-        label: t.insertRowAbove,
-        onSelect: () => runTableCommand(addRowBefore),
-      },
-      { label: t.insertRowBelow, onSelect: () => runTableCommand(addRowAfter) },
-      {
-        label: t.insertColumnLeft,
-        onSelect: () => runTableCommand(addColumnBefore),
-      },
-      {
-        label: t.insertColumnRight,
-        onSelect: () => runTableCommand(addColumnAfter),
-      },
-      "separator",
-      {
-        label: t.deleteRow,
-        onSelect: () => runTableCommand(deleteRow),
-        danger: true,
-      },
-      {
-        label: t.deleteColumn,
-        onSelect: () => runTableCommand(deleteColumn),
-        danger: true,
-      },
-      {
-        label: t.deleteTable,
-        onSelect: () => runTableCommand(deleteTable),
-        danger: true,
-      },
-    ];
   }
 
   return (
@@ -1227,7 +975,36 @@ export function MilkdownEditor({
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          items={buildMenuItems()}
+          items={buildContextMenuItems(run, {
+            t,
+            imagePos: menu.imagePos,
+            // Each AI item is only offered while its feature is enabled in
+            // Settings. The provider-free newcomer guide always exposes Ask
+            // AI so its real right-click entry point remains available even
+            // if the user previously disabled Agent chat before replaying
+            // the guide from Help.
+            aiItems: [
+              ...(settings.enableAskAi || tutorialMock
+                ? [{ label: t.askAi, onSelect: openAgentConversation }]
+                : []),
+              ...(settings.enableCompletion
+                ? [{ label: t.triggerCompletion, onSelect: triggerCompletion }]
+                : []),
+              ...(settings.enableGrammarCheck
+                ? [
+                    {
+                      label: t.triggerGrammarCheck,
+                      onSelect: triggerGrammarCheck,
+                    },
+                  ]
+                : []),
+            ],
+            copyOrCut,
+            paste,
+            selectAll,
+            toggleFindReplace: findReplace.toggle,
+            openTableDialog: () => setTableDialogOpen(true),
+          })}
           onClose={() => setMenu(null)}
         />
       )}
@@ -1243,7 +1020,7 @@ export function MilkdownEditor({
           columnsLabel={t.insertTableColumnsLabel}
           confirmLabel={t.insertTableConfirm}
           cancelLabel={t.closePromptCancel}
-          onInsert={insertTable}
+          onInsert={(rows, cols) => insertTable(run, rows, cols)}
           onClose={() => setTableDialogOpen(false)}
         />
       )}

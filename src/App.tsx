@@ -19,8 +19,6 @@ import {
   ChatTabIcon,
 } from "./ui/icons";
 import { AppMenuButton, WindowCaptionButtons } from "./ui/WindowControls";
-import { appDrawsWindowFrame, ownsMenuAccelerators } from "./ui/window-chrome";
-import { runLocalMenuAction } from "./ui/app-menu-actions";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { flushEditor } from "./editor/editor-flush";
@@ -35,7 +33,7 @@ import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
 import { LARGE_DOC_THRESHOLD } from "./editor/large-doc";
 import { migrateDraftImages } from "./editor/image-migration";
-import { comboFromEvent, formatCombo } from "./utils/shortcuts";
+import { formatCombo } from "./utils/shortcuts";
 import { useAppUpdate } from "./utils/useAppUpdate";
 import { useZoom } from "./utils/useZoom";
 import {
@@ -58,17 +56,13 @@ import {
   type HelpDoc,
 } from "./doc-tabs";
 import { useTabDragMerge } from "./useTabDragMerge";
+import { useGlobalShortcuts } from "./useGlobalShortcuts";
+import { useExternalChangeReload } from "./useExternalChangeReload";
 import { useDraftAutosave } from "./draft-autosave";
 import { useMenuBridge } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
-import { drafts, fs, menuIpc, session } from "./ipc";
+import { drafts, fs, session } from "./ipc";
 import { defaultMarkdownFilename } from "./save-default-name";
-import {
-  TRIGGER_COMPLETION_EVENT,
-  TRIGGER_GRAMMAR_CHECK_EVENT,
-  TOGGLE_FLOATING_CHAT_EVENT,
-  TOGGLE_FIND_REPLACE_EVENT,
-} from "./utils/events";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard" | "chat";
@@ -88,23 +82,6 @@ type PendingClose =
 // guard; see startup-restore.ts's `drained`.)
 let tutorialTabRecoveryDone = false;
 
-/** The native menu's fixed accelerators (src-tauri/src/menu.rs), for
- *  Linux, where the hidden menu bar no longer fires them. Save, Close Tab,
- *  New and Open are handled above on every platform that needs them. */
-const LINUX_MENU_ACCELERATORS: Record<string, string> = {
-  "mod+,": "settings",
-  "mod+shift+s": "save-file-as",
-  "mod+p": "export-pdf",
-  "mod+=": "zoom-in",
-  "mod++": "zoom-in",
-  "mod+shift++": "zoom-in",
-  "mod+-": "zoom-out",
-  "mod+0": "zoom-reset",
-  "mod+shift+n": "new-window",
-  "mod+shift+w": "close-window",
-  "mod+q": "quit",
-};
-
 function App() {
   const { t, settings, setSettings } = useSettings();
   const [tabs, setTabs] = useState<DocTab[]>(() => [makeBlankTab()]);
@@ -115,6 +92,7 @@ function App() {
   // active tab's document in place (window-mode Open File / agent.md).
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const toggleSidebar = useCallback(() => setPanelOpen((v) => !v), []);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const appUpdate = useAppUpdate();
@@ -510,105 +488,13 @@ function App() {
   // incoming tab has somewhere to show up before the merge actually happens.
   const showTabBar = tabs.length > 1 || dragHoverPreview !== null;
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
-      // Dialogs (including shortcut recording) own their keyboard input.
-      if (
-        e.target instanceof Element &&
-        e.target.closest('[aria-modal="true"]')
-      )
-        return;
-      const combo = comboFromEvent(e);
-      if (!combo) return;
-      if (combo === "mod+s") {
-        e.preventDefault();
-        void saveTab(activeTabId);
-        return;
-      }
-
-      // Windows has no visible native menu bar. Its menu is kept internally
-      // for most accelerators, but Open/New are handled here so they remain
-      // reliable while focus is inside the webview/editor. The backend still
-      // owns their behaviour (including tab-vs-window mode), exactly as if
-      // the corresponding menu item had been clicked.
-      if (appDrawsWindowFrame && (combo === "mod+n" || combo === "mod+o")) {
-        e.preventDefault();
-        void menuIpc.triggerMenuItem(
-          combo === "mod+n" ? "new-file" : "open-file",
-        );
-        return;
-      }
-
-      // Linux: the hidden GTK menu bar's accelerators no longer fire (see
-      // ownsMenuAccelerators), so its fixed shortcuts are routed through the
-      // same dispatch a menu click uses.
-      if (ownsMenuAccelerators) {
-        const menuId = LINUX_MENU_ACCELERATORS[combo];
-        if (menuId) {
-          e.preventDefault();
-          void menuIpc.triggerMenuItem(menuId);
-          return;
-        }
-      }
-
-      // Fixed OS-convention shortcut like Cmd+S above, not a configurable
-      // settings.shortcuts entry - it mirrors the File > Close Tab menu
-      // accelerator. (Close Window keeps its native Cmd+Shift+W.)
-      if (combo === "mod+w") {
-        e.preventDefault();
-        requestCloseTab(activeTabId);
-        return;
-      }
-
-      // F11 is THE fullscreen key on Windows, and the only way to reach
-      // fullscreen where the app draws its own frame: macOS has the native
-      // View > Enter Full Screen item (Ctrl+Cmd+F), but muda's predefined
-      // fullscreen item does nothing on Windows, so there is no native
-      // accelerator to register and it has to be caught here. Gated on the
-      // same flag the app-drawn menu is, so macOS's F11 keeps whatever the
-      // system does with it.
-      if (appDrawsWindowFrame && combo === "f11") {
-        e.preventDefault();
-        runLocalMenuAction("fullscreen");
-        return;
-      }
-      const { shortcuts } = settings;
-      if (combo === shortcuts.triggerCompletion) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent(TRIGGER_COMPLETION_EVENT));
-      } else if (combo === shortcuts.triggerGrammarCheck) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent(TRIGGER_GRAMMAR_CHECK_EVENT));
-      } else if (combo === shortcuts.toggleFloatingChat) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent(TOGGLE_FLOATING_CHAT_EVENT));
-      } else if (combo === shortcuts.findReplace) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT));
-      } else if (combo === shortcuts.toggleSidebar) {
-        e.preventDefault();
-        setPanelOpen((v) => !v);
-      } else if (combo === shortcuts.toggleSourceMode) {
-        e.preventDefault();
-        toggleSourceMode();
-      } else if (combo === shortcuts.toggleTypewriterMode) {
-        e.preventDefault();
-        setSettings({ typewriterMode: !settings.typewriterMode });
-      }
-    }
-    // Capture before the editor's keymaps: shortcuts such as Ctrl+F must not
-    // disappear merely because an editor plugin stops the bubbling event.
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [
+  useGlobalShortcuts({
+    activeTabId,
     saveTab,
     requestCloseTab,
-    activeTabId,
-    settings,
     toggleSourceMode,
-    setSettings,
-  ]);
+    toggleSidebar,
+  });
 
   useEffect(() => installClipboardCapture(), []);
 
@@ -676,52 +562,7 @@ function App() {
     return unlistenAll(unlisten);
   }, [liveTabs]);
 
-  // External-change pickup: whenever this window regains focus, compare each
-  // on-disk tab's live mtime against the snapshot taken at read/save time.
-  // Clean tabs silently reload (reloadKey remounts the editor on the new
-  // content); dirty tabs are left alone - their unsaved edits stay, and the
-  // conflict surfaces as saveTab's overwrite prompt instead. A tab with no
-  // snapshot (its mtime was unreadable when the document was read) just
-  // adopts the current mtime as its baseline.
-  useEffect(() => {
-    let checking = false;
-    const unlisten = getCurrentWindow().onFocusChanged(
-      ({ payload: focused }) => {
-        if (!focused || checking) return;
-        checking = true;
-        void (async () => {
-          for (const tab of liveTabs()) {
-            if (!tab.path) continue;
-            const mtime = await statMtime(tab.path);
-            // Deleted or unreadable: keep the buffer as-is; Save recreates it.
-            if (mtime === null) continue;
-            if (tab.diskMtime === null) {
-              updateTab(tab.id, { diskMtime: mtime });
-              continue;
-            }
-            if (mtime === tab.diskMtime) continue;
-            if (tabIsDirty(tab)) continue; // dirty: defer to the save-time prompt
-            const content = await fs.readTextFile(tab.path).catch(() => null);
-            if (content === null) continue;
-            // Re-check against the LIVE tab: the user may have started typing
-            // (or the tab may be gone) while the read above was in flight, and
-            // clobbering those fresh edits with disk content would lose them.
-            const live = liveTabs().find((tb) => tb.id === tab.id);
-            if (!live || tabIsDirty(live)) continue;
-            updateTab(tab.id, {
-              content,
-              savedContent: content,
-              diskMtime: mtime,
-              reloadKey: live.reloadKey + 1,
-            });
-          }
-        })().finally(() => {
-          checking = false;
-        });
-      },
-    );
-    return unlistenAll(unlisten);
-  }, [updateTab, liveTabs]);
+  useExternalChangeReload(liveTabs, updateTab);
 
   // Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help
   // action the frontend owns arrives here as a window event; see
@@ -733,7 +574,7 @@ function App() {
     onOpenSettings: () => setSettingsOpen(true),
     onToggleTypewriter: () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
-    onToggleSidebar: () => setPanelOpen((v) => !v),
+    onToggleSidebar: toggleSidebar,
     addBlankTab,
     openFileDialog,
     saveTab,
