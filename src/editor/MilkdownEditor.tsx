@@ -347,6 +347,15 @@ export function MilkdownEditor({
       view.dispatch(setChatSelection(view.state.tr, chatRange));
     });
   }, [chatRange, run]);
+  // The empty-document placeholder reads the language when it draws, and
+  // decorations only draw on a transaction: without one, switching the
+  // language in Settings (or on the first-run picker) left the old text.
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta("addToHistory", false));
+    });
+  }, [settings.language, run]);
   // Shows/hides the Quick Ask zone widget. Keyed on `visible` alone (NOT
   // chatInfo.widgetPos) - once shown, the plugin remaps the widget's
   // position through edits on its own; re-running this on every chatInfo

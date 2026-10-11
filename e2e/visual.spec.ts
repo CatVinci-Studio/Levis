@@ -331,3 +331,19 @@ test("an open guide switches language with the UI", async ({ page }) => {
   await expect(page.locator(".milkdown h1").first()).not.toHaveText(zhTitle);
   await expect(page.locator(".milkdown h1").first()).toContainText("Guide");
 });
+
+test("the empty-document hint follows the language picked at first run", async ({
+  page,
+}) => {
+  await openApp(page, {
+    settings: { language: "en", languageChosen: false, onboardingShown: true },
+  });
+  const hint = page.locator('[data-active-tab="true"] .empty-doc-placeholder');
+  await expect(hint).toHaveAttribute(
+    "data-placeholder",
+    "Start writing in Markdown…",
+  );
+  await page.locator(".language-welcome-option").first().click();
+  await page.locator(".language-welcome-continue").click();
+  await expect(hint).toHaveAttribute("data-placeholder", "开始输入 Markdown…");
+});
