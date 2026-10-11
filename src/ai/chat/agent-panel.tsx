@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -156,5 +157,60 @@ export function AgentPanelResizer({
         else if (e.key === "ArrowRight") onResize(width - 20);
       }}
     />
+  );
+}
+
+/** How far a drag on the sheet's handle must go to count as one. */
+const SHEET_DRAG_THRESHOLD = 40;
+
+/**
+ * The handle on top of the panel when it is a bottom sheet (phone widths,
+ * ui/mobile.css). A tap toggles half and full height; dragging up expands,
+ * dragging down collapses to half, and from half closes the panel.
+ */
+export function AgentPanelSheetGrip({
+  full,
+  onFullChange,
+  onClose,
+  label,
+}: {
+  full: boolean;
+  onFullChange: (full: boolean) => void;
+  onClose: () => void;
+  label: string;
+}) {
+  const startY = useRef<number | null>(null);
+  return (
+    <div
+      className="agent-panel-grip"
+      role="button"
+      aria-label={label}
+      aria-expanded={full}
+      tabIndex={0}
+      onPointerDown={(e) => {
+        startY.current = e.clientY;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerUp={(e) => {
+        const from = startY.current;
+        startY.current = null;
+        if (from === null) return;
+        const dy = e.clientY - from;
+        if (dy < -SHEET_DRAG_THRESHOLD) onFullChange(true);
+        else if (dy > SHEET_DRAG_THRESHOLD) {
+          if (full) onFullChange(false);
+          else onClose();
+        } else onFullChange(!full);
+      }}
+      onPointerCancel={() => (startY.current = null)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onFullChange(!full);
+        }
+      }}
+    >
+      <span />
+    </div>
   );
 }

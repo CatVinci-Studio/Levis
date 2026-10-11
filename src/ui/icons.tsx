@@ -277,6 +277,23 @@ export function ChatTabIcon({ className }: IconProps) {
   );
 }
 
+/** "More actions" on a row (the iPhone document list). */
+export function MoreIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
+      <circle cx="3.5" cy="8" r="1.3" />
+      <circle cx="8" cy="8" r="1.3" />
+      <circle cx="12.5" cy="8" r="1.3" />
+    </svg>
+  );
+}
+
 /** Dismiss/close, everywhere: tab close, panel close, chip remove. */
 export function CloseIcon({ className }: IconProps) {
   return (

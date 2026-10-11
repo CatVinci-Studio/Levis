@@ -26,8 +26,8 @@ export interface MenuBridgeHandlers {
   requestCloseTab: (tabId: string) => void;
   openHelpTab: (doc: HelpDoc) => void;
   startWelcomeTutorial: () => void;
-  /** The phone menu's Open Recent entries (buildMobileMenu). */
-  openRecent: (path: string) => Promise<void>;
+  /** The phone menu's Documents (mobile/DocumentList.tsx). */
+  onOpenDocuments: () => void;
   /** The phone menu's Share (iOS share sheet). */
   shareActiveTab: () => Promise<void>;
 }
@@ -58,7 +58,7 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
     requestCloseTab,
     openHelpTab,
     startWelcomeTutorial,
-    openRecent,
+    onOpenDocuments,
     shareActiveTab,
   } = handlers;
 
@@ -70,10 +70,7 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
       // a fresh window itself instead of emitting this.
       listenToThisWindow("menu-new-file", () => addBlankTab()),
       listenToThisWindow("menu-open-file", () => void openFileDialog()),
-      listenToThisWindow<string>(
-        "menu-open-path",
-        (event) => void openRecent(event.payload),
-      ),
+      listenToThisWindow("menu-documents", () => onOpenDocuments()),
       listenToThisWindow("menu-share", () => void shareActiveTab()),
       listenToThisWindow("menu-save-file", () => void saveTab(activeTabId)),
       listenToThisWindow(
@@ -121,7 +118,7 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
     );
   }, [
     openFileDialog,
-    openRecent,
+    onOpenDocuments,
     shareActiveTab,
     saveTab,
     saveTabAs,

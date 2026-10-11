@@ -79,9 +79,14 @@ CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，�
 
 - **样式：** 全部在 `src/ui/mobile.css`，规则都以 `:root[data-window-chrome="mobile"]` 开头，桌面样式表不动。内容：44pt 的标题栏和触控按钮；侧边栏是盖在页面上的抽屉（点旁边的遮罩关闭，选中文件后自动关闭）；Levis AI 面板占满标题栏以下的整个屏幕；状态栏和 Home 指示条下的留白用文档背景色（`--page-bg`）；iOS 可用的字体栈（`-apple-system`、`system-ui`、`ui-monospace` 在 iOS 26 WebKit 上会把中日文显示成方框）。
 - **菜单：** 标题栏左侧的按钮打开 `buildMobileMenu`（`ui/app-menu-model.ts`）：一列平铺，没有子菜单。iOS 没有 `menu.rs`，所以 `emitMenuEvent`（`ui/app-menu-actions.ts`）把菜单 id 转成 `useMenuBridge` 监听的同名事件发给本窗口。目标必须写成 `WebviewWindow`：只写标签会变成 `AnyLabel`，而 iOS 上窗口和 webview 都叫 main，事件会到两次，开关类操作互相抵消。
-- **键盘：** `KeyboardFit.swift`（同在 levis-files 插件里，由插件的 `load(webview:)` 启动）在键盘弹出时把 webview 缩短到键盘上方，并关闭 webview 自身的滚动；否则 WebKit 会把整页往上推，标题栏被顶出屏幕。`platform/mobile-viewport.ts` 只设置 `maximum-scale=1`，防止聚焦输入框时页面被放大。
+- **键盘：** `KeyboardFit.swift`（同在 levis-files 插件里，由插件的 `load(webview:)` 启动）在键盘弹出时把 webview 缩短到键盘上方，并关闭 webview 自身的滚动和回弹；否则 WebKit 会把整页往上推，标题栏被顶出屏幕。页面的静止位置不是 0，而是负的顶部安全区高度（`pinToTop`）；从别的 App 切回来时也会重新校正，否则标题栏和正文会落到状态栏下面。`platform/mobile-viewport.ts` 只设置 `maximum-scale=1`，防止聚焦输入框时页面被放大。
 - **存与开：** 新文档"保存"直接写进 Documents，文件名用建议名，重名时加序号（`newDocumentPath`）。文件树没有打开文档时显示 Documents，不提供"上一级"。"新建文件"在 iOS 上新增一个标签（没有窗口可开）。上次打开的文档记在 localStorage，Documents 内的按相对路径记，因为重装和 App Store 更新都会改变容器路径。
-- **最近打开与分享：** 菜单里列出最近打开的 5 个文档（`recentIOSDocuments`，存在 localStorage，Documents 内按相对路径记；第一个就是启动时重新打开的那个）。"分享…"和文件树里长按文件弹出的菜单都调用插件的 `share`：把文档复制到临时目录再弹出系统分享面板（隔空投送、信息、邮件、存储到"文件"），未保存的文档先保存。iOS 的 web view 长按不会触发 contextmenu 事件，所以 `FileTree.tsx` 自己计时（`useLongPress`）。
+- **文档列表：** 菜单最上面的"文档"打开 `mobile/DocumentList.tsx`：打开过的文档按时间列出（`recentIOSDocuments`，最多 30 个，存在 localStorage，Documents 内按相对路径记；第一个就是启动时重新打开的那个）。点一下打开；"⋯"或长按弹出操作：打开、分享、重命名、删除。Levis 文件夹里的文档由 Rust 的 `rename_entry` / `delete_entry`（`commands/documents.rs`，只在 iOS 注册，路径必须在 Documents 之内）处理；从"文件"里单独选的文档只授权了文件本身、没有授权所在文件夹，所以只能打开、分享、从列表移除。重命名后已打开的标签跟着换路径；删除后标签保留内容、变成未保存。
+- **分享：** 菜单"分享…"、文档列表和侧边栏文件的长按都调用插件的 `share`：把文档复制到临时目录再弹出系统分享面板（隔空投送、信息、邮件、存储到"文件"），未保存的文档先保存。iOS 的 web view 长按不会触发 contextmenu 事件，所以长按由 `utils/useLongPress.ts` 自己计时。
+- **菜单勾选：** 开关类菜单项（侧边栏、源码、打字机、禅模式；桌面 Windows/Linux 的应用内菜单还有 AI 面板、分栏）带 `checked`，开着时显示 ✓（`MenuChecks`，由 App 传入）。手机菜单打开时让编辑器失焦，键盘和系统的"粘贴 | 格式"气泡一起收起，避免盖在菜单上。
+- **键盘工具栏：** `mobile/KeyboardToolbar.tsx`，编辑文档时显示在键盘上方：标题、加粗、斜体、列表、引用、代码块，以及"✦ AI"（在光标处打开快速提问，手机上没有快捷键，这是唯一入口）。加粗和斜体是 `md_span` 节点而不是 mark，由 `editor/span-commands.ts` 的 `toggleSpan` 处理。按钮在 touchend 执行并取消默认行为，不抢编辑器的焦点。
+- **AI 底部面板：** 手机宽度下 Levis AI 是底部面板，默认占约 55% 高度，文档仍在上方可见；顶部的拖动条（`AgentPanelSheetGrip`）点一下在半屏和全屏之间切换，往上拖展开，往下拖收起或关闭。iPad 宽屏仍是右侧一栏。
+- **设置：** 手机上不显示"快捷键"设置页。
 - **AI 补全：** 手机没有 Tab 键，点灰色建议即可采纳（`ghost-text-plugin.ts` 的 `touchend`），设置里的说明文字随之改为"轻点采纳"。
 - **首次启动：** 选完语言后不自动进入教程（教程靠键盘快捷键讲解）。
 - **测试：** `e2e/phone.spec.ts` 用 Chromium 的手机视口和触摸模拟检查抽屉、全屏 AI 面板和点按采纳；真正的 iOS WebKit 行为（键盘、字体、选文件）在模拟器里用 idb 手动检查过。

@@ -659,6 +659,27 @@ body {
   color: var(--editor-text);
 }
 
+/* showPrompt's text field (a new file name). */
+.app-dialog-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  margin: 0 0 16px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg);
+  color: var(--editor-text);
+  font: inherit;
+  font-size: var(--text-md);
+}
+
+.app-dialog-input:focus-visible {
+  border-color: var(--chrome-accent);
+  outline: none;
+}
+
 .app-dialog-title {
   margin: 0 0 8px;
   font-size: var(--text-lg);

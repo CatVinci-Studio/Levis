@@ -156,7 +156,8 @@ export async function newDocumentPath(
 }
 
 const RECENT_DOCUMENTS_KEY = "levis-ios-recent-documents";
-const RECENT_LIMIT = 8;
+/** The document list keeps this many; the phone menu shows the first few. */
+const RECENT_LIMIT = 30;
 /** Prefix for a path stored relative to Documents: the app's container
  *  moves on every reinstall and App Store update, so an absolute path into
  *  it would be stale by the next version. */
@@ -227,4 +228,41 @@ export async function forgetIOSDocument(path: string): Promise<void> {
   } catch {
     // Nothing to do.
   }
+}
+
+/** Where a recent document lives: in the app's own Documents folder (which
+ *  the list can rename and delete in), or picked from elsewhere in Files
+ *  (iCloud Drive and the like - a single picked file grants access to that
+ *  file only, not to its folder, so it can be opened and shared but not
+ *  renamed or deleted from here). */
+export async function inIOSDocuments(path: string): Promise<boolean> {
+  const docs = (await documentDir()).replace(/\/+$/, "") + "/";
+  return path.startsWith(docs);
+}
+
+/** Renames a document in Documents and keeps the recent list pointing at
+ *  it. Returns the new path. */
+export async function renameIOSDocument(
+  path: string,
+  name: string,
+): Promise<string> {
+  const renamed = await invoke<string>("rename_entry", { path, name });
+  const docs = (await documentDir()).replace(/\/+$/, "") + "/";
+  const before = IN_DOCUMENTS + path.slice(docs.length);
+  const after = IN_DOCUMENTS + renamed.slice(docs.length);
+  try {
+    localStorage.setItem(
+      RECENT_DOCUMENTS_KEY,
+      JSON.stringify(readRecents().map((p) => (p === before ? after : p))),
+    );
+  } catch {
+    // The list just loses the entry's old name.
+  }
+  return renamed;
+}
+
+/** Deletes a document in Documents and drops it from the recent list. */
+export async function deleteIOSDocument(path: string): Promise<void> {
+  await invoke("delete_entry", { path });
+  await forgetIOSDocument(path);
 }

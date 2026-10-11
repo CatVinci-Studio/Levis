@@ -38,9 +38,7 @@ export function emitMenuEvent(id: NativeMenuId): void {
     ? ["menu-open-help", id.slice("help-doc:".length)]
     : id.startsWith("insert-block:")
       ? ["menu-insert-block", id.slice("insert-block:".length)]
-      : id.startsWith("open-path:")
-        ? ["menu-open-path", id.slice("open-path:".length)]
-        : [id === "settings" ? "menu-open-settings" : `menu-${id}`, undefined];
+      : [id === "settings" ? "menu-open-settings" : `menu-${id}`, undefined];
   // Addressed to the WebviewWindow, the form menu.rs's emit_to uses. A bare
   // label is AnyLabel, which on iOS - where the window and its webview are
   // both "main" - delivered the event twice, so every toggle undid itself.

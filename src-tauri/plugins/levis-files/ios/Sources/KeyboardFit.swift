@@ -14,25 +14,46 @@ import WebKit
 // plugin starts it from load(webview:).
 final class KeyboardFit {
   private weak var webview: WKWebView?
-  private var observer: NSObjectProtocol?
+  private var observers: [NSObjectProtocol] = []
 
   init(webview: WKWebView) {
     self.webview = webview
-    // No scroll-into-view of a page that already fits.
+    // No scroll-into-view of a page that already fits, and no rubber band
+    // that leaves the page pulled up under the status bar.
     webview.scrollView.isScrollEnabled = false
-    observer = NotificationCenter.default.addObserver(
-      forName: UIResponder.keyboardWillChangeFrameNotification,
-      object: nil,
-      queue: .main
-    ) { [weak self] note in
-      self?.fit(note)
-    }
+    webview.scrollView.bounces = false
+    let center = NotificationCenter.default
+    observers.append(
+      center.addObserver(
+        forName: UIResponder.keyboardWillChangeFrameNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] note in
+        self?.fit(note)
+      })
+    // Coming back from another app the keyboard is re-announced and the
+    // page may have drifted; settle it again.
+    observers.append(
+      center.addObserver(
+        forName: UIApplication.didBecomeActiveNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        self?.pinToTop()
+      })
   }
 
   deinit {
-    if let observer = observer {
-      NotificationCenter.default.removeObserver(observer)
-    }
+    observers.forEach(NotificationCenter.default.removeObserver)
+  }
+
+  /// The page's resting position. Not zero: the scroll view insets the
+  /// page below the status bar, so "the top" is minus that inset - an
+  /// offset of zero pushed the title row and the text under the clock.
+  private func pinToTop() {
+    guard let scroll = webview?.scrollView else { return }
+    scroll.setContentOffset(
+      CGPoint(x: 0, y: -scroll.adjustedContentInset.top), animated: false)
   }
 
   private func fit(_ note: Notification) {
@@ -48,9 +69,10 @@ final class KeyboardFit {
     var frame = host.bounds
     frame.size.height -= covered
     let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
-    UIView.animate(withDuration: duration) {
-      webview.frame = frame
-    }
-    webview.scrollView.contentOffset = .zero
+    UIView.animate(
+      withDuration: duration,
+      animations: { webview.frame = frame },
+      completion: { [weak self] _ in self?.pinToTop() })
+    pinToTop()
   }
 }

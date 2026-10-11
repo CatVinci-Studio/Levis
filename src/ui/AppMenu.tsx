@@ -7,12 +7,12 @@ import { emitMenuEvent, runLocalMenuAction } from "./app-menu-actions";
 import {
   buildAppMenu,
   buildMobileMenu,
+  type MenuChecks,
   type MenuEntry,
   type MenuNode,
 } from "./app-menu-model";
 import { hasAppMenu } from "../platform/capabilities";
-import { recentIOSDocuments } from "../platform/ios-files";
-import { ChevronIcon } from "./icons";
+import { CheckIcon, ChevronIcon } from "./icons";
 import "./app-menu.css";
 
 /**
@@ -38,9 +38,11 @@ interface AppMenuProps {
   x: number;
   y: number;
   onClose: () => void;
+  /** Which view modes are on, for their check marks. */
+  checks?: MenuChecks;
 }
 
-export function AppMenu({ x, y, onClose }: AppMenuProps) {
+export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
   const { t, settings } = useSettings();
   const [recents, setRecents] = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
@@ -50,14 +52,8 @@ export function AppMenu({ x, y, onClose }: AppMenuProps) {
   // list holds NOW (including a file opened since the menu was last up), and
   // nothing about it changes while the menu is on screen.
   useEffect(() => {
+    if (!hasAppMenu) return;
     let alive = true;
-    if (!hasAppMenu) {
-      // iPhone: the app keeps its own list (platform/ios-files.ts).
-      void recentIOSDocuments().then((list) => alive && setRecents(list));
-      return () => {
-        alive = false;
-      };
-    }
     void menuIpc
       .listRecentFiles()
       .then((list) => {
@@ -78,8 +74,8 @@ export function AppMenu({ x, y, onClose }: AppMenuProps) {
       <MenuList
         items={
           hasAppMenu
-            ? buildAppMenu(t, settings.shortcuts, recents)
-            : buildMobileMenu(t, recents)
+            ? buildAppMenu(t, settings.shortcuts, recents, checks)
+            : buildMobileMenu(t, checks)
         }
         onDismiss={onClose}
         autoFocus
@@ -229,7 +225,8 @@ function MenuRow({
       <button
         ref={rowRef}
         type="button"
-        role="menuitem"
+        role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+        aria-checked={item.checked}
         className="app-menu-item"
         title={item.title}
         disabled={item.disabled}
@@ -253,6 +250,7 @@ function MenuRow({
         }}
       >
         <span className="app-menu-label">{item.label}</span>
+        {item.checked && <CheckIcon className="app-menu-check" />}
         {item.accel && (
           <span className="app-menu-accel">{formatCombo(item.accel)}</span>
         )}
