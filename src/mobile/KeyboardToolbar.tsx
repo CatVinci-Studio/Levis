@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useSettings } from "../settings/SettingsContext";
 import {
+  BulletListIcon,
+  CopyIcon,
+  NumberedListIcon,
+  PasteIcon,
+  UndoIcon,
+} from "../ui/icons";
+import {
+  EDIT_ACTION_EVENT,
   INSERT_BLOCK_EVENT,
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_MARK_EVENT,
@@ -9,7 +17,8 @@ import "./KeyboardToolbar.css";
 
 /**
  * The strip above the iPhone keyboard while the document is being edited:
- * formatting without typing Markdown symbols, and Quick Ask at the caret -
+ * undo, copy and paste; formatting without typing Markdown symbols; and
+ * Quick Ask at the caret -
  * which has no other way in on a phone (no shortcut, and a long press
  * brings up the system's text menu, not Levis's).
  *
@@ -65,50 +74,61 @@ export function KeyboardToolbar() {
 
   if (!editing) return null;
 
-  const buttons: {
+  type Button = {
     label: string;
-    glyph: string;
+    content: ReactNode;
     className?: string;
     run: () => void;
-  }[] = [
-    {
-      label: t.menuHeadingTemplate.replace("{n}", "2"),
-      glyph: "H",
-      run: () => send(INSERT_BLOCK_EVENT, "h2"),
-    },
-    {
-      label: t.toolbarBold,
-      glyph: "B",
-      className: "kbt-bold",
-      run: () => send(TOGGLE_MARK_EVENT, "bold"),
-    },
-    {
-      label: t.toolbarItalic,
-      glyph: "I",
-      className: "kbt-italic",
-      run: () => send(TOGGLE_MARK_EVENT, "italic"),
-    },
-    {
-      label: t.menuBulletList,
-      glyph: "•",
-      run: () => send(INSERT_BLOCK_EVENT, "bullet-list"),
-    },
-    {
-      label: t.menuOrderedList,
-      glyph: "1.",
-      run: () => send(INSERT_BLOCK_EVENT, "ordered-list"),
-    },
-    {
-      label: t.menuBlockquote,
-      glyph: "❝",
-      run: () => send(INSERT_BLOCK_EVENT, "blockquote"),
-    },
-    {
-      label: t.menuCodeBlock,
-      glyph: "</>",
-      className: "kbt-code",
-      run: () => send(INSERT_BLOCK_EVENT, "code-block"),
-    },
+  };
+  const edit = (action: string) => () => send(EDIT_ACTION_EVENT, action);
+  const groups: Button[][] = [
+    [
+      { label: t.menuUndo, content: <UndoIcon />, run: edit("undo") },
+      { label: t.copy, content: <CopyIcon />, run: edit("copy") },
+      { label: t.paste, content: <PasteIcon />, run: edit("paste") },
+    ],
+    [
+      {
+        label: t.menuHeadingTemplate.replace("{n}", "2"),
+        content: "H",
+        run: () => send(INSERT_BLOCK_EVENT, "h2"),
+      },
+      {
+        label: t.toolbarBold,
+        content: "B",
+        className: "kbt-bold",
+        run: () => send(TOGGLE_MARK_EVENT, "bold"),
+      },
+      {
+        label: t.toolbarItalic,
+        content: "I",
+        className: "kbt-italic",
+        run: () => send(TOGGLE_MARK_EVENT, "italic"),
+      },
+    ],
+    [
+      {
+        label: t.menuBulletList,
+        content: <BulletListIcon />,
+        run: () => send(INSERT_BLOCK_EVENT, "bullet-list"),
+      },
+      {
+        label: t.menuOrderedList,
+        content: <NumberedListIcon />,
+        run: () => send(INSERT_BLOCK_EVENT, "ordered-list"),
+      },
+      {
+        label: t.menuBlockquote,
+        content: "❝",
+        run: () => send(INSERT_BLOCK_EVENT, "blockquote"),
+      },
+      {
+        label: t.menuCodeBlock,
+        content: "</>",
+        className: "kbt-code",
+        run: () => send(INSERT_BLOCK_EVENT, "code-block"),
+      },
+    ],
   ];
 
   return (
@@ -118,16 +138,20 @@ export function KeyboardToolbar() {
       aria-label={t.toolbarLabel}
     >
       <div className="keyboard-toolbar-format">
-        {buttons.map((b) => (
-          <button
-            key={b.glyph}
-            type="button"
-            className={`keyboard-toolbar-button ${b.className ?? ""}`}
-            aria-label={b.label}
-            {...keepFocus(b.run)}
-          >
-            {b.glyph}
-          </button>
+        {groups.map((group, g) => (
+          <div key={g} className="keyboard-toolbar-group">
+            {group.map((b) => (
+              <button
+                key={b.label}
+                type="button"
+                className={`keyboard-toolbar-button ${b.className ?? ""}`}
+                aria-label={b.label}
+                {...keepFocus(b.run)}
+              >
+                {b.content}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
       {settings.enableAskAi && (
@@ -137,7 +161,7 @@ export function KeyboardToolbar() {
           aria-label={t.askAi}
           {...keepFocus(() => send(TOGGLE_FLOATING_CHAT_EVENT))}
         >
-          ✦ AI
+          ✦
         </button>
       )}
     </div>

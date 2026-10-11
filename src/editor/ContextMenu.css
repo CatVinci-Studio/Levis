@@ -12,6 +12,7 @@
   width: 100%;
 }
 
-.context-menu-item-danger {
+/* Doubled class: design-system.css's shared menu-item colour loads later. */
+.context-menu-item.context-menu-item-danger {
   color: var(--danger);
 }

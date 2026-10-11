@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
@@ -36,73 +36,80 @@ export interface MenuBridgeHandlers {
  * Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help
  * action the frontend owns arrives here as a window event. Pulled out of
  * App.tsx as a pure wiring layer: every handler it calls already lives in
- * App (or a hook App composes), this just subscribes/unsubscribes them to
- * the right event names.
+ * App (or a hook App composes), this just subscribes them to the right
+ * event names.
  */
 export function useMenuBridge(handlers: MenuBridgeHandlers): void {
-  const {
-    activeTabId,
-    liveTabs,
-    t,
-    onOpenSettings,
-    onToggleTypewriter,
-    onToggleSidebar,
-    onToggleAgentPanel,
-    onToggleSplitView,
-    onToggleZenMode,
-    addBlankTab,
-    openFileDialog,
-    saveTab,
-    saveTabAs,
-    toggleSourceMode,
-    requestCloseTab,
-    openHelpTab,
-    startWelcomeTutorial,
-    onOpenDocuments,
-    shareActiveTab,
-  } = handlers;
+  // Subscribed ONCE, reading the newest handlers at the moment an event
+  // arrives. Re-subscribing whenever a handler changed (nearly every
+  // render) raced Tauri's asynchronous unlisten: for a moment old and new
+  // listeners were both live, and one menu click ran several times - New
+  // File opened four tabs at once on the iPhone.
+  const latest = useRef(handlers);
+  useLayoutEffect(() => {
+    latest.current = handlers;
+  });
 
   useEffect(() => {
-    const activeTabNow = () => liveTabs().find((tb) => tb.id === activeTabId);
+    const h = () => latest.current;
+    const activeTabNow = () => {
+      const { liveTabs, activeTabId } = h();
+      return liveTabs().find((tb) => tb.id === activeTabId);
+    };
     return unlistenAll(
-      listenToThisWindow("menu-open-settings", () => onOpenSettings()),
+      listenToThisWindow("menu-open-settings", () => h().onOpenSettings()),
       // Only arrives in tab mode - in window mode the Rust menu handler opens
       // a fresh window itself instead of emitting this.
-      listenToThisWindow("menu-new-file", () => addBlankTab()),
-      listenToThisWindow("menu-open-file", () => void openFileDialog()),
-      listenToThisWindow("menu-documents", () => onOpenDocuments()),
-      listenToThisWindow("menu-share", () => void shareActiveTab()),
-      listenToThisWindow("menu-save-file", () => void saveTab(activeTabId)),
+      listenToThisWindow("menu-new-file", () => h().addBlankTab()),
+      listenToThisWindow("menu-open-file", () => void h().openFileDialog()),
+      listenToThisWindow("menu-documents", () => h().onOpenDocuments()),
+      listenToThisWindow("menu-share", () => void h().shareActiveTab()),
+      listenToThisWindow(
+        "menu-save-file",
+        () => void h().saveTab(h().activeTabId),
+      ),
       listenToThisWindow(
         "menu-save-file-as",
-        () => void saveTabAs(activeTabId),
+        () => void h().saveTabAs(h().activeTabId),
       ),
       // Dedicated PDF export: shows a progress overlay while the themed,
       // paginated document is rendered offscreen and written straight to
       // the chosen file (no print dialog). See exportPdf in export-doc.
       listenToThisWindow("menu-export-pdf", () => {
         const tab = activeTabNow();
-        if (tab) void exportPdf(tab, t);
+        if (tab) void exportPdf(tab, h().t);
       }),
       listenToThisWindow("menu-export-html", () => {
         const tab = activeTabNow();
-        if (tab) void exportHtml(tab, t);
+        if (tab) void exportHtml(tab, h().t);
       }),
       // Payload is the pandoc writer name (docx, epub, ...) from the menu id.
       listenToThisWindow<string>("menu-export-pandoc", (event) => {
         const tab = activeTabNow();
-        if (tab) void exportViaPandoc(tab, event.payload, t);
+        if (tab) void exportViaPandoc(tab, event.payload, h().t);
       }),
-      listenToThisWindow("menu-toggle-source-mode", () => toggleSourceMode()),
-      listenToThisWindow("menu-toggle-typewriter-mode", () =>
-        onToggleTypewriter(),
+      listenToThisWindow("menu-toggle-source-mode", () =>
+        h().toggleSourceMode(),
       ),
-      listenToThisWindow("menu-toggle-sidebar", () => onToggleSidebar()),
-      listenToThisWindow("menu-toggle-agent-panel", () => onToggleAgentPanel()),
+      listenToThisWindow("menu-toggle-typewriter-mode", () =>
+        h().onToggleTypewriter(),
+      ),
+      listenToThisWindow("menu-toggle-sidebar", () => h().onToggleSidebar()),
+      listenToThisWindow("menu-toggle-agent-panel", () =>
+        h().onToggleAgentPanel(),
+      ),
+      // These two were never subscribed: View > Split View and View > Zen
+      // Mode (and their menu accelerators) did nothing.
+      listenToThisWindow("menu-toggle-split-view", () =>
+        h().onToggleSplitView(),
+      ),
+      listenToThisWindow("menu-toggle-zen-mode", () => h().onToggleZenMode()),
       listenToThisWindow("menu-find-replace", () =>
         window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT)),
       ),
-      listenToThisWindow("menu-close-tab", () => requestCloseTab(activeTabId)),
+      listenToThisWindow("menu-close-tab", () =>
+        h().requestCloseTab(h().activeTabId),
+      ),
       // Payload is the block kind (h1..h6, bullet-list, ...) from the menu id -
       // relayed to whichever editor is mounted as active (MilkdownEditor.tsx).
       listenToThisWindow<string>("menu-insert-block", (event) => {
@@ -111,30 +118,10 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
         );
       }),
       listenToThisWindow<string>("menu-open-help", (event) => {
-        if (event.payload === "welcome") startWelcomeTutorial();
+        if (event.payload === "welcome") h().startWelcomeTutorial();
         else if (event.payload === "markdown" || event.payload === "agent")
-          openHelpTab(event.payload);
+          h().openHelpTab(event.payload);
       }),
     );
-  }, [
-    openFileDialog,
-    onOpenDocuments,
-    shareActiveTab,
-    saveTab,
-    saveTabAs,
-    addBlankTab,
-    openHelpTab,
-    startWelcomeTutorial,
-    requestCloseTab,
-    activeTabId,
-    toggleSourceMode,
-    onOpenSettings,
-    onToggleTypewriter,
-    onToggleSidebar,
-    onToggleAgentPanel,
-    onToggleSplitView,
-    onToggleZenMode,
-    liveTabs,
-    t,
-  ]);
+  }, []);
 }

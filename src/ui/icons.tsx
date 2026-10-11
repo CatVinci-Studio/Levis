@@ -648,3 +648,152 @@ export function fileIconFor(name: string) {
   if (IMAGE_EXTS.has(ext)) return ImageFileIcon;
   return GenericFileIcon;
 }
+
+/** Undo (the iPhone keyboard toolbar). */
+export function UndoIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path
+        d="M5.5 3.5L2.5 6.5L5.5 9.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.5 6.5H9.75C11.82 6.5 13.5 8.18 13.5 10.25C13.5 12.32 11.82 14 9.75 14H7"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Paste: a clipboard with a sheet on it. */
+export function PasteIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path
+        d="M10.5 2.8H12C12.72 2.8 13.3 3.38 13.3 4.1V13.2C13.3 13.92 12.72 14.5 12 14.5H4C3.28 14.5 2.7 13.92 2.7 13.2V4.1C2.7 3.38 3.28 2.8 4 2.8H5.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      <rect
+        x="5.5"
+        y="1.5"
+        width="5"
+        height="2.6"
+        rx="0.8"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      <path
+        d="M5.5 8H10.5M5.5 11H9"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Bullet list: three dots, three lines. */
+export function BulletListIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <circle cx="3" cy="4" r="1.1" fill="currentColor" />
+      <circle cx="3" cy="8" r="1.1" fill="currentColor" />
+      <circle cx="3" cy="12" r="1.1" fill="currentColor" />
+      <path
+        d="M6 4H14M6 8H14M6 12H14"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Numbered list: 1, 2, 3 beside three lines. */
+export function NumberedListIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path
+        d="M2 2.6L3.1 2V6M2.2 6H4M2.1 8.6C2.3 8.1 2.7 7.9 3.1 7.9C3.6 7.9 4 8.2 4 8.7C4 9.5 2.1 10.4 2.1 11.3H4.1"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.5 4H14M6.5 8H14M6.5 12H14"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Documents list: show as a grid of page thumbnails. */
+export function GridViewIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+    >
+      <rect x="2" y="2" width="5" height="5" rx="1" />
+      <rect x="9" y="2" width="5" height="5" rx="1" />
+      <rect x="2" y="9" width="5" height="5" rx="1" />
+      <rect x="9" y="9" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+/** Documents list: show as rows. */
+export function ListViewIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    >
+      <path d="M2.5 4H13.5M2.5 8H13.5M2.5 12H13.5" />
+    </svg>
+  );
+}
