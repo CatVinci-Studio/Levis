@@ -1,10 +1,19 @@
+//! Export. Only `export_save_dialog` is shared with iOS; everything else is
+//! desktop only - pandoc is an external process (iOS cannot spawn one), the
+//! PDF renderers are per-desktop-webview, and "reveal in Finder/Explorer"
+//! needs a file manager.
+
+#[cfg(desktop)]
 use std::io::Write;
+#[cfg(desktop)]
 use std::path::PathBuf;
+#[cfg(desktop)]
 use std::process::{Command, Stdio};
 
 /// Pandoc-backed export follows Typora's model: detect a user-installed
 /// binary instead of bundling one (pandoc is ~180MB and GPL-licensed; the
 /// frontend guides the user to pandoc.org when it's missing).
+#[cfg(desktop)]
 fn pandoc_candidates() -> Vec<PathBuf> {
     let mut candidates = vec![
         // Works when the app inherits a shell PATH (e.g. launched via CLI).
@@ -24,6 +33,7 @@ fn pandoc_candidates() -> Vec<PathBuf> {
 /// from Finder don't inherit the shell's PATH, so beyond a plain `pandoc`
 /// lookup this probes the usual install locations (Homebrew, MacPorts, the
 /// official installer's /usr/local, ~/.local).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn detect_pandoc() -> Option<String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -52,6 +62,7 @@ pub async fn detect_pandoc() -> Option<String> {
 /// temp file - and --resource-path points at the document's folder so
 /// relative image srcs (Typora-style assets/...) resolve for formats that
 /// embed them (docx, epub, odt).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn export_via_pandoc(
     pandoc_path: String,
@@ -123,6 +134,7 @@ pub async fn export_save_dialog(
     .flatten()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_pandoc_install_page(app: tauri::AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
@@ -133,6 +145,7 @@ pub async fn open_pandoc_install_page(app: tauri::AppHandle) -> Result<(), Strin
 
 /// Shows the exported file in Finder, so a successful export has visible
 /// feedback beyond the dialog closing.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn reveal_in_dir(app: tauri::AppHandle, path: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
@@ -183,6 +196,7 @@ pub async fn export_pdf_native(
 
 /// Labels of the hidden windows the Windows/Linux PDF export renders in -
 /// never an editor window (chat_window::is_editor_window).
+#[cfg(desktop)]
 pub const PDF_EXPORT_LABEL_PREFIX: &str = "pdf-export-";
 
 /// Windows and Linux: the same idea as the macOS path - render the themed,
@@ -205,7 +219,7 @@ pub async fn export_pdf_native(
     pdf_offscreen::export(app, html, output_path).await
 }
 
-#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+#[cfg(all(desktop, not(any(target_os = "macos", windows, target_os = "linux"))))]
 #[tauri::command]
 pub async fn export_pdf_native(
     _app: tauri::AppHandle,

@@ -45,9 +45,13 @@ pub fn add_recent_file(app: tauri::AppHandle, path: String) {
     list.insert(0, path);
     list.truncate(MAX_RECENT_FILES);
     write_recent_files(&app, &list);
+    // The list itself is shared; the File > Open Recent menu mirroring it is
+    // desktop only (iOS has no menu bar).
+    #[cfg(desktop)]
     crate::menu::rebuild_recent_menu(&app, list);
 }
 
+#[cfg(desktop)]
 pub fn clear_recent_files(app: &tauri::AppHandle) {
     write_recent_files(app, &[]);
     crate::menu::rebuild_recent_menu(app, Vec::new());

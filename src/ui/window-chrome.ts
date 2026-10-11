@@ -1,4 +1,5 @@
 import { isLinuxPlatform, isWindowsPlatform } from "../utils/platform";
+import { canUseWindows, hasAppMenu } from "../platform/capabilities";
 /**
  * How much of the window frame this app has to draw for itself.
  *
@@ -29,7 +30,8 @@ import { isLinuxPlatform, isWindowsPlatform } from "../utils/platform";
  * systems, and making it a hook would mean every consumer re-rendering for a
  * value that cannot change.
  */
-export const appDrawsWindowFrame = isWindowsPlatform() || isLinuxPlatform();
+export const appDrawsWindowFrame =
+  hasAppMenu && (isWindowsPlatform() || isLinuxPlatform());
 
 /**
  * Whether the native menu's accelerators are dead, so the frontend must
@@ -54,10 +56,15 @@ export const drawsWindowEdges = isLinuxPlatform();
  * room for the caption buttons without every rule needing a class threaded
  * down to it. Called once from main.tsx, before the first render, so the
  * title row is never painted at the wrong inset and then corrected.
+ *
+ * "mobile" on iOS, where there is no window frame at all - nothing in the
+ * stylesheet keys off it yet; it is the hook for the iOS layout.
  */
 export function publishWindowChrome(): void {
   if (typeof document === "undefined") return;
-  document.documentElement.dataset.windowChrome = appDrawsWindowFrame
-    ? "app"
-    : "native";
+  document.documentElement.dataset.windowChrome = !canUseWindows
+    ? "mobile"
+    : appDrawsWindowFrame
+      ? "app"
+      : "native";
 }

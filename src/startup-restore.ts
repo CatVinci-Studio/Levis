@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { drafts, windowIpc } from "./ipc";
+import { canUseWindows, hasAppMenu } from "./platform/capabilities";
 import {
   helpDocContent,
   makeBlankTab,
@@ -59,7 +60,7 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       // ordering guarantee against this window mounting. Draining here would
       // re-add the dragged document as a "recovered" tab and then land it a
       // second time as the detached tab.
-      const detached = await windowIpc.takeDetachedTab();
+      const detached = canUseWindows ? await windowIpc.takeDetachedTab() : null;
       if (detached) {
         opts.stopTutorial();
         opts.updateTab(opts.activeTabId, detached);
@@ -110,7 +111,9 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       // initial tab instead of opening next to it. "welcome" starts the
       // tutorial on that same already-blank tab instead (same as clicking
       // the Help menu item directly would - see startWelcomeTutorial).
-      const helpDoc: string | null = await windowIpc.takePendingShowHelp();
+      const helpDoc: string | null = hasAppMenu
+        ? await windowIpc.takePendingShowHelp()
+        : null;
       if (helpDoc === "markdown" || helpDoc === "agent") {
         // A tutorial can be persisted from a previous window. A window born
         // specifically to show a guide must not restore that overlay on top

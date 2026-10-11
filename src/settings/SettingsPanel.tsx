@@ -30,6 +30,13 @@ import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
 import { Select } from "../ui/Select";
+import {
+  canDetachChat,
+  canInstallCliCommand,
+  canPickFolder,
+  canRevealInFileManager,
+  canUseWindows,
+} from "../platform/capabilities";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
 // with its own state or backend round-trips lives in sections/ - this file
@@ -137,31 +144,38 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       <option value="ja">日本語</option>
                     </Select>
                   </div>
-                  <div className="settings-row">
-                    <div className="settings-row-label">
-                      {t.newDocumentModeLabel}
-                    </div>
-                    <Select
-                      className="settings-select"
-                      aria-label={t.newDocumentModeLabel}
-                      value={settings.newDocumentMode}
-                      onChange={(e) =>
-                        setSettings({
-                          newDocumentMode: e.target.value as NewDocumentMode,
-                        })
-                      }
-                    >
-                      <option value="window">{t.newDocumentModeWindow}</option>
-                      <option value="tab">{t.newDocumentModeTab}</option>
-                    </Select>
-                  </div>
-                  <ToggleRow
-                    label={t.restoreSessionLabel}
-                    checked={settings.restoreSessionOnStartup}
-                    onChange={(v) =>
-                      setSettings({ restoreSessionOnStartup: v })
-                    }
-                  />
+                  {canUseWindows && (
+                    <>
+                      <div className="settings-row">
+                        <div className="settings-row-label">
+                          {t.newDocumentModeLabel}
+                        </div>
+                        <Select
+                          className="settings-select"
+                          aria-label={t.newDocumentModeLabel}
+                          value={settings.newDocumentMode}
+                          onChange={(e) =>
+                            setSettings({
+                              newDocumentMode: e.target
+                                .value as NewDocumentMode,
+                            })
+                          }
+                        >
+                          <option value="window">
+                            {t.newDocumentModeWindow}
+                          </option>
+                          <option value="tab">{t.newDocumentModeTab}</option>
+                        </Select>
+                      </div>
+                      <ToggleRow
+                        label={t.restoreSessionLabel}
+                        checked={settings.restoreSessionOnStartup}
+                        onChange={(v) =>
+                          setSettings({ restoreSessionOnStartup: v })
+                        }
+                      />
+                    </>
+                  )}
                   <ToggleRow
                     label={t.autoSuggestFilenameLabel}
                     checked={settings.autoSuggestFilename}
@@ -170,7 +184,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                 </SettingsGroup>
 
                 <SettingsGroup title={t.generalSystemLabel}>
-                  <CliCommandSection t={t} />
+                  {canInstallCliCommand && <CliCommandSection t={t} />}
                   <UpdateSection t={t} />
                 </SettingsGroup>
               </>
@@ -414,11 +428,13 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                         checked={settings.enableWebSearch}
                         onChange={(v) => setSettings({ enableWebSearch: v })}
                       />
-                      <AgentWorkspaceRootSection t={t} />
+                      {canPickFolder && <AgentWorkspaceRootSection t={t} />}
                     </SettingsGroup>
 
                     <SettingsGroup title={t.agentPersonalizationGroupLabel}>
-                      <AgentWorkspaceSection t={t} />
+                      {canRevealInFileManager && (
+                        <AgentWorkspaceSection t={t} />
+                      )}
                       <AgentSystemPromptSection
                         t={t}
                         onOpenFile={onOpenFile}
@@ -438,14 +454,16 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                             setSettings({ enableEditAnimation: v })
                           }
                         />
-                        <ToggleRow
-                          label={t.agentExpandWindowLabel}
-                          hint={t.agentExpandWindowHint}
-                          checked={settings.agentExpandToWindow}
-                          onChange={(v) =>
-                            setSettings({ agentExpandToWindow: v })
-                          }
-                        />
+                        {canDetachChat && (
+                          <ToggleRow
+                            label={t.agentExpandWindowLabel}
+                            hint={t.agentExpandWindowHint}
+                            checked={settings.agentExpandToWindow}
+                            onChange={(v) =>
+                              setSettings({ agentExpandToWindow: v })
+                            }
+                          />
+                        )}
                       </div>
                     </details>
                   </>

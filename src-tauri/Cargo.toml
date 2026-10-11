@@ -6,7 +6,7 @@ authors = ["CatVinci Studio"]
 edition = "2021"
 
 [workspace]
-members = ["crates/aicompat"]
+members = ["crates/aicompat", "plugins/levis-files"]
 resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -33,8 +33,6 @@ tokio = { version = "1", features = ["fs", "sync", "macros", "rt"] }
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 aicompat = { path = "crates/aicompat" }
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 
 # Chat attachment extraction (commands/attachment.rs). Everything the "+"
 # button accepts has to become either text in the prompt or a base64 image
@@ -50,6 +48,20 @@ pdf-extract = "0.12"
 calamine = "0.36"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 quick-xml = "0.41"
+
+# Desktop only (Windows/macOS/Linux): neither plugin supports iOS or Android
+# (their platform-support metadata says "none"), and lib.rs registers them
+# under #[cfg(desktop)]. iOS updates come through the App Store. Shared
+# plugins (opener, dialog) stay in [dependencies] above. See
+# docs/IOS-CODE-MAP.md.
+# iOS document access (plugins/levis-files): pickers, security-scoped reads
+# and writes, remembered folders.
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-levis-files = { path = "plugins/levis-files" }
+
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 # macOS-native PDF export (commands/export.rs): the themed document is
 # rendered in an offscreen WKWebView with createPDF and cut into A4 sheets

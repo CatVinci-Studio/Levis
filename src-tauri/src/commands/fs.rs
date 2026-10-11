@@ -18,7 +18,9 @@ pub(crate) fn window_file_dialog(
 ) -> tauri_plugin_dialog::FileDialogBuilder<tauri::Wry> {
     use tauri_plugin_dialog::DialogExt;
     let dialog = window.dialog().file();
-    #[cfg(not(target_os = "macos"))]
+    // set_parent is desktop-only API; iOS presents the picker modally over
+    // its single window anyway.
+    #[cfg(all(desktop, not(target_os = "macos")))]
     let dialog = dialog.set_parent(window);
     dialog
 }

@@ -1,11 +1,20 @@
+//! Commands invoked by the frontend. Shared by desktop and iOS unless gated:
+//! the modules below `#[cfg(desktop)]` are about OS windows (the detached
+//! chat window, per-window session restore, window-mode prefs) or the desktop
+//! shell (the `levis` terminal command). See docs/IOS-CODE-MAP.md.
+
 pub mod attachment;
+#[cfg(desktop)]
 pub mod chat_window;
+#[cfg(desktop)]
 pub mod cli;
 pub mod drafts;
 pub mod export;
 pub mod fs;
 pub mod image_host;
+#[cfg(desktop)]
 pub mod prefs;
 pub mod recents;
+#[cfg(desktop)]
 pub mod session;
 pub mod themes;
