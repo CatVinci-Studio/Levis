@@ -70,11 +70,11 @@ pub async fn write(target: &Path, contents: impl AsRef<[u8]>) -> std::io::Result
     result
 }
 
-#[cfg(test)]
+// Unix only: what it checks is the file mode, which Windows doesn't have.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
-    #[cfg(unix)]
     #[test]
     fn secrets_are_owner_only_and_replace_atomically() {
         use std::os::unix::fs::PermissionsExt;
