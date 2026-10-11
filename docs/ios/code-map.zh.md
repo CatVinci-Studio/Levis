@@ -1,4 +1,4 @@
-# iOS 代码地图（Phase 0）
+# iOS 代码地图
 
 同一份代码同时构建桌面版（macOS / Windows / Linux）和 iOS 版。本文说明哪些代码共享、哪些仅限桌面，以及两边是如何隔开的。原则：**桌面行为保持不变**；iOS 上桌面专属的东西既不编译，也不被调用。
 
@@ -48,10 +48,12 @@
   - 选择文件、选择文件夹；
   - 在授权范围内读写、列目录，读写经过 NSFileCoordinator；
   - 把授权存成 bookmark；启动时 `restoreFolderAccess`（`src/main.tsx`）通过 `remembered` 重新打开之前选过的文件夹，否则重启后 AI 读不到项目文件夹；
-  - `begin_access`：在整个会话里保持一个文件夹的访问授权，并返回普通路径。
-- **前端 `src/platform/ios-files.ts`：** 封装插件调用。`src/ipc.ts` 的 `fs` 按路径分流：`file://` 地址（用户选的文件）走插件，其他路径（应用自己的 Documents 目录、所有桌面路径）照旧走 Rust 命令。调用方不区分平台。
+  - `begin_access`：在整个会话里保持一个文件夹的访问授权，并返回普通路径；
+  - `read_data`：以 base64 读出授权范围内的文件，用于所选文档旁边的相对路径图片（`scopedImageSrc`，`editor/image-plugin.ts`）。单独选中的文档只授权这一个文件，所以图片要在选中的文件夹里才读得到。
+- **前端 `src/platform/ios-files.ts`：** 封装插件调用。从"文件"里选中的、其实位于应用 Documents 目录内的文档，会换回普通路径，避免同一个文件以两种写法打开两次。`src/ipc.ts` 的 `fs` 按路径分流：`file://` 地址（用户选的文件）走插件，其他路径（应用自己的 Documents 目录、所有桌面路径）照旧走 Rust 命令。调用方不区分平台。
 - **项目文件夹：** iOS 上 `ai.pickWorkspaceRoot` 选文件夹后调用 `begin_access`，把普通路径交给 Rust。访问授权对整个进程有效，所以 `ai/project.rs` 读取 `.levis/` 和项目文件的代码不用改。
 - **配置：**
+  - `src-tauri/PrivacyInfo.ios.xcprivacy`：隐私清单，声明 UserDefaults（插件存 bookmark）和文件时间戳（检查文档是否被外部修改）这两类"需要说明理由的 API"，没有它 App Store Connect 会拒收上传。`tauri.conf.json` 管不到它，由 `scripts/ios-prepare.sh` 在 `tauri ios init` 之后复制进工程。必须紧接着 init 运行：之后再跑 xcodegen 会把已构建的库也收进资源，导致 "Multiple commands produce libapp.a"；
   - `src-tauri/Info.ios.plist`：让 Documents 目录出现在"文件"应用里，支持就地打开，并为 Markdown 注册"用 Levis 打开"；
   - `capabilities/ios.json`：iOS 上的插件权限；
   - 从"文件"应用打开的文档（`RunEvent::Opened`），在 iOS 上保持 `file://` 地址，走插件读写。
@@ -63,20 +65,27 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 brew install xcodegen          # 不手动装的话，tauri ios init 也会尝试自动安装
 npm ci
 npx tauri ios init             # 生成 src-tauri/gen/apple（不提交到仓库）
+sh scripts/ios-prepare.sh      # 紧接着 init：加入隐私清单，并让 xcodegen 重新生成工程
 npx tauri ios dev              # 在模拟器或真机上运行
 npx tauri ios build            # 构建；真机需要在 bundle.iOS.developmentTeam 里配置开发团队
 ```
 
-CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，依次执行 `npx tauri ios init --ci` 和 `npx tauri ios build --ci --debug --target aarch64-sim --no-sign`：为模拟器编译、不签名，也不需要任何 secrets。这个 job 暂时不是必需的 `rust` 检查的依赖。
+CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，依次执行 `npx tauri ios init --ci`、`scripts/ios-prepare.sh` 和 `npx tauri ios build --ci --debug --target aarch64-sim --no-sign`：为模拟器编译、不签名，也不需要任何 secrets。这个 job 暂时不是必需的 `rust` 检查的依赖。
 
 在 Linux 上只能做 `cargo check`。`ring` 等依赖的 C 代码需要 Apple SDK，可以临时指定一个假的 `CC_aarch64_apple_ios` / `AR_aarch64_apple_ios`，再加一个假的 `xcrun`，绕过 C 编译，专门检查 cfg 隔离写得对不对（不做链接）。
 
-## 尚未处理（Phase 1）
+## iPhone 界面
 
-- 用户选的文档旁边的相对路径图片：现在仍按普通路径通过 Rust 读取（`readBinaryFileBase64`、`resolveImageSrc`），对 `file://` 文档需要改走插件。需要在真机上验证后再改。
+- **样式：** 全部在 `src/ui/mobile.css`，规则都以 `:root[data-window-chrome="mobile"]` 开头，桌面样式表不动。内容：44pt 的标题栏和触控按钮；侧边栏是盖在页面上的抽屉（点旁边的遮罩关闭，选中文件后自动关闭）；Levis AI 面板占满标题栏以下的整个屏幕；状态栏和 Home 指示条下的留白用文档背景色（`--page-bg`）；iOS 可用的字体栈（`-apple-system`、`system-ui`、`ui-monospace` 在 iOS 26 WebKit 上会把中日文显示成方框）。
+- **菜单：** 标题栏左侧的按钮打开 `buildMobileMenu`（`ui/app-menu-model.ts`）：一列平铺，没有子菜单。iOS 没有 `menu.rs`，所以 `emitMenuEvent`（`ui/app-menu-actions.ts`）把菜单 id 转成 `useMenuBridge` 监听的同名事件发给本窗口。目标必须写成 `WebviewWindow`：只写标签会变成 `AnyLabel`，而 iOS 上窗口和 webview 都叫 main，事件会到两次，开关类操作互相抵消。
+- **键盘：** `KeyboardFit.swift`（同在 levis-files 插件里，由插件的 `load(webview:)` 启动）在键盘弹出时把 webview 缩短到键盘上方，并关闭 webview 自身的滚动；否则 WebKit 会把整页往上推，标题栏被顶出屏幕。`platform/mobile-viewport.ts` 只设置 `maximum-scale=1`，防止聚焦输入框时页面被放大。
+- **存与开：** 新文档"保存"直接写进 Documents，文件名用建议名，重名时加序号（`newDocumentPath`）。文件树没有打开文档时显示 Documents，不提供"上一级"。"新建文件"在 iOS 上新增一个标签（没有窗口可开）。上次打开的文档记在 localStorage，Documents 内的按相对路径记，因为重装和 App Store 更新都会改变容器路径。
+- **AI 补全：** 手机没有 Tab 键，点灰色建议即可采纳（`ghost-text-plugin.ts` 的 `touchend`），设置里的说明文字随之改为"轻点采纳"。
+- **首次启动：** 选完语言后不自动进入教程（教程靠键盘快捷键讲解）。
+- **测试：** `e2e/phone.spec.ts` 用 Chromium 的手机视口和触摸模拟检查抽屉、全屏 AI 面板和点按采纳；真正的 iOS WebKit 行为（键盘、字体、选文件）在模拟器里用 idb 手动检查过。
 
-- iOS 布局：标题栏的交通灯留白、触摸交互、安全区（`data-window-chrome="mobile"` 已经留好了样式钩子）。
-- 文件访问：沙盒和 security-scoped URL（"在 Levis 中打开"传进来的路径）、iCloud Drive。
-- 只剩一个标签时关闭它：iOS 上目前什么都不做（标签保留）。
+## 尚未处理
+
 - `codex_login` / `claude_login` 的 PKCE 流程依赖本地 localhost 回调服务，App 切到后台后能否正常完成，还需要真机验证。
-- iOS 上"新文档模式"沿用默认的 window 语义（在当前标签内替换文档），设置项已隐藏。
+- 粘贴图片到"文件"里选中的文档：`save_pasted_image` 仍按普通路径写在文档旁边，对 `file://` 文档会失败；Documents 里的文档不受影响。
+- 只剩一个标签时关闭它：iOS 上目前什么都不做（标签保留）。

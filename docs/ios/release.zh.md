@@ -24,12 +24,20 @@
 
 ### 3. 创建 App Store Connect API 密钥
 
-App Store Connect › 用户和访问 › 集成 › App Store Connect API › 团队密钥 › ＋：
+App Store Connect › 用户和访问 › 集成 › App Store Connect API：
 
-- 名称：例如 `Levis CI`；访问权限：**App 管理**
+- 第一次进来只有一个"请求访问"（Request Access）按钮，需要账户持有人点击并同意 API 条款，之后才能创建密钥。
+
+然后在团队密钥 › ＋：
+
+- 名称：例如 `Levis CI`；访问权限：**管理（Admin）**。CI 用苹果云端管理的分发证书签名，只有 Admin 密钥能用它；选"App 管理"会在签名一步失败。
 - 记下 **Issuer ID** 和 **密钥 ID**，下载 `AuthKey_<密钥ID>.p8`。这个文件只能下载一次，请妥善保存。
 
-### 4. 填入仓库 Secrets
+### 4. 欧盟交易商身份
+
+App Store Connect › 商务（Business）里填写欧盟《数字服务法》要求的交易商身份（个人开发者也可以声明自己不是交易商）。不填的话，新 App 不能在欧盟上架，其他地区不受影响。
+
+### 5. 填入仓库 Secrets
 
 GitHub 仓库 › Settings › Secrets and variables › Actions，新增：
 
@@ -47,6 +55,7 @@ GitHub 仓库 › Settings › Secrets and variables › Actions，新增：
    ```sh
    rustup target add aarch64-apple-ios aarch64-apple-ios-sim
    npx tauri ios init        # 第一次
+   sh scripts/ios-prepare.sh # 紧接着 init：加入隐私清单（PrivacyInfo.xcprivacy）
    npx tauri ios dev         # 模拟器或真机
    ```
 2. 打标签上传：

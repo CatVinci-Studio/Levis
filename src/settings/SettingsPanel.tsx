@@ -36,6 +36,7 @@ import {
   canPickFolder,
   canRevealInFileManager,
   canUseWindows,
+  isIOSApp,
 } from "../platform/capabilities";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
@@ -256,7 +257,11 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     <div className="settings-feature-block">
                       <ToggleRow
                         label={t.aiCompletionLabel}
-                        hint={t.aiCompletionHint}
+                        hint={
+                          isIOSApp
+                            ? t.aiCompletionHintTouch
+                            : t.aiCompletionHint
+                        }
                         checked={settings.enableCompletion}
                         onChange={(v) => setSettings({ enableCompletion: v })}
                       />

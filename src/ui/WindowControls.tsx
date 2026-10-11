@@ -11,6 +11,7 @@ import {
   WindowRestoreIcon,
 } from "./icons";
 import { appDrawsWindowFrame } from "./window-chrome";
+import { isIOSApp } from "../platform/capabilities";
 import "./window-controls.css";
 
 /**
@@ -54,7 +55,9 @@ export function AppMenuButton() {
     anchor !== null,
   );
 
-  if (!appDrawsWindowFrame) return null;
+  // Windows and Linux, where the menu bar went with the OS frame - and the
+  // iPhone, which never had one.
+  if (!appDrawsWindowFrame && !isIOSApp) return null;
 
   return (
     <div ref={ref} className="window-menu-anchor">

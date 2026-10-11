@@ -430,7 +430,7 @@
   flex-direction: column;
   border-radius: var(--radius-control);
   overflow: hidden;
-  font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
+  font-family: var(--editor-mono-font, var(--font-mono));
   font-size: var(--text-sm);
   line-height: 1.5;
 }
@@ -480,7 +480,7 @@
   border: none;
   background: none;
   padding: 2px 0;
-  font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
+  font-family: var(--editor-mono-font, var(--font-mono));
   font-size: var(--text-xs);
   cursor: pointer;
   color: var(--editor-muted);
@@ -932,7 +932,7 @@
 }
 
 .agent-error-detail {
-  font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
+  font-family: var(--editor-mono-font, var(--font-mono));
   font-size: var(--text-xs);
   color: var(--editor-muted);
 }

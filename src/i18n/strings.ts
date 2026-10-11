@@ -127,6 +127,8 @@ export const strings = {
     updateLatest: "You're on the latest version.",
     aiCompletionLabel: "Enable AI completion",
     aiCompletionHint: "Suggests text as you type; press Tab to accept.",
+    aiCompletionHintTouch:
+      "Suggests text as you type; tap the suggestion to accept it.",
     completionToneLabel: "Completion tone",
     completionToneHint: "The tone completion suggestions are written in.",
     completionTone_default: "Match the document",
@@ -752,6 +754,7 @@ export const strings = {
     updateLatest: "已是最新版本。",
     aiCompletionLabel: "开启续写",
     aiCompletionHint: "输入时给出补全建议，按 Tab 采纳。",
+    aiCompletionHintTouch: "输入时给出补全建议，轻点灰色建议即可采纳。",
     completionToneLabel: "续写语气",
     completionToneHint: "选择续写建议的表达方式。",
     completionTone_default: "跟随文档",
@@ -1363,6 +1366,8 @@ export const strings = {
     updateLatest: "最新バージョンです。",
     aiCompletionLabel: "AI補完を有効にする",
     aiCompletionHint: "入力中に候補を表示します。Tabキーで確定。",
+    aiCompletionHintTouch:
+      "入力中に候補を表示します。候補をタップすると確定します。",
     completionToneLabel: "補完のトーン",
     completionToneHint: "補完候補に使われる文体。",
     completionTone_default: "文書に合わせる",

@@ -28,6 +28,11 @@ private let bookmarksKey = "levis.bookmarks"
 class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
   private var pending: Invoke?
   private var pickingFolder = false
+  private var keyboardFit: KeyboardFit?
+
+  @objc public override func load(webview: WKWebView) {
+    keyboardFit = KeyboardFit(webview: webview)
+  }
 
   // MARK: Bookmarks
 
@@ -136,6 +141,27 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
         return try result.get()
       }
       invoke.resolve(["text": text])
+    } catch {
+      invoke.reject(error.localizedDescription)
+    }
+  }
+
+  /// A file's bytes as base64 - an image beside a picked document, which
+  /// the webview can't load from a security-scoped URL itself.
+  @objc public func readData(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(UrlArgs.self)
+    guard let url = URL(string: args.url) else { return invoke.reject("Invalid URL") }
+    do {
+      let data: Data = try withAccess(to: url) {
+        var result: Result<Data, Error> = .failure(CocoaError(.fileReadUnknown))
+        var coordError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordError) { u in
+          result = Result { try Data(contentsOf: u) }
+        }
+        if let coordError = coordError { throw coordError }
+        return try result.get()
+      }
+      invoke.resolve(["data": data.base64EncodedString()])
     } catch {
       invoke.reject(error.localizedDescription)
     }

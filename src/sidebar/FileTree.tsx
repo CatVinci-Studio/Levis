@@ -11,6 +11,7 @@ import {
 import { fs } from "../ipc";
 import { useSettings } from "../settings/SettingsContext";
 import { basename, isInside, parentDir } from "../utils/path";
+import { isIOSApp } from "../platform/capabilities";
 import "./FileTree.css";
 
 interface FileTreeProps {
@@ -32,20 +33,24 @@ export function FileTree({
   const [root, setRoot] = useState(rootPath);
   // Bumped by Refresh: remounts every node so each re-reads its folder.
   const [generation, setGeneration] = useState(0);
-  const parent = parentDir(root);
+  // Not on iOS: above Documents is the app's private container, and above
+  // a folder picked in Files is outside what the user granted.
+  const parent = isIOSApp ? null : parentDir(root);
 
   return (
     <div className="file-tree">
       <div className="tree-toolbar">
-        <button
-          className="tree-tool"
-          onClick={() => parent && setRoot(parent)}
-          disabled={!parent}
-          title={t.treeParentFolder}
-          aria-label={t.treeParentFolder}
-        >
-          <ArrowUpIcon />
-        </button>
+        {!isIOSApp && (
+          <button
+            className="tree-tool"
+            onClick={() => parent && setRoot(parent)}
+            disabled={!parent}
+            title={t.treeParentFolder}
+            aria-label={t.treeParentFolder}
+          >
+            <ArrowUpIcon />
+          </button>
+        )}
         <span className="tree-root-label" title={root}>
           {basename(root.replace(/[\\/]+$/, "")) || root}
         </span>

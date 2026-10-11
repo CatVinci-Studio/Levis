@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useModalDialog } from "../ui/useModalDialog";
 import type { TutorialStepId } from "./tutorial-steps";
 import "./TutorialOverlay.css";
+import appIcon from "../../src-tauri/icons/128x128@2x.png";
 
 interface TutorialOverlayLabels {
   back: string;
@@ -64,8 +65,8 @@ interface TutorialOverlayProps {
   labels: TutorialOverlayLabels;
 }
 
-const STEP_GLYPHS: Record<TutorialStepId, string> = {
-  welcome: "L",
+// The welcome step shows the app icon instead (see the header below).
+const STEP_GLYPHS: Record<Exclude<TutorialStepId, "welcome">, string> = {
   markdownIntro: "M↓",
   markdownPractice: "#",
   sidebar: "◧",
@@ -260,9 +261,13 @@ export function TutorialOverlay({
     >
       {progress}
       <header className="tutorial-header">
-        <div className="tutorial-glyph" aria-hidden>
-          {STEP_GLYPHS[stepId]}
-        </div>
+        {stepId === "welcome" ? (
+          <img className="tutorial-glyph-icon" src={appIcon} alt="" />
+        ) : (
+          <div className="tutorial-glyph" aria-hidden>
+            {STEP_GLYPHS[stepId]}
+          </div>
+        )}
         <div>
           <div className="tutorial-step-label">{progressLabel}</div>
           <h2 className="tutorial-title" id={titleId}>

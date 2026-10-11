@@ -11,7 +11,7 @@ import type {
 } from "./ai/types";
 import type { GrammarIssue } from "./ai/grammar-check-plugin";
 import { isDesktopApp, isIOSApp } from "./platform/capabilities";
-import { iosFiles, isScopedUrl } from "./platform/ios-files";
+import { iosFiles, isScopedUrl, newDocumentPath } from "./platform/ios-files";
 
 /**
  * Thin, typed wrappers around every Tauri command the frontend calls -
@@ -101,8 +101,14 @@ export const fs = {
       ? iosFiles.pickDocument()
       : call<string | null>("open_file_dialog"),
   openCssFileDialog: () => call<string | null>("open_css_file_dialog"),
-  saveFileDialog: (defaultName: string) =>
-    call<string | null>("save_file_dialog", { defaultName }),
+  saveFileDialog: (defaultName: string): Promise<string | null> =>
+    isIOSApp
+      ? newDocumentPath(
+          defaultName,
+          async (path) =>
+            (await call<number | null>("file_mtime_ms", { path })) !== null,
+        )
+      : call<string | null>("save_file_dialog", { defaultName }),
   listDir: (path: string): Promise<DirEntryInfo[]> =>
     isScopedUrl(path)
       ? iosFiles.listFolder(path)
