@@ -1,3 +1,4 @@
+import ObjectiveC
 import UIKit
 import WebKit
 
@@ -22,6 +23,7 @@ final class KeyboardFit {
     // that leaves the page pulled up under the status bar.
     webview.scrollView.isScrollEnabled = false
     webview.scrollView.bounces = false
+    Self.hideFormAccessory(in: webview)
     let center = NotificationCenter.default
     observers.append(
       center.addObserver(
@@ -45,6 +47,32 @@ final class KeyboardFit {
 
   deinit {
     observers.forEach(NotificationCenter.default.removeObserver)
+  }
+
+  /// WebKit puts its form-assistant bar (previous / next field and Done)
+  /// on top of the keyboard for any focused field. A document editor has no
+  /// "next field", and Levis draws its own toolbar there
+  /// (mobile/KeyboardToolbar.tsx), so the content view is given a subclass
+  /// whose inputAccessoryView is nil - the standard way to drop that bar,
+  /// since WKWebView exposes no setting for it.
+  private static func hideFormAccessory(in webview: WKWebView) {
+    guard
+      let content = webview.scrollView.subviews.first(where: {
+        String(describing: type(of: $0)).hasPrefix("WKContent")
+      })
+    else { return }
+    let base: AnyClass = type(of: content)
+    let name = "\(base)_LevisNoAccessory"
+    var subclass: AnyClass? = NSClassFromString(name)
+    if subclass == nil, let made = objc_allocateClassPair(base, name, 0) {
+      let nothing: @convention(block) (AnyObject) -> AnyObject? = { _ in nil }
+      class_addMethod(
+        made, #selector(getter: UIResponder.inputAccessoryView),
+        imp_implementationWithBlock(nothing), "@@:")
+      objc_registerClassPair(made)
+      subclass = made
+    }
+    if let subclass = subclass { object_setClass(content, subclass) }
   }
 
   /// The page's resting position. Not zero: the scroll view insets the

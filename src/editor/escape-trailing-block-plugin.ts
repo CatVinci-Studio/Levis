@@ -1,5 +1,6 @@
 import { Plugin } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import { liftTarget } from "@milkdown/kit/prose/transform";
 import { $prose } from "@milkdown/kit/utils";
 import { isInTable, selectedRect } from "@milkdown/kit/prose/tables";
 import { isImeKeyEvent } from "./enclosure";
@@ -83,6 +84,25 @@ function backspaceOutOfLeadingEmptyCodeBlock(view: EditorView): boolean {
 }
 
 /**
+ * Backspace at the start of a line inside a blockquote takes that line out
+ * of the quote, as every editor does. Without this it did nothing at all:
+ * the default join has nothing sensible to merge the line into (an empty
+ * quote at the top of the document was impossible to remove), so the quote
+ * could only be got rid of by selecting around it.
+ */
+function backspaceOutOfBlockquote(view: EditorView): boolean {
+  const { state } = view;
+  const { $from, empty } = state.selection;
+  if (!empty || $from.parentOffset !== 0 || $from.depth < 2) return false;
+  if ($from.node($from.depth - 1).type.name !== "blockquote") return false;
+  const range = $from.blockRange();
+  const target = range && liftTarget(range);
+  if (range == null || target == null) return false;
+  view.dispatch(state.tr.lift(range, target).scrollIntoView());
+  return true;
+}
+
+/**
  * A code block, math block, or table at the very start or end of the
  * document has nothing before/after it to move a cursor into - normal
  * arrow-key/Enter navigation can't escape it in that direction, and gets
@@ -103,7 +123,10 @@ export function createEscapeTrailingBlockPlugin() {
         if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
           return false;
         if (event.key === "Backspace") {
-          return backspaceOutOfLeadingEmptyCodeBlock(view);
+          return (
+            backspaceOutOfLeadingEmptyCodeBlock(view) ||
+            backspaceOutOfBlockquote(view)
+          );
         }
 
         const isForwardKey =

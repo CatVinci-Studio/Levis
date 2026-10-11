@@ -347,3 +347,18 @@ test("the empty-document hint follows the language picked at first run", async (
   await page.locator(".language-welcome-continue").click();
   await expect(hint).toHaveAttribute("data-placeholder", "开始输入 Markdown…");
 });
+
+test("backspace at the start of a quoted line takes it out of the quote", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "> quoted words");
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.locator("blockquote p").click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Shift+Home");
+  await page.keyboard.press("Backspace");
+  // The text is gone; the empty quote must not be stuck there.
+  await page.keyboard.press("Backspace");
+  await expect(editor.locator("blockquote")).toHaveCount(0);
+});

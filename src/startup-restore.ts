@@ -75,8 +75,8 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       const draftSnapshots = opts.enableDraftRecovery
         ? ((await drafts.takeDraftSnapshots()) ?? [])
         : [];
+      const restored: DocTab[] = [];
       if (draftSnapshots.length > 0) {
-        const restored: DocTab[] = [];
         for (const draft of draftSnapshots) {
           if (!draft.path) {
             restored.push({
@@ -158,6 +158,20 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       }
       // iOS: the document that was open last time (see lastIOSDocument).
       const last = isIOSApp ? await lastIOSDocument() : null;
+      // Its unsaved edits were just recovered into a tab of their own: that
+      // tab takes the initial one's place rather than the document opening
+      // twice, once as saved and once as recovered.
+      const recovered = restored.find((tab) => tab.path === last);
+      if (last && recovered) {
+        opts.updateTab(opts.activeTabId, {
+          path: recovered.path,
+          content: recovered.content,
+          savedContent: recovered.savedContent,
+          diskMtime: recovered.diskMtime,
+        });
+        opts.setTabs((prev) => prev.filter((tab) => tab.id !== recovered.id));
+        return;
+      }
       if (last) {
         try {
           const { content: text, diskMtime } = await readDocFromDisk(last);

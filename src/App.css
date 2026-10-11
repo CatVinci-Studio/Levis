@@ -1093,6 +1093,24 @@ body {
   animation: zen-hint-fade 3.5s ease forwards;
 }
 
+.zen-hint-button {
+  padding: 8px 16px;
+  border: none;
+  font-family: var(--font-sans);
+  pointer-events: auto;
+  animation-name: zen-hint-dim;
+}
+
+@keyframes zen-hint-dim {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
 @keyframes zen-hint-fade {
   0%,
   70% {

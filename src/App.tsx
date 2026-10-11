@@ -1183,11 +1183,22 @@ function App() {
         )}
         <AppDialogHost okLabel={t.dialogOk} />
 
-        {zenMode && (
-          <div className="zen-hint" role="status">
-            {t.zenExitHint}
-          </div>
-        )}
+        {zenMode &&
+          (isIOSApp ? (
+            // No Esc key on a phone, and zen hides the menu: the hint is
+            // the way out, so it stays (faintly) and takes a tap.
+            <button
+              type="button"
+              className="zen-hint zen-hint-button"
+              onClick={() => setZenMode(false)}
+            >
+              {t.zenExitButton}
+            </button>
+          ) : (
+            <div className="zen-hint" role="status">
+              {t.zenExitHint}
+            </div>
+          ))}
 
         {draftsRestoredCount > 0 && (
           <div className="draft-restored-toast">

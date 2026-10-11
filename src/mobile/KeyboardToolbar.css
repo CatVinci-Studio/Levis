@@ -10,9 +10,9 @@
   z-index: 35;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   height: 44px;
-  padding: 0 6px;
+  padding: 0 4px;
   border-top: 1px solid var(--border-color);
   background: var(--page-bg, var(--bg));
   font-family: var(--font-sans);
@@ -24,17 +24,40 @@
   display: flex;
   overflow-x: auto;
   scrollbar-width: none;
+  /* Fades the last button out at the edge on narrower iPhones, where the
+     row scrolls - a hint there is more. */
+  mask-image: linear-gradient(to left, transparent, #000 12px);
+  padding-right: 10px;
 }
 
 .keyboard-toolbar-format::-webkit-scrollbar {
   display: none;
 }
 
+.keyboard-toolbar-group {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+/* A hairline between groups: edit, text style, blocks. */
+.keyboard-toolbar-group + .keyboard-toolbar-group {
+  margin-left: 3px;
+  padding-left: 3px;
+  border-left: 1px solid var(--border-color);
+}
+
+.keyboard-toolbar-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+}
+
 .keyboard-toolbar-button {
   flex: 0 0 auto;
-  min-width: 40px;
+  min-width: 32px;
   height: 36px;
-  padding: 0 8px;
+  padding: 0 4px;
   border: none;
   border-radius: var(--radius-md, 8px);
   background: none;
@@ -63,8 +86,7 @@
 
 .keyboard-toolbar-ai {
   color: var(--chrome-accent);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 19px;
 }
 
 /* The end of the document scrolls clear of the strip. */

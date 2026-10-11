@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../settings/SettingsContext";
 import { ContextMenu, type ContextMenuItem } from "../editor/ContextMenu";
 import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
-import { CloseIcon, MoreIcon } from "../ui/icons";
+import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
+import { fs } from "../ipc";
 import { basename, dirname } from "../utils/path";
 import { useLongPress } from "../utils/useLongPress";
 import {
@@ -22,10 +23,47 @@ import "./DocumentList.css";
  * forgets it. Documents in the app's own folder can be renamed and deleted;
  * one picked elsewhere in Files only granted access to the file itself, so
  * it can be opened, shared and dropped from the list.
+ *
+ * Laid out like the Files app: rows, or a grid of page thumbnails showing
+ * each document's opening lines - the choice is remembered.
  */
 interface Entry {
   path: string;
   local: boolean;
+  /** Last modified; null for a picked file (no stat through its URL). */
+  mtime: number | null;
+  /** The opening lines as plain text, for the thumbnail. */
+  preview: string;
+}
+
+type View = "list" | "grid";
+const VIEW_KEY = "levis.documentListView";
+
+function loadView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+/** The first lines of a Markdown document with its syntax mostly gone -
+ *  enough to recognise it by, not a rendering. */
+export function previewText(markdown: string): string {
+  return markdown
+    .replace(/^---\n[\s\S]*?\n---\n/, "")
+    .split("\n")
+    .slice(0, 24)
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}((#{1,6}|>|[-*+]|\d+[.)])(\s+|$))+/, "")
+        .replace(/(^|[^\\])[*_`~]+/g, "$1")
+        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1"),
+    )
+    .join("\n")
+    .trim()
+    .slice(0, 600);
 }
 
 export interface DocumentListProps {
@@ -48,8 +86,9 @@ export function DocumentList({
   onDeleted,
   onOpenOther,
 }: DocumentListProps) {
-  const { t } = useSettings();
+  const { t, settings } = useSettings();
   const [entries, setEntries] = useState<Entry[] | null>(null);
+  const [view, setView] = useState<View>(loadView);
 
   const reload = useCallback(async () => {
     const paths = await recentIOSDocuments();
@@ -58,10 +97,35 @@ export function DocumentList({
         paths.map(async (path) => ({
           path,
           local: await inIOSDocuments(path),
+          mtime: await fs.fileMtimeMs(path).catch(() => null),
+          preview: previewText(await fs.readTextFile(path).catch(() => "")),
         })),
       ),
     );
   }, []);
+
+  function switchView(next: View) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Remembering the choice is a convenience only.
+    }
+  }
+
+  const dateFormat = new Intl.DateTimeFormat(settings.language, {
+    dateStyle: "medium",
+  });
+  const timeFormat = new Intl.DateTimeFormat(settings.language, {
+    timeStyle: "short",
+  });
+  const when = (mtime: number | null) => {
+    if (mtime === null) return "";
+    const d = new Date(mtime);
+    return d.toDateString() === new Date().toDateString()
+      ? timeFormat.format(d)
+      : dateFormat.format(d);
+  };
 
   useEffect(() => {
     void reload();
@@ -151,16 +215,52 @@ export function DocumentList({
           {t.docListOpenOther}
         </button>
       </header>
-      <div className="document-list-body">
+      <div className="document-list-toolbar">
+        <span className="document-list-count">
+          {entries && entries.length > 0
+            ? entries.length === 1
+              ? t.docCountOne
+              : t.docCount.replace("{n}", String(entries.length))
+            : ""}
+        </span>
+        <div className="document-list-views" role="radiogroup">
+          {(
+            [
+              ["list", t.docViewList, <ListViewIcon key="l" />],
+              ["grid", t.docViewGrid, <GridViewIcon key="g" />],
+            ] as const
+          ).map(([v, label, icon]) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={view === v}
+              aria-label={label}
+              className="document-list-view-button"
+              onClick={() => switchView(v)}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={`document-list-body document-list-${view}`}>
         {entries !== null && entries.length === 0 && (
           <p className="document-list-empty">{t.docListEmpty}</p>
         )}
         {entries?.map((entry) => (
-          <DocumentRow
+          <DocumentItem
             key={entry.path}
+            view={view}
             entry={entry}
             active={entry.path === activePath}
-            location={entry.local ? "Levis" : basename(dirname(entry.path))}
+            detail={[
+              when(entry.mtime),
+              entry.local ? "Levis" : basename(dirname(entry.path)),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            date={when(entry.mtime)}
             onOpen={() => onOpen(entry.path)}
             actions={() => actions(entry)}
             moreLabel={t.docMore}
@@ -171,17 +271,23 @@ export function DocumentList({
   );
 }
 
-function DocumentRow({
+function DocumentItem({
+  view,
   entry,
   active,
-  location,
+  detail,
+  date,
   onOpen,
   actions,
   moreLabel,
 }: {
+  view: View;
   entry: Entry;
   active: boolean;
-  location: string;
+  /** Date and location, for a row. */
+  detail: string;
+  /** Date alone, under a thumbnail. */
+  date: string;
   onOpen: () => void;
   actions: () => ContextMenuItem[];
   moreLabel: string;
@@ -189,30 +295,45 @@ function DocumentRow({
   const press = useLongPress();
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
   const at = menuAt ?? press.at;
+  const name = basename(entry.path);
+  const page = (
+    <span className="document-page" aria-hidden>
+      <span className="document-page-text">{entry.preview}</span>
+    </span>
+  );
   return (
-    <div className={`document-row${active ? " document-row-active" : ""}`}>
+    <div
+      className={`document-item document-item-${view}${active ? " document-item-active" : ""}`}
+    >
       <button
         type="button"
-        className="document-row-main"
+        className="document-item-main"
         onClick={() => {
           if (!press.consumeClick()) onOpen();
         }}
         {...press.handlers}
       >
-        <span className="document-row-name">{basename(entry.path)}</span>
-        <span className="document-row-location">{location}</span>
+        {page}
+        <span className="document-item-text">
+          <span className="document-item-name">{name}</span>
+          <span className="document-item-detail">
+            {view === "grid" ? date : detail}
+          </span>
+        </span>
       </button>
-      <button
-        type="button"
-        className="document-list-icon-button"
-        aria-label={moreLabel}
-        onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setMenuAt({ x: r.left, y: r.bottom });
-        }}
-      >
-        <MoreIcon />
-      </button>
+      {view === "list" && (
+        <button
+          type="button"
+          className="document-list-icon-button"
+          aria-label={moreLabel}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setMenuAt({ x: r.left, y: r.bottom });
+          }}
+        >
+          <MoreIcon />
+        </button>
+      )}
       {at && (
         <ContextMenu
           x={at.x}
