@@ -398,3 +398,35 @@ test("the phone toolbar's block buttons toggle: H steps through levels, lists an
   await toggle("blockquote");
   await expect(editor.locator("blockquote")).toHaveCount(0);
 });
+
+test("menu events: New File opens one tab after edits, Zen and Split View respond", async ({
+  page,
+}) => {
+  await openApp(page);
+  const emit = (name: string) =>
+    page.evaluate(
+      (event) =>
+        (
+          window as unknown as {
+            __devEmitTauriEvent: (name: string, payload?: unknown) => void;
+          }
+        ).__devEmitTauriEvent(event),
+      name,
+    );
+  const tabs = page.locator("[data-active-tab]");
+  const before = await tabs.count();
+  // Edits re-render App with new handlers - the bridge used to resubscribe
+  // on each, and one menu click then ran several times.
+  await pasteMarkdown(page, "some words");
+  await page.keyboard.type(" and more");
+  await emit("menu-new-file");
+  await expect(tabs).toHaveCount(before + 1);
+
+  await emit("menu-toggle-zen-mode");
+  await expect(page.locator(".zen-hint")).toBeVisible();
+  await emit("menu-toggle-zen-mode");
+  await expect(page.locator(".zen-hint")).toHaveCount(0);
+
+  await emit("menu-toggle-split-view");
+  await expect(page.locator(".split-view")).toBeVisible();
+});
