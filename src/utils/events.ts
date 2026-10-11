@@ -25,6 +25,11 @@ export const EDIT_ACTION_EVENT = "levis:edit-action";
 /// "bullet-list", "ordered-list", "blockquote", "code-block", or "table".
 export const INSERT_BLOCK_EVENT = "levis:insert-block";
 
+/// detail: "heading" | "bullet-list" | "ordered-list" | "blockquote" - the
+/// iPhone keyboard toolbar's block buttons, which toggle rather than only
+/// insert (editor/block-toggles.ts).
+export const TOGGLE_BLOCK_EVENT = "levis:toggle-block";
+
 /// detail: "bold" | "italic" - makes the selection bold or italic, or plain
 /// again (editor/span-commands.ts; the iPhone's keyboard toolbar).
 export const TOGGLE_MARK_EVENT = "levis:toggle-mark";

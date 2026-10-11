@@ -14,6 +14,7 @@ export const strings = {
     menuToggleAgentPanel: "AI Panel",
     agentPanelEmpty:
       "Ask about this document, or select text and say how to change it.",
+    agentPanelEmptyPhone: "Ask about this document.",
     aiWorkingCompletion: "Writing a continuation…",
     aiWorkingGrammar: "Checking this paragraph…",
     noticeCompletionNeedsCaret:
@@ -70,6 +71,7 @@ export const strings = {
     menuViewSource: "Source Mode",
     menuViewTypewriter: "Typewriter Mode",
     toolbarLabel: "Formatting",
+    toolbarHeading: "Heading",
     toolbarBold: "Bold",
     toolbarItalic: "Italic",
     shortcutToggleZenMode: "Toggle zen mode",
@@ -678,6 +680,7 @@ export const strings = {
     shortcutToggleAgentPanel: "开关 AI 面板",
     menuToggleAgentPanel: "AI 面板",
     agentPanelEmpty: "就这篇文档提问，或选中文字说说想怎么改。",
+    agentPanelEmptyPhone: "就这篇文档提问。",
     aiWorkingCompletion: "正在续写…",
     aiWorkingGrammar: "正在检查这一段…",
     noticeCompletionNeedsCaret: "请先把光标放在要续写的位置。",
@@ -731,6 +734,7 @@ export const strings = {
     menuViewSource: "源码模式",
     menuViewTypewriter: "打字机模式",
     toolbarLabel: "格式",
+    toolbarHeading: "标题",
     toolbarBold: "加粗",
     toolbarItalic: "斜体",
     shortcutToggleZenMode: "切换禅模式",
@@ -1307,6 +1311,7 @@ export const strings = {
     menuToggleAgentPanel: "AIパネル",
     agentPanelEmpty:
       "この文書について質問するか、テキストを選んで直し方を伝えてください。",
+    agentPanelEmptyPhone: "この文書について質問できます。",
     aiWorkingCompletion: "続きを生成中…",
     aiWorkingGrammar: "この段落をチェック中…",
     noticeCompletionNeedsCaret: "続きを書く位置にカーソルを置いてください。",
@@ -1364,6 +1369,7 @@ export const strings = {
     menuViewSource: "ソースモード",
     menuViewTypewriter: "タイプライターモード",
     toolbarLabel: "書式",
+    toolbarHeading: "見出し",
     toolbarBold: "太字",
     toolbarItalic: "斜体",
     shortcutToggleZenMode: "禅モードの切り替え",

@@ -750,18 +750,29 @@ button.settings-inline-button {
     flex-direction: column;
   }
 
+  /* One row of tabs that scrolls sideways, rather than wrapping onto a
+     second line when the labels don't fit (narrow windows, the iPhone). */
   .settings-nav {
     width: auto;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     padding: 8px;
     gap: 4px;
-    max-height: 120px;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .settings-nav-item {
+    flex: none;
     width: auto;
     padding: 7px 10px;
+    white-space: nowrap;
   }
 
   .settings-content {

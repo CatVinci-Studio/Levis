@@ -10,6 +10,7 @@ import {
 import {
   EDIT_ACTION_EVENT,
   INSERT_BLOCK_EVENT,
+  TOGGLE_BLOCK_EVENT,
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_MARK_EVENT,
 } from "../utils/events";
@@ -43,9 +44,52 @@ function keepFocus(action: () => void) {
   };
 }
 
+/** What the caret sits in, read off the editor's DOM: the heading level
+ *  the H button shows, and which block buttons are on. */
+interface CaretBlock {
+  heading: number;
+  bulletList: boolean;
+  orderedList: boolean;
+  quote: boolean;
+}
+const NO_BLOCK: CaretBlock = {
+  heading: 0,
+  bulletList: false,
+  orderedList: false,
+  quote: false,
+};
+
+function caretBlock(): CaretBlock {
+  const node = document.getSelection()?.anchorNode;
+  const el = node instanceof Element ? node : node?.parentElement;
+  if (!el?.closest(".milkdown .ProseMirror")) return NO_BLOCK;
+  const heading = el.closest("h1, h2, h3, h4, h5, h6");
+  const list = el.closest("ul, ol");
+  return {
+    heading: heading ? Number(heading.tagName.slice(1)) : 0,
+    bulletList: list?.tagName === "UL",
+    orderedList: list?.tagName === "OL",
+    quote: !!el.closest("blockquote"),
+  };
+}
+
 export function KeyboardToolbar() {
   const { t, settings } = useSettings();
   const [editing, setEditing] = useState(false);
+  const [block, setBlock] = useState<CaretBlock>(NO_BLOCK);
+
+  useEffect(() => {
+    if (!editing) return;
+    // The DOM settles after ProseMirror's update; read it a frame later.
+    const update = () => requestAnimationFrame(() => setBlock(caretBlock()));
+    update();
+    document.addEventListener("selectionchange", update);
+    document.addEventListener("input", update);
+    return () => {
+      document.removeEventListener("selectionchange", update);
+      document.removeEventListener("input", update);
+    };
+  }, [editing]);
 
   // Up while a document editor has focus - which on a phone is exactly
   // while its keyboard is up.
@@ -78,8 +122,11 @@ export function KeyboardToolbar() {
     label: string;
     content: ReactNode;
     className?: string;
+    /** A toggle that is on where the caret is. */
+    on?: boolean;
     run: () => void;
   };
+  const toggle = (kind: string) => () => send(TOGGLE_BLOCK_EVENT, kind);
   const edit = (action: string) => () => send(EDIT_ACTION_EVENT, action);
   const groups: Button[][] = [
     [
@@ -89,9 +136,11 @@ export function KeyboardToolbar() {
     ],
     [
       {
-        label: t.menuHeadingTemplate.replace("{n}", "2"),
-        content: "H",
-        run: () => send(INSERT_BLOCK_EVENT, "h2"),
+        // Each tap steps paragraph -> H1 -> H2 -> H3 -> paragraph.
+        label: t.toolbarHeading,
+        content: block.heading ? `H${block.heading}` : "H",
+        on: block.heading > 0,
+        run: toggle("heading"),
       },
       {
         label: t.toolbarBold,
@@ -110,17 +159,20 @@ export function KeyboardToolbar() {
       {
         label: t.menuBulletList,
         content: <BulletListIcon />,
-        run: () => send(INSERT_BLOCK_EVENT, "bullet-list"),
+        on: block.bulletList,
+        run: toggle("bullet-list"),
       },
       {
         label: t.menuOrderedList,
         content: <NumberedListIcon />,
-        run: () => send(INSERT_BLOCK_EVENT, "ordered-list"),
+        on: block.orderedList,
+        run: toggle("ordered-list"),
       },
       {
         label: t.menuBlockquote,
         content: "❝",
-        run: () => send(INSERT_BLOCK_EVENT, "blockquote"),
+        on: block.quote,
+        run: toggle("blockquote"),
       },
       {
         label: t.menuCodeBlock,
@@ -146,6 +198,7 @@ export function KeyboardToolbar() {
                 type="button"
                 className={`keyboard-toolbar-button ${b.className ?? ""}`}
                 aria-label={b.label}
+                aria-pressed={b.on}
                 {...keepFocus(b.run)}
               >
                 {b.content}
@@ -161,7 +214,7 @@ export function KeyboardToolbar() {
           aria-label={t.askAi}
           {...keepFocus(() => send(TOGGLE_FLOATING_CHAT_EVENT))}
         >
-          ✦
+          ✦ AI
         </button>
       )}
     </div>

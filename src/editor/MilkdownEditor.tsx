@@ -36,6 +36,7 @@ import {
   runCommand,
 } from "./editor-menu";
 import { toggleSpan } from "./span-commands";
+import { cycleHeading, toggleBlockquote, toggleList } from "./block-toggles";
 import {
   withEditorExtensions,
   type PendingEditCallbacks,
@@ -55,7 +56,7 @@ import {
 } from "../ai/doc-markdown";
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
-import { canDetachChat } from "../platform/capabilities";
+import { canDetachChat, isIOSApp } from "../platform/capabilities";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
@@ -101,6 +102,7 @@ import {
   INSERT_CLIPBOARD_TEXT_EVENT,
   RESTORE_CHAT_EVENT,
   INSERT_BLOCK_EVENT,
+  TOGGLE_BLOCK_EVENT,
   TOGGLE_MARK_EVENT,
   EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
@@ -1116,6 +1118,21 @@ export function MilkdownEditor({
     }
   });
 
+  // The iPhone keyboard toolbar's block buttons, which toggle (see
+  // block-toggles.ts) rather than only insert.
+  useWindowEvent(TOGGLE_BLOCK_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    const kind = (e as CustomEvent<string>).detail;
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      if (kind === "heading") cycleHeading(view);
+      else if (kind === "bullet-list") toggleList(view, "bullet_list");
+      else if (kind === "ordered-list") toggleList(view, "ordered_list");
+      else if (kind === "blockquote") toggleBlockquote(view);
+      view.focus();
+    });
+  });
+
   // The iPhone keyboard toolbar's bold and italic.
   useWindowEvent(TOGGLE_MARK_EVENT, (e) => {
     if (!isOnScreen()) return;
@@ -1348,7 +1365,11 @@ export function MilkdownEditor({
             headerExtra={<ProjectBar docPath={filePath} />}
           >
             {conversation.history.length === 0 && !conversation.busy && (
-              <p className="agent-panel-empty">{t.agentPanelEmpty}</p>
+              <p className="agent-panel-empty">
+                {/* No selecting-then-asking on a phone: the system's
+                    own text menu takes the long press. */}
+                {isIOSApp ? t.agentPanelEmptyPhone : t.agentPanelEmpty}
+              </p>
             )}
             <ChatBody
               document=""
