@@ -4,7 +4,9 @@
 
 iPhone 和 iPad 上的 Levis 是写作的随身伴侣：随手记、读、轻量修改，用 AI 审稿和改写。长篇写作和项目管理仍以电脑版为主。两端读写同一批 Markdown 文件，共享 `.levis/style.md` 和 `.levis/library/`。
 
-不做 Android；不做自有云同步；不做账号体系。
+先做 iPhone。iPad 保持现有界面可用，专门的适配放在 iPhone 之后（阶段 4）。
+
+不做 Android；不做 Mac App Store 版（沙盒要求会去掉自动更新、终端命令、Pandoc 导出等功能，macOS 继续用 Developer ID 在官网和 Homebrew 发布）；不做自有云同步；不做账号体系。
 
 ## 技术路线
 
