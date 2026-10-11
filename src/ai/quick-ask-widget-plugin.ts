@@ -51,23 +51,37 @@ export function createQuickAskWidgetPlugin(options: {
    *  panel that was supposed to survive the move. */
   onUnmount: (el: HTMLElement) => void;
 }) {
+  // ONE container for the panel's whole life, re-used wherever the widget
+  // goes. A fresh element per move made React remount the portal into it -
+  // wiping a half-typed follow-up, staged attachments and the chosen mode
+  // every time Next/Accept moved the panel to another block.
+  let anchor: HTMLElement | null = null;
+
   function build(doc: ProseNode, pos: number): DecorationSet {
     return DecorationSet.create(doc, [
       Decoration.widget(
         pos,
         () => {
-          const el = document.createElement("div");
-          el.className = "quick-ask-anchor";
-          el.contentEditable = "false";
-          options.onMount(el);
-          return el;
+          if (!anchor) {
+            anchor = document.createElement("div");
+            anchor.className = "quick-ask-anchor";
+            anchor.contentEditable = "false";
+          }
+          options.onMount(anchor);
+          return anchor;
         },
         {
           key: "quick-ask",
           side: 1,
           stopEvent: () => true,
           ignoreSelection: true,
-          destroy: (node) => options.onUnmount(node as HTMLElement),
+          // On a move the same element is re-inserted at the new position,
+          // possibly before the old widget is torn down; only a container
+          // that is really out of the document (hidden) counts as unmounted.
+          destroy: (node) =>
+            queueMicrotask(() => {
+              if (!node.isConnected) options.onUnmount(node as HTMLElement);
+            }),
         },
       ),
     ]);

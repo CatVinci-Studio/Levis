@@ -99,15 +99,6 @@ pub async fn fetch_agent_models(app: AppHandle, provider: String) -> Result<Vec<
     }
 }
 
-// The completion contract, end to end:
-//   - context: the frontend sends the text around the CURSOR - up to the
-//     last 2000 chars before it and the first 500 after (ghost-text-plugin's
-//     MAX_CONTEXT_CHARS / MAX_AFTER_CONTEXT_CHARS), and only once there are
-//     at least 20 words/CJK chars before the cursor. Cursor-anchored, not
-//     document-anchored: completing mid-document must continue from the
-//     cursor, not from wherever the document happens to end.
-//   - length: capped by instruction to one sentence / ~25 words - inline
-//     ghost text is a nudge, not a paragraph generator.
 /// Mirrors the frontend's proxy setting into aicompat's shared HTTP client.
 /// Settings live in the frontend's localStorage, which Rust can't read (same
 /// mirroring precedent as commands::prefs), so the frontend re-sends this on
@@ -117,9 +108,85 @@ pub fn set_ai_proxy(proxy: Option<String>) -> Result<(), String> {
     aicompat::http::set_proxy(proxy)
 }
 
-const COMPLETION_INSTRUCTIONS: &str = "You are a writing assistant embedded in a markdown editor, providing inline autocomplete at the user's cursor (like GitHub Copilot, but for prose). The input marks the insertion point: the text inside <text-before-cursor> ends exactly at the cursor, and the text inside <text-after-cursor> starts exactly at the cursor (it may be empty). Write ONLY the text to insert at the cursor: it must continue seamlessly from the exact end of the before-text, and where after-text exists it must lead into it naturally without repeating any of it. No explanations, no markdown fences, no repeating the input. Hard length limit: at most ONE sentence, and no more than about 25 words (or ~30 characters for CJK text). Prefer completing the current phrase or sentence over starting a new one.";
+// The completion contract, end to end:
+//   - context: the frontend sends the text around the CURSOR - up to the
+//     last 2000 chars before it and the first 500 after (ghost-text-plugin's
+//     MAX_CONTEXT_CHARS / MAX_AFTER_CONTEXT_CHARS), and only once there are
+//     at least 20 words/CJK chars before the cursor. Cursor-anchored, not
+//     document-anchored: completing mid-document must continue from the
+//     cursor, not from wherever the document happens to end.
+//   - where: CompletionHints adds the document title, the heading path to
+//     the cursor and the block type, so a list item gets an item and a
+//     section gets text about that section.
+//   - length: one sentence for the as-you-type nudge; two to four sentences
+//     when the writer explicitly triggers a continuation.
+const COMPLETION_INSTRUCTIONS: &str = "You are the inline autocomplete of a markdown writing app. When the writer pauses, you propose the words they would most plausibly write next; they see it as grey text and accept it with Tab.
+
+The input marks the insertion point: <text-before-cursor> ends exactly at the cursor and <text-after-cursor> starts exactly there (it may be empty). When present, <document-title>, <section> (the headings around the cursor, outermost first) and <block> (what the cursor is in) say where in the document this is.
+
+Write ONLY the text to insert at the cursor:
+- Continue from the exact last character. Mid-word or mid-sentence: finish it. After a finished sentence: begin the next one, with whatever leading space the language needs.
+- Move the text forward: the next concrete point, detail, example or step the preceding text sets up. Never restate, summarize or paraphrase what is already written, and skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
+- Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese.
+- Stay inside the block: in a list item write only that item's text, in a heading only the heading, in a table cell only the cell. Never add a line break, list marker or markdown the surrounding text isn't already using.
+- Where after-text exists, lead into it without repeating any of it.
+- If nothing worthwhile can be added, return nothing.
+No explanations, quotation marks or code fences.";
+
+const COMPLETION_LENGTH_SHORT: &str = "Length: one sentence at most - roughly 8 to 25 words, or 10 to 40 characters of CJK text. Finishing the current sentence well beats starting a new one.";
+
+const COMPLETION_LENGTH_LONG: &str = "Length: the writer explicitly asked for a continuation, so carry the current paragraph on by two to four sentences - roughly 40 to 90 words, or 60 to 160 characters of CJK text. Stay in this paragraph: no new paragraph, heading or list.";
+
+/// What the frontend knows about the cursor beyond the raw text around it
+/// (ghost-text-plugin.ts's completionHints). Mirrors CompletionHints in
+/// src/ipc.ts.
+#[derive(Deserialize, Default)]
+pub struct CompletionHints {
+    #[serde(default)]
+    pub(crate) title: Option<String>,
+    #[serde(default)]
+    pub(crate) section: Vec<String>,
+    #[serde(default)]
+    pub(crate) block: Option<String>,
+    #[serde(default)]
+    pub(crate) length: Option<String>,
+    /// How many alternative continuations to return (manual trigger only),
+    /// separated by CANDIDATE_SEPARATOR lines.
+    #[serde(default)]
+    pub(crate) candidates: Option<u8>,
+}
+
+/// The line between alternative continuations in one response.
+pub(crate) const CANDIDATE_SEPARATOR: &str = "<<<>>>";
+
+/// The completion request's user turn: the optional where-am-I tags, then
+/// the text split at the cursor. No whitespace between the cursor tags and
+/// the text - the before-text must end exactly at the cursor for "continue
+/// from the exact end" to mean anything.
+fn completion_user_text(before: &str, after: &str, hints: &CompletionHints) -> String {
+    let mut text = String::new();
+    if let Some(title) = hints.title.as_deref().filter(|t| !t.trim().is_empty()) {
+        text.push_str(&format!("<document-title>{title}</document-title>\n"));
+    }
+    if !hints.section.is_empty() {
+        text.push_str(&format!(
+            "<section>{}</section>\n",
+            hints.section.join(" > ")
+        ));
+    }
+    if let Some(block) = hints.block.as_deref().filter(|b| !b.trim().is_empty()) {
+        text.push_str(&format!("<block>{block}</block>\n"));
+    }
+    text.push_str(&format!(
+        "<text-before-cursor>{before}</text-before-cursor>\n<text-after-cursor>{after}</text-after-cursor>"
+    ));
+    text
+}
 
 #[tauri::command]
+// Nine arguments at the IPC boundary, each a separate optional input from
+// the frontend; bundling them would only move the same list into a struct.
+#[allow(clippy::too_many_arguments)]
 pub async fn ai_complete(
     app: AppHandle,
     provider: String,
@@ -127,22 +194,88 @@ pub async fn ai_complete(
     after: String,
     style: Option<String>,
     model: Option<String>,
+    hints: Option<CompletionHints>,
+    doc_path: Option<String>,
+    workspace_root: Option<String>,
 ) -> Result<String, String> {
-    // No whitespace between the tags and the text - the before-text must end
-    // exactly at the cursor for "continue from the exact end" to mean
-    // anything.
-    let user_text =
-        format!("<text-before-cursor>{before}</text-before-cursor>\n<text-after-cursor>{after}</text-after-cursor>");
+    let (mut instructions, user_text) = completion_prompt(
+        &before,
+        &after,
+        &hints.unwrap_or_default(),
+        style.as_deref(),
+    );
+    // The project's style profile and the library entries the surrounding
+    // text mentions - the same writing context the agent gets, so a
+    // continuation uses the right names and the author's voice.
+    let workspace = cached_workspace(&app, doc_path, workspace_root);
+    let mentioned =
+        crate::ai::project::relevant_library(&workspace.library, &format!("{before}\n{after}"));
+    if let Some(section) =
+        crate::ai::project::writing_context_section(workspace.style.as_deref(), &mentioned)
+    {
+        instructions.push_str("\n\n");
+        instructions.push_str(&section);
+    }
+    call(&app, &provider, instructions, user_text, model.as_deref()).await
+}
+
+/// The workspace for a completion, re-read at most every few seconds:
+/// completions fire on every typing pause, and the style profile and
+/// library only change when the user edits those files. One entry - typing
+/// happens in one document at a time.
+fn cached_workspace(
+    app: &AppHandle,
+    doc_path: Option<String>,
+    workspace_root: Option<String>,
+) -> crate::ai::workspace::AgentWorkspace {
+    use crate::ai::workspace::AgentWorkspace;
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+    type Key = (Option<String>, Option<String>);
+    static CACHE: Mutex<Option<(Key, Instant, AgentWorkspace)>> = Mutex::new(None);
+    let key = (doc_path, workspace_root);
+    let mut cache = CACHE.lock().unwrap();
+    if let Some((cached_key, at, ws)) = cache.as_ref() {
+        if *cached_key == key && at.elapsed() < Duration::from_secs(10) {
+            return ws.clone();
+        }
+    }
+    let ws = crate::ai::workspace::load(app, key.0.as_deref(), key.1.as_deref());
+    *cache = Some((key, Instant::now(), ws.clone()));
+    ws
+}
+
+/// The completion request as (system instructions, user turn) - shared by
+/// the command and the live eval (live_eval.rs), so what the eval measures
+/// is exactly what the app sends.
+pub(crate) fn completion_prompt(
+    before: &str,
+    after: &str,
+    hints: &CompletionHints,
+    style: Option<&str>,
+) -> (String, String) {
+    let user_text = completion_user_text(before, after, hints);
+    let length = match hints.length.as_deref() {
+        Some("long") => COMPLETION_LENGTH_LONG,
+        _ => COMPLETION_LENGTH_SHORT,
+    };
     // The user's tone/style preferences (from Settings) ride along after the
     // base contract so they can shape the wording without being able to
     // override the format and length rules above them.
-    let instructions = match style.as_deref().map(str::trim) {
+    let mut instructions = match style.map(str::trim) {
         Some(style) if !style.is_empty() => format!(
-            "{COMPLETION_INSTRUCTIONS}\n\nStyle preferences from the user (follow them where they don't conflict with the rules above): {style}"
+            "{COMPLETION_INSTRUCTIONS}\n\n{length}\n\nStyle preferences from the user (follow them where they don't conflict with the rules above): {style}"
         ),
-        _ => COMPLETION_INSTRUCTIONS.to_string(),
+        _ => format!("{COMPLETION_INSTRUCTIONS}\n\n{length}"),
     };
-    call(&app, &provider, instructions, user_text, model.as_deref()).await
+    // One request for all alternatives: cheaper than N calls, and the model
+    // can make them genuinely different rather than N near-copies.
+    if let Some(n) = hints.candidates.filter(|n| *n > 1) {
+        instructions.push_str(&format!(
+            "\n\nWrite {n} alternative continuations that take the text in clearly different directions (different next point, angle or wording) - each one following every rule above. Output them one after another, separated by a line containing only {CANDIDATE_SEPARATOR}. Nothing else."
+        ));
+    }
+    (instructions, user_text)
 }
 
 const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain prose text (already stripped of markdown syntax - never expect or emit formatting markup). Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"context\": \"the span plus a few words of surrounding paragraph text on each side, copied verbatim - REQUIRED whenever the span's text occurs more than once in the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}].\n\nRules for choosing a span: make it as small as possible - just the word or short phrase that is actually wrong, never the whole sentence or clause around it. `suggestion` replaces `original` exactly in place, so it must fit grammatically both where `original` was cut off and where it resumes, and it must not repeat any surrounding text that is outside the span. Never let two reported spans overlap; if two issues touch overlapping text, report only the more important one.\n\nBe conservative: only report something you are genuinely confident is wrong, never a hallucinated issue or a preference disguised as a fix. Skip: proper nouns, names, and invented/brand words even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens, and URLs. When a sentence is grammatically valid but could be phrased differently, only flag it under the scope rules given below - matching an ordinary reader's taste is not itself a reason to report something.\n\nOffsets must index into the exact paragraph text given, counting Unicode scalar values left to right. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
@@ -290,6 +423,31 @@ pub async fn ai_grammar_check(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn completion_user_text_puts_hints_before_the_cursor_split() {
+        let hints = CompletionHints {
+            title: Some("Field notes".into()),
+            section: vec!["Methods".into(), "Sampling".into()],
+            block: Some("list item".into()),
+            length: Some("short".into()),
+            candidates: None,
+        };
+        let text = completion_user_text("We took", "", &hints);
+        assert_eq!(
+            text,
+            "<document-title>Field notes</document-title>\n\
+             <section>Methods > Sampling</section>\n\
+             <block>list item</block>\n\
+             <text-before-cursor>We took</text-before-cursor>\n\
+             <text-after-cursor></text-after-cursor>"
+        );
+        // No hints: just the split, as before.
+        assert_eq!(
+            completion_user_text("a", "b", &CompletionHints::default()),
+            "<text-before-cursor>a</text-before-cursor>\n<text-after-cursor>b</text-after-cursor>"
+        );
+    }
 
     fn issue(start: usize, end: usize, original: Option<&str>) -> GrammarIssue {
         GrammarIssue {

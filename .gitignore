@@ -29,3 +29,11 @@ packaging/arch/pkg/
 packaging/arch/*.tar.gz
 packaging/arch/*.tar.gz.sha256
 packaging/arch/*.pkg.tar.zst
+
+# Local API key for live AI tests - never committed
+.anthropic-api-key.local
+
+# Playwright output (npm run test:visual)
+test-results/
+playwright-report/
+*.tsbuildinfo

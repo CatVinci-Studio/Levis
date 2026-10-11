@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Levis</title>
+    <!-- Painted before any script or stylesheet loads, so a new window opens
+         in the system's colours instead of flashing white (App.css's --bg). -->
+    <style>
+      html {
+        background: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background: #1b1e24;
+        }
+      }
+    </style>
   </head>
 
   <body>

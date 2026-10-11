@@ -5,6 +5,7 @@ import { strings } from "../i18n/strings";
 import { installTestLocalStorage } from "../test-local-storage";
 import { useTutorial } from "./useTutorial";
 import { useTutorialDocumentEvaluation } from "./useTutorialDocumentEvaluation";
+import { TUTORIAL_STEPS } from "./tutorial-steps";
 beforeAll(installTestLocalStorage);
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
@@ -14,7 +15,11 @@ describe("localized editing exercises", () => {
     (lang) => {
       localStorage.setItem(
         "levis-tutorial-progress",
-        JSON.stringify({ active: true, stepIndex: 7, tabId: "practice" }),
+        JSON.stringify({
+          active: true,
+          stepIndex: TUTORIAL_STEPS.findIndex((s) => s.id === "agentEdit"),
+          tabId: "practice",
+        }),
       );
       const copy = strings[lang];
       const { result } = renderHook(() => {

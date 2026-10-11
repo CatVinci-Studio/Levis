@@ -46,7 +46,8 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
   // Escape handled once here for both inputs; stopPropagation keeps bar
   // keystrokes out of the app-level shortcut dispatcher.
   function onBarKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Escape") {
+    const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+    if (e.key === "Escape" && !composing) {
       e.preventDefault();
       findReplace.close();
     }

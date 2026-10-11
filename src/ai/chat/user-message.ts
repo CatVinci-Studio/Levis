@@ -24,6 +24,13 @@ export function selectedTextBlock(markdown: string): string {
   return `<selected-text>\n${markdown}\n</selected-text>`;
 }
 
+/** Marks where the cursor is when nothing is selected: the text just
+ *  before and after it, with ⟦cursor⟧ at the spot - what "write a
+ *  transition here" refers to (and where insert_at_cursor writes). */
+export function cursorBlock(before: string, after: string): string {
+  return `<cursor>\n${before}⟦cursor⟧${after}\n</cursor>`;
+}
+
 /** Wraps one attachment's extracted text. */
 export function attachedFileBlock(name: string, content: string): string {
   return `<attached-file name="${name}">\n${content}\n</attached-file>`;
@@ -45,6 +52,7 @@ export interface ParsedUserMessage {
 }
 
 const SELECTED_TEXT = /<selected-text>\n?([\s\S]*?)\n?<\/selected-text>\n*/;
+const CURSOR = /<cursor>\n?[\s\S]*?\n?<\/cursor>\n*/;
 const ATTACHED_FILE =
   /<attached-file name="([^"]*)">\n?[\s\S]*?\n?<\/attached-file>\n*/g;
 
@@ -54,6 +62,8 @@ export function parseUserMessage(text: string): ParsedUserMessage {
     attachments.push(name);
     return "";
   });
+
+  body = body.replace(CURSOR, "");
 
   let selection: string | null = null;
   const selectionMatch = SELECTED_TEXT.exec(body);

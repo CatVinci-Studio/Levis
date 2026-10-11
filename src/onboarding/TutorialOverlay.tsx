@@ -68,6 +68,7 @@ const STEP_GLYPHS: Record<TutorialStepId, string> = {
   welcome: "L",
   markdownIntro: "M↓",
   markdownPractice: "#",
+  sidebar: "◧",
   aiIntro: "AI",
   completion: "↹",
   grammar: "✓",

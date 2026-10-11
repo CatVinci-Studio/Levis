@@ -24,21 +24,15 @@
 }
 
 .language-welcome-mark {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 22px;
-  border-radius: var(--radius-surface);
-  background: var(--editor-text);
-  color: var(--bg);
-  font-size: 17px;
-  font-weight: 700;
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 20px;
 }
 
 .language-welcome-eyebrow {
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   letter-spacing: 0.04em;
 }
 
@@ -51,7 +45,7 @@
 .language-welcome > p {
   margin: 0 0 24px;
   color: var(--editor-muted);
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .language-welcome-options {
@@ -89,29 +83,21 @@
 }
 
 .language-welcome-option span {
-  font-size: 14px;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
 .language-welcome-option small {
   margin-top: 3px;
   color: var(--editor-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .language-welcome-continue {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 8px;
   width: 100%;
   margin-top: 18px;
-  padding: 9px 14px;
-  border: none;
-  border-radius: var(--radius-control);
-  background: var(--chrome-primary);
-  color: #fff;
-  font-size: 13px;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 

@@ -1,0 +1,250 @@
+/* The docked Agent panel (agent-panel.tsx): a column on the right of the
+   editor window, the full conversation's default home. Same body layout as
+   the detached window (chat-window.css): the message list flexes, the
+   composer sits on the bottom edge. */
+
+.agent-panel {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  min-width: 0;
+  /* The window bar is a fixed 28px strip over the top of the layout. */
+  padding-top: 28px;
+  background: var(--editor-bg, var(--bg));
+  border-left: 1px solid var(--border-color);
+  color: var(--editor-text);
+}
+
+.agent-panel-mount {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-panel-resizer {
+  position: absolute;
+  top: 28px;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+
+.agent-panel-resizer:hover,
+.agent-panel-resizer:focus-visible,
+.agent-panel-resizer-active {
+  background: color-mix(in srgb, var(--chrome-accent) 35%, transparent);
+  outline: none;
+}
+
+.agent-panel-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.5;
+}
+
+.agent-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--editor-border, var(--border-color));
+}
+
+.agent-panel-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-panel-title {
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+.agent-panel-doc {
+  font-size: var(--text-xs);
+  color: var(--editor-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-panel-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.agent-panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-panel-body .inline-chat-messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.agent-panel-body .inline-chat-bar,
+.agent-panel-body .inline-chat-skill-menu {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--editor-border, var(--border-color));
+}
+
+.agent-panel-empty {
+  margin: 16px 14px 0;
+  font-size: var(--text-md);
+  color: var(--editor-muted);
+}
+
+/* Narrow windows: the editor keeps priority; the panel overlays it instead
+   of squeezing the text column to nothing. */
+@media (max-width: 760px) {
+  .agent-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    max-width: 92vw;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  }
+}
+
+@media print {
+  .agent-panel {
+    display: none;
+  }
+}
+
+/* The project bar (ProjectBar.tsx): which folder the agent works in, and
+   the style profile / library kept in it. */
+.project-bar {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--editor-border, var(--border-color));
+  font-size: var(--text-sm);
+}
+
+.project-bar-empty {
+  color: var(--editor-muted);
+}
+
+.project-bar-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-bar-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 60%;
+  padding: 3px 6px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project-bar-folder:hover {
+  background: var(--sidebar-hover);
+}
+
+.project-bar-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.project-bar-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.project-bar-chevron {
+  flex-shrink: 0;
+  transform: rotate(90deg);
+  opacity: 0.55;
+}
+
+.project-bar-chip {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border: 1px solid var(--editor-border, var(--border-color));
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--editor-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.project-bar-chip-static {
+  cursor: default;
+}
+
+.project-bar-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+}
+
+.project-bar-naming {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.project-bar-naming input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--editor-border, var(--border-color));
+  border-radius: var(--radius-small);
+  background: var(--editor-bg, var(--bg));
+  color: inherit;
+  font: inherit;
+}
+
+.project-bar-naming button {
+  color: inherit;
+}
+
+.project-bar-status {
+  margin-top: 4px;
+  color: var(--editor-muted);
+}
+
+.agent-panel-placeholder {
+  position: absolute;
+  inset: 28px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  font-size: var(--text-md);
+  color: var(--editor-muted);
+}

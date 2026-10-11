@@ -1,11 +1,12 @@
 import type { Strings } from "../i18n/strings";
 
-type TutorialSectionId = "markdown" | "ai";
+type TutorialSectionId = "markdown" | "workspace" | "ai";
 
 export type TutorialStepId =
   | "welcome"
   | "markdownIntro"
   | "markdownPractice"
+  | "sidebar"
   | "aiIntro"
   | "completion"
   | "grammar"
@@ -28,13 +29,14 @@ export interface TutorialStep {
 }
 
 /**
- * The first-run experience has two visible chapters. Each entry in
+ * The first-run experience has three visible chapters. Each entry in
  * TUTORIAL_STEPS is one independently navigable lesson card inside a
  * chapter; reading lessons use a focused overlay while exercises keep the
  * editor interactive underneath.
  */
 export const TUTORIAL_SECTIONS: TutorialSection[] = [
   { id: "markdown", titleKey: "tutorialSectionMarkdown" },
+  { id: "workspace", titleKey: "tutorialSectionWorkspace" },
   { id: "ai", titleKey: "tutorialSectionAi" },
 ];
 
@@ -59,6 +61,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     layout: "card",
     titleKey: "tutorialMarkdownPracticeTitle",
     bodyKey: "tutorialMarkdownPracticeBody",
+  },
+  {
+    // The sidebar starts collapsed and its four tabs are icons only, so a
+    // newcomer had no way to learn it existed, let alone what each tab is
+    // for. Opens it and has the learner visit each tab.
+    id: "sidebar",
+    section: "workspace",
+    layout: "card",
+    titleKey: "tutorialSidebarTitle",
+    bodyKey: "tutorialSidebarBody",
   },
   {
     id: "aiIntro",

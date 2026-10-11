@@ -2,7 +2,7 @@
 //! dispatch, and the mutable File > Open Recent submenu. Menu ids that carry
 //! a payload do it in the id string ("recent:<path>", "export-pandoc:<fmt>",
 //! "help-doc:<doc>", "insert-block:<kind>"); the frontend listener for each
-//! menu-* event lives in App.tsx.
+//! menu-* event lives in src/menu-bridge.ts.
 //!
 //! On Windows and Linux the bar built here is never seen - it is hidden with
 //! the window frame (kept on Windows for its accelerators; on Linux GTK stops
@@ -38,6 +38,9 @@ const CLOSE_WINDOW_ID: &str = "close-window";
 const TOGGLE_SOURCE_MODE_ID: &str = "toggle-source-mode";
 const TOGGLE_TYPEWRITER_MODE_ID: &str = "toggle-typewriter-mode";
 const TOGGLE_SIDEBAR_ID: &str = "toggle-sidebar";
+const TOGGLE_AGENT_PANEL_ID: &str = "toggle-agent-panel";
+const TOGGLE_SPLIT_VIEW_ID: &str = "toggle-split-view";
+const TOGGLE_ZEN_MODE_ID: &str = "toggle-zen-mode";
 const ZOOM_IN_ID: &str = "zoom-in";
 const ZOOM_OUT_ID: &str = "zoom-out";
 const ZOOM_RESET_ID: &str = "zoom-reset";
@@ -46,7 +49,7 @@ const NEW_WINDOW_ID: &str = "new-window";
 /// Help menu ids carry the bundled doc they open: "help-doc:<doc>", where
 /// <doc> is the frontend's HelpDoc id ("markdown" | "agent" | "welcome").
 /// "welcome" additionally re-arms the coach-mark tour on the frontend side
-/// (see App.tsx's menu-open-help handler) - this string slot doesn't need
+/// (see menu-bridge.ts's menu-open-help handler) - this string slot doesn't need
 /// to change for that, it's just a payload value like any other doc id.
 const HELP_DOC_PREFIX: &str = "help-doc:";
 /// Format menu ids carry the block kind to insert: "insert-block:<kind>",
@@ -97,10 +100,7 @@ pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
         Some(label) if crate::commands::chat_window::is_editor_window(&label) => Some(label),
         Some(label) => app
             .try_state::<crate::commands::chat_window::OpenChatWindows>()
-            .zip(app.try_state::<crate::commands::chat_window::LastActiveEditor>())
-            .and_then(|(open, last_active)| {
-                crate::commands::chat_window::editor_for_chat(&label, &open, &last_active)
-            }),
+            .and_then(|open| crate::commands::chat_window::editor_for_chat(&label, &open)),
         None => None,
     }
     .or_else(|| {
@@ -377,6 +377,12 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
         MenuItemBuilder::with_id(TOGGLE_TYPEWRITER_MODE_ID, "Toggle Typewriter Mode").build(app)?;
     let toggle_sidebar_item =
         MenuItemBuilder::with_id(TOGGLE_SIDEBAR_ID, "Toggle Sidebar").build(app)?;
+    let toggle_agent_panel_item =
+        MenuItemBuilder::with_id(TOGGLE_AGENT_PANEL_ID, "Toggle AI Panel").build(app)?;
+    let toggle_split_view_item =
+        MenuItemBuilder::with_id(TOGGLE_SPLIT_VIEW_ID, "Split View").build(app)?;
+    let toggle_zen_mode_item =
+        MenuItemBuilder::with_id(TOGGLE_ZEN_MODE_ID, "Zen Mode").build(app)?;
 
     // Fixed OS-convention accelerators (like Cmd+S / Cmd+W), not
     // user-configurable ones - so unlike the items above they keep
@@ -395,8 +401,11 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
     let view_menu = {
         let builder = SubmenuBuilder::new(app, "View")
             .item(&toggle_source_mode_item)
+            .item(&toggle_split_view_item)
             .item(&toggle_typewriter_mode_item)
             .item(&toggle_sidebar_item)
+            .item(&toggle_agent_panel_item)
+            .item(&toggle_zen_mode_item)
             .separator()
             .item(&zoom_in_item)
             .item(&zoom_out_item)
@@ -526,6 +535,12 @@ fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
         emit_to_focused(app_handle, "menu-toggle-typewriter-mode");
     } else if id == TOGGLE_SIDEBAR_ID {
         emit_to_focused(app_handle, "menu-toggle-sidebar");
+    } else if id == TOGGLE_AGENT_PANEL_ID {
+        emit_to_focused(app_handle, "menu-toggle-agent-panel");
+    } else if id == TOGGLE_SPLIT_VIEW_ID {
+        emit_to_focused(app_handle, "menu-toggle-split-view");
+    } else if id == TOGGLE_ZEN_MODE_ID {
+        emit_to_focused(app_handle, "menu-toggle-zen-mode");
     } else if id == FIND_REPLACE_ID {
         emit_to_focused(app_handle, "menu-find-replace");
     } else if id == ZOOM_IN_ID {

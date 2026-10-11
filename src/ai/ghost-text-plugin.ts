@@ -6,7 +6,11 @@ import { isImeKeyEvent } from "../editor/enclosure";
 import { isLargeDoc } from "../editor/large-doc";
 import { createDebouncedTask } from "./debounced-task";
 import { hasPendingEdits } from "./pending-edit-plugin";
-import { ai } from "../ipc";
+import { ai, type CompletionHints } from "../ipc";
+import { AiNoticeError } from "../utils/error-text";
+import { cjkChunk, isCjk, isCjkLetter } from "../utils/cjk";
+import { headingTrail } from "./doc-markdown";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 
 const DEBOUNCE_MS = 450;
 const MAX_CONTEXT_CHARS = 2000;
@@ -18,22 +22,67 @@ const MAX_AFTER_CONTEXT_CHARS = 500;
 const ghostTextKey = new PluginKey("ghost-text");
 
 /**
- * The completion context, split at the cursor - the model is told to write
- * the text that belongs exactly between the two parts. Anchoring both sides
- * to the cursor (rather than sending the document tail) is what keeps
- * mid-document completions continuing from the cursor instead of from
- * wherever the document ends.
- */
-/**
  * Models often start a continuation with a space out of English habit; after
  * CJK text (or CJK punctuation) that space is wrong - CJK doesn't separate
  * with spaces - so it's stripped. Latin before-text keeps the suggestion
  * verbatim: a leading space there is usually a correct word boundary.
  */
 function tidySuggestion(before: string, suggestion: string): string {
-  return /[一-鿿㐀-䶿\u3000-〿＀-￯]$/.test(before)
+  return isCjk(before.slice(-1))
     ? suggestion.replace(/^[ \t]+/, "")
     : suggestion;
+}
+
+/**
+ * Models sometimes open the continuation by repeating the end of the
+ * before-text ("...the results show" -> "the results show that ..."),
+ * which Tab would then insert twice. A repeat of at least a few words is
+ * cut; a short overlap is left alone, since "the " ending one sentence and
+ * starting the next is ordinary prose.
+ */
+export function stripEcho(before: string, suggestion: string): string {
+  const max = Math.min(before.length, suggestion.length, 200);
+  for (let k = max; k >= 6; k--) {
+    if (before.endsWith(suggestion.slice(0, k))) return suggestion.slice(k);
+  }
+  return suggestion;
+}
+
+const BLOCK_NAMES: Record<string, string> = {
+  heading: "heading",
+  list_item: "list item",
+  blockquote: "blockquote",
+  table_cell: "table cell",
+  table_header: "table cell",
+};
+
+/**
+ * What the 2000 characters around the cursor can't say on their own: what
+ * the document is (its first heading), which section is being written (the
+ * heading path down to the cursor), and what kind of block the cursor is in
+ * - without which a completion inside a list item or a heading came back as
+ * a full prose sentence. Walks top-level blocks only, and runs once per
+ * request (inside the debounce), not per keystroke.
+ */
+export function completionHints(
+  doc: ProseNode,
+  cursorPos: number,
+  length: CompletionHints["length"],
+): CompletionHints {
+  const { title, path } = headingTrail(doc, cursorPos);
+
+  const $pos = doc.resolve(cursorPos);
+  let block = "paragraph";
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    const name = BLOCK_NAMES[$pos.node(depth).type.name];
+    if (name) {
+      block = name;
+      break;
+    }
+  }
+  // The heading being typed in isn't a section *around* the cursor yet.
+  const section = block === "heading" ? [] : path.slice(-4).map((h) => h.text);
+  return { title, section, block, length };
 }
 
 function completionContext(
@@ -72,27 +121,74 @@ function completionContext(
  * painted at the true insertion point.
  */
 function ghostDecoration(
-  view: EditorView,
+  doc: ProseNode,
   cursorPos: number,
-  suggestion: string,
+  suggestion: string | string[],
+  index = 0,
 ): GhostMeta {
-  const decoration = Decoration.widget(
-    cursorPos,
-    () => {
-      const span = document.createElement("span");
-      span.className = "ghost-text";
-      span.setAttribute("data-suggestion", suggestion);
-      span.contentEditable = "false";
-      return span;
-    },
-    { side: 1, ignoreSelection: true },
-  );
+  const candidates = Array.isArray(suggestion) ? suggestion : [suggestion];
+  const shown = candidates[index] ?? "";
+  const decorations = [
+    Decoration.widget(
+      cursorPos,
+      () => {
+        const span = document.createElement("span");
+        span.className = "ghost-text";
+        span.setAttribute("data-suggestion", shown);
+        span.contentEditable = "false";
+        return span;
+      },
+      { side: 1, ignoreSelection: true, key: `ghost-${index}-${shown}` },
+    ),
+  ];
+  // With alternatives, a quiet "2/3 · Alt+]" after the text says there are
+  // more and how to reach them.
+  if (candidates.length > 1) {
+    decorations.push(
+      Decoration.widget(
+        cursorPos,
+        () => {
+          const badge = document.createElement("span");
+          badge.className = "ghost-text-count";
+          badge.setAttribute(
+            "data-count",
+            `${index + 1}/${candidates.length} · Alt+]`,
+          );
+          badge.contentEditable = "false";
+          return badge;
+        },
+        { side: 2, ignoreSelection: true, key: `ghost-count-${index}` },
+      ),
+    );
+  }
   return {
     type: "set",
-    decoration: DecorationSet.create(view.state.doc, [decoration]),
-    suggestion,
+    decoration: DecorationSet.create(doc, decorations),
+    suggestion: shown,
+    candidates,
+    index,
     from: cursorPos,
   };
+}
+
+/**
+ * The next piece of a suggestion that Ctrl/Cmd+Right accepts on its own:
+ * leading space plus one word - or, for CJK text, which has no spaces to
+ * find words by, up to two characters (and any punctuation right after).
+ */
+export function nextWordChunk(text: string): string {
+  const lead = /^\s*/.exec(text)?.[0] ?? "";
+  const rest = text.slice(lead.length);
+  if (!rest) return text;
+  if (isCjkLetter(rest[0])) return lead + (cjkChunk(rest) ?? rest[0]);
+  const m = /^\S+/.exec(rest);
+  return lead + (m ? m[0] : rest);
+}
+
+/** The alternatives in a multi-candidate response (CANDIDATE_SEPARATOR in
+ *  src-tauri ai/client.rs); a single continuation comes back as one. */
+export function splitCandidates(raw: string): string[] {
+  return raw.split(/\n\s*<<<>>>\s*\n?/).filter((part) => part.trim());
 }
 
 /// Runs a completion request right now at the cursor and shows it as ghost
@@ -105,33 +201,50 @@ export async function triggerGhostTextNow(
   provider: string,
   style: string | null,
   model: string | null,
+  project: { docPath: string | null; workspaceRoot: string | null },
 ): Promise<void> {
   const { selection } = view.state;
-  if (!selection.empty)
-    throw new Error("Place the cursor where you want the suggestion first.");
+  if (!selection.empty) throw new AiNoticeError("completion-needs-caret");
 
   const $pos = selection.$from;
   if (
     !$pos.parent.isTextblock ||
     $pos.parentOffset !== $pos.parent.content.size
   ) {
-    throw new Error("Move the cursor to the end of a paragraph first.");
+    throw new AiNoticeError("completion-needs-paragraph-end");
   }
 
   const cursorPos = selection.from;
   const { before, after } = completionContext(view, cursorPos);
+  // An explicit request earns more than the as-you-type nudge: a few
+  // sentences carrying the paragraph on, which is what "continue writing"
+  // means when someone asks for it.
+  // Three alternatives on an explicit ask, cycled with Alt+[ / Alt+].
+  const hints = {
+    ...completionHints(view.state.doc, cursorPos, "long"),
+    candidates: 3,
+  };
 
-  const raw = await ai.complete(provider, before, after, style, model);
-  const suggestion = raw ? tidySuggestion(before, raw) : raw;
-  if (!suggestion?.trim())
-    throw new Error("The model returned an empty suggestion.");
+  const raw = await ai.complete(
+    provider,
+    before,
+    after,
+    style,
+    model,
+    hints,
+    project,
+  );
+  const candidates = splitCandidates(raw ?? "")
+    .map((text) => tidySuggestion(before, stripEcho(before, text)))
+    .filter((text, i, all) => text.trim() && all.indexOf(text) === i);
+  if (candidates.length === 0) throw new AiNoticeError("completion-empty");
   if (view.state.selection.from !== cursorPos) return; // cursor moved while we were waiting
   if (view.composing) return; // mid-IME - dispatching now would break the composition
 
   view.dispatch(
     view.state.tr.setMeta(
       ghostTextKey,
-      ghostDecoration(view, cursorPos, suggestion),
+      ghostDecoration(view.state.doc, cursorPos, candidates),
     ),
   );
 }
@@ -150,7 +263,7 @@ export function showGhostSuggestion(
   view.dispatch(
     view.state.tr.setMeta(
       ghostTextKey,
-      ghostDecoration(view, selection.from, suggestion),
+      ghostDecoration(view.state.doc, selection.from, suggestion),
     ),
   );
 }
@@ -158,12 +271,23 @@ export function showGhostSuggestion(
 /** Tagged union (like pending-edit-plugin's PendingMeta) so the "set" arm
  *  carries its payload as required fields - no assertions at the read site. */
 type GhostMeta =
-  | { type: "set"; decoration: DecorationSet; suggestion: string; from: number }
+  | {
+      type: "set";
+      decoration: DecorationSet;
+      suggestion: string;
+      candidates: string[];
+      index: number;
+      from: number;
+    }
   | { type: "clear" };
 
 interface GhostState {
   decoration: DecorationSet;
   suggestion: string | null;
+  /** All alternatives (manual trigger asks for several); `suggestion` is
+   *  candidates[index]. */
+  candidates: string[];
+  index: number;
   from: number;
 }
 
@@ -172,6 +296,8 @@ interface GhostState {
 const CLEARED: GhostState = {
   decoration: DecorationSet.empty,
   suggestion: null,
+  candidates: [],
+  index: 0,
   from: 0,
 };
 
@@ -182,6 +308,9 @@ export function createGhostTextPlugin(options: {
   model: () => string | null;
   /** User style directive for the completion prompt, null when unset. */
   style: () => string | null;
+  /** The project folder the completion takes its style profile and
+   *  library from. */
+  project: () => { docPath: string | null; workspaceRoot: string | null };
 }) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
 
@@ -191,13 +320,22 @@ export function createGhostTextPlugin(options: {
         key: ghostTextKey,
         state: {
           init: (): GhostState => CLEARED,
-          apply(tr, prev): GhostState {
+          apply(tr, prev, _old, state): GhostState {
             const meta = tr.getMeta(ghostTextKey) as GhostMeta | undefined;
             if (meta?.type === "set") {
-              const { decoration, suggestion, from } = meta;
-              return { decoration, suggestion, from };
+              const { decoration, suggestion, candidates, index, from } = meta;
+              return { decoration, suggestion, candidates, index, from };
             }
             if (meta?.type === "clear" || tr.docChanged) return CLEARED;
+            // The caret moved off the suggestion: it no longer belongs where
+            // the user is. Kept alive, a later Tab (say, indenting a list
+            // item elsewhere) inserted it back at the old spot.
+            if (
+              prev.suggestion &&
+              tr.selectionSet &&
+              (!state.selection.empty || state.selection.from !== prev.from)
+            )
+              return CLEARED;
             return prev;
           },
         },
@@ -208,7 +346,60 @@ export function createGhostTextPlugin(options: {
           handleKeyDown(view, event) {
             if (isImeKeyEvent(view, event)) return false;
             const state = ghostTextKey.getState(view.state);
-            if (!state?.suggestion || event.key !== "Tab") return false;
+            if (!state?.suggestion) return false;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              view.dispatch(
+                view.state.tr.setMeta(ghostTextKey, { type: "clear" }),
+              );
+              return true;
+            }
+            const { selection } = view.state;
+            if (!selection.empty || selection.from !== state.from) return false;
+            // Alt+] / Alt+[ cycle the alternatives (by key code: on macOS
+            // Option+] types a quote character into event.key).
+            if (
+              event.altKey &&
+              (event.code === "BracketRight" || event.code === "BracketLeft") &&
+              state.candidates.length > 1
+            ) {
+              event.preventDefault();
+              const step = event.code === "BracketRight" ? 1 : -1;
+              const n = state.candidates.length;
+              view.dispatch(
+                view.state.tr.setMeta(
+                  ghostTextKey,
+                  ghostDecoration(
+                    view.state.doc,
+                    state.from,
+                    state.candidates,
+                    (state.index + step + n) % n,
+                  ),
+                ),
+              );
+              return true;
+            }
+            // Ctrl/Cmd+Right takes one word and keeps the rest on offer.
+            if (
+              (event.ctrlKey || event.metaKey) &&
+              !event.shiftKey &&
+              event.key === "ArrowRight"
+            ) {
+              event.preventDefault();
+              const chunk = nextWordChunk(state.suggestion);
+              const rest = state.suggestion.slice(chunk.length);
+              const tr = view.state.tr.insertText(chunk, state.from);
+              // Built against the document after the insertion.
+              tr.setMeta(
+                ghostTextKey,
+                rest.trim()
+                  ? ghostDecoration(tr.doc, state.from + chunk.length, rest)
+                  : { type: "clear" },
+              );
+              view.dispatch(tr);
+              return true;
+            }
+            if (event.key !== "Tab") return false;
             event.preventDefault();
             const tr = view.state.tr.insertText(state.suggestion, state.from);
             tr.setMeta(ghostTextKey, { type: "clear" });
@@ -236,6 +427,9 @@ export function createGhostTextPlugin(options: {
 
               if (!options.enabled()) return;
               if (view.composing) return;
+              // A suggestion is still on offer right here (say, the rest
+              // after accepting one word): asking again would replace it.
+              if (pinned) return;
               if (isLargeDoc(view.state.doc)) return;
               if (
                 view.state.doc.eq(prevState.doc) &&
@@ -287,6 +481,8 @@ export function createGhostTextPlugin(options: {
                     after,
                     options.style(),
                     options.model(),
+                    completionHints(view.state.doc, cursorPos, "short"),
+                    options.project(),
                   );
                 } catch (err) {
                   // Not logged in, offline, or request failed - stays quiet in the
@@ -296,7 +492,10 @@ export function createGhostTextPlugin(options: {
                   return;
                 }
                 if (!isCurrent()) return; // superseded by a newer trigger
-                suggestion = tidySuggestion(before, suggestion);
+                suggestion = tidySuggestion(
+                  before,
+                  stripEcho(before, suggestion),
+                );
                 if (!suggestion?.trim()) return;
                 if (!view.hasFocus() || view.state.selection.from !== cursorPos)
                   return;
@@ -305,7 +504,7 @@ export function createGhostTextPlugin(options: {
                 view.dispatch(
                   view.state.tr.setMeta(
                     ghostTextKey,
-                    ghostDecoration(view, cursorPos, suggestion),
+                    ghostDecoration(view.state.doc, cursorPos, suggestion),
                   ),
                 );
               });

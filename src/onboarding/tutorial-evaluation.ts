@@ -42,6 +42,16 @@ export const MARKDOWN_TASK = {
 
 export const MARKDOWN_ALL_TASKS = 127;
 
+/** The sidebar lesson's phase: one bit per tab the learner has looked at. */
+export const SIDEBAR_TAB = {
+  tree: 1,
+  outline: 2,
+  clipboard: 4,
+  chat: 8,
+} as const;
+
+export const SIDEBAR_ALL_TABS = 15;
+
 /**
  * Grades the Markdown practice page. Each task is independent, so learners
  * can complete the examples in any order and the UI can light up precisely
@@ -76,6 +86,8 @@ export function isTutorialPracticeComplete(
   switch (stepId) {
     case "markdownPractice":
       return phase === MARKDOWN_ALL_TASKS;
+    case "sidebar":
+      return phase === SIDEBAR_ALL_TABS;
     case "completion":
     case "grammar":
       return phase >= 2;

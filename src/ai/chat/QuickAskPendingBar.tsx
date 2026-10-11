@@ -80,25 +80,47 @@ export function QuickAskPendingBar({
         </div>
       )}
       <div className="quick-ask-pending-actions">
-        <SplitButton
-          label={labels.proposalAccept}
-          menuLabel={labels.quickAskAcceptAllCount.replace(
-            "{n}",
-            String(total),
-          )}
-          onClick={onAcceptFocused}
-          onMenuClick={onAcceptAll}
-          primary
-        />
-        <SplitButton
-          label={labels.proposalReject}
-          menuLabel={labels.quickAskRejectAllCount.replace(
-            "{n}",
-            String(total),
-          )}
-          onClick={onRejectFocused}
-          onMenuClick={onRejectAll}
-        />
+        {total === 1 ? (
+          // One edit: "all" means the same thing, so no menus.
+          <>
+            <button
+              type="button"
+              className="inline-chat-action inline-chat-action-primary"
+              onClick={onAcceptFocused}
+            >
+              {labels.proposalAccept}
+            </button>
+            <button
+              type="button"
+              className="inline-chat-action"
+              onClick={onRejectFocused}
+            >
+              {labels.proposalReject}
+            </button>
+          </>
+        ) : (
+          <>
+            <SplitButton
+              label={labels.proposalAccept}
+              menuLabel={labels.quickAskAcceptAllCount.replace(
+                "{n}",
+                String(total),
+              )}
+              onClick={onAcceptFocused}
+              onMenuClick={onAcceptAll}
+              primary
+            />
+            <SplitButton
+              label={labels.proposalReject}
+              menuLabel={labels.quickAskRejectAllCount.replace(
+                "{n}",
+                String(total),
+              )}
+              onClick={onRejectFocused}
+              onMenuClick={onRejectAll}
+            />
+          </>
+        )}
       </div>
     </div>
   );
@@ -122,7 +144,11 @@ function SplitButton({
   primary?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useCloseOnOutsideClick<HTMLDivElement>(() => setOpen(false));
+  const ref = useCloseOnOutsideClick<HTMLDivElement>(
+    () => setOpen(false),
+    false,
+    open,
+  );
 
   return (
     <div className="quick-ask-split-button" ref={ref}>

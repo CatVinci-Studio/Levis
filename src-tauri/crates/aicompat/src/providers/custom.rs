@@ -88,6 +88,9 @@ pub async fn call_completion(
 #[derive(Deserialize)]
 struct ModelListEntry {
     id: String,
+    /// Unix seconds, when the endpoint says (OpenAI and most compatibles).
+    #[serde(default)]
+    created: Option<i64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -114,7 +117,13 @@ pub async fn list_models(base_url: &str, api_key: Option<&str>) -> Result<Vec<St
     }
 
     let parsed: ModelListResponse = res.json().await.map_err(|e| e.to_string())?;
-    Ok(parsed.data.into_iter().map(|m| m.id).collect())
+    Ok(crate::models::tidy(
+        parsed
+            .data
+            .into_iter()
+            .map(|m| (m.id, m.created.map(|c| format!("{c:020}"))))
+            .collect(),
+    ))
 }
 
 // --- Agentic tool-calling support (the generic openai-chat-completions

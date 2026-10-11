@@ -54,9 +54,16 @@ export function WindowEdges() {
         });
     };
     sync();
-    const unlisten = win.onResized(sync);
+    // A drag-resize fires this every frame, and each sync is three IPC
+    // round trips; only where the resize ends matters.
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const unlisten = win.onResized(() => {
+      clearTimeout(settle);
+      settle = setTimeout(sync, 100);
+    });
     return () => {
       alive = false;
+      clearTimeout(settle);
       void unlisten.then((off) => off());
     };
   }, []);

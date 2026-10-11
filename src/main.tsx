@@ -6,8 +6,10 @@ import { SettingsProvider } from "./settings/SettingsContext";
 import { installDevTauriShim } from "./dev-tauri-shim";
 import { publishWindowChrome } from "./ui/window-chrome";
 import { WindowEdges } from "./ui/WindowEdges";
+import { installWebviewGuards } from "./ui/webview-guards";
 
 installDevTauriShim();
+installWebviewGuards();
 
 // Before the first render: the stylesheet keys the title row's insets off
 // this, and correcting it afterwards would paint the row at the macOS

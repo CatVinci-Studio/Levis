@@ -167,6 +167,8 @@ export function useFindReplace(run: EditorRunner) {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      // Escape mid-composition cancels the IME candidate, not the bar.
+      if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKeyDown);

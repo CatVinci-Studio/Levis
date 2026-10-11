@@ -11,6 +11,33 @@ import {
 // Matches prosemirror-tables' columnResizing default, so the <colgroup> this
 // view renders and the widths the resize drag writes share one baseline.
 const DEFAULT_CELL_MIN_WIDTH = 100;
+
+/**
+ * Syncs the <colgroup> with the columns' dragged widths, then picks the
+ * layout. Until a column has been resized the table lays out by its content
+ * (`data-sized` absent, see milkdown-theme.css): short columns stay narrow
+ * and long ones take the room, like Typora and GitHub. The 100px-per-column
+ * floor prosemirror-tables writes as a min-width only makes sense for the
+ * fixed layout a resized table needs, so it is dropped for the rest - it
+ * was what pushed tables with many short columns past the text (#15).
+ */
+function syncColumns(
+  node: Parameters<typeof updateColumnsOnResize>[0],
+  colgroup: HTMLTableColElement,
+  table: HTMLTableElement,
+): void {
+  updateColumnsOnResize(node, colgroup, table, DEFAULT_CELL_MIN_WIDTH);
+  let sized = false;
+  node.firstChild?.forEach((cell) => {
+    if ((cell.attrs.colwidth as number[] | null)?.some(Boolean)) sized = true;
+  });
+  if (sized) {
+    table.dataset.sized = "";
+  } else {
+    delete table.dataset.sized;
+    table.style.minWidth = "";
+  }
+}
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -96,7 +123,7 @@ export const tableHoverView = $view(
     );
     const colgroup = table.appendChild(document.createElement("colgroup"));
     const tbody = table.appendChild(document.createElement("tbody"));
-    updateColumnsOnResize(node, colgroup, table, DEFAULT_CELL_MIN_WIDTH);
+    syncColumns(node, colgroup, table);
 
     const addRowBtn = makeInsertButton("table-add-row-btn");
     bindInsertButton(addRowBtn, view, getPos, addRowAfter);
@@ -116,12 +143,7 @@ export const tableHoverView = $view(
       update(updatedNode) {
         if (updatedNode.type !== currentNode.type) return false;
         currentNode = updatedNode;
-        updateColumnsOnResize(
-          updatedNode,
-          colgroup,
-          table,
-          DEFAULT_CELL_MIN_WIDTH,
-        );
+        syncColumns(updatedNode, colgroup, table);
         return true;
       },
       ignoreMutation(record) {

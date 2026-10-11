@@ -41,6 +41,9 @@ export type ShortcutAction =
   | "triggerGrammarCheck"
   | "toggleFloatingChat"
   | "toggleSidebar"
+  | "toggleAgentPanel"
+  | "toggleSplitView"
+  | "toggleZenMode"
   | "toggleSourceMode"
   | "toggleTypewriterMode"
   | "findReplace";
@@ -54,6 +57,9 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
   triggerGrammarCheck: "mod+shift+g",
   toggleFloatingChat: "mod+shift+k",
   toggleSidebar: "mod+\\",
+  toggleAgentPanel: "mod+shift+l",
+  toggleSplitView: "mod+shift+e",
+  toggleZenMode: "mod+shift+j",
   toggleSourceMode: "mod+/",
   toggleTypewriterMode: "",
   findReplace: "mod+f",
@@ -156,14 +162,10 @@ export interface Settings {
   /// Whether an agent edit's green in-document preview streams/types itself
   /// in (pending-edit-plugin's typewriter) or appears complete at once.
   enableEditAnimation: boolean;
-  /// How far the detached Agent window is shared. Off (default): one chat
-  /// window per editor window, shared by that window's tabs. On: a single
-  /// chat window for the whole app, following whichever document is active
-  /// in whichever window. Either way there is never more than one per
-  /// scope - the detached window IS the cross-file surface, so popping the
-  /// chat out of a second file reveals it rather than spawning a rival
-  /// (see commands/chat_window.rs).
-  shareAgentWindowAcrossWindows: boolean;
+  /// Where Quick Ask's "open full conversation" goes: the docked panel on
+  /// the right (default), or the detached window - for a second monitor.
+  /// The panel's own header pops out to the window either way.
+  agentExpandToWindow: boolean;
   /// Whether the detached Agent window floats above other windows. Kept
   /// here rather than per-window so the choice survives closing it.
   pinAgentWindow: boolean;
@@ -242,7 +244,7 @@ const DEFAULT_SETTINGS: Settings = {
   completionTone: "default",
   enableWebSearch: false,
   enableEditAnimation: true,
-  shareAgentWindowAcrossWindows: false,
+  agentExpandToWindow: false,
   pinAgentWindow: false,
   agentWorkspaceRoot: "",
   proxyType: "none",

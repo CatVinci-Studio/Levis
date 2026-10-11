@@ -5,6 +5,22 @@ import { triggerGrammarCheckNow } from "./grammar-check-plugin";
 import { buildCompletionStyle } from "./completion-style";
 import type { EditorRunner } from "../editor/useEditorRunner";
 import type { Settings } from "../settings/SettingsContext";
+import type { Strings } from "../i18n/strings";
+import {
+  AiNoticeError,
+  errorText,
+  type AiNoticeCode,
+} from "../utils/error-text";
+
+const NOTICE_TEXT: Record<AiNoticeCode, keyof Strings> = {
+  "completion-needs-caret": "noticeCompletionNeedsCaret",
+  "completion-needs-paragraph-end": "noticeCompletionNeedsParagraphEnd",
+  "completion-empty": "noticeCompletionEmpty",
+  "grammar-needs-paragraph": "noticeGrammarNeedsParagraph",
+  "grammar-empty-paragraph": "noticeGrammarEmpty",
+  "grammar-paragraph-changed": "noticeGrammarChanged",
+  "grammar-no-issues": "noticeGrammarNoIssues",
+};
 
 export interface AiActions {
   triggerCompletion: () => void;
@@ -22,34 +38,67 @@ export interface AiActions {
 export function useAiActions(
   run: EditorRunner,
   getSettings: () => Settings,
-  onNotice: (message: string) => void,
+  getT: () => Strings,
+  onNotice: (message: string | null) => void,
+  getDocPath: () => string | null = () => null,
 ): AiActions {
+  // A manual trigger can take a few seconds: say it's working, then either
+  // clear that (the result is in the document) or replace it with what
+  // happened, in the user's language.
+  const report = useCallback(
+    (work: Promise<void>, working: string) => {
+      onNotice(working);
+      work.then(
+        () => onNotice(null),
+        (err) => {
+          const t = getT();
+          onNotice(
+            err instanceof AiNoticeError
+              ? (t[NOTICE_TEXT[err.code]] as string)
+              : errorText(err),
+          );
+        },
+      );
+    },
+    [getT, onNotice],
+  );
+
   const triggerCompletion = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       const { aiProvider, completionTone, writingModels } = getSettings();
       const style = buildCompletionStyle(completionTone);
-      triggerGhostTextNow(
-        view,
-        aiProvider,
-        style,
-        writingModels[aiProvider] || null,
-      ).catch((err) => onNotice(String(err?.message ?? err)));
+      report(
+        triggerGhostTextNow(
+          view,
+          aiProvider,
+          style,
+          writingModels[aiProvider] || null,
+          {
+            docPath: getDocPath(),
+            workspaceRoot: getSettings().agentWorkspaceRoot || null,
+          },
+        ),
+        getT().aiWorkingCompletion,
+      );
     });
-  }, [run, getSettings, onNotice]);
+  }, [run, getSettings, getT, report, getDocPath]);
 
   const triggerGrammarCheck = useCallback(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       const { aiProvider, grammarStrictness, writingModels } = getSettings();
-      triggerGrammarCheckNow(
-        view,
-        aiProvider,
-        grammarStrictness,
-        writingModels[aiProvider] || null,
-      ).catch((err) => onNotice(String(err?.message ?? err)));
+      report(
+        triggerGrammarCheckNow(
+          view,
+          aiProvider,
+          grammarStrictness,
+          writingModels[aiProvider] || null,
+        ),
+        getT().aiWorkingGrammar,
+      );
     });
-  }, [run, getSettings, onNotice]);
+  }, [run, getSettings, getT, report]);
 
   return { triggerCompletion, triggerGrammarCheck };
 }

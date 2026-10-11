@@ -21,6 +21,8 @@ const STATUS_NOTES: Record<PendingStatus, string> = {
     "Status: the user rejected this proposed edit - it was not applied. Don't propose it again unless asked.",
   invalid:
     "Status: this proposed edit could not be applied (the text it targeted changed) and was discarded - it is not part of the document.",
+  expired:
+    "Status: this proposed edit is from an earlier session and was never applied - it is not part of the document.",
 };
 
 /**

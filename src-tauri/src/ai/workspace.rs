@@ -46,9 +46,15 @@ pub struct AgentWorkspace {
     pub instructions: Vec<String>,
     /// Merged skills, workspace shadowing global on name collisions.
     pub skills: Vec<AgentSkill>,
-    /// The folder containing the document, when it has one - the sandbox
-    /// root for the agent's file tools.
+    /// The project folder - the document's own by default, or the one
+    /// picked in the panel - when there is one: the sandbox root for the
+    /// agent's file tools. None for an unsaved draft, and for a folder too
+    /// broad to expose (the home directory or a filesystem root).
     pub root: Option<String>,
+    /// `.levis/style.md` - the author's style profile.
+    pub style: Option<String>,
+    /// `.levis/library/*.md` - the project's people, places and terms.
+    pub library: Vec<crate::ai::project::LibraryEntry>,
 }
 
 fn global_agent_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -176,6 +182,12 @@ fn resolve_root(doc_path: Option<&str>, root_override: Option<&str>) -> Option<P
     })
 }
 
+/// The project folder the agent may read: the resolved root, unless it is
+/// too broad to treat as one (a home folder, a drive root).
+pub(crate) fn project_root(doc_path: Option<&str>, root_override: Option<&str>) -> Option<PathBuf> {
+    resolve_root(doc_path, root_override).filter(|root| !crate::ai::project::is_too_broad(root))
+}
+
 /// Loads the merged agent workspace for a document: global layer first,
 /// then the workspace root's `.levis/` layer on top.
 pub fn load(
@@ -191,9 +203,11 @@ pub fn load(
         ws.skills.extend(skills);
     }
 
-    if let Some(root) = resolve_root(doc_path, root_override) {
+    if let Some(root) = project_root(doc_path, root_override) {
         let root = root.as_path();
         ws.root = Some(root.to_string_lossy().to_string());
+        ws.style = crate::ai::project::read_style(root);
+        ws.library = crate::ai::project::read_library(root);
         let (instructions, skills) = read_layer(&root.join(WORKSPACE_DIR_NAME));
         ws.instructions.extend(instructions);
         // Workspace skills shadow same-named global ones.
@@ -225,13 +239,23 @@ pub async fn load_agent_workspace(
 
 /// Folder picker behind Settings > Agent's "switch workspace" button.
 #[tauri::command]
-pub async fn pick_workspace_root(app: AppHandle) -> Result<Option<String>, String> {
-    use tauri_plugin_dialog::DialogExt;
-    let picked =
-        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
-            .await
-            .map_err(|e| e.to_string())?;
-    Ok(picked.map(|p| p.to_string()))
+pub async fn pick_workspace_root(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        crate::commands::fs::window_file_dialog(&window).blocking_pick_folder()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    let picked = picked.map(|p| p.to_string());
+    // The home directory or a drive root would hand the agent everything
+    // the user owns; refuse it here, where the choice is made, with a reason
+    // the panel can show.
+    if picked
+        .as_deref()
+        .is_some_and(|p| crate::ai::project::is_too_broad(Path::new(p)))
+    {
+        return Err("TOO_BROAD".to_string());
+    }
+    Ok(picked)
 }
 
 /// Creates the global agent directory (with a starter agent.md and skills/
@@ -354,13 +378,13 @@ fn ensure_global_layer(app: &AppHandle, lang: Option<&str>) -> Result<PathBuf, S
 /// cancelled). The file is stored under the skill's resolved name, so
 /// re-importing an updated copy replaces the old one instead of piling up.
 #[tauri::command]
-pub async fn import_agent_skill(app: AppHandle) -> Result<Option<Vec<AgentSkill>>, String> {
-    use tauri_plugin_dialog::DialogExt;
+pub async fn import_agent_skill(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Option<Vec<AgentSkill>>, String> {
     let picked = {
-        let app = app.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            app.dialog()
-                .file()
+            crate::commands::fs::window_file_dialog(&window)
                 .add_filter("Markdown", &["md"])
                 .blocking_pick_file()
         })

@@ -60,26 +60,144 @@ fn search_document(ctx: &ToolContext, arguments: &str) -> String {
     }
 }
 
+const READ_DOCUMENT_TOOL_NAME: &str = "read_document";
+
+/// Most a single read_document call returns; a longer range comes back cut
+/// at a line boundary with a pointer to where to continue.
+const MAX_READ_DOCUMENT_CHARS: usize = 12_000;
+
+/// The ATX heading level of a markdown line (`## Title` -> 2), or None.
+fn heading_level(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let hashes = trimmed.chars().take_while(|&c| c == '#').count();
+    ((1..=6).contains(&hashes) && trimmed.as_bytes().get(hashes) == Some(&b' ')).then_some(hashes)
+}
+
+/// Line indexes (0-based) of headings outside fenced code blocks - a `# `
+/// comment in a shell snippet isn't a section.
+pub(crate) fn heading_lines(lines: &[&str]) -> Vec<(usize, usize)> {
+    let mut in_fence = false;
+    let mut headings = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if !in_fence {
+            if let Some(level) = heading_level(line) {
+                headings.push((i, level));
+            }
+        }
+    }
+    headings
+}
+
+/// The line range `[start, end)` of the section under `heading`: from the
+/// heading to the next one at its level or above, so "Methods" includes its
+/// subsections. An exact title wins; otherwise the first heading containing
+/// it, ignoring case. Shared by read_document and agent.rs's focus section,
+/// so "section" means the same thing to the model and to the prompt.
+pub(crate) fn section_range(lines: &[&str], heading: &str) -> Option<(usize, usize)> {
+    let wanted = heading.trim().trim_start_matches('#').trim();
+    if wanted.is_empty() {
+        return None;
+    }
+    let headings = heading_lines(lines);
+    let title = |i: usize| lines[i].trim_start().trim_start_matches('#').trim();
+    let lower = wanted.to_lowercase();
+    let pos = headings
+        .iter()
+        .position(|&(i, _)| title(i) == wanted)
+        .or_else(|| {
+            headings
+                .iter()
+                .position(|&(i, _)| title(i).to_lowercase().contains(&lower))
+        })?;
+    let (first, level) = headings[pos];
+    let last = headings[pos + 1..]
+        .iter()
+        .find(|&&(_, l)| l <= level)
+        .map_or(lines.len(), |&(i, _)| i);
+    Some((first, last))
+}
+
+/// Reads part of the document verbatim - a section by its heading, or a
+/// line range. The embedded document is only an outline plus excerpts once
+/// it is long (agent.rs's document_section), and search_document only ever
+/// shows single lines: without this the model had no way to see a whole
+/// passage it was asked to revise, nor a multi-line anchor to quote.
+fn read_document(ctx: &ToolContext, arguments: &str) -> String {
+    let args: serde_json::Value = serde_json::from_str(arguments).unwrap_or_default();
+    let lines: Vec<&str> = ctx.document.lines().collect();
+    if lines.is_empty() {
+        return "The document is empty.".to_string();
+    }
+    let total = lines.len();
+
+    let (start, end) = if let Some(heading) = args
+        .get("heading")
+        .and_then(|h| h.as_str())
+        .map(str::trim)
+        .filter(|h| !h.is_empty())
+    {
+        match section_range(&lines, heading) {
+            Some(range) => range,
+            None => {
+                return format!("No heading matching \"{heading}\". The outline in the document section lists them.")
+            }
+        }
+    } else {
+        let line_arg = |key: &str| args.get(key).and_then(|v| v.as_u64()).map(|n| n as usize);
+        let start = line_arg("start_line").unwrap_or(1).clamp(1, total) - 1;
+        let end = line_arg("end_line")
+            .unwrap_or(total)
+            .clamp(start + 1, total);
+        (start, end)
+    };
+
+    let mut out = String::new();
+    let mut shown_end = start;
+    for line in &lines[start..end] {
+        if !out.is_empty() && out.len() + line.len() + 1 > MAX_READ_DOCUMENT_CHARS {
+            break;
+        }
+        out.push_str(line);
+        out.push('\n');
+        shown_end += 1;
+    }
+    let mut header = format!("Lines {}-{} of {total}:", start + 1, shown_end);
+    if shown_end < end {
+        header.push_str(&format!(
+            " (cut for length - continue with start_line={})",
+            shown_end + 1
+        ));
+    }
+    format!("{header}\n{out}")
+}
+
 const PROPOSE_EDIT_TOOL_NAME: &str = "propose_edit";
 
 /// The edit operations the frontend knows how to apply. Kept in sync with
 /// `EditAction` in src/ai/types.ts - adding one here without teaching
-/// useInlineChat.applyProposal about it produces proposals that validate but
+/// the frontend (usePendingEdits.ts, which resolves proposals, and
+/// apply-edit.ts, which writes them) about it produces proposals that validate but
 /// can't be applied.
-const EDIT_ACTIONS: [&str; 6] = [
+const EDIT_ACTIONS: [&str; 7] = [
     "replace",
     "replace_selection",
     "insert_before",
     "insert_after",
     "delete",
     "append",
+    "insert_at_cursor",
 ];
 
 fn needs_anchor(action: &str) -> bool {
     // replace_selection targets the user's captured selection, so there is
     // no anchor to locate (and the selection may not be unique in the
     // document anyway - that's the point of having the action).
-    action != "append" && action != "replace_selection"
+    action != "append" && action != "replace_selection" && action != "insert_at_cursor"
 }
 
 fn needs_text(action: &str) -> bool {
@@ -115,21 +233,8 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
                 "`{action}` requires `anchor` - the exact document text the edit targets."
             );
         }
-        match ctx.document.matches(anchor).count() {
-            0 => return "No exact match for `anchor` in the document. Quote it exactly as it appears, including punctuation and whitespace.".to_string(),
-            1 => {}
-            n => {
-                // A repeated anchor is still usable when `context` (a longer
-                // verbatim quote containing it) pins down which occurrence
-                // is meant - the frontend resolves it the same way.
-                let context = parsed.get("context").and_then(|v| v.as_str()).unwrap_or("");
-                let context_ok = context.contains(anchor)
-                    && context.len() > anchor.len()
-                    && ctx.document.matches(context).count() == 1;
-                if !context_ok {
-                    return format!("`anchor` appears {n} times in the document. Add `context`: a longer quote copied verbatim from the document that contains this anchor and itself occurs exactly once (or extend the anchor).");
-                }
-            }
+        if let Err(problem) = check_anchor(ctx.document, &parsed, anchor) {
+            return problem;
         }
     }
 
@@ -137,6 +242,94 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
     // result (accepted / rejected / still undecided) - see
     // annotateProposalStatuses in src/ai/proposal-status.ts.
     "Edit proposed - the user now sees it with an Apply button. Don't repeat the full text in your reply; just say briefly what you changed and why.".to_string()
+}
+
+/// One character's matching form: typographic quotes, dash variants,
+/// full-width ASCII and non-breaking spaces fold to their plain ASCII
+/// equivalents - the usual differences between a model's quote and the
+/// author's text. One char in, one char out, so positions stay aligned
+/// (src/ai/doc-markdown.ts's normalizeForMatch mirrors this exactly).
+fn normalize_char(c: char) -> char {
+    match c {
+        '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{2032}' => '\'',
+        '\u{201C}' | '\u{201D}' | '\u{201E}' | '\u{2033}' => '"',
+        '\u{2010}'..='\u{2015}' | '\u{2212}' => '-',
+        '\u{00A0}' | '\u{2007}' | '\u{202F}' | '\u{3000}' => ' ',
+        '\u{FF01}'..='\u{FF5E}' => char::from_u32(c as u32 - 0xFEE0).unwrap_or(c),
+        _ => c,
+    }
+}
+
+fn normalize_for_match(text: &str) -> String {
+    text.chars().map(normalize_char).collect()
+}
+
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// How many places `anchor` matches, with the same fallbacks the frontend
+/// resolves proposals with (findMarkdownMatch): exact first; only when that
+/// finds nothing, typographic normalization; then, also folding whitespace
+/// runs (a quote that turned a blank line into one newline). Agreeing here
+/// matters: when only the frontend tolerated a folded blank line, the model
+/// was told "no match", retried, and the user got the edit twice.
+/// Whether `anchor` picks out one place in the document - directly, or, when
+/// it repeats, through `context` (a longer verbatim quote containing it that
+/// occurs once; the frontend resolves it the same way). The error is the
+/// tool result that tells the model how to fix its quote.
+fn check_anchor(document: &str, args: &serde_json::Value, anchor: &str) -> Result<(), String> {
+    match anchor_match_count(document, anchor) {
+        0 => Err("No exact match for `anchor` in the document. Quote it exactly as it appears, including punctuation and whitespace.".to_string()),
+        1 => Ok(()),
+        n => {
+            let context = args.get("context").and_then(|v| v.as_str()).unwrap_or("");
+            if context.contains(anchor)
+                && context.len() > anchor.len()
+                && anchor_match_count(document, context) == 1
+            {
+                Ok(())
+            } else {
+                Err(format!("`anchor` appears {n} times in the document. Add `context`: a longer quote copied verbatim from the document that contains this anchor and itself occurs exactly once (or extend the anchor)."))
+            }
+        }
+    }
+}
+
+fn anchor_match_count(document: &str, anchor: &str) -> usize {
+    let exact = document.matches(anchor).count();
+    if exact > 0 {
+        return exact;
+    }
+    let (doc, needle) = (normalize_for_match(document), normalize_for_match(anchor));
+    let normalized = doc.matches(needle.as_str()).count();
+    if normalized > 0 || needle.split_whitespace().count() < 2 {
+        return normalized;
+    }
+    collapse_whitespace(&doc)
+        .matches(collapse_whitespace(&needle).as_str())
+        .count()
+}
+
+const ADD_COMMENT_TOOL_NAME: &str = "add_comment";
+
+/// Feedback pinned to a passage instead of an edit to it - for "what's weak
+/// here", "review this draft". Changes nothing; the anchor is validated
+/// like propose_edit's so the card's "locate" button lands on it.
+fn add_comment(ctx: &ToolContext, arguments: &str) -> String {
+    let parsed: serde_json::Value = serde_json::from_str(arguments).unwrap_or_default();
+    let anchor = parsed.get("anchor").and_then(|v| v.as_str()).unwrap_or("");
+    let comment = parsed.get("comment").and_then(|v| v.as_str()).unwrap_or("");
+    if comment.trim().is_empty() {
+        return "`comment` is required - the feedback itself.".to_string();
+    }
+    if anchor.is_empty() {
+        return "`anchor` is required - the exact document text the comment is about.".to_string();
+    }
+    match check_anchor(ctx.document, &parsed, anchor) {
+        Ok(()) => "Comment added - the user sees it with a button that jumps to the passage. Don't repeat it in your reply.".to_string(),
+        Err(problem) => problem,
+    }
 }
 
 const USE_SKILL_TOOL_NAME: &str = "use_skill";
@@ -171,103 +364,58 @@ fn use_skill(ctx: &ToolContext, arguments: &str) -> String {
 const LIST_FILES_TOOL_NAME: &str = "list_files";
 const READ_FILE_TOOL_NAME: &str = "read_file";
 
-/// How much of the workspace the file tools expose: enough for reference
+/// How much of the project the listing shows: enough for reference
 /// material next to the document, small enough that a huge folder can't
 /// blow up the prompt.
 const MAX_LISTED_FILES: usize = 200;
-const MAX_READ_BYTES: u64 = 100 * 1024;
+const SEARCH_FILES_TOOL_NAME: &str = "search_files";
 
-/// Recursive listing of the workspace folder (paths relative to it),
-/// skipping dotfiles - .levis, .git and friends are configuration, not
-/// writing material.
+/// The project folder's text files (paths relative to it). Hidden entries
+/// and build/dependency folders are skipped - see ai::project.
 fn list_files(ctx: &ToolContext, _arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "This document isn't saved to a folder yet, so there are no files to list."
+        return "There is no project folder for this document yet (it isn't saved), so there are no files to list."
             .to_string();
     };
-
-    let mut lines = Vec::new();
-    let mut pending = vec![root.to_path_buf()];
-    while let Some(dir) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        let mut paths: Vec<_> = entries.flatten().map(|e| e.path()).collect();
-        paths.sort();
-        for path in paths {
-            if lines.len() >= MAX_LISTED_FILES {
-                lines.push(format!("... (stopped at {MAX_LISTED_FILES} entries)"));
-                return lines.join("\n");
-            }
-            let name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or_default();
-            if name.starts_with('.') {
-                continue;
-            }
-            let rel = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .to_string();
-            if path.is_dir() {
-                lines.push(format!("{rel}/"));
-                pending.push(path);
-            } else {
-                lines.push(rel);
-            }
-        }
+    let files = crate::ai::project::walk_text_files(root);
+    if files.is_empty() {
+        return "The project folder has no text files.".to_string();
     }
-
-    if lines.is_empty() {
-        "The document's folder is empty.".to_string()
-    } else {
-        lines.join("\n")
+    let mut lines: Vec<String> = files.iter().take(MAX_LISTED_FILES).cloned().collect();
+    if files.len() > MAX_LISTED_FILES {
+        lines.push(format!(
+            "... ({} more - use search_files to find something specific)",
+            files.len() - MAX_LISTED_FILES
+        ));
     }
+    lines.join("\n")
 }
 
-/// Reads a text file from inside the workspace. The canonicalized path must
-/// stay under the workspace root - `..`, absolute paths, and symlinks out of
-/// the workspace all fail the containment check rather than escaping it.
+fn path_argument(arguments: &str, key: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(arguments)
+        .ok()
+        .and_then(|v| v.get(key).and_then(|p| p.as_str()).map(str::to_string))
+        .unwrap_or_default()
+}
+
+/// Reads a text file from inside the project folder - containment, hidden
+/// files and size are enforced by ai::project::read_text.
 fn read_file(ctx: &ToolContext, arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "This document isn't saved to a folder yet, so there are no files to read."
+        return "There is no project folder for this document yet (it isn't saved), so there are no files to read."
             .to_string();
     };
-    let rel = serde_json::from_str::<serde_json::Value>(arguments)
-        .ok()
-        .and_then(|v| {
-            v.get("path")
-                .and_then(|p| p.as_str())
-                .map(|s| s.to_string())
-        })
-        .unwrap_or_default();
-    if rel.trim().is_empty() {
-        return "No path provided.".to_string();
-    }
+    crate::ai::project::read_text(root, &path_argument(arguments, "path")).unwrap_or_else(|err| err)
+}
 
-    let (Ok(root_canon), Ok(path)) = (root.canonicalize(), root.join(&rel).canonicalize()) else {
-        return format!("`{rel}` doesn't exist. Use list_files to see what's available.");
-    };
-    if !path.starts_with(&root_canon) {
-        return "That path is outside the document's folder - only files inside it can be read."
+/// Finds which project files mention something - the cross-file companion
+/// to search_document.
+fn search_files(ctx: &ToolContext, arguments: &str) -> String {
+    let Some(root) = ctx.root else {
+        return "There is no project folder for this document yet (it isn't saved), so there is nothing to search."
             .to_string();
-    }
-
-    match std::fs::metadata(&path) {
-        Ok(meta) if meta.len() > MAX_READ_BYTES => {
-            format!(
-                "`{rel}` is too large to read ({} KB; the limit is {} KB).",
-                meta.len() / 1024,
-                MAX_READ_BYTES / 1024
-            )
-        }
-        _ => match std::fs::read_to_string(&path) {
-            Ok(content) => content,
-            Err(_) => format!("`{rel}` isn't a readable text file."),
-        },
-    }
+    };
+    crate::ai::project::search(root, &path_argument(arguments, "query"))
 }
 
 /// The tools available to an agent conversation. Skill and file tools are
@@ -291,7 +439,58 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
                 }),
             },
             run: search_document,
+        }, Tool {
+            spec: ToolSpec {
+                name: READ_DOCUMENT_TOOL_NAME,
+                description: "Read part of the current document verbatim: a whole section by its heading (subsections included), or a range of lines. Use it before revising a passage you can't fully see, and to copy exact anchors. The text comes back without line-number prefixes, ready to quote.",
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "heading": {
+                            "type": "string",
+                            "description": "Heading text of the section to read (case-insensitive, partial match). Takes precedence over the line range."
+                        },
+                        "start_line": {
+                            "type": "integer",
+                            "description": "First line to read, 1-based (as in the outline and search results)."
+                        },
+                        "end_line": {
+                            "type": "integer",
+                            "description": "Last line to read, inclusive."
+                        }
+                    },
+                }),
+            },
+            run: read_document,
         }];
+
+    // Comments change nothing, so every mode has them - feedback is most
+    // often asked for in Ask mode.
+    tools.push(Tool {
+        spec: ToolSpec {
+            name: ADD_COMMENT_TOOL_NAME,
+            description: "Pin a piece of feedback to a passage without changing it - for reviews and critique (\"what's weak here\", \"check this draft\"). One call per point; quote the passage verbatim as `anchor` (unique in the document, or add `context`). The user sees each comment as a card that jumps to its passage, so keep your reply to a short overall summary.",
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "anchor": {
+                        "type": "string",
+                        "description": "Exact document text the comment is about"
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "The feedback, in the user's language - specific and actionable"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Only when `anchor` repeats: a longer verbatim quote containing it that occurs once"
+                    }
+                },
+                "required": ["anchor", "comment"],
+            }),
+        },
+        run: add_comment,
+    });
 
     // Ask and Plan are structurally read-only: the model never receives the
     // edit tool, so a provider cannot accidentally ignore a prompt-only mode
@@ -300,7 +499,7 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
         tools.push(Tool {
             spec: ToolSpec {
                 name: PROPOSE_EDIT_TOOL_NAME,
-                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `replace_selection` swaps the user's currently selected text (the <selected-text> block in their message; no `anchor` needed) for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor`; `delete` removes `anchor`; `append` adds `text` at the end of the document. `anchor` must be copied verbatim from the document and occur exactly once - if the text you need to target appears more than once, keep `anchor` as the exact text being edited and also pass `context`. `text` must be valid markdown: `-` or `1.` for lists (never `•` or other bullet symbols), `#` for headings.",
+                description: "Propose one edit to the document. Nothing is modified directly: the user reviews the proposal and applies it with one click. Call once per distinct edit. Pick the action that matches the intent: `replace` swaps `anchor` for `text`; `replace_selection` swaps the user's currently selected text (the <selected-text> block in their message; no `anchor` needed) for `text`; `insert_before`/`insert_after` add `text` around an untouched `anchor` - inside the sentence when the anchor is a phrase mid-paragraph (write `text` as words that read on from it), as a new paragraph when the anchor is a whole block or `text` is block content (a heading, list, several paragraphs); `delete` removes `anchor`; `append` adds `text` at the end of the document; `insert_at_cursor` adds `text` exactly where the user's cursor is (only when their message carries a <cursor> block showing it; no `anchor` needed). `anchor` must be copied verbatim from the document and occur exactly once - if the text you need to target appears more than once, keep `anchor` as the exact text being edited and also pass `context`. `text` must be valid markdown: `-` or `1.` for lists (never `•` or other bullet symbols), `#` for headings.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
@@ -320,6 +519,10 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
                         "context": {
                             "type": "string",
                             "description": "Only when `anchor` occurs more than once in the document: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - it pins down which occurrence is meant."
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "One short sentence, in the user's language, on why this change - shown on the proposal card so the user can judge it at a glance (e.g. \"Cut the repeated point about cost\")."
                         }
                     },
                     "required": ["action"],
@@ -352,8 +555,25 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
     if has_root {
         tools.push(Tool {
             spec: ToolSpec {
+                name: SEARCH_FILES_TOOL_NAME,
+                description: "Search every text file in the project folder for a word or phrase (case-insensitive). Returns `path:line: text` matches - use it to find where a character, term or fact appears across chapters and notes, then read_file for the full context.",
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Text to search for"
+                        }
+                    },
+                    "required": ["query"],
+                }),
+            },
+            run: search_files,
+        });
+        tools.push(Tool {
+            spec: ToolSpec {
                 name: LIST_FILES_TOOL_NAME,
-                description: "List the files in the document's folder (recursively, paths relative to it). Use it to discover reference material - notes, other chapters, data - before reading one.",
+                description: "List the text files in the project folder (recursively, paths relative to it). Use it to discover reference material - notes, other chapters, data - before reading one.",
                 parameters: json!({"type": "object", "properties": {}}),
             },
             run: list_files,
@@ -361,13 +581,13 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
         tools.push(Tool {
             spec: ToolSpec {
                 name: READ_FILE_TOOL_NAME,
-                description: "Read a text file from the document's folder. Use the relative path as shown by list_files.",
+                description: "Read a text file from the project folder. Use the relative path as shown by list_files or search_files.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "Path relative to the document's folder"
+                            "description": "Path relative to the project folder"
                         }
                     },
                     "required": ["path"],
@@ -395,12 +615,61 @@ pub fn execute(tools: &[Tool], ctx: &ToolContext, name: &str, arguments: &str) -
 mod tests {
     use super::*;
 
+    #[test]
+    fn anchors_match_through_typography_and_folded_whitespace() {
+        let doc = "He said “hello” — twice.\n\nThen left；quietly.";
+        assert_eq!(anchor_match_count(doc, "He said \"hello\" - twice."), 1);
+        assert_eq!(anchor_match_count(doc, "Then left;quietly."), 1);
+        assert_eq!(anchor_match_count(doc, "twice.\nThen left"), 1);
+        assert_eq!(anchor_match_count(doc, "not here"), 0);
+    }
+
+    #[test]
+    fn a_section_runs_to_the_next_heading_at_its_level() {
+        let doc = "# Intro\na\n## Intro details\nb\n# Methods\nc\n```sh\n# not a heading\n```";
+        let lines: Vec<&str> = doc.lines().collect();
+        // Exact title beats a heading that merely contains it.
+        assert_eq!(section_range(&lines, "Intro"), Some((0, 4)));
+        assert_eq!(section_range(&lines, "## intro DETAILS"), Some((2, 4)));
+        // A `#` comment in a fence doesn't end the last section.
+        assert_eq!(section_range(&lines, "methods"), Some((4, 9)));
+        assert_eq!(section_range(&lines, "Results"), None);
+        assert_eq!(section_range(&lines, "  "), None);
+    }
+
+    #[test]
+    fn a_repeated_anchor_needs_a_longer_unique_context() {
+        let doc = "the cat sat. the dog sat.";
+        let args = |context: &str| serde_json::json!({ "context": context });
+        assert!(check_anchor(doc, &args(""), "the cat").is_ok());
+        assert!(check_anchor(doc, &args(""), "sat.").is_err());
+        assert!(check_anchor(doc, &args("dog sat."), "sat.").is_ok());
+        // The context must be longer than the anchor and occur once.
+        assert!(check_anchor(doc, &args("sat."), "sat.").is_err());
+        assert!(check_anchor(doc, &args("missing sat."), "sat.").is_err());
+    }
+
     fn ctx(document: &str) -> ToolContext<'_> {
         ToolContext {
             document,
             skills: &[],
             root: None,
         }
+    }
+
+    #[test]
+    fn read_document_reads_a_section_with_its_subsections() {
+        let doc = "# Title\nintro\n## Methods\nm1\n### Sampling\ns1\n```\n# not a heading\n```\n## Results\nr1";
+        let out = read_document(&ctx(doc), r#"{"heading":"methods"}"#);
+        assert!(out.starts_with("Lines 3-9 of 11:"), "{out}");
+        assert!(out.contains("### Sampling") && out.contains("# not a heading"));
+        assert!(!out.contains("## Results"));
+    }
+
+    #[test]
+    fn read_document_reads_an_inclusive_line_range() {
+        let out = read_document(&ctx("a\nb\nc\nd"), r#"{"start_line":2,"end_line":3}"#);
+        assert_eq!(out, "Lines 2-3 of 4:\nb\nc\n");
     }
 
     #[test]

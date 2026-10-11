@@ -15,6 +15,9 @@ const shortcuts: Shortcuts = {
   toggleFloatingChat: "mod+shift+k",
   findReplace: "mod+f",
   toggleSidebar: "mod+\\",
+  toggleAgentPanel: "mod+shift+l",
+  toggleSplitView: "mod+shift+e",
+  toggleZenMode: "mod+shift+j",
   toggleSourceMode: "mod+/",
   toggleTypewriterMode: "",
 };
@@ -49,9 +52,9 @@ describe("shortcut recording", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       strings.en.shortcutReserved,
     );
-    fireEvent.keyDown(button, { key: "j", metaKey: true, shiftKey: true });
+    fireEvent.keyDown(button, { key: "u", metaKey: true, shiftKey: true });
     expect(save).toHaveBeenCalledWith({
-      shortcuts: { ...shortcuts, findReplace: "mod+shift+j" },
+      shortcuts: { ...shortcuts, findReplace: "mod+shift+u" },
     });
     expect(screen.queryByRole("alert")).toBeNull();
   });

@@ -31,12 +31,7 @@ pub fn set_custom_endpoint(
         model,
     };
     let json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| e.to_string())?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())?;
-    }
+    crate::atomic::write_secret_sync(&path, json).map_err(|e| e.to_string())?;
     Ok(())
 }
 

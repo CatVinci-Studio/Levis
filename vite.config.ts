@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -6,6 +7,12 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+
+  // Unit tests only; e2e/ holds the Playwright visual suite
+  // (npm run test:visual), which vitest must not try to run.
+  test: {
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**", "src-tauri/**"],
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

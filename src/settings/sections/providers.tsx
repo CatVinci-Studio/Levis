@@ -1,3 +1,4 @@
+import { errorText } from "../../utils/error-text";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { Strings } from "../../i18n/strings";
 import type { AiProvider } from "../SettingsContext";
@@ -57,6 +58,7 @@ export function ProviderListPanel({ t }: { t: Strings }) {
   const popoverRef = useCloseOnOutsideClick<HTMLDivElement>(
     () => setOpen(false),
     true,
+    open,
   );
 
   const refreshConnected = useCallback((entry: ProviderCatalogEntry) => {
@@ -328,7 +330,7 @@ function OauthPanel({
       const status = await auth.oauthLogin(providerId);
       setConfigured(status.configured);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     } finally {
       setLoggingIn(false);
     }
@@ -498,7 +500,7 @@ function CustomProviderPanel({
       if (!selectedModel && list.length > 0) setSelectedModel(list[0]);
     } catch (err) {
       setStatus("error");
-      setStatusMessage(String(err));
+      setStatusMessage(errorText(err));
     }
   }
 
@@ -511,7 +513,7 @@ function CustomProviderPanel({
       setStatusMessage(t.customTestSuccess);
     } catch (err) {
       setStatus("error");
-      setStatusMessage(String(err));
+      setStatusMessage(errorText(err));
     }
   }
 

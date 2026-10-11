@@ -1,3 +1,4 @@
+import { isLinuxPlatform } from "../utils/platform";
 import { Plugin } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
@@ -12,10 +13,7 @@ import { $prose } from "@milkdown/kit/utils";
 // candidate, which then has to be pressed twice. Clearing the timestamp
 // before prosemirror-view's own keydown handler reads it keeps the rule
 // for IME-processed keys and lets genuine keystrokes through.
-const isLinuxWebKit =
-  typeof navigator !== "undefined" &&
-  /linux/i.test(navigator.platform) &&
-  !/android/i.test(navigator.userAgent);
+const isLinuxWebKit = isLinuxPlatform();
 
 interface ViewInput {
   input?: { compositionEndedAt?: number };

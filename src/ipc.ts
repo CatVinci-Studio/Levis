@@ -154,10 +154,9 @@ export const windowIpc = {
   takePendingOpenPath: () => call<string | null>("take_pending_open_path"),
   takePendingOpenPaths: () => call<string[]>("take_pending_open_paths"),
   /** Pops the chat panel out into its own OS window; resolves to its label,
-   *  which is the address every later message to it is sent to. `shared` is
-   *  the cross-window setting: false gives this editor window its own chat
-   *  (shared by its tabs), true makes one chat serve the whole app. If one
-   *  already serves this window, it is focused and its label returned - and
+   *  which is the address every later message to it is sent to. One chat
+   *  window per editor window, shared by its tabs. If one already serves
+   *  this window, it is focused and its label returned - and
    *  `state` is parked for it to claim (CHAT_ADOPT_HANDOFF), so a second
    *  detach hands over its conversation and pending edits just like the
    *  first one did. */
@@ -165,7 +164,6 @@ export const windowIpc = {
     state: ChatHandoffState;
     position: [number, number] | null;
     title: string;
-    shared: boolean;
     pinned: boolean;
   }) => call<string>("detach_chat_window", args),
   takeChatHandoff: () => call<ChatHandoff | null>("take_chat_handoff"),
@@ -173,9 +171,8 @@ export const windowIpc = {
   /** Brings the chat window serving this editor to the front, handing it
    *  nothing; false when there is none. */
   focusChatWindow: () => call<boolean>("focus_chat_window"),
-  /** The chat window serving THIS editor window, if any. How a window that
-   *  never detached anything itself learns where to push context - i.e. the
-   *  cross-window case, where the chat was opened from another window. */
+  /** The chat window serving THIS editor window, if any - re-read after a
+   *  reload, or when Rust announces a chat window opened or closed. */
   currentChatWindow: () => call<string | null>("current_chat_window"),
 };
 
@@ -211,9 +208,10 @@ export const exportDoc = {
   }) => call<void>("export_via_pandoc", args),
   openPandocInstallPage: () => call<void>("open_pandoc_install_page"),
   revealInDir: (path: string) => call<void>("reveal_in_dir", { path }),
-  // macOS only: renders self-contained themed HTML in an offscreen WKWebView
-  // and shows the system print panel (Save as PDF). Windows/Linux use
-  // window.print() from the frontend instead. baseDir resolves relative images.
+  // Renders the self-contained, already-paginated themed HTML offscreen and
+  // writes the PDF straight to `path` - no print dialog on any platform
+  // (WKWebView createPDF / WebView2 PrintToPdf / WebKitGTK print-to-file;
+  // see export.rs). baseDir resolves relative images.
   exportPdfNative: (args: {
     html: string;
     baseDir: string | null;
@@ -322,6 +320,40 @@ export type StreamEvent =
   | { type: "toolArgsDelta"; callId: string; delta: string }
   | { type: "turn"; turn: AgentTurn };
 
+/** Where the cursor sits, beyond the raw text around it - what lets a
+ *  completion fit the document instead of guessing from 2000 characters.
+ *  Mirrors CompletionHints in src-tauri/src/ai/client.rs. */
+export interface CompletionHints {
+  /** The document's first heading, when it has one. */
+  title: string | null;
+  /** Headings enclosing the cursor, outermost first. */
+  section: string[];
+  /** What the cursor is in: "paragraph", "heading", "list item", ... */
+  block: string;
+  /** "short" for the as-you-type nudge, "long" for an explicit request. */
+  length: "short" | "long";
+}
+
+/** A project library entry (`.levis/library/*.md`, ai::project). */
+export interface LibraryEntry {
+  name: string;
+  aliases: string[];
+  include: "always" | "detected" | "never";
+  /** Relative to the project root. */
+  file: string;
+  body: string;
+}
+
+export interface AgentWorkspaceInfo {
+  instructions: string[];
+  skills: AgentSkill[];
+  /** The project folder; null for an unsaved draft or a folder too broad
+   *  to expose (home, a drive root). */
+  root: string | null;
+  style: string | null;
+  library: LibraryEntry[];
+}
+
 export const ai = {
   listProviders: () => call<ProviderCatalogEntry[]>("list_providers"),
   fetchAgentModels: (provider: string) =>
@@ -333,7 +365,24 @@ export const ai = {
     after: string,
     style: string | null,
     model: string | null,
-  ) => call<string>("ai_complete", { provider, before, after, style, model }),
+    hints: CompletionHints | null = null,
+    /** Resolve the project folder whose style profile and library the
+     *  completion follows (src-tauri ai::project). */
+    project: { docPath: string | null; workspaceRoot: string | null } = {
+      docPath: null,
+      workspaceRoot: null,
+    },
+  ) =>
+    call<string>("ai_complete", {
+      provider,
+      before,
+      after,
+      style,
+      model,
+      hints,
+      docPath: project.docPath,
+      workspaceRoot: project.workspaceRoot,
+    }),
   grammarCheck: (
     provider: string,
     paragraph: string,
@@ -366,6 +415,9 @@ export const ai = {
     mode: "ask" | "edit" | "plan";
     model: string | null;
     requestId: string;
+    /** Heading of the section the cursor/selection is in - embedded in full
+     *  when the document is too long to send whole (agent.rs). */
+    focusHeading?: string | null;
     /** Live fragments while the request runs - see StreamEvent. */
     onEvent?: (event: StreamEvent) => void;
   }) => {
@@ -380,10 +432,38 @@ export const ai = {
     call<void>("ai_cancel", { requestId }),
 
   loadAgentWorkspace: (docPath: string | null, rootOverride: string | null) =>
-    call<{ instructions: string[]; skills: AgentSkill[]; root: string | null }>(
-      "load_agent_workspace",
-      { docPath, rootOverride },
-    ),
+    call<AgentWorkspaceInfo>("load_agent_workspace", { docPath, rootOverride }),
+  /** The project folder's text files, for @-mentions (ai::project). */
+  listProjectFiles: (docPath: string | null, workspaceRoot: string | null) =>
+    call<string[]>("list_project_files", { docPath, workspaceRoot }),
+  readProjectFile: (
+    docPath: string | null,
+    workspaceRoot: string | null,
+    path: string,
+  ) => call<string>("read_project_file", { docPath, workspaceRoot, path }),
+  /** Creates `.levis/<rel>` from `template` if missing; returns its path. */
+  ensureProjectFile: (
+    docPath: string | null,
+    workspaceRoot: string | null,
+    rel: string,
+    template: string,
+  ) =>
+    call<string>("ensure_project_file", {
+      docPath,
+      workspaceRoot,
+      rel,
+      template,
+    }),
+  pickTextFiles: () => call<string[]>("pick_text_files"),
+  /** "Learn my style": writes the project's .levis/style.md from the
+   *  picked samples and returns its path. */
+  learnStyle: (args: {
+    provider: string;
+    model: string | null;
+    docPath: string | null;
+    workspaceRoot: string | null;
+    files: string[];
+  }) => call<string>("learn_style", args),
   /** Folder picker behind Settings > Agent's "switch workspace" button. */
   pickWorkspaceRoot: () => call<string | null>("pick_workspace_root"),
   openGlobalAgentDir: (lang: string) =>
@@ -392,11 +472,6 @@ export const ai = {
     call<string>("ensure_global_agent_md", { lang }),
   importAgentSkill: () => call<AgentSkill[] | null>("import_agent_skill"),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),
-  /** Reads a path the app already has (dragged onto the composer, pasted,
-   *  or otherwise known) into an attachment - the same conversion the
-   *  picker does, without the dialog. */
-  readAttachmentFile: (path: string) =>
-    call<ChatAttachment>("read_attachment_file", { path }),
 };
 
 // ---------------------------------------------------------------------------
@@ -421,7 +496,7 @@ export const distribution = {
 
 // ---------------------------------------------------------------------------
 // drafts (src-tauri/src/commands/drafts.rs) - best-effort autosave for
-// unsaved content, see 2.4 in the reliability plan.
+// unsaved content (draft-autosave.ts).
 // ---------------------------------------------------------------------------
 
 export interface DraftSnapshot {

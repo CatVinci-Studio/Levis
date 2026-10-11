@@ -1,0 +1,96 @@
+name: Sync model list
+
+# Weekly refresh of src/ai/models-snapshot.json from models.dev. Opens (or
+# updates) one PR on the chore/sync-models branch; the report in its body says
+# what changed upstream and whether any pinned model needs re-picking. Nothing
+# merges on its own - which models the app offers stays a reviewed decision.
+#
+# Needs Settings > Actions > General > "Allow GitHub Actions to create and
+# approve pull requests". A PR opened with the workflow token doesn't start
+# CI by itself; the sync script runs the pin check here instead, and CI runs
+# once a maintainer pushes to the branch or merges.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-models
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-22.04
+    env:
+      BRANCH: chore/sync-models
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Refresh snapshot and check pinned models
+        id: sync
+        run: |
+          set +e
+          node scripts/sync-models.mjs --report "$RUNNER_TEMP/report.md"
+          status=$?
+          set -e
+          # 2 = models.dev unreachable or unreadable: fail the run, no PR.
+          if [ "$status" -ge 2 ]; then exit "$status"; fi
+          echo "pins_ok=$([ "$status" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- src/ai/models-snapshot.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the pull request
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          date=$(node -p "require('./src/ai/models-snapshot.json').updated")
+          title="chore(models): sync models.dev snapshot $date"
+          if [ "${{ steps.sync.outputs.pins_ok }}" != "true" ]; then
+            title="⚠️ $title - pinned models need attention"
+          fi
+          {
+            echo
+            echo "---"
+            echo "_Opened by the weekly [Sync model list](../actions/workflows/sync-models.yml) workflow. CI hasn't run on this PR yet: push a commit to the branch (or close and reopen it) to start it._"
+          } >> "$RUNNER_TEMP/report.md"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          open_pr=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+          if [ -n "$open_pr" ]; then
+            # Someone already pushed fixes to the open PR: don't force-push
+            # over their work, just leave this week's report as a comment.
+            humans=$(git log --format='%ae' "origin/main..origin/$BRANCH" \
+              | grep -v 'github-actions\[bot\]' || true)
+            if [ -n "$humans" ]; then
+              gh pr comment "$open_pr" --body-file "$RUNNER_TEMP/report.md"
+              exit 0
+            fi
+          fi
+
+          git switch -C "$BRANCH"
+          git add src/ai/models-snapshot.json
+          git commit -m "$title"
+          git push --force origin "$BRANCH"
+
+          if [ -n "$open_pr" ]; then
+            gh pr edit "$open_pr" --title "$title" --body-file "$RUNNER_TEMP/report.md"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" \
+              --body-file "$RUNNER_TEMP/report.md"
+          fi

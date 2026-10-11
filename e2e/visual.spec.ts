@@ -1,0 +1,235 @@
+import { expect, test } from "@playwright/test";
+import { mockInvoke, openApp, pasteMarkdown, SAMPLE_DOC } from "./helpers";
+
+test("first run asks for a language", async ({ page }) => {
+  await openApp(page, { settings: { languageChosen: false } });
+  await expect(page.locator(".language-welcome")).toBeVisible();
+  await expect(page).toHaveScreenshot("first-run-language.png");
+});
+
+test("the tutorial's sidebar lesson opens and highlights the sidebar", async ({
+  page,
+}) => {
+  await openApp(page, {
+    storage: {
+      "levis-tutorial-progress": JSON.stringify({
+        active: true,
+        stepIndex: 3,
+        tabId: null,
+      }),
+    },
+  });
+  await expect(page.locator(".sidebar.tutorial-spotlight")).toBeVisible();
+  // Visiting every tab completes the lesson.
+  for (const tab of await page.locator(".sidebar-tab").all()) await tab.click();
+  await expect(page.locator(".tutorial-card")).toContainText(
+    "四个标签都看过了",
+  );
+  await expect(page).toHaveScreenshot("tutorial-sidebar-lesson.png");
+});
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`document content renders (${colorScheme})`, async ({ page }) => {
+    await openApp(page, { colorScheme });
+    await pasteMarkdown(page, SAMPLE_DOC);
+    // Table headers never wrap one character per line (#15).
+    const header = page.locator(".milkdown th").first();
+    const box = await header.boundingBox();
+    expect(box!.height).toBeLessThan(60);
+    await expect(page).toHaveScreenshot(`document-${colorScheme}.png`);
+  });
+}
+
+test("split view shows source and preview", async ({ page }) => {
+  await openApp(page);
+  await pasteMarkdown(page, SAMPLE_DOC);
+  await page.keyboard.press("Control+Shift+E");
+  await expect(page.locator(".split-view")).toBeVisible();
+  await expect(page.locator(".split-preview h1")).toHaveText(
+    "老城区更新的几点思考",
+  );
+  await expect(page).toHaveScreenshot("split-view.png");
+  // And back to the editor.
+  await page.keyboard.press("Control+Shift+E");
+  await expect(page.locator(".split-view")).toHaveCount(0);
+});
+
+test("zen mode hides the chrome and dims all but the current block", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, SAMPLE_DOC);
+  await page.locator(".milkdown h2").first().click();
+  await page.keyboard.press("Control+Shift+J");
+  await expect(page.locator("html")).toHaveClass(/zen/);
+  await expect(page.locator(".zen-current")).toHaveCount(1);
+  await expect(page.locator(".sidebar")).toBeHidden();
+  await expect(page).toHaveScreenshot("zen-mode.png");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).not.toHaveClass(/zen/);
+});
+
+test("the AI panel opens with its project bar and empty state", async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.locator(".window-bar-toggle").click();
+  await expect(page.locator(".agent-panel-view")).toBeVisible();
+  await expect(page.locator(".agent-panel-empty")).toBeVisible();
+  await expect(page).toHaveScreenshot("agent-panel-empty.png");
+});
+
+test("an agent reply shows a reasoned edit, a sentence picker and a comment", async ({
+  page,
+}) => {
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  await pasteMarkdown(page, SAMPLE_DOC);
+  const anchor =
+    "这项研究在三个街区进行。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。一共访谈了四十六位居民，内容涵盖了很多方面。";
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "把第二段改得更简洁" },
+      {
+        kind: "ToolCall",
+        call_id: "e1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace",
+          anchor,
+          // First and last sentences change, the middle one stays: two
+          // separate changes for the per-sentence picker.
+          text: "这项研究覆盖三个街区。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。共访谈四十六位居民。",
+          reason: "删去重复和冗余的修饰，保留时间和人数。",
+        }),
+      },
+      { kind: "ToolResult", call_id: "e1", output: "Edit proposed" },
+      {
+        kind: "ToolCall",
+        call_id: "c1",
+        name: "add_comment",
+        arguments: JSON.stringify({
+          anchor: "城市更新不只是拆旧建新。",
+          comment: "开头是常见的判断句，可以直接从研究问题切入。",
+        }),
+      },
+      { kind: "ToolResult", call_id: "c1", output: "Comment added" },
+      { kind: "Assistant", text: "已精简第二段，并在开头留了一条批注。" },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("把第二段改得更简洁");
+  await composer.press("Enter");
+  await expect(page.locator(".agent-proposal-reason")).toHaveText(
+    "删去重复和冗余的修饰，保留时间和人数。",
+  );
+  await expect(page.locator(".agent-comment")).toBeVisible();
+  // The edit previews in the document.
+  await expect(page.locator(".milkdown .pending-delete").first()).toBeVisible();
+  await page.locator(".agent-proposal-picker-toggle").click();
+  await expect(page.locator(".agent-proposal-picker-list li")).toHaveCount(2);
+  // The insert preview types itself out; the shot waits for its last words.
+  await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
+  await expect(page).toHaveScreenshot("agent-reply.png");
+  // Accept only the first sentence change.
+  await page.locator(".agent-proposal-picker-list input").nth(1).uncheck();
+  // The one Accept button now takes only the ticked change.
+  const accept = page.locator(
+    ".agent-proposal-actions .inline-chat-action-primary",
+  );
+  await expect(accept).toHaveText("采纳 1/2 处");
+  await accept.click();
+  await expect(page.locator(".milkdown")).toContainText(
+    "这项研究覆盖三个街区。我们花了整整两个月的时间",
+  );
+  await expect(page.locator(".milkdown")).toContainText(
+    "一共访谈了四十六位居民，内容涵盖了很多方面。",
+  );
+});
+
+test("Quick Ask opens on a selection in edit mode", async ({ page }) => {
+  await openApp(page);
+  await pasteMarkdown(page, SAMPLE_DOC);
+  await page.locator(".milkdown p").nth(1).click({ clickCount: 3 });
+  await page.keyboard.press("Control+Shift+K");
+  await expect(page.locator(".inline-chat")).toBeVisible();
+  await expect(page.locator(".inline-chat select")).toHaveValue("edit");
+  await expect(page).toHaveScreenshot("quick-ask.png");
+});
+
+test("settings show the typewriter toggle", async ({ page }) => {
+  await openApp(page);
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        __devEmitTauriEvent: (name: string, payload?: unknown) => void;
+      }
+    ).__devEmitTauriEvent("menu-open-settings"),
+  );
+  await page.getByRole("button", { name: "编辑与外观" }).click();
+  await expect(page.getByText("打字机模式").first()).toBeVisible();
+  await expect(page).toHaveScreenshot("settings-editor.png");
+});
+
+test("Ctrl+Right takes one word of a continuation and keeps the rest", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "The plan");
+  await page.locator(".milkdown p").first().click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" works");
+  const ghost = page.locator(".ghost-text");
+  await expect(ghost).toHaveAttribute(
+    "data-suggestion",
+    " and this ghost text is a canned dev-shim suggestion.",
+  );
+  await page.keyboard.press("Control+ArrowRight");
+  await expect(page.locator(".milkdown p").first()).toHaveText(
+    "The plan works and",
+  );
+  await expect(ghost).toHaveAttribute(
+    "data-suggestion",
+    " this ghost text is a canned dev-shim suggestion.",
+  );
+  await page.keyboard.press("Escape");
+  await expect(ghost).toHaveCount(0);
+});
+
+test("Quick Ask stays under its paragraph when an edit arrives", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, SAMPLE_DOC);
+  const anchor =
+    "这项研究在三个街区进行。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。一共访谈了四十六位居民，内容涵盖了很多方面。";
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "精简" },
+      {
+        kind: "ToolCall",
+        call_id: "e1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace",
+          anchor,
+          text: "这项研究覆盖三个街区。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。共访谈四十六位居民。",
+        }),
+      },
+      { kind: "ToolResult", call_id: "e1", output: "Edit proposed" },
+      { kind: "Assistant", text: "已精简。" },
+    ],
+  });
+  const paragraph = page.locator(".milkdown p").nth(1);
+  await paragraph.click({ clickCount: 3 });
+  await page.keyboard.press("Control+Shift+K");
+  await expect(page.locator(".inline-chat-input")).toBeFocused();
+  await page.keyboard.type("精简");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".milkdown .pending-delete").first()).toBeVisible();
+  // Right after the edited paragraph - it used to jump to the document's
+  // end, out of sight, leaving the edit with no visible controls.
+  const quoteTop = (await page.locator(".milkdown blockquote").boundingBox())!
+    .y;
+  const chatTop = (await page.locator(".inline-chat").boundingBox())!.y;
+  expect(chatTop).toBeLessThan(quoteTop);
+});

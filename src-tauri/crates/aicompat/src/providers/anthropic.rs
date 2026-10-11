@@ -15,7 +15,7 @@ const SCOPES: &str =
 const MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
 /// Low-cost default for completion and grammar requests. Agent chat chooses
 /// its stronger default from the provider catalog.
-pub const COMPLETION_MODEL: &str = "claude-haiku-4-5-20251001";
+pub const COMPLETION_MODEL: &str = "claude-haiku-5-5";
 const CLAUDE_CODE_IDENTITY: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -176,6 +176,8 @@ struct MessagesRequest {
     max_tokens: u32,
     system: Vec<SystemBlock>,
     messages: Vec<Message>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking: Option<Value>,
 }
 
 #[derive(Deserialize, Default)]
@@ -198,14 +200,22 @@ pub async fn call_completion(
     user_text: String,
     model: Option<&str>,
 ) -> Result<String, String> {
+    let model = model.unwrap_or(COMPLETION_MODEL);
     let body = MessagesRequest {
-        model: model.unwrap_or(COMPLETION_MODEL).to_string(),
-        max_tokens: 1024,
+        model: model.to_string(),
+        // Room for the longest single-call output (a style profile, a
+        // grammar report); short completions never come near it.
+        max_tokens: 4096,
         system: system_blocks(instructions, auth),
         messages: vec![Message {
             role: "user",
             content: user_text,
         }],
+        // Haiku 5.5 thinks by default, which is latency an inline
+        // suggestion can't afford; it accepts `disabled` at its default
+        // effort. Only for this model - a user-picked one may reject it
+        // (Opus 5.5 does, at every effort).
+        thinking: (model == COMPLETION_MODEL).then(|| json!({"type": "disabled"})),
     };
 
     let client = crate::http::client();
@@ -232,30 +242,49 @@ pub async fn call_completion(
 #[derive(Deserialize)]
 struct ModelListEntry {
     id: String,
+    #[serde(default)]
+    created_at: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
 struct ModelListResponse {
     #[serde(default)]
     data: Vec<ModelListEntry>,
+    #[serde(default)]
+    has_more: bool,
+    #[serde(default)]
+    last_id: Option<String>,
 }
 
-/// Lists available models for the agent model picker in Settings.
+/// Lists available models for the agent model picker in Settings - every
+/// page of them (the endpoint returns 20 at a time by default, which
+/// silently cut the list short).
 pub async fn list_models(auth: &AnthropicAuth) -> Result<Vec<String>, String> {
     let client = crate::http::client();
-    let res = apply_auth(client.get("https://api.anthropic.com/v1/models"), auth)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if !res.status().is_success() {
-        let status = res.status();
-        let text = res.text().await.unwrap_or_default();
-        return Err(format!("Could not list models ({status}): {text}"));
+    let mut entries = Vec::new();
+    let mut after: Option<String> = None;
+    for _ in 0..10 {
+        let mut url = "https://api.anthropic.com/v1/models?limit=100".to_string();
+        if let Some(id) = &after {
+            url.push_str(&format!("&after_id={id}"));
+        }
+        let res = apply_auth(client.get(&url), auth)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(format!("Could not list models ({status}): {text}"));
+        }
+        let page: ModelListResponse = res.json().await.map_err(|e| e.to_string())?;
+        entries.extend(page.data.into_iter().map(|m| (m.id, m.created_at)));
+        if !page.has_more || page.last_id.is_none() {
+            break;
+        }
+        after = page.last_id;
     }
-
-    let parsed: ModelListResponse = res.json().await.map_err(|e| e.to_string())?;
-    Ok(parsed.data.into_iter().map(|m| m.id).collect())
+    Ok(crate::models::tidy(entries))
 }
 
 // --- Agentic tool-calling support (the anthropic-messages dialect - see
@@ -319,7 +348,14 @@ fn turns_to_messages(history: &[AgentTurn]) -> Vec<Value> {
                 i += 1;
             }
             AgentTurn::Assistant { text } => {
-                messages.push(json!({"role": "assistant", "content": text}));
+                // Claude can end a turn with no text (right after tool
+                // results, say), but rejects an empty assistant message on
+                // replay - and that 400 would then fail every later send in
+                // the conversation. The API merges the neighbours left
+                // adjacent by skipping it.
+                if !text.trim().is_empty() {
+                    messages.push(json!({"role": "assistant", "content": text}));
+                }
                 i += 1;
             }
             AgentTurn::ToolCall { .. } | AgentTurn::ToolResult { .. } => {
@@ -430,6 +466,19 @@ enum StreamBlock {
 struct StreamAccumulator {
     blocks: Vec<StreamBlock>,
     error: Option<String>,
+    stop_reason: Option<String>,
+    usage: StepUsage,
+}
+
+/// Token accounting for one agent step, as Claude reports it in the
+/// stream's message_start / message_delta events. Cache reads are what
+/// prompt caching saves - the live eval checks they actually happen.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct StepUsage {
+    pub input_tokens: u64,
+    pub cache_creation_input_tokens: u64,
+    pub cache_read_input_tokens: u64,
+    pub output_tokens: u64,
 }
 
 impl StreamAccumulator {
@@ -502,6 +551,25 @@ impl StreamAccumulator {
                     _ => {}
                 }
             }
+            Some("message_start") => {
+                if let Some(usage) = event.pointer("/message/usage") {
+                    let n = |k: &str| usage.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+                    self.usage.input_tokens = n("input_tokens");
+                    self.usage.cache_creation_input_tokens = n("cache_creation_input_tokens");
+                    self.usage.cache_read_input_tokens = n("cache_read_input_tokens");
+                }
+            }
+            Some("message_delta") => {
+                if let Some(out) = event
+                    .pointer("/usage/output_tokens")
+                    .and_then(|v| v.as_u64())
+                {
+                    self.usage.output_tokens = out;
+                }
+                if let Some(reason) = event.pointer("/delta/stop_reason").and_then(|r| r.as_str()) {
+                    self.stop_reason = Some(reason.to_string());
+                }
+            }
             Some("error") => {
                 let error = event.get("error").cloned().unwrap_or(event.clone());
                 self.error = Some(format!("Claude request failed: {error}"));
@@ -525,6 +593,8 @@ impl StreamAccumulator {
     }
 }
 
+const AGENT_MAX_TOKENS: u32 = 16384;
+
 /// Runs one round-trip against Claude with the full turn history and tool
 /// definitions - the Anthropic twin of `openai_codex::agent_step`. Streams
 /// (`stream: true`) so text and tool-call fragments surface through
@@ -538,6 +608,29 @@ pub async fn agent_step(
     model: &str,
     on_event: EventSink<'_>,
 ) -> Result<StepResult, String> {
+    agent_step_with_usage(
+        auth,
+        instructions,
+        history,
+        tools,
+        web_search,
+        model,
+        on_event,
+    )
+    .await
+    .map(|(step, _)| step)
+}
+
+/// [`agent_step`] plus the step's token usage.
+pub async fn agent_step_with_usage(
+    auth: &AnthropicAuth,
+    instructions: &str,
+    history: &[AgentTurn],
+    tools: &[ToolSpec],
+    web_search: bool,
+    model: &str,
+    on_event: EventSink<'_>,
+) -> Result<(StepResult, StepUsage), String> {
     let system: Vec<Value> = system_blocks(instructions.to_string(), auth)
         .iter()
         .map(|b| json!({"type": b.kind, "text": b.text}))
@@ -555,11 +648,18 @@ pub async fn agent_step(
     }
     let body = json!({
         "model": model,
-        "max_tokens": 4096,
+        // Room for a rewritten section inside one propose_edit call; at
+        // 4096 a long rewrite was cut off mid-arguments.
+        "max_tokens": AGENT_MAX_TOKENS,
         "stream": true,
         "system": system,
         "messages": turns_to_messages(history),
         "tools": tool_schemas,
+        // Automatic prompt caching: the breakpoint follows the end of the
+        // conversation, so each tool step (up to 12 per message) re-reads
+        // the system prompt, document and history from cache instead of
+        // paying for all of it again.
+        "cache_control": {"type": "ephemeral"},
     });
 
     let client = crate::http::streaming_client();
@@ -574,7 +674,19 @@ pub async fn agent_step(
     if let Some(error) = acc.error {
         return Err(error);
     }
-    Ok(parse_agent_response(&acc.into_content()))
+    // Cut off by the output limit inside a tool call: its arguments are
+    // half a JSON object, which would reach the tool as `{}` and send the
+    // model round in circles retrying the same oversized call.
+    if acc.stop_reason.as_deref() == Some("max_tokens")
+        && matches!(acc.blocks.last(), Some(StreamBlock::ToolUse { .. }))
+    {
+        return Err(format!(
+            "Claude hit the {AGENT_MAX_TOKENS}-token output limit in the middle of an edit. \
+             Try asking for a smaller change at a time."
+        ));
+    }
+    let usage = acc.usage;
+    Ok((parse_agent_response(&acc.into_content()), usage))
 }
 
 #[cfg(test)]
@@ -599,6 +711,26 @@ mod tests {
         assert_eq!(messages[0]["content"], "hi");
         assert_eq!(messages[1]["role"], "assistant");
         assert_eq!(messages[1]["content"], "hello");
+    }
+
+    #[test]
+    fn turns_to_messages_skips_empty_assistant_turns() {
+        let history = vec![
+            AgentTurn::User {
+                text: "hi".to_string(),
+                images: Vec::new(),
+            },
+            AgentTurn::Assistant {
+                text: " ".to_string(),
+            },
+            AgentTurn::User {
+                text: "again".to_string(),
+                images: Vec::new(),
+            },
+        ];
+        let messages = turns_to_messages(&history);
+        assert_eq!(messages.len(), 2);
+        assert!(messages.iter().all(|m| m["role"] == "user"));
     }
 
     /// Two things worth pinning: the base64 source shape Claude requires,

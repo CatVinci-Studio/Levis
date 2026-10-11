@@ -82,6 +82,24 @@ export function renderMarkdownHtml(markdown: string): string {
   return DOMPurify.sanitize(parsed);
 }
 
+// The document flavour: markdown as the editor reads it - a single newline
+// is not a line break - for the split view's preview (editor/SplitView.tsx).
+const documentMarked = new Marked({
+  gfm: true,
+  breaks: false,
+  extensions: [mathBlock, mathInline],
+});
+
+/** A whole document -> sanitized HTML, for the split view's preview. YAML
+ *  front matter is dropped (the editor shows it as a block, not prose). */
+export function renderDocumentHtml(markdown: string): string {
+  const body = markdown.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  const parsed = documentMarked.parse(normalizeMathDelimiters(body), {
+    async: false,
+  });
+  return DOMPurify.sanitize(parsed);
+}
+
 /**
  * Markdown source -> sanitized HTML, INLINE only (no wrapping `<p>`/`<ul>`/
  * heading elements - bold/italic/code/links/math stay inline, paragraph

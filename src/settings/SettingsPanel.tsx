@@ -214,6 +214,12 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       <option value="full">{t.contentWidthFull}</option>
                     </select>
                   </div>
+                  <ToggleRow
+                    label={t.typewriterLabel}
+                    hint={t.typewriterHint}
+                    checked={settings.typewriterMode}
+                    onChange={(v) => setSettings({ typewriterMode: v })}
+                  />
                 </SettingsGroup>
                 <SettingsGroup title={t.navMarkdown}>
                   <ToggleRow
@@ -443,11 +449,11 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           }
                         />
                         <ToggleRow
-                          label={t.agentShareWindowLabel}
-                          hint={t.agentShareWindowHint}
-                          checked={settings.shareAgentWindowAcrossWindows}
+                          label={t.agentExpandWindowLabel}
+                          hint={t.agentExpandWindowHint}
+                          checked={settings.agentExpandToWindow}
                           onChange={(v) =>
-                            setSettings({ shareAgentWindowAcrossWindows: v })
+                            setSettings({ agentExpandToWindow: v })
                           }
                         />
                       </div>
@@ -495,6 +501,27 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   <ShortcutRow
                     label={t.shortcutToggleSidebar}
                     action="toggleSidebar"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleAgentPanel}
+                    action="toggleAgentPanel"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleSplitView}
+                    action="toggleSplitView"
+                    shortcuts={settings.shortcuts}
+                    setSettings={setSettings}
+                    t={t}
+                  />
+                  <ShortcutRow
+                    label={t.shortcutToggleZenMode}
+                    action="toggleZenMode"
                     shortcuts={settings.shortcuts}
                     setSettings={setSettings}
                     t={t}

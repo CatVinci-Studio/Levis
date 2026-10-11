@@ -48,9 +48,11 @@ export const EditorPane = memo(function EditorPane({
   tutorialMock,
 }: EditorPaneProps) {
   // No file open yet -> still show an editable blank canvas (draft mode).
-  // "untitled" as the key means switching between draft <-> a real file
-  // (or between two different files) always remounts with a fresh document.
-  const editorKey = filePath ?? "untitled";
+  // The path is NOT a remount key: saving a draft or renaming the file is
+  // the same document, and remounting dropped its undo history, the Agent
+  // conversation and any pending edits (with the request left running).
+  // Loading different content into the tab bumps the tab's reloadKey
+  // instead (App.tsx), which remounts this whole pane.
   const { settings } = useSettings();
   const handleChange = useCallback(
     (markdown: string) => onChange(tabId, markdown),
@@ -63,7 +65,7 @@ export const EditorPane = memo(function EditorPane({
         className={`editor-content ${settings.typewriterMode ? "typewriter-active" : ""}`}
       >
         <Suspense fallback={null}>
-          <MilkdownProvider key={editorKey}>
+          <MilkdownProvider>
             <MilkdownEditor
               tabId={tabId}
               filePath={filePath}

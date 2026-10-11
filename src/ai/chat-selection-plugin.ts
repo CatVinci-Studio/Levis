@@ -13,6 +13,14 @@ interface ChatSelectionState {
 
 const chatSelectionKey = new PluginKey<ChatSelectionState>("chat-selection");
 
+/** The highlighted range as it reads now - mapped through every edit since
+ *  it was set. What Quick Ask resolves its captured selection to at send. */
+export function chatSelectionRange(
+  state: EditorState,
+): { from: number; to: number } | null {
+  return chatSelectionKey.getState(state)?.range ?? null;
+}
+
 /** Highlight or clear the chat-context selection - dispatched by
  *  MilkdownEditor whenever `useInlineChat`'s captured range appears or the
  *  chat context is dropped. */
@@ -45,14 +53,9 @@ function highlighted(state: EditorState, from: number, to: number) {
  * Keeps the text the inline chat was opened over visibly marked while the
  * chat is up. The native selection paint disappears the moment focus moves
  * to the chat composer, leaving no in-document trace of what "{n} chars
- * selected" refers to - this decoration is that trace. Purely cosmetic: the
- * authoritative range a replace_selection proposal targets stays
- * `chatInfo.range` (useInlineChat.ts), which is captured once and NOT
- * remapped - so on docChanged this highlight survives only while the
- * mapped range still equals the captured one (edits after the selection),
- * and clears the moment positions shift, when the un-remapped
- * `chatInfo.range` no longer points at the selected text and a
- * replace_selection proposal would be rejected as stale anyway.
+ * selected" refers to - this decoration is that trace. Its range is also
+ * the live one: mapped through every edit, it is what useInlineChat's
+ * sendContext resolves the captured selection to before each send.
  */
 export const chatSelectionPlugin = $prose(
   () =>
@@ -67,13 +70,13 @@ export const chatSelectionPlugin = $prose(
             return highlighted(state, meta.from, meta.to);
           if (meta?.type === "clear") return EMPTY;
           if (tr.docChanged && prev.range) {
-            const from = tr.mapping.map(prev.range.from, 1);
-            const to = tr.mapping.map(prev.range.to, -1);
-            if (from !== prev.range.from || to !== prev.range.to) return EMPTY;
-            return {
-              range: prev.range,
-              decoration: prev.decoration.map(tr.mapping, tr.doc),
-            };
+            // Outward bias at both ends: when the range itself is replaced
+            // (an accepted rewrite of the selection), it grows to cover the
+            // replacement instead of collapsing to a point.
+            const from = tr.mapping.map(prev.range.from, -1);
+            const to = tr.mapping.map(prev.range.to, 1);
+            if (from >= to) return EMPTY;
+            return highlighted(state, from, to);
           }
           return prev;
         },

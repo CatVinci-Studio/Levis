@@ -55,21 +55,25 @@
 
 .tutorial-section-nav {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 7px;
 }
 
 .tutorial-section-nav-item {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
-  padding: 7px 9px;
+  padding: 7px 8px;
+  /* Three chapters share one row; a label breaking onto two lines made the
+     chips uneven heights. */
+  white-space: nowrap;
+  overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-control);
   color: var(--editor-muted);
   background: color-mix(in srgb, var(--bg) 94%, var(--editor-code-bg));
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 620;
 }
 
@@ -99,7 +103,7 @@
 
 .tutorial-progress-segment {
   height: 3px;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   background: var(--border-color);
   transition:
     background 180ms ease,
@@ -158,7 +162,7 @@
 .tutorial-body {
   margin: 0;
   color: var(--editor-muted);
-  font-size: 13px;
+  font-size: var(--text-md);
   line-height: 1.65;
   white-space: pre-line;
 }
@@ -214,7 +218,7 @@
   align-items: start;
   gap: 8px;
   color: var(--editor-text);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   transition:
     opacity 180ms ease,
@@ -274,7 +278,7 @@
   gap: 7px;
   min-height: 28px;
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.45;
 }
 
@@ -306,10 +310,10 @@
 .tutorial-learned {
   align-self: flex-start;
   padding: 5px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--editor-accent);
   background: var(--tutorial-soft);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   animation: tutorial-pop 240ms ease-out both;
 }
@@ -330,7 +334,7 @@
   border-radius: var(--radius-surface);
   color: var(--editor-text);
   background: color-mix(in srgb, var(--bg) 92%, var(--editor-code-bg));
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 580;
 }
 
@@ -369,44 +373,16 @@
 }
 
 .tutorial-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 6px 12px;
-  border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
   color: var(--editor-text);
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
   white-space: nowrap;
-  transition:
-    background 140ms ease,
-    transform 140ms ease,
-    opacity 140ms ease;
-}
-
-.tutorial-btn:hover:not(:disabled) {
-  background: var(--editor-code-bg);
-  transform: translateY(-1px);
 }
 
 .tutorial-btn-primary {
   min-width: 80px;
-  border-color: var(--chrome-primary);
-  color: #fff;
-  background: var(--chrome-primary);
   font-weight: 620;
 }
 
-.tutorial-btn-primary:hover:not(:disabled) {
-  background: var(--chrome-primary);
-  opacity: 0.92;
-}
-
-.tutorial-btn-primary:disabled {
+.tutorial-btn.tutorial-btn-primary:disabled {
   border-color: var(--border-color);
   color: var(--editor-muted);
   background: var(--editor-code-bg);
@@ -420,7 +396,7 @@
   color: var(--editor-muted);
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -520,7 +496,7 @@
   background: var(--bg);
   color: var(--editor-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 
@@ -531,4 +507,10 @@
 
 .tutorial-lesson-content > * {
   flex-shrink: 0;
+}
+
+/* The sidebar lesson points at the real panel rather than a picture of it. */
+.sidebar.tutorial-spotlight {
+  box-shadow: inset 0 0 0 2px var(--chrome-accent);
+  transition: box-shadow 0.2s ease;
 }

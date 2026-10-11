@@ -40,6 +40,9 @@ export function useGlobalShortcuts(opts: {
   requestCloseTab: (tabId: string) => void;
   toggleSourceMode: () => void;
   toggleSidebar: () => void;
+  toggleAgentPanel: () => void;
+  toggleSplitView: () => void;
+  toggleZenMode: () => void;
 }): void {
   const {
     activeTabId,
@@ -47,6 +50,9 @@ export function useGlobalShortcuts(opts: {
     requestCloseTab,
     toggleSourceMode,
     toggleSidebar,
+    toggleAgentPanel,
+    toggleSplitView,
+    toggleZenMode,
   } = opts;
   const { settings, setSettings } = useSettings();
 
@@ -129,6 +135,15 @@ export function useGlobalShortcuts(opts: {
       } else if (combo === shortcuts.toggleSidebar) {
         e.preventDefault();
         toggleSidebar();
+      } else if (combo === shortcuts.toggleAgentPanel) {
+        e.preventDefault();
+        toggleAgentPanel();
+      } else if (combo === shortcuts.toggleSplitView) {
+        e.preventDefault();
+        toggleSplitView();
+      } else if (combo === shortcuts.toggleZenMode) {
+        e.preventDefault();
+        toggleZenMode();
       } else if (combo === shortcuts.toggleSourceMode) {
         e.preventDefault();
         toggleSourceMode();
@@ -148,6 +163,9 @@ export function useGlobalShortcuts(opts: {
     settings,
     toggleSourceMode,
     toggleSidebar,
+    toggleAgentPanel,
+    toggleSplitView,
+    toggleZenMode,
     setSettings,
   ]);
 }

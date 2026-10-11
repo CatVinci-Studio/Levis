@@ -38,10 +38,11 @@ function fetchProviderCatalog(): Promise<ProviderCatalogEntry[]> {
   return ai.listProviders();
 }
 
-/// Mirrors the Rust catalog's static entries (src-tauri/src/ai/catalog.rs) -
-/// used as the initial render and as the dev-shim fallback, where
+/// A deliberate subset of the Rust catalog (src-tauri/src/ai/catalog.rs) -
+/// only for the first render and the dev shim, where
 /// `invoke("list_providers")` resolves to `null` instead of the real list.
-const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
+/// Its entries must still match the Rust ones (provider-catalog.test.ts).
+export const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
   {
     id: "openai",
     label: "OpenAI",
@@ -53,7 +54,7 @@ const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
     keyOptional: false,
     supportsVision: true,
     modelsListable: true,
-    knownModels: ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"],
+    knownModels: ["gpt-6.1-sol", "gpt-6-luna"],
   },
   {
     id: "anthropic",
@@ -61,17 +62,12 @@ const FALLBACK_CATALOG: ProviderCatalogEntry[] = [
     dialect: "anthropic-messages",
     auth: ["oauth", "api_key"],
     baseUrl: null,
-    defaultModel: "claude-haiku-4-5-20251001",
-    agentDefaultModel: "claude-sonnet-5",
+    defaultModel: "claude-haiku-5-5",
+    agentDefaultModel: "claude-sonnet-5-5",
     keyOptional: false,
     supportsVision: true,
     modelsListable: true,
-    knownModels: [
-      "claude-fable-5",
-      "claude-opus-4-8",
-      "claude-sonnet-5",
-      "claude-haiku-4-5-20251001",
-    ],
+    knownModels: ["claude-sonnet-5-5", "claude-haiku-5-5"],
   },
   {
     id: "custom",

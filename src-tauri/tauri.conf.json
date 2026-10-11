@@ -16,6 +16,8 @@
         "title": "Levis",
         "width": 800,
         "height": 600,
+        "minWidth": 480,
+        "minHeight": 320,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true
       }

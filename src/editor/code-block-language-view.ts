@@ -63,7 +63,20 @@ export const codeBlockLanguageView = $view(
 
     function syncSelectValue(currentNode: typeof node) {
       const lang = (currentNode.attrs.language as string) ?? "";
-      select.value = LANGUAGES.includes(lang) ? lang : "";
+      // A fence's own spelling (`js`, `sh`, `mermaid`, ...) outside the
+      // curated list gets an option of its own: falling back to "plain
+      // text" mislabelled a block that is in fact highlighted, and picking
+      // from the menu would then have rewritten its fence.
+      if (
+        lang &&
+        !select.querySelector(`option[value="${CSS.escape(lang)}"]`)
+      ) {
+        const opt = document.createElement("option");
+        opt.value = lang;
+        opt.textContent = lang;
+        select.appendChild(opt);
+      }
+      select.value = lang;
     }
     syncSelectValue(node);
 

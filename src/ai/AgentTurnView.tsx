@@ -8,6 +8,35 @@ import "./AgentTurnView.css";
 export interface AgentTurnLabels {
   /** Selection chip; "{n}" is replaced with the character count. */
   selectionChip: string;
+  /** What each tool call is doing, by tool name; "{arg}" is its main
+   *  argument (query, heading, path, skill). */
+  toolActivity: Record<string, string>;
+  toolResult: string;
+}
+
+/** A tool call as one readable line: "Reading the section “Methods”"
+ *  rather than `read_document`. */
+export function toolActivityText(
+  name: string,
+  argumentsJson: string,
+  labels: AgentTurnLabels,
+): string {
+  let args: Record<string, unknown> = {};
+  try {
+    args = JSON.parse(argumentsJson) ?? {};
+  } catch {
+    // Partial or malformed arguments: describe the tool without them.
+  }
+  const arg =
+    [args.query, args.heading, args.path, args.name].find(
+      (v): v is string => typeof v === "string" && v.length > 0,
+    ) ??
+    (typeof args.start_line === "number"
+      ? `${args.start_line}–${typeof args.end_line === "number" ? args.end_line : ""}`
+      : "");
+  const template = labels.toolActivity[name];
+  if (!template) return name;
+  return template.replace("{arg}", arg);
 }
 
 export function AgentTurnView({
@@ -36,13 +65,13 @@ export function AgentTurnView({
       return (
         <div className="agent-tool-line">
           <SearchIcon className="agent-tool-icon" />
-          {turn.name}
+          {toolActivityText(turn.name, turn.arguments, labels)}
         </div>
       );
     case "ToolResult":
       return (
         <details className="agent-tool-result">
-          <summary>tool result</summary>
+          <summary>{labels.toolResult}</summary>
           <pre>{turn.output}</pre>
         </details>
       );

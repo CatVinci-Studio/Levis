@@ -20,7 +20,7 @@
   border-radius: var(--radius-dialog);
   background: var(--bg);
   box-shadow: var(--shadow-dialog);
-  font-size: 14px;
+  font-size: var(--text-lg);
 }
 
 .insert-table-title {
@@ -38,7 +38,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--editor-muted);
 }
 
@@ -63,26 +63,5 @@
 }
 
 .insert-table-buttons button {
-  border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
-  padding: 6px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  background: transparent;
   color: var(--editor-text);
-}
-
-.insert-table-buttons button:hover {
-  background: var(--editor-code-bg);
-}
-
-.insert-table-primary {
-  background: var(--chrome-primary) !important;
-  border-color: var(--chrome-primary) !important;
-  color: #fff !important;
-}
-
-.insert-table-buttons button:disabled {
-  cursor: default;
-  opacity: 0.5;
 }

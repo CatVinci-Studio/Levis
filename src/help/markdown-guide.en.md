@@ -128,6 +128,16 @@ In **Settings → Editor & Appearance → Images**, you can instead send newly p
 ![alt text](assets/screenshot.png)
 ```
 
+## Views and modes
+
+Besides the WYSIWYG editor and source mode (`Cmd+/`), Levis has three ways to write (on Windows and Linux use `Ctrl` for `Cmd`; Settings → Shortcuts has the current bindings):
+
+- **Split view** (`Cmd+Shift+E`): the Markdown source on the left, the rendered preview on the right, scrolling together.
+- **Typewriter mode** (Settings → Editor & Appearance → Theme): the line you are typing stays in the middle of the window — in the editor, source mode and split view.
+- **Zen mode** (`Cmd+Shift+J`): hides everything but the text, goes fullscreen and dims every paragraph except the one you are writing. Press `Esc` to leave.
+
+All three are also in the **View** menu.
+
 ## Footnotes and rules
 
 Footnotes look like this[^1], and below is a horizontal rule:

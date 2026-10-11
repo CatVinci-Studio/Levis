@@ -28,43 +28,22 @@ pub fn is_editor_window(label: &str) -> bool {
 /// editor's proposals.
 pub struct ChatWindowEntry {
     pub label: String,
-    /// Which editors this chat serves. `Some(editor_label)` is the default -
-    /// one chat per editor window, shared by all of that window's tabs.
-    /// `None` means every editor window in the app, which is what the
-    /// "share across windows" setting turns on.
-    pub scope: Option<String>,
-}
-
-impl ChatWindowEntry {
-    fn serves(&self, editor_label: &str) -> bool {
-        match &self.scope {
-            Some(owner) => owner == editor_label,
-            None => true,
-        }
-    }
+    /// The editor window this chat serves - one chat per editor window,
+    /// shared by all of that window's tabs.
+    pub scope: String,
 }
 
 /// The editor window a detached chat belongs to, if `label` names one.
 /// Menu commands focused on a chat window are routed here - the chat has no
 /// document and no menu handlers, so delivering Save/Export/Find to it would
 /// silently do nothing.
-///
-/// A cross-window chat (`scope: None`) has no fixed owner, so it resolves to
-/// whichever editor window was focused most recently - the document the user
-/// was last working in, which is also the one that chat is showing.
-pub fn editor_for_chat(
-    label: &str,
-    open: &OpenChatWindows,
-    last_active: &LastActiveEditor,
-) -> Option<String> {
-    let scope = open
-        .0
+pub fn editor_for_chat(label: &str, open: &OpenChatWindows) -> Option<String> {
+    open.0
         .lock()
         .unwrap()
         .iter()
         .find(|entry| entry.label == label)
-        .map(|entry| entry.scope.clone())?;
-    scope.or_else(|| last_active.0.lock().unwrap().clone())
+        .map(|entry| entry.scope.clone())
 }
 
 /// Everything a detached chat window needs to carry on where the embedded
@@ -87,23 +66,8 @@ pub struct ChatHandoff {
 /// same way (destructively, by window label).
 pub struct PendingChatHandoffs(pub Mutex<HashMap<String, ChatHandoff>>);
 
-/// Detached chat windows currently open. A list rather than a map because
-/// the key is a scope, and one of the two scope kinds (cross-window) has no
-/// editor label to key on.
+/// Detached chat windows currently open.
 pub struct OpenChatWindows(pub Mutex<Vec<ChatWindowEntry>>);
-
-/// The editor window focused most recently. Tracked because a cross-window
-/// chat has no owning editor of its own - see `editor_for_chat`.
-pub struct LastActiveEditor(pub Mutex<Option<String>>);
-
-/// Called from the global window-focus handler. Chat windows and the drag
-/// pill are ignored: "last active EDITOR" is the question being answered,
-/// and focusing the chat itself must not erase which document it is about.
-pub fn note_focused_window(label: &str, state: &LastActiveEditor) {
-    if is_editor_window(label) {
-        *state.0.lock().unwrap() = Some(label.to_string());
-    }
-}
 
 /// The chat window serving `editor_label`, if one is open.
 fn chat_serving(editor_label: &str, open: &OpenChatWindows) -> Option<String> {
@@ -111,7 +75,7 @@ fn chat_serving(editor_label: &str, open: &OpenChatWindows) -> Option<String> {
         .lock()
         .unwrap()
         .iter()
-        .find(|entry| entry.serves(editor_label))
+        .find(|entry| entry.scope == editor_label)
         .map(|entry| entry.label.clone())
 }
 
@@ -121,10 +85,6 @@ fn chat_serving(editor_label: &str, open: &OpenChatWindows) -> Option<String> {
 /// asked to be able to put it outside the main window, and only a real window
 /// gets native edge/corner resizing, cross-monitor placement, and the
 /// platform's own chrome.
-///
-/// `shared` is the "share across windows" setting: false gives this editor
-/// window its own chat (shared by its tabs), true makes one chat window serve
-/// every editor window in the app.
 ///
 /// `command(async)` is load-bearing, not a style choice. A plain `#[command]`
 /// is a BLOCKING command: Tauri runs it inline on the main thread, inside the
@@ -148,14 +108,11 @@ pub fn detach_chat_window(
     state: serde_json::Value,
     position: Option<(f64, f64)>,
     title: String,
-    shared: bool,
     pinned: bool,
     pending: State<PendingChatHandoffs>,
     open: State<OpenChatWindows>,
 ) -> Result<String, String> {
     let editor_label = window.label().to_string();
-
-    let scope = (!shared).then(|| editor_label.clone());
 
     // Already open for this editor: focus what's there rather than spawning
     // a duplicate that would race the first one for the same proposals. This
@@ -163,15 +120,6 @@ pub fn detach_chat_window(
     // one window, which then follows that file.
     if let Some(existing) = chat_serving(&editor_label, &open) {
         if let Some(win) = app.get_webview_window(&existing) {
-            // The setting may have been toggled since this window opened, and
-            // the entry was scoped from its value at that moment. Re-scope in
-            // place rather than leaving the registry disagreeing with the
-            // setting until the user closes the chat.
-            let mut entries = open.0.lock().unwrap();
-            if let Some(entry) = entries.iter_mut().find(|e| e.label == existing) {
-                entry.scope = scope;
-            }
-            drop(entries);
             // The window mounted long ago and so will never call
             // take_chat_handoff by itself again - park the new state under its
             // label and tell it to claim it, the same destructive claim the
@@ -216,7 +164,7 @@ pub fn detach_chat_window(
     );
     open.0.lock().unwrap().push(ChatWindowEntry {
         label: label.clone(),
-        scope,
+        scope: editor_label.clone(),
     });
 
     let builder = WebviewWindowBuilder::new(
@@ -233,15 +181,14 @@ pub fn detach_chat_window(
     // Set at build time as well as from the frontend so a pinned chat never
     // flashes behind the editor for the frame before its React mounts.
     .always_on_top(pinned);
-    // Wayland ignores both the position and always_on_top above, so a
-    // window-scoped chat opened as just another toplevel: a new tiled
-    // column on niri and other tiling compositors, and sinking behind the
-    // editor elsewhere. As a transient of its editor it is a dialog to the
-    // compositor - niri floats windows that have a parent, and stacking
-    // compositors keep it above that editor. A shared chat serves every
-    // window, so no one editor can own it.
+    // Wayland ignores both the position and always_on_top above, so the
+    // chat opened as just another toplevel: a new tiled column on niri and
+    // other tiling compositors, and sinking behind the editor elsewhere. As
+    // a transient of its editor it is a dialog to the compositor - niri
+    // floats windows that have a parent, and stacking compositors keep it
+    // above that editor.
     #[cfg(target_os = "linux")]
-    let builder = if !shared && crate::is_wayland() {
+    let builder = if crate::is_wayland() {
         builder.parent(&window).map_err(|err| err.to_string())?
     } else {
         builder
@@ -256,10 +203,9 @@ pub fn detach_chat_window(
 
 /// The chat window serving the calling editor window, if any.
 ///
-/// Editor windows call this on mount and on focus. It is the only way a
-/// window that never detached anything itself can learn the label to push
-/// context to - which is exactly the cross-window case, where the chat was
-/// opened from a different window entirely.
+/// Editor windows call this on mount and on focus, so a reloaded webview -
+/// or one whose chat was closed from the chat's own window - learns the
+/// current label instead of trusting a cached one.
 #[tauri::command]
 pub fn current_chat_window(
     window: tauri::WebviewWindow,
@@ -328,20 +274,36 @@ pub fn close_chat_window(
 
 /// Told to every editor window when the set of open chat windows changes, so
 /// each webview can re-read `current_chat_window` instead of believing a
-/// cache. Without it, a cross-window chat closed from window A leaves window
-/// B pushing context at a destroyed label - silently, since an `emitTo` a
+/// cache. Without it, a chat closed from its own window leaves the editor
+/// pushing context at a destroyed label - silently, since an `emitTo` a
 /// dead window is not an error.
 pub const CHAT_WINDOWS_CHANGED: &str = "chat:windows-changed";
 
 /// Drops registrations involving a destroyed window. Called from the global
 /// window-destroyed handler for EVERY window, so it handles both directions:
 /// a closed chat window drops its own entry (letting an editor detach again),
-/// and a closed editor window drops the chat scoped to it. A cross-window
-/// chat (`scope: None`) survives any single editor closing - it belongs to
-/// the app, not to one window.
+/// and a closed editor window drops the chat scoped to it.
 pub fn forget_chat_window(app: &tauri::AppHandle, label: &str, open: &OpenChatWindows) {
+    // A chat scoped to the editor window that just went away closes with it:
+    // left open it could only push at a dead window - sends timing out,
+    // Accept doing nothing - and on Windows/Linux it kept the process alive
+    // after the last editor was closed. Its conversation is already in the
+    // history list.
+    let orphans: Vec<String> = open
+        .0
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry.scope == label)
+        .map(|entry| entry.label.clone())
+        .collect();
     if forget_entries(label, open) {
         notify_chat_windows_changed(app);
+    }
+    for orphan in orphans {
+        if let Some(window) = app.get_webview_window(&orphan) {
+            let _ = window.destroy();
+        }
     }
 }
 
@@ -350,7 +312,7 @@ pub fn forget_chat_window(app: &tauri::AppHandle, label: &str, open: &OpenChatWi
 fn forget_entries(label: &str, open: &OpenChatWindows) -> bool {
     let mut entries = open.0.lock().unwrap();
     let before = entries.len();
-    entries.retain(|entry| entry.label != label && entry.scope.as_deref() != Some(label));
+    entries.retain(|entry| entry.label != label && entry.scope != label);
     entries.len() != before
 }
 
@@ -369,20 +331,16 @@ pub fn notify_chat_windows_changed(app: &tauri::AppHandle) {
 mod tests {
     use super::*;
 
-    fn registry(entries: Vec<(&str, Option<&str>)>) -> OpenChatWindows {
+    fn registry(entries: Vec<(&str, &str)>) -> OpenChatWindows {
         OpenChatWindows(Mutex::new(
             entries
                 .into_iter()
                 .map(|(label, scope)| ChatWindowEntry {
                     label: label.to_string(),
-                    scope: scope.map(|s| s.to_string()),
+                    scope: scope.to_string(),
                 })
                 .collect(),
         ))
-    }
-
-    fn last_active(label: Option<&str>) -> LastActiveEditor {
-        LastActiveEditor(Mutex::new(label.map(|s| s.to_string())))
     }
 
     /// The window-classification bugs this predicate exists to prevent were
@@ -411,60 +369,31 @@ mod tests {
     }
 
     #[test]
-    fn a_scoped_chat_resolves_back_to_the_editor_that_opened_it() {
-        let open = registry(vec![("chat-1", Some("main")), ("chat-3", Some("window-2"))]);
-        let last = last_active(Some("main"));
+    fn a_chat_resolves_back_to_the_editor_that_opened_it() {
+        let open = registry(vec![("chat-1", "main"), ("chat-3", "window-2")]);
         assert_eq!(
-            editor_for_chat("chat-3", &open, &last),
+            editor_for_chat("chat-3", &open),
             Some("window-2".to_string())
         );
-        assert_eq!(
-            editor_for_chat("chat-1", &open, &last),
-            Some("main".to_string())
-        );
-    }
-
-    #[test]
-    fn a_cross_window_chat_resolves_to_the_last_focused_editor() {
-        // It has no owner by construction - routing a menu command to the
-        // document the user was last in is the only answer that isn't a
-        // guess.
-        let open = registry(vec![("chat-1", None)]);
-        assert_eq!(
-            editor_for_chat("chat-1", &open, &last_active(Some("window-2"))),
-            Some("window-2".to_string())
-        );
-        assert_eq!(editor_for_chat("chat-1", &open, &last_active(None)), None);
+        assert_eq!(editor_for_chat("chat-1", &open), Some("main".to_string()));
     }
 
     #[test]
     fn an_unknown_chat_resolves_to_no_editor() {
-        let open = registry(vec![("chat-1", Some("main"))]);
-        assert_eq!(
-            editor_for_chat("chat-9", &open, &last_active(Some("main"))),
-            None
-        );
+        let open = registry(vec![("chat-1", "main")]);
+        assert_eq!(editor_for_chat("chat-9", &open), None);
     }
 
     #[test]
-    fn a_scoped_chat_serves_only_its_own_editor() {
-        let open = registry(vec![("chat-1", Some("main"))]);
+    fn a_chat_serves_only_its_own_editor() {
+        let open = registry(vec![("chat-1", "main")]);
         assert_eq!(chat_serving("main", &open), Some("chat-1".to_string()));
         assert_eq!(chat_serving("window-2", &open), None);
     }
 
     #[test]
-    fn a_cross_window_chat_serves_every_editor() {
-        // This is what makes a second window's editor find the chat it never
-        // opened, and therefore push its document into it.
-        let open = registry(vec![("chat-1", None)]);
-        assert_eq!(chat_serving("main", &open), Some("chat-1".to_string()));
-        assert_eq!(chat_serving("window-7", &open), Some("chat-1".to_string()));
-    }
-
-    #[test]
     fn forgetting_clears_both_directions_of_the_mapping() {
-        let open = registry(vec![("chat-1", Some("main")), ("chat-3", Some("window-2"))]);
+        let open = registry(vec![("chat-1", "main"), ("chat-3", "window-2")]);
 
         // A closed CHAT window drops its own entry, freeing its editor to
         // detach again.
@@ -475,22 +404,5 @@ mod tests {
         // A closed EDITOR window drops the chat scoped to it.
         forget_entries("window-2", &open);
         assert_eq!(chat_serving("window-2", &open), None);
-    }
-
-    #[test]
-    fn a_cross_window_chat_outlives_any_one_editor_closing() {
-        let open = registry(vec![("chat-1", None)]);
-        forget_entries("main", &open);
-        assert_eq!(chat_serving("window-2", &open), Some("chat-1".to_string()));
-    }
-
-    #[test]
-    fn only_editor_focus_updates_the_last_active_editor() {
-        let last = last_active(Some("main"));
-        note_focused_window("chat-1", &last);
-        // Focusing the chat must not erase which document it is about.
-        assert_eq!(*last.0.lock().unwrap(), Some("main".to_string()));
-        note_focused_window("window-2", &last);
-        assert_eq!(*last.0.lock().unwrap(), Some("window-2".to_string()));
     }
 }

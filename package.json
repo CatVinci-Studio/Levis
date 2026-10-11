@@ -6,22 +6,24 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:visual": "playwright test",
+    "screenshots:readme": "playwright test -c playwright.readme.config.ts",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run format:check",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run format:check && node scripts/check-readmes.mjs",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "sync-models": "node scripts/sync-models.mjs"
   },
   "dependencies": {
     "@milkdown/kit": "^7.21.2",
     "@milkdown/react": "^7.21.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
-    "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "dompurify": "^3.4.11",
@@ -43,6 +45,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

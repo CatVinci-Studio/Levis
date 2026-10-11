@@ -9,7 +9,6 @@
 .app-menu {
   position: fixed;
   z-index: 300;
-  font-size: 13px;
 }
 
 .app-menu-list {
@@ -17,7 +16,6 @@
   /* Caps how far a long label (a recent file's name, a translated "Toggle
      Typewriter Mode") can stretch the panel; past this they ellipsize. */
   max-width: 340px;
-  padding: 5px;
   /* Long lists (Open Recent with ten files, the export formats) scroll
      rather than run off the bottom of a short window. */
   max-height: min(78vh, 560px);
@@ -35,14 +33,6 @@
   align-items: center;
   gap: 16px;
   width: 100%;
-  padding: 5px 9px;
-  border: none;
-  border-radius: var(--radius-small);
-  background: transparent;
-  color: var(--editor-text);
-  font: inherit;
-  text-align: left;
-  cursor: default;
 }
 
 .app-menu-item:hover:not(:disabled),
@@ -71,7 +61,7 @@
 .app-menu-accel {
   flex-shrink: 0;
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -79,12 +69,6 @@
   flex-shrink: 0;
   margin-right: -2px;
   color: var(--editor-muted);
-}
-
-.app-menu-separator {
-  height: 1px;
-  margin: 4px 6px;
-  background: var(--border-color);
 }
 
 .app-menu-flyout {

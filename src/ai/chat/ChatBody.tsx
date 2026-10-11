@@ -24,9 +24,11 @@ import {
   type QuickAskPendingBarLabels,
 } from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
+import { toolActivityText } from "../AgentTurnView";
 import {
   attachedFileBlock,
   selectedTextBlock,
+  cursorBlock,
   userMessageBody,
 } from "./user-message";
 import {
@@ -42,8 +44,6 @@ export interface ChatBodyLabels
    *  are undecided. */
   pendingSummary: string;
   pendingReveal: string;
-  /** The quick variant's "open the full conversation" button. */
-  expandConversation: string;
   expandInline: string;
   collapseInline: string;
   approvePlan: string;
@@ -70,7 +70,11 @@ export interface ChatBodyProps {
   onProposals: (
     proposals: { callId: string; proposal: EditProposal }[],
   ) => void;
-  onAcceptProposal: (callId: string) => void;
+  onAcceptProposal: (callId: string, text?: string) => void;
+  /** See ChatMessages' proposalOriginal - enables per-sentence acceptance. */
+  proposalOriginal?: (callId: string) => string | null;
+  /** See ChatMessages' onLocateText. */
+  onLocateText?: (anchor: string, context?: string) => void;
   onRejectProposal: (callId: string) => void;
   onAcceptAll: () => void;
   onRejectAll: () => void;
@@ -102,9 +106,11 @@ export interface ChatBodyProps {
   refreshContext?: () => Promise<{
     document: string;
     selectionMarkdown: string | null;
+    /** Text around the caret when nothing is selected (cursorBlock). */
+    cursor?: { before: string; after: string } | null;
+    /** Heading of the section being worked in (AgentRequestOptions). */
+    focusHeading?: string | null;
   } | null>;
-  /** Quick variant only: opens the full conversation (detach to a window). */
-  onExpand?: () => void;
   /** Quick variant only: the "review one at a time" nav bar's state/actions
    *  (usePendingEdits' focus* API), as one required-together object -
    *  without it the quick variant renders no pending bar at all, rather
@@ -189,6 +195,8 @@ export function ChatBody({
   pendingCount,
   onProposals,
   onAcceptProposal,
+  proposalOriginal,
+  onLocateText,
   onRejectProposal,
   onAcceptAll,
   onRejectAll,
@@ -197,7 +205,6 @@ export function ChatBody({
   fillHeight,
   variant = "full",
   refreshContext,
-  onExpand,
   onRevealPending,
   quickReview,
 }: ChatBodyProps) {
@@ -287,10 +294,10 @@ export function ChatBody({
    * Composes a NEW message and sends it - the user's own, and the relocate
    * request, which are the two that have to be written against the document
    * as it reads at send time rather than as it read when this component last
-   * rendered. `buildMessage` therefore receives that state: the detached
-   * window pulls a fresh copy first (`refreshContext`), while the in-document
-   * bar has nothing to pull - its opening snapshot IS the point - and falls
-   * back to the props.
+   * rendered. `buildMessage` therefore receives that state, pulled fresh
+   * first (`refreshContext`): the detached window asks the editor over IPC,
+   * the in-document bar reads its own editor - keeping the selection it
+   * captured at open, which is what its rewrites target.
    *
    * `handleRetry` deliberately does NOT come through here: a retry resends
    * the failed message verbatim, against the document it was composed for
@@ -301,6 +308,7 @@ export function ChatBody({
     buildMessage: (state: {
       document: string;
       selectionMarkdown: string | null;
+      cursor?: { before: string; after: string } | null;
     }) => { message: string; images?: ImageAttachment[] },
     options: AgentRequestOptions,
   ) {
@@ -308,7 +316,12 @@ export function ChatBody({
       const latest = refreshContext ? await refreshContext() : null;
       const state = latest ?? { document, selectionMarkdown };
       const { message, images } = buildMessage(state);
-      afterSend(await send(state.document, message, images, options));
+      afterSend(
+        await send(state.document, message, images, {
+          ...options,
+          focusHeading: latest?.focusHeading ?? null,
+        }),
+      );
     })();
   }
 
@@ -321,14 +334,18 @@ export function ChatBody({
     // Signals the interactive tutorial's "ask AI something" step - a real
     // send, not just opening the panel.
     if (tutorialMock) window.dispatchEvent(new Event(AI_MESSAGE_SENT_EVENT));
-    dispatchSend(({ selectionMarkdown: selection }) => {
+    dispatchSend(({ selectionMarkdown: selection, cursor }) => {
       // Rewrites of the selection come back as replace_selection tool calls
       // (see AGENT_TOOL_INSTRUCTIONS in src-tauri/src/ai/agent.rs); the tag
       // carries the selection's MARKDOWN so formatting survives the trip.
+      // With nothing selected, the cursor's surroundings say where "here"
+      // is (and where insert_at_cursor writes).
       const tagged =
         selection && includeSelection
           ? `${selectedTextBlock(selection)}\n\n${message}`
-          : message;
+          : cursor
+            ? `${cursorBlock(cursor.before, cursor.after)}\n\n${message}`
+            : message;
       // Text-shaped attachments were already extracted in Rust (PDF, Word,
       // spreadsheets and plain files all arrive as text) and ride inside the
       // prompt. Images have nothing to extract and go as provider image
@@ -388,14 +405,41 @@ export function ChatBody({
   // The question the summary answers, echoed above it: once sent, the
   // composer is empty and nothing on screen said what had been asked.
   let promptText: string | null = null;
+  // Whether the exchange holds more than its one-line summary - tool
+  // steps, or a reply the summary clamps - and so earns "show all".
+  let quickHasMore = false;
+  // What the agent is doing right now (its latest tool call) - shown in
+  // place of a bare "Thinking…" while a multi-step request works.
+  let quickActivity: string | null = null;
+  if (variant === "quick" && busy && streaming) {
+    for (let i = streaming.turns.length - 1; i >= 0; i--) {
+      const turn = streaming.turns[i];
+      if (turn.kind === "ToolCall") {
+        quickActivity = `${toolActivityText(turn.name, turn.arguments, labels)}…`;
+        break;
+      }
+    }
+  }
   if (variant === "quick") {
-    const prompt = lastExchange(history).prompt;
-    promptText = prompt ? userMessageBody(prompt).trim() || null : null;
+    // The exchange in progress counts as the newest one: its user turn only
+    // reaches `history` when the reply completes, and until then the bar
+    // showed the PREVIOUS question and answer with no sign of the new one.
+    const exchange = lastExchange(
+      busy && streaming ? [...history, ...streaming.turns] : history,
+    );
+    promptText = exchange.prompt
+      ? userMessageBody(exchange.prompt).trim() || null
+      : null;
     summaryText = streaming?.text || null;
-    if (!summaryText) {
-      for (let i = history.length - 1; i >= 0; i--) {
-        const turn = history[i];
-        if (turn.kind === "Assistant") {
+    quickHasMore = exchange.turns.some(
+      (turn) =>
+        turn.kind === "ToolCall" ||
+        (turn.kind === "Assistant" && turn.text.length > 160),
+    );
+    if (!summaryText && !busy) {
+      for (let i = exchange.turns.length - 1; i >= 0; i--) {
+        const turn = exchange.turns[i];
+        if (turn.kind === "Assistant" && turn.text.trim()) {
           summaryText = turn.text;
           break;
         }
@@ -415,6 +459,7 @@ export function ChatBody({
                   error={error}
                   retryLabel={labels.retry}
                   onRetry={retryable ? handleRetry : null}
+                  explanations={labels.aiErrors}
                 />
               )}
               {!quickExpanded && promptText && (
@@ -430,11 +475,12 @@ export function ChatBody({
                 </div>
               )}
               {!quickExpanded && !error && busy && !summaryText && (
-                <ThinkingIndicator label={labels.thinking} />
+                <ThinkingIndicator label={quickActivity ?? labels.thinking} />
               )}
               {quickExpanded && (
                 <div className="quick-ask-transcript" ref={listRef}>
                   <ChatMessages
+                    proposalActions={false}
                     history={history}
                     streaming={streaming}
                     busy={busy}
@@ -443,6 +489,8 @@ export function ChatBody({
                     labels={labels}
                     proposalStatus={proposalStatus}
                     onAcceptProposal={onAcceptProposal}
+                    proposalOriginal={proposalOriginal}
+                    onLocateText={onLocateText}
                     onRejectProposal={onRejectProposal}
                     onRelocateProposal={handleRelocate}
                     canRetry={!!retryable}
@@ -450,25 +498,15 @@ export function ChatBody({
                   />
                 </div>
               )}
-              {(summaryText || history.length > 0 || error) && (
-                <div className="quick-ask-answer-actions">
-                  <button
-                    className="inline-chat-action"
-                    onClick={toggleQuickExpanded}
-                  >
-                    {quickExpanded
-                      ? labels.collapseInline
-                      : labels.expandInline}
-                  </button>
-                  {onExpand && (
-                    <button
-                      className="inline-chat-action quick-ask-expand"
-                      onClick={onExpand}
-                    >
-                      {labels.expandConversation}
-                    </button>
-                  )}
-                </div>
+              {(quickExpanded || quickHasMore) && (
+                <button
+                  type="button"
+                  className="agent-proposal-link quick-ask-more"
+                  aria-expanded={quickExpanded}
+                  onClick={toggleQuickExpanded}
+                >
+                  {quickExpanded ? labels.collapseInline : labels.expandInline}
+                </button>
               )}
             </div>
           )
@@ -483,6 +521,8 @@ export function ChatBody({
                 labels={labels}
                 proposalStatus={proposalStatus}
                 onAcceptProposal={onAcceptProposal}
+                proposalOriginal={proposalOriginal}
+                onLocateText={onLocateText}
                 onRejectProposal={onRejectProposal}
                 onRelocateProposal={handleRelocate}
                 canRetry={!!retryable}
@@ -518,12 +558,23 @@ export function ChatBody({
                     {labels.pendingReveal}
                   </button>
                 )}
-                <button className="inline-chat-action" onClick={onAcceptAll}>
-                  {labels.proposalAcceptAll}
-                </button>
-                <button className="inline-chat-action" onClick={onRejectAll}>
-                  {labels.proposalRejectAll}
-                </button>
+                {/* With one edit its own card has Accept and Reject. */}
+                {pendingCount > 1 && (
+                  <>
+                    <button
+                      className="inline-chat-action"
+                      onClick={onAcceptAll}
+                    >
+                      {labels.proposalAcceptAll}
+                    </button>
+                    <button
+                      className="inline-chat-action"
+                      onClick={onRejectAll}
+                    >
+                      {labels.proposalRejectAll}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -544,6 +595,8 @@ export function ChatBody({
         busy={busy}
         labels={labels}
         defaultMode={defaultMode}
+        allowPlan={variant !== "quick"}
+        compact={variant === "quick"}
         defaultWebSearch={defaultWebSearch}
         onSend={handleSend}
         onStop={stop}

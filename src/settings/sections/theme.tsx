@@ -1,3 +1,4 @@
+import { errorText } from "../../utils/error-text";
 import { useId, useRef, useState } from "react";
 import {
   useSettings,
@@ -83,7 +84,7 @@ ${customCss.trim() ? `\n/* Custom CSS */\n${customCss}\n` : ""}`;
     await fs.writeTextFile(picked, css);
     void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.exportFailed} ${String(err)}`, { kind: "error" });
+    await message(`${t.exportFailed} ${errorText(err)}`, { kind: "error" });
   }
 }
 
@@ -119,7 +120,7 @@ export function ThemeSection({ t }: { t: Strings }) {
         themeId: id,
       });
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     } finally {
       working.current = false;
       setBusy(false);
@@ -146,7 +147,7 @@ export function ThemeSection({ t }: { t: Strings }) {
           : {}),
       });
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     } finally {
       working.current = false;
       setBusy(false);

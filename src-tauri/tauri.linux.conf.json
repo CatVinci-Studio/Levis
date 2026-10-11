@@ -6,8 +6,20 @@
         "title": "Levis",
         "width": 800,
         "height": 600,
+        "minWidth": 480,
+        "minHeight": 320,
         "decorations": false
       }
     ]
+  },
+  "bundle": {
+    "linux": {
+      "deb": {
+        "desktopTemplate": "../packaging/linux/levis.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "../packaging/linux/levis.desktop"
+      }
+    }
   }
 }

@@ -31,10 +31,19 @@ export function parseProposal(argumentsJson: string): EditProposal | null {
       typeof parsed.context === "string" && parsed.context
         ? parsed.context
         : undefined;
-    if (action !== "append" && action !== "replace_selection" && !anchor)
+    if (
+      action !== "append" &&
+      action !== "replace_selection" &&
+      action !== "insert_at_cursor" &&
+      !anchor
+    )
       return null;
     if (action !== "delete" && text === undefined) return null;
-    return { action, anchor, text, context };
+    const reason =
+      typeof parsed.reason === "string" && parsed.reason.trim()
+        ? parsed.reason.trim()
+        : undefined;
+    return { action, anchor, text, context, reason };
   } catch {
     return null;
   }

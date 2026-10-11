@@ -123,12 +123,26 @@ describe("composeMarkdownEdit", () => {
     expect(composeMarkdownEdit(match, "delete", "")).toBe("This is  content");
   });
 
-  it("keeps the snippet when inserting around it", () => {
+  it("inserts mid-sentence text inline, with the space Latin needs", () => {
     expect(composeMarkdownEdit(match, "insert_before", "NEW")).toBe(
-      "This is NEW\n\n**important** content",
+      "This is NEW **important** content",
     );
     expect(composeMarkdownEdit(match, "insert_after", "NEW")).toBe(
-      "This is **important**\n\nNEW content",
+      "This is **important** NEW content",
+    );
+    const zh = findMarkdownMatch(blocks("这项研究很重要"), "研究")!;
+    expect(composeMarkdownEdit(zh, "insert_after", "（2024 年）")).toBe(
+      "这项研究（2024 年）很重要",
+    );
+  });
+
+  it("starts a new block for block text or at a block's edge", () => {
+    expect(composeMarkdownEdit(match, "insert_after", "- item")).toBe(
+      "This is **important**\n\n- item content",
+    );
+    const para = findMarkdownMatch(blocks("First para"), "First para")!;
+    expect(composeMarkdownEdit(para, "insert_after", "Second para")).toBe(
+      "First para\n\nSecond para",
     );
   });
 
@@ -148,5 +162,15 @@ describe("composeMarkdownEdit", () => {
     expect(composeMarkdownEdit(m, "insert_after", "NEW")).toBe(
       "## Heading\n\nBody\n\nNEW",
     );
+  });
+});
+
+describe("findMarkdownMatch typography fallback", () => {
+  it("matches a quote whose punctuation differs only typographically", () => {
+    const doc = blocks("He said “hello” — twice.", "Then left；quietly.");
+    const m = findMarkdownMatch(doc, 'He said "hello" - twice.')!;
+    expect(m).not.toBeNull();
+    expect(composeMarkdownEdit(m, "replace", "He waved.")).toBe("He waved.");
+    expect(findMarkdownMatch(doc, "Then left;quietly.")).not.toBeNull();
   });
 });

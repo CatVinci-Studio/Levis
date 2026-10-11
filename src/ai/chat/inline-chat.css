@@ -44,6 +44,12 @@
   padding: 3px 4px;
 }
 
+/* The header's icons float over the panel's top-right corner, which on a
+   fresh panel is the input: keep typed text out from under them. */
+.inline-chat .inline-chat-input {
+  padding-right: 72px;
+}
+
 .inline-chat-header-actions {
   display: flex;
   align-items: center;
@@ -53,23 +59,8 @@
 
 .inline-chat-header-button {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--editor-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1;
-  cursor: pointer;
-}
-
-.inline-chat-header-button:hover {
-  background: var(--sidebar-hover);
-  color: var(--editor-text);
 }
 
 /* Asked before closing while proposals are still undecided - the previews
@@ -83,7 +74,7 @@
 }
 
 .inline-chat-confirm-message {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--editor-text);
 }
 
@@ -132,14 +123,6 @@
 
 .inline-chat-mode {
   min-width: 72px;
-  height: 24px;
-  padding: 0 22px 0 7px;
-  border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
-  background: var(--editor-bg);
-  color: var(--editor-text);
-  font: inherit;
-  font-size: 11px;
 }
 
 /* How much text rides along as context, and a way to drop it. */
@@ -147,10 +130,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--editor-muted);
   border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   padding: 2px 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -170,28 +153,6 @@
 
 .inline-chat-chip-remove:hover {
   opacity: 1;
-}
-
-/* The attach-file button, kept as quiet as the input itself. */
-.inline-chat-attach,
-.inline-chat-web-search {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--editor-muted);
-  cursor: pointer;
-}
-
-.inline-chat-attach:hover,
-.inline-chat-web-search:hover {
-  background: var(--editor-border);
-  color: var(--editor-text);
 }
 
 .inline-chat-web-search.is-active {
@@ -214,7 +175,7 @@
   padding: 2px 6px;
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-control);
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--editor-muted);
 }
 
@@ -249,7 +210,7 @@
    these, which is what made the "+" button look dead on a PDF. */
 .inline-chat-attach-error {
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--danger);
 }
 
@@ -274,7 +235,7 @@
   background: transparent;
   color: var(--editor-text);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-sm);
   text-align: left;
   min-width: 0;
 }
@@ -304,7 +265,7 @@
   background: transparent;
   color: var(--editor-text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-md);
   /* A WHOLE number of pixels, not a 1.5 ratio: 13 * 1.5 = 19.5px, and the
      auto-resize effect can only set an integer height, so every line box
      left the content a half pixel taller than the box it sits in. WebKit
@@ -340,18 +301,6 @@
 .inline-chat-send {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 5px 12px;
-  border: none;
-  border-radius: var(--radius-control);
-  background: var(--chrome-primary);
-  color: #fff;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.inline-chat-send:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .inline-chat-messages {
@@ -375,7 +324,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--editor-muted);
 }
 
@@ -394,7 +343,7 @@
   min-width: 0;
   max-height: 8.2em;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--text-md);
   line-height: 1.6;
   color: var(--editor-text);
   -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
@@ -424,15 +373,10 @@
   }
 }
 
-.quick-ask-answer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.quick-ask-expand {
-  flex-shrink: 0;
+.quick-ask-more {
+  margin-top: 4px;
+  margin-left: 0;
+  align-self: flex-start;
 }
 
 .agent-plan-actions {
@@ -442,28 +386,7 @@
 }
 
 .inline-chat-action {
-  padding: 4px 10px;
-  border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
-  background: transparent;
   color: var(--editor-text);
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.inline-chat-action:hover {
-  background: var(--editor-border);
-}
-
-.inline-chat-action-primary {
-  background: var(--chrome-primary);
-  border-color: var(--chrome-primary);
-  color: #fff;
-}
-
-.inline-chat-action-primary:hover {
-  background: var(--chrome-primary);
-  opacity: 0.9;
 }
 
 /* One propose_edit tool call from the agent: what it wants to replace (del)
@@ -474,15 +397,24 @@
 .agent-proposal {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-control);
-  font-size: 12px;
+  font-size: var(--text-sm);
+}
+
+/* Kind of edit on the left, its "+X −Y" size (the diff toggle) on the
+   right. */
+.agent-proposal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .agent-proposal-title {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--editor-muted);
 }
 
@@ -496,7 +428,7 @@
   border-radius: var(--radius-control);
   overflow: hidden;
   font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 
@@ -534,54 +466,44 @@
   color: var(--editor-text);
 }
 
-/* The collapsed default: the document already paints the change itself as
-   red/green marks, so the card leads with just "+X −Y" counts and expands
-   on demand. */
+/* The size chips double as the full diff's toggle - the document already
+   paints the change itself, so the card shows it only on demand. */
 .agent-diff-summary {
+  align-self: center;
   display: flex;
   align-items: center;
-  gap: 6px;
-  align-self: flex-start;
+  gap: 4px;
+  flex-shrink: 0;
   border: none;
   background: none;
   padding: 2px 0;
   font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   cursor: pointer;
   color: var(--editor-muted);
-}
-
-.agent-diff-summary:hover .agent-diff-summary-label {
-  color: var(--editor-text);
-  text-decoration: underline;
 }
 
 .agent-diff-chip {
-  padding: 1px 6px;
+  padding: 0 5px;
   border-radius: var(--radius-small);
 }
 
-.agent-diff-summary-label {
-  font-family: var(--font-sans);
-  font-size: 11px;
+.agent-diff-caret {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform 0.15s ease;
 }
 
-/* Expanded diffs fold back down from the button at the bottom. */
-.agent-diff-toggle {
-  align-self: flex-start;
-  margin-top: 2px;
-  border: none;
-  background: none;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-family: inherit;
-  color: var(--editor-muted);
-  cursor: pointer;
+.agent-diff-summary[aria-expanded="true"] .agent-diff-caret {
+  transform: rotate(90deg);
 }
 
-.agent-diff-toggle:hover {
+.agent-diff-summary:hover {
   color: var(--editor-text);
-  text-decoration: underline;
 }
 
 .agent-proposal button {
@@ -592,7 +514,7 @@
    status line; the diff above stays, so scrolling back through a
    conversation still shows what each accepted edit actually did. */
 .agent-proposal-status {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--editor-muted);
 }
 
@@ -616,16 +538,30 @@
 
 .agent-proposal-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
-/* Shown below the turn list only while more than one proposal is pending -
-   the per-card buttons stay the primary path, this is the "and the rest"
-   shortcut for a reply that produced several edits at once. */
-.agent-proposal-bulk {
-  display: flex;
-  gap: 6px;
-  padding-top: 2px;
+/* Secondary, text-only controls at the end of a card's action row. */
+.agent-proposal-link {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--editor-muted);
+  cursor: pointer;
+}
+
+.agent-proposal-link:hover,
+.agent-proposal-link[aria-expanded="true"] {
+  color: var(--editor-text);
+}
+
+.agent-proposal-link:hover {
+  text-decoration: underline;
 }
 
 /* Pinned above the composer whenever anything is undecided. The cards
@@ -634,23 +570,30 @@
    get forgotten. */
 .inline-chat-pending-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 5px 8px;
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   color: var(--editor-text);
   background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
 }
 
+/* The buttons drop to a second line before the label gets squeezed into
+   a word per line (longer languages, a narrow panel). */
 .inline-chat-pending-count {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 10em;
 }
 
 .inline-chat-pending-actions {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.inline-chat-pending-actions .inline-chat-action {
+  padding: 2px 8px;
+  font-size: var(--text-sm);
 }
 
 /* Quick Ask's review-one-at-a-time bar (QuickAskPendingBar.tsx) - the ONE
@@ -662,7 +605,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 5px 8px;
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   color: var(--editor-text);
   background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
 }
@@ -676,23 +619,8 @@
 
 .quick-ask-pending-nav-button {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--editor-muted);
-  font-size: 13px;
+  font-size: var(--text-md);
   line-height: 1;
-  cursor: pointer;
-}
-
-.quick-ask-pending-nav-button:hover {
-  background: var(--sidebar-hover);
-  color: var(--editor-text);
 }
 
 .quick-ask-pending-position {
@@ -737,25 +665,12 @@
   top: calc(100% + 4px);
   right: 0;
   z-index: 10;
-  padding: 3px;
   white-space: nowrap;
 }
 
 .quick-ask-split-menu-item {
   display: block;
   width: 100%;
-  padding: 5px 10px;
-  border: none;
-  background: none;
-  border-radius: var(--radius-small);
-  font-size: 12px;
-  text-align: left;
-  color: var(--editor-text);
-  cursor: pointer;
-}
-
-.quick-ask-split-menu-item:hover {
-  background: var(--sidebar-hover);
 }
 
 /* Busy indicator: no token streaming (the reply arrives all at once), so
@@ -765,7 +680,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--editor-muted);
 }
 
@@ -938,4 +853,83 @@
 
 .inline-chat :is(.agent-message, .quick-ask-summary) .agent-markdown h3 {
   font-size: 1.08em;
+}
+
+/* Proposal card: the model's one-line reason, and the per-sentence choice
+   list (ChatMessages' ProposalCard). */
+.agent-proposal-reason {
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--editor-text);
+}
+
+.agent-proposal-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-proposal-picker-list label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.agent-proposal-picker-list input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.agent-proposal-picker-before {
+  display: block;
+  color: var(--editor-muted);
+  text-decoration-color: color-mix(in srgb, #e5534b 70%, transparent);
+}
+
+.agent-proposal-picker-after {
+  display: block;
+  text-decoration: none;
+  background: color-mix(in srgb, #2ea043 14%, transparent);
+  border-radius: var(--radius-small);
+}
+
+/* add_comment: feedback pinned to a passage (ChatMessages). */
+.agent-comment {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--editor-border);
+  border-left: 3px solid var(--editor-accent);
+  border-radius: var(--radius-control);
+}
+
+.agent-comment-quote {
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: var(--text-sm);
+  color: var(--editor-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.agent-comment-text {
+  font-size: var(--text-md);
+  margin-bottom: 6px;
+}
+
+.agent-error-explanation {
+  font-weight: 600;
+}
+
+.agent-error-detail {
+  font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, monospace);
+  font-size: var(--text-xs);
+  color: var(--editor-muted);
 }

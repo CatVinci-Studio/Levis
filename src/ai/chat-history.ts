@@ -21,7 +21,7 @@ export interface ChatHistoryEntry {
 }
 
 const STORAGE_KEY = "levis-chat-history";
-const MAX_ENTRIES = 30;
+const MAX_ENTRIES = 60;
 const MAX_TITLE_CHARS = 60;
 
 const history = createPersistedList<ChatHistoryEntry>(STORAGE_KEY, {

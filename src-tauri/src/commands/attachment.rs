@@ -394,16 +394,15 @@ fn extract(path: &Path, bytes: u64) -> Result<ChatAttachment, String> {
     Ok(ChatAttachment::text(name, text))
 }
 
-/// Turns a path into an attachment. Separate from the picker so getting hold
-/// of the file and reading it are independent: a path dragged onto the
-/// composer, pasted, or already known to the app goes through exactly the
-/// same conversion, rather than needing a second copy of it.
+/// Turns a path the user picked into an attachment.
 ///
 /// Errors are messages meant for the user - a silent failure here is
 /// indistinguishable from a dead button, which is exactly how the old
 /// text-only version behaved on a PDF.
-#[tauri::command]
-pub async fn read_attachment_file(path: String) -> Result<ChatAttachment, String> {
+///
+/// Not a command: exposed, it let the webview read any path on disk, while
+/// the only caller is the picker below, reading a path the user just chose.
+async fn read_attachment_file(path: String) -> Result<ChatAttachment, String> {
     // One blocking hop for the whole read: the size check is a `stat`, which
     // is not free on a network volume or a sleeping external disk, and doing
     // it out here parked an async worker thread for it.
@@ -426,11 +425,11 @@ pub async fn read_attachment_file(path: String) -> Result<ChatAttachment, String
 /// The chat composer's "+" button: pick a file, then read it. Returns None
 /// only when the picker was cancelled.
 #[tauri::command]
-pub async fn pick_attachment_file(app: tauri::AppHandle) -> Result<Option<ChatAttachment>, String> {
-    use tauri_plugin_dialog::DialogExt;
+pub async fn pick_attachment_file(
+    window: tauri::WebviewWindow,
+) -> Result<Option<ChatAttachment>, String> {
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
+        super::fs::window_file_dialog(&window)
             .add_filter("Documents, spreadsheets and images", SUPPORTED_EXTENSIONS)
             .blocking_pick_file()
     })

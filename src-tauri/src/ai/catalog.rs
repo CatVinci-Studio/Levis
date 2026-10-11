@@ -1,6 +1,7 @@
 //! The provider catalog: one entry per supported AI service, as data instead
-//! of scattered `match provider.as_str()` special cases. `ai::route::resolve`
-//! turns an entry plus stored credentials into a concrete request target.
+//! of scattered `match provider.as_str()` special cases. `ai::route`'s
+//! resolve_* functions turn an entry plus stored credentials into a concrete
+//! request target.
 //!
 //! Mirrored on the TS side by `src/ai/provider-catalog.ts` (kept in sync by
 //! hand - comments on both sides point here). Labels are brand names, shared
@@ -52,11 +53,11 @@ pub struct ProviderCatalogEntry {
     /// and relies solely on `known_models` instead of also offering a button
     /// that can only ever fail.
     pub models_listable: bool,
-    /// A small pre-supplied set of current model ids, same idea as pi.dev's
-    /// bundled models.json: seeds the picker with usable choices before (or
-    /// instead of, when `models_listable` is false) any live fetch, so the
-    /// dropdown is never just empty for a provider whose API can't list its
-    /// own models.
+    /// The model ids offered before the user fetches the provider's own list:
+    /// just the two defaults (agent first). Everything newer comes from the
+    /// live listing (Settings' "Fetch models", tidied by aicompat::models),
+    /// so this list doesn't need chasing every release - only the defaults
+    /// do, and scripts/sync-models.mjs checks those weekly.
     pub known_models: &'static [&'static str],
 }
 
@@ -72,7 +73,7 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"],
+        known_models: &["gpt-6.1-sol", "gpt-6-luna"],
     },
     ProviderCatalogEntry {
         id: "anthropic",
@@ -80,17 +81,15 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "anthropic-messages",
         auth: &["oauth", "api_key"],
         base_url: None,
-        default_model: Some("claude-haiku-4-5-20251001"),
-        agent_default_model: Some("claude-sonnet-5"),
+        default_model: Some("claude-haiku-5-5"),
+        // Thinks by default; agent.rs never replays thinking blocks, which
+        // the preserved-thinking check always accepts (dropping all of them
+        // is a "leading run"), so newer accounts can't hit its 400.
+        agent_default_model: Some("claude-sonnet-5-5"),
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &[
-            "claude-fable-5",
-            "claude-opus-4-8",
-            "claude-sonnet-5",
-            "claude-haiku-4-5-20251001",
-        ],
+        known_models: &["claude-sonnet-5-5", "claude-haiku-5-5"],
     },
     ProviderCatalogEntry {
         id: "google",
@@ -98,20 +97,14 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://generativelanguage.googleapis.com/v1beta/openai"),
-        default_model: Some("gemini-3.1-flash-lite"),
-        agent_default_model: Some("gemini-3.5-flash"),
+        default_model: Some("gemini-3.5-flash-lite"),
+        agent_default_model: Some("gemini-3.8-flash"),
         key_optional: false,
         supports_vision: true,
         // Gemini's OpenAI compatibility API now implements GET /models with
         // the standard OpenAI list shape, so the generic model fetch works.
         models_listable: true,
-        known_models: &[
-            "gemini-3.5-flash",
-            "gemini-3.1-pro-preview",
-            "gemini-3.1-flash-lite",
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
-        ],
+        known_models: &["gemini-3.8-flash", "gemini-3.5-flash-lite"],
     },
     ProviderCatalogEntry {
         id: "deepseek",
@@ -119,12 +112,12 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://api.deepseek.com/v1"),
-        default_model: Some("deepseek-v4-flash"),
+        default_model: Some("deepseek-flash"),
         agent_default_model: Some("deepseek-v4-pro"),
         key_optional: false,
         supports_vision: false,
         models_listable: true,
-        known_models: &["deepseek-v4-pro", "deepseek-v4-flash"],
+        known_models: &["deepseek-v4-pro", "deepseek-flash"],
     },
     ProviderCatalogEntry {
         id: "xai",
@@ -132,12 +125,12 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://api.x.ai/v1"),
-        default_model: Some("grok-4.5"),
-        agent_default_model: Some("grok-4.5"),
+        default_model: Some("grok-4.3"),
+        agent_default_model: Some("grok-4.7"),
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &["grok-4.5", "grok-4.5-latest"],
+        known_models: &["grok-4.7", "grok-4.3"],
     },
     ProviderCatalogEntry {
         id: "mistral",
@@ -150,11 +143,7 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &[
-            "mistral-large-latest",
-            "mistral-small-latest",
-            "magistral-medium-latest",
-        ],
+        known_models: &["mistral-large-latest", "mistral-small-latest"],
     },
     ProviderCatalogEntry {
         id: "groq",
@@ -162,17 +151,12 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://api.groq.com/openai/v1"),
-        default_model: Some("llama-3.1-8b-instant"),
+        default_model: Some("openai/gpt-oss-20b"),
         agent_default_model: Some("openai/gpt-oss-120b"),
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &[
-            "openai/gpt-oss-120b",
-            "openai/gpt-oss-20b",
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-        ],
+        known_models: &["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
     },
     ProviderCatalogEntry {
         id: "openrouter",
@@ -196,12 +180,12 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://api.moonshot.cn/v1"),
-        default_model: Some("kimi-k2.5"),
+        default_model: Some("kimi-k2.6"),
         agent_default_model: Some("kimi-k3"),
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &["kimi-k3", "kimi-k2.7-code", "kimi-k2.6", "kimi-k2.5"],
+        known_models: &["kimi-k3", "kimi-k2.6"],
     },
     ProviderCatalogEntry {
         id: "zhipu",
@@ -209,12 +193,12 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://open.bigmodel.cn/api/paas/v4"),
-        default_model: Some("glm-4-flash"),
-        agent_default_model: Some("glm-5.2"),
+        default_model: Some("glm-4.7-flash"),
+        agent_default_model: Some("glm-5.3"),
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &["glm-5.2", "glm-5.1", "glm-5", "glm-4.7", "glm-4-flash"],
+        known_models: &["glm-5.3", "glm-4.7-flash"],
     },
     ProviderCatalogEntry {
         id: "qwen",
@@ -222,12 +206,12 @@ pub const PROVIDER_CATALOG: &[ProviderCatalogEntry] = &[
         dialect: "openai-chat-completions",
         auth: &["api_key"],
         base_url: Some("https://dashscope.aliyuncs.com/compatible-mode/v1"),
-        default_model: Some("qwen-flash"),
+        default_model: Some("qwen3.8-flash"),
         agent_default_model: Some("qwen3.7-plus"),
         key_optional: false,
         supports_vision: true,
         models_listable: true,
-        known_models: &["qwen3.7-max", "qwen3.7-plus", "qwen-plus", "qwen-flash"],
+        known_models: &["qwen3.7-plus", "qwen3.8-flash"],
     },
     ProviderCatalogEntry {
         id: "ollama",
@@ -267,4 +251,57 @@ pub fn find(id: &str) -> Option<&'static ProviderCatalogEntry> {
 #[tauri::command]
 pub fn list_providers() -> Vec<ProviderCatalogEntry> {
     PROVIDER_CATALOG.to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// scripts/sync-models.mjs's reviewed copy of what each provider serves,
+    /// per models.dev. Test-only - nothing in the app reads it.
+    const SNAPSHOT: &str = include_str!("../../../src/ai/models-snapshot.json");
+
+    /// Every model the catalog pins must still exist upstream and not be
+    /// deprecated - the check that would have caught Groq's and Kimi's
+    /// defaults being shut down months before anyone noticed. A failure
+    /// here after a snapshot refresh means: re-pick that provider's models.
+    #[test]
+    fn pinned_models_are_current_per_models_dev() {
+        let snapshot: serde_json::Value = serde_json::from_str(SNAPSHOT).unwrap();
+        let unmapped: Vec<&str> = snapshot["unmapped"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        for entry in PROVIDER_CATALOG {
+            if unmapped.contains(&entry.id) {
+                continue;
+            }
+            let models = &snapshot["providers"][entry.id]["models"];
+            assert!(
+                models.is_object(),
+                "`{}` is in neither `providers` nor `unmapped` of models-snapshot.json - map it in scripts/sync-models.mjs",
+                entry.id
+            );
+            let pinned = entry
+                .default_model
+                .iter()
+                .chain(entry.agent_default_model.iter())
+                .chain(entry.known_models.iter());
+            for model in pinned {
+                let found = &models[*model];
+                assert!(
+                    found.is_object(),
+                    "{}/{model} is no longer listed by models.dev",
+                    entry.id
+                );
+                assert_ne!(
+                    found["status"], "deprecated",
+                    "{}/{model} is deprecated upstream",
+                    entry.id
+                );
+            }
+        }
+    }
 }

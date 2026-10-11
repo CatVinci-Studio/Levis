@@ -49,6 +49,7 @@ import { pasteMarkdownSourcePlugin } from "./paste-markdown-plugin";
 import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
 import { createImagePlugin } from "./image-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
+import { zenFocusPlugin } from "./zen-focus-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
 import { buildCompletionStyle } from "../ai/completion-style";
@@ -195,6 +196,7 @@ export function withEditorExtensions(
       .use(escapeTrailingBlockPlugin)
       .use(codeBlockIndentPlugin)
       .use(findReplacePlugin)
+      .use(zenFocusPlugin)
       .use(
         createTypewriterPlugin({
           enabled: () => settings.current.typewriterMode,
@@ -214,6 +216,10 @@ export function withEditorExtensions(
           model: () =>
             settings.current.writingModels[settings.current.aiProvider] || null,
           style: () => buildCompletionStyle(settings.current.completionTone),
+          project: () => ({
+            docPath: docPath.current,
+            workspaceRoot: settings.current.agentWorkspaceRoot || null,
+          }),
         }),
       )
       .use(

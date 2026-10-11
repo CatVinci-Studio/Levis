@@ -26,7 +26,7 @@ import type { Settings, ImageNamingMode } from "../settings/SettingsContext";
  *   asset: URL.
  */
 
-function resolveImageSrc(src: string, docPath: string | null): string {
+export function resolveImageSrc(src: string, docPath: string | null): string {
   // A Windows drive path ("C:\..." / "C:/...") would otherwise read as a
   // single-letter URL scheme to the test below.
   if (/^[a-z]:[\\/]/i.test(src)) return convertFileSrc(src);

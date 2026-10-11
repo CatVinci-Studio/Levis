@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
-import { ai, IpcError } from "../../ipc";
+import { ai } from "../../ipc";
+import { errorText } from "../../utils/error-text";
+import { basename } from "../../utils/path";
 import { useActiveProvider } from "../provider-catalog";
 import type { AgentMode } from "../../settings/SettingsContext";
 import {
@@ -44,6 +46,13 @@ interface ChatComposerProps {
   busy: boolean;
   labels: ChatComposerLabels;
   defaultMode: AgentMode;
+  /** Whether Plan is offered. Quick Ask, a command bar for changing the
+   *  text in front of you, leaves it out - planning belongs in the full
+   *  conversation. */
+  allowPlan?: boolean;
+  /** Quick Ask: no attach or web-search buttons - those stay in the panel
+   *  (an @-mention still attaches a project file). */
+  compact?: boolean;
   defaultWebSearch: boolean;
   /** The resolved message (skill expanded) plus any attachments - InlineChat
    *  owns tagging it with selected-text/chatInfo and actually sending it. */
@@ -71,6 +80,8 @@ export function ChatComposer({
   busy,
   labels,
   defaultMode,
+  allowPlan = true,
+  compact = false,
   defaultWebSearch,
   onSend,
   onStop,
@@ -158,8 +169,57 @@ export function ChatComposer({
       }
       setAttachments((prev) => [...prev, file]);
     } catch (err) {
-      setAttachError(err instanceof IpcError ? String(err.cause) : String(err));
+      setAttachError(errorText(err));
     }
+  }
+
+  // @-mention picker: "@" plus a partial path at the end of the input lists
+  // matching project files (ai::project); picking one attaches its text as a
+  // chip and removes the "@query" from the message. The list is fetched on
+  // the first "@", not on mount - most messages never mention a file.
+  const mentionQuery = /(?:^|\s)@([^\s@]*)$/.exec(input);
+  const [projectFiles, setProjectFiles] = useState<string[] | null>(null);
+  useEffect(() => {
+    setProjectFiles(null);
+  }, [docPath, workspaceRoot]);
+  useEffect(() => {
+    if (!mentionQuery || projectFiles !== null) return;
+    let cancelled = false;
+    ai.listProjectFiles(docPath, workspaceRoot)
+      .then((files) => !cancelled && setProjectFiles(files ?? []))
+      .catch(() => !cancelled && setProjectFiles([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [mentionQuery, projectFiles, docPath, workspaceRoot]);
+  const matchingFiles = mentionQuery
+    ? (projectFiles ?? [])
+        .filter((path) =>
+          path.toLowerCase().includes(mentionQuery[1].toLowerCase()),
+        )
+        .slice(0, 8)
+    : [];
+  const [fileIndex, setFileIndex] = useState(0);
+  const activeFileIndex = Math.min(
+    fileIndex,
+    Math.max(0, matchingFiles.length - 1),
+  );
+
+  async function pickFile(path: string) {
+    setInput((prev) => prev.replace(/(^|\s)@[^\s@]*$/, "$1"));
+    setFileIndex(0);
+    setAttachError(null);
+    try {
+      const content = await ai.readProjectFile(docPath, workspaceRoot, path);
+      setAttachments((prev) =>
+        prev.some((f) => f.kind === "text" && f.name === path)
+          ? prev
+          : [...prev, { kind: "text", name: path, content, truncated: false }],
+      );
+    } catch (err) {
+      setAttachError(errorText(err));
+    }
+    inputRef.current?.focus();
   }
 
   // Skill picker: open while the input is a single /token still being typed
@@ -197,6 +257,22 @@ export function ChatComposer({
     // the confirming keydown just after compositionend with isComposing
     // already false but the legacy keyCode still 229, so check both.
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (matchingFiles.length > 0) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const delta = e.key === "ArrowDown" ? 1 : -1;
+        setFileIndex(
+          (activeFileIndex + delta + matchingFiles.length) %
+            matchingFiles.length,
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        void pickFile(matchingFiles[activeFileIndex]);
+        return;
+      }
+    }
     // While the skill picker is open, the navigation keys drive it instead
     // of the chat (Enter completes the skill name rather than sending).
     if (matchingSkills.length > 0) {
@@ -224,6 +300,31 @@ export function ChatComposer({
 
   return (
     <>
+      {matchingFiles.length > 0 && (
+        <div className="inline-chat-skill-menu" role="listbox">
+          {matchingFiles.map((path, i) => (
+            <button
+              key={path}
+              role="option"
+              aria-selected={i === activeFileIndex}
+              className={`inline-chat-skill-item ${i === activeFileIndex ? "inline-chat-skill-item-active" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                void pickFile(path);
+              }}
+            >
+              <span className="inline-chat-skill-name">@{basename(path)}</span>
+              {/* The folder, when there is one - for a file at the project
+                  root the name above already says it all. */}
+              {path !== basename(path) && (
+                <span className="inline-chat-skill-preview">
+                  {path.slice(0, path.length - basename(path).length)}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
       {matchingSkills.length > 0 && (
         <div className="inline-chat-skill-menu">
           {matchingSkills.map((skill, i) => (
@@ -303,26 +404,30 @@ export function ChatComposer({
           >
             <option value="ask">{labels.modeAsk}</option>
             <option value="edit">{labels.modeEdit}</option>
-            <option value="plan">{labels.modePlan}</option>
+            {allowPlan && <option value="plan">{labels.modePlan}</option>}
           </select>
-          <button
-            className="inline-chat-attach"
-            title={labels.attachFile}
-            aria-label={labels.attachFile}
-            onClick={attachFile}
-          >
-            <PlusIcon />
-          </button>
-          <button
-            type="button"
-            className={`inline-chat-web-search${webSearch ? " is-active" : ""}`}
-            title={labels.webSearch}
-            aria-label={labels.webSearch}
-            aria-pressed={webSearch}
-            onClick={() => setWebSearch((value) => !value)}
-          >
-            <SearchIcon />
-          </button>
+          {!compact && (
+            <>
+              <button
+                className="inline-chat-attach"
+                title={labels.attachFile}
+                aria-label={labels.attachFile}
+                onClick={attachFile}
+              >
+                <PlusIcon />
+              </button>
+              <button
+                type="button"
+                className={`inline-chat-web-search${webSearch ? " is-active" : ""}`}
+                title={labels.webSearch}
+                aria-label={labels.webSearch}
+                aria-pressed={webSearch}
+                onClick={() => setWebSearch((value) => !value)}
+              >
+                <SearchIcon />
+              </button>
+            </>
+          )}
           {selectedText && !selectionDropped && (
             <span className="inline-chat-selection-chip">
               {labels.selectedChars.replace(

@@ -24,9 +24,13 @@ export function comboFromEvent(e: KeyboardEvent): string | null {
 }
 
 /// Whether a captured combo is safe to bind - requires at least one
-/// modifier so it can't shadow normal typing.
+/// modifier so it can't shadow normal typing. Function keys type nothing,
+/// so they bind on their own (Typora's F8/F9 habits).
 export function isBindableCombo(combo: string): boolean {
-  return /^(?:mod|ctrl|meta|alt)\+/.test(combo);
+  return (
+    /^(?:mod|ctrl|meta|alt)\+/.test(combo) ||
+    /(?:^|\+)f(?:[1-9]|1[0-2])$/.test(combo)
+  );
 }
 
 const KEY_LABELS: Record<string, string> = {
@@ -86,6 +90,14 @@ const RESERVED_COMBOS = new Set([
   "mod+shift+arrowright",
   "mod+shift+arrowup",
   "mod+shift+arrowdown",
+  // Fixed AI keys: accept a pending edit, apply a grammar fix, cycle
+  // completion candidates (pending-edit, grammar-check, ghost-text plugins).
+  "mod+enter",
+  "alt+enter",
+  "alt+[",
+  "alt+]",
+  // Fullscreen by convention (and the app's own handler on Windows).
+  "f11",
 ]);
 export function isReservedCombo(combo: string): boolean {
   return (

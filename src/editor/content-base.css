@@ -116,7 +116,7 @@
   .milkdown pre {
     font-size: 0.9em;
     line-height: 1.55;
-    padding: 0.95em 1.1em;
+    padding: 0.75em 1em;
     margin: 0;
     overflow-x: auto;
   }
@@ -159,16 +159,28 @@
     width: 100%;
   }
 
+  /* Cells sit tighter than prose: the 1.8 body line height and roomy
+     padding made even one-line rows tall (#15). */
   .milkdown th,
   .milkdown td {
-    padding: 0.5em 0.8em;
+    padding: 0.35em 0.75em;
+    line-height: 1.6;
     border: 1px solid var(--editor-border);
   }
 
   /* Not `thead th`: Milkdown keeps the header row in <tbody> (see
-     settings/typora-compat.ts). */
+     settings/typora-compat.ts). Headers don't wrap, and body cells keep a
+     small floor: with content-sized columns, CJK text - which may break
+     between any two characters - otherwise let the browser squeeze a short
+     column down to one character ("序/号"), wrapping every two-character
+     word (#15). */
   .milkdown th {
     text-align: left;
+    white-space: nowrap;
+  }
+
+  .milkdown td {
+    min-width: 3.5em;
   }
 
   /* Levis's own ornaments - see the header comment. */
@@ -194,7 +206,7 @@
   }
 
   :root:not([data-user-theme]) .milkdown blockquote {
-    padding: 0.75em 1.1em;
+    padding: 0.55em 1em;
     border-left: 3px solid var(--editor-quote-border);
     border-radius: 0 var(--md-radius) var(--md-radius) 0;
     background: var(--editor-code-bg);

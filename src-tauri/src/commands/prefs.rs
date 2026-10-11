@@ -41,7 +41,7 @@ fn write_pref(app: &AppHandle, key: &str, value: serde_json::Value) -> Result<()
 }
 
 /// Internal helper for lib.rs's window-spawning decisions. Defaults to
-/// "window" (today's only behavior) on any missing/unreadable/malformed
+/// "window" (the default) on any missing/unreadable/malformed
 /// file, same "safe default" precedent as commands::cli.
 pub fn read_new_document_mode(app: &AppHandle) -> String {
     match read_prefs(app)
@@ -51,11 +51,6 @@ pub fn read_new_document_mode(app: &AppHandle) -> String {
         Some("tab") => "tab".to_string(),
         _ => "window".to_string(),
     }
-}
-
-#[tauri::command]
-pub fn get_new_document_mode(app: AppHandle) -> String {
-    read_new_document_mode(&app)
 }
 
 #[tauri::command]
@@ -71,11 +66,6 @@ pub fn read_restore_session_on_startup(app: &AppHandle) -> bool {
         .get("restore_session_on_startup")
         .and_then(|v| v.as_bool())
         .unwrap_or(true)
-}
-
-#[tauri::command]
-pub fn get_restore_session_on_startup(app: AppHandle) -> bool {
-    read_restore_session_on_startup(&app)
 }
 
 #[tauri::command]

@@ -14,7 +14,7 @@ use tauri::{AppHandle, Manager};
 use tokio::fs;
 
 /// Tab ids are frontend-generated UUIDs (crypto.randomUUID()), but this
-/// becomes a path component, so it's validated the same way theme ids are.
+/// becomes a path component, so only ASCII letters, digits and '-' pass.
 fn valid_component(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }

@@ -1,9 +1,10 @@
+import { errorText } from "./utils/error-text";
 import { ask, message } from "@tauri-apps/plugin-dialog";
 import type { Strings } from "./i18n/strings";
 import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
-import { isMacPlatform } from "./utils/platform";
+import { isMacPlatform, isWindowsPlatform } from "./utils/platform";
 import {
   MAC_PAGE,
   WINDOWS_PAGE,
@@ -76,8 +77,8 @@ function collectInlinedCss(): string {
 // Editing affordances that live in the editor DOM but are not document
 // content: heading "#" markers, the code-block language picker, table
 // insert buttons, delimiters shown around the caret, AI previews. Kept in
-// step with the @media print list in App.css (the Windows/Linux PDF path
-// prints the live DOM, so it can only hide them).
+// step with the @media print list in App.css, which hides the same chrome
+// when the webview's PDF renderer applies print media.
 const EDITOR_CHROME_SELECTOR = [
   ".heading-marker",
   ".enclosure-delimiter",
@@ -253,8 +254,7 @@ function pdfLayoutCss(page: PageGeometry | null): string {
  *  null where it isn't known (see pdfLayoutCss). */
 function platformPage(): PageGeometry | null {
   if (isMac) return MAC_PAGE;
-  if (/^win/i.test(navigator.platform) || /windows/i.test(navigator.userAgent))
-    return WINDOWS_PAGE;
+  if (isWindowsPlatform()) return WINDOWS_PAGE;
   return null;
 }
 
@@ -320,7 +320,7 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     });
     void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.pdfFailed} ${String(err)}`, {
+    await message(`${t.pdfFailed} ${errorText(err)}`, {
       title: t.exportFailedTitle,
       kind: "error",
     });
@@ -392,7 +392,7 @@ export async function exportViaPandoc(
     });
     void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.exportFailed} ${String(err)}`, {
+    await message(`${t.exportFailed} ${errorText(err)}`, {
       title: t.exportFailedTitle,
       kind: "error",
     });

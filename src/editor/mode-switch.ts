@@ -153,7 +153,10 @@ export function applyEditorCaret(
 
 /** The caret's y inside a textarea's content (layout px), via a mirror
  *  element - a textarea has no API for where a character sits. */
-function textareaCaretTop(textarea: HTMLTextAreaElement, offset: number) {
+export function textareaCaretTop(
+  textarea: HTMLTextAreaElement,
+  offset: number,
+) {
   const style = getComputedStyle(textarea);
   const mirror = document.createElement("div");
   for (const prop of [
@@ -193,7 +196,7 @@ function textareaCaretTop(textarea: HTMLTextAreaElement, offset: number) {
   return top;
 }
 
-function zoomOf(el: Element): number {
+export function zoomOf(el: Element): number {
   return parseFloat(getComputedStyle(el).zoom) || 1;
 }
 
@@ -221,4 +224,11 @@ export function applyTextareaCaret(
   const zoom = zoomOf(textarea);
   const target = caret.viewportY ?? textarea.getBoundingClientRect().height / 3;
   textarea.scrollTop = textareaCaretTop(textarea, offset) - target / zoom;
+}
+
+/** Typewriter mode in a source textarea: scroll so the caret's line sits in
+ *  the middle (the rich editor's typewriter-plugin does the same). */
+export function centerTextareaCaret(textarea: HTMLTextAreaElement): void {
+  const top = textareaCaretTop(textarea, textarea.selectionStart);
+  textarea.scrollTop = top - textarea.clientHeight / 2;
 }

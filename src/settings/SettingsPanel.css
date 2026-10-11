@@ -2,7 +2,9 @@
   position: fixed;
   inset: 0;
   background: var(--overlay-bg);
-  z-index: 100;
+  /* Modal tier: above the find bar, popovers and toasts (200-300), which
+     otherwise drew over the dimmed backdrop and still took clicks. */
+  z-index: 400;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -68,7 +70,7 @@
   width: 100%;
   text-align: left;
   padding: 9px 12px;
-  font-size: 13px;
+  font-size: var(--text-md);
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
@@ -114,7 +116,7 @@
 .settings-advanced > summary {
   padding: 12px 16px;
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -142,10 +144,10 @@
   padding: 3px 8px;
   border: 1px solid
     color-mix(in srgb, var(--editor-accent) 45%, var(--border-color));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--editor-accent) 9%, transparent);
   color: var(--editor-text);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .settings-capability-list span.is-muted {
@@ -162,7 +164,7 @@
   margin: 0 0 7px;
   padding-left: 4px;
   color: var(--editor-muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   line-height: 1.4;
   letter-spacing: 0.05em;
@@ -191,7 +193,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 12px 0;
-  font-size: 13.5px;
+  font-size: var(--text-md);
 }
 
 .settings-row > *:first-child {
@@ -205,12 +207,12 @@
 
 .settings-row-label {
   color: var(--editor-text);
-  font-size: 13.5px;
+  font-size: var(--text-md);
 }
 
 .settings-row-hint {
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   margin-top: 3px;
   max-width: 380px;
@@ -228,7 +230,7 @@
   margin: 0;
   position: relative;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--editor-muted) 38%, var(--bg));
   cursor: pointer;
   transition: background 160ms ease;
@@ -282,7 +284,7 @@ button.settings-inline-button {
 .settings-workspace-root {
   margin-top: 6px;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--editor-text);
   overflow-wrap: anywhere;
 }
@@ -302,7 +304,7 @@ button.settings-inline-button {
   min-width: 120px;
   text-align: center;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .shortcut-capture-active {
@@ -336,10 +338,10 @@ button.settings-inline-button {
   padding: 8px 10px;
   margin: 8px 0;
   border-left: 2px solid var(--danger, #c1495a);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
   background: color-mix(in srgb, #c1495a 10%, transparent);
   color: var(--danger, #c1495a);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   word-break: break-word;
 }
 
@@ -347,10 +349,10 @@ button.settings-inline-button {
   padding: 8px 10px;
   margin: 8px 0;
   border-left: 2px solid #5f8b4c;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
   background: color-mix(in srgb, #5f8b4c 10%, transparent);
   color: #5f8b4c;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 
 /* Inline error/success banners sit between card rows; they carry their own
@@ -367,26 +369,6 @@ button.settings-inline-button {
 .settings-select {
   min-width: 0;
   max-width: 100%;
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: var(--bg);
-  color: var(--editor-text);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-control);
-  padding: 5px 26px 5px 10px;
-  font-size: 13px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.8L5 6.8L8 3.8' stroke='%23888888' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 10px 10px;
-}
-
-.settings-select:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--editor-muted) 45%,
-    var(--border-color)
-  );
 }
 
 .settings-text-input {
@@ -397,7 +379,7 @@ button.settings-inline-button {
   border-radius: var(--radius-control);
   background: var(--bg);
   color: var(--editor-text);
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .settings-text-input:focus {
@@ -436,7 +418,7 @@ button.settings-inline-button {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--text-md);
   cursor: pointer;
   text-align: left;
 }
@@ -455,7 +437,7 @@ button.settings-inline-button {
   flex: 1;
   min-width: 0;
   color: var(--editor-muted);
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .combobox-caret {
@@ -488,7 +470,7 @@ button.settings-inline-button {
   border: none;
   border-bottom: 1px solid var(--border-color);
   padding: 10px 12px;
-  font-size: 13.5px;
+  font-size: var(--text-md);
   background: transparent;
   color: var(--editor-text);
 }
@@ -514,7 +496,7 @@ button.settings-inline-button {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--text-md);
   text-align: left;
   cursor: pointer;
 }
@@ -535,13 +517,13 @@ button.settings-inline-button {
 
 .combobox-empty {
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--text-md);
   color: var(--editor-muted);
 }
 
 .status-pill {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--editor-muted);
   white-space: nowrap;
 }
@@ -594,7 +576,7 @@ button.settings-inline-button {
   border-radius: var(--radius-small);
   background: transparent;
   color: var(--editor-muted);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 
@@ -619,8 +601,20 @@ button.settings-inline-button {
   padding: 12px 0;
 }
 
+/* Label on top, then the controls, then their note - for a field whose
+   controls (a model picker and its fetch button) need the row's width. */
+.settings-field-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.settings-field-stacked > .settings-row-hint {
+  margin-top: -2px;
+}
+
 .settings-field-label {
-  font-size: 13.5px;
+  font-size: var(--text-md);
   color: var(--editor-text);
   flex-shrink: 0;
 }
@@ -692,7 +686,7 @@ button.settings-inline-button {
   align-items: baseline;
   gap: 8px;
   padding: 3px 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   min-width: 0;
 }
 
@@ -700,7 +694,7 @@ button.settings-inline-button {
   flex-shrink: 0;
   font-weight: 600;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11.5px;
+  font-size: var(--text-sm);
 }
 
 .settings-skill-desc {
@@ -718,7 +712,7 @@ button.settings-inline-button {
 .settings-textarea {
   resize: vertical;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 /* The agent-workspace explainer needs room to wrap - it's a paragraph, not
@@ -862,7 +856,7 @@ button.settings-inline-button {
   padding: 7px 10px;
   border-radius: var(--radius-control);
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -903,7 +897,7 @@ button.settings-inline-button {
   background: var(--bg);
   color: var(--editor-text);
   font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 1.5;
   tab-size: 2;
 }

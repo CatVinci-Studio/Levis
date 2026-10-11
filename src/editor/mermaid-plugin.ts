@@ -16,7 +16,7 @@ const DEBOUNCE_MS = 500;
 type MermaidApi = (typeof import("mermaid"))["default"];
 let mermaidPromise: Promise<MermaidApi> | null = null;
 
-function loadMermaid(): Promise<MermaidApi> {
+export function loadMermaid(): Promise<MermaidApi> {
   mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => mermaid);
   return mermaidPromise;
 }
@@ -27,7 +27,7 @@ function loadMermaid(): Promise<MermaidApi> {
 // which shrank their 11px labels to unreadable; at the column's own width
 // they render at their real size. securityLevel "strict" is mermaid's
 // default, stated because the SVG lands in the editor as innerHTML.
-function configureMermaid(mermaid: MermaidApi, width: number): void {
+export function configureMermaid(mermaid: MermaidApi, width: number): void {
   mermaid.initialize({
     startOnLoad: false,
     theme: "neutral",
@@ -97,6 +97,10 @@ export function createMermaidPreviewPlugin(options: {
     // source back until the next debounced render, even though the diagram
     // itself never changed.
     let lastRenders = new Map<string, string>();
+    // The width lastRenders was laid out at: a pass at the same width only
+    // renders sources it hasn't seen, instead of every diagram again 500ms
+    // after each keystroke anywhere in the document.
+    let lastWidth = 0;
 
     function buildDecorations(state: EditorState): RevealState {
       if (!options.enabled()) return emptyReveal;
@@ -110,7 +114,10 @@ export function createMermaidPreviewPlugin(options: {
       touches: (from: number, to: number) => boolean,
     ): Decoration[] {
       const decorations: Decoration[] = [];
+      const seen = new Map<string, number>();
       for (const { from, to, code } of collectMermaidBlocks(state.doc)) {
+        const nth = seen.get(code) ?? 0;
+        seen.set(code, nth + 1);
         const svg = lastRenders.get(code);
         if (!svg) continue;
         if (touches(from, to)) continue; // editing it - keep source visible
@@ -137,8 +144,11 @@ export function createMermaidPreviewPlugin(options: {
             },
             // ProseMirror reuses a widget's DOM while its key is unchanged, so
             // a position-only key kept showing the OLD diagram after its
-            // source was edited in place. The source is part of the key.
-            { side: 1, key: `mermaid-${from}-${hashCode(code)}` },
+            // source was edited in place: the source is part of the key. The
+            // position is not - typing above a diagram moves it, and a key
+            // that moved with it rebuilt the SVG on every keystroke. Which
+            // repeat of an identical source it is tells copies apart.
+            { side: 1, key: `mermaid-${hashCode(code)}-${nth}` },
           ),
         );
       }
@@ -187,11 +197,18 @@ export function createMermaidPreviewPlugin(options: {
           const mermaid = await loadMermaid();
           if (mySeq !== renderSeq) return;
           // The preview box's inner width: the column less its padding.
-          configureMermaid(mermaid, editorView.dom.clientWidth - 40);
+          const width = editorView.dom.clientWidth - 40;
+          configureMermaid(mermaid, width);
+          const reusable = width === lastWidth ? lastRenders : new Map();
 
           const rendered = new Map<string, string>();
           for (const { code } of blocks) {
             if (!code.trim() || rendered.has(code)) continue; // identical diagrams share one render
+            const cached = reusable.get(code);
+            if (cached) {
+              rendered.set(code, cached);
+              continue;
+            }
             try {
               const id = `mermaid-preview-${mySeq}-${rendered.size}`;
               const { svg } = await mermaid.render(id, code);
@@ -203,7 +220,15 @@ export function createMermaidPreviewPlugin(options: {
           }
 
           if (mySeq !== renderSeq) return;
+          // Nothing new rendered and nothing dropped: the decorations
+          // already show exactly this, so skip the rebuild.
+          const unchanged =
+            width === lastWidth &&
+            rendered.size === lastRenders.size &&
+            [...rendered].every(([code, svg]) => lastRenders.get(code) === svg);
           lastRenders = rendered;
+          lastWidth = width;
+          if (unchanged) return;
           editorView.dispatch(
             editorView.state.tr.setMeta(mermaidKey, "rerender"),
           );

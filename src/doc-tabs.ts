@@ -14,8 +14,8 @@ import agentGuideJa from "./help/agent-guide.ja.md?raw";
 // Mirrors the doc ids Rust puts in its Help menu ids (menu.rs
 // HELP_DOC_PREFIX) - they arrive here as the menu-open-help payload.
 // "welcome" isn't a bundled document - it starts the onboarding tour
-// (src/onboarding/) on a practice tab instead, handled entirely in App.tsx's
-// menu-open-help listener, so it never reaches helpDocContent.
+// (src/onboarding/) on a practice tab instead, handled entirely in
+// menu-bridge.ts's menu-open-help listener, so it never reaches helpDocContent.
 export type HelpDoc = "markdown" | "agent";
 
 export interface DocTab {
@@ -32,6 +32,9 @@ export interface DocTab {
   // window focus, dirty tabs get an overwrite prompt on save.
   diskMtime: number | null;
   sourceMode: boolean;
+  /** Source mode with a rendered preview beside it (editor/SplitView.tsx).
+   *  Only meaningful while sourceMode is on. */
+  splitView?: boolean;
   reloadKey: number;
   // A bundled Help menu document: still a pathless draft (edits never touch
   // disk; Save goes through Save As), but titled after itself instead of

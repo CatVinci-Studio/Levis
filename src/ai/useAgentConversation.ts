@@ -1,3 +1,4 @@
+import { errorText } from "../utils/error-text";
 import { useEffect, useRef, useState } from "react";
 import { keepCancelledTurns } from "./cancelled-turns";
 import { conversationTitle, saveConversation } from "./chat-history";
@@ -11,6 +12,8 @@ import type { AgentMode } from "../settings/SettingsContext";
 export interface AgentRequestOptions {
   mode: AgentMode;
   webSearch: boolean;
+  /** See ai.agentMessage's focusHeading. */
+  focusHeading?: string | null;
 }
 
 /** What has streamed in so far for the in-flight exchange: completed
@@ -172,6 +175,7 @@ export function useAgentConversation(
             images,
             webSearch: options.webSearch,
             mode: options.mode,
+            focusHeading: options.focusHeading ?? null,
             model: model || null,
             requestId,
             onEvent: (event) => {
@@ -215,7 +219,7 @@ export function useAgentConversation(
         setHistory((prev) => [...prev, ...kept]);
         return kept;
       }
-      setError(String(err));
+      setError(errorText(err));
       setRetryable({ document, message: trimmed, images, options });
       return undefined;
     } finally {
@@ -232,6 +236,16 @@ export function useAgentConversation(
   function stop() {
     if (requestIdRef.current) void ai.cancelAgentMessage(requestIdRef.current);
   }
+
+  // The editor that owns this conversation went away (tab closed, source
+  // mode): nobody is left to show the reply, so stop paying for it.
+  useEffect(
+    () => () => {
+      if (requestIdRef.current)
+        void ai.cancelAgentMessage(requestIdRef.current);
+    },
+    [],
+  );
 
   /** Resends the last failed message unchanged. */
   function retry(): Promise<AgentTurn[] | undefined> {

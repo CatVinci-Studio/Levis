@@ -7,6 +7,7 @@
 
 pub mod agent;
 pub mod http;
+pub mod models;
 pub mod oauth_login;
 pub mod oauth_page;
 pub mod oauth_server;

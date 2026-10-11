@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DirEntryInfo } from "./types";
 import {
+  ArrowUpIcon,
   ChevronIcon,
   FolderIcon,
   FolderOpenIcon,
+  RefreshIcon,
   fileIconFor,
 } from "../ui/icons";
 import { fs } from "../ipc";
+import { useSettings } from "../settings/SettingsContext";
+import { basename, isInside, parentDir } from "../utils/path";
 import "./FileTree.css";
 
 interface FileTreeProps {
+  /** The active document's folder: where the tree starts. The caller keys
+   *  the tree on it, so switching to a document elsewhere starts over. */
   rootPath: string;
   activePath: string | null;
   onFileSelect: (path: string) => void;
@@ -20,14 +26,45 @@ export function FileTree({
   activePath,
   onFileSelect,
 }: FileTreeProps) {
+  const { t } = useSettings();
+  // Where the tree is rooted right now; "up" walks it toward the filesystem
+  // root without touching the open document.
+  const [root, setRoot] = useState(rootPath);
+  // Bumped by Refresh: remounts every node so each re-reads its folder.
+  const [generation, setGeneration] = useState(0);
+  const parent = parentDir(root);
+
   return (
     <div className="file-tree">
+      <div className="tree-toolbar">
+        <button
+          className="tree-tool"
+          onClick={() => parent && setRoot(parent)}
+          disabled={!parent}
+          title={t.treeParentFolder}
+          aria-label={t.treeParentFolder}
+        >
+          <ArrowUpIcon />
+        </button>
+        <span className="tree-root-label" title={root}>
+          {basename(root.replace(/[\\/]+$/, "")) || root}
+        </span>
+        <button
+          className="tree-tool"
+          onClick={() => setGeneration((g) => g + 1)}
+          title={t.treeRefresh}
+          aria-label={t.treeRefresh}
+        >
+          <RefreshIcon />
+        </button>
+      </div>
       <DirNode
-        path={rootPath}
+        key={`${root}\n${generation}`}
+        path={root}
         depth={0}
         activePath={activePath}
         onFileSelect={onFileSelect}
-        forceOpen
+        onEnter={setRoot}
       />
     </div>
   );
@@ -38,7 +75,8 @@ interface DirNodeProps {
   depth: number;
   activePath: string | null;
   onFileSelect: (path: string) => void;
-  forceOpen?: boolean;
+  /** Re-roots the tree at a folder (double-click on its row). */
+  onEnter: (path: string) => void;
 }
 
 function DirNode({
@@ -46,33 +84,27 @@ function DirNode({
   depth,
   activePath,
   onFileSelect,
-  forceOpen,
+  onEnter,
 }: DirNodeProps) {
-  const [open, setOpen] = useState(!!forceOpen);
+  // The root is always open; a folder on the way down to the open document
+  // starts open too, so walking "up" still shows where that document is.
+  const [open, setOpen] = useState(
+    depth === 0 || (activePath !== null && isInside(activePath, path)),
+  );
   const [children, setChildren] = useState<DirEntryInfo[] | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  async function ensureLoaded() {
-    if (children !== null || loading) return;
-    setLoading(true);
-    try {
-      const entries = await fs.listDir(path);
-      setChildren(entries);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function toggle() {
-    const next = !open;
-    setOpen(next);
-    if (next) await ensureLoaded();
-  }
-
-  // Root node loads immediately since it starts open.
-  if (forceOpen && children === null && !loading) {
-    void ensureLoaded();
-  }
+  useEffect(() => {
+    if (!open || children !== null) return;
+    let cancelled = false;
+    fs.listDir(path).then(
+      (entries) => !cancelled && setChildren(entries),
+      // Unreadable (permissions, vanished): show it empty rather than retry.
+      () => !cancelled && setChildren([]),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, children, path]);
 
   return (
     <div className="dir-node">
@@ -80,7 +112,8 @@ function DirNode({
         <button
           className="tree-row"
           style={{ paddingLeft: depth * 14 }}
-          onClick={toggle}
+          onClick={() => setOpen(!open)}
+          onDoubleClick={() => onEnter(path)}
         >
           <ChevronIcon className={`chevron ${open ? "chevron-open" : ""}`} />
           {open ? (
@@ -88,7 +121,7 @@ function DirNode({
           ) : (
             <FolderIcon className="tree-icon" />
           )}
-          <span className="tree-label">{path.split("/").pop()}</span>
+          <span className="tree-label">{basename(path)}</span>
         </button>
       )}
       {open && children && (
@@ -101,6 +134,7 @@ function DirNode({
                 depth={depth + 1}
                 activePath={activePath}
                 onFileSelect={onFileSelect}
+                onEnter={onEnter}
               />
             ) : (
               <FileNode

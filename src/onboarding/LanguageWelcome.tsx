@@ -1,4 +1,6 @@
 import { useModalDialog } from "../ui/useModalDialog";
+// The app icon itself, so the welcome shows the real mark.
+import appIcon from "../../src-tauri/icons/128x128@2x.png";
 import type { Lang } from "../i18n/strings";
 import "./LanguageWelcome.css";
 
@@ -52,9 +54,7 @@ export function LanguageWelcome({
         aria-modal="true"
         aria-labelledby="language-welcome-title"
       >
-        <div className="language-welcome-mark" aria-hidden>
-          L
-        </div>
+        <img className="language-welcome-mark" src={appIcon} alt="" />
         <div className="language-welcome-eyebrow">{copy.eyebrow}</div>
         <h1 id="language-welcome-title">{copy.title}</h1>
         <p>{copy.body}</p>

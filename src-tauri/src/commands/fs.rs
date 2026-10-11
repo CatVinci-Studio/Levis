@@ -9,13 +9,25 @@ pub struct DirEntryInfo {
     is_dir: bool,
 }
 
+/// A native file dialog owned by the window that asked for it. Unowned, a
+/// Windows dialog isn't modal and can open behind the app, looking like the
+/// click did nothing. macOS is left alone: there an owned dialog becomes a
+/// sheet, which is a different interaction from the one it has today.
+pub(crate) fn window_file_dialog(
+    window: &tauri::WebviewWindow,
+) -> tauri_plugin_dialog::FileDialogBuilder<tauri::Wry> {
+    use tauri_plugin_dialog::DialogExt;
+    let dialog = window.dialog().file();
+    #[cfg(not(target_os = "macos"))]
+    let dialog = dialog.set_parent(window);
+    dialog
+}
+
 /// Opens a native file picker for a single Markdown file.
 #[tauri::command]
-pub async fn open_file_dialog(app: tauri::AppHandle) -> Option<String> {
-    use tauri_plugin_dialog::DialogExt;
+pub async fn open_file_dialog(window: tauri::WebviewWindow) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
+        window_file_dialog(&window)
             .add_filter("Markdown", &["md", "markdown"])
             .blocking_pick_file()
             .map(|p| p.to_string())
@@ -28,11 +40,9 @@ pub async fn open_file_dialog(app: tauri::AppHandle) -> Option<String> {
 /// Opens a native file picker for a CSS theme file (e.g. a Typora-compatible
 /// community theme).
 #[tauri::command]
-pub async fn open_css_file_dialog(app: tauri::AppHandle) -> Option<String> {
-    use tauri_plugin_dialog::DialogExt;
+pub async fn open_css_file_dialog(window: tauri::WebviewWindow) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
+        window_file_dialog(&window)
             .add_filter("CSS", &["css"])
             .blocking_pick_file()
             .map(|p| p.to_string())
@@ -44,24 +54,37 @@ pub async fn open_css_file_dialog(app: tauri::AppHandle) -> Option<String> {
 
 /// Opens a native "Save As" dialog for a new, never-saved document.
 #[tauri::command]
-pub async fn save_file_dialog(app: tauri::AppHandle, default_name: String) -> Option<String> {
-    use tauri_plugin_dialog::DialogExt;
+pub async fn save_file_dialog(
+    window: tauri::WebviewWindow,
+    default_name: String,
+) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
         let default_name = if default_name.trim().is_empty() {
             "Untitled.md"
         } else {
             default_name.trim()
         };
-        app.dialog()
-            .file()
+        window_file_dialog(&window)
             .set_file_name(default_name)
             .add_filter("Markdown", &["md"])
             .blocking_save_file()
-            .map(|p| p.to_string())
+            .map(|p| with_default_extension(p.to_string(), "md"))
     })
     .await
     .ok()
     .flatten()
+}
+
+/// GTK and the desktop portal hand back exactly what was typed - "notes",
+/// not "notes.md" - where Windows and macOS append the filter's extension.
+/// A name with no extension at all gets the default one; any extension the
+/// user did type is respected.
+pub(crate) fn with_default_extension(path: String, ext: &str) -> String {
+    if Path::new(&path).extension().is_some() {
+        path
+    } else {
+        format!("{path}.{ext}")
+    }
 }
 
 // The chat's "+" button used to live here as a text-only `read_to_string`,

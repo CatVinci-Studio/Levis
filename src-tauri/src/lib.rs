@@ -22,7 +22,7 @@ use auth::custom_endpoint::{
 };
 use auth::keys::{clear_provider_api_key, provider_api_key_status, set_provider_api_key};
 use auth::openai_codex::{codex_auth_status, codex_login, codex_logout};
-use commands::attachment::{pick_attachment_file, read_attachment_file};
+use commands::attachment::pick_attachment_file;
 use commands::cli::{cli_command_status, install_cli_command};
 use commands::drafts::{
     clear_all_drafts, clear_draft_snapshot, save_draft_snapshot, take_draft_snapshots,
@@ -36,10 +36,7 @@ use commands::fs::{
     read_binary_file_base64, read_text_file, save_file_dialog, save_pasted_image, write_text_file,
 };
 use commands::image_host::upload_image;
-use commands::prefs::{
-    get_new_document_mode, get_restore_session_on_startup, set_new_document_mode,
-    set_restore_session_on_startup,
-};
+use commands::prefs::{set_new_document_mode, set_restore_session_on_startup};
 use commands::session::{cancel_session_quit, update_session_paths, SessionTabsState};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
 use std::collections::HashMap;
@@ -140,6 +137,12 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
                 "open-paths-as-tabs",
                 paths,
             );
+            // The open came from outside (a file manager, a second launch),
+            // so the window it landed in is probably behind something.
+            if let Some(window) = app.get_webview_window(&label) {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
             return;
         }
         // Still launching, or no window alive to receive them: park the whole
@@ -250,18 +253,58 @@ pub(crate) fn build_window(
     let (width, height) = commands::prefs::read_editor_window_size(app).unwrap_or((800.0, 600.0));
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(app_identity::APP_NAME)
-        .inner_size(width, height);
+        .inner_size(width, height)
+        .min_inner_size(EDITOR_MIN_SIZE.0, EDITOR_MIN_SIZE.1);
     build_with_app_chrome(builder, position)?;
     Ok(())
 }
+
+/// Below this the app-drawn window bar's menu button, centred title and
+/// caption buttons run into each other. Keep in step with the minWidth/
+/// minHeight of the config window in tauri*.conf.json.
+const EDITOR_MIN_SIZE: (f64, f64) = (480.0, 320.0);
 
 pub(crate) fn open_new_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     build_window(app, &format!("window-{}", next_window_id()), None)
 }
 
+/// The files named on a command line: every argument after the program
+/// name that isn't a flag. `levis notes.md` from a shell passes a path
+/// relative to that shell's directory - which, for a second launch handed
+/// over by single-instance, is not this process's own - while everything
+/// downstream (tabs, recents, session) wants it absolute. Desktop launchers
+/// already pass absolute paths, which `join` leaves as they are.
+fn paths_from_argv(args: impl IntoIterator<Item = String>, cwd: &std::path::Path) -> Vec<String> {
+    args.into_iter()
+        .skip(1)
+        .filter(|a| !a.starts_with('-'))
+        .map(|a| cwd.join(&a).to_string_lossy().into_owned())
+        .collect()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Windows and Linux start a whole new process for every file opened
+    // from the file manager - its own windows, settings and session file,
+    // so "open in a tab" couldn't work and two processes wrote the same
+    // session. Must be the first plugin: a second launch hands its argv to
+    // the running instance here and exits before setting anything else up.
+    // (macOS routes later opens to the running app itself; see
+    // RunEvent::Opened below.) Release builds only, so a dev build can run
+    // next to an installed Levis instead of forwarding to it.
+    #[cfg(all(any(windows, target_os = "linux"), not(debug_assertions)))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+        let paths = paths_from_argv(argv, std::path::Path::new(&cwd));
+        if paths.is_empty() {
+            // Launched again from the app menu or dock: a fresh window,
+            // as a second process used to give.
+            let _ = open_new_window(app);
+        } else {
+            queue_paths_to_open(app, paths);
+        }
+    }));
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -276,7 +319,6 @@ pub fn run() {
         .manage(commands::chat_window::OpenChatWindows(Mutex::new(
             Vec::new(),
         )))
-        .manage(commands::chat_window::LastActiveEditor(Mutex::new(None)))
         .on_window_event(|window, event| {
             let app = window.app_handle();
             if matches!(event, tauri::WindowEvent::Destroyed) {
@@ -313,14 +355,6 @@ pub fn run() {
             {
                 commands::prefs::remember_editor_window_size(app, window);
             }
-            // A chat window shared across editor windows has no owning
-            // editor, so "which document is this about" is answered by which
-            // editor window was focused last (see editor_for_chat).
-            if matches!(event, tauri::WindowEvent::Focused(true)) {
-                if let Some(state) = app.try_state::<commands::chat_window::LastActiveEditor>() {
-                    commands::chat_window::note_focused_window(window.label(), &state);
-                }
-            }
         })
         .setup(|app| {
             // Windows/Linux hand an associated file over as a plain argv
@@ -329,10 +363,10 @@ pub fn run() {
             // documents (unless the user turned that off in Settings) -
             // this is also what makes an app-update relaunch (which passes
             // no args at all) reopen whatever was open before the update.
-            let arg_paths: Vec<String> = std::env::args()
-                .skip(1)
-                .filter(|a| !a.starts_with('-'))
-                .collect();
+            let arg_paths = paths_from_argv(
+                std::env::args(),
+                &std::env::current_dir().unwrap_or_default(),
+            );
             let startup_paths = if !arg_paths.is_empty() {
                 arg_paths
             } else if commands::prefs::read_restore_session_on_startup(app.handle()) {
@@ -382,9 +416,7 @@ pub fn run() {
             tab_drag::list_window_bounds,
             tab_drag::start_window_drag_tracking,
             tab_drag::start_floating_tab_drag,
-            get_new_document_mode,
             set_new_document_mode,
-            get_restore_session_on_startup,
             set_restore_session_on_startup,
             update_session_paths,
             cancel_session_quit,
@@ -421,8 +453,12 @@ pub fn run() {
             crate::ai::workspace::open_global_agent_dir,
             crate::ai::workspace::ensure_global_agent_md,
             crate::ai::workspace::import_agent_skill,
+            crate::ai::project::list_project_files,
+            crate::ai::project::read_project_file,
+            crate::ai::project::ensure_project_file,
+            crate::ai::project::pick_text_files,
+            crate::ai::project::learn_style,
             pick_attachment_file,
-            read_attachment_file,
             set_provider_api_key,
             provider_api_key_status,
             clear_provider_api_key,

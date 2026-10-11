@@ -1,29 +1,43 @@
 # Testing map
 
-Three suites. Run all of them with:
+Five suites, from cheapest to most expensive:
 
 ```sh
-npm run check                                       # frontend (vitest)
-cd src-tauri && cargo test --workspace              # app crate + aicompat
+npm run check                          # typecheck, lint, vitest, prettier, README structure
+cd src-tauri && cargo test --workspace # app crate + aicompat
+npm run test:visual                    # Playwright: the UI in Chromium
+scripts/smoke-linux.sh --build         # the built Linux app and its .deb
+npm run screenshots:readme             # regenerate the README screenshots
+cd src-tauri && cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
+                                       # real Anthropic API (costs cents)
 ```
+
+The first two run in CI, as do the Playwright flows with
+`--ignore-snapshots` (screenshot baselines depend on the fonts of the machine
+that took them). The rest need a display, a desktop session or an API key,
+and are run by hand before a release. The visual suite needs Chromium once:
+`npx playwright install chromium`.
 
 ## What is covered, by kind
 
 The suites divide by _what kind of mistake they catch_, which is more useful
-than dividing by file.
+than dividing by file. Counts are left out on purpose - they go stale; run
+the suite to see them.
 
-### 1. Text and position algebra
+### 1. Text and position algebra (vitest)
 
-The largest group, and the one most worth having: this is where a bug is
-silent and destroys the user's document.
+The group most worth having: this is where a bug is silent and destroys the
+user's document.
 
-| Area                    | Tests | Catches                                                                                                                        |
-| ----------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ai/doc-markdown`       | 16    | Markdown-space matching, anchor disambiguation, edit composition. A wrong range applies an edit to the wrong text.             |
-| `ai/chat/line-diff`     | 8     | The diff shown on a proposal card.                                                                                             |
-| `ai/pending-edit-focus` | 8     | Review order and where focus lands after accept/reject.                                                                        |
-| `ai/text-locate`        | 6     | Locating plain text inside a block for the strike range.                                                                       |
-| `ai/chat/user-message`  | 7     | The `<selected-text>`/`<attached-file>` wire format, **round-tripped through the writer** - three places used to hand-roll it. |
+| Area                    | Catches                                                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `ai/doc-markdown`       | Markdown-space matching (exact, then typography-normalized), anchor disambiguation, inline vs block insertion, caret context. |
+| `ai/chat/sentence-diff` | Splitting a proposal into per-sentence changes, and rebuilding the text from the subset the user ticked.                      |
+| `ai/chat/line-diff`     | The diff shown on a proposal card.                                                                                            |
+| `ai/pending-edit-focus` | Review order and where focus lands after accept/reject.                                                                       |
+| `ai/text-locate`        | Locating plain text inside a block for the strike range.                                                                      |
+| `ai/chat/user-message`  | The `<selected-text>`/`<attached-file>` wire format, round-tripped through the writer.                                        |
+| `ai/ghost-text-plugin`  | Completion echo stripping, word-by-word accept, candidate splitting.                                                          |
 
 ### 2. Wire formats and provider dialects (`aicompat`)
 
@@ -31,68 +45,76 @@ Every one of these fails as an opaque HTTP 400 if it regresses, so they are
 pinned rather than trusted.
 
 - Turn-list → request body for three dialects (Responses API, Anthropic
-  Messages, chat-completions), including how tool calls and results are
-  grouped, which differs per provider.
-- Image content parts per dialect, and that a text-only turn keeps its
-  plain-string `content` (the shape that shipped before images existed).
+  Messages, chat-completions), including tool-call grouping, image parts,
+  prompt caching, empty assistant turns and the thinking setting per model.
 - SSE stream accumulation: text deltas, indexed tool-call fragments,
   mid-stream errors.
-- `openai_codex::usable_model` — a model saved under one auth method is a
-  hard 400 under another.
+- The agent loop: tool dispatch, step limit (ends on a synthetic assistant
+  turn rather than a dangling tool result).
+- Model-list tidying: what counts as a chat model, ordering by release.
 
 ### 3. Backend rules (app crate)
 
-| Module                  | Tests | Catches                                                                                                                                                                            |
-| ----------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `commands::chat_window` | 11    | Window classification and the scope registry: which chat serves which editor, what a closed window frees. Every bug here was silent - a dropped tab, a menu command going nowhere. |
-| `ai::workspace`         | 9     | Skill frontmatter parsing, comment stripping, and workspace-root resolution including the fall back when a chosen root is gone.                                                    |
-| `commands::attachment`  | 8     | OOXML text extraction (namespace prefixes, breaks, tabs), truncation being marked rather than silent, and that the picker's format list matches what the extractor handles.        |
-| `ai::client`            | 7     | Grammar-issue relocation, including CJK offset repair.                                                                                                                             |
-| `ai::agent`             | 5     | Long-document truncation with char-boundary safety.                                                                                                                                |
-| `ai::tools`             | 3     | `propose_edit` anchor validation.                                                                                                                                                  |
+| Module                  | Catches                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai::agent`             | The scripted agent loop end to end, history compaction, where the document rides (current turn only), focus-section selection on long docs. |
+| `ai::tools`             | `propose_edit`/`add_comment` anchor validation, including near-miss matching.                                                               |
+| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.levis/style.md` and `.levis/library/` parsing and relevance.         |
+| `ai::workspace`         | Skill parsing, root resolution and the too-broad-folder guard.                                                                              |
+| `ai::client`            | Completion prompt assembly, candidate splitting, grammar-issue relocation (CJK offsets).                                                    |
+| `ai::catalog`           | Every pinned default model exists in the models.dev snapshot.                                                                               |
+| `commands::chat_window` | Which chat serves which editor, what a closed window frees.                                                                                 |
+| `commands::attachment`  | OOXML text extraction and truncation marking.                                                                                               |
+| `atomic`, `session`     | Secret files written 0600 and atomically, what a closing window leaves in the session.                                                      |
 
-### 4. Frontend state and rendering
+### 4. Frontend state and rendering (vitest)
 
-- `settings/SettingsContext` (9) — settings migration. Notably: a rejected
-  value must not discard the rest of the blob.
-- `ai/chat/ChatComposer` (8) — the selection chip re-arming for a new
-  selection, attachment errors being shown rather than swallowed, vision
-  gating.
-- `ai/chat/partial-tool-args` (10) — parsing half-arrived streaming JSON.
-- `ai/proposal-stream` (8) — the writing-phase state machine
-  (docs/AI-PROPOSALS.md): when a streamed draft is placed, what a stop
-  freezes, what a failure or invalid final arguments discard.
-- `ai/proposal-status` (5) — proposal statuses annotated onto history at
-  send time; unrelated tool results untouched, stored turns never mutated.
-- `ai/cancelled-turns` (4) — what a stop keeps, and that an unanswered
-  ToolCall gets a synthetic result before entering history.
-- `onboarding/*` (18) — tutorial step progression and evaluation.
-- `ui/WindowControls` (7) — the app-drawn window frame, which only exists on
-  Windows and so is the half of the UI nobody developing on macOS ever sees:
-  that it draws nothing at all where the OS still supplies a frame, that the
-  app menu is labelled in the app's language rather than English, that items
-  reach the backend by the id their native twin carries, and that the menu
-  button closes a menu it opened.
-- `ai/chat/useQuickAskReveal` (5), `editor/code-block-indent-plugin` (5),
-  `utils/tauri-events` (2), `settings/sections/providers` (2).
+Settings migration (a rejected value must not discard the rest), the
+composer, streaming tool arguments, the proposal state machine
+(docs/AI-PROPOSALS.md), cancelled turns, AI error classification, the chat
+history grouping, the tutorial, the Windows-only window frame, menus and
+shortcuts, export pagination, themes.
+
+### 5. Visual (Playwright, `e2e/`)
+
+The real frontend in Chromium against the Vite dev server, with the dev
+Tauri shim (`src/dev-tauri-shim.ts`) standing in for the backend. Each test
+drives a flow and compares a screenshot: first run, the sidebar lesson, a
+document in light and dark (including the table-header regression, #15),
+split view, zen mode, the AI panel, an agent reply with a reasoned edit, the
+sentence picker and a comment (accepting only some sentences is checked in
+the document), Quick Ask, settings.
+
+Baselines are per platform. After an intended UI change:
+`npm run test:visual -- --update-snapshots`, then look at every changed
+image before keeping it - a baseline happily records a bug.
+
+### 6. Built app (`scripts/smoke-linux.sh`)
+
+The release binary and `.deb`: the package's binary, icons and `.desktop`
+entry (takes files, claims Markdown); the app starting on a file; a second
+launch handing its file to the running instance and exiting. Runs with
+throwaway config/data directories. Window checks need niri; `--screenshot`
+also needs the screen unlocked.
+
+### 7. Live (`ai::live_eval`, ignored by default)
+
+Writing tasks through the app's own prompts against the real API, with
+automatic checks: completions (length, no echo, candidates), and agent tasks
+(shorten, insert inline and at the cursor, answer without editing, a section
+of a long document, review via comments, a library fact). The key comes from
+`$LEVIS_ANTHROPIC_KEY_FILE` or `.anthropic-api-key.local` (git-ignored);
+without one every test passes vacuously.
 
 ## What is deliberately not covered
 
-Worth knowing so nobody assumes a green suite means a working app.
-
-- **No end-to-end or UI-automation tests.** Nothing drives the real Tauri
-  app.
-- **CSS is entirely unchecked.** Themes, the window bar, layout, dark mode -
-  all verified by looking.
-- **Native behaviour**: window creation, drag-to-merge, the file dialogs, the
-  updater, PDF export, notarized bundles. Only CI's build step proves these
-  compile; nothing proves they work.
-- **Real provider requests.** Every AI test operates on request/response
-  _shapes_. No test contacts a provider.
+- **WebKitGTK and WebView2 rendering.** The visual suite runs Chromium; the
+  shipped app does not. The smoke test proves the Linux build starts, not
+  that it looks the same.
+- **macOS and Windows native behaviour**: drag-to-merge, the file dialogs,
+  the updater, PDF export, notarized bundles. CI proves they compile.
 - **Attachment extraction of real files.** The OOXML parser is tested on
-  hand-written XML; no fixture PDF, .docx or .xlsx is checked in, so
-  `pdf-extract` and `calamine` are trusted as dependencies.
+  hand-written XML; `pdf-extract` and `calamine` are trusted.
 
-The practical consequence: **changes to window management, drafts, or
-anything that can lose unsaved work must be exercised by hand**, and the PR
-should say what was exercised.
+Changes to window management, drafts, or anything that can lose unsaved
+work must still be exercised by hand, and the PR should say what was.

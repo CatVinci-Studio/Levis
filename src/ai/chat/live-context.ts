@@ -10,10 +10,9 @@ import type { ChatContext } from "./chat-bridge";
  * This is what makes the detached window the CROSS-FILE surface: it holds no
  * snapshot of its own, so whatever the active editor reports here is the
  * document it is about, the selection its chip shows, and the file its edits
- * land in. Contrast the in-document Quick Ask bar, which deliberately keeps
- * the snapshot taken when it opened (useInlineChat) - an inline command bar
- * that re-targeted itself mid-conversation would be unpredictable, while a
- * window the user keeps open beside their work is expected to follow along.
+ * land in. The docked panel and Quick Ask, by contrast, live inside one
+ * editor and read it directly before each send (useInlineChat's
+ * sendContext).
  *
  * Reading the whole document is not free (every top-level block is
  * re-serialized to markdown), which is why callers push this on selection,

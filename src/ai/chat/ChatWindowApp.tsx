@@ -15,7 +15,7 @@ import {
   type ChatContext,
 } from "./chat-bridge";
 import { windowIpc } from "../../ipc";
-import { PinIcon } from "../../ui/icons";
+import { PinIcon, PlusIcon } from "../../ui/icons";
 import { WindowCaptionButtons } from "../../ui/WindowControls";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
 import { useLatest } from "../../utils/useLatest";
@@ -157,9 +157,12 @@ export function ChatWindowApp() {
   useEffect(() => {
     return unlistenAll(
       onWindowEvent<ChatContext>(EDITOR_TO_CHAT.context, applyContext),
+      // Merged, not replaced: each push carries only the ACTIVE tab's
+      // statuses, and replacing dropped every other document's cards back to
+      // an unknown state on each tab switch.
       onWindowEvent<Record<string, PendingStatus>>(
         EDITOR_TO_CHAT.statuses,
-        setStatuses,
+        (incoming) => setStatuses((prev) => ({ ...prev, ...incoming })),
       ),
     );
   }, [applyContext]);
@@ -173,6 +176,8 @@ export function ChatWindowApp() {
         sendToWindow(editorLabel.current, CHAT_TO_EDITOR.reembed, {
           conversationId: conversation.conversationId,
           turns: conversation.history,
+          docPath:
+            requestDocPath.current ?? contextRef.current?.docPath ?? null,
         });
     });
     return unlistenAll(unlisten);
@@ -201,11 +206,30 @@ export function ChatWindowApp() {
   }, []);
 
   /** Every doc-scoped message says which file it was meant for: this window
-   *  serves several, and the editor may have switched tabs since. */
+   *  serves several tabs, and the editor may have switched since. A request
+   *  belongs to the document it was SENT about - recorded when its context
+   *  arrives - and each proposal remembers it, so switching tabs while a
+   *  reply streams can't send the rest of it (or a later Accept) elsewhere. */
   const docPath = context?.docPath ?? null;
+  const contextRef = useRef(context);
+  contextRef.current = context;
+  const requestDocPath = useRef<string | null>(null);
+  const proposalDocs = useRef(new Map<string, string | null>());
   const sendScoped = useCallback(
-    (event: string, payload: object) => send(event, { ...payload, docPath }),
+    (event: string, payload: object, scopedTo: string | null = docPath) =>
+      send(event, { ...payload, docPath: scopedTo }),
     [send, docPath],
+  );
+  const sendForProposal = useCallback(
+    (event: string, callId: string) =>
+      sendScoped(
+        event,
+        { callId },
+        proposalDocs.current.has(callId)
+          ? (proposalDocs.current.get(callId) ?? null)
+          : docPath,
+      ),
+    [sendScoped, docPath],
   );
 
   /** Asks the active editor for its document/selection as they read right
@@ -220,6 +244,7 @@ export function ChatWindowApp() {
         }, CONTEXT_REQUEST_TIMEOUT_MS);
         contextWaiter.current = (incoming) => {
           window.clearTimeout(timer);
+          requestDocPath.current = incoming.docPath;
           resolve(incoming);
         };
         send(CHAT_TO_EDITOR.requestContext);
@@ -228,7 +253,7 @@ export function ChatWindowApp() {
   );
 
   const proposalStatus = useCallback(
-    (callId: string): PendingStatus => statuses[callId] ?? "pending",
+    (callId: string): PendingStatus => statuses[callId] ?? "expired",
     [statuses],
   );
   const pendingCount = useMemo(
@@ -257,6 +282,19 @@ export function ChatWindowApp() {
       <span className="chat-window-doc" title={context?.docPath ?? undefined}>
         {context?.docTitle ?? ""}
       </span>
+      <button
+        type="button"
+        className="chat-window-pin"
+        aria-label={t.chatNewConversation}
+        title={t.chatNewConversation}
+        disabled={conversation.busy}
+        onClick={() => {
+          proposalDocs.current.clear();
+          conversation.reset();
+        }}
+      >
+        <PlusIcon />
+      </button>
       <button
         type="button"
         className={`chat-window-pin ${pinned ? "chat-window-pin-on" : ""}`}
@@ -306,12 +344,17 @@ export function ChatWindowApp() {
           refreshContext={refreshContext}
           onProposals={(
             proposals: { callId: string; proposal: EditProposal }[],
-          ) => sendScoped(CHAT_TO_EDITOR.proposals, { proposals })}
+          ) => {
+            const target = requestDocPath.current ?? docPath;
+            for (const { callId } of proposals)
+              proposalDocs.current.set(callId, target);
+            sendScoped(CHAT_TO_EDITOR.proposals, { proposals }, target);
+          }}
           onAcceptProposal={(callId) =>
-            sendScoped(CHAT_TO_EDITOR.accept, { callId })
+            sendForProposal(CHAT_TO_EDITOR.accept, callId)
           }
           onRejectProposal={(callId) =>
-            sendScoped(CHAT_TO_EDITOR.reject, { callId })
+            sendForProposal(CHAT_TO_EDITOR.reject, callId)
           }
           onAcceptAll={() => sendScoped(CHAT_TO_EDITOR.acceptAll, {})}
           onRejectAll={() => sendScoped(CHAT_TO_EDITOR.rejectAll, {})}

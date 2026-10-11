@@ -51,10 +51,9 @@ function subscribeChatLabel(listener: () => void) {
   };
 }
 
-/** Asks Rust which chat window serves this editor window. Covers the case a
- *  local store cannot: with cross-window sharing on, the chat may have been
- *  opened from - or closed by - a DIFFERENT window entirely, so this webview
- *  never saw it happen. */
+/** Asks Rust which chat window serves this editor window. Covers what a
+ *  local store cannot: the chat may have been closed from its own window,
+ *  or this webview reloaded, so it never saw the change happen. */
 async function refreshChatLabel() {
   try {
     setSharedChatLabel(await windowIpc.currentChatWindow());
@@ -119,7 +118,11 @@ export interface DetachedChatHandlers {
   onAcceptAll: () => void;
   onRejectAll: () => void;
   /** The chat window closed and handed its conversation back. */
-  onReembed: (conversationId: string, turns: AgentTurn[]) => void;
+  onReembed: (
+    conversationId: string,
+    turns: AgentTurn[],
+    docPath: string | null,
+  ) => void;
   /** The chat is about to send and wants the document as it reads NOW. */
   onContextRequest: () => void;
 }
@@ -178,7 +181,11 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
       ),
       onWindowEvent<ReembedMessage>(CHAT_TO_EDITOR.reembed, (payload) => {
         setSharedChatLabel(null);
-        latest.current.onReembed(payload.conversationId, payload.turns ?? []);
+        latest.current.onReembed(
+          payload.conversationId,
+          payload.turns ?? [],
+          payload.docPath ?? null,
+        );
       }),
     );
     // `latest` is a stable ref.
@@ -193,10 +200,9 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
     async (
       state: ChatHandoffState,
       title: string,
-      /** Both are live settings read at this instant, not carried in `state`:
-       *  the window reads `pinAgentWindow` from the shared settings store
-       *  itself, and Rust needs `shared` to scope the registry entry. */
-      options: { shared: boolean; pinned: boolean },
+      /** The live setting at this instant, for Rust to build the window
+       *  always-on-top from the start (the window then reads it itself). */
+      pinned: boolean,
     ) => {
       const win = getCurrentWindow();
       let position: [number, number] | null = null;
@@ -216,8 +222,7 @@ export function useDetachedChat(handlers: DetachedChatHandlers) {
         state,
         position,
         title,
-        shared: options.shared,
-        pinned: options.pinned,
+        pinned,
       });
       setSharedChatLabel(label);
       return label;

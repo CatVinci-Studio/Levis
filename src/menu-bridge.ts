@@ -15,6 +15,9 @@ export interface MenuBridgeHandlers {
   onOpenSettings: () => void;
   onToggleTypewriter: () => void;
   onToggleSidebar: () => void;
+  onToggleAgentPanel: () => void;
+  onToggleSplitView: () => void;
+  onToggleZenMode: () => void;
   addBlankTab: () => void;
   openFileDialog: () => Promise<void>;
   saveTab: (tabId: string) => Promise<boolean>;
@@ -40,6 +43,9 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
     onOpenSettings,
     onToggleTypewriter,
     onToggleSidebar,
+    onToggleAgentPanel,
+    onToggleSplitView,
+    onToggleZenMode,
     addBlankTab,
     openFileDialog,
     saveTab,
@@ -63,11 +69,9 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
         "menu-save-file-as",
         () => void saveTabAs(activeTabId),
       ),
-      // Dedicated PDF export: shows a progress overlay and waits for the
-      // document to finish rendering, then hands off to the system print panel
-      // (WKWebView's "Save as PDF"). App.css's @media print rules carry the
-      // current editor theme onto the printed page. See exportPdf in
-      // export-doc.
+      // Dedicated PDF export: shows a progress overlay while the themed,
+      // paginated document is rendered offscreen and written straight to
+      // the chosen file (no print dialog). See exportPdf in export-doc.
       listenToThisWindow("menu-export-pdf", () => {
         const tab = activeTabNow();
         if (tab) void exportPdf(tab, t);
@@ -86,6 +90,7 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
         onToggleTypewriter(),
       ),
       listenToThisWindow("menu-toggle-sidebar", () => onToggleSidebar()),
+      listenToThisWindow("menu-toggle-agent-panel", () => onToggleAgentPanel()),
       listenToThisWindow("menu-find-replace", () =>
         window.dispatchEvent(new CustomEvent(TOGGLE_FIND_REPLACE_EVENT)),
       ),
@@ -116,6 +121,9 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
     onOpenSettings,
     onToggleTypewriter,
     onToggleSidebar,
+    onToggleAgentPanel,
+    onToggleSplitView,
+    onToggleZenMode,
     liveTabs,
     t,
   ]);

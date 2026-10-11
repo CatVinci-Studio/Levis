@@ -1,3 +1,4 @@
+import { isLinuxPlatform, isWindowsPlatform } from "../utils/platform";
 /**
  * How much of the window frame this app has to draw for itself.
  *
@@ -21,26 +22,6 @@
  * close button or grows a second one.
  */
 
-/** `navigator.platform` is "Win32"/"Win64" even on 64-bit Windows; the UA
- *  check is the fallback for runtimes that have stopped reporting platform.
- *  Same detection style as utils/platform.ts uses for macOS. */
-function detectWindows(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return (
-    /^win/i.test(navigator.platform ?? "") ||
-    /windows/i.test(navigator.userAgent)
-  );
-}
-
-/** Linux desktop builds; Android also reports "Linux" and is excluded. */
-function detectLinux(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return (
-    /linux/i.test(navigator.platform ?? "") &&
-    !/android/i.test(navigator.userAgent)
-  );
-}
-
 /**
  * Whether the OS frame is gone and the app owns the caption.
  *
@@ -48,7 +29,7 @@ function detectLinux(): boolean {
  * systems, and making it a hook would mean every consumer re-rendering for a
  * value that cannot change.
  */
-export const appDrawsWindowFrame = detectWindows() || detectLinux();
+export const appDrawsWindowFrame = isWindowsPlatform() || isLinuxPlatform();
 
 /**
  * Whether the native menu's accelerators are dead, so the frontend must
@@ -58,14 +39,14 @@ export const appDrawsWindowFrame = detectWindows() || detectLinux();
  * firing with the bar hidden, so handling them here too would run each
  * action twice.
  */
-export const ownsMenuAccelerators = detectLinux();
+export const ownsMenuAccelerators = isLinuxPlatform();
 
 /**
  * Whether the app draws the window's outline and resize edges itself
  * (WindowEdges.tsx). Linux only: Windows keeps its native resize border and
  * shadow without a caption, but an undecorated GTK window loses both.
  */
-export const drawsWindowEdges = detectLinux();
+export const drawsWindowEdges = isLinuxPlatform();
 
 /**
  * Publishes {@link appDrawsWindowFrame} to CSS as `data-window-chrome` on

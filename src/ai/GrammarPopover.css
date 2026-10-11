@@ -3,7 +3,7 @@
   z-index: 210;
   max-width: 320px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .grammar-popover-issue {
@@ -24,7 +24,7 @@
   background: var(--chrome-primary);
   color: #fff;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .grammar-popover-apply:hover {
@@ -32,6 +32,24 @@
 }
 
 .grammar-popover-error {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--danger, #dc2626);
+}
+
+.grammar-popover-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.grammar-popover-ignore {
+  border: none;
+  background: none;
+  color: var(--editor-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.grammar-popover-ignore:hover {
+  color: var(--editor-text);
 }

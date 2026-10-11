@@ -30,7 +30,13 @@ export function installDevTauriShim(): void {
       // window (?view=chat) has no conversation to show.
       const canned = w.__devInvokeResults as
         Record<string, unknown> | undefined;
-      if (canned && cmd in canned) return Promise.resolve(canned[cmd]);
+      if (canned && cmd in canned) {
+        const value = canned[cmd] as { __reject?: unknown } | null;
+        // `{ __reject: message }` fails the command instead, for error UI.
+        return value && typeof value === "object" && "__reject" in value
+          ? Promise.reject(value.__reject)
+          : Promise.resolve(value);
+      }
       if (
         cmd === "plugin:event|listen" &&
         args?.event &&

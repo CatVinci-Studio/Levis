@@ -520,8 +520,18 @@ export function createPendingEditPlugin(options: {
               return true;
             }
             if (event.key === "Backspace") {
+              // Ctrl+Backspace (Windows/Linux) and Cmd+Backspace (macOS)
+              // are everyday "delete word/line" keys, so they only mean
+              // Reject with the caret on a preview itself - anywhere else
+              // they used to throw a suggestion away mid-sentence.
+              const { selection } = view.state;
+              if (!selection.empty) return false;
+              const here = previews.find(
+                (p) => selection.from >= p.from && selection.from <= p.to,
+              );
+              if (!here) return false;
               event.preventDefault();
-              options.onReject?.(targetId);
+              options.onReject?.(here.callId);
               return true;
             }
             return false;

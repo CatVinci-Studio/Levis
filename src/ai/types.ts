@@ -9,7 +9,8 @@ export type EditAction =
   | "insert_before"
   | "insert_after"
   | "delete"
-  | "append";
+  | "append"
+  | "insert_at_cursor";
 
 export const EDIT_ACTIONS: readonly EditAction[] = [
   "replace",
@@ -18,6 +19,7 @@ export const EDIT_ACTIONS: readonly EditAction[] = [
   "insert_after",
   "delete",
   "append",
+  "insert_at_cursor",
 ];
 
 /** A validated propose_edit payload: what to do, where, and with what text. */
@@ -32,6 +34,8 @@ export interface EditProposal {
    *  document - disambiguates which occurrence a repeated anchor means
    *  (see findMarkdownMatch). Mirrors the `context` field tools.rs offers. */
   context?: string;
+  /** One sentence on why, shown on the proposal card (optional). */
+  reason?: string;
 }
 
 /**

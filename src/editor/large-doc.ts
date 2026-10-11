@@ -6,7 +6,7 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
  * per-keystroke editor features degrade to keep typing responsive: ghost
  * text and grammar-check stop triggering, and Mermaid stops live-rendering
  * on every edit. Ordinary documents never get near this, so their behavior
- * is unchanged - see 4.1 in the reliability plan.
+ * is unchanged.
  */
 export const LARGE_DOC_THRESHOLD = 100_000;
 

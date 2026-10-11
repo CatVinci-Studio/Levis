@@ -204,10 +204,11 @@ fn destroy_drag_pill(app: &tauri::AppHandle) {
 
 /// Height of the strip along a window's top edge that counts as its "tab
 /// row" for drop purposes - the tab bar when it has one, or the title strip
-/// of a single-tab window. Mirrors useTabDragMerge.ts's
-/// TAB_ROW_HEIGHT_LOGICAL.
+/// of a single-tab window. Must equal useTabDragMerge.ts's
+/// TAB_ROW_HEIGHT_LOGICAL (it was 60 here against 72 there, so the macOS drop
+/// zone was smaller than the one the frontend highlighted).
 #[cfg(target_os = "macos")]
-const TAB_ROW_HEIGHT_LOGICAL: f64 = 60.0;
+const TAB_ROW_HEIGHT_LOGICAL: f64 = 72.0;
 
 /// Which window's tab row (if any) is under the cursor (global logical
 /// points). The pill itself and hidden windows are never targets; the drag

@@ -1,12 +1,13 @@
 import type { EditorView } from "@milkdown/kit/prose/view";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, type EditorState } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import { createDebouncedTask } from "./debounced-task";
 import { scalarToUtf16Offset, textOffsetToDocPos } from "./doc-text";
 import { isLargeDoc } from "../editor/large-doc";
 import { ai } from "../ipc";
+import { AiNoticeError } from "../utils/error-text";
 
 export const grammarKey = new PluginKey("grammar-check");
 const DEBOUNCE_MS = 1500;
@@ -55,26 +56,22 @@ export async function triggerGrammarCheckNow(
 ): Promise<void> {
   const { $from } = view.state.selection;
   const para = $from.parent;
-  if (!para.isTextblock)
-    throw new Error("Place the cursor in a paragraph first.");
+  if (!para.isTextblock) throw new AiNoticeError("grammar-needs-paragraph");
 
   const text = para.textContent;
-  if (!text.trim()) throw new Error("This paragraph is empty.");
+  if (!text.trim()) throw new AiNoticeError("grammar-empty-paragraph");
 
   const contentStart = $from.start($from.depth);
   const issues = await ai.grammarCheck(provider, text, strictness, model);
   if (!paragraphUnchanged(view, contentStart, text)) {
-    throw new Error("The paragraph changed while checking - try again.");
+    throw new AiNoticeError("grammar-paragraph-changed");
   }
-  if (!issues?.length) throw new Error("No issues found.");
+  if (!issues?.length) throw new AiNoticeError("grammar-no-issues");
 
   view.dispatch(
     view.state.tr.setMeta(
       grammarKey,
-      DecorationSet.create(
-        view.state.doc,
-        issuesToDecorations(para, issues, contentStart),
-      ),
+      paragraphMeta(contentStart, para, issues),
     ),
   );
 }
@@ -94,11 +91,64 @@ export function showGrammarIssues(
   view.dispatch(
     view.state.tr.setMeta(
       grammarKey,
-      DecorationSet.create(
-        view.state.doc,
-        issuesToDecorations(para, issues, contentStart),
-      ),
+      paragraphMeta(contentStart, para, issues),
     ),
+  );
+}
+
+/// What grammar meta a transaction can carry. Each check replaces the issues
+/// of the ONE paragraph it checked - checking paragraph B used to replace the
+/// whole set, wiping A's underlines the moment the user typed elsewhere.
+type GrammarMeta =
+  | { type: "paragraph"; from: number; to: number; decorations: Decoration[] }
+  | { type: "ignore"; original: string; suggestion: string };
+
+/** Replaces the underlines of the paragraph at `contentStart` with `issues`. */
+function paragraphMeta(
+  contentStart: number,
+  para: ProseNode,
+  issues: GrammarIssue[],
+): GrammarMeta {
+  return {
+    type: "paragraph",
+    from: contentStart,
+    to: contentStart + para.content.size,
+    decorations: issuesToDecorations(para, issues, contentStart),
+  };
+}
+
+/// Corrections the user dismissed this session ("Ignore"): the same fix on
+/// the same text isn't offered again, in any paragraph.
+const ignored = new Set<string>();
+const ignoreKey = (original: string | undefined, suggestion: string) =>
+  `${original ?? ""}\u0000${suggestion}`;
+
+/// Dismisses one suggestion: its underline goes, and it won't come back.
+export function ignoreGrammarIssue(
+  view: EditorView,
+  original: string | undefined,
+  suggestion: string,
+): void {
+  ignored.add(ignoreKey(original, suggestion));
+  view.dispatch(
+    view.state.tr.setMeta(grammarKey, {
+      type: "ignore",
+      original: original ?? "",
+      suggestion,
+    } satisfies GrammarMeta),
+  );
+}
+
+/// The issue under the caret, if the caret sits inside an underline.
+export function grammarIssueAt(
+  state: EditorState,
+  pos: number,
+): Decoration | null {
+  return (
+    grammarKey
+      .getState(state)
+      ?.find(pos, pos)
+      .find((deco: Decoration) => deco.from <= pos && pos <= deco.to) ?? null
   );
 }
 
@@ -126,6 +176,7 @@ function issuesToDecorations(
   let lastEnd = -1;
   for (const issue of ordered) {
     if (issue.start < lastEnd) continue;
+    if (ignored.has(ignoreKey(issue.original, issue.suggestion))) continue;
     // Backend offsets count Unicode scalars; JS strings (and ProseMirror
     // text offsets) count UTF-16 units.
     const start16 = scalarToUtf16Offset(text, issue.start);
@@ -165,8 +216,23 @@ export function createGrammarCheckPlugin(options: {
         state: {
           init: () => DecorationSet.empty,
           apply(tr, prev) {
-            const meta = tr.getMeta(grammarKey) as DecorationSet | undefined;
-            if (meta) return meta;
+            const meta = tr.getMeta(grammarKey) as GrammarMeta | undefined;
+            if (meta?.type === "paragraph") {
+              return prev
+                .remove(prev.find(meta.from, meta.to))
+                .add(tr.doc, meta.decorations);
+            }
+            if (meta?.type === "ignore") {
+              return prev.remove(
+                prev.find().filter((deco) => {
+                  const spec = deco.spec as GrammarDecorationSpec;
+                  return (
+                    (spec.original ?? "") === meta.original &&
+                    spec.suggestion === meta.suggestion
+                  );
+                }),
+              );
+            }
             if (!tr.docChanged) return prev;
             // Mapping keeps positions in step with the edit; on top of that,
             // any highlight whose text no longer says what the issue was
@@ -187,6 +253,26 @@ export function createGrammarCheckPlugin(options: {
         props: {
           decorations(state) {
             return grammarKey.getState(state);
+          },
+          // Alt+Enter applies the suggestion under the caret - the keyboard
+          // path the hover-only popover never had.
+          handleKeyDown(view, event) {
+            if (!event.altKey || event.key !== "Enter") return false;
+            const { selection } = view.state;
+            if (!selection.empty) return false;
+            const deco = grammarIssueAt(view.state, selection.from);
+            if (!deco) return false;
+            const spec = deco.spec as GrammarDecorationSpec;
+            if (
+              spec.original !== undefined &&
+              view.state.doc.textBetween(deco.from, deco.to) !== spec.original
+            )
+              return false;
+            event.preventDefault();
+            view.dispatch(
+              view.state.tr.insertText(spec.suggestion, deco.from, deco.to),
+            );
+            return true;
           },
         },
         view() {
@@ -232,10 +318,7 @@ export function createGrammarCheckPlugin(options: {
                 view.dispatch(
                   view.state.tr.setMeta(
                     grammarKey,
-                    DecorationSet.create(
-                      view.state.doc,
-                      issuesToDecorations(para, issues, contentStart),
-                    ),
+                    paragraphMeta(contentStart, para, issues),
                   ),
                 );
               });

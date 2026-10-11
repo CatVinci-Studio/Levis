@@ -16,9 +16,11 @@ export interface GrammarPopoverInfo {
 interface GrammarPopoverProps {
   info: GrammarPopoverInfo;
   applyLabel: string;
+  ignoreLabel: string;
   /** Why the last Apply click did nothing (stale text) - shown in place of the button. */
   error: string | null;
   onApply: () => void;
+  onIgnore: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
@@ -26,8 +28,10 @@ interface GrammarPopoverProps {
 export function GrammarPopover({
   info,
   applyLabel,
+  ignoreLabel,
   error,
   onApply,
+  onIgnore,
   onMouseEnter,
   onMouseLeave,
 }: GrammarPopoverProps) {
@@ -46,9 +50,18 @@ export function GrammarPopover({
       {error ? (
         <div className="grammar-popover-error">{error}</div>
       ) : (
-        <button className="grammar-popover-apply" onClick={onApply}>
-          {applyLabel}
-        </button>
+        <div className="grammar-popover-actions">
+          <button
+            className="grammar-popover-apply"
+            onClick={onApply}
+            title="Alt+Enter"
+          >
+            {applyLabel}
+          </button>
+          <button className="grammar-popover-ignore" onClick={onIgnore}>
+            {ignoreLabel}
+          </button>
+        </div>
       )}
     </div>
   );

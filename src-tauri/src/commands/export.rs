@@ -105,19 +105,18 @@ pub async fn export_via_pandoc(
 /// format's name and extension.
 #[tauri::command]
 pub async fn export_save_dialog(
-    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     default_name: String,
     filter_name: String,
     ext: String,
 ) -> Option<String> {
-    use tauri_plugin_dialog::DialogExt;
+    use super::fs::{window_file_dialog, with_default_extension};
     tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
+        window_file_dialog(&window)
             .set_file_name(&default_name)
             .add_filter(&filter_name, &[ext.as_str()])
             .blocking_save_file()
-            .map(|p| p.to_string())
+            .map(|p| with_default_extension(p.to_string(), &ext))
     })
     .await
     .ok()
@@ -441,7 +440,7 @@ mod pdf_macos {
     };
 
     // A4 in PostScript points (1pt = 1/72"); createPDF renders 1 CSS px as 1pt,
-    // so this is also the page in CSS px. Mirrored by PDF_PAGE_WIDTH/HEIGHT in
+    // so this is also the page in CSS px. Mirrored by MAC_PAGE in
     // src/export-paginate.ts, which lays the document out at this size - change
     // both together.
     const PAPER_WIDTH: f64 = 595.0;

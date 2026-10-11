@@ -22,7 +22,7 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
  *  arguments are still arriving or its text is still typing into the
  *  document (pending-edit-plugin settles it when the reveal completes). */
 export type PendingStatus =
-  "pending" | "streaming" | "accepted" | "rejected" | "invalid";
+  "pending" | "streaming" | "accepted" | "rejected" | "invalid" | "expired";
 
 /**
  * What a `replace_selection` proposal targets: the selection the request was
@@ -40,6 +40,9 @@ export type PendingStatus =
 export interface SelectionTarget {
   range: { from: number; to: number } | null;
   selectionMarkdown: string | null;
+  /** The caret when the request was sent with nothing selected - where an
+   *  insert_at_cursor proposal writes. */
+  cursor?: number | null;
 }
 
 /**
@@ -76,6 +79,26 @@ function computeStrikeRange(
   if (!parsedText) return null;
 
   return locatePlainText(doc, match.from, match.to, parsedText);
+}
+
+/** Where an agent's quoted passage is in the document now - narrowed to the
+ *  quoted text when it sits inside one block, else the touched blocks. For
+ *  a comment card's "locate". */
+export function locateAnchor(
+  ctx: Ctx,
+  doc: ProseNode,
+  anchor: string,
+  context?: string,
+): { from: number; to: number } | null {
+  const blocks = serializeBlocks(ctx, doc);
+  const match = findMarkdownMatch(blocks, anchor, context);
+  if (!match) return null;
+  return (
+    computeStrikeRange(ctx, doc, blocks, match) ?? {
+      from: match.from,
+      to: match.to,
+    }
+  );
 }
 
 /**
@@ -169,6 +192,10 @@ export function usePendingEdits(run: EditorRunner) {
 
           if (proposal.action === "append") {
             range = { from: docSize, to: docSize };
+          } else if (proposal.action === "insert_at_cursor") {
+            const at = chatInfo?.cursor;
+            if (typeof at === "number" && at <= docSize)
+              range = { from: at, to: at };
           } else if (proposal.action === "replace_selection") {
             // Targets the selection captured when the chat opened. Staleness
             // is judged on the selection's MARKDOWN: that's what the model
@@ -247,7 +274,13 @@ export function usePendingEdits(run: EditorRunner) {
   );
 
   const accept = useCallback(
-    (callId: string): boolean => {
+    (
+      callId: string,
+      /** Partial acceptance: the proposal's text with only some of its
+       *  sentence changes kept (the card's per-sentence picker). Composed
+       *  against the same target the preview resolved. */
+      textOverride?: string,
+    ): boolean => {
       let ok = false;
       let stillStreaming = false;
       run((ctx) => {
@@ -274,12 +307,35 @@ export function usePendingEdits(run: EditorRunner) {
         )
           return;
 
+        let replacement = preview.replacement;
+        if (textOverride !== undefined) {
+          const { proposal } = preview;
+          if (
+            proposal.action === "replace_selection" ||
+            proposal.action === "append" ||
+            proposal.action === "insert_at_cursor"
+          ) {
+            replacement = textOverride;
+          } else {
+            const match = findMarkdownMatch(
+              serializeBlocks(ctx, state.doc),
+              proposal.anchor ?? "",
+              proposal.context,
+            );
+            if (!match) return;
+            replacement = composeMarkdownEdit(
+              match,
+              proposal.action,
+              textOverride,
+            );
+          }
+        }
         const tr = applyEditRange(
           state,
           ctx,
           preview.from,
           preview.to,
-          preview.replacement,
+          replacement,
         );
         // Same transaction: one undo step restores the document exactly,
         // and the decoration is gone the instant the edit lands (no orphan
@@ -386,10 +442,34 @@ export function usePendingEdits(run: EditorRunner) {
     return merged;
   }, [previews, statuses]);
 
+  /** The markdown a pending replace/replace_selection would replace - what
+   *  the card's per-sentence picker diffs the proposal against. */
+  const originalText = useCallback(
+    (callId: string): string | null =>
+      run((ctx) => {
+        const { state } = ctx.get(editorViewCtx);
+        const preview = (pendingEditKey.getState(state)?.previews ?? []).find(
+          (p) => p.callId === callId,
+        );
+        if (!preview) return null;
+        if (preview.proposal.action === "replace")
+          return preview.proposal.anchor ?? null;
+        if (preview.proposal.action === "replace_selection")
+          return serializeRange(ctx, state.doc, preview.from, preview.to);
+        return null;
+      }) ?? null,
+    [run],
+  );
+
   /** Per-callId view of `allStatuses` - what the local chat card asks; one
    *  merge rule, not two that could drift. */
   const status = useCallback(
-    (callId: string): PendingStatus => allStatuses[callId] ?? "pending",
+    // A proposal this editor never showed - from a restored conversation,
+    // or one that ended before this session - is no longer decidable.
+    // Defaulting to "pending" offered live-looking Accept buttons that could
+    // only fail. (A card arriving mid-request reads as streaming instead:
+    // see ChatMessages.)
+    (callId: string): PendingStatus => allStatuses[callId] ?? "expired",
     [allStatuses],
   );
 
@@ -398,6 +478,7 @@ export function usePendingEdits(run: EditorRunner) {
     allStatuses,
     showPreviews,
     accept,
+    originalText,
     reject,
     acceptAll,
     rejectAll,

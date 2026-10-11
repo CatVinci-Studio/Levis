@@ -4,7 +4,16 @@
   --radius-control: 6px;
   --radius-surface: 10px;
   --radius-dialog: 14px;
+  /* Chips, badges and one-line notices. */
+  --radius-pill: 999px;
   --control-height: 32px;
+  /* Buttons inside panels, bars and toasts. */
+  --control-height-sm: 26px;
+  /* Type scale for the app's own UI (the document has its own). */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
   --chrome-subtle: #f8f9fb;
   --chrome-primary: #315ed1;
   --success-color: #24734d;
@@ -73,6 +82,16 @@
   outline-offset: 3px;
 }
 
+/* Text fields draw the ring on their own edge: 3px out, it ran over the
+   buttons sitting right under the AI composer. */
+:where(
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  textarea,
+  select
+):focus-visible {
+  outline-offset: -1px;
+}
+
 :where(button):disabled {
   cursor: default;
   opacity: 0.5;
@@ -98,12 +117,252 @@
   .settings-button,
   .image-name-input-row input,
   .insert-table-fields input,
-  .image-name-buttons button,
-  .insert-table-buttons button,
-  .close-prompt-buttons button,
-  .language-welcome-continue
+
 ) {
   min-height: var(--control-height);
+}
+
+/* Buttons. Size, shape and every state are defined here and nowhere else;
+   a component's own rule keeps only layout (width, margins) and text colour.
+   Two sizes - regular in dialogs, settings and the tutorial, compact in
+   panels, bars and toasts - and three kinds: secondary (light border, the
+   default), primary (solid accent, one per group) and quiet (text only). */
+:is(
+  .close-prompt-buttons button,
+  .image-name-buttons button,
+  .insert-table-buttons button,
+  .tutorial-btn,
+  .language-welcome-continue,
+  .text-button,
+  .inline-chat-action,
+  .update-toast button,
+  .draft-restored-toast button,
+  .project-bar-naming button,
+  .inline-chat-send
+) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-height);
+  padding: 0 14px;
+  border: 1px solid var(--editor-border, var(--border-color));
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: var(--text-md);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+:is(
+  .inline-chat-action,
+  .update-toast button,
+  .draft-restored-toast button,
+  .project-bar-naming button,
+  .inline-chat-send
+) {
+  min-height: var(--control-height-sm);
+  padding: 0 10px;
+  font-size: var(--text-sm);
+}
+
+:is(
+    .close-prompt-buttons button,
+    .image-name-buttons button,
+    .insert-table-buttons button,
+    .tutorial-btn,
+    .text-button,
+    .inline-chat-action,
+    .update-toast button,
+    .draft-restored-toast button,
+    .project-bar-naming button
+  ):not(:disabled):hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+:is(
+  .close-prompt-buttons button,
+  .image-name-buttons button,
+  .insert-table-buttons button,
+  .tutorial-btn,
+  .language-welcome-continue,
+  .inline-chat-action,
+  .update-toast button,
+  .inline-chat-send
+):is(
+  .close-prompt-primary,
+  .image-name-primary,
+  .insert-table-primary,
+  .tutorial-btn-primary,
+  .language-welcome-continue,
+  .inline-chat-action-primary,
+  .update-toast-primary,
+  .inline-chat-send
+) {
+  border-color: var(--chrome-primary);
+  background: var(--chrome-primary);
+  color: #fff;
+}
+
+:is(
+    .close-prompt-buttons button,
+    .image-name-buttons button,
+    .insert-table-buttons button,
+    .tutorial-btn,
+    .language-welcome-continue,
+    .inline-chat-action,
+    .update-toast button,
+    .inline-chat-send
+  ):is(
+    .close-prompt-primary,
+    .image-name-primary,
+    .insert-table-primary,
+    .tutorial-btn-primary,
+    .language-welcome-continue,
+    .inline-chat-action-primary,
+    .update-toast-primary,
+    .inline-chat-send
+  ):not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--chrome-primary) 86%, #000);
+  background: color-mix(in srgb, var(--chrome-primary) 86%, #000);
+}
+
+/* Icon buttons: no frame, a muted glyph that darkens on hover. Compact
+   (24px) in headers, rows and bars; the composer's toolbar ones are
+   framed and match its 26px select and Send button. */
+:is(
+  .inline-chat-header-button,
+  .quick-ask-pending-nav-button,
+  .tree-tool,
+  .icon-button,
+  .inline-chat-attach,
+  .inline-chat-web-search
+) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+:is(.inline-chat-header-button, .quick-ask-pending-nav-button, .tree-tool) {
+  width: 24px;
+  height: 24px;
+}
+
+.icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+:is(.inline-chat-attach, .inline-chat-web-search) {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  border: 1px solid var(--editor-border, var(--border-color));
+}
+
+:is(
+    .inline-chat-header-button,
+    .quick-ask-pending-nav-button,
+    .tree-tool,
+    .icon-button,
+    .inline-chat-attach,
+    .inline-chat-web-search
+  ):not(:disabled):hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--editor-text);
+}
+
+/* Selects: one look - a drawn chevron in place of the native arrow - in
+   two sizes like the buttons. */
+:is(.settings-select, .inline-chat-mode) {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: var(--control-height);
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--editor-border, var(--border-color));
+  border-radius: var(--radius-control);
+  background-color: var(--editor-bg, var(--bg));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.8L5 6.8L8 3.8' stroke='%23888888' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 10px;
+  color: var(--editor-text);
+  font: inherit;
+  font-size: var(--text-md);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.inline-chat-mode {
+  min-height: var(--control-height-sm);
+  padding-left: 8px;
+  font-size: var(--text-sm);
+}
+
+:is(.settings-select, .inline-chat-mode):hover {
+  border-color: color-mix(
+    in srgb,
+    var(--editor-muted) 45%,
+    var(--editor-border, var(--border-color))
+  );
+}
+
+/* Menus: the app menu, the context menu, the project bar's and Quick
+   Ask's - one panel padding, one item size, one hover. */
+:is(.app-menu-list, .context-menu, .project-bar-menu, .quick-ask-split-menu) {
+  padding: 4px;
+  font-size: var(--text-md);
+}
+
+:is(
+  .app-menu-item,
+  .context-menu-item,
+  .project-bar-menu button,
+  .quick-ask-split-menu-item
+) {
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--editor-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+:is(
+    .app-menu-item,
+    .context-menu-item,
+    .project-bar-menu button,
+    .quick-ask-split-menu-item
+  ):not(:disabled):is(:hover, :focus-visible) {
+  background: var(--sidebar-hover);
+  outline: none;
+}
+
+:is(.app-menu-separator, .context-menu-separator, .project-bar-menu-sep) {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-color);
+}
+
+:is(.update-toast button):is(.update-toast-secondary) {
+  border-color: transparent;
+  color: var(--editor-muted, inherit);
 }
 
 :where(

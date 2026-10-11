@@ -1,93 +1,122 @@
 # Levis AI Features Guide
 
-Levis has a built-in AI agent made for writing. This document covers signing in, the AI features, and how to shape the agent into your own writing assistant with an Agent Workspace.
+Levis has a built-in AI agent made for writing: completion, grammar checking, and conversations that read and revise your document. This guide covers connecting a service, the AI features, and how to shape the agent into your own writing assistant with a project folder and an Agent Workspace.
 
-> [!TIP]
-> Every AI feature can be toggled individually in **Settings > AI**, which also has a full list of providers to sign in to or configure — pick whichever is active with the **Use** button.
+## Connecting a service
 
-## Signing in / choosing a provider
+1. Open **Settings > AI Services** and choose the service you want under **Provider**.
+2. Expand **Login & credentials** and sign in to your account or enter an API key, whichever that service supports.
+3. For a **Custom Endpoint** (any OpenAI-compatible server: local models, proxies), enter the base URL, a key if it needs one, and the model name, then save.
+4. Pick the writing model under **Completion & Grammar**. The chat model is chosen in **Settings > Agent**.
 
-**Settings > AI** lists every provider as a row you can expand to sign in or configure, and switch between with its **Use** button:
+Signing in happens in your browser. Whether images, web search and document edits are available depends on the service and model you choose.
 
-| Provider | Notes |
-| --- | --- |
-| **ChatGPT (Codex)** | Sign in with your ChatGPT account (browser authorization, no API key). Tool calling (edit proposals, file reading, dynamic skills) and web search. |
-| **OpenAI API Key** | Paste a standard OpenAI API key. Same tool calling and web search as ChatGPT. |
-| **Claude** | Sign in with your Claude account (browser authorization). Tool calling (edit proposals, file reading, dynamic skills) — no web search yet. |
-| **Custom Endpoint** | Any OpenAI-compatible endpoint (local models, proxies): enter the base URL, an optional key, then fetch or type the model name. Quick-fill buttons are provided for OpenRouter, Groq, and a local Ollama server. Tool calling is best-effort — not every compatible server implements it correctly, so a request that fails there quietly falls back to a plain-text reply instead of proposing edits. |
+The built-in model list only holds each provider's defaults (for Anthropic: Claude Sonnet 5.5 for the agent, Claude Haiku 5.5 for completion and grammar). Press **Fetch Models** next to a model picker to load the provider's current list and choose any model from it.
 
-"Sign in with ChatGPT" / "Sign in with Claude" opens your browser for authorization; once you approve, you're done.
+Shortcuts below use macOS notation; on Windows and Linux, read Cmd as Ctrl and Option as Alt. If you have changed a shortcut, **Settings > Shortcuts** has the current one.
 
 ## The AI features
 
 ### 1. Completion
 
-As you type, a gray continuation appears at the cursor — press <kbd>Tab</kbd> to accept it. There's no minimum amount of text required; it's ready from the very first sentence of a document. You can also trigger it manually with <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> or the context menu.
+As you type, a gray continuation appears at the cursor — press <kbd>Tab</kbd> to accept it, or <kbd>Cmd</kbd>+<kbd>→</kbd> to accept just the next word and keep the rest on offer. <kbd>Esc</kbd> dismisses it. There's no minimum amount of text required; it's ready from the very first sentence of a document.
 
-In **Settings > AI** you can pick a **completion tone** (match the document / formal / casual / academic / concise).
+Ask for one explicitly with <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> or the context menu (the cursor must be at the end of a paragraph): you get a longer continuation with up to three alternatives — <kbd>Option</kbd>+<kbd>[</kbd> / <kbd>Option</kbd>+<kbd>]</kbd> cycle through them.
+
+Under **Settings > AI Services > Completion & Grammar** you can pick a **completion tone** (match the document / formal / casual / academic / concise). When the document belongs to a project with a style profile or library (see below), completion follows them too.
 
 ### 2. Grammar check
 
-Possible issues get underlined; hover to see the explanation and apply the fix with one click. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> checks the current paragraph immediately.
+Possible issues get underlined. Hover over one, or move the caret into it, to see the explanation; **Apply** (or <kbd>Option</kbd>+<kbd>Enter</kbd> with the caret on it) takes the fix, **Ignore** dismisses it. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> checks the current paragraph immediately.
 
-### 3. Ask AI (the chat popup)
+### 3. The AI panel
 
-Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI) to open a chat panel right below the paragraph you are in. It sits in the document, pushing the text below it down rather than covering it. It knows the whole document, and if text was selected when you opened it, the selection is included as context.
+The full conversation lives in a panel on the right side of the editor. Open or close it with the chat button at the right end of the window bar or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
 
-- **Replies**: a reply that only answers opens in full; a reply that edits the document stays compact, because the edits themselves appear in the document for you to accept or reject. Collapse an answer and later answers in that conversation stay collapsed.
-- **The shortcut again**: pressing <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> while the panel is open moves the cursor to its input; pressing it once more from the input closes it. <kbd>Esc</kbd> anywhere in the panel closes it too, and the cursor goes back to the document. With edits still undecided, closing (or starting a new conversation) asks first.
-- **Popped out**: while the chat is in its own window, the shortcut and Ask AI bring that window forward instead of opening a second chat in the document.
-
-- **History**: the sidebar's **Chats** tab stores past conversations. Click one to reopen it in the current editor and continue.
+- **One conversation per document**: each tab has its own conversation, and switching tabs switches the panel with it. **New conversation** in the panel's header starts over (with edits still undecided, it asks first).
+- **Modes**: the composer has **Ask**, **Edit** and **Plan**. The panel starts in the mode set under **Settings > Agent > Default mode**.
+- **@-mentions**: type `@` in the input to pick a text file from the project folder; it is attached to the message.
 - **Attach files**: the **+** button on the left of the input attaches a PDF, Word document, PowerPoint deck, spreadsheet, image, or plain text file to that message. Everything except images is extracted to text locally and travels inside the message; images are sent as real images to providers that can see (ones that can't say so up front rather than dropping them silently). A long file is sent only in part, and the chip says "(shortened)" when that happens.
-- **Web search**: once enabled in Settings (ChatGPT and OpenAI API Key providers), the agent can search the web on its own when a request needs it.
-- **Workspace files**: a tool-calling provider (ChatGPT, API Key, or Claude) can list and read files in the workspace folder by itself — keep reference material there (see The Agent Workspace below).
+- **Web search**: once enabled in **Settings > Agent** (for providers that offer it), the agent can search the web on its own when a request needs it.
+- **History**: the sidebar's **Chats** tab stores past conversations. Click one to reopen it in the current editor and continue.
+- **Errors**: when a request fails, the chat says what kind of problem it is and what to do (check the key, wait a moment, pick another model) above the provider's own message.
 
-Replies are read-only commentary — the chat never writes to your document directly. Whenever a reply changes the document, it arrives as an in-document edit preview instead (see below).
+**Open in a separate window** in the panel's header moves the conversation into its own window — handy on a second monitor. That window follows you: switch tabs or windows and its document, title and selection follow, and the edits it proposes land in whichever file you are actually editing. There is only ever one per editor window; **📌** in its header keeps it above the editor.
 
-#### Two surfaces: in-document vs its own window
+### 4. Quick Ask
 
-The chat has two surfaces, and they differ in **what they are about**, not in size:
+Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI…) to open a small chat bar right below the paragraph you are in. It sits in the document, pushing the text below it down rather than covering it. If text was selected when you opened it, the selection is included. Quick Ask opens in **Edit** mode, because it is usually opened on a passage to change it ("shorten this"); Ask is one click away in the mode picker.
 
-- **Quick Ask**, in the document, is about this one file. It captures the document and selection at the moment it opens and keeps them — a command bar that re-targeted itself mid-conversation would be unpredictable. Use it for one-shot instructions like "rewrite this paragraph".
-- **The detached window** (⧉ in the panel's header, or "open full conversation" beside a reply) is the **cross-file** surface. It follows you: switch tabs or windows and its document, title and selection follow. Highlight a new passage and it arrives as a new selection chip in the input, with no need to reopen anything. Edits it proposes land in whichever file you are actually editing.
-- There is only ever **one** detached window. Popping the chat out from a second file reveals the one already open and switches it to that file, rather than starting a rival conversation.
-- **📌** in its header keeps it above the editor, so clicking back into your document doesn't bury it.
-- By default each editor window has its own Agent window. Turn on **Settings > Agent > Share the Agent window across windows** and a single window serves the whole app.
+- **The shortcut again**: pressing <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> while the bar is open moves the cursor to its input; pressing it once more from the input closes it. <kbd>Esc</kbd> anywhere in the bar closes it too, and the cursor goes back to the document. With edits still undecided, closing (or starting a new conversation) asks first.
+- **Open full conversation** continues the same conversation in the AI panel. Turn on **Settings > Agent > Advanced Agent Behavior > Open full conversations in a separate window** to send it to a separate window instead.
 
-### 4. In-document edit previews
+### 5. Edits in the document
 
-When you ask a tool-calling provider (ChatGPT, OpenAI API Key, Claude, or a custom endpoint that supports it) to change the document, its proposal shows up right where the change would land: removed text is struck through, new text appears as a green ghost-style insert. A small floating panel with **✓ Accept** / **✗ Reject** appears next to it — keyboard shortcuts <kbd>Cmd</kbd>+<kbd>Return</kbd> / <kbd>Cmd</kbd>+<kbd>Delete</kbd> do the same. Nothing touches the document until you accept, and <kbd>Cmd</kbd>+<kbd>Z</kbd> undoes an accepted edit in one step. The chat popup's card for that proposal mirrors the same Accept/Reject buttons and shows a status once resolved. This is the only way a reply changes your document — there's no separate "insert" or "replace" button to place text yourself.
+The chat never writes to your document directly. When you ask a tool-calling provider to change the document, each change is a proposal shown right where it would land: removed text is struck through, new text appears as a green insert. Nothing touches the document until you accept, and <kbd>Cmd</kbd>+<kbd>Z</kbd> undoes an accepted edit in one step.
 
-Multiple proposals in one reply preview at once; the floating panel shows "1 of N" with ‹› to step between them, plus Accept all / Reject all.
+- **Accept / Reject**: from the floating bar next to the edit, the proposal's card in the panel, or the keyboard — <kbd>Cmd</kbd>+<kbd>Return</kbd> accepts, <kbd>Cmd</kbd>+<kbd>Delete</kbd> with the caret on the edit rejects. Several proposals in one reply preview at once; step between them with ‹› and use Accept all / Reject all.
+- **Reasons**: each proposal card says why the agent made that change.
+- **Only some sentences**: when a proposal rewrites several sentences, its card offers "N sentence changes · choose" — tick the ones you want and press **Accept selected**.
+- **At the cursor**: with nothing selected, the agent knows where your cursor is, so "write a transition here" inserts exactly there.
+- **Comments instead of edits**: ask for a review ("what's weak here?") and the agent pins comments to passages without changing them. Each comment card has **Show in document**, which selects the passage it is about.
+
+## The project folder
+
+When a document is saved, **its folder is the project**. The agent can list, read and search the text files in it (Markdown, plain text, and similar formats) to find a character's earlier scenes, a term, or your notes. Hidden files and folders, build and dependency folders (such as `node_modules`), and files over 100 KB are left out. An unsaved draft has no project, and a folder that is too broad — your home folder or a whole drive — is refused.
+
+The bar under the AI panel's header shows the project. Its menu can **Choose project folder…** (for when your reference material doesn't live next to the draft), go back with **Use the document's folder**, or **Show in file manager**. The same choice is under **Settings > Agent > Workspace Folder**. Everything the agent reads must be inside the project: `..`, absolute paths, and symlinks pointing outside are refused.
+
+The project also holds two writing aids in its `.levis/` folder:
+
+```
+my-novel/
+├── chapter-1.md
+└── .levis/
+    ├── style.md          ← your style profile
+    └── library/
+        ├── lin-wan.md    ← one entry per character, place or term
+        └── harbour-city.md
+```
+
+### style.md — your voice
+
+A description of how you write: voice and tone, sentence rhythm, word choice, things you never do. The agent and completion follow it for every document in the project. Create it from the project menu (**Create style profile**), or use **Learn my style from samples…**: pick a few files of your own writing and the AI drafts the profile from them, then opens it in a new tab for you to review and edit (the previous profile is kept as `style.previous.md`).
+
+### library/ — facts to keep straight
+
+One Markdown file per character, place or term (**New library entry…** in the project menu creates one):
+
+```markdown
+---
+name: Lin Wan
+aliases: [Wan, Ms Lin]
+include: detected
+---
+
+Protagonist, 32, teaches Chinese at a secondary school...
+```
+
+You don't attach entries yourself. An entry with `include: detected` (the default) is given to the AI automatically whenever its name or an alias appears in your message, the selection, or the text around the cursor; `always` sends it with every request and `never` keeps it out. A large library costs nothing until an entry is relevant.
 
 ## The Agent Workspace
 
-Different writing projects need different instructions, skills, and reference files. A workspace is, by default, **the folder containing your document**, configured with a `.levis/` directory inside it:
+Instructions and skills live in the same `.levis/` folder:
 
 ```
 my-novel/
 ├── chapter-1.md       ← the document being edited
-├── .levis/
-│   ├── agent.md       ← standing instructions: style, glossary, project background
-│   └── skills/
-│       ├── polish.md  ← one skill per file
-│       └── outline.md
-└── research/
-    └── worldbuilding.md   ← reference material the agent can read on its own
+└── .levis/
+    ├── agent.md       ← standing instructions: style, glossary, project background
+    └── skills/
+        ├── polish.md  ← one skill per file
+        └── outline.md
 ```
 
-There is also a **global layer** with the same structure that applies to every document (Settings > Agent > Open Global Folder). A workspace skill with the same name overrides the global one.
-
-### Choosing a different workspace
-
-The workspace folder is two things at once: where `.levis/` is read from, and the only place the agent's file tools may read (`..`, absolute paths, and symlinks pointing outside are all refused). So the default stops being enough as soon as your reference material and your draft don't live in the same folder.
-
-Set it explicitly under **Settings > Agent > Workspace Folder**: "Switch…" picks a folder, "Use document folder" goes back to the default. If the folder you chose is later moved or unmounted, the document's own folder is used again rather than leaving the agent with no workspace at all.
+There is also a **global layer** with the same structure that applies to every document (**Settings > Agent > Open Global Folder**). A workspace skill with the same name overrides the global one.
 
 ### agent.md — standing instructions
 
-Whatever you write in `agent.md` is given to the agent in every chat. Good candidates: style requirements, a glossary of names and terms, what the project is.
+Whatever you write in `agent.md` is given to the agent in every chat. Good candidates: requirements for the reply, what the project is, rules the agent should always follow.
 
 ### skills/ — skills
 
@@ -110,8 +139,8 @@ Skills trigger two ways:
 2. **Automatically** (tool-calling providers only): the agent knows every skill's name and description, and when your request matches one, it loads and follows the full instructions by itself.
 
 > [!NOTE]
-> Skill files take effect immediately — the next chat you open uses the new content, no restart needed.
+> Files in `.levis/` take effect without a restart — the agent's next request uses the new content (completion picks it up within a few seconds).
 
 ## A note on privacy
 
-Your document, attached files, and workspace instructions are sent to the provider you selected as part of each request. Web search runs on OpenAI's servers. Turn any feature off in Settings when you don't want that.
+Your document, attached and @-mentioned files, workspace instructions, the style profile, relevant library entries, and any project files the agent reads are sent to the provider you selected as part of each request. Web search runs on that provider's servers. Turn any feature off in Settings when you don't want that.

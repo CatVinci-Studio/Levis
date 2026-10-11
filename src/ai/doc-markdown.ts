@@ -1,4 +1,5 @@
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
+import { isCjk } from "../utils/cjk";
 import { serializerCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { EditorState } from "@milkdown/kit/prose/state";
@@ -66,6 +67,51 @@ export function readSelection(ctx: Ctx, state: EditorState): SelectionSnapshot {
     selectedText: doc.textBetween(range.from, range.to, " "),
     selectionMarkdown: serializeRange(ctx, doc, range.from, range.to),
     range,
+  };
+}
+
+/** The innermost heading above `pos` - the section being worked in. */
+export function headingAt(doc: ProseNode, pos: number): string | null {
+  return headingTrail(doc, pos).path.at(-1)?.text ?? null;
+}
+
+/** The top-level headings before `pos`: the first one (the document's
+ *  title) and the path of nested sections down to `pos`. */
+export function headingTrail(
+  doc: ProseNode,
+  pos: number,
+): { title: string | null; path: { level: number; text: string }[] } {
+  let title: string | null = null;
+  const path: { level: number; text: string }[] = [];
+  doc.forEach((node, offset) => {
+    if (offset >= pos || node.type.name !== "heading") return;
+    const level = Number(node.attrs.level) || 1;
+    const text = node.textContent.trim();
+    if (!text) return;
+    title ??= text;
+    while (path.length && path[path.length - 1].level >= level) path.pop();
+    path.push({ level, text });
+  });
+  return { title, path };
+}
+
+/** The caret and the plain text around it, when nothing is selected - for
+ *  the <cursor> block a request carries (user-message.ts's cursorBlock). */
+export function caretContext(
+  state: EditorState,
+  span = 160,
+): { pos: number; before: string; after: string } | null {
+  const { selection, doc } = state;
+  if (!selection.empty) return null;
+  const pos = selection.from;
+  return {
+    pos,
+    before: doc
+      .textBetween(Math.max(0, pos - span * 4), pos, "\n")
+      .slice(-span),
+    after: doc
+      .textBetween(pos, Math.min(doc.content.size, pos + span * 4), "\n")
+      .slice(0, span),
   };
 }
 
@@ -181,6 +227,28 @@ function flexibleRange(
   return { start: first.index, end: first.index + first[0].length };
 }
 
+/** One character's matching form - mirrors tools.rs's normalize_char:
+ *  typographic quotes, dash variants, full-width ASCII and non-breaking
+ *  spaces fold to plain ASCII. One char in, one char out (all BMP), so an
+ *  index into the normalized text is an index into the original. */
+function normalizeForMatch(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const c = ch.codePointAt(0) ?? 0;
+    if (c === 0x2018 || c === 0x2019 || c === 0x201a || c === 0x2032)
+      out += "'";
+    else if (c === 0x201c || c === 0x201d || c === 0x201e || c === 0x2033)
+      out += '"';
+    else if ((c >= 0x2010 && c <= 0x2015) || c === 0x2212) out += "-";
+    else if (c === 0xa0 || c === 0x2007 || c === 0x202f || c === 0x3000)
+      out += " ";
+    else if (c >= 0xff01 && c <= 0xff5e)
+      out += String.fromCodePoint(c - 0xfee0);
+    else out += ch;
+  }
+  return out;
+}
+
 /**
  * Locates `snippet` in the document's markdown. Null when it's absent or
  * occurs more than once - the same "must be quoted verbatim and occur exactly
@@ -214,8 +282,17 @@ export function findMarkdownMatch(
       range = { start, end: start + snippet.length };
     }
   }
+  // The same fallback order as tools.rs's anchor_match_count: typography
+  // first, then (also) folded whitespace - but only for a snippet with no
+  // verbatim occurrence at all.
   if (!range && doc.indexOf(snippet) === -1) {
-    range = flexibleRange(doc, snippet);
+    const normDoc = normalizeForMatch(doc);
+    const normSnippet = normalizeForMatch(snippet);
+    const normalized = uniqueIndexOf(normDoc, normSnippet);
+    if (normalized !== null)
+      range = { start: normalized, end: normalized + normSnippet.length };
+    else if (normDoc.indexOf(normSnippet) === -1)
+      range = flexibleRange(normDoc, normSnippet);
   }
   if (!range) return null;
   const { start, end } = range;
@@ -235,6 +312,27 @@ export function findMarkdownMatch(
     suffix: doc.slice(Math.min(spanEnd, end), spanEnd),
     markdown: doc.slice(spanStart, spanEnd),
   };
+}
+
+/** Whether `text` is block content of its own - several paragraphs, or a
+ *  heading/list/quote/fence/table line - rather than words for a sentence. */
+function isBlockText(text: string): boolean {
+  const trimmed = text.trim();
+  return (
+    /\n\s*\n/.test(trimmed) ||
+    /^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|```|~~~|\|)/.test(trimmed)
+  );
+}
+
+/** Joins two runs of inline text, adding the one space Latin script needs
+ *  between words when neither side brought it - "the study" + "in 2024" -
+ *  and nothing between CJK characters or before punctuation. */
+function joinInline(left: string, right: string): string {
+  const a = left.slice(-1);
+  const b = right.charAt(0);
+  if (!a || !b || /\s/.test(a) || /\s/.test(b)) return left + right;
+  if (isCjk(a) || isCjk(b) || /[.,;:!?)\]}]/.test(b)) return left + right;
+  return `${left} ${right}`;
 }
 
 /**
@@ -261,11 +359,22 @@ export function composeMarkdownEdit(
     case "delete":
       middle = "";
       break;
+    // A new block only where one belongs: the text is block content, or
+    // the anchor sits at the edge of its block (a whole paragraph, a
+    // heading). Otherwise the insertion is part of the sentence - always
+    // breaking out a paragraph turned "add 'in 2024' after 'the study'"
+    // into three paragraphs.
     case "insert_before":
-      middle = `${text}${BLOCK_SEPARATOR}${matched}`;
+      middle =
+        isBlockText(text) || match.prefix.trim() === ""
+          ? `${text.trim()}${BLOCK_SEPARATOR}${matched}`
+          : joinInline(text, matched);
       break;
     case "insert_after":
-      middle = `${matched}${BLOCK_SEPARATOR}${text}`;
+      middle =
+        isBlockText(text) || match.suffix.trim() === ""
+          ? `${matched}${BLOCK_SEPARATOR}${text.trim()}`
+          : joinInline(matched, text);
       break;
     default:
       middle = text;

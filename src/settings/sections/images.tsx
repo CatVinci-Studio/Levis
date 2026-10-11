@@ -1,3 +1,4 @@
+import { errorText } from "../../utils/error-text";
 import { useEffect, useState } from "react";
 import { imageHostAuth } from "../../ipc";
 import type { Strings } from "../../i18n/strings";
@@ -28,7 +29,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
       setTokenConfigured(true);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 
@@ -38,7 +39,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
       setTokenConfigured(false);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 

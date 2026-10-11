@@ -20,6 +20,10 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+      # The Playwright flows, without comparing screenshots: the baselines
+      # were taken with one machine's fonts and would differ here.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:visual -- --ignore-snapshots
 
   rust-platforms:
     strategy:

@@ -3,6 +3,8 @@ import {
   isTutorialPracticeComplete,
   MARKDOWN_ALL_TASKS,
   MARKDOWN_TASK,
+  SIDEBAR_ALL_TABS,
+  SIDEBAR_TAB,
 } from "./tutorial-evaluation";
 import { TutorialOverlay, type TutorialChecklistItem } from "./TutorialOverlay";
 import { TUTORIAL_SECTIONS, TUTORIAL_STEPS } from "./tutorial-steps";
@@ -15,6 +17,7 @@ interface TutorialExperienceProps {
     completion: string;
     grammar: string;
     agent: string;
+    sidebar: string;
   };
 }
 
@@ -32,6 +35,13 @@ const MARKDOWN_EXERCISES = [
   },
   { labelKey: "tutorialMarkdownStepCode", bit: MARKDOWN_TASK.code },
   { labelKey: "tutorialMarkdownStepFormula", bit: MARKDOWN_TASK.formula },
+] as const;
+
+const SIDEBAR_TABS = [
+  { labelKey: "tutorialSidebarTree", bit: SIDEBAR_TAB.tree },
+  { labelKey: "tutorialSidebarOutline", bit: SIDEBAR_TAB.outline },
+  { labelKey: "tutorialSidebarClipboard", bit: SIDEBAR_TAB.clipboard },
+  { labelKey: "tutorialSidebarChat", bit: SIDEBAR_TAB.chat },
 ] as const;
 
 /**
@@ -52,11 +62,18 @@ export function TutorialExperience({
         ? shortcuts.grammar
         : step.id === "agentChat" || step.id === "agentEdit"
           ? shortcuts.agent
-          : "";
+          : step.id === "sidebar"
+            ? shortcuts.sidebar
+            : "";
   const text = (value: string) => value.replace("{shortcut}", shortcut);
+  // A body that already names its shortcut inline doesn't get it repeated
+  // on a line of its own.
+  const inlineShortcut = t[step.bodyKey].includes("{shortcut}");
   const body = [
     text(t[step.bodyKey]),
-    shortcut ? t.tutorialShortcut.replace("{shortcut}", shortcut) : "",
+    shortcut && !inlineShortcut
+      ? t.tutorialShortcut.replace("{shortcut}", shortcut)
+      : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -74,6 +91,14 @@ export function TutorialExperience({
     const missing = checklist.find((item) => !item.done);
     status = missing ? missing.label : t.tutorialMarkdownDone;
     waiting = phase < MARKDOWN_ALL_TASKS;
+  } else if (step.id === "sidebar") {
+    checklist = SIDEBAR_TABS.map(({ labelKey, bit }) => ({
+      label: t[labelKey],
+      done: !!(phase & bit),
+      onSkip: () => tutorial.setPhase((current) => current | bit),
+    }));
+    status = phase === SIDEBAR_ALL_TABS ? t.tutorialSidebarDone : null;
+    waiting = phase < SIDEBAR_ALL_TABS;
   } else if (step.id === "completion") {
     task = t.tutorialCompletionTarget;
     status =
@@ -118,6 +143,7 @@ export function TutorialExperience({
     step.id === "welcome" || step.id === "done"
       ? [
           t.tutorialMarkdownPracticeTitle,
+          t.tutorialSidebarTitle,
           t.tutorialRoadmapAiTools,
           t.tutorialAgentChatTitle,
           t.tutorialAgentEditTitle,

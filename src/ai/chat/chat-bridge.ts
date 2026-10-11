@@ -126,6 +126,9 @@ export type BulkDecisionMessage = DocScopedMessage;
 export interface ReembedMessage {
   conversationId: string;
   turns: AgentTurn[];
+  /** The document the conversation was last about - only that tab takes it
+   *  back (null: an unsaved draft, matched as the active tab). */
+  docPath: string | null;
 }
 
 /** Typed `emitTo` - keeps event name and payload shape together. */

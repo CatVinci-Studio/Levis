@@ -25,7 +25,8 @@ Run exactly what CI runs. There are two halves, and it is easy to run one and
 forget the other:
 
 ```sh
-npm run check                                          # tsc + eslint + vitest + prettier
+npm run check                                          # tsc + eslint + vitest + prettier + README structure
+npm run build                                          # tsc + vite build
 cd src-tauri
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings   # --workspace: aicompat too
@@ -86,9 +87,28 @@ code to serve one caller usually means the fix is at the wrong depth.
 
 ## Tests
 
-Three suites - frontend (vitest), the app crate, and `aicompat`. They
-cluster into four kinds - see `docs/TESTING.md` for the full map and for what
-is deliberately _not_ covered.
+Five suites, cheapest first - see `docs/TESTING.md` for the full map and for
+what is deliberately _not_ covered:
+
+```sh
+npm run check                          # typecheck, lint, vitest, prettier, README structure
+cd src-tauri && cargo test --workspace # app crate + aicompat
+npm run test:visual                    # Playwright screenshots of the UI in Chromium
+scripts/smoke-linux.sh --build         # the built Linux app and its .deb
+cd src-tauri && cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
+                                       # real Anthropic API (costs cents)
+```
+
+The first two run in CI, and so do the Playwright flows without their
+screenshot comparison. The rest need a display, a desktop session or an API
+key, and are run by hand before a release.
+
+The visual suite needs Chromium once: `npx playwright install chromium`. Its
+screenshot baselines depend on the fonts of the machine that took them; on
+another machine either run `npm run test:visual -- --ignore-snapshots` (the
+flows and their assertions only) or take local baselines. After an intended
+UI change, `npm run test:visual -- --update-snapshots` and look at every
+changed image before keeping it.
 
 New tests belong next to the code (`foo.ts` → `foo.test.ts`, `#[cfg(test)]
 mod tests` in Rust). Name them as the claim they make, not as the function
@@ -102,9 +122,10 @@ brings the chip back for a NEW selection after one was dismissed
 A test whose name is `test_parse` tells a future reader nothing about what
 broke when it fails.
 
-There is no automated UI or end-to-end coverage - CSS, window management, and
-anything native is verified by running the app. If your change touches those,
-say in the PR what you exercised by hand.
+The visual suite runs the frontend in Chromium against the dev Tauri shim, not
+in WebKitGTK or WebView2, so native behaviour - window management, drag
+between windows, file dialogs, the updater - is still verified by running the
+app. If your change touches those, say in the PR what you exercised by hand.
 
 ## Pull requests
 
@@ -135,8 +156,9 @@ is published as a GitHub pre-release. It skips the Homebrew cask and the
 go looking for it - the in-app updater reads `releases/latest`, which
 excludes pre-releases.
 
-One constraint the bundler imposes: the Windows **MSI** target requires a
-semver pre-release identifier to be numeric, so `0.9.0-rc.1` cannot be
-bundled as MSI at all. The workflow therefore builds Windows pre-releases as
-**NSIS only** (`-setup.exe`); a stable tag still produces both. macOS and
-Linux accept either form.
+Windows ships only the **NSIS** installer (`-setup.exe`), for stable and
+pre-release tags alike - the target list lives in
+`src-tauri/tauri.windows.conf.json`. MSI is not built: an MSI install and an
+NSIS install don't recognise each other, which made upgrades ask to uninstall
+first, and MSI cannot bundle a non-numeric pre-release such as `0.9.0-rc.1`
+anyway.

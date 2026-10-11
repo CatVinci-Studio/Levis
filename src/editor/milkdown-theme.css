@@ -58,6 +58,24 @@
   pointer-events: none;
 }
 
+.ghost-text-count {
+  user-select: none;
+  pointer-events: none;
+}
+
+.ghost-text-count::after {
+  content: attr(data-count);
+  margin-left: 0.5em;
+  padding: 0 0.35em;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--radius-small);
+  color: var(--editor-muted);
+  font-size: 0.72em;
+  font-style: normal;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}
+
 .ghost-text::after {
   content: attr(data-suggestion);
   color: var(--editor-muted);
@@ -120,7 +138,7 @@
 
 .pending-insert {
   background: rgba(22, 163, 74, 0.14);
-  border-radius: 3px;
+  border-radius: var(--md-radius-sm);
   padding: 0 2px;
   /* Renders real markdown (renderMarkdownInlineHtml), not source text - the
      ProseMirror root's own base stylesheet sets white-space: pre-wrap on
@@ -168,7 +186,7 @@
    "this is being added/removed". */
 .chat-selection {
   background: color-mix(in srgb, var(--editor-accent) 18%, transparent);
-  border-radius: 2px;
+  border-radius: var(--md-radius-sm);
 }
 
 .empty-doc-placeholder::before {
@@ -267,7 +285,7 @@
 }
 .rhtml-mark {
   background: var(--editor-highlight-bg, #fff8c5);
-  border-radius: 2px;
+  border-radius: var(--md-radius-sm);
 }
 .rhtml-small {
   font-size: 0.85em;
@@ -281,7 +299,7 @@
   font-family: var(--code-font, var(--font-mono, monospace));
   font-size: 0.85em;
   background: var(--editor-code-bg);
-  border-radius: 4px;
+  border-radius: var(--md-radius-sm);
   padding: 0.1em 0.35em;
 }
 .rhtml-kbd {
@@ -358,7 +376,7 @@
   height: 36px;
   max-height: 60%;
   transform: translateY(-50%);
-  border-radius: 3px;
+  border-radius: var(--radius-small);
   background: var(--editor-accent);
   box-shadow: 0 0 0 2px var(--editor-bg, var(--bg));
   cursor: ew-resize;
@@ -431,7 +449,7 @@
   max-width: 420px;
   padding: 0.5em 0.7em;
   border: 1px solid var(--editor-border);
-  border-radius: 8px;
+  border-radius: var(--radius-surface);
   background: var(--bg);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
   pointer-events: none;
@@ -472,7 +490,7 @@
 
 .md-span[data-delim="="] {
   background: var(--editor-highlight-bg);
-  border-radius: 3px;
+  border-radius: var(--md-radius-sm);
   padding: 0 0.15em;
 }
 
@@ -540,38 +558,38 @@
 
 .code-block-wrapper {
   position: relative;
-  overflow: hidden;
 }
 
-/* The language picker floats in the block's corner instead of taking a
-   whole header row above every block; it fades in while the block is
-   hovered or being edited, and stays when a language is set but quiet. */
+/* The language picker hangs just below the block's bottom-right corner,
+   outside it, and only while the block is hovered or being edited - the
+   way Typora shows a fence's language. Inside the box it either covered a
+   long first line or (#16) needed a header's worth of padding on top of
+   every block, pushing the code away from the frame (#15). The top padding
+   bridges the gap to the box, so moving the pointer down onto the picker
+   doesn't count as leaving the block. */
 .code-block-header {
   position: absolute;
-  top: 0.35em;
-  right: 0.5em;
-  z-index: 1;
-  opacity: 0.55;
+  top: 100%;
+  right: 0;
+  z-index: 2;
+  padding-top: 2px;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 0.15s ease;
-}
-
-/* Room above the first line for the picker: a long or wrapped first line
-   used to run straight under it (#16). Keyed on the header's presence so
-   exports, which strip it, keep the plain padding. */
-.code-block-header + pre {
-  padding-top: 2.1em;
 }
 
 .code-block-wrapper:hover .code-block-header,
 .code-block-wrapper:focus-within .code-block-header {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .code-block-language-select {
   font-size: 0.72em;
   color: var(--editor-muted);
-  background: transparent;
-  border: none;
+  /* Opaque: it can overlap the text right below the block. */
+  background: var(--editor-bg, var(--bg));
+  border: 1px solid var(--editor-border);
   border-radius: var(--md-radius-sm);
   padding: 0.1em 0.3em;
   cursor: pointer;
@@ -776,7 +794,7 @@
   width: 0.95em;
   height: 0.95em;
   border: 1.5px solid var(--editor-muted);
-  border-radius: 4px;
+  border-radius: var(--md-radius-sm);
   cursor: pointer;
   box-sizing: border-box;
 }
@@ -804,10 +822,11 @@
   text-decoration: line-through;
 }
 
-.milkdown table {
-  /* Fixed layout so the <colgroup> widths written by column resizing (see
-     table-hover-view.ts) actually take effect; a resized table renders exactly
-     the per-column widths dragged. */
+/* Fixed layout so the <colgroup> widths written by column resizing (see
+   table-hover-view.ts) actually take effect; a resized table renders exactly
+   the per-column widths dragged. A table nobody has resized keeps the auto
+   layout, so its columns size to their content (#15). */
+.milkdown table[data-sized] {
   table-layout: fixed;
 }
 
@@ -846,10 +865,10 @@
   margin: 0;
 }
 
-/* Column resizing gives every unsized column a 100px floor (as a min-width
-   on the table), so a wide table outgrows the text column; it scrolls
-   inside it instead of spilling past the page (#15). The "+" buttons stay
-   outside this box, where it can't clip them. */
+/* A table whose content can't wrap narrower than the text column (long
+   URLs, many columns, or resized columns adding up past it) scrolls inside
+   it instead of spilling past the page (#15). The "+" buttons stay outside
+   this box, where it can't clip them. */
 .table-scroll {
   max-width: 100%;
   overflow-x: auto;
@@ -862,7 +881,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--editor-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: var(--editor-bg, #fff);
   color: var(--editor-muted);
   line-height: 1;
@@ -903,4 +922,14 @@
   right: -11px;
   width: 16px;
   height: 100%;
+}
+
+/* Zen mode's focus (zen-focus-plugin.ts): everything but the block being
+   written recedes. */
+.zen .milkdown .ProseMirror > * {
+  transition: opacity 0.25s ease;
+}
+
+.zen .milkdown .ProseMirror > :not(.zen-current) {
+  opacity: 0.32;
 }

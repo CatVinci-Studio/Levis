@@ -20,7 +20,7 @@
   background: var(--bg);
   box-shadow: var(--shadow-dialog);
   color: var(--editor-text);
-  font-size: 14px;
+  font-size: var(--text-lg);
 }
 
 .image-name-title {
@@ -33,7 +33,7 @@
   flex-direction: column;
   gap: 6px;
   color: var(--editor-muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .image-name-input-row {
@@ -61,7 +61,7 @@
 .image-name-error {
   margin-top: 7px;
   color: var(--danger, #c1495a);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .image-name-buttons {
@@ -72,21 +72,5 @@
 }
 
 .image-name-buttons button {
-  padding: 6px 12px;
-  border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
-  background: transparent;
   color: var(--editor-text);
-  cursor: pointer;
-}
-
-.image-name-buttons button:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.image-name-primary {
-  border-color: var(--chrome-primary) !important;
-  background: var(--chrome-primary) !important;
-  color: #fff !important;
 }

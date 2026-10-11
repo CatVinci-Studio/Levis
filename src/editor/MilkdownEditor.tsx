@@ -41,6 +41,17 @@ import {
 } from "./editor-extensions";
 import { GrammarPopover } from "../ai/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
+import { ChatBody } from "../ai/chat/ChatBody";
+import { AgentPanelView } from "../ai/chat/AgentPanelView";
+import { CloseConfirmBar } from "../ai/chat/CloseConfirm";
+import { ProjectBar } from "../ai/chat/ProjectBar";
+import { useAgentPanel } from "../ai/chat/agent-panel";
+import {
+  cachedDocumentMarkdown,
+  caretContext,
+  headingAt,
+  readSelection,
+} from "../ai/doc-markdown";
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { readChatContext } from "../ai/chat/live-context";
@@ -62,7 +73,11 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
-import { usePendingEdits, type SelectionTarget } from "../ai/usePendingEdits";
+import {
+  locateAnchor,
+  usePendingEdits,
+  type SelectionTarget,
+} from "../ai/usePendingEdits";
 import {
   prefersReducedMotion,
   streamPendingInsertText,
@@ -87,6 +102,7 @@ import {
   EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,
+  ZEN_MODE_EVENT,
 } from "../utils/events";
 import { showGhostSuggestion } from "../ai/ghost-text-plugin";
 import { showGrammarIssues } from "../ai/grammar-check-plugin";
@@ -183,6 +199,8 @@ export function MilkdownEditor({
   // the real handler needs `run` and the detached-chat bridge, neither of
   // which exists yet at construction time.
   const onSelectionChangeRef = useRef<() => void>(() => {});
+  // Defined further down (useGrammarPopover); read through a ref here.
+  const grammarCaretRef = useRef<() => void>(() => {});
 
   const requestImageName = useCallback(
     (stem: string, extension: string) =>
@@ -297,23 +315,31 @@ export function MilkdownEditor({
   // that are often benign.
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
-  const showAiNotice = useCallback((message: string) => {
+  const showAiNotice = useCallback((message: string | null) => {
     setAiNotice(message);
     window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => setAiNotice(null), 4000);
+    if (message)
+      noticeTimer.current = window.setTimeout(() => setAiNotice(null), 4000);
   }, []);
   useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
 
   const { triggerCompletion, triggerGrammarCheck } = useAiActions(
     run,
     () => settingsRef.current,
+    () => tRef.current,
     showAiNotice,
+    () => filePathRef.current,
   );
   const inlineChat = useInlineChat(run);
   // Keep the text the chat was opened over visibly marked for as long as
   // the chat context lives (popup or detached window) - the native
   // selection paint is gone the moment the composer takes focus.
-  const chatRange = inlineChat.chatInfo?.range ?? null;
+  // Only while the panel showing it is on screen: a detached or hidden
+  // Quick Ask left its old range highlighted while the window was talking
+  // about a different passage.
+  const chatRange = inlineChat.visible
+    ? (inlineChat.chatInfo?.range ?? null)
+    : null;
   useEffect(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
@@ -363,6 +389,14 @@ export function MilkdownEditor({
   // coexist as siblings. The superseded proposals read as "rejected"
   // everywhere downstream (chat cards, next request's status notes).
   const supersedePending = useRef(false);
+  // What a replace_selection proposal from the editor's own conversation
+  // targets: recorded by whichever surface SENDS (Quick Ask's captured
+  // selection, or the panel's live selection at send time), so a selection
+  // made while the reply is still streaming can't redirect it.
+  const requestTargetRef = useRef<SelectionTarget | null>(null);
+  // The same, for a request from the detached window: the selection it was
+  // shown when it asked for context, not whatever has been pushed since.
+  const detachedTargetRef = useRef<SelectionTarget | null>(null);
   const addPreviews = useCallback(
     (
       proposals: {
@@ -396,16 +430,15 @@ export function MilkdownEditor({
         place: (callId, proposal) =>
           addPreviews(
             [{ callId, proposal, streaming: true }],
-            inlineChat.chatInfoRef.current,
+            requestTargetRef.current,
           ),
         feed: streamPendingInsertText,
         finalize: (callId, proposal) =>
-          addPreviews([{ callId, proposal }], inlineChat.chatInfoRef.current),
+          addPreviews([{ callId, proposal }], requestTargetRef.current),
         discard: pendingEdits.reject,
       }),
-    // chatInfoRef is a stable ref; addPreviews/reject are stable per editor
-    // (useCallback on `run`).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // requestTargetRef is a stable ref; addPreviews/reject are stable per
+    // editor (useCallback on `run`).
     [addPreviews, pendingEdits.reject],
   );
   const handleStreamEvent = useCallback(
@@ -461,18 +494,54 @@ export function MilkdownEditor({
   // anchor/apply logic, addressed two ways (see chat-bridge.ts).
   const showProposals = useCallback(
     (proposals: { callId: string; proposal: EditProposal }[]) => {
-      addPreviews(proposals, inlineChat.chatInfoRef.current);
+      addPreviews(proposals, requestTargetRef.current);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [addPreviews],
+  );
+
+  // Quick Ask sends against the selection it captured when it opened.
+  const quickSendContext = useCallback(async () => {
+    const sent = await inlineChat.sendContext();
+    if (sent) {
+      requestTargetRef.current = {
+        range: sent.range,
+        selectionMarkdown: sent.selectionMarkdown,
+        cursor: sent.cursor?.pos ?? null,
+      };
+    }
+    return sent;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inlineChat.sendContext]);
+
+  // The docked panel sends against the document and selection as they read
+  // at the moment of sending - it follows the user's work, like the
+  // detached window, but reads its own editor directly.
+  const panelSendContext = useCallback(
+    async () =>
+      run((ctx) => {
+        const { state } = ctx.get(editorViewCtx);
+        const selection = readSelection(ctx, state);
+        const caret = caretContext(state);
+        requestTargetRef.current = {
+          range: selection.range,
+          selectionMarkdown: selection.selectionMarkdown,
+          cursor: caret?.pos ?? null,
+        };
+        return {
+          document: cachedDocumentMarkdown(ctx, state.doc),
+          selectionMarkdown: selection.selectionMarkdown,
+          cursor: caret,
+          focusHeading: headingAt(state.doc, state.selection.from),
+        };
+      }) ?? null,
+    [run],
   );
 
   // The selection this window last SENT to the detached chat. A
   // replace_selection proposal from that window has to resolve against it
-  // and not against Quick Ask's snapshot: the window is the cross-file
-  // surface, so the tab it is asking about may never have opened Quick Ask
-  // at all, and chatInfo would then be null - the rewrite would come back
-  // un-appliable with nothing on screen explaining why.
+  // and not against Quick Ask's: the tab the window is asking about may
+  // never have opened Quick Ask at all, and the rewrite would then come
+  // back un-appliable with nothing on screen explaining why.
   const sentSelection = useRef<SelectionTarget | null>(null);
 
   const detachedChat = useDetachedChat({
@@ -485,7 +554,8 @@ export function MilkdownEditor({
     // can forget the check.
     isTarget: (docPath) =>
       docPath !== null ? docPath === filePathRef.current : isActiveRef.current,
-    onProposals: (proposals) => addPreviews(proposals, sentSelection.current),
+    onProposals: (proposals) =>
+      addPreviews(proposals, detachedTargetRef.current),
     onAccept: pendingEdits.accept,
     onReject: pendingEdits.reject,
     onAcceptAll: pendingEdits.acceptAll,
@@ -498,17 +568,25 @@ export function MilkdownEditor({
     // send runs in the chat window's own conversation and never flips this
     // editor's `conversation.busy` (whose rising edge arms the embedded
     // bar's sends, in the busy effect above).
+    // Only the active tab answers: the request goes to every editor in the
+    // window, and arming the others' supersede flag made their next proposal
+    // silently clear previews that had nothing to do with this exchange.
     onContextRequest: () => {
+      if (!isActiveRef.current) return;
       supersedePending.current = true;
       forcePushLiveContextRef.current();
+      detachedTargetRef.current = sentSelection.current;
     },
-    // The window handed its conversation back on close - carry on with it
-    // in the Quick Ask bar (which shows the last reply's one-line summary)
-    // rather than dropping the exchange. Reopening the full conversation is
-    // the same explicit detach step as any other Quick Ask.
-    onReembed: (conversationId, turns) => {
-      if (turns.length > 0) conversation.restore(conversationId, turns);
-      inlineChat.open();
+    // The window handed its conversation back on close. Closing means
+    // closing: the exchange quietly becomes this document's conversation
+    // again (the panel shows it next time), instead of a Quick Ask bar
+    // popping up - in every tab, as it used to.
+    onReembed: (conversationId, turns, docPath) => {
+      const mine =
+        docPath !== null
+          ? docPath === filePathRef.current
+          : isActiveRef.current;
+      if (mine && turns.length > 0) conversation.restore(conversationId, turns);
     },
   });
 
@@ -587,10 +665,50 @@ export function MilkdownEditor({
   }, [pushLiveContext]);
   const forcePushLiveContextRef = useLatest(forcePushLiveContext);
 
-  // A new selection becomes a new chip in the detached window - "re-drag to
-  // highlight and it goes in" is the behaviour that separates this surface
-  // from the in-document Quick Ask bar, which keeps its opening snapshot.
-  onSelectionChangeRef.current = pushLiveContext;
+  // The docked panel (ai/chat/agent-panel.tsx): rendered by THIS editor only
+  // while it is the active tab and the panel is open.
+  const agentPanel = useAgentPanel();
+  const panelContainer = isActive ? agentPanel.container : null;
+  const panelContainerRef = useLatest(panelContainer);
+  // The live selection, for the panel's selection chip. Plain text and
+  // bounds only - cheap enough per selection change; the markdown the
+  // request carries is serialized once, at send (panelSendContext).
+  const [panelSelection, setPanelSelection] = useState<{
+    text: string;
+    range: { from: number; to: number };
+  } | null>(null);
+  const updatePanelSelection = useCallback(() => {
+    if (!panelContainerRef.current) return;
+    const next = run((ctx) => {
+      const { selection, doc } = ctx.get(editorViewCtx).state;
+      return selection.empty
+        ? null
+        : {
+            text: doc.textBetween(selection.from, selection.to, " "),
+            range: { from: selection.from, to: selection.to },
+          };
+    });
+    if (next === undefined) return;
+    setPanelSelection((prev) =>
+      prev?.range.from === next?.range.from && prev?.range.to === next?.range.to
+        ? prev
+        : next,
+    );
+    // run is stable; panelContainerRef is a ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run]);
+  useEffect(() => {
+    if (panelContainer) updatePanelSelection();
+  }, [panelContainer, updatePanelSelection]);
+
+  // A new selection becomes a new chip in the detached window and the
+  // panel - "re-drag to highlight and it goes in" is the behaviour that
+  // separates those surfaces from the in-document Quick Ask bar.
+  onSelectionChangeRef.current = () => {
+    pushLiveContext();
+    updatePanelSelection();
+    grammarCaretRef.current();
+  };
 
   // Becoming the active tab, or saving under a new path, re-points the chat
   // at this document.
@@ -624,7 +742,15 @@ export function MilkdownEditor({
         tr = setQuickAskWidget(tr, blockPositionAfter(doc, preview.from));
       }
       view.dispatch(tr);
-      view.focus();
+      // Never pull focus out of a text field: when an edit arrives while the
+      // user is typing a follow-up, the rest of their message used to land
+      // in the document (and invalidate the very preview it jumped to).
+      const active = document.activeElement;
+      if (!(
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLInputElement
+      ))
+        view.focus();
     });
   }
 
@@ -694,10 +820,7 @@ export function MilkdownEditor({
             statuses: pendingEdits.allStatuses,
           },
           t.chatWindowTitle,
-          {
-            shared: settings.shareAgentWindowAcrossWindows,
-            pinned: settings.pinAgentWindow,
-          },
+          settings.pinAgentWindow,
         );
       } catch {
         // The window never opened. Keeping the bar is the point: hiding it
@@ -764,6 +887,9 @@ export function MilkdownEditor({
   function performChatAction(action: "close" | "new") {
     setChatGuard(null);
     if (action === "close") {
+      // Closing while a reply is still running stops it: otherwise previews
+      // kept appearing in the document with no panel left to decide them.
+      if (conversation.busy) conversation.stop();
       inlineChat.close();
       focusEditor();
     } else {
@@ -783,8 +909,21 @@ export function MilkdownEditor({
       void windowIpc.focusChatWindow();
       return;
     }
-    if (inlineChat.visible) chatComposer()?.focus();
-    else inlineChat.open();
+    if (panelContainer) {
+      panelContainer
+        .querySelector<HTMLTextAreaElement>(".agent-panel-view textarea")
+        ?.focus();
+      return;
+    }
+    const wasVisible = inlineChat.visible;
+    const moveTo = inlineChat.open();
+    if (moveTo !== null) {
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        view.dispatch(setQuickAskWidget(view.state.tr, moveTo));
+      });
+    }
+    if (wasVisible) chatComposer()?.focus();
   }
 
   function startNewAgentConversation() {
@@ -804,8 +943,53 @@ export function MilkdownEditor({
       openAgentConversation();
     }
   }
+  // Typewriter and zen focus are drawn from editor state, but toggled from
+  // outside it: an empty transaction makes their plugins recompute (centre
+  // now, dim now) instead of waiting for the next keystroke.
+  const refreshEditor = useCallback(
+    () =>
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        view.dispatch(view.state.tr.setMeta("levis-refresh", true));
+      }),
+    [run],
+  );
+  useEffect(() => {
+    if (isActive) refreshEditor();
+  }, [settings.typewriterMode, isActive, refreshEditor]);
+  useWindowEvent(ZEN_MODE_EVENT, () => {
+    if (isActive) refreshEditor();
+  });
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
+  grammarCaretRef.current = grammar.onCaretMove;
   const findReplace = useFindReplace(run);
+
+  // Fixed-position popups are placed once, from where their anchor was:
+  // when the page moves under them (scroll, resize, the window losing
+  // focus) they'd point at the wrong text, so they close instead.
+  const hideGrammar = grammar.hide;
+  const anyPopup = menu !== null || grammar.popover !== null;
+  useEffect(() => {
+    if (!anyPopup) return;
+    const close = () => {
+      setMenu(null);
+      hideGrammar();
+    };
+    // Typewriter mode scrolls on every caret move - the very move that
+    // opens the grammar popover - so there a scroll only closes the menu.
+    const onScroll = () => {
+      setMenu(null);
+      if (!settingsRef.current.typewriterMode) hideGrammar();
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("blur", close);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("blur", close);
+    };
+  }, [anyPopup, hideGrammar, settingsRef]);
 
   // Every open tab's editor stays mounted (App.tsx hides the inactive ones
   // with display:none, which nulls offsetParent) but the window events below
@@ -949,10 +1133,78 @@ export function MilkdownEditor({
     const entry = (e as CustomEvent<ChatHistoryEntry>).detail;
     if (!entry || !Array.isArray(entry.turns)) return;
     conversation.restore(entry.id, entry.turns);
-    inlineChat.open();
+    // The full conversation belongs in the panel; Quick Ask only ever showed
+    // its last line.
+    agentPanel.setOpen(true);
   });
 
+  // Quick Ask's "open full conversation": the docked panel, or the detached
+  // window when the user prefers it there (Settings > Agent).
+  function expandQuickAsk() {
+    if (settings.agentExpandToWindow) {
+      handleDetachChat();
+      return;
+    }
+    inlineChat.close();
+    agentPanel.setOpen(true);
+  }
+
+  // The panel and the in-document bar are two views of one conversation:
+  // when the panel opens, the bar gives way rather than racing it.
+  useEffect(() => {
+    if (panelContainer && inlineChat.visible) inlineChat.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelContainer]);
+
+  const [panelGuard, setPanelGuard] = useState(false);
+  useEffect(() => {
+    if (decidableCount === 0) setPanelGuard(false);
+  }, [decidableCount]);
+  function startPanelConversation() {
+    if (pendingEdits.decidable.length > 0) {
+      setPanelGuard(true);
+      return;
+    }
+    setPanelGuard(false);
+    conversation.reset();
+  }
+
+  // A comment card's "Show in document": select the passage and bring it
+  // into view, so the feedback can be read against the text it is about.
+  function locateText(anchor: string, context?: string) {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const range = locateAnchor(ctx, view.state.doc, anchor, context);
+      if (!range) {
+        showAiNotice(t.commentNotFound);
+        return;
+      }
+      view.dispatch(
+        view.state.tr
+          .setSelection(
+            TextSelection.create(view.state.doc, range.from, range.to),
+          )
+          .scrollIntoView(),
+      );
+      view.focus();
+    });
+  }
+
+  function popOutPanel() {
+    handleDetachChat();
+    agentPanel.setOpen(false);
+  }
+
   function onContextMenu(e: MouseEvent) {
+    // Portals (Quick Ask, the find bar) bubble React events through here:
+    // their text fields keep the native Cut/Copy/Paste menu instead of the
+    // editor's, whose Paste would have gone into the document.
+    if (
+      (e.target as HTMLElement).closest?.(
+        ".inline-chat, .find-replace-bar, input, textarea",
+      )
+    )
+      return;
     e.preventDefault();
     setMenu({
       x: e.clientX,
@@ -1039,12 +1291,74 @@ export function MilkdownEditor({
         <GrammarPopover
           info={grammar.popover}
           applyLabel={t.grammarApply}
+          ignoreLabel={t.grammarIgnore}
           error={grammar.applyError}
           onApply={grammar.applyFix}
+          onIgnore={grammar.ignore}
           onMouseEnter={grammar.cancelHide}
           onMouseLeave={grammar.hide}
         />
       )}
+      {panelContainer &&
+        createPortal(
+          <AgentPanelView
+            docTitle={docTitle}
+            labels={{
+              title: t.agentPanelTitle,
+              newConversation: t.chatNewConversation,
+              popOut: t.agentPanelPopOut,
+              close: t.chatClose,
+            }}
+            onNewConversation={startPanelConversation}
+            onPopOut={popOutPanel}
+            onClose={() => agentPanel.setOpen(false)}
+            headerExtra={<ProjectBar docPath={filePath} />}
+          >
+            {conversation.history.length === 0 && !conversation.busy && (
+              <p className="agent-panel-empty">{t.agentPanelEmpty}</p>
+            )}
+            <ChatBody
+              document=""
+              selectedText={panelSelection?.text ?? null}
+              selectionMarkdown={null}
+              docPath={filePath}
+              workspaceRoot={settings.agentWorkspaceRoot || null}
+              conversation={conversation}
+              defaultMode={settings.agentDefaultMode}
+              defaultWebSearch={settings.enableWebSearch}
+              tutorialMock={tutorialMock}
+              labels={chatLabels(t)}
+              proposalStatus={pendingEdits.status}
+              pendingCount={pendingEdits.decidable.length}
+              fillHeight
+              refreshContext={panelSendContext}
+              onProposals={showProposals}
+              onAcceptProposal={pendingEdits.accept}
+              proposalOriginal={pendingEdits.originalText}
+              onLocateText={locateText}
+              onRejectProposal={pendingEdits.reject}
+              onAcceptAll={pendingEdits.acceptAll}
+              onRejectAll={pendingEdits.rejectAll}
+              onRevealPending={handleFocusNext}
+              footer={
+                panelGuard && (
+                  <CloseConfirmBar
+                    labels={chatLabels(t)}
+                    pendingCount={pendingEdits.decidable.length}
+                    onAcceptAll={pendingEdits.acceptAll}
+                    onRejectAll={pendingEdits.rejectAll}
+                    onClose={() => {
+                      setPanelGuard(false);
+                      conversation.reset();
+                    }}
+                    onCancel={() => setPanelGuard(false)}
+                  />
+                )
+              }
+            />
+          </AgentPanelView>,
+          panelContainer,
+        )}
       {inlineChat.chatInfo &&
         inlineChat.visible &&
         quickAskEl &&
@@ -1055,12 +1369,16 @@ export function MilkdownEditor({
         createPortal(
           <InlineChat
             document={inlineChat.chatInfo.document}
+            sendContext={quickSendContext}
             selectedText={inlineChat.chatInfo.selectedText}
             selectionMarkdown={inlineChat.chatInfo.selectionMarkdown}
             docPath={filePath}
             workspaceRoot={settings.agentWorkspaceRoot || null}
             conversation={conversation}
-            defaultMode={settings.agentDefaultMode}
+            // Edit-first: Quick Ask is opened on a passage to change it,
+            // and Ask mode (the general default) turned "shorten this"
+            // into a chat answer. Ask stays one click away in the picker.
+            defaultMode="edit"
             defaultWebSearch={settings.enableWebSearch}
             tutorialMock={tutorialMock}
             labels={chatLabels(t)}
@@ -1076,7 +1394,7 @@ export function MilkdownEditor({
             onFocusPrevious={handleFocusPrevious}
             onAcceptFocused={handleAcceptFocused}
             onRejectFocused={handleRejectFocused}
-            onDetach={handleDetachChat}
+            onDetach={expandQuickAsk}
             onNewConversation={startNewAgentConversation}
             onRequestClose={() => requestChatAction("close")}
             confirm={

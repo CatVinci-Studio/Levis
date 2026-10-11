@@ -41,6 +41,9 @@ type NativeMenuId =
   | "toggle-source-mode"
   | "toggle-typewriter-mode"
   | "toggle-sidebar"
+  | "toggle-agent-panel"
+  | "toggle-split-view"
+  | "toggle-zen-mode"
   | "zoom-in"
   | "zoom-out"
   | "zoom-reset"
@@ -227,6 +230,11 @@ export function buildAppMenu(
           action: { native: "toggle-source-mode" },
         },
         {
+          label: t.menuToggleSplitView,
+          accel: shortcuts.toggleSplitView,
+          action: { native: "toggle-split-view" },
+        },
+        {
           label: t.menuToggleTypewriterMode,
           accel: shortcuts.toggleTypewriterMode,
           action: { native: "toggle-typewriter-mode" },
@@ -235,6 +243,16 @@ export function buildAppMenu(
           label: t.menuToggleSidebar,
           accel: shortcuts.toggleSidebar,
           action: { native: "toggle-sidebar" },
+        },
+        {
+          label: t.menuToggleAgentPanel,
+          accel: shortcuts.toggleAgentPanel,
+          action: { native: "toggle-agent-panel" },
+        },
+        {
+          label: t.menuToggleZenMode,
+          accel: shortcuts.toggleZenMode,
+          action: { native: "toggle-zen-mode" },
         },
         "separator",
         { label: t.menuZoomIn, accel: "mod+=", action: { native: "zoom-in" } },

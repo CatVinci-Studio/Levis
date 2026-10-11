@@ -27,6 +27,7 @@ import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
+import { SIDEBAR_TAB } from "./onboarding/tutorial-evaluation";
 import { LanguageWelcome } from "./onboarding/LanguageWelcome";
 import { useTutorialDocumentEvaluation } from "./onboarding/useTutorialDocumentEvaluation";
 import { TabBar } from "./TabBar";
@@ -63,6 +64,16 @@ import { useMenuBridge } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
 import { drafts, fs, session } from "./ipc";
 import { defaultMarkdownFilename } from "./save-default-name";
+import { useModalDialog } from "./ui/useModalDialog";
+import { SplitView } from "./editor/SplitView";
+import { SourceTextarea } from "./editor/SourceTextarea";
+import { useWindowEvent } from "./utils/useWindowEvent";
+import { OPEN_FILE_IN_TAB_EVENT, ZEN_MODE_EVENT } from "./utils/events";
+import {
+  AgentPanelProvider,
+  AgentPanelResizer,
+  useAgentPanelState,
+} from "./ai/chat/agent-panel";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard" | "chat";
@@ -93,6 +104,11 @@ function App() {
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const toggleSidebar = useCallback(() => setPanelOpen((v) => !v), []);
+  // The docked Agent panel on the right (ai/chat/agent-panel.tsx). App owns
+  // the frame; the active tab's editor renders its conversation into it.
+  const agentPanel = useAgentPanelState();
+  const [agentPanelEl, setAgentPanelEl] = useState<HTMLElement | null>(null);
+  const toggleAgentPanel = agentPanel.toggle;
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const appUpdate = useAppUpdate();
@@ -147,6 +163,15 @@ function App() {
   // editor/large-doc.ts) - close enough for a status indicator.
   const isLargeDoc = activeTab.content.length > LARGE_DOC_THRESHOLD;
   const activeDirty = tabIsDirty(activeTab);
+  const activeTitle = tabTitle(activeTab, t);
+
+  // The OS title names the document too: it is what the taskbar, Alt+Tab
+  // and window lists show, where every window read "Levis" before.
+  useEffect(() => {
+    void getCurrentWindow()
+      .setTitle(`${activeTitle} - Levis`)
+      .catch(() => {});
+  }, [activeTitle]);
 
   // Reports this window's on-disk tab paths to Rust so a relaunch (an app
   // update, a crash, or just quitting and reopening) can restore what was
@@ -193,7 +218,15 @@ function App() {
     async (tabId: string, path: string) => {
       const { content: text, diskMtime } = await readDocFromDisk(path);
       void session.addRecentFile(path);
-      updateTab(tabId, { path, content: text, savedContent: text, diskMtime });
+      const reloadKey =
+        (tabsRef.current.find((tb) => tb.id === tabId)?.reloadKey ?? 0) + 1;
+      updateTab(tabId, {
+        path,
+        content: text,
+        savedContent: text,
+        diskMtime,
+        reloadKey,
+      });
     },
     [updateTab],
   );
@@ -217,6 +250,14 @@ function App() {
     },
     [settings.newDocumentMode, activeTabId, openPathInTab, replaceTabWithFile],
   );
+
+  // The Agent panel's project bar opens the style profile and library
+  // entries beside the document being written - always a new tab, never
+  // replacing that document (window mode would otherwise swap it out).
+  useWindowEvent(OPEN_FILE_IN_TAB_EVENT, (e) => {
+    const path = (e as CustomEvent<string>).detail;
+    if (typeof path === "string" && path) void openPathInTab(path);
+  });
 
   const openFileDialog = useCallback(async () => {
     const picked = await fs.openFileDialog();
@@ -349,6 +390,8 @@ function App() {
         content,
         savedContent: content,
         diskMtime: await statMtime(picked),
+        // Image migration rewrote the markdown: the editor has to load it.
+        ...(content !== tab.content ? { reloadKey: tab.reloadKey + 1 } : {}),
       });
       return true;
     },
@@ -403,6 +446,7 @@ function App() {
       // picks up whatever was typed as raw text.
       updateTab(activeTabId, {
         sourceMode: false,
+        splitView: false,
         reloadKey: tab.reloadKey + 1,
       });
     } else {
@@ -410,6 +454,72 @@ function App() {
       updateTab(activeTabId, { content: tab.content, sourceMode: true });
     }
   }, [activeTabId, updateTab, liveTabs]);
+
+  // Split view = source mode with a live preview beside it. From the rich
+  // editor it enters source mode the same way (caret carried across); from
+  // split view it returns to the rich editor; from plain source mode it
+  // just adds the preview.
+  const toggleSplitView = useCallback(() => {
+    const tab = liveTabs().find((tb) => tb.id === activeTabId);
+    if (!tab) return;
+    if (tab.sourceMode && tab.splitView) {
+      toggleSourceMode();
+    } else if (tab.sourceMode) {
+      updateTab(activeTabId, { splitView: true });
+    } else {
+      setPendingCaret(captureEditorCaret(tab.content));
+      updateTab(activeTabId, {
+        content: tab.content,
+        sourceMode: true,
+        splitView: true,
+      });
+    }
+  }, [activeTabId, updateTab, liveTabs, toggleSourceMode]);
+
+  // Zen mode: only the text. Sidebar, tab bar, AI panel and window-bar
+  // readouts go away, the window goes fullscreen, and every paragraph but
+  // the one being written dims (editor/zen-focus-plugin.ts). Esc leaves.
+  const [zenMode, setZenMode] = useState(false);
+  const toggleZenMode = useCallback(() => setZenMode((on) => !on), []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("zen", zenMode);
+    window.dispatchEvent(new CustomEvent(ZEN_MODE_EVENT, { detail: zenMode }));
+    if (!zenMode) return;
+    const win = getCurrentWindow();
+    // Leaving zen may come before isFullscreen() answers: then fullscreen
+    // is never entered, rather than entered after the restore already ran.
+    let left = false;
+    let restore = false;
+    void win.isFullscreen().then((already) => {
+      if (already || left) return;
+      restore = true;
+      void win.setFullscreen(true);
+    });
+    return () => {
+      left = true;
+      if (restore) void win.setFullscreen(false);
+    };
+  }, [zenMode]);
+  useEffect(() => {
+    if (!zenMode) return;
+    // Capture phase: the editor binds Escape itself (and marks the event
+    // handled), so a bubbling listener never heard it. Anything on screen
+    // that Escape should close first - a dialog, menu, Quick Ask, the find
+    // bar - keeps it.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (e.isComposing || e.keyCode === 229) return;
+      if (
+        document.querySelector(
+          '[role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu',
+        )
+      )
+        return;
+      setZenMode(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [zenMode]);
 
   // The source view just mounted: put the caret the editor left there.
   const activeSourceMode =
@@ -494,6 +604,9 @@ function App() {
     requestCloseTab,
     toggleSourceMode,
     toggleSidebar,
+    toggleAgentPanel,
+    toggleSplitView,
+    toggleZenMode,
   });
 
   useEffect(() => installClipboardCapture(), []);
@@ -575,6 +688,9 @@ function App() {
     onToggleTypewriter: () =>
       setSettings({ typewriterMode: !settings.typewriterMode }),
     onToggleSidebar: toggleSidebar,
+    onToggleAgentPanel: toggleAgentPanel,
+    onToggleSplitView: toggleSplitView,
+    onToggleZenMode: toggleZenMode,
     addBlankTab,
     openFileDialog,
     saveTab,
@@ -649,9 +765,39 @@ function App() {
     else await replaceTabWithFile(action.tabId, action.path);
   }, [pendingClose, removeTab, replaceTabWithFile, clearWindowDrafts]);
 
+  // The tour's sidebar lesson: open the panel it's about, and tick off each
+  // tab as it's shown (the one already showing counts - it's on screen).
+  const sidebarLesson =
+    tutorial.active &&
+    settings.languageChosen &&
+    tutorial.step.id === "sidebar";
+  const setTutorialPhase = tutorial.setPhase;
+  useEffect(() => {
+    if (!sidebarLesson) return;
+    setPanelOpen(true);
+    setTutorialPhase((phase) => phase | SIDEBAR_TAB[panelMode]);
+  }, [sidebarLesson, panelMode, setTutorialPhase]);
+
+  const cancelClose = () => {
+    setPendingClose(null);
+    void session.cancelQuit();
+  };
+  // A real modal like the app's other dialogs: Escape cancels, and Tab
+  // can't wander into the editor behind it and start typing there.
+  const closePrompt = useModalDialog(
+    cancelClose,
+    pendingClose !== null,
+    ".close-prompt-primary",
+  );
+
   return (
-    <div className="app-shell">
-      {/* The window's one top strip: traffic-light room, which document this
+    <AgentPanelProvider
+      open={agentPanel.open}
+      setOpen={agentPanel.setOpen}
+      container={agentPanelEl}
+    >
+      <div className="app-shell">
+        {/* The window's one top strip: traffic-light room, which document this
           is, and its status. A real row in the layout, not an overlay - the
           overlay title bar hides the native drag area behind the webview, so
           the app has to draw this itself, and drawing it as a transparent
@@ -663,253 +809,312 @@ function App() {
           ALSO the caption and the way into the app menu - the two components
           below render nothing anywhere else, so this stays one strip on
           every platform. See ui/window-chrome.ts. */}
-      <header className="window-bar" data-tauri-drag-region>
-        <AppMenuButton />
-        <span className="window-bar-title">{tabTitle(activeTab, t)}</span>
-        <div className="window-bar-status">
-          {activeDirty && (
-            <span className="unsaved-dot" title={t.unsavedIndicator} />
-          )}
-          {isLargeDoc && (
-            <span className="large-doc-badge" title={t.largeDocHint}>
-              {t.largeDocBadge}
+        <header className="window-bar" data-tauri-drag-region>
+          <AppMenuButton />
+          <span className="window-bar-title">{activeTitle}</span>
+          <div className="window-bar-status">
+            {activeDirty && (
+              <span className="unsaved-dot" title={t.unsavedIndicator} />
+            )}
+            {isLargeDoc && (
+              <span className="large-doc-badge" title={t.largeDocHint}>
+                {t.largeDocBadge}
+              </span>
+            )}
+            <span className="word-count">
+              {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
             </span>
-          )}
-          <span className="word-count">
-            {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
-          </span>
-        </div>
-        <WindowCaptionButtons />
-      </header>
-      <aside className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"}`}>
-        {/* Contents only render while open - a collapsed sidebar is just
+            {(settings.enableAskAi || tutorial.active) && (
+              <button
+                type="button"
+                className={`window-bar-toggle${agentPanel.open ? " window-bar-toggle-on" : ""}`}
+                aria-pressed={agentPanel.open}
+                aria-label={t.agentPanelToggle}
+                title={`${t.agentPanelToggle} (${formatCombo(settings.shortcuts.toggleAgentPanel)})`}
+                onClick={toggleAgentPanel}
+              >
+                <ChatTabIcon />
+              </button>
+            )}
+          </div>
+          <WindowCaptionButtons />
+        </header>
+        <aside
+          className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"} ${sidebarLesson ? "tutorial-spotlight" : ""}`}
+        >
+          {/* Contents only render while open - a collapsed sidebar is just
             shifted out of view via margin, not unmounted, so without this
             its buttons/tree would stay in the tab order and Tab could land
             focus on them from the editor. */}
-        {panelOpen && (
-          <>
-            <div className="sidebar-header">
-              <div className="sidebar-tabs">
-                <button
-                  className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
-                  onClick={() => setPanelMode("tree")}
-                  title={t.treeTab}
-                  aria-label={t.treeTab}
-                >
-                  <TreeTabIcon />
-                </button>
-                <button
-                  className={`sidebar-tab ${panelMode === "outline" ? "sidebar-tab-active" : ""}`}
-                  onClick={() => setPanelMode("outline")}
-                  title={t.outlineTab}
-                  aria-label={t.outlineTab}
-                >
-                  <OutlineTabIcon />
-                </button>
-                <button
-                  className={`sidebar-tab ${panelMode === "clipboard" ? "sidebar-tab-active" : ""}`}
-                  onClick={() => setPanelMode("clipboard")}
-                  title={t.clipboardTab}
-                  aria-label={t.clipboardTab}
-                >
-                  <ClipboardTabIcon />
-                </button>
-                <button
-                  className={`sidebar-tab ${panelMode === "chat" ? "sidebar-tab-active" : ""}`}
-                  onClick={() => setPanelMode("chat")}
-                  title={t.chatTab}
-                  aria-label={t.chatTab}
-                >
-                  <ChatTabIcon />
-                </button>
+          {panelOpen && (
+            <>
+              <div className="sidebar-header">
+                <div className="sidebar-tabs">
+                  <button
+                    className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
+                    onClick={() => setPanelMode("tree")}
+                    title={t.treeTab}
+                    aria-label={t.treeTab}
+                  >
+                    <TreeTabIcon />
+                  </button>
+                  <button
+                    className={`sidebar-tab ${panelMode === "outline" ? "sidebar-tab-active" : ""}`}
+                    onClick={() => setPanelMode("outline")}
+                    title={t.outlineTab}
+                    aria-label={t.outlineTab}
+                  >
+                    <OutlineTabIcon />
+                  </button>
+                  <button
+                    className={`sidebar-tab ${panelMode === "clipboard" ? "sidebar-tab-active" : ""}`}
+                    onClick={() => setPanelMode("clipboard")}
+                    title={t.clipboardTab}
+                    aria-label={t.clipboardTab}
+                  >
+                    <ClipboardTabIcon />
+                  </button>
+                  <button
+                    className={`sidebar-tab ${panelMode === "chat" ? "sidebar-tab-active" : ""}`}
+                    onClick={() => setPanelMode("chat")}
+                    title={t.chatTab}
+                    aria-label={t.chatTab}
+                  >
+                    <ChatTabIcon />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="sidebar-body">
-              {panelMode === "tree" && rootPath && (
-                <FileTree
-                  rootPath={rootPath}
-                  activePath={activeTab.path}
-                  onFileSelect={openFile}
-                />
-              )}
-              {panelMode === "outline" && (
-                <Outline content={activeTab.content} />
-              )}
-              {panelMode === "clipboard" && <ClipboardHistory />}
-              {panelMode === "chat" && <ChatHistory />}
-            </div>
-          </>
-        )}
-      </aside>
+              <div className="sidebar-body">
+                {panelMode === "tree" &&
+                  (rootPath ? (
+                    <FileTree
+                      key={rootPath}
+                      rootPath={rootPath}
+                      activePath={activeTab.path}
+                      onFileSelect={openFile}
+                    />
+                  ) : (
+                    // An unsaved draft has no folder - an empty panel read
+                    // as broken.
+                    <div className="clipboard-empty">{t.treeEmptyDraft}</div>
+                  ))}
+                {panelMode === "outline" && (
+                  <Outline content={activeTab.content} />
+                )}
+                {panelMode === "clipboard" && <ClipboardHistory />}
+                {panelMode === "chat" && <ChatHistory />}
+              </div>
+            </>
+          )}
+        </aside>
 
-      <div className="main-pane">
-        {showTabBar && (
-          <TabBar
-            tabs={tabs.map((tab) => ({
-              id: tab.id,
-              title: tabTitle(tab, t),
-              dirty: tabIsDirty(tab),
-            }))}
-            activeTabId={activeTabId}
-            onActivate={setActiveTabId}
-            onClose={requestCloseTab}
-            onAdd={addBlankTab}
-            // Tear-off needs global cursor and window positions - macOS
-            // only (tab_drag.rs); on Linux, and above all under Wayland,
-            // the drag could only fail and cancel the reorder with it.
-            onDetach={isMacPlatform() ? handleTabDetach : undefined}
-            onReorder={reorderTab}
-            previewTab={dragHoverPreview}
-          />
-        )}
+        <div className="main-pane">
+          {showTabBar && (
+            <TabBar
+              tabs={tabs.map((tab) => ({
+                id: tab.id,
+                title: tabTitle(tab, t),
+                dirty: tabIsDirty(tab),
+              }))}
+              activeTabId={activeTabId}
+              onActivate={setActiveTabId}
+              onClose={requestCloseTab}
+              onAdd={addBlankTab}
+              // Tear-off needs global cursor and window positions - macOS
+              // only (tab_drag.rs); on Linux, and above all under Wayland,
+              // the drag could only fail and cancel the reorder with it.
+              onDetach={isMacPlatform() ? handleTabDetach : undefined}
+              onReorder={reorderTab}
+              previewTab={dragHoverPreview}
+            />
+          )}
 
-        {/* Every open tab's editor stays mounted (just hidden) so switching
+          {/* Every open tab's editor stays mounted (just hidden) so switching
             tabs preserves undo history, scroll position, and in-flight AI
             state - only the active one is ever unmounted-on-purpose (via
             reloadKey, when leaving source mode). */}
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            data-active-tab={tab.id === activeTabId}
-            style={{ display: tab.id === activeTabId ? "contents" : "none" }}
-          >
-            {tab.sourceMode ? (
-              <textarea
-                className="source-view"
-                value={tab.content}
-                onChange={(e) => handleChange(tab.id, e.target.value)}
-                spellCheck={false}
-              />
-            ) : (
-              <EditorPane
-                key={`${tab.id}-${tab.reloadKey}`}
-                tabId={tab.id}
-                filePath={tab.path}
-                docTitle={tabTitle(tab, t)}
-                initialValue={tab.content}
-                onChange={handleChange}
-                isActive={tab.id === activeTabId}
-                tutorialMock={tutorial.active && tab.id === tutorial.tabId}
-              />
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              data-active-tab={tab.id === activeTabId}
+              style={{ display: tab.id === activeTabId ? "contents" : "none" }}
+            >
+              {tab.sourceMode && tab.splitView ? (
+                <SplitView
+                  content={tab.content}
+                  filePath={tab.path}
+                  typewriter={settings.typewriterMode}
+                  onChange={(markdown) => handleChange(tab.id, markdown)}
+                />
+              ) : tab.sourceMode ? (
+                <SourceTextarea
+                  value={tab.content}
+                  typewriter={settings.typewriterMode}
+                  onChange={(markdown) => handleChange(tab.id, markdown)}
+                />
+              ) : (
+                <EditorPane
+                  key={`${tab.id}-${tab.reloadKey}`}
+                  tabId={tab.id}
+                  filePath={tab.path}
+                  docTitle={tabTitle(tab, t)}
+                  initialValue={tab.content}
+                  onChange={handleChange}
+                  isActive={tab.id === activeTabId}
+                  tutorialMock={tutorial.active && tab.id === tutorial.tabId}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {agentPanel.open && (
+          <aside className="agent-panel" style={{ width: agentPanel.width }}>
+            <AgentPanelResizer
+              width={agentPanel.width}
+              onResize={agentPanel.setWidth}
+              label={t.agentPanelResize}
+            />
+            <div className="agent-panel-mount" ref={setAgentPanelEl} />
+            {/* The conversation lives in the rich editor (each tab's
+              MilkdownEditor renders it here); source mode and split view
+              have none to render, so say so instead of an empty column. */}
+            {activeTab.sourceMode && (
+              <div className="agent-panel-placeholder">
+                <p>{t.agentPanelSourceMode}</p>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={toggleSourceMode}
+                >
+                  {t.agentPanelBackToEditor}
+                </button>
+              </div>
             )}
-          </div>
-        ))}
-      </div>
+          </aside>
+        )}
 
-      {settingsOpen && (
-        <SettingsPanel
-          onClose={() => setSettingsOpen(false)}
-          onOpenFile={(path) => void openFile(path)}
-        />
-      )}
+        {settingsOpen && (
+          <SettingsPanel
+            onClose={() => setSettingsOpen(false)}
+            onOpenFile={(path) => void openFile(path)}
+          />
+        )}
 
-      {pendingClose && (
-        <div className="close-prompt-overlay">
-          <div className="close-prompt">
-            <p>{t.closePromptMessage}</p>
-            <div className="close-prompt-buttons">
-              <button
-                className="close-prompt-discard"
-                onClick={() => void closeDiscarding()}
-              >
-                {t.closePromptDiscard}
-              </button>
-              <div className="close-prompt-spacer" />
-              <button
-                onClick={() => {
-                  setPendingClose(null);
-                  void session.cancelQuit();
-                }}
-              >
-                {t.closePromptCancel}
-              </button>
-              <button
-                className="close-prompt-primary"
-                autoFocus
-                onClick={() => void closeSaving()}
-              >
-                {t.closePromptSave}
-              </button>
+        {pendingClose && (
+          <div className="close-prompt-overlay">
+            <div
+              className="close-prompt"
+              {...closePrompt}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t.closePromptMessage}
+            >
+              <p>{t.closePromptMessage}</p>
+              <div className="close-prompt-buttons">
+                <button
+                  className="close-prompt-discard"
+                  onClick={() => void closeDiscarding()}
+                >
+                  {t.closePromptDiscard}
+                </button>
+                <div className="close-prompt-spacer" />
+                <button onClick={cancelClose}>{t.closePromptCancel}</button>
+                <button
+                  className="close-prompt-primary"
+                  autoFocus
+                  onClick={() => void closeSaving()}
+                >
+                  {t.closePromptSave}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {draftsRestoredCount > 0 && (
-        <div className="draft-restored-toast">
-          <span>{t.draftRestoredMessage}</span>
-          <button
-            className="update-toast-secondary"
-            onClick={() => setDraftsRestoredCount(0)}
-          >
-            {t.draftRestoredDismiss}
-          </button>
-        </div>
-      )}
+        {zenMode && (
+          <div className="zen-hint" role="status">
+            {t.zenExitHint}
+          </div>
+        )}
 
-      {appUpdate.status !== "idle" && (
-        <div className="update-toast">
-          {appUpdate.status === "available" && (
-            <>
-              <span>
-                {t.updateAvailable} v{appUpdate.version}
-              </span>
-              {appUpdate.selfUpdate ? (
+        {draftsRestoredCount > 0 && (
+          <div className="draft-restored-toast">
+            <span>{t.draftRestoredMessage}</span>
+            <button
+              className="update-toast-secondary"
+              onClick={() => setDraftsRestoredCount(0)}
+            >
+              {t.draftRestoredDismiss}
+            </button>
+          </div>
+        )}
+
+        {appUpdate.status !== "idle" && (
+          <div className="update-toast">
+            {appUpdate.status === "available" && (
+              <>
+                <span>
+                  {t.updateAvailable} v{appUpdate.version}
+                </span>
+                {appUpdate.selfUpdate ? (
+                  <button
+                    className="update-toast-primary"
+                    onClick={() => void appUpdate.install()}
+                  >
+                    {t.updateInstall}
+                  </button>
+                ) : (
+                  <span>{t.updateViaPackageManager}</span>
+                )}
                 <button
-                  className="update-toast-primary"
-                  onClick={() => void appUpdate.install()}
+                  className="update-toast-secondary"
+                  onClick={appUpdate.dismiss}
                 >
-                  {t.updateInstall}
+                  {t.updateLater}
                 </button>
-              ) : (
-                <span>{t.updateViaPackageManager}</span>
-              )}
-              <button
-                className="update-toast-secondary"
-                onClick={appUpdate.dismiss}
-              >
-                {t.updateLater}
-              </button>
-            </>
-          )}
-          {appUpdate.status === "downloading" && (
-            <span>{t.updateDownloading}</span>
-          )}
-          {appUpdate.status === "error" && (
-            <>
-              <span>
-                {t.updateFailed} {appUpdate.error}
-              </span>
-              <button
-                className="update-toast-secondary"
-                onClick={appUpdate.dismiss}
-              >
-                {t.updateLater}
-              </button>
-            </>
-          )}
-        </div>
-      )}
+              </>
+            )}
+            {appUpdate.status === "downloading" && (
+              <span>{t.updateDownloading}</span>
+            )}
+            {appUpdate.status === "error" && (
+              <>
+                <span>
+                  {t.updateFailed} {appUpdate.error}
+                </span>
+                <button
+                  className="update-toast-secondary"
+                  onClick={appUpdate.dismiss}
+                >
+                  {t.updateLater}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
-      {tutorial.active && settings.languageChosen && (
-        <TutorialExperience
-          tutorial={tutorial}
-          t={t}
-          shortcuts={{
-            completion: formatCombo(settings.shortcuts.triggerCompletion),
-            grammar: formatCombo(settings.shortcuts.triggerGrammarCheck),
-            agent: formatCombo(settings.shortcuts.toggleFloatingChat),
-          }}
-        />
-      )}
-      {!settings.languageChosen && (
-        <LanguageWelcome
-          language={settings.language}
-          onLanguage={(language) => setSettings({ language })}
-          onContinue={() => setSettings({ languageChosen: true })}
-        />
-      )}
-    </div>
+        {tutorial.active && settings.languageChosen && (
+          <TutorialExperience
+            tutorial={tutorial}
+            t={t}
+            shortcuts={{
+              completion: formatCombo(settings.shortcuts.triggerCompletion),
+              grammar: formatCombo(settings.shortcuts.triggerGrammarCheck),
+              agent: formatCombo(settings.shortcuts.toggleFloatingChat),
+              sidebar: formatCombo(settings.shortcuts.toggleSidebar),
+            }}
+          />
+        )}
+        {!settings.languageChosen && (
+          <LanguageWelcome
+            language={settings.language}
+            onLanguage={(language) => setSettings({ language })}
+            onContinue={() => setSettings({ languageChosen: true })}
+          />
+        )}
+      </div>
+    </AgentPanelProvider>
   );
 }
 

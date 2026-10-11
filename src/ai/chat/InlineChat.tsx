@@ -20,6 +20,12 @@ export interface InlineChatLabels extends ChatBodyLabels, CloseConfirmLabels {
 
 interface InlineChatProps {
   document: string;
+  /** The document and selection to send against, read at send time (see
+   *  ChatBody's `refreshContext`). */
+  sendContext: () => Promise<{
+    document: string;
+    selectionMarkdown: string | null;
+  } | null>;
   selectedText: string | null;
   selectionMarkdown: string | null;
   /** The document's path - resolves the agent workspace (skills, files). */
@@ -82,6 +88,7 @@ interface InlineChatProps {
 /// orchestration and streaming with the detached window's "full" variant.
 export function InlineChat({
   document,
+  sendContext,
   selectedText,
   selectionMarkdown,
   docPath,
@@ -131,15 +138,18 @@ export function InlineChat({
       <div className="inline-chat-shell floating-surface">
         <div className="inline-chat-header">
           <div className="inline-chat-header-actions">
-            <button
-              type="button"
-              className="inline-chat-header-button"
-              aria-label={labels.newConversation}
-              title={labels.newConversation}
-              onClick={onNewConversation}
-            >
-              <PlusIcon />
-            </button>
+            {/* Nothing to start over from on a fresh panel. */}
+            {(conversation.history.length > 0 || conversation.busy) && (
+              <button
+                type="button"
+                className="inline-chat-header-button"
+                aria-label={labels.newConversation}
+                title={labels.newConversation}
+                onClick={onNewConversation}
+              >
+                <PlusIcon />
+              </button>
+            )}
             <button
               type="button"
               className="inline-chat-header-button"
@@ -162,6 +172,7 @@ export function InlineChat({
         </div>
         <ChatBody
           document={document}
+          refreshContext={sendContext}
           selectedText={selectedText}
           selectionMarkdown={selectionMarkdown}
           docPath={docPath}
@@ -179,7 +190,6 @@ export function InlineChat({
           onAcceptAll={onAcceptAll}
           onRejectAll={onRejectAll}
           variant="quick"
-          onExpand={onDetach}
           quickReview={{
             focusIndex,
             onFocusNext,

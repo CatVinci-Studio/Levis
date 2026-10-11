@@ -494,6 +494,27 @@ export function ArrowUpIcon({ className }: IconProps) {
   );
 }
 
+/** Re-read a listing from disk (the file tree). */
+export function RefreshIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path
+        d="M13 8a5 5 0 1 1-1.46-3.54M13 3v3h-3"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /* The window caption, drawn only where the app owns the frame - Windows, see
    ui/window-chrome.ts. These four deliberately break the 16-unit stroked
    grid the rest of the set keeps to: Windows caption glyphs are a fixed

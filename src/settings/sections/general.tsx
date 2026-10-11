@@ -1,3 +1,4 @@
+import { errorText } from "../../utils/error-text";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -50,7 +51,7 @@ export function UpdateSection({ t }: { t: Strings }) {
       }
     } catch (err) {
       setPhase("error");
-      setMessage(`${t.updateFailed} ${String(err)}`);
+      setMessage(`${t.updateFailed} ${errorText(err)}`);
     }
   }
 
@@ -63,7 +64,7 @@ export function UpdateSection({ t }: { t: Strings }) {
       await relaunch();
     } catch (err) {
       setPhase("error");
-      setMessage(`${t.updateFailed} ${String(err)}`);
+      setMessage(`${t.updateFailed} ${errorText(err)}`);
     }
   }
 
@@ -130,7 +131,7 @@ export function CliCommandSection({ t }: { t: Strings }) {
       setPhase("idle");
     } catch (err) {
       setPhase("error");
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 

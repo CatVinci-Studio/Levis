@@ -1,5 +1,5 @@
 .file-tree {
-  font-size: 13px;
+  font-size: var(--text-md);
   color: var(--sidebar-text);
   user-select: none;
 }
@@ -46,4 +46,63 @@
 
 .chevron-open {
   transform: rotate(90deg);
+}
+
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 2px 4px;
+}
+
+.tree-root-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.tree-tool {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.tree-tool:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+/* Outline: the disclosure triangle sits in its own gutter so headings
+   without children still line up with their siblings. */
+.outline-row {
+  display: flex;
+  align-items: center;
+}
+
+.outline-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.outline-toggle-spacer {
+  flex-shrink: 0;
+  width: 16px;
+}
+
+.outline-row .tree-row {
+  flex: 1;
+  min-width: 0;
+  padding-left: 2px;
 }

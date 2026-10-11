@@ -1,10 +1,33 @@
 import { useCallback, useRef, useState, type MouseEvent } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Decoration } from "@milkdown/kit/prose/view";
-import { grammarKey, type GrammarDecorationSpec } from "./grammar-check-plugin";
+import {
+  grammarIssueAt,
+  grammarKey,
+  ignoreGrammarIssue,
+  type GrammarDecorationSpec,
+} from "./grammar-check-plugin";
 import { findUniqueTextRange } from "./doc-text";
 import type { GrammarPopoverInfo } from "./GrammarPopover";
 import type { EditorRunner } from "../editor/useEditorRunner";
+
+/** The popover for one underline, placed at (x, y). */
+function popoverFor(
+  deco: Decoration,
+  x: number,
+  y: number,
+): GrammarPopoverInfo {
+  const spec = deco.spec as GrammarDecorationSpec;
+  return {
+    x,
+    y,
+    from: deco.from,
+    to: deco.to,
+    issue: spec.issue,
+    suggestion: spec.suggestion,
+    original: spec.original,
+  };
+}
 
 /**
  * Hover behavior for grammar-issue highlights: moving onto a highlighted
@@ -36,18 +59,9 @@ export function useGrammarPopover(
         const found = grammarKey.getState(view.state)?.find(pos, pos + 1) ?? [];
         const deco = found[0];
         if (!deco) return;
-        const spec = deco.spec as GrammarDecorationSpec;
         const rect = target.getBoundingClientRect();
         setApplyError(null);
-        setPopover({
-          x: rect.left,
-          y: rect.bottom + 6,
-          from: deco.from,
-          to: deco.to,
-          issue: spec.issue,
-          suggestion: spec.suggestion,
-          original: spec.original,
-        });
+        setPopover(popoverFor(deco, rect.left, rect.bottom + 6));
       });
     },
     [run],
@@ -60,6 +74,47 @@ export function useGrammarPopover(
     if (related?.closest?.(".grammar-popover")) return;
     hideTimer.current = setTimeout(() => setPopover(null), 150);
   }, []);
+
+  // Keyboard path: the caret entering an underline opens the popover under
+  // it (Alt+Enter applies, see the plugin); leaving closes a popover the
+  // caret opened, never one the pointer is using.
+  const openedByCaret = useRef(false);
+  const onCaretMove = useCallback(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const { selection } = view.state;
+      const deco = selection.empty
+        ? grammarIssueAt(view.state, selection.from)
+        : null;
+      if (!deco) {
+        if (openedByCaret.current) {
+          openedByCaret.current = false;
+          setPopover(null);
+        }
+        return;
+      }
+      const coords = view.coordsAtPos(deco.from);
+      openedByCaret.current = true;
+      setApplyError(null);
+      setPopover((prev) =>
+        prev?.from === deco.from && prev.to === deco.to
+          ? prev
+          : popoverFor(deco, coords.left, coords.bottom + 6),
+      );
+    });
+  }, [run]);
+
+  const ignore = useCallback(() => {
+    if (!popover) return;
+    run((ctx) =>
+      ignoreGrammarIssue(
+        ctx.get(editorViewCtx),
+        popover.original,
+        popover.suggestion,
+      ),
+    );
+    setPopover(null);
+  }, [popover, run]);
 
   const cancelHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -125,5 +180,7 @@ export function useGrammarPopover(
     cancelHide,
     hide,
     applyFix,
+    onCaretMove,
+    ignore,
   };
 }

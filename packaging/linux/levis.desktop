@@ -4,6 +4,7 @@ Name=Levis
 Comment=AI-native WYSIWYG Markdown editor
 Exec=levis %F
 Icon=levis
+StartupWMClass=levis
 Terminal=false
 Categories=Utility;TextEditor;
 MimeType=text/markdown;text/x-markdown;

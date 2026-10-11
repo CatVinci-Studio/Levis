@@ -51,3 +51,11 @@ export const TUTORIAL_MOCK_GHOST_EVENT = "levis:tutorial-mock-ghost";
 /// the offsets onto the cursor's paragraph) - same no-backend reasoning as
 /// the ghost event above.
 export const TUTORIAL_MOCK_GRAMMAR_EVENT = "levis:tutorial-mock-grammar";
+
+/** Open a file in a new tab (the project bar's style profile and library
+ *  entries) - detail: the absolute path. Handled by App. */
+export const OPEN_FILE_IN_TAB_EVENT = "levis:open-file-in-tab";
+
+/** Zen mode turned on/off (detail: boolean) - editors refresh their
+ *  focus dimming (zen-focus-plugin). Fired by App. */
+export const ZEN_MODE_EVENT = "levis:zen-mode";

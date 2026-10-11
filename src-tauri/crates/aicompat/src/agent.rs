@@ -134,7 +134,7 @@ where
                 let turn = AgentTurn::Assistant { text };
                 turns.push(turn.clone());
                 new_turns.push(turn);
-                break;
+                return Ok(new_turns);
             }
             StepResult::ToolCalls(calls) => {
                 for call in calls {
@@ -163,5 +163,125 @@ where
         }
     }
 
+    // Out of steps while the model still wanted tools. Ending on a bare
+    // ToolResult left the exchange with no reply at all - the UI then showed
+    // the PREVIOUS exchange's answer as this one's - so say what happened.
+    new_turns.push(AgentTurn::Assistant {
+        text: format!(
+            "(Stopped after {max_steps} tool steps without finishing. Ask me to continue, or narrow the request.)"
+        ),
+    });
     Ok(new_turns)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+
+    fn call(id: &str, name: &str, arguments: &str) -> AgentTurn {
+        AgentTurn::ToolCall {
+            call_id: id.into(),
+            name: name.into(),
+            arguments: arguments.into(),
+        }
+    }
+
+    fn user(text: &str) -> AgentTurn {
+        AgentTurn::User {
+            text: text.into(),
+            images: Vec::new(),
+        }
+    }
+
+    /// Drives the loop with a scripted "model": each step pops the next
+    /// response, and records the history it was shown.
+    fn run_scripted(
+        script: Vec<StepResult>,
+        max_steps: usize,
+        execute: impl FnMut(&str, &str) -> String,
+    ) -> (Vec<AgentTurn>, Vec<Vec<AgentTurn>>) {
+        let script = RefCell::new(VecDeque::from(script));
+        let seen = RefCell::new(Vec::new());
+        let turns = tauri::async_runtime::block_on(run_agent_loop(
+            vec![],
+            user("go"),
+            max_steps,
+            |history| {
+                seen.borrow_mut().push(history);
+                let next = script.borrow_mut().pop_front();
+                async move { next.ok_or_else(|| "script ran out".to_string()) }
+            },
+            execute,
+            |_| {},
+        ))
+        .unwrap();
+        (turns, seen.into_inner())
+    }
+
+    #[test]
+    fn tool_results_are_fed_back_before_the_final_answer() {
+        let (turns, seen) = run_scripted(
+            vec![
+                StepResult::ToolCalls(vec![call("1", "search_document", r#"{"query":"x"}"#)]),
+                StepResult::Done("found it".into()),
+            ],
+            12,
+            |name, _| format!("ran {name}"),
+        );
+        assert_eq!(turns.len(), 4); // user, call, result, answer
+        assert!(
+            matches!(&turns[2], AgentTurn::ToolResult { output, .. } if output == "ran search_document")
+        );
+        assert!(matches!(&turns[3], AgentTurn::Assistant { text } if text == "found it"));
+        // The second step saw the call and its result.
+        assert_eq!(seen[1].len(), 3);
+    }
+
+    #[test]
+    fn parallel_calls_each_get_a_result_in_order() {
+        let (turns, _) = run_scripted(
+            vec![
+                StepResult::ToolCalls(vec![call("a", "t1", "{}"), call("b", "t2", "{}")]),
+                StepResult::Done(String::new()),
+            ],
+            12,
+            |name, _| name.to_string(),
+        );
+        let ids: Vec<_> = turns
+            .iter()
+            .filter_map(|t| match t {
+                AgentTurn::ToolCall { call_id, .. } => Some(format!("call:{call_id}")),
+                AgentTurn::ToolResult { call_id, .. } => Some(format!("result:{call_id}")),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(ids, ["call:a", "result:a", "call:b", "result:b"]);
+    }
+
+    #[test]
+    fn running_out_of_steps_still_ends_with_a_reply() {
+        let looping = (0..3)
+            .map(|i| StepResult::ToolCalls(vec![call(&i.to_string(), "search_document", "{}")]))
+            .collect();
+        let (turns, _) = run_scripted(looping, 3, |_, _| "nothing".into());
+        let AgentTurn::Assistant { text } = turns.last().unwrap() else {
+            panic!("the exchange must end with an assistant turn");
+        };
+        assert!(text.contains("Stopped after 3 tool steps"));
+    }
+
+    #[test]
+    fn a_step_error_aborts_the_exchange() {
+        let result = tauri::async_runtime::block_on(run_agent_loop(
+            vec![],
+            user("go"),
+            12,
+            |_| async { Err::<StepResult, _>("429 rate limited".to_string()) },
+            |_, _| String::new(),
+            |_| {},
+        ));
+        assert_eq!(result.unwrap_err(), "429 rate limited");
+    }
 }

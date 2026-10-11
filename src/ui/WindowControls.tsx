@@ -48,7 +48,11 @@ export function AppMenuButton() {
   // is open would otherwise count as "outside": it would close the menu a
   // moment before the button's own onClick ran and reopened it, and the
   // button would appear not to close the menu at all.
-  const ref = useCloseOnOutsideClick<HTMLDivElement>(close, true);
+  const ref = useCloseOnOutsideClick<HTMLDivElement>(
+    close,
+    true,
+    anchor !== null,
+  );
 
   if (!appDrawsWindowFrame) return null;
 
@@ -109,9 +113,16 @@ export function WindowCaptionButtons() {
     // double-click on the drag region all get there without going through
     // the button below, and a stale glyph would offer "maximize" on an
     // already-maximized window.
-    const unlisten = win.onResized(sync);
+    // A drag-resize fires this every frame, and each sync is three IPC
+    // round trips; only where the resize ends matters.
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const unlisten = win.onResized(() => {
+      clearTimeout(settle);
+      settle = setTimeout(sync, 100);
+    });
     return () => {
       alive = false;
+      clearTimeout(settle);
       void unlisten.then((off) => off());
     };
   }, []);

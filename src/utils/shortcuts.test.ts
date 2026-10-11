@@ -36,5 +36,9 @@ describe("platform shortcuts", () => {
     expect(isBindableCombo("shift+a")).toBe(false);
     expect(isBindableCombo("mod+shift+a")).toBe(true);
     expect(isBindableCombo("ctrl+a")).toBe(true);
+    expect(isBindableCombo("f9")).toBe(true);
+    expect(isBindableCombo("shift+f12")).toBe(true);
+    expect(isBindableCombo("f")).toBe(false);
+    expect(isBindableCombo("f13")).toBe(false);
   });
 });

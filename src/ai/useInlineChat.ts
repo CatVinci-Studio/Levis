@@ -1,9 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
-import { cachedDocumentMarkdown, readSelection } from "./doc-markdown";
+import {
+  cachedDocumentMarkdown,
+  caretContext,
+  headingAt,
+  readSelection,
+  serializeRange,
+} from "./doc-markdown";
+import { chatSelectionRange } from "./chat-selection-plugin";
 import type { EditorRunner } from "../editor/useEditorRunner";
-import { useLatest } from "../utils/useLatest";
 
 /** The document position right after the top-level block containing `pos` -
  *  where the Quick Ask zone widget goes (quick-ask-widget-plugin), both when
@@ -12,7 +18,12 @@ import { useLatest } from "../utils/useLatest";
  *  real ProseMirror position, so it maps through edits like any other one. */
 export function blockPositionAfter(doc: ProseNode, pos: number): number {
   const $pos = doc.resolve(Math.min(pos, doc.content.size));
-  return $pos.depth >= 1 ? $pos.after(1) : doc.content.size;
+  if ($pos.depth >= 1) return $pos.after(1);
+  // Between two top-level blocks - where an anchored proposal's preview
+  // starts: the block that begins here. (This used to be the document's
+  // end, which sent Quick Ask to the bottom of the page.)
+  const next = $pos.nodeAfter;
+  return next ? $pos.pos + next.nodeSize : doc.content.size;
 }
 
 export interface InlineChatInfo {
@@ -56,36 +67,107 @@ export function useInlineChat(run: EditorRunner) {
   const [visible, setVisible] = useState(false);
   // Read from callbacks registered once (the detached-chat bridge), which
   // would otherwise close over a stale chatInfo.
-  const chatInfoRef = useLatest(chatInfo);
+  // Writable (unlike useLatest) because open/sendContext update it in the
+  // same tick as setChatInfo, before the re-render that would sync it.
+  const chatInfoRef = useRef<InlineChatInfo | null>(chatInfo);
+  chatInfoRef.current = chatInfo;
 
-  /** Opens the bar (or keeps it open). The caller decides whether this is a
-   *  fresh conversation or a restored history entry before opening. An
-   *  already-open panel keeps its snapshot - `prev` short-circuits before
-   *  any serialization happens. */
-  const open = useCallback(() => {
+  /** Opens the bar, or keeps it open. Opened again over a DIFFERENT
+   *  selection, it retargets: the new passage becomes what it is about, and
+   *  the returned position is where the panel should move to (null: it
+   *  stays put). Asking AI about paragraph 9 used to leave the panel - and
+   *  its rewrites - on paragraph 1. The conversation itself carries on;
+   *  the caller decides whether it is fresh or a restored history entry. */
+  const open = useCallback((): number | null => {
     setVisible(true);
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      setChatInfo((prev) => {
-        if (prev) return prev;
+    return (
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
         const { selection } = view.state;
-        return {
+        const prev = chatInfoRef.current;
+        const sameTarget =
+          prev !== null &&
+          (selection.empty ||
+            (prev.range?.from === selection.from &&
+              prev.range?.to === selection.to));
+        if (sameTarget) return null;
+        const next: InlineChatInfo = {
           document: cachedDocumentMarkdown(ctx, view.state.doc),
           ...readSelection(ctx, view.state),
           anchor: selection.from,
           widgetPos: blockPositionAfter(view.state.doc, selection.to),
         };
-      });
-    });
-  }, [run]);
+        chatInfoRef.current = next;
+        setChatInfo(next);
+        return prev ? next.widgetPos : null;
+      }) ?? null
+    );
+  }, [run, chatInfoRef]);
 
   /** Panel off, context kept - what detaching into a window does. */
   const hide = useCallback(() => setVisible(false), []);
 
   const close = useCallback(() => {
     setVisible(false);
+    chatInfoRef.current = null;
     setChatInfo(null);
   }, []);
 
-  return { chatInfo, chatInfoRef, visible, open, hide, close };
+  /** What a send writes against: the document as it reads NOW, and the
+   *  captured selection as it reads now - its range mapped through every
+   *  edit since (chat-selection-plugin), so "make it shorter" -> Accept ->
+   *  "now more formal" works on the text the first rewrite left behind
+   *  instead of quoting text that no longer exists. */
+  const sendContext = useCallback(async () => {
+    const info = chatInfoRef.current;
+    if (!info) return null;
+    const fresh = run((ctx) => {
+      const { state } = ctx.get(editorViewCtx);
+      const range = info.range
+        ? (chatSelectionRange(state) ?? info.range)
+        : null;
+      const valid =
+        range && range.to <= state.doc.content.size && range.from < range.to;
+      return {
+        document: cachedDocumentMarkdown(ctx, state.doc),
+        // Opened with no selection: the caret is what "here" means.
+        cursor: info.range ? null : caretContext(state),
+        focusHeading: headingAt(state.doc, range?.from ?? state.selection.from),
+        range: valid ? range : null,
+        selectionMarkdown: valid
+          ? serializeRange(ctx, state.doc, range.from, range.to)
+          : null,
+        selectedText: valid
+          ? state.doc.textBetween(range.from, range.to, " ")
+          : null,
+      };
+    });
+    if (!fresh) {
+      return {
+        document: info.document,
+        selectionMarkdown: info.selectionMarkdown,
+        range: info.range,
+        cursor: null,
+      };
+    }
+    if (info.range) {
+      const next = {
+        ...info,
+        range: fresh.range,
+        selectionMarkdown: fresh.selectionMarkdown,
+        selectedText: fresh.selectedText,
+      };
+      chatInfoRef.current = next;
+      setChatInfo(next);
+    }
+    return {
+      document: fresh.document,
+      selectionMarkdown: info.range ? fresh.selectionMarkdown : null,
+      range: fresh.range,
+      cursor: fresh.cursor,
+      focusHeading: fresh.focusHeading,
+    };
+  }, [run, chatInfoRef]);
+
+  return { chatInfo, chatInfoRef, visible, open, hide, close, sendContext };
 }

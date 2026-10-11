@@ -9,3 +9,5 @@ src/help/*.md
 README*.md
 *.png
 *.ico
+test-results
+playwright-report

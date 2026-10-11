@@ -21,12 +21,7 @@ fn auth_file_path(app: &AppHandle) -> Result<PathBuf, String> {
 fn save_credential(app: &AppHandle, cred: &ClaudeCredential) -> Result<(), String> {
     let path = auth_file_path(app)?;
     let json = serde_json::to_string_pretty(cred).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| e.to_string())?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())?;
-    }
+    crate::atomic::write_secret_sync(&path, json).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -42,7 +37,7 @@ fn load_credential(app: &AppHandle) -> Result<Option<ClaudeCredential>, String> 
 }
 
 /// Runs the Claude (Anthropic Pro/Max) OAuth login, same shape as the Codex
-/// login but against Anthropic's own OAuth client - see levis-ai's
+/// login but against Anthropic's own OAuth client - see aicompat's
 /// providers::anthropic module for the reference this was verified against.
 #[tauri::command]
 pub async fn claude_login(app: AppHandle) -> Result<ClaudeAuthStatus, String> {

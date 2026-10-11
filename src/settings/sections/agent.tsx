@@ -1,3 +1,11 @@
+import { errorText } from "../../utils/error-text";
+import {
+  formatContext,
+  modelInfo,
+  orderForPicker,
+  readFetchedModels,
+  writeFetchedModels,
+} from "../../ai/model-info";
 import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
@@ -32,6 +40,7 @@ function ProviderModelSection({
 }) {
   const { settings, setSettings } = useSettings();
   const provider = settings.aiProvider;
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const [fetched, setFetched] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,8 +67,11 @@ function ProviderModelSection({
     };
   }, [provider]);
 
+  // The last fetched list for this provider, remembered across restarts.
   useEffect(() => {
-    setFetched([]);
+    const cached = readFetchedModels(provider);
+    setFetched(cached?.models ?? []);
+    setFetchedAt(cached?.at ?? null);
     setError(null);
   }, [provider, kind]);
 
@@ -103,8 +115,10 @@ function ProviderModelSection({
     try {
       const list = await ai.fetchAgentModels(provider);
       setFetched(list);
+      setFetchedAt(Date.now());
+      writeFetchedModels(provider, list);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     } finally {
       setLoading(false);
     }
@@ -117,11 +131,33 @@ function ProviderModelSection({
     (entry?.modelsListable ?? true);
   const knownAndFetched = [
     ...(entry?.knownModels ?? []),
-    ...fetched.filter((m) => !entry?.knownModels.includes(m)),
+    ...orderForPicker(
+      provider,
+      fetched.filter((m) => !entry?.knownModels.includes(m)),
+    ),
   ];
+  // The saved choice isn't in a list fetched from the provider: most likely
+  // retired. Still selectable (it may just be unlisted), but flagged.
+  const currentMissing =
+    !!current && fetched.length > 0 && !fetched.includes(current);
   if (current && !knownAndFetched.includes(current)) {
     knownAndFetched.push(current);
   }
+  // "gpt-6-luna · vision · tools · 400K", "(deprecated)" - from the bundled
+  // models.dev snapshot, so a long fetched list can be chosen from.
+  const describe = (id: string) => {
+    const info = modelInfo(provider, id);
+    if (!info) return id;
+    const tags = [
+      info.vision ? t.modelTagVision : null,
+      info.tools ? t.modelTagTools : null,
+      info.context ? formatContext(info.context) : null,
+    ].filter(Boolean);
+    const label = tags.length ? `${id} · ${tags.join(" · ")}` : id;
+    return info.status === "deprecated"
+      ? `${label} (${t.modelTagDeprecated})`
+      : label;
+  };
   const defaultModel =
     kind === "agent" ? entry?.agentDefaultModel : entry?.defaultModel;
   const codexDefaultModel = kind === "agent" ? "gpt-6.1-sol" : "gpt-6-luna";
@@ -145,11 +181,11 @@ function ProviderModelSection({
           : []),
         ...knownAndFetched
           .filter((m) => m !== defaultModel)
-          .map((m) => ({ value: m, label: m })),
+          .map((m) => ({ value: m, label: describe(m) })),
       ];
 
   return (
-    <div className="settings-field">
+    <div className="settings-field settings-field-stacked">
       <div>
         <div className="settings-row-label">
           {kind === "agent" ? t.agentModelLabel : t.writingModelLabel}
@@ -159,6 +195,9 @@ function ProviderModelSection({
         </div>
       </div>
       {error && <div className="settings-error">{error}</div>}
+      {currentMissing && (
+        <div className="settings-error">{t.modelMissingHint}</div>
+      )}
       <div className="custom-model-row">
         {presetOptions.length > 0 ? (
           <select
@@ -191,6 +230,16 @@ function ProviderModelSection({
           </button>
         )}
       </div>
+      {canFetch && (
+        <div className="settings-row-hint">
+          {fetchedAt
+            ? t.modelFetchedAt.replace(
+                "{date}",
+                new Date(fetchedAt).toLocaleDateString(),
+              )
+            : t.modelFetchHint}
+        </div>
+      )}
     </div>
   );
 }
@@ -242,7 +291,7 @@ export function AgentWorkspaceSection({ t }: { t: Strings }) {
       // Language picks the starter agent.md template on first use.
       await ai.openGlobalAgentDir(settings.language);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 
@@ -284,7 +333,7 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
       const picked = await ai.pickWorkspaceRoot();
       if (picked) setSettings({ agentWorkspaceRoot: picked });
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 
@@ -344,7 +393,7 @@ export function AgentSystemPromptSection({
       onClose(); // the editor is behind the settings panel
       onOpenFile(path);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 
@@ -387,7 +436,7 @@ export function AgentSkillsSection({ t }: { t: Strings }) {
       if (updated) setSkills(updated);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(errorText(err));
     }
   }
 
