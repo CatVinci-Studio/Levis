@@ -216,11 +216,31 @@ pub(crate) fn build_with_app_chrome(
 /// Whether this process talks to a Wayland compositor rather than X11 (or
 /// XWayland). Wayland has no client-side window positions and no
 /// always-on-top, which the detached chat relies on elsewhere.
+///
+/// Answered once, by `detect_wayland` on the main thread at startup: GDK
+/// panics when touched from any other thread, and the chat window is built
+/// from an async command - asking GDK there killed the command, so the
+/// detached chat never opened.
 #[cfg(target_os = "linux")]
 pub(crate) fn is_wayland() -> bool {
+    WAYLAND.get().copied().unwrap_or_else(|| {
+        // Not detected yet (it always is by the time a window opens): the
+        // environment says the same thing in every normal setup.
+        std::env::var_os("WAYLAND_DISPLAY").is_some()
+            && std::env::var("GDK_BACKEND").map_or(true, |b| b.contains("wayland"))
+    })
+}
+
+#[cfg(target_os = "linux")]
+static WAYLAND: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// Main thread only (GDK); see `is_wayland`.
+#[cfg(target_os = "linux")]
+fn detect_wayland() {
     use gtk::prelude::*;
-    gtk::gdk::Display::default()
-        .is_some_and(|display| display.type_().name() == "GdkWaylandDisplay")
+    let wayland = gtk::gdk::Display::default()
+        .is_some_and(|display| display.type_().name() == "GdkWaylandDisplay");
+    let _ = WAYLAND.set(wayland);
 }
 
 /// Takes the native menu BAR off a window without detaching its menu.
@@ -357,6 +377,8 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            #[cfg(target_os = "linux")]
+            detect_wayland();
             // Windows/Linux hand an associated file over as a plain argv
             // path (macOS uses the Opened run-event instead, handled below).
             // With no file to open, fall back to restoring last session's
