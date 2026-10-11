@@ -53,7 +53,7 @@ quick-xml = "0.41"
 # (their platform-support metadata says "none"), and lib.rs registers them
 # under #[cfg(desktop)]. iOS updates come through the App Store. Shared
 # plugins (opener, dialog) stay in [dependencies] above. See
-# docs/IOS-CODE-MAP.md.
+# docs/ios/code-map.zh.md.
 # iOS document access (plugins/levis-files): pickers, security-scoped reads
 # and writes, remembered folders.
 [target.'cfg(target_os = "ios")'.dependencies]

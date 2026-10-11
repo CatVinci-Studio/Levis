@@ -42,7 +42,7 @@
 
 ## 文件访问（iOS）
 
-方案见 `docs/IOS-PLAN.zh.md` 的"文件访问方案"一节。代码分三处：
+方案见 `docs/ios/plan.zh.md` 的"文件访问方案"一节。代码分三处：
 
 - **原生插件 `src-tauri/plugins/levis-files`：** Swift 实现在 `ios/Sources/LevisFilesPlugin.swift`，Rust 部分只做转发，并且只在 iOS 上编译（工作区成员，桌面上是一个空 crate）。提供的方法：
   - 选择文件、选择文件夹；

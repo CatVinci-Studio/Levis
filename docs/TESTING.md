@@ -18,6 +18,10 @@ that took them). The rest need a display, a desktop session or an API key,
 and are run by hand before a release. The visual suite needs Chromium once:
 `npx playwright install chromium`.
 
+CI also builds the iOS app for the simulator, unsigned, on macOS (the `ios`
+job) - proof that the desktop/iOS split in `docs/ios/code-map.zh.md` still
+compiles. Running it on a device is a manual step on a Mac.
+
 ## What is covered, by kind
 
 The suites divide by _what kind of mistake they catch_, which is more useful
