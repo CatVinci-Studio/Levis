@@ -543,6 +543,11 @@ pub fn run() {
             clear_draft_snapshot,
             clear_all_drafts,
             distribution::app_distribution,
+            // iOS only: rename and delete in the document list.
+            #[cfg(mobile)]
+            commands::documents::rename_entry,
+            #[cfg(mobile)]
+            commands::documents::delete_entry,
             // Desktop only: menus, windows, tab drag, detached chat, session
             // restore, the window-mode prefs mirror, the terminal command,
             // pandoc/PDF export, folder pickers and file-manager reveals.

@@ -77,7 +77,8 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
     { id: "editor", label: t.navEditor },
     { id: "ai", label: t.navAi },
     { id: "agent", label: t.navAgent },
-    { id: "shortcuts", label: t.navShortcuts },
+    // A phone has no keyboard to bind shortcuts on.
+    ...(isIOSApp ? [] : [{ id: "shortcuts" as const, label: t.navShortcuts }]),
     { id: "privacy", label: t.navPrivacy },
   ];
 

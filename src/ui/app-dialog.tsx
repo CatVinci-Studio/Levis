@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useModalDialog } from "./useModalDialog";
 
 /**
@@ -22,7 +22,9 @@ interface Request extends AppDialogOptions {
   okLabel?: string;
   cancelLabel?: string;
   confirm: boolean;
-  resolve: (ok: boolean) => void;
+  /** Prompt only: the text field's starting value. */
+  input?: string;
+  resolve: (ok: boolean, value?: string) => void;
 }
 
 let nextId = 1;
@@ -57,10 +59,33 @@ export function showConfirm(
   return enqueue({ ...options, text, confirm: true });
 }
 
-function answer(request: Request, ok: boolean) {
+/** A one-line text question (a new file name). Resolves the text, or null
+ *  for cancel, Escape or the backdrop. */
+export function showPrompt(
+  text: string,
+  value: string,
+  options: AppDialogOptions & { okLabel: string; cancelLabel: string },
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    queue = [
+      ...queue,
+      {
+        ...options,
+        text,
+        confirm: true,
+        input: value,
+        id: nextId++,
+        resolve: (ok, typed) => resolve(ok ? (typed ?? value) : null),
+      },
+    ];
+    publish();
+  });
+}
+
+function answer(request: Request, ok: boolean, value?: string) {
   queue = queue.filter((r) => r.id !== request.id);
   publish();
-  request.resolve(ok);
+  request.resolve(ok, value);
 }
 
 /** Mounted once, by App. */
@@ -73,11 +98,15 @@ export function AppDialogHost({ okLabel }: { okLabel: string }) {
     };
   }, []);
   const current = pending[0];
+  const inputRef = useRef<HTMLInputElement>(null);
   const dialog = useModalDialog(
     () => current && answer(current, false),
     !!current,
-    ".close-prompt-primary",
+    current?.input !== undefined
+      ? ".app-dialog-input"
+      : ".close-prompt-primary",
   );
+  const ok = () => current && answer(current, true, inputRef.current?.value);
   if (!current) return null;
   return (
     <div
@@ -102,6 +131,16 @@ export function AppDialogHost({ okLabel }: { okLabel: string }) {
           </h2>
         )}
         <p>{current.text}</p>
+        {current.input !== undefined && (
+          <input
+            ref={inputRef}
+            className="app-dialog-input"
+            defaultValue={current.input}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) ok();
+            }}
+          />
+        )}
         <div className="close-prompt-buttons">
           <div className="close-prompt-spacer" />
           {current.confirm && (
@@ -109,10 +148,7 @@ export function AppDialogHost({ okLabel }: { okLabel: string }) {
               {current.cancelLabel}
             </button>
           )}
-          <button
-            className="close-prompt-primary"
-            onClick={() => answer(current, true)}
-          >
+          <button className="close-prompt-primary" onClick={ok}>
             {current.confirm ? current.okLabel : okLabel}
           </button>
         </div>

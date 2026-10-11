@@ -1,0 +1,110 @@
+/* The iPhone document list (DocumentList.tsx): a full-screen page over the
+   editor, opened from the phone menu. 44pt rows and buttons. */
+
+.document-list {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--page-bg, var(--bg));
+  color: var(--chrome-text, var(--editor-text));
+  font-family: var(--font-sans);
+}
+
+.document-list-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.document-list-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-align: center;
+}
+
+.document-list-icon-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: none;
+  color: inherit;
+}
+
+.document-list-text-button {
+  height: 44px;
+  padding: 0 10px;
+  border: none;
+  background: none;
+  color: var(--chrome-accent);
+  font: inherit;
+  font-size: var(--text-md);
+}
+
+.document-list-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 0 24px;
+}
+
+.document-list-empty {
+  margin: 48px 24px;
+  text-align: center;
+  color: var(--chrome-muted, var(--editor-muted));
+  font-size: var(--text-md);
+}
+
+.document-row {
+  display: flex;
+  align-items: center;
+  margin: 0 8px;
+  border-radius: var(--radius-md, 8px);
+}
+
+.document-row-active {
+  background: color-mix(in srgb, var(--chrome-accent) 10%, transparent);
+}
+
+.document-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.document-row-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+}
+
+.document-row-location {
+  font-size: var(--text-sm);
+  color: var(--chrome-muted, var(--editor-muted));
+}

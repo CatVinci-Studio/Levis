@@ -65,6 +65,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* An on/off mode that is on (View > Sidebar, Source Mode...). */
+.app-menu-check {
+  flex-shrink: 0;
+  color: var(--chrome-accent);
+}
+
 .app-menu-chevron {
   flex-shrink: 0;
   margin-right: -2px;

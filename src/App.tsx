@@ -35,6 +35,8 @@ import {
   useIOSDocumentsFolder,
 } from "./platform/ios-files";
 import { SettingsPanel } from "./settings/SettingsPanel";
+import { DocumentList } from "./mobile/DocumentList";
+import { KeyboardToolbar } from "./mobile/KeyboardToolbar";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
@@ -83,6 +85,7 @@ import { OPEN_FILE_IN_TAB_EVENT, ZEN_MODE_EVENT } from "./utils/events";
 import {
   AgentPanelProvider,
   AgentPanelResizer,
+  AgentPanelSheetGrip,
   useAgentPanelState,
 } from "./ai/chat/agent-panel";
 import "./App.css";
@@ -120,6 +123,8 @@ function App() {
   const agentPanel = useAgentPanelState();
   const [agentPanelEl, setAgentPanelEl] = useState<HTMLElement | null>(null);
   const toggleAgentPanel = agentPanel.toggle;
+  // iPhone: whether the AI bottom sheet is pulled up to full height.
+  const [sheetFull, setSheetFull] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const appUpdate = useAppUpdate();
@@ -733,12 +738,32 @@ function App() {
   // Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help
   // action the frontend owns arrives here as a window event; see
   // menu-bridge.ts for the actual subscriptions.
-  // iPhone menu > Open Recent. An entry that no longer opens (moved or
-  // deleted in Files) drops out of the list.
-  const openRecent = useCallback(
-    (path: string) => openFile(path).catch(() => forgetIOSDocument(path)),
+  // iPhone: the document list (menu > Documents). Opening an entry that no
+  // longer exists (moved or deleted in Files) drops it from the list.
+  const [documentsOpen, setDocumentsOpen] = useState(false);
+  const openFromDocuments = useCallback(
+    (path: string) => {
+      setDocumentsOpen(false);
+      void openFile(path).catch(() => forgetIOSDocument(path));
+    },
     [openFile],
   );
+  // A renamed document stays open under its new name; a deleted one keeps
+  // its text in the tab, unsaved, so nothing on screen is lost with it.
+  const documentRenamed = useCallback((from: string, to: string) => {
+    setTabs((prev) =>
+      prev.map((tab) => (tab.path === from ? { ...tab, path: to } : tab)),
+    );
+  }, []);
+  const documentDeleted = useCallback((path: string) => {
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.path === path
+          ? { ...tab, path: null, savedContent: "", diskMtime: null }
+          : tab,
+      ),
+    );
+  }, []);
 
   // iPhone menu > Share: the share sheet needs a file, so an unsaved or
   // never-saved document is saved first (into Documents, if it is new).
@@ -771,7 +796,7 @@ function App() {
     requestCloseTab,
     openHelpTab,
     startWelcomeTutorial,
-    openRecent,
+    onOpenDocuments: () => setDocumentsOpen(true),
     shareActiveTab,
   });
 
@@ -884,7 +909,16 @@ function App() {
           below render nothing anywhere else, so this stays one strip on
           every platform. See ui/window-chrome.ts. */}
         <header className="window-bar" data-tauri-drag-region>
-          <AppMenuButton />
+          <AppMenuButton
+            checks={{
+              sidebar: panelOpen,
+              agentPanel: agentPanel.open,
+              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+              splitView: !!activeTab.sourceMode && !!activeTab.splitView,
+              typewriter: settings.typewriterMode,
+              zen: zenMode,
+            }}
+          />
           <span className="window-bar-title">{activeTitle}</span>
           <div className="window-bar-status">
             {activeDirty && (
@@ -1057,7 +1091,20 @@ function App() {
         </div>
 
         {agentPanel.open && (
-          <aside className="agent-panel" style={{ width: agentPanel.width }}>
+          <aside
+            className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
+            style={{ width: agentPanel.width }}
+          >
+            {/* Phone widths: the panel is a bottom sheet (ui/mobile.css)
+              and this is its handle; hidden elsewhere. */}
+            {isIOSApp && (
+              <AgentPanelSheetGrip
+                full={sheetFull}
+                onFullChange={setSheetFull}
+                onClose={() => agentPanel.setOpen(false)}
+                label={t.agentPanelSheet}
+              />
+            )}
             <AgentPanelResizer
               width={agentPanel.width}
               onResize={agentPanel.setWidth}
@@ -1120,6 +1167,20 @@ function App() {
           </div>
         )}
 
+        {isIOSApp && <KeyboardToolbar />}
+        {isIOSApp && documentsOpen && (
+          <DocumentList
+            activePath={activeTab.path}
+            onClose={() => setDocumentsOpen(false)}
+            onOpen={openFromDocuments}
+            onRenamed={documentRenamed}
+            onDeleted={documentDeleted}
+            onOpenOther={() => {
+              setDocumentsOpen(false);
+              void openFileDialog();
+            }}
+          />
+        )}
         <AppDialogHost okLabel={t.dialogOk} />
 
         {zenMode && (

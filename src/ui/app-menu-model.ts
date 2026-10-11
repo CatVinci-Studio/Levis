@@ -54,7 +54,7 @@ export type NativeMenuId =
   // The phone menu's own (buildMobileMenu): emitted by emitMenuEvent, with
   // no menu.rs counterpart.
   | "share"
-  | `open-path:${string}`;
+  | "documents";
 
 /**
  * The handful of items with no native id to send.
@@ -81,6 +81,19 @@ export interface MenuEntry {
   action?: MenuAction;
   submenu?: MenuNode[];
   disabled?: boolean;
+  /** An on/off mode: a check mark shows when on. Leave unset for plain
+   *  actions. */
+  checked?: boolean;
+}
+
+/** Which view modes are on, for the check marks beside them. */
+export interface MenuChecks {
+  sidebar?: boolean;
+  agentPanel?: boolean;
+  sourceMode?: boolean;
+  splitView?: boolean;
+  typewriter?: boolean;
+  zen?: boolean;
 }
 
 export type MenuNode = MenuEntry | "separator";
@@ -158,6 +171,7 @@ export function buildAppMenu(
   t: Strings,
   shortcuts: Shortcuts,
   recents: string[],
+  checks: MenuChecks = {},
 ): MenuNode[] {
   return [
     {
@@ -232,32 +246,38 @@ export function buildAppMenu(
           label: t.menuToggleSidebar,
           accel: shortcuts.toggleSidebar,
           action: { native: "toggle-sidebar" },
+          checked: !!checks.sidebar,
         },
         {
           label: t.menuToggleAgentPanel,
           accel: shortcuts.toggleAgentPanel,
           action: { native: "toggle-agent-panel" },
+          checked: !!checks.agentPanel,
         },
         "separator",
         {
           label: t.menuToggleSourceMode,
           accel: shortcuts.toggleSourceMode,
           action: { native: "toggle-source-mode" },
+          checked: !!checks.sourceMode,
         },
         {
           label: t.menuToggleSplitView,
           accel: shortcuts.toggleSplitView,
           action: { native: "toggle-split-view" },
+          checked: !!checks.splitView,
         },
         {
           label: t.menuToggleTypewriterMode,
           accel: shortcuts.toggleTypewriterMode,
           action: { native: "toggle-typewriter-mode" },
+          checked: !!checks.typewriter,
         },
         {
           label: t.menuToggleZenMode,
           accel: shortcuts.toggleZenMode,
           action: { native: "toggle-zen-mode" },
+          checked: !!checks.zen,
         },
         "separator",
         { label: t.menuZoomIn, accel: "mod+=", action: { native: "zoom-in" } },
@@ -310,36 +330,43 @@ export function buildAppMenu(
 /**
  * The iPhone's menu, behind the title row's button. One flat list: a
  * flyout has nowhere to go on a 400-point-wide screen, and most of the
- * desktop menu is not there to offer - windows, recents, exports through
- * PDF or pandoc, zoom (pinch), split view (no room for two panes). Undo and
- * the clipboard are the system's edit menu and the keyboard's own keys.
+ * desktop menu is not there to offer - windows, exports through PDF or
+ * pandoc, zoom (pinch), split view (no room for two panes). Undo and the
+ * clipboard are the system's edit menu and the keyboard's own keys. Recent
+ * documents have their own page (Documents, mobile/DocumentList.tsx).
  */
-export function buildMobileMenu(t: Strings, recents: string[]): MenuNode[] {
-  const recent: MenuNode[] = recents.slice(0, 5).map((path) => ({
-    label: basename(path) || path,
-    action: { native: `open-path:${path}` },
-  }));
+export function buildMobileMenu(
+  t: Strings,
+  checks: MenuChecks = {},
+): MenuNode[] {
   return [
+    { label: t.menuDocuments, action: { native: "documents" } },
     { label: t.menuNewFile, action: { native: "new-file" } },
     { label: t.menuOpenFile, action: { native: "open-file" } },
     { label: t.menuSave, action: { native: "save-file" } },
     { label: t.menuShare, action: { native: "share" } },
     { label: t.menuFindReplace, action: { native: "find-replace" } },
     "separator",
-    ...(recent.length > 0
-      ? [
-          { label: t.menuOpenRecent, disabled: true },
-          ...recent,
-          "separator" as const,
-        ]
-      : []),
-    { label: t.menuToggleSidebar, action: { native: "toggle-sidebar" } },
-    { label: t.menuToggleSourceMode, action: { native: "toggle-source-mode" } },
     {
-      label: t.menuToggleTypewriterMode,
-      action: { native: "toggle-typewriter-mode" },
+      label: t.menuViewSidebar,
+      action: { native: "toggle-sidebar" },
+      checked: !!checks.sidebar,
     },
-    { label: t.menuToggleZenMode, action: { native: "toggle-zen-mode" } },
+    {
+      label: t.menuViewSource,
+      action: { native: "toggle-source-mode" },
+      checked: !!checks.sourceMode,
+    },
+    {
+      label: t.menuViewTypewriter,
+      action: { native: "toggle-typewriter-mode" },
+      checked: !!checks.typewriter,
+    },
+    {
+      label: t.menuToggleZenMode,
+      action: { native: "toggle-zen-mode" },
+      checked: !!checks.zen,
+    },
     "separator",
     { label: t.menuHelpMarkdown, action: { native: "help-doc:markdown" } },
     { label: t.menuHelpAgent, action: { native: "help-doc:agent" } },

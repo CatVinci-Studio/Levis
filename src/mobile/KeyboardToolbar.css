@@ -1,0 +1,73 @@
+/* The strip above the iPhone keyboard (KeyboardToolbar.tsx). The web view
+   ends at the keyboard (KeyboardFit.swift), so the bottom of the page is
+   the top of the keyboard. */
+
+.keyboard-toolbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 6px;
+  border-top: 1px solid var(--border-color);
+  background: var(--page-bg, var(--bg));
+  font-family: var(--font-sans);
+}
+
+.keyboard-toolbar-format {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.keyboard-toolbar-format::-webkit-scrollbar {
+  display: none;
+}
+
+.keyboard-toolbar-button {
+  flex: 0 0 auto;
+  min-width: 40px;
+  height: 36px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: none;
+  color: var(--editor-text);
+  font: inherit;
+  font-size: 17px;
+}
+
+.keyboard-toolbar-button:active {
+  background: color-mix(in srgb, var(--editor-text) 12%, transparent);
+}
+
+.kbt-bold {
+  font-weight: 700;
+}
+
+.kbt-italic {
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+
+.kbt-code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.keyboard-toolbar-ai {
+  color: var(--chrome-accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* The end of the document scrolls clear of the strip. */
+:root.has-keyboard-toolbar .editor-scroll {
+  padding-bottom: 44px;
+}

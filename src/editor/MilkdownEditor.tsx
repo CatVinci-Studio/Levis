@@ -35,6 +35,7 @@ import {
   insertTable,
   runCommand,
 } from "./editor-menu";
+import { toggleSpan } from "./span-commands";
 import {
   withEditorExtensions,
   type PendingEditCallbacks,
@@ -100,6 +101,7 @@ import {
   INSERT_CLIPBOARD_TEXT_EVENT,
   RESTORE_CHAT_EVENT,
   INSERT_BLOCK_EVENT,
+  TOGGLE_MARK_EVENT,
   EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,
@@ -1112,6 +1114,18 @@ export function MilkdownEditor({
         setTableDialogOpen(true);
         break;
     }
+  });
+
+  // The iPhone keyboard toolbar's bold and italic.
+  useWindowEvent(TOGGLE_MARK_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    const mark = (e as CustomEvent<string>).detail;
+    if (mark !== "bold" && mark !== "italic") return;
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      toggleSpan(view, mark === "bold" ? 2 : 1);
+      view.focus();
+    });
   });
 
   // The app-drawn menu's Edit submenu (Windows - see ui/app-menu-actions.ts).

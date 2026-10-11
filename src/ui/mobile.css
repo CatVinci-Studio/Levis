@@ -87,14 +87,6 @@
   padding-top: calc(var(--mobile-bar) + 6px);
 }
 
-:root[data-window-chrome="mobile"] .agent-panel {
-  padding-top: var(--mobile-bar);
-}
-
-:root[data-window-chrome="mobile"] .agent-panel-placeholder {
-  inset: var(--mobile-bar) 0 0;
-}
-
 :root[data-window-chrome="mobile"]
   :is(
     .settings-backdrop,
@@ -136,33 +128,77 @@
     background: rgb(0 0 0 / 0.25);
   }
 
-  /* Levis AI takes the whole screen under the title row; its toggle there
-     closes it again. The width a desktop user dragged it to means nothing
-     here, hence the !important over the inline style. */
+  /* Levis AI is a bottom sheet: about half the screen, so the document
+     stays in view above it - an edit it proposes can be read against the
+     text. The handle on top (AgentPanelSheetGrip) pulls it up to full
+     height or down to close. The width a desktop user dragged it to means
+     nothing here, hence the !important over the inline style. */
   :root[data-window-chrome="mobile"] .agent-panel {
     position: fixed;
-    top: 0;
+    top: auto;
     right: 0;
     bottom: 0;
     left: 0;
     z-index: 40;
     width: auto !important;
     max-width: none;
+    height: 55%;
+    padding-top: 0;
     border-left: none;
-    box-shadow: none;
+    border-top: 1px solid var(--border-color);
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
+    flex-direction: column;
+    transition: height 0.2s ease;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-sheet-full {
+    height: calc(100% - var(--mobile-bar));
   }
 
   :root[data-window-chrome="mobile"] .agent-panel-resizer {
     display: none;
   }
+
+  :root[data-window-chrome="mobile"] .agent-panel-placeholder {
+    inset: 24px 0 0;
+  }
 }
 
 /* Wider than a phone the sidebar is docked, so there is nothing to tap
-   beside it. */
+   beside it, and the AI panel is a column rather than a sheet. */
 @media (min-width: 761px) {
-  .sidebar-scrim {
+  .sidebar-scrim,
+  .agent-panel-grip {
     display: none;
   }
+
+  /* The docked column clears the taller title row. */
+  :root[data-window-chrome="mobile"] .agent-panel {
+    padding-top: var(--mobile-bar);
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-placeholder {
+    inset: var(--mobile-bar) 0 0;
+  }
+}
+
+/* The sheet's handle: a short bar across the top, the whole strip
+   draggable. */
+.agent-panel-grip {
+  display: flex;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+}
+
+.agent-panel-grip span {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--editor-text) 25%, transparent);
 }
 
 /* Completion is accepted with a tap on the suggestion (ghost-text-plugin.ts)

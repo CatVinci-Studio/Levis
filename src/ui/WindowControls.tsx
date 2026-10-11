@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useSettings } from "../settings/SettingsContext";
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { AppMenu } from "./AppMenu";
+import type { MenuChecks } from "./app-menu-model";
 import {
   HamburgerIcon,
   WindowCloseIcon,
@@ -29,7 +30,7 @@ import "./window-controls.css";
  * afterwards. AppMenu.tsx draws the items and says why they are drawn here
  * at all rather than popped as the real `Menu` through Rust.
  */
-export function AppMenuButton() {
+export function AppMenuButton({ checks }: { checks?: MenuChecks } = {}) {
   const { t } = useSettings();
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   // Whatever had focus when the menu opened - almost always the document.
@@ -73,14 +74,26 @@ export function AppMenuButton() {
             close();
             return;
           }
-          focusOnClose.current = document.activeElement as HTMLElement | null;
+          if (isIOSApp) {
+            // The phone: leave the editor, which takes the keyboard and the
+            // system's "Paste | Format" bubble with it (that bubble belongs
+            // to the selection and otherwise floats over the menu), and
+            // don't hand focus back afterwards - it would only bring the
+            // keyboard back up over whatever the menu just opened.
+            (document.activeElement as HTMLElement | null)?.blur();
+            focusOnClose.current = null;
+          } else {
+            focusOnClose.current = document.activeElement as HTMLElement | null;
+          }
           const rect = e.currentTarget.getBoundingClientRect();
           setAnchor({ x: rect.left, y: rect.bottom + 2 });
         }}
       >
         <HamburgerIcon />
       </button>
-      {anchor && <AppMenu x={anchor.x} y={anchor.y} onClose={close} />}
+      {anchor && (
+        <AppMenu x={anchor.x} y={anchor.y} onClose={close} checks={checks} />
+      )}
     </div>
   );
 }

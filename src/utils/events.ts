@@ -25,6 +25,10 @@ export const EDIT_ACTION_EVENT = "levis:edit-action";
 /// "bullet-list", "ordered-list", "blockquote", "code-block", or "table".
 export const INSERT_BLOCK_EVENT = "levis:insert-block";
 
+/// detail: "bold" | "italic" - makes the selection bold or italic, or plain
+/// again (editor/span-commands.ts; the iPhone's keyboard toolbar).
+export const TOGGLE_MARK_EVENT = "levis:toggle-mark";
+
 /// Fired once a chat message actually goes out (InlineChat.tsx's send), not
 /// just when the chat panel opens - the interactive tutorial's "ask AI
 /// something" step listens for this to know the user really did it. Only
