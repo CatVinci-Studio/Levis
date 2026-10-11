@@ -9,6 +9,5 @@ permissions = [
   "allow-write-text",
   "allow-list-folder",
   "allow-remembered",
-  "allow-forget",
   "allow-begin-access",
 ]

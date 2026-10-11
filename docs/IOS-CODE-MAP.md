@@ -47,7 +47,7 @@
 - **原生插件 `src-tauri/plugins/levis-files`：** Swift 实现在 `ios/Sources/LevisFilesPlugin.swift`，Rust 部分只做转发，并且只在 iOS 上编译（工作区成员，桌面上是一个空 crate）。提供的方法：
   - 选择文件、选择文件夹；
   - 在授权范围内读写、列目录，读写经过 NSFileCoordinator；
-  - 把授权存成 bookmark（`remembered` / `forget`）；
+  - 把授权存成 bookmark；启动时 `restoreFolderAccess`（`src/main.tsx`）通过 `remembered` 重新打开之前选过的文件夹，否则重启后 AI 读不到项目文件夹；
   - `begin_access`：在整个会话里保持一个文件夹的访问授权，并返回普通路径。
 - **前端 `src/platform/ios-files.ts`：** 封装插件调用。`src/ipc.ts` 的 `fs` 按路径分流：`file://` 地址（用户选的文件）走插件，其他路径（应用自己的 Documents 目录、所有桌面路径）照旧走 Rust 命令。调用方不区分平台。
 - **项目文件夹：** iOS 上 `ai.pickWorkspaceRoot` 选文件夹后调用 `begin_access`，把普通路径交给 Rust。访问授权对整个进程有效，所以 `ai/project.rs` 读取 `.levis/` 和项目文件的代码不用改。
@@ -72,6 +72,8 @@ CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，�
 在 Linux 上只能做 `cargo check`。`ring` 等依赖的 C 代码需要 Apple SDK，可以临时指定一个假的 `CC_aarch64_apple_ios` / `AR_aarch64_apple_ios`，再加一个假的 `xcrun`，绕过 C 编译，专门检查 cfg 隔离写得对不对（不做链接）。
 
 ## 尚未处理（Phase 1）
+
+- 用户选的文档旁边的相对路径图片：现在仍按普通路径通过 Rust 读取（`readBinaryFileBase64`、`resolveImageSrc`），对 `file://` 文档需要改走插件。需要在真机上验证后再改。
 
 - iOS 布局：标题栏的交通灯留白、触摸交互、安全区（`data-window-chrome="mobile"` 已经留好了样式钩子）。
 - 文件访问：沙盒和 security-scoped URL（"在 Levis 中打开"传进来的路径）、iCloud Drive。

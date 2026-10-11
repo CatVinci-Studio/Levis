@@ -7,7 +7,6 @@ const COMMANDS: &[&str] = &[
     "write_text",
     "list_folder",
     "remembered",
-    "forget",
     "begin_access",
 ];
 

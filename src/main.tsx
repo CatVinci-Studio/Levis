@@ -7,9 +7,12 @@ import { installDevTauriShim } from "./dev-tauri-shim";
 import { publishWindowChrome } from "./ui/window-chrome";
 import { WindowEdges } from "./ui/WindowEdges";
 import { installWebviewGuards } from "./ui/webview-guards";
+import { restoreFolderAccess } from "./platform/ios-files";
 
 installDevTauriShim();
 installWebviewGuards();
+// iOS: reopen the folders picked in earlier sessions (a no-op elsewhere).
+void restoreFolderAccess().catch(() => {});
 
 // Before the first render: the stylesheet keys the title row's insets off
 // this, and correcting it afterwards would paint the row at the macOS
