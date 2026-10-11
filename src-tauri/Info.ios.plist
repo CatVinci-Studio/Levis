@@ -9,6 +9,9 @@
 -->
 <plist version="1.0">
 <dict>
+  <!-- Only standard encryption (HTTPS): exempt from export documentation. -->
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
   <key>UIFileSharingEnabled</key>
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>
