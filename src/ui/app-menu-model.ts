@@ -332,7 +332,7 @@ export function buildAppMenu(
  * flyout has nowhere to go on a 400-point-wide screen, and most of the
  * desktop menu is not there to offer - windows, exports through PDF or
  * pandoc, zoom (pinch), split view (no room for two panes). Undo and the
- * clipboard are the system's edit menu and the keyboard's own keys. Recent
+ * clipboard are on the keyboard toolbar (mobile/KeyboardToolbar.tsx). Recent
  * documents have their own page (Documents, mobile/DocumentList.tsx).
  */
 export function buildMobileMenu(

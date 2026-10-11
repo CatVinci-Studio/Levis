@@ -70,6 +70,12 @@
   background: color-mix(in srgb, var(--editor-text) 12%, transparent);
 }
 
+/* A block toggle that is on where the caret is. */
+.keyboard-toolbar-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--chrome-accent) 14%, transparent);
+  color: var(--chrome-accent);
+}
+
 .kbt-bold {
   font-weight: 700;
 }
@@ -86,7 +92,9 @@
 
 .keyboard-toolbar-ai {
   color: var(--chrome-accent);
-  font-size: 19px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* The end of the document scrolls clear of the strip. */

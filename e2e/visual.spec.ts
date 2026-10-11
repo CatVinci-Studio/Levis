@@ -362,3 +362,39 @@ test("backspace at the start of a quoted line takes it out of the quote", async 
   await page.keyboard.press("Backspace");
   await expect(editor.locator("blockquote")).toHaveCount(0);
 });
+
+test("the phone toolbar's block buttons toggle: H steps through levels, lists and quotes come off again", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "plain words");
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.locator("p", { hasText: "plain words" }).click();
+  const toggle = (kind: string) =>
+    page.evaluate(
+      (detail) =>
+        window.dispatchEvent(new CustomEvent("levis:toggle-block", { detail })),
+      kind,
+    );
+  for (const tag of ["h1", "h2", "h3"]) {
+    await toggle("heading");
+    await expect(editor.locator(tag, { hasText: "plain words" })).toHaveCount(
+      1,
+    );
+  }
+  await toggle("heading");
+  await expect(editor.locator("p", { hasText: "plain words" })).toHaveCount(1);
+
+  await toggle("bullet-list");
+  await expect(editor.locator("ul li")).toHaveCount(1);
+  await toggle("ordered-list"); // switches the list over
+  await expect(editor.locator("ol li")).toHaveCount(1);
+  await expect(editor.locator("ul")).toHaveCount(0);
+  await toggle("ordered-list"); // and off again
+  await expect(editor.locator("ol, ul")).toHaveCount(0);
+
+  await toggle("blockquote");
+  await expect(editor.locator("blockquote")).toHaveCount(1);
+  await toggle("blockquote");
+  await expect(editor.locator("blockquote")).toHaveCount(0);
+});
