@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { AppDialogHost, showConfirm, showMessage } from "./ui/app-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileTree } from "./sidebar/FileTree";
 import { Outline } from "./sidebar/Outline";
@@ -374,11 +374,11 @@ function App() {
           await fs.writeTextFile(picked, content);
         }
         if (migration.failed.length > 0) {
-          void message(
+          void showMessage(
             `${t.imageMigrationFailedMessage}\n${migration.failed.join("\n")}`,
             {
               title: t.imageMigrationFailedTitle,
-              kind: "warning",
+              tone: "warning",
             },
           );
         }
@@ -412,7 +412,7 @@ function App() {
       if (tab.diskMtime !== null) {
         const current = await statMtime(tab.path);
         if (current !== null && current !== tab.diskMtime) {
-          const overwrite = await ask(t.fileChangedOnDiskMessage, {
+          const overwrite = await showConfirm(t.fileChangedOnDiskMessage, {
             title: t.fileChangedOnDiskTitle,
             okLabel: t.fileChangedOnDiskOverwrite,
             cancelLabel: t.closePromptCancel,
@@ -1031,6 +1031,8 @@ function App() {
             </div>
           </div>
         )}
+
+        <AppDialogHost okLabel={t.dialogOk} />
 
         {zenMode && (
           <div className="zen-hint" role="status">

@@ -2,7 +2,7 @@ export type Lang = "en" | "zh" | "ja";
 
 export const strings = {
   en: {
-    agentPanelTitle: "AI Assistant",
+    agentPanelTitle: "Levis AI",
     agentPanelToggle: "AI panel",
     agentPanelPopOut: "Open in a separate window",
     agentPanelResize: "Resize the AI panel",
@@ -12,7 +12,7 @@ export const strings = {
     shortcutToggleAgentPanel: "Toggle AI panel",
     menuToggleAgentPanel: "AI Panel",
     agentPanelEmpty:
-      "Ask about this document, or select text and describe how to change it. Edits show up in the document for you to accept or reject.",
+      "Ask about this document, or select text and say how to change it.",
     aiWorkingCompletion: "Writing a continuation…",
     aiWorkingGrammar: "Checking this paragraph…",
     noticeCompletionNeedsCaret:
@@ -71,7 +71,7 @@ export const strings = {
     typewriterHint:
       "Keep the line you're typing in the middle of the window - in the editor, source mode and split view.",
     agentPanelSourceMode:
-      "The assistant works in the editor view. Switch back to keep the conversation going.",
+      "Levis AI works in the editor view. Switch back to keep the conversation going.",
     agentPanelBackToEditor: "Back to the editor",
     modelTagVision: "vision",
     modelTagTools: "tools",
@@ -308,6 +308,8 @@ export const strings = {
     agentProposalTitle: "Proposed edit",
     chatClose: "Close chat",
     chatDetach: "Open in its own window",
+    dialogOk: "OK",
+    chatContinueInPanel: "Continue in the full conversation",
     chatExpandInline: "Expand answer",
     chatCollapseInline: "Collapse answer",
     chatApprovePlan: "Approve and start",
@@ -371,7 +373,7 @@ export const strings = {
     windowMaximize: "Maximize",
     windowRestore: "Restore Down",
     windowClose: "Close",
-    chatWindowTitle: "AI Assistant",
+    chatWindowTitle: "Levis AI",
     chatWindowPin: "Keep on top",
     chatWindowPinHint: "Keep this window above the editor",
     chatWindowUnpinHint: "Stop keeping this window above the editor",
@@ -640,7 +642,7 @@ export const strings = {
     pdfFailed: "Could not prepare the PDF:",
   },
   zh: {
-    agentPanelTitle: "AI 助手",
+    agentPanelTitle: "Levis AI",
     agentPanelToggle: "AI 面板",
     agentPanelPopOut: "在独立窗口中打开",
     agentPanelResize: "调整 AI 面板宽度",
@@ -649,8 +651,7 @@ export const strings = {
       "关闭时，快速提问右上角的展开按钮会在右侧面板中继续对话；开启后改为独立窗口，适合放到第二块屏幕上。",
     shortcutToggleAgentPanel: "开关 AI 面板",
     menuToggleAgentPanel: "AI 面板",
-    agentPanelEmpty:
-      "可以就这篇文档提问，或选中一段文字说明想怎么改。修改会显示在文档里，由你决定接受或拒绝。",
+    agentPanelEmpty: "就这篇文档提问，或选中文字说说想怎么改。",
     aiWorkingCompletion: "正在续写…",
     aiWorkingGrammar: "正在检查这一段…",
     noticeCompletionNeedsCaret: "请先把光标放在要续写的位置。",
@@ -705,7 +706,8 @@ export const strings = {
     typewriterLabel: "打字机模式",
     typewriterHint:
       "正在输入的那一行始终保持在窗口中间，编辑器、源码模式和分屏视图都适用。",
-    agentPanelSourceMode: "AI 助手需要在编辑视图中使用，切换回去即可继续对话。",
+    agentPanelSourceMode:
+      "Levis AI 需要在编辑视图中使用，切换回去即可继续对话。",
     agentPanelBackToEditor: "返回编辑视图",
     modelTagVision: "看图",
     modelTagTools: "工具",
@@ -928,6 +930,8 @@ export const strings = {
     agentProposalTitle: "修改提议",
     chatClose: "关闭对话",
     chatDetach: "在独立窗口中打开",
+    dialogOk: "好",
+    chatContinueInPanel: "转到大对话",
     chatExpandInline: "展开回答",
     chatCollapseInline: "收起回答",
     chatApprovePlan: "批准并开始",
@@ -987,7 +991,7 @@ export const strings = {
     windowMaximize: "最大化",
     windowRestore: "向下还原",
     windowClose: "关闭",
-    chatWindowTitle: "AI 助手",
+    chatWindowTitle: "Levis AI",
     chatWindowPin: "置顶",
     chatWindowPinHint: "让这个窗口始终显示在编辑器上方",
     chatWindowUnpinHint: "取消置顶",
@@ -1242,7 +1246,7 @@ export const strings = {
     pdfFailed: "无法准备 PDF：",
   },
   ja: {
-    agentPanelTitle: "AIアシスタント",
+    agentPanelTitle: "Levis AI",
     agentPanelToggle: "AIパネル",
     agentPanelPopOut: "別ウィンドウで開く",
     agentPanelResize: "AIパネルの幅を調整",
@@ -1252,7 +1256,7 @@ export const strings = {
     shortcutToggleAgentPanel: "AIパネルの表示切替",
     menuToggleAgentPanel: "AIパネル",
     agentPanelEmpty:
-      "この文書について質問するか、テキストを選択して変更内容を伝えてください。編集は文書内に表示され、承認するか却下するか選べます。",
+      "この文書について質問するか、テキストを選んで直し方を伝えてください。",
     aiWorkingCompletion: "続きを生成中…",
     aiWorkingGrammar: "この段落をチェック中…",
     noticeCompletionNeedsCaret: "続きを書く位置にカーソルを置いてください。",
@@ -1312,7 +1316,7 @@ export const strings = {
     typewriterHint:
       "入力中の行を常にウィンドウ中央に保ちます。エディター、ソースモード、分割表示で有効です。",
     agentPanelSourceMode:
-      "AIアシスタントはエディター表示で使えます。戻ると会話を続けられます。",
+      "Levis AI はエディター表示で使えます。戻ると会話を続けられます。",
     agentPanelBackToEditor: "エディター表示に戻る",
     modelTagVision: "画像",
     modelTagTools: "ツール",
@@ -1553,6 +1557,8 @@ export const strings = {
     agentProposalTitle: "編集の提案",
     chatClose: "チャットを閉じる",
     chatDetach: "別ウィンドウで開く",
+    dialogOk: "OK",
+    chatContinueInPanel: "会話パネルで続ける",
     chatExpandInline: "回答を展開",
     chatCollapseInline: "回答を折りたたむ",
     chatApprovePlan: "承認して開始",
@@ -1612,7 +1618,7 @@ export const strings = {
     windowMaximize: "最大化",
     windowRestore: "元のサイズに戻す",
     windowClose: "閉じる",
-    chatWindowTitle: "AIアシスタント",
+    chatWindowTitle: "Levis AI",
     chatWindowPin: "最前面に固定",
     chatWindowPinHint: "このウィンドウをエディタより前面に保つ",
     chatWindowUnpinHint: "最前面固定を解除",

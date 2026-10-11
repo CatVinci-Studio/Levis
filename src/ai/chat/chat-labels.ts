@@ -77,6 +77,7 @@ export function chatLabels(t: Strings): InlineChatLabels {
     webSearch: t.webSearchLabel,
     close: t.chatClose,
     detach: t.chatDetach,
+    continueInPanel: t.chatContinueInPanel,
     newConversation: t.chatNewConversation,
     closeConfirm: t.chatCloseConfirm,
     closeConfirmAccept: t.chatCloseConfirmAccept,

@@ -475,6 +475,7 @@ function ProposalCard({
               <label>
                 <input
                   type="checkbox"
+                  className="ui-check"
                   checked={chosen[k]}
                   onChange={(e) => {
                     const next = [...chosen];

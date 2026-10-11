@@ -16,6 +16,7 @@ import {
 } from "../agent-models";
 import { useActiveProvider } from "../../ai/provider-catalog";
 import { ai, auth } from "../../ipc";
+import { Select } from "../../ui/Select";
 
 // The Agent category's sections. The agent workspace itself is file-managed
 // (the .levis/ convention) - these sections mostly open folders/files rather
@@ -200,7 +201,7 @@ function ProviderModelSection({
       )}
       <div className="custom-model-row">
         {presetOptions.length > 0 ? (
-          <select
+          <Select
             className="settings-select"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
@@ -210,7 +211,7 @@ function ProviderModelSection({
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         ) : (
           <input
             type="text"

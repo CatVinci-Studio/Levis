@@ -44,12 +44,6 @@
   padding: 3px 4px;
 }
 
-/* The header's icons float over the panel's top-right corner, which on a
-   fresh panel is the input: keep typed text out from under them. */
-.inline-chat .inline-chat-input {
-  padding-right: 72px;
-}
-
 .inline-chat-header-actions {
   display: flex;
   align-items: center;
@@ -109,7 +103,9 @@
 .inline-chat-bar {
   display: flex;
   flex-direction: column;
-  padding: 6px;
+  /* Room between the text and the controls under it, and around both. */
+  gap: 8px;
+  padding: 8px 10px 10px;
 }
 
 /* Input on top (grows with content via the auto-resize effect), tool row
@@ -118,7 +114,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .inline-chat-mode {
@@ -283,6 +279,13 @@
      (a non-visible axis drags the other one out of `visible` with it),
      which is where the full-width bar under the placeholder came from. */
   overflow-x: hidden;
+}
+
+/* The composer is the surface's one field and shows its caret; a ring
+   round it only boxed in the header icons above it (Quick Ask) and the
+   tool row below. */
+.inline-chat-input:focus-visible {
+  outline: none;
 }
 
 /* Whichever section ends up under the floating header buttons keeps clear of
@@ -881,9 +884,9 @@
   cursor: pointer;
 }
 
-.agent-proposal-picker-list input {
-  margin-top: 3px;
-  flex-shrink: 0;
+/* Level with the first line of the sentence beside it. */
+.agent-proposal-picker-list input[type="checkbox"].ui-check {
+  margin-top: 4px;
 }
 
 .agent-proposal-picker-before {

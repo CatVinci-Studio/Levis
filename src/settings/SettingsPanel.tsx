@@ -30,6 +30,7 @@ import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
 import { formatCombo } from "../utils/shortcuts";
+import { Select } from "../ui/Select";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
 // with its own state or backend round-trips lives in sections/ - this file
@@ -124,7 +125,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     <span className="settings-row-label">
                       {t.languageLabel}
                     </span>
-                    <select
+                    <Select
                       className="settings-select"
                       aria-label={t.languageLabel}
                       value={settings.language}
@@ -135,7 +136,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       <option value="en">English</option>
                       <option value="zh">中文</option>
                       <option value="ja">日本語</option>
-                    </select>
+                    </Select>
                   </div>
                   <div className="settings-row">
                     <div>
@@ -149,7 +150,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                         )}
                       </div>
                     </div>
-                    <select
+                    <Select
                       className="settings-select"
                       aria-label={t.newDocumentModeLabel}
                       value={settings.newDocumentMode}
@@ -161,7 +162,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     >
                       <option value="window">{t.newDocumentModeWindow}</option>
                       <option value="tab">{t.newDocumentModeTab}</option>
-                    </select>
+                    </Select>
                   </div>
                   <ToggleRow
                     label={t.restoreSessionLabel}
@@ -199,7 +200,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                         {t.contentWidthHint}
                       </div>
                     </div>
-                    <select
+                    <Select
                       className="settings-select"
                       aria-label={t.contentWidthLabel}
                       value={settings.contentWidth}
@@ -212,7 +213,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       <option value="auto">{t.contentWidthAuto}</option>
                       <option value="standard">{t.contentWidthStandard}</option>
                       <option value="full">{t.contentWidthFull}</option>
-                    </select>
+                    </Select>
                   </div>
                   <ToggleRow
                     label={t.typewriterLabel}
@@ -266,7 +267,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                               {t.completionToneHint}
                             </div>
                           </div>
-                          <select
+                          <Select
                             className="settings-select"
                             aria-label={t.completionToneLabel}
                             value={settings.completionTone}
@@ -282,7 +283,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                                 {t[`completionTone_${tone}` as keyof Strings]}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
                       )}
                     </div>
@@ -303,7 +304,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                               {t.grammarStrictnessHint}
                             </div>
                           </div>
-                          <select
+                          <Select
                             className="settings-select"
                             aria-label={t.grammarStrictnessLabel}
                             value={settings.grammarStrictness}
@@ -323,7 +324,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                             <option value="strict">
                               {t.grammarStrictnessStrict}
                             </option>
-                          </select>
+                          </Select>
                         </div>
                       )}
                     </div>
@@ -332,7 +333,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
 
                 <SettingsGroup title={t.proxyLabel}>
                   <div className="settings-proxy-row">
-                    <select
+                    <Select
                       className="settings-select"
                       aria-label={t.proxyLabel}
                       value={settings.proxyType}
@@ -344,7 +345,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                       <option value="http">HTTP</option>
                       <option value="https">HTTPS</option>
                       <option value="socks5">SOCKS5</option>
-                    </select>
+                    </Select>
                     {settings.proxyType !== "none" && (
                       <>
                         <input
@@ -396,7 +397,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                             {t.agentDefaultModeHint}
                           </div>
                         </div>
-                        <select
+                        <Select
                           className="settings-select"
                           aria-label={t.agentDefaultModeLabel}
                           value={settings.agentDefaultMode}
@@ -409,7 +410,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                           <option value="ask">{t.agentModeAsk}</option>
                           <option value="edit">{t.agentModeEdit}</option>
                           <option value="plan">{t.agentModePlan}</option>
-                        </select>
+                        </Select>
                       </div>
                     </>
                   )}

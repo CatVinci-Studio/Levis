@@ -15,7 +15,6 @@ export interface AgentPanelLabels {
  * presentational - the editor owns the conversation and wires the actions.
  */
 export function AgentPanelView({
-  docTitle,
   labels,
   onNewConversation,
   onPopOut,
@@ -23,7 +22,6 @@ export function AgentPanelView({
   headerExtra,
   children,
 }: {
-  docTitle: string;
   labels: AgentPanelLabels;
   onNewConversation: () => void;
   onPopOut: () => void;
@@ -37,9 +35,6 @@ export function AgentPanelView({
       <header className="agent-panel-header">
         <div className="agent-panel-heading">
           <span className="agent-panel-title">{labels.title}</span>
-          <span className="agent-panel-doc" title={docTitle}>
-            {docTitle}
-          </span>
         </div>
         <div className="agent-panel-actions">
           <button

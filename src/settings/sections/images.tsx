@@ -7,6 +7,7 @@ import {
   type ImageNamingMode,
   type ImageStorageMode,
 } from "../SettingsContext";
+import { Select } from "../../ui/Select";
 
 export function ImageStorageSection({ t }: { t: Strings }) {
   const { settings, setSettings } = useSettings();
@@ -51,7 +52,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
           <div className="settings-row-label">{t.imageStorageLabel}</div>
           <div className="settings-row-hint">{t.imageStorageHint}</div>
         </div>
-        <select
+        <Select
           className="settings-select"
           value={settings.imageStorageMode}
           onChange={(e) =>
@@ -62,7 +63,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
         >
           <option value="local">{t.imageStorageLocal}</option>
           <option value="image-host">{t.imageStorageRemote}</option>
-        </select>
+        </Select>
       </div>
 
       {remote && (
@@ -145,7 +146,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
               <div className="settings-row-label">{t.imageNamingLabel}</div>
               <div className="settings-row-hint">{t.imageNamingHint}</div>
             </div>
-            <select
+            <Select
               className="settings-select"
               value={settings.imageNamingMode}
               onChange={(e) =>
@@ -157,7 +158,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
               <option value="auto">{t.imageNamingAuto}</option>
               <option value="original">{t.imageNamingOriginal}</option>
               <option value="ask">{t.imageNamingAsk}</option>
-            </select>
+            </Select>
           </div>
           {error && <div className="settings-error">{error}</div>}
         </>

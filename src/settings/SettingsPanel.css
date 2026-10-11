@@ -902,11 +902,6 @@ button.settings-inline-button {
   tab-size: 2;
 }
 
-.settings-code-input:focus-visible {
-  outline: 2px solid var(--chrome-accent, var(--editor-accent));
-  outline-offset: 1px;
-}
-
 .settings-row-stacked .shortcut-row-controls {
   justify-content: flex-end;
 }

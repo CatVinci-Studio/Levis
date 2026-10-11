@@ -143,11 +143,12 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
       );
     });
 
+  // An unsaved draft simply has no project yet - nothing to say about it
+  // up front. A folder too broad to read is worth saying, once.
   if (!root) {
+    if (!docPath) return null;
     return (
-      <div className="project-bar project-bar-empty">
-        {docPath ? t.projectTooBroad : t.projectNeedsSave}
-      </div>
+      <div className="project-bar project-bar-empty">{t.projectTooBroad}</div>
     );
   }
 

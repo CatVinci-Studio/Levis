@@ -10,6 +10,7 @@ import {
 } from "../../ai/provider-catalog";
 import { ChevronIcon } from "../../ui/icons";
 import { auth, type CustomEndpointConfig } from "../../ipc";
+import { Select } from "../../ui/Select";
 
 // General > AI Login Settings: two compact disclosure rows (provider, then
 // credentials) plus the per-provider account/API-key/custom panels.
@@ -576,7 +577,7 @@ function CustomProviderPanel({
         <label className="settings-field-label">{t.customModelLabel}</label>
         <div className="custom-model-row">
           {models.length > 0 ? (
-            <select
+            <Select
               className="settings-select"
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
@@ -586,7 +587,7 @@ function CustomProviderPanel({
                   {m}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
             <input
               type="text"

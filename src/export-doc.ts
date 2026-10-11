@@ -1,5 +1,5 @@
 import { errorText } from "./utils/error-text";
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { showConfirm, showMessage } from "./ui/app-dialog";
 import type { Strings } from "./i18n/strings";
 import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
@@ -297,7 +297,7 @@ async function settleRender(editor: Element): Promise<void> {
 export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
   const editor = document.querySelector('[data-active-tab="true"] .milkdown');
   if (!editor) {
-    await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
+    await showMessage(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
     return;
   }
   const base = exportBaseName(tab, t);
@@ -320,9 +320,9 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     });
     void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.pdfFailed} ${errorText(err)}`, {
+    await showMessage(`${t.pdfFailed} ${errorText(err)}`, {
       title: t.exportFailedTitle,
-      kind: "error",
+      tone: "error",
     });
   } finally {
     overlay.remove();
@@ -335,7 +335,7 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
 export async function exportHtml(tab: DocTab, t: Strings): Promise<void> {
   const editor = document.querySelector('[data-active-tab="true"] .milkdown');
   if (!editor) {
-    await message(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
+    await showMessage(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
     return;
   }
   const base = exportBaseName(tab, t);
@@ -365,7 +365,7 @@ export async function exportViaPandoc(
   if (!pandoc) {
     // Typora's model: guide the user to install pandoc rather than
     // bundling the ~180MB GPL binary in the app.
-    const goInstall = await ask(t.pandocMissingMessage, {
+    const goInstall = await showConfirm(t.pandocMissingMessage, {
       title: t.pandocMissingTitle,
       okLabel: t.pandocMissingDownload,
       cancelLabel: t.closePromptCancel,
@@ -392,9 +392,9 @@ export async function exportViaPandoc(
     });
     void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.exportFailed} ${errorText(err)}`, {
+    await showMessage(`${t.exportFailed} ${errorText(err)}`, {
       title: t.exportFailedTitle,
-      kind: "error",
+      tone: "error",
     });
   }
 }

@@ -15,6 +15,8 @@ export interface InlineChatLabels extends ChatBodyLabels, CloseConfirmLabels {
   close: string;
   /** Accessible name / tooltip of the pop-out-to-OS-window button. */
   detach: string;
+  /** Quick Ask's header button: hand the exchange to the full conversation. */
+  continueInPanel: string;
   newConversation: string;
 }
 
@@ -153,8 +155,8 @@ export function InlineChat({
             <button
               type="button"
               className="inline-chat-header-button"
-              aria-label={labels.detach}
-              title={labels.detach}
+              aria-label={labels.continueInPanel}
+              title={labels.continueInPanel}
               onClick={onDetach}
             >
               <DetachIcon />

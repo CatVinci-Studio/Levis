@@ -77,6 +77,9 @@ export function useAgentConversation(
    *  proposal-status.ts - so a follow-up prompt doesn't leave the model
    *  assuming its still-undecided previous proposal is in the document. */
   proposalStatuses?: Record<string, PendingStatus>,
+  /** False for Quick Ask: a one-off exchange that stays out of the History
+   *  list unless it is carried over to the full conversation. */
+  persist = true,
 ) {
   const [conversationId, setConversationId] = useState<string>(() =>
     crypto.randomUUID(),
@@ -113,7 +116,7 @@ export function useAgentConversation(
   // Every exchange updates the conversation's saved copy, so past chats can
   // be reopened from the History list even across restarts.
   useEffect(() => {
-    if (history.length === 0 || mockTainted.current) return;
+    if (!persist || history.length === 0 || mockTainted.current) return;
     saveConversation({
       id: conversationId,
       docPath,
@@ -121,7 +124,7 @@ export function useAgentConversation(
       updatedAt: Date.now(),
       turns: history.map(withoutImageData),
     });
-  }, [history, conversationId, docPath]);
+  }, [history, conversationId, docPath, persist]);
 
   // Leaving mock mode (the tour ended or was skipped): drop the scripted
   // exchange entirely - it must never ride along into a real conversation

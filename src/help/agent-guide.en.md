@@ -48,7 +48,7 @@ The full conversation lives in a panel on the right side of the editor. Open or 
 Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI…) to open a small chat bar right below the paragraph you are in. It sits in the document, pushing the text below it down rather than covering it. If text was selected when you opened it, the selection is included. Quick Ask opens in **Edit** mode, because it is usually opened on a passage to change it ("shorten this"); Ask is one click away in the mode picker.
 
 - **The shortcut again**: pressing <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> while the bar is open moves the cursor to its input; pressing it once more from the input closes it. <kbd>Esc</kbd> anywhere in the bar closes it too, and the cursor goes back to the document. With edits still undecided, closing (or starting a new conversation) asks first.
-- **Open full conversation** continues the same conversation in the AI panel. Turn on **Settings > Agent > Advanced Agent Behavior > Open full conversations in a separate window** to send it to a separate window instead.
+- Quick Ask keeps its own short conversation, separate from the panel's and not saved to History. It opens even while the panel is open. **Continue in the full conversation** (the button in its corner) hands the exchange to the AI panel, where it carries on and is saved. Turn on **Settings > Agent > Advanced Agent Behavior > Open full conversations in a separate window** to send it to a separate window instead.
 
 ### 5. Edits in the document
 

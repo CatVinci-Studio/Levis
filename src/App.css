@@ -649,6 +649,29 @@ body {
   margin: 0 0 16px;
 }
 
+/* The app's own alert/confirm boxes (ui/app-dialog.tsx) share this shape;
+   a long error message wraps instead of widening the box. */
+.app-dialog p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: var(--text-md);
+  color: var(--editor-text);
+}
+
+.app-dialog-title {
+  margin: 0 0 8px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.app-dialog-error {
+  color: var(--danger, #c1495a);
+}
+
+.app-dialog-warning {
+  color: color-mix(in srgb, #b7791f 80%, var(--editor-text));
+}
+
 .close-prompt-buttons {
   display: flex;
   align-items: center;

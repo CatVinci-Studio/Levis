@@ -67,14 +67,6 @@
   font-weight: 650;
 }
 
-.agent-panel-doc {
-  font-size: var(--text-xs);
-  color: var(--editor-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .agent-panel-actions {
   display: flex;
   gap: 2px;

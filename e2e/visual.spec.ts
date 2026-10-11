@@ -152,7 +152,9 @@ test("Quick Ask opens on a selection in edit mode", async ({ page }) => {
   await page.locator(".milkdown p").nth(1).click({ clickCount: 3 });
   await page.keyboard.press("Control+Shift+K");
   await expect(page.locator(".inline-chat")).toBeVisible();
-  await expect(page.locator(".inline-chat select")).toHaveValue("edit");
+  await expect(page.locator(".inline-chat .inline-chat-mode")).toHaveText(
+    "编辑",
+  );
   await expect(page).toHaveScreenshot("quick-ask.png");
 });
 
@@ -232,4 +234,59 @@ test("Quick Ask stays under its paragraph when an edit arrives", async ({
     .y;
   const chatTop = (await page.locator(".inline-chat").boundingBox())!.y;
   expect(chatTop).toBeLessThan(quoteTop);
+});
+
+test("Quick Ask has its own conversation and hands it to the panel", async ({
+  page,
+}) => {
+  // The panel is open: Quick Ask still opens at the caret.
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  await pasteMarkdown(page, SAMPLE_DOC);
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "这段的主旨是什么？" },
+      { kind: "Assistant", text: "主旨是调研的范围和规模。" },
+    ],
+  });
+  await page.locator(".milkdown p").nth(1).click();
+  await page.keyboard.press("Control+Shift+K");
+  const quickInput = page.locator(".inline-chat .inline-chat-input");
+  await expect(quickInput).toBeFocused();
+  await page.keyboard.type("这段的主旨是什么？");
+  await page.keyboard.press("Enter");
+  // A plain answer may show as its summary line or opened out in full.
+  await expect(page.locator(".inline-chat")).toContainText(
+    "主旨是调研的范围和规模。",
+  );
+  // The panel's conversation is untouched.
+  await expect(page.locator(".agent-panel-empty")).toBeVisible();
+
+  // "Continue in the full conversation" moves the exchange over.
+  await page.getByRole("button", { name: "转到大对话" }).click();
+  await expect(page.locator(".inline-chat")).toHaveCount(0);
+  await expect(page.locator(".agent-panel-view")).toContainText(
+    "主旨是调研的范围和规模。",
+  );
+});
+
+test("selects open the app's own list; notices are the app's own dialog", async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        __devEmitTauriEvent: (name: string, payload?: unknown) => void;
+      }
+    ).__devEmitTauriEvent("menu-open-settings"),
+  );
+  await page.getByRole("button", { name: "编辑与外观" }).click();
+  await page.getByRole("combobox", { name: "编辑器主题" }).click();
+  const list = page.getByRole("listbox");
+  await expect(list).toBeVisible();
+  await expect(page).toHaveScreenshot("select-open.png");
+  // Escape closes the list and leaves Settings open.
+  await page.keyboard.press("Escape");
+  await expect(list).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "编辑与外观" })).toBeVisible();
 });

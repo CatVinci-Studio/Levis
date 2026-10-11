@@ -1,10 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  ask: vi.fn(),
-  message: vi.fn(),
-}));
 vi.mock("./ipc", () => ({ exportDoc: {}, fs: {} }));
 
 import { cloneEditorContent } from "./export-doc";

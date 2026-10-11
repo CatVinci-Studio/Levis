@@ -4,7 +4,7 @@ import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { message } from "@tauri-apps/plugin-dialog";
+import { showMessage } from "../ui/app-dialog";
 import { dirname } from "../utils/path";
 import { fs } from "../ipc";
 import type { Settings, ImageNamingMode } from "../settings/SettingsContext";
@@ -157,7 +157,7 @@ async function saveAndInsertImages(
       );
     } catch (err) {
       console.error("saving pasted image failed:", err);
-      void message(onError(), { kind: "error" });
+      void showMessage(onError(), { tone: "error" });
     }
   }
 }

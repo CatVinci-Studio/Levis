@@ -381,6 +381,87 @@
   border-color: var(--chrome-accent);
 }
 
+/* Text fields: one focus look - the border takes the accent - instead of
+   a mix of rings and borders. */
+:is(
+  .settings-text-input,
+  .settings-code-input,
+  .image-name-input-row input,
+  .insert-table-fields input
+):focus-visible {
+  outline: none;
+  border-color: var(--chrome-accent, var(--editor-accent));
+}
+
+/* Number fields type their number; the native spin arrows were the one
+   square, grey control left in the dialogs. */
+.insert-table-fields input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.insert-table-fields input::-webkit-inner-spin-button,
+.insert-table-fields input::-webkit-outer-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Checkboxes: drawn, so they match the buttons rather than the platform. */
+input[type="checkbox"].ui-check {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border: 1px solid
+    color-mix(in srgb, var(--editor-muted) 55%, var(--border-color));
+  border-radius: var(--radius-small);
+  background: var(--editor-bg, var(--bg));
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+input[type="checkbox"].ui-check:checked {
+  border-color: var(--chrome-primary);
+  background: var(--chrome-primary)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 11px no-repeat;
+}
+
+/* Scrollbars: thin, rounded and quiet everywhere (the sidebar goes further
+   and shows its own only on hover). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--chrome-muted, #888) 35%, transparent)
+    padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--chrome-muted, #888) 55%,
+    transparent
+  );
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

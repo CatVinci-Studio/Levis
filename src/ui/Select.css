@@ -1,0 +1,75 @@
+/* ui/Select.tsx. The closed control takes its frame, chevron and size from
+   design-system.css's select rules (.settings-select, .inline-chat-mode);
+   this adds what a <button> needs to behave like one. */
+.ui-select {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ui-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-select:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* The open list: a menu, like the app's other menus. */
+.ui-select-menu {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow-y: auto;
+  font-size: var(--text-md);
+  outline: none;
+}
+
+/* The list takes focus so the keys work in it; its highlighted option
+   already shows where the keyboard is, so no ring round the whole list. */
+.ui-select-menu:focus-visible {
+  outline: none;
+}
+
+.ui-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 26px;
+  border-radius: var(--radius-small);
+  color: var(--editor-text);
+  white-space: nowrap;
+  cursor: pointer;
+  position: relative;
+}
+
+.ui-select-option.is-active {
+  background: var(--sidebar-hover);
+}
+
+.ui-select-option[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  background: var(--chrome-primary);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.ui-select-option[aria-disabled="true"] {
+  color: var(--editor-muted);
+  cursor: default;
+}

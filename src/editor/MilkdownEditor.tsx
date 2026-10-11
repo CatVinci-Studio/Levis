@@ -84,7 +84,7 @@ import {
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
-import { windowIpc, type StreamEvent } from "../ipc";
+import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
 import { useLatest } from "../utils/useLatest";
@@ -476,6 +476,21 @@ export function MilkdownEditor({
     handleStreamEvent,
     pendingEdits.allStatuses,
   );
+  // Quick Ask's own conversation: a one-off exchange at the caret, kept out
+  // of the History list. "Continue in the panel" hands it to `conversation`
+  // (expandQuickAsk), which is the one the panel, the detached window and
+  // History share.
+  const quickConversation = useAgentConversation(
+    filePath,
+    settings.agentWorkspaceRoot || null,
+    settings.aiProvider,
+    settings.enableWebSearch,
+    agentModel,
+    tutorialMock ? createTutorialMockAgent(t) : null,
+    handleStreamEvent,
+    pendingEdits.allStatuses,
+    false,
+  );
   // Exchange boundaries. Start (busy rising): arm the supersede flag so this
   // exchange's first proposal clears the undecided leftovers of the previous
   // one. End with drafts still open: a user stop keeps what was already
@@ -489,6 +504,13 @@ export function MilkdownEditor({
     }
     proposalStream.finish(conversation.error ? "failed" : "stopped");
   }, [conversation.busy, conversation.error, proposalStream]);
+  useEffect(() => {
+    if (quickConversation.busy) {
+      supersedePending.current = true;
+      return;
+    }
+    proposalStream.finish(quickConversation.error ? "failed" : "stopped");
+  }, [quickConversation.busy, quickConversation.error, proposalStream]);
   // Proposals always resolve HERE, whether the chat that produced them is
   // the embedded popup or a detached window - one implementation of the
   // anchor/apply logic, addressed two ways (see chat-bridge.ts).
@@ -836,13 +858,11 @@ export function MilkdownEditor({
     })();
   }
 
-  // What Ask AI means, from every entry point:
-  // - a detached chat window serves this editor: bring it forward - the
-  //   conversation lives there now, and a second, in-document panel would
-  //   only race it for the same edits;
-  // - otherwise the in-document panel opens, its composer focused.
-  // The shortcut additionally closes a panel whose composer already has
-  // focus, so pressing it twice is "open, then put away".
+  // What Ask AI means, from every entry point: Quick Ask opens at the caret,
+  // whatever the panel or a detached window is doing - it has its own
+  // conversation, so there is nothing to race. The shortcut additionally
+  // closes a Quick Ask whose composer already has focus, so pressing it
+  // twice is "open, then put away".
   // Closing, and starting a new conversation, are guarded: with edits still
   // undecided the panel asks first (CloseConfirmBar), from every entry point.
   const [chatGuard, setChatGuard] = useState<"close" | "new" | null>(null);
@@ -889,11 +909,11 @@ export function MilkdownEditor({
     if (action === "close") {
       // Closing while a reply is still running stops it: otherwise previews
       // kept appearing in the document with no panel left to decide them.
-      if (conversation.busy) conversation.stop();
+      if (quickConversation.busy) quickConversation.stop();
       inlineChat.close();
       focusEditor();
     } else {
-      conversation.reset();
+      quickConversation.reset();
       inlineChat.close();
       inlineChat.open();
     }
@@ -905,17 +925,9 @@ export function MilkdownEditor({
   }
 
   function openAgentConversation() {
-    if (detachedChat.chatLabel) {
-      void windowIpc.focusChatWindow();
-      return;
-    }
-    if (panelContainer) {
-      panelContainer
-        .querySelector<HTMLTextAreaElement>(".agent-panel-view textarea")
-        ?.focus();
-      return;
-    }
     const wasVisible = inlineChat.visible;
+    // A fresh Quick Ask is a fresh question; an open one keeps its exchange.
+    if (!wasVisible && !quickConversation.busy) quickConversation.reset();
     const moveTo = inlineChat.open();
     if (moveTo !== null) {
       run((ctx) => {
@@ -932,12 +944,7 @@ export function MilkdownEditor({
 
   function toggleAgentConversation() {
     const composer = chatComposer();
-    if (
-      inlineChat.visible &&
-      !detachedChat.chatLabel &&
-      composer &&
-      document.activeElement === composer
-    ) {
+    if (inlineChat.visible && composer && document.activeElement === composer) {
       requestChatAction("close");
     } else {
       openAgentConversation();
@@ -1138,23 +1145,26 @@ export function MilkdownEditor({
     agentPanel.setOpen(true);
   });
 
-  // Quick Ask's "open full conversation": the docked panel, or the detached
-  // window when the user prefers it there (Settings > Agent).
+  // Quick Ask's "continue in the panel": its exchange becomes the full
+  // conversation - in the docked panel, or the detached window when the
+  // user prefers it there (Settings > Agent) - and from then on is saved to
+  // History like any other. The panel's previous conversation is already
+  // in History. Not while either side is mid-reply: the turns would be
+  // incomplete.
   function expandQuickAsk() {
+    if (quickConversation.busy || conversation.busy) return;
+    if (quickConversation.history.length > 0) {
+      conversation.restore(crypto.randomUUID(), quickConversation.history);
+    }
+    quickConversation.reset();
+    inlineChat.close();
     if (settings.agentExpandToWindow) {
-      handleDetachChat();
+      // After the restore has rendered, so the window gets the new turns.
+      requestAnimationFrame(() => handleDetachChat());
       return;
     }
-    inlineChat.close();
     agentPanel.setOpen(true);
   }
-
-  // The panel and the in-document bar are two views of one conversation:
-  // when the panel opens, the bar gives way rather than racing it.
-  useEffect(() => {
-    if (panelContainer && inlineChat.visible) inlineChat.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelContainer]);
 
   const [panelGuard, setPanelGuard] = useState(false);
   useEffect(() => {
@@ -1302,7 +1312,6 @@ export function MilkdownEditor({
       {panelContainer &&
         createPortal(
           <AgentPanelView
-            docTitle={docTitle}
             labels={{
               title: t.agentPanelTitle,
               newConversation: t.chatNewConversation,
@@ -1374,7 +1383,7 @@ export function MilkdownEditor({
             selectionMarkdown={inlineChat.chatInfo.selectionMarkdown}
             docPath={filePath}
             workspaceRoot={settings.agentWorkspaceRoot || null}
-            conversation={conversation}
+            conversation={quickConversation}
             // Edit-first: Quick Ask is opened on a passage to change it,
             // and Ask mode (the general default) turned "shorten this"
             // into a chat answer. Ask stays one click away in the picker.

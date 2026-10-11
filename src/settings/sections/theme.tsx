@@ -9,9 +9,10 @@ import {
 import type { Strings } from "../../i18n/strings";
 import { importThemeCss } from "../../utils/theme-import";
 import { basename } from "../../utils/path";
-import { message } from "@tauri-apps/plugin-dialog";
+import { showMessage } from "../../ui/app-dialog";
 import { exportDoc, fs, themes } from "../../ipc";
 import { useLatest } from "../../utils/useLatest";
+import { Select } from "../../ui/Select";
 
 const CUSTOM_CSS_PLACEHOLDER = `#write p {
   text-indent: 2em;
@@ -84,7 +85,7 @@ ${customCss.trim() ? `\n/* Custom CSS */\n${customCss}\n` : ""}`;
     await fs.writeTextFile(picked, css);
     void exportDoc.revealInDir(picked);
   } catch (err) {
-    await message(`${t.exportFailed} ${errorText(err)}`, { kind: "error" });
+    await showMessage(`${t.exportFailed} ${errorText(err)}`, { tone: "error" });
   }
 }
 
@@ -171,7 +172,7 @@ export function ThemeSection({ t }: { t: Strings }) {
           <div className="settings-row-hint">{t.contentThemeHint}</div>
         </div>
         <div className="shortcut-row-controls">
-          <select
+          <Select
             className="settings-select"
             aria-label={t.contentThemeLabel}
             disabled={busy}
@@ -188,7 +189,7 @@ export function ThemeSection({ t }: { t: Strings }) {
                 {theme.name}
               </option>
             ))}
-          </select>
+          </Select>
           {isUserThemeSelected && (
             <button
               className="text-button settings-inline-button"

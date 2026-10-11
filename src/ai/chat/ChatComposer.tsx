@@ -13,6 +13,7 @@ import {
   PlusIcon,
   SearchIcon,
 } from "../../ui/icons";
+import { Select } from "../../ui/Select";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */
@@ -396,7 +397,7 @@ export function ChatComposer({
           autoFocus
         />
         <div className="inline-chat-toolbar">
-          <select
+          <Select
             className="inline-chat-mode"
             value={mode}
             aria-label={labels.modeAsk}
@@ -405,7 +406,7 @@ export function ChatComposer({
             <option value="ask">{labels.modeAsk}</option>
             <option value="edit">{labels.modeEdit}</option>
             {allowPlan && <option value="plan">{labels.modePlan}</option>}
-          </select>
+          </Select>
           {!compact && (
             <>
               <button

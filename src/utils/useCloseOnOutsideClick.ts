@@ -19,7 +19,12 @@ export function useCloseOnOutsideClick<T extends HTMLElement>(
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      // A Select's open list is portalled to <body>; picking from it is
+      // still a click inside whatever holds the Select.
+      if (target instanceof Element && target.closest("[data-floating-select]"))
+        return;
+      if (ref.current && !ref.current.contains(target)) onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.isComposing || e.keyCode === 229) return;
