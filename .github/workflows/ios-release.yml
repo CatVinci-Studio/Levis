@@ -55,7 +55,9 @@ jobs:
       - name: Generate the Xcode project
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
-        run: npx tauri ios init --ci
+        # ios-prepare.sh adds the privacy manifest; without it the upload
+        # is refused.
+        run: npx tauri ios init --ci && sh scripts/ios-prepare.sh
 
       # Every upload needs a build number App Store Connect hasn't seen;
       # the run number only ever grows.

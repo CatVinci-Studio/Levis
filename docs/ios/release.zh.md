@@ -55,6 +55,7 @@ GitHub 仓库 › Settings › Secrets and variables › Actions，新增：
    ```sh
    rustup target add aarch64-apple-ios aarch64-apple-ios-sim
    npx tauri ios init        # 第一次
+   sh scripts/ios-prepare.sh # 紧接着 init：加入隐私清单（PrivacyInfo.xcprivacy）
    npx tauri ios dev         # 模拟器或真机
    ```
 2. 打标签上传：

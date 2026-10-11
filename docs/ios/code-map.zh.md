@@ -53,6 +53,7 @@
 - **前端 `src/platform/ios-files.ts`：** 封装插件调用。从"文件"里选中的、其实位于应用 Documents 目录内的文档，会换回普通路径，避免同一个文件以两种写法打开两次。`src/ipc.ts` 的 `fs` 按路径分流：`file://` 地址（用户选的文件）走插件，其他路径（应用自己的 Documents 目录、所有桌面路径）照旧走 Rust 命令。调用方不区分平台。
 - **项目文件夹：** iOS 上 `ai.pickWorkspaceRoot` 选文件夹后调用 `begin_access`，把普通路径交给 Rust。访问授权对整个进程有效，所以 `ai/project.rs` 读取 `.levis/` 和项目文件的代码不用改。
 - **配置：**
+  - `src-tauri/PrivacyInfo.ios.xcprivacy`：隐私清单，声明 UserDefaults（插件存 bookmark）和文件时间戳（检查文档是否被外部修改）这两类"需要说明理由的 API"，没有它 App Store Connect 会拒收上传。`tauri.conf.json` 管不到它，由 `scripts/ios-prepare.sh` 在 `tauri ios init` 之后复制进工程。必须紧接着 init 运行：之后再跑 xcodegen 会把已构建的库也收进资源，导致 "Multiple commands produce libapp.a"；
   - `src-tauri/Info.ios.plist`：让 Documents 目录出现在"文件"应用里，支持就地打开，并为 Markdown 注册"用 Levis 打开"；
   - `capabilities/ios.json`：iOS 上的插件权限；
   - 从"文件"应用打开的文档（`RunEvent::Opened`），在 iOS 上保持 `file://` 地址，走插件读写。
@@ -64,11 +65,12 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 brew install xcodegen          # 不手动装的话，tauri ios init 也会尝试自动安装
 npm ci
 npx tauri ios init             # 生成 src-tauri/gen/apple（不提交到仓库）
+sh scripts/ios-prepare.sh      # 紧接着 init：加入隐私清单，并让 xcodegen 重新生成工程
 npx tauri ios dev              # 在模拟器或真机上运行
 npx tauri ios build            # 构建；真机需要在 bundle.iOS.developmentTeam 里配置开发团队
 ```
 
-CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，依次执行 `npx tauri ios init --ci` 和 `npx tauri ios build --ci --debug --target aarch64-sim --no-sign`：为模拟器编译、不签名，也不需要任何 secrets。这个 job 暂时不是必需的 `rust` 检查的依赖。
+CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，依次执行 `npx tauri ios init --ci`、`scripts/ios-prepare.sh` 和 `npx tauri ios build --ci --debug --target aarch64-sim --no-sign`：为模拟器编译、不签名，也不需要任何 secrets。这个 job 暂时不是必需的 `rust` 检查的依赖。
 
 在 Linux 上只能做 `cargo check`。`ring` 等依赖的 C 代码需要 Apple SDK，可以临时指定一个假的 `CC_aarch64_apple_ios` / `AR_aarch64_apple_ios`，再加一个假的 `xcrun`，绕过 C 编译，专门检查 cfg 隔离写得对不对（不做链接）。
 

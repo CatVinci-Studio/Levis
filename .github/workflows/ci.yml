@@ -94,7 +94,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Generate the Xcode project (src-tauri/gen/apple)
-        run: npx tauri ios init --ci
+        run: npx tauri ios init --ci && sh scripts/ios-prepare.sh
       - name: Build for the iOS simulator, unsigned
         run: npx tauri ios build --ci --debug --target aarch64-sim --no-sign
 
