@@ -30,7 +30,7 @@ App Store Connect › 用户和访问 › 集成 › App Store Connect API：
 
 然后在团队密钥 › ＋：
 
-- 名称：例如 `Levis CI`；访问权限：**App 管理**
+- 名称：例如 `Levis CI`；访问权限：**管理（Admin）**。CI 用苹果云端管理的分发证书签名，只有 Admin 密钥能用它；选"App 管理"会在签名一步失败。
 - 记下 **Issuer ID** 和 **密钥 ID**，下载 `AuthKey_<密钥ID>.p8`。这个文件只能下载一次，请妥善保存。
 
 ### 4. 欧盟交易商身份
