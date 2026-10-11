@@ -948,8 +948,13 @@ function App() {
                       rootPath={rootPath}
                       activePath={activeTab.path}
                       onFileSelect={(path) => {
-                        // The drawer covers the page it just opened.
-                        if (isIOSApp) setPanelOpen(false);
+                        // On a phone the drawer covers the page it just
+                        // opened (ui/mobile.css); a docked one stays.
+                        if (
+                          isIOSApp &&
+                          window.matchMedia("(max-width: 760px)").matches
+                        )
+                          setPanelOpen(false);
                         void openFile(path);
                       }}
                     />

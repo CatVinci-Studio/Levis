@@ -100,50 +100,63 @@
   top: var(--mobile-bar);
 }
 
-/* The sidebar slides over the page instead of narrowing it; the scrim
-   behind it closes it on a tap. */
-:root[data-window-chrome="mobile"] .sidebar {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 44;
-  width: min(320px, 85vw);
-  margin-left: 0;
-  box-shadow: 8px 0 24px rgb(0 0 0 / 0.16);
-  transition: transform 0.2s ease;
+/* Phone widths (the breakpoint agent-panel.css already uses): the sidebar
+   becomes a drawer and Levis AI a full-screen panel. A wider iPad keeps
+   the desktop's docked layout, only with the touch sizes above. */
+@media (max-width: 760px) {
+  /* The sidebar slides over the page instead of narrowing it; the scrim
+     behind it closes it on a tap. */
+  :root[data-window-chrome="mobile"] .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 44;
+    width: min(320px, 85vw);
+    margin-left: 0;
+    box-shadow: 8px 0 24px rgb(0 0 0 / 0.16);
+    transition: transform 0.2s ease;
+  }
+
+  :root[data-window-chrome="mobile"] .sidebar-collapsed {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .sidebar-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 43;
+    background: rgb(0 0 0 / 0.25);
+  }
+
+  /* Levis AI takes the whole screen under the title row; its toggle there
+     closes it again. The width a desktop user dragged it to means nothing
+     here, hence the !important over the inline style. */
+  :root[data-window-chrome="mobile"] .agent-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: auto !important;
+    max-width: none;
+    border-left: none;
+    box-shadow: none;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-resizer {
+    display: none;
+  }
 }
 
-:root[data-window-chrome="mobile"] .sidebar-collapsed {
-  transform: translateX(-100%);
-  box-shadow: none;
-}
-
-.sidebar-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 43;
-  background: rgb(0 0 0 / 0.25);
-}
-
-/* Levis AI takes the whole screen under the title row; its toggle there
-   closes it again. The width a desktop user dragged it to means nothing
-   here, hence the !important over the inline style. */
-:root[data-window-chrome="mobile"] .agent-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 40;
-  width: auto !important;
-  max-width: none;
-  border-left: none;
-  box-shadow: none;
-}
-
-:root[data-window-chrome="mobile"] .agent-panel-resizer {
-  display: none;
+/* Wider than a phone the sidebar is docked, so there is nothing to tap
+   beside it. */
+@media (min-width: 761px) {
+  .sidebar-scrim {
+    display: none;
+  }
 }
 
 /* Completion is accepted with a tap on the suggestion (ghost-text-plugin.ts)
