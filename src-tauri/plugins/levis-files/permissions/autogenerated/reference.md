@@ -10,7 +10,6 @@ Everything Levis's iOS document access needs.
 - `allow-write-text`
 - `allow-list-folder`
 - `allow-remembered`
-- `allow-forget`
 - `allow-begin-access`
 
 ## Permission Table
@@ -44,32 +43,6 @@ Enables the begin_access command without any pre-configured scope.
 <td>
 
 Denies the begin_access command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`levis-files:allow-forget`
-
-</td>
-<td>
-
-Enables the forget command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`levis-files:deny-forget`
-
-</td>
-<td>
-
-Denies the forget command without any pre-configured scope.
 
 </td>
 </tr>

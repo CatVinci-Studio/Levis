@@ -24,9 +24,6 @@ export const iosFiles = {
   /** The Files app's document picker; null when cancelled. */
   pickDocument: async (): Promise<string | null> =>
     (await call<Picked>("pick_document")).url,
-  /** A folder to use as the project; null when cancelled. */
-  pickFolder: async (): Promise<string | null> =>
-    (await call<Picked>("pick_folder")).url,
   readText: async (url: string): Promise<string> =>
     (await call<{ text: string }>("read_text", { url })).text,
   writeText: (url: string, text: string): Promise<void> =>
@@ -44,7 +41,6 @@ export const iosFiles = {
         "remembered",
       )
     ).items,
-  forget: (url: string): Promise<void> => call<void>("forget", { url }),
   /** Opens a picked folder for the rest of the session and returns its
    *  plain path, which the Rust side can read like any other. */
   beginAccess: async (url: string): Promise<string> =>
@@ -55,3 +51,21 @@ export const iosFiles = {
     return url ? iosFiles.beginAccess(url) : null;
   },
 };
+
+/**
+ * Reopens the folders picked in earlier sessions. Their plain paths are
+ * still in settings (the project folder), but an iOS scope ends with the
+ * process: without this the AI could no longer read the project after a
+ * relaunch. Documents need nothing - each read resolves its bookmark.
+ */
+export async function restoreFolderAccess(): Promise<void> {
+  if (!isIOSApp) return;
+  const { items } = await call<{
+    items: { url: string; folder: boolean }[];
+  }>("remembered");
+  await Promise.all(
+    items
+      .filter((item) => item.folder)
+      .map((item) => iosFiles.beginAccess(item.url).catch(() => null)),
+  );
+}

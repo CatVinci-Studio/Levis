@@ -53,7 +53,6 @@ mod ios {
         write_text => "writeText",
         list_folder => "listFolder",
         remembered => "remembered",
-        forget => "forget",
         begin_access => "beginAccess",
     }
 
@@ -66,7 +65,6 @@ mod ios {
                 write_text,
                 list_folder,
                 remembered,
-                forget,
                 begin_access
             ])
             .setup(|app, api| {

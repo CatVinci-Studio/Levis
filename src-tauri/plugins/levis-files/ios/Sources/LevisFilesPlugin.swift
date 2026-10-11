@@ -211,13 +211,6 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
     invoke.resolve(["items": items])
   }
 
-  @objc public func forget(_ invoke: Invoke) throws {
-    let args = try invoke.parseArgs(UrlArgs.self)
-    var marks = loadBookmarks()
-    marks.removeValue(forKey: args.url)
-    saveBookmarks(marks)
-    invoke.resolve()
-  }
 }
 
 @_cdecl("init_plugin_levis_files")
