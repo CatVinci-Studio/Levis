@@ -1,0 +1,80 @@
+name: iOS release
+
+# Builds the signed iOS app and uploads it to App Store Connect (TestFlight).
+# Submitting a build for review stays a manual step in App Store Connect.
+#
+# Trigger: push a tag like ios-v0.9.2, or run it by hand.
+#
+# Secrets (App Store Connect > Users and Access > Integrations > Keys,
+# role "App Manager"):
+#   APPLE_API_ISSUER   Issuer ID
+#   APPLE_API_KEY_ID   Key ID
+#   APPLE_API_KEY_P8   contents of the AuthKey_<KEY_ID>.p8 file
+#   APPLE_TEAM_ID      (already used by the macOS release)
+# With the key, Xcode manages iOS signing itself: no certificate or
+# provisioning profile has to be exported into the repository.
+
+on:
+  push:
+    tags:
+      - "ios-v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - run: npm ci
+
+      - name: Write the App Store Connect key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          key=~/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
+          printf '%s' "$APPLE_API_KEY_P8" > "$key"
+          echo "APPLE_API_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Generate the Xcode project
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx tauri ios init --ci
+
+      # Every upload needs a build number App Store Connect hasn't seen;
+      # the run number only ever grows.
+      - name: Build the signed app
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+        run: >
+          npx tauri ios build --ci
+          --export-method app-store-connect
+          --build-number ${{ github.run_number }}
+
+      - name: Upload to App Store Connect
+        env:
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -n1)
+          test -n "$ipa"
+          xcrun altool --upload-app --type ios --file "$ipa" \
+            --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER"
