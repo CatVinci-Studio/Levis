@@ -290,3 +290,44 @@ test("selects open the app's own list; notices are the app's own dialog", async 
   await expect(list).toHaveCount(0);
   await expect(page.getByRole("button", { name: "编辑与外观" })).toBeVisible();
 });
+
+test("a help guide opens once, however many times it is asked for at once", async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.evaluate(() => {
+    const emit = (
+      window as unknown as {
+        __devEmitTauriEvent: (name: string, payload?: unknown) => void;
+      }
+    ).__devEmitTauriEvent;
+    for (let i = 0; i < 4; i++) emit("menu-open-help", "markdown");
+  });
+  await expect(
+    page.locator(".tab-pill", { hasText: "Markdown 指南" }),
+  ).toHaveCount(1);
+});
+
+test("an open guide switches language with the UI", async ({ page }) => {
+  await openApp(page);
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        __devEmitTauriEvent: (name: string, payload?: unknown) => void;
+      }
+    ).__devEmitTauriEvent("menu-open-help", "markdown"),
+  );
+  await expect(page.locator(".milkdown h1").first()).toContainText("Markdown");
+  const zhTitle = await page.locator(".milkdown h1").first().innerText();
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        __devEmitTauriEvent: (name: string, payload?: unknown) => void;
+      }
+    ).__devEmitTauriEvent("menu-open-settings"),
+  );
+  await page.getByRole("combobox", { name: "语言" }).click();
+  await page.getByRole("option", { name: "English" }).click();
+  await expect(page.locator(".milkdown h1").first()).not.toHaveText(zhTitle);
+  await expect(page.locator(".milkdown h1").first()).toContainText("Guide");
+});

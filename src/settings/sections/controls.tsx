@@ -17,7 +17,7 @@ export function ToggleRow({
   onChange,
 }: {
   label: string;
-  hint: string;
+  hint?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
@@ -25,7 +25,7 @@ export function ToggleRow({
     <label className="settings-row settings-toggle-row">
       <div>
         <div className="settings-row-label">{label}</div>
-        <div className="settings-row-hint">{hint}</div>
+        {hint && <div className="settings-row-hint">{hint}</div>}
       </div>
       <input
         type="checkbox"

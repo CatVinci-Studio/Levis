@@ -440,15 +440,10 @@ export const strings = {
     contentWidthStandard: "Standard",
     contentWidthFull: "Full Width",
     newDocumentModeLabel: "Open Documents In",
-    newDocumentModeHint:
-      "Choose a window or tab when opening a document from the sidebar or with {shortcut}.",
     newDocumentModeWindow: "A New Window",
     newDocumentModeTab: "A Tab in This Window",
     restoreSessionLabel: "Restore Previous Session on Startup",
-    restoreSessionHint: "Reopen the documents from your last session.",
-    autoSuggestFilenameLabel: "Suggest Filename from Document",
-    autoSuggestFilenameHint:
-      "For an untitled document, suggest its first level-one heading, or otherwise its first content line.",
+    autoSuggestFilenameLabel: "Suggest a Filename When Saving a New File",
     untitledTab: "Untitled",
     markdownGuideTab: "Markdown Guide",
     agentGuideTab: "AI Features Guide",
@@ -1055,15 +1050,10 @@ export const strings = {
     contentWidthStandard: "标准",
     contentWidthFull: "铺满",
     newDocumentModeLabel: "打开文档方式",
-    newDocumentModeHint:
-      "从侧栏或用 {shortcut} 打开文档时，使用新窗口或标签页。",
     newDocumentModeWindow: "新窗口",
     newDocumentModeTab: "当前窗口的新标签页",
     restoreSessionLabel: "启动时恢复上次会话",
-    restoreSessionHint: "重新打开上次退出时的文档。",
-    autoSuggestFilenameLabel: "自动建议文件名",
-    autoSuggestFilenameHint:
-      "保存未命名文档时，优先使用首个一级标题；没有标题则使用第一条正文内容。",
+    autoSuggestFilenameLabel: "新文件保存时自动建议文件名",
     untitledTab: "未命名",
     markdownGuideTab: "Markdown 指南",
     agentGuideTab: "AI 功能指南",
@@ -1684,16 +1674,10 @@ export const strings = {
     contentWidthStandard: "標準",
     contentWidthFull: "全幅",
     newDocumentModeLabel: "文書を開く方法",
-    newDocumentModeHint:
-      "別の文書を開くとき（サイドバー、{shortcut}、または複数ファイルを一度に開く場合）の挙動。",
     newDocumentModeWindow: "新しいウィンドウ",
     newDocumentModeTab: "このウィンドウの新しいタブ",
     restoreSessionLabel: "起動時に前回のセッションを復元",
-    restoreSessionHint:
-      "空の状態で始める代わりに、前回開いていた文書を再度開きます。",
-    autoSuggestFilenameLabel: "文書からファイル名を自動提案",
-    autoSuggestFilenameHint:
-      "無題の文書では最初のレベル1見出しを、なければ最初の本文行を候補ファイル名にします。",
+    autoSuggestFilenameLabel: "新規ファイルの保存時にファイル名を提案",
     untitledTab: "無題",
     markdownGuideTab: "Markdownガイド",
     agentGuideTab: "AI機能ガイド",

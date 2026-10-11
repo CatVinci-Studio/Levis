@@ -400,11 +400,13 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
 
     let view_menu = {
         let builder = SubmenuBuilder::new(app, "View")
+            // Panels, then ways of viewing the text, then size.
+            .item(&toggle_sidebar_item)
+            .item(&toggle_agent_panel_item)
+            .separator()
             .item(&toggle_source_mode_item)
             .item(&toggle_split_view_item)
             .item(&toggle_typewriter_mode_item)
-            .item(&toggle_sidebar_item)
-            .item(&toggle_agent_panel_item)
             .item(&toggle_zen_mode_item)
             .separator()
             .item(&zoom_in_item)

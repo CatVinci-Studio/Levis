@@ -209,29 +209,35 @@ export function ThemeSection({ t }: { t: Strings }) {
         </div>
       </div>
 
-      <div className="settings-row settings-row-stacked">
-        <div>
-          <div className="settings-row-label">{t.customCssLabel}</div>
+      {/* A tweak on top of the theme, folded away until wanted. */}
+      <details
+        className="settings-disclosure"
+        open={!!settings.customCss?.trim()}
+      >
+        <summary className="settings-disclosure-summary">
+          {t.customCssLabel}
+        </summary>
+        <div className="settings-disclosure-body">
           <div className="settings-row-hint">{t.customCssHint}</div>
+          <textarea
+            className="settings-code-input"
+            aria-label={t.customCssLabel}
+            spellCheck={false}
+            rows={5}
+            placeholder={CUSTOM_CSS_PLACEHOLDER}
+            value={settings.customCss}
+            onChange={(e) => setSettings({ customCss: e.target.value })}
+          />
+          <div className="shortcut-row-controls">
+            <button
+              className="text-button settings-inline-button"
+              onClick={() => void exportThemeCss(t, settings.customCss)}
+            >
+              {t.themeExportButton}
+            </button>
+          </div>
         </div>
-        <textarea
-          className="settings-code-input"
-          aria-label={t.customCssLabel}
-          spellCheck={false}
-          rows={6}
-          placeholder={CUSTOM_CSS_PLACEHOLDER}
-          value={settings.customCss}
-          onChange={(e) => setSettings({ customCss: e.target.value })}
-        />
-        <div className="shortcut-row-controls">
-          <button
-            className="text-button settings-inline-button"
-            onClick={() => void exportThemeCss(t, settings.customCss)}
-          >
-            {t.themeExportButton}
-          </button>
-        </div>
-      </div>
+      </details>
 
       {/* Independent of the theme above: that picks the palette, this picks
           which of its two forms is shown. Every theme defines both. */}

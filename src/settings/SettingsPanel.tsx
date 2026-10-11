@@ -29,7 +29,6 @@ import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
-import { formatCombo } from "../utils/shortcuts";
 import { Select } from "../ui/Select";
 
 // The settings dialog shell: category nav + the per-category rows. Anything
@@ -139,16 +138,8 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     </Select>
                   </div>
                   <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">
-                        {t.newDocumentModeLabel}
-                      </div>
-                      <div className="settings-row-hint">
-                        {t.newDocumentModeHint.replace(
-                          "{shortcut}",
-                          formatCombo("mod+o"),
-                        )}
-                      </div>
+                    <div className="settings-row-label">
+                      {t.newDocumentModeLabel}
                     </div>
                     <Select
                       className="settings-select"
@@ -166,7 +157,6 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   </div>
                   <ToggleRow
                     label={t.restoreSessionLabel}
-                    hint={t.restoreSessionHint}
                     checked={settings.restoreSessionOnStartup}
                     onChange={(v) =>
                       setSettings({ restoreSessionOnStartup: v })
@@ -174,7 +164,6 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                   />
                   <ToggleRow
                     label={t.autoSuggestFilenameLabel}
-                    hint={t.autoSuggestFilenameHint}
                     checked={settings.autoSuggestFilename}
                     onChange={(v) => setSettings({ autoSuggestFilename: v })}
                   />
@@ -189,6 +178,20 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
 
             {category === "editor" && (
               <>
+                <SettingsGroup title={t.navMarkdown}>
+                  <ToggleRow
+                    label={t.enableMathLabel}
+                    hint={t.enableMathHint}
+                    checked={settings.enableMath}
+                    onChange={(v) => setSettings({ enableMath: v })}
+                  />
+                  <ToggleRow
+                    label={t.enableMermaidLabel}
+                    hint={t.enableMermaidHint}
+                    checked={settings.enableMermaid}
+                    onChange={(v) => setSettings({ enableMermaid: v })}
+                  />
+                </SettingsGroup>
                 <SettingsGroup title={t.navTheme}>
                   <ThemeSection t={t} />
                   <div className="settings-row">
@@ -220,20 +223,6 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     hint={t.typewriterHint}
                     checked={settings.typewriterMode}
                     onChange={(v) => setSettings({ typewriterMode: v })}
-                  />
-                </SettingsGroup>
-                <SettingsGroup title={t.navMarkdown}>
-                  <ToggleRow
-                    label={t.enableMathLabel}
-                    hint={t.enableMathHint}
-                    checked={settings.enableMath}
-                    onChange={(v) => setSettings({ enableMath: v })}
-                  />
-                  <ToggleRow
-                    label={t.enableMermaidLabel}
-                    hint={t.enableMermaidHint}
-                    checked={settings.enableMermaid}
-                    onChange={(v) => setSettings({ enableMermaid: v })}
                   />
                 </SettingsGroup>
                 <SettingsGroup title={t.imageStorageGroupLabel}>

@@ -225,6 +225,17 @@ export function buildAppMenu(
       label: t.menuView,
       submenu: [
         {
+          label: t.menuToggleSidebar,
+          accel: shortcuts.toggleSidebar,
+          action: { native: "toggle-sidebar" },
+        },
+        {
+          label: t.menuToggleAgentPanel,
+          accel: shortcuts.toggleAgentPanel,
+          action: { native: "toggle-agent-panel" },
+        },
+        "separator",
+        {
           label: t.menuToggleSourceMode,
           accel: shortcuts.toggleSourceMode,
           action: { native: "toggle-source-mode" },
@@ -238,16 +249,6 @@ export function buildAppMenu(
           label: t.menuToggleTypewriterMode,
           accel: shortcuts.toggleTypewriterMode,
           action: { native: "toggle-typewriter-mode" },
-        },
-        {
-          label: t.menuToggleSidebar,
-          accel: shortcuts.toggleSidebar,
-          action: { native: "toggle-sidebar" },
-        },
-        {
-          label: t.menuToggleAgentPanel,
-          accel: shortcuts.toggleAgentPanel,
-          action: { native: "toggle-agent-panel" },
         },
         {
           label: t.menuToggleZenMode,

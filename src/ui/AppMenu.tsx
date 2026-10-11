@@ -102,7 +102,15 @@ function MenuList({
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (autoFocus) focusItem(listRef.current, 0);
+    if (!autoFocus) return;
+    // A flyout is painted hidden for a frame while it measures where it
+    // fits (Flyout below), and a hidden element can't take focus - focusing
+    // at mount left the keyboard on the parent list, so ArrowRight opened a
+    // submenu that the arrow keys then walked past.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => focusItem(listRef.current, 0));
+    });
+    return () => cancelAnimationFrame(frame);
   }, [autoFocus]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
