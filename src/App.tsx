@@ -26,7 +26,12 @@ import {
   canDragTabsBetweenWindows,
   canToggleFullscreen,
   canUseWindows,
+  isIOSApp,
 } from "./platform/capabilities";
+import {
+  rememberIOSDocument,
+  useIOSDocumentsFolder,
+} from "./platform/ios-files";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
@@ -152,9 +157,14 @@ function App() {
   }, []);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
-  // The tree always mirrors the active tab's folder; with no file open there
-  // is nothing to show.
-  const rootPath = activeTab.path ? dirname(activeTab.path) : null;
+  // The tree always mirrors the active tab's folder. With no file open there
+  // is nothing to show - except on iOS, where the app's Documents folder is
+  // home: where Save puts new documents, and what Files lists under Levis.
+  const iosDocuments = useIOSDocumentsFolder();
+  useEffect(() => {
+    void rememberIOSDocument(activeTab.path);
+  }, [activeTab.path]);
+  const rootPath = activeTab.path ? dirname(activeTab.path) : iosDocuments;
   // Deferred: a whole-document count on every edit would otherwise sit in
   // the same render as the edit itself; the status bar can lag a beat.
   const deferredContent = useDeferredValue(activeTab.content);
@@ -880,6 +890,11 @@ function App() {
           </div>
           <WindowCaptionButtons />
         </header>
+        {/* iPhone: the sidebar is a drawer over the page (ui/mobile.css),
+          and a tap beside it closes it. */}
+        {isIOSApp && panelOpen && (
+          <div className="sidebar-scrim" onClick={toggleSidebar} />
+        )}
         <aside
           className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"} ${sidebarLesson ? "tutorial-spotlight" : ""}`}
         >
@@ -932,7 +947,11 @@ function App() {
                       key={rootPath}
                       rootPath={rootPath}
                       activePath={activeTab.path}
-                      onFileSelect={openFile}
+                      onFileSelect={(path) => {
+                        // The drawer covers the page it just opened.
+                        if (isIOSApp) setPanelOpen(false);
+                        void openFile(path);
+                      }}
                     />
                   ) : (
                     // An unsaved draft has no folder - an empty panel read

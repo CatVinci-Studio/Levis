@@ -4,6 +4,7 @@ const COMMANDS: &[&str] = &[
     "pick_document",
     "pick_folder",
     "read_text",
+    "read_data",
     "write_text",
     "list_folder",
     "remembered",

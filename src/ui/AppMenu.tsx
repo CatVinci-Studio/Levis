@@ -3,8 +3,14 @@ import { useSettings } from "../settings/SettingsContext";
 import { menuIpc } from "../ipc";
 import { formatCombo } from "../utils/shortcuts";
 import { useViewportClamp } from "../utils/useViewportClamp";
-import { runLocalMenuAction } from "./app-menu-actions";
-import { buildAppMenu, type MenuEntry, type MenuNode } from "./app-menu-model";
+import { emitMenuEvent, runLocalMenuAction } from "./app-menu-actions";
+import {
+  buildAppMenu,
+  buildMobileMenu,
+  type MenuEntry,
+  type MenuNode,
+} from "./app-menu-model";
+import { hasAppMenu } from "../platform/capabilities";
 import { ChevronIcon } from "./icons";
 import "./app-menu.css";
 
@@ -43,6 +49,7 @@ export function AppMenu({ x, y, onClose }: AppMenuProps) {
   // list holds NOW (including a file opened since the menu was last up), and
   // nothing about it changes while the menu is on screen.
   useEffect(() => {
+    if (!hasAppMenu) return;
     let alive = true;
     void menuIpc
       .listRecentFiles()
@@ -62,7 +69,11 @@ export function AppMenu({ x, y, onClose }: AppMenuProps) {
   return (
     <div ref={ref} className="app-menu" style={pos}>
       <MenuList
-        items={buildAppMenu(t, settings.shortcuts, recents)}
+        items={
+          hasAppMenu
+            ? buildAppMenu(t, settings.shortcuts, recents)
+            : buildMobileMenu(t)
+        }
         onDismiss={onClose}
         autoFocus
       />
@@ -191,7 +202,9 @@ function MenuRow({
       return;
     }
     if (!item.action) return;
-    if ("native" in item.action) {
+    if ("native" in item.action && !hasAppMenu) {
+      emitMenuEvent(item.action.native);
+    } else if ("native" in item.action) {
       void menuIpc.triggerMenuItem(item.action.native).catch(() => {
         // A failed menu command is the backend's to report; swallowing it
         // here only leaves a dead menu on screen.

@@ -8,6 +8,7 @@ import { showMessage } from "../ui/app-dialog";
 import { dirname } from "../utils/path";
 import { fs } from "../ipc";
 import type { Settings, ImageNamingMode } from "../settings/SettingsContext";
+import { isScopedUrl, scopedImageSrc } from "../platform/ios-files";
 
 /**
  * Image support, Typora-style, in two halves:
@@ -226,7 +227,18 @@ function createImageView(
     current = n;
     const presentation = readImagePresentation(n.attrs.title as string | null);
     const src = (n.attrs.src as string) ?? "";
-    img.src = resolveImageSrc(src, docPath());
+    const doc = docPath();
+    if (doc && isScopedUrl(doc) && !/^[a-z][a-z0-9+.-]*:|^\//i.test(src)) {
+      // Beside a document picked in Files: read through the plugin.
+      img.removeAttribute("src");
+      void scopedImageSrc(src, doc)
+        .then((url) => {
+          if (current === n) img.src = url;
+        })
+        .catch(() => {});
+    } else {
+      img.src = resolveImageSrc(src, doc);
+    }
     // The markdown's own src, for exports: the rendered one is an asset:
     // URL that only resolves inside this app.
     img.dataset.docSrc = src;

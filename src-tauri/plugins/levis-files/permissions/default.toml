@@ -6,6 +6,7 @@ permissions = [
   "allow-pick-document",
   "allow-pick-folder",
   "allow-read-text",
+  "allow-read-data",
   "allow-write-text",
   "allow-list-folder",
   "allow-remembered",

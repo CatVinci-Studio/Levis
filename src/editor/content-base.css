@@ -91,7 +91,7 @@
   }
 
   .milkdown code {
-    font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-family: var(--font-mono);
     font-variant-ligatures: normal;
     font-feature-settings:
       "liga" 1,
@@ -122,7 +122,7 @@
   }
 
   .milkdown pre code {
-    font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-family: var(--font-mono);
     font-variant-ligatures: normal;
     font-feature-settings:
       "liga" 1,

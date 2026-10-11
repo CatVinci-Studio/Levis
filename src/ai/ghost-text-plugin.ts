@@ -343,6 +343,23 @@ export function createGhostTextPlugin(options: {
           decorations(state) {
             return ghostTextKey.getState(state)?.decoration;
           },
+          // A phone has no Tab key: there the suggestion takes touches
+          // (mobile.css) and a tap on it accepts it. Caught at touchend,
+          // before WebKit moves the caret to the tap - which would clear
+          // the suggestion first.
+          handleDOMEvents: {
+            touchend(view, event) {
+              const state = ghostTextKey.getState(view.state);
+              const target = event.target as HTMLElement | null;
+              if (!state?.suggestion || !target?.closest?.(".ghost-text"))
+                return false;
+              event.preventDefault();
+              const tr = view.state.tr.insertText(state.suggestion, state.from);
+              tr.setMeta(ghostTextKey, { type: "clear" });
+              view.dispatch(tr);
+              return true;
+            },
+          },
           handleKeyDown(view, event) {
             if (isImeKeyEvent(view, event)) return false;
             const state = ghostTextKey.getState(view.state);

@@ -283,7 +283,7 @@ button.settings-inline-button {
    gets its own line in a mono face rather than being squeezed into the hint. */
 .settings-workspace-root {
   margin-top: 6px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--editor-text);
   overflow-wrap: anywhere;
@@ -303,7 +303,7 @@ button.settings-inline-button {
 .shortcut-capture-button {
   min-width: 120px;
   text-align: center;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
@@ -693,7 +693,7 @@ button.settings-inline-button {
 .settings-skill-name {
   flex-shrink: 0;
   font-weight: 600;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
@@ -896,7 +896,7 @@ button.settings-inline-button {
   border-radius: var(--radius-control);
   background: var(--bg);
   color: var(--editor-text);
-  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-md);
   line-height: 1.5;
   tab-size: 2;

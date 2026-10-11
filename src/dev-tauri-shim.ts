@@ -51,6 +51,18 @@ export function installDevTauriShim(): void {
         // StrictMode handlers would double-fire events.
         return Promise.resolve(args.handler);
       }
+      // The phone menu sends its commands to this same window
+      // (app-menu-actions.ts's emitMenuEvent); deliver them like Rust would.
+      if (cmd === "plugin:event|emit_to" && args?.event) {
+        const { event, payload } = args as { event: string; payload?: unknown };
+        queueMicrotask(() =>
+          (w.__devEmitTauriEvent as (e: string, p?: unknown) => void)(
+            event,
+            payload,
+          ),
+        );
+        return Promise.resolve(null);
+      }
       // A canned suggestion instead of null: lets ghost-text rendering (and
       // the tutorial's completion step) be smoke-tested in the browser -
       // null would make the manual trigger path throw an error dialog.

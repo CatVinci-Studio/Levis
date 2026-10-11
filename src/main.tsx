@@ -8,6 +8,8 @@ import { publishWindowChrome } from "./ui/window-chrome";
 import { WindowEdges } from "./ui/WindowEdges";
 import { installWebviewGuards } from "./ui/webview-guards";
 import { restoreFolderAccess } from "./platform/ios-files";
+import { installMobileViewport } from "./platform/mobile-viewport";
+import "./ui/mobile.css";
 
 installDevTauriShim();
 installWebviewGuards();
@@ -18,6 +20,7 @@ void restoreFolderAccess().catch(() => {});
 // this, and correcting it afterwards would paint the row at the macOS
 // traffic-light inset for a frame on every Windows launch.
 publishWindowChrome();
+installMobileViewport();
 
 // Which view this window is. One bundle serves both: a second HTML entry
 // point would mean a second build target and a second copy of the shared

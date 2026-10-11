@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { drafts, windowIpc } from "./ipc";
-import { canUseWindows, hasAppMenu } from "./platform/capabilities";
+import { canUseWindows, hasAppMenu, isIOSApp } from "./platform/capabilities";
+import { lastIOSDocument } from "./platform/ios-files";
 import {
   helpDocContent,
   makeBlankTab,
@@ -155,13 +156,30 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
           return;
         }
       }
+      // iOS: the document that was open last time (see lastIOSDocument).
+      const last = isIOSApp ? await lastIOSDocument() : null;
+      if (last) {
+        try {
+          const { content: text, diskMtime } = await readDocFromDisk(last);
+          opts.updateTab(opts.activeTabId, {
+            path: last,
+            content: text,
+            savedContent: text,
+            diskMtime,
+          });
+          return;
+        } catch {
+          // Moved or deleted since: start blank.
+        }
+      }
       // Nothing else claimed the initial blank tab and this installation has
       // never shown onboarding. Keeping the durable flag false until this
       // exact point means a first launch that was busy opening a file can
       // defer the guide safely to the next ordinary launch instead of losing
       // it forever.
+      // Not on the iPhone: the lessons are taught with keyboard shortcuts.
       if (!opts.onboardingShown) {
-        opts.startTutorial(opts.activeTabId);
+        if (!isIOSApp) opts.startTutorial(opts.activeTabId);
         opts.markOnboardingShown();
       }
     })();

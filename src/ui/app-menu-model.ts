@@ -24,7 +24,7 @@ import { basename } from "../utils/path";
 
 /** Menu ids that exist natively (src-tauri/src/menu.rs) - listed here so a
  *  typo is a compile error rather than an item that silently does nothing. */
-type NativeMenuId =
+export type NativeMenuId =
   | "settings"
   | "new-file"
   | "new-window"
@@ -300,5 +300,33 @@ export function buildAppMenu(
     // single window is exactly this item; with several windows open this
     // one closes them all and Alt+F4 closes the front one.
     { label: t.menuExit, accel: "alt+f4", action: { native: "quit" } },
+  ];
+}
+
+/**
+ * The iPhone's menu, behind the title row's button. One flat list: a
+ * flyout has nowhere to go on a 400-point-wide screen, and most of the
+ * desktop menu is not there to offer - windows, recents, exports through
+ * PDF or pandoc, zoom (pinch), split view (no room for two panes). Undo and
+ * the clipboard are the system's edit menu and the keyboard's own keys.
+ */
+export function buildMobileMenu(t: Strings): MenuNode[] {
+  return [
+    { label: t.menuNewFile, action: { native: "new-file" } },
+    { label: t.menuOpenFile, action: { native: "open-file" } },
+    { label: t.menuSave, action: { native: "save-file" } },
+    { label: t.menuFindReplace, action: { native: "find-replace" } },
+    "separator",
+    { label: t.menuToggleSidebar, action: { native: "toggle-sidebar" } },
+    { label: t.menuToggleSourceMode, action: { native: "toggle-source-mode" } },
+    {
+      label: t.menuToggleTypewriterMode,
+      action: { native: "toggle-typewriter-mode" },
+    },
+    { label: t.menuToggleZenMode, action: { native: "toggle-zen-mode" } },
+    "separator",
+    { label: t.menuHelpMarkdown, action: { native: "help-doc:markdown" } },
+    { label: t.menuHelpAgent, action: { native: "help-doc:agent" } },
+    { label: t.menuSettings, action: { native: "settings" } },
   ];
 }

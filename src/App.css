@@ -10,6 +10,7 @@
     -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC",
     "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", Inter,
     system-ui, sans-serif;
+  --font-mono: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
 
   color-scheme: light;
   --chrome-text: #24272e;
@@ -567,7 +568,7 @@ body {
   resize: none;
   background: var(--editor-bg, var(--bg));
   color: var(--editor-text);
-  font-family: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-lg);
   line-height: 1.7;
 }
