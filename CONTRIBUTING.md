@@ -138,7 +138,10 @@ explicitly what you tested by hand.
 
 ## Releases
 
-Maintainers only.
+Maintainers only. The desktop release is below; the iOS app ships
+separately, from an `ios-v*` tag through `.github/workflows/ios-release.yml`
+to TestFlight - see `docs/ios/release.zh.md`. `docs/README.md` indexes the
+rest of the documentation.
 
 1. Bump the version in **three** files - `package.json`,
    `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` - and let

@@ -1,0 +1,16 @@
+# 文档索引
+
+| 文档 | 内容 |
+| --- | --- |
+| [TESTING.md](TESTING.md) | 各测试套件覆盖什么、怎么运行，以及刻意没覆盖的部分 |
+| [AI-PROPOSALS.md](AI-PROPOSALS.md) | AI 修改建议从流式生成到写入文档的完整生命周期，以及三个对话界面 |
+| [DESIGN-LANGUAGE.zh.md](DESIGN-LANGUAGE.zh.md) | 界面规范：圆角、字号、按钮、菜单、对话框和主题规则 |
+| [WINDOWS-INSTALLER.md](WINDOWS-INSTALLER.md) | Windows 安装包（NSIS）的设计，以及为什么不再提供 MSI |
+| [ios/plan.zh.md](ios/plan.zh.md) | iOS 版规划：定位、技术路线、文件访问方案、分阶段计划 |
+| [ios/code-map.zh.md](ios/code-map.zh.md) | 桌面与 iOS 的代码分界：哪些共享、哪些只属于桌面，以及在 Mac 上如何构建 |
+| [ios/release.zh.md](ios/release.zh.md) | iOS 上架步骤：App Store Connect、密钥、TestFlight 和审核资料 |
+| [releases/](releases/) | 各版本的更新说明（发布流程会用作 GitHub Release 的正文） |
+| [images/](images/) | README 截图，由 `npm run screenshots:readme` 生成 |
+| [archive/](archive/) | 不再更新的历史记录 |
+
+贡献流程、提交规范和桌面版发布步骤见根目录的 [CONTRIBUTING.md](../CONTRIBUTING.md)。

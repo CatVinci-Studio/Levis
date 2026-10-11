@@ -54,7 +54,7 @@ iOS 应用不能直接读写任意路径：用户在"文件"应用里选的文�
 
 ## 分阶段计划
 
-### 阶段 0：工程打底（已完成，见 `docs/IOS-CODE-MAP.md`）
+### 阶段 0：工程打底（已完成，见 `docs/ios/code-map.zh.md`）
 
 - `Cargo.toml` 把桌面专属插件（single-instance、updater、process 等）移到只在桌面平台编译的依赖里。
 - `lib.rs`、`menu.rs`、`commands/` 里的桌面功能加上 `#[cfg(desktop)]`；iOS 上注册的命令只保留文件读写、AI、设置、草稿。

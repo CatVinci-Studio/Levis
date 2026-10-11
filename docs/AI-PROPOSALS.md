@@ -7,16 +7,22 @@ that owns each one is named so this document can be checked against reality.
 
 ## The surfaces, and the one path into the document
 
-Chat has exactly two surfaces, split by **scope**:
+Chat has three surfaces and two conversations, all owned by the editor
+(`editor/MilkdownEditor.tsx`):
 
-- **Quick Ask** — the in-document bar. About one file, holding the
-  document/selection snapshot captured when it opened (`ai/useInlineChat.ts`).
-- **The detached chat window** — the cross-file surface. Follows the active
-  document, one window per scope. It owns no document state: proposals and
-  accept/reject travel over `ai/chat/chat-bridge.ts` back to the editor
-  window.
+- **The AI panel** — docked on the right (`ai/chat/agent-panel.tsx`,
+  `AgentPanelView.tsx`). Shows the editor's main conversation, the one saved
+  to History.
+- **The detached chat window** — the same main conversation popped out into
+  its own OS window, one per editor window (desktop only). It owns no
+  document state: proposals and accept/reject travel over
+  `ai/chat/chat-bridge.ts` back to the editor window.
+- **Quick Ask** — the in-document bar (`ai/useInlineChat.ts`). It has its
+  own short conversation, kept out of History and independent of the
+  panel; "Continue in the full conversation" hands its turns to the main
+  conversation (`expandQuickAsk`).
 
-Both render the same `ChatBody`, and both feed one resolution pipeline:
+All render the same `ChatBody`, and all feed one resolution pipeline:
 `MilkdownEditor → usePendingEdits → pending-edit-plugin`. Anchors resolve in
 **markdown source space** (`ai/doc-markdown.ts`), matching what the model was
 shown. Previews are pure decorations - until the user clicks Accept, the
@@ -110,10 +116,10 @@ wrapper plus a `supersedePending` flag):
    `propose_edit` tool result in the history with its current status - see
    the next section.
 
-Arming differs per surface: the embedded bar uses its own
-`conversation.busy` rising edge; a detached send never flips that, so it arms
-via `onContextRequest` - the fetch-fresh-document signal that precedes every
-detached send.
+Arming differs per surface: the panel and Quick Ask use their
+conversation's `busy` rising edge (each conversation arms on its own); a
+detached send never flips that, so it arms via `onContextRequest` - the
+fetch-fresh-document signal that precedes every detached send.
 
 ## Conversation layer
 
