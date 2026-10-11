@@ -19,7 +19,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run build
+      # The minifier only warns on a broken selector list - and a warning
+      # dropped a whole design-system rule once, unnoticed for three releases.
+      - name: Build, failing on CSS syntax warnings
+        run: |
+          npm run build 2>&1 | tee build.log
+          ! grep -q 'css-syntax-error' build.log
       # The Playwright flows, without comparing screenshots: the baselines
       # were taken with one machine's fonts and would differ here.
       - run: npx playwright install --with-deps chromium

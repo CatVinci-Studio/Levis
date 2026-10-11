@@ -116,8 +116,7 @@
   .settings-text-input,
   .settings-button,
   .image-name-input-row input,
-  .insert-table-fields input,
-
+  .insert-table-fields input
 ) {
   min-height: var(--control-height);
 }
