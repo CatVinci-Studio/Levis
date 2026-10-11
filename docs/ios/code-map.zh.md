@@ -49,6 +49,7 @@
   - 在授权范围内读写、列目录，读写经过 NSFileCoordinator；
   - 把授权存成 bookmark；启动时 `restoreFolderAccess`（`src/main.tsx`）通过 `remembered` 重新打开之前选过的文件夹，否则重启后 AI 读不到项目文件夹；
   - `begin_access`：在整个会话里保持一个文件夹的访问授权，并返回普通路径；
+  - `share`：系统分享面板（见下文"iPhone 界面"）；
   - `read_data`：以 base64 读出授权范围内的文件，用于所选文档旁边的相对路径图片（`scopedImageSrc`，`editor/image-plugin.ts`）。单独选中的文档只授权这一个文件，所以图片要在选中的文件夹里才读得到。
 - **前端 `src/platform/ios-files.ts`：** 封装插件调用。从"文件"里选中的、其实位于应用 Documents 目录内的文档，会换回普通路径，避免同一个文件以两种写法打开两次。`src/ipc.ts` 的 `fs` 按路径分流：`file://` 地址（用户选的文件）走插件，其他路径（应用自己的 Documents 目录、所有桌面路径）照旧走 Rust 命令。调用方不区分平台。
 - **项目文件夹：** iOS 上 `ai.pickWorkspaceRoot` 选文件夹后调用 `begin_access`，把普通路径交给 Rust。访问授权对整个进程有效，所以 `ai/project.rs` 读取 `.levis/` 和项目文件的代码不用改。
@@ -80,6 +81,7 @@ CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，�
 - **菜单：** 标题栏左侧的按钮打开 `buildMobileMenu`（`ui/app-menu-model.ts`）：一列平铺，没有子菜单。iOS 没有 `menu.rs`，所以 `emitMenuEvent`（`ui/app-menu-actions.ts`）把菜单 id 转成 `useMenuBridge` 监听的同名事件发给本窗口。目标必须写成 `WebviewWindow`：只写标签会变成 `AnyLabel`，而 iOS 上窗口和 webview 都叫 main，事件会到两次，开关类操作互相抵消。
 - **键盘：** `KeyboardFit.swift`（同在 levis-files 插件里，由插件的 `load(webview:)` 启动）在键盘弹出时把 webview 缩短到键盘上方，并关闭 webview 自身的滚动；否则 WebKit 会把整页往上推，标题栏被顶出屏幕。`platform/mobile-viewport.ts` 只设置 `maximum-scale=1`，防止聚焦输入框时页面被放大。
 - **存与开：** 新文档"保存"直接写进 Documents，文件名用建议名，重名时加序号（`newDocumentPath`）。文件树没有打开文档时显示 Documents，不提供"上一级"。"新建文件"在 iOS 上新增一个标签（没有窗口可开）。上次打开的文档记在 localStorage，Documents 内的按相对路径记，因为重装和 App Store 更新都会改变容器路径。
+- **最近打开与分享：** 菜单里列出最近打开的 5 个文档（`recentIOSDocuments`，存在 localStorage，Documents 内按相对路径记；第一个就是启动时重新打开的那个）。"分享…"和文件树里长按文件弹出的菜单都调用插件的 `share`：把文档复制到临时目录再弹出系统分享面板（隔空投送、信息、邮件、存储到"文件"），未保存的文档先保存。iOS 的 web view 长按不会触发 contextmenu 事件，所以 `FileTree.tsx` 自己计时（`useLongPress`）。
 - **AI 补全：** 手机没有 Tab 键，点灰色建议即可采纳（`ghost-text-plugin.ts` 的 `touchend`），设置里的说明文字随之改为"轻点采纳"。
 - **首次启动：** 选完语言后不自动进入教程（教程靠键盘快捷键讲解）。
 - **测试：** `e2e/phone.spec.ts` 用 Chromium 的手机视口和触摸模拟检查抽屉、全屏 AI 面板和点按采纳；真正的 iOS WebKit 行为（键盘、字体、选文件）在模拟器里用 idb 手动检查过。

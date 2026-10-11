@@ -7,10 +7,12 @@ Everything Levis's iOS document access needs.
 - `allow-pick-document`
 - `allow-pick-folder`
 - `allow-read-text`
+- `allow-read-data`
 - `allow-write-text`
 - `allow-list-folder`
 - `allow-remembered`
 - `allow-begin-access`
+- `allow-share`
 
 ## Permission Table
 
@@ -128,6 +130,32 @@ Denies the pick_folder command without any pre-configured scope.
 <tr>
 <td>
 
+`levis-files:allow-read-data`
+
+</td>
+<td>
+
+Enables the read_data command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`levis-files:deny-read-data`
+
+</td>
+<td>
+
+Denies the read_data command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `levis-files:allow-read-text`
 
 </td>
@@ -173,6 +201,32 @@ Enables the remembered command without any pre-configured scope.
 <td>
 
 Denies the remembered command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`levis-files:allow-share`
+
+</td>
+<td>
+
+Enables the share command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`levis-files:deny-share`
+
+</td>
+<td>
+
+Denies the share command without any pre-configured scope.
 
 </td>
 </tr>

@@ -68,8 +68,14 @@
   background: none;
 }
 
-:root[data-window-chrome="mobile"] .app-menu-item {
+:root[data-window-chrome="mobile"] :is(.app-menu-item, .context-menu-item) {
   min-height: 44px;
+}
+
+/* With 44pt rows and the recent documents, the phone menu is taller than
+   the desktop's 560px cap; it may use the screen below the title row. */
+:root[data-window-chrome="mobile"] .app-menu-list {
+  max-height: calc(100vh - var(--mobile-bar) - 24px);
 }
 
 /* Everything that cleared the desktop's 28px row clears this one. */
@@ -173,4 +179,12 @@
 /* A tap leaves :hover on the row until something else is touched. */
 :root[data-window-chrome="mobile"] .tree-row:hover:not(.tree-row-active) {
   background: none;
+}
+
+/* A long press on a file opens Levis's own menu (FileTree.tsx), not the
+   system's link callout, and doesn't select the label. */
+:root[data-window-chrome="mobile"] .tree-row {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }

@@ -42,6 +42,9 @@ export const iosFiles = {
     inDocuments((await call<Picked>("pick_document")).url),
   readText: async (url: string): Promise<string> =>
     (await call<{ text: string }>("read_text", { url })).text,
+  /** The share sheet (AirDrop, Messages, Mail, Save to Files...) for a
+   *  saved document - a plain path or a picked file's URL. */
+  share: (path: string): Promise<void> => call<void>("share", { path }),
   readBase64: async (url: string): Promise<string> =>
     (await call<{ data: string }>("read_data", { url })).data,
   writeText: (url: string, text: string): Promise<void> =>
@@ -152,39 +155,76 @@ export async function newDocumentPath(
   }
 }
 
-const LAST_DOCUMENT_KEY = "levis-ios-last-document";
+const RECENT_DOCUMENTS_KEY = "levis-ios-recent-documents";
+const RECENT_LIMIT = 8;
 /** Prefix for a path stored relative to Documents: the app's container
  *  moves on every reinstall and App Store update, so an absolute path into
  *  it would be stale by the next version. */
 const IN_DOCUMENTS = "documents:";
 
-/**
- * The document that was open when the app last went away. iOS ends a
- * backgrounded app whenever it likes, and the desktop's per-window session
- * (session.rs) is not built there, so the phone reopens this instead.
- */
-export async function lastIOSDocument(): Promise<string | null> {
-  let stored: string | null;
+function readRecents(): string[] {
   try {
-    stored = localStorage.getItem(LAST_DOCUMENT_KEY);
+    const list: unknown = JSON.parse(
+      localStorage.getItem(RECENT_DOCUMENTS_KEY) ?? "[]",
+    );
+    return Array.isArray(list)
+      ? list.filter((p): p is string => typeof p === "string")
+      : [];
   } catch {
-    return null;
+    return [];
   }
-  if (!stored?.startsWith(IN_DOCUMENTS)) return stored;
-  return join(await documentDir(), stored.slice(IN_DOCUMENTS.length));
+}
+
+/**
+ * The documents opened most recently, newest first - File > Open Recent on
+ * the phone, and the first is what reopens at launch: iOS ends a
+ * backgrounded app whenever it likes, and the desktop's per-window session
+ * (session.rs) and recents list (menu.rs) are not built there.
+ */
+export async function recentIOSDocuments(): Promise<string[]> {
+  const docs = await documentDir();
+  return Promise.all(
+    readRecents().map((stored) =>
+      stored.startsWith(IN_DOCUMENTS)
+        ? join(docs, stored.slice(IN_DOCUMENTS.length))
+        : Promise.resolve(stored),
+    ),
+  );
+}
+
+export async function lastIOSDocument(): Promise<string | null> {
+  return (await recentIOSDocuments())[0] ?? null;
 }
 
 export async function rememberIOSDocument(path: string | null): Promise<void> {
-  // Only ever set, never cleared: the blank tab every launch starts with
-  // would otherwise wipe it before startup gets to read it.
+  // Only ever added to, never cleared: the blank tab every launch starts
+  // with would otherwise wipe it before startup gets to read it.
   if (!isIOSApp || !path) return;
   const docs = (await documentDir()).replace(/\/+$/, "") + "/";
   const stored = path.startsWith(docs)
     ? IN_DOCUMENTS + path.slice(docs.length)
     : path;
+  const list = [stored, ...readRecents().filter((p) => p !== stored)];
   try {
-    localStorage.setItem(LAST_DOCUMENT_KEY, stored);
+    localStorage.setItem(
+      RECENT_DOCUMENTS_KEY,
+      JSON.stringify(list.slice(0, RECENT_LIMIT)),
+    );
   } catch {
     // Storage unavailable: the next launch just starts blank.
+  }
+}
+
+/** Drops an entry that no longer opens (moved or deleted in Files). */
+export async function forgetIOSDocument(path: string): Promise<void> {
+  const resolved = await recentIOSDocuments();
+  const stored = readRecents();
+  try {
+    localStorage.setItem(
+      RECENT_DOCUMENTS_KEY,
+      JSON.stringify(stored.filter((_, i) => resolved[i] !== path)),
+    );
+  } catch {
+    // Nothing to do.
   }
 }

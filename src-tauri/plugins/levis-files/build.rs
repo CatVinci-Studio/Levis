@@ -9,6 +9,7 @@ const COMMANDS: &[&str] = &[
     "list_folder",
     "remembered",
     "begin_access",
+    "share",
 ];
 
 fn main() {

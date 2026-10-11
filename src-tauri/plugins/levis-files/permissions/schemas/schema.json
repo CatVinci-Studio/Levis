@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the pick_folder command without any pre-configured scope."
         },
         {
+          "description": "Enables the read_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-data",
+          "markdownDescription": "Enables the read_data command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-data",
+          "markdownDescription": "Denies the read_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the read_text command without any pre-configured scope.",
           "type": "string",
           "const": "allow-read-text",
@@ -367,6 +379,18 @@
           "markdownDescription": "Denies the remembered command without any pre-configured scope."
         },
         {
+          "description": "Enables the share command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-share",
+          "markdownDescription": "Enables the share command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the share command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-share",
+          "markdownDescription": "Denies the share command without any pre-configured scope."
+        },
+        {
           "description": "Enables the write_text command without any pre-configured scope.",
           "type": "string",
           "const": "allow-write-text",
@@ -379,10 +403,10 @@
           "markdownDescription": "Denies the write_text command without any pre-configured scope."
         },
         {
-          "description": "Everything Levis's iOS document access needs.\n#### This default permission set includes:\n\n- `allow-pick-document`\n- `allow-pick-folder`\n- `allow-read-text`\n- `allow-write-text`\n- `allow-list-folder`\n- `allow-remembered`\n- `allow-begin-access`",
+          "description": "Everything Levis's iOS document access needs.\n#### This default permission set includes:\n\n- `allow-pick-document`\n- `allow-pick-folder`\n- `allow-read-text`\n- `allow-read-data`\n- `allow-write-text`\n- `allow-list-folder`\n- `allow-remembered`\n- `allow-begin-access`\n- `allow-share`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Everything Levis's iOS document access needs.\n#### This default permission set includes:\n\n- `allow-pick-document`\n- `allow-pick-folder`\n- `allow-read-text`\n- `allow-write-text`\n- `allow-list-folder`\n- `allow-remembered`\n- `allow-begin-access`"
+          "markdownDescription": "Everything Levis's iOS document access needs.\n#### This default permission set includes:\n\n- `allow-pick-document`\n- `allow-pick-folder`\n- `allow-read-text`\n- `allow-read-data`\n- `allow-write-text`\n- `allow-list-folder`\n- `allow-remembered`\n- `allow-begin-access`\n- `allow-share`"
         }
       ]
     }
