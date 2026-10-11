@@ -55,6 +55,7 @@ mod ios {
         list_folder => "listFolder",
         remembered => "remembered",
         begin_access => "beginAccess",
+        share => "share",
     }
 
     pub fn init<R: Runtime>() -> TauriPlugin<R> {
@@ -67,7 +68,8 @@ mod ios {
                 write_text,
                 list_folder,
                 remembered,
-                begin_access
+                begin_access,
+                share
             ])
             .setup(|app, api| {
                 let handle = api.register_ios_plugin(init_plugin_levis_files)?;

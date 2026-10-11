@@ -50,7 +50,11 @@ export type NativeMenuId =
   | `recent:${string}`
   | `export-pandoc:${string}`
   | `insert-block:${string}`
-  | `help-doc:${string}`;
+  | `help-doc:${string}`
+  // The phone menu's own (buildMobileMenu): emitted by emitMenuEvent, with
+  // no menu.rs counterpart.
+  | "share"
+  | `open-path:${string}`;
 
 /**
  * The handful of items with no native id to send.
@@ -310,13 +314,25 @@ export function buildAppMenu(
  * PDF or pandoc, zoom (pinch), split view (no room for two panes). Undo and
  * the clipboard are the system's edit menu and the keyboard's own keys.
  */
-export function buildMobileMenu(t: Strings): MenuNode[] {
+export function buildMobileMenu(t: Strings, recents: string[]): MenuNode[] {
+  const recent: MenuNode[] = recents.slice(0, 5).map((path) => ({
+    label: basename(path) || path,
+    action: { native: `open-path:${path}` },
+  }));
   return [
     { label: t.menuNewFile, action: { native: "new-file" } },
     { label: t.menuOpenFile, action: { native: "open-file" } },
     { label: t.menuSave, action: { native: "save-file" } },
+    { label: t.menuShare, action: { native: "share" } },
     { label: t.menuFindReplace, action: { native: "find-replace" } },
     "separator",
+    ...(recent.length > 0
+      ? [
+          { label: t.menuOpenRecent, disabled: true },
+          ...recent,
+          "separator" as const,
+        ]
+      : []),
     { label: t.menuToggleSidebar, action: { native: "toggle-sidebar" } },
     { label: t.menuToggleSourceMode, action: { native: "toggle-source-mode" } },
     {

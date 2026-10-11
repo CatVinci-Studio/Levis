@@ -29,6 +29,8 @@ import {
   isIOSApp,
 } from "./platform/capabilities";
 import {
+  forgetIOSDocument,
+  iosFiles,
   rememberIOSDocument,
   useIOSDocumentsFolder,
 } from "./platform/ios-files";
@@ -731,6 +733,25 @@ function App() {
   // Menu events from Rust (menu.rs's dispatch) - every File/View/Format/Help
   // action the frontend owns arrives here as a window event; see
   // menu-bridge.ts for the actual subscriptions.
+  // iPhone menu > Open Recent. An entry that no longer opens (moved or
+  // deleted in Files) drops out of the list.
+  const openRecent = useCallback(
+    (path: string) => openFile(path).catch(() => forgetIOSDocument(path)),
+    [openFile],
+  );
+
+  // iPhone menu > Share: the share sheet needs a file, so an unsaved or
+  // never-saved document is saved first (into Documents, if it is new).
+  const shareActiveTab = useCallback(async () => {
+    const tab = liveTabs().find((tb) => tb.id === activeTabId);
+    if (!tab) return;
+    if ((!tab.path || tabIsDirty(tab)) && !(await saveTab(tab.id))) return;
+    // A first save lands in `tabs` on the next render.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const path = tabsRef.current.find((tb) => tb.id === tab.id)?.path;
+    if (path) await iosFiles.share(path).catch(() => {});
+  }, [activeTabId, liveTabs, saveTab]);
+
   useMenuBridge({
     activeTabId,
     liveTabs,
@@ -750,6 +771,8 @@ function App() {
     requestCloseTab,
     openHelpTab,
     startWelcomeTutorial,
+    openRecent,
+    shareActiveTab,
   });
 
   /** Deletes this window's draft snapshots before the window is destroyed.

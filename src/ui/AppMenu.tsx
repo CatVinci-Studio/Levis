@@ -11,6 +11,7 @@ import {
   type MenuNode,
 } from "./app-menu-model";
 import { hasAppMenu } from "../platform/capabilities";
+import { recentIOSDocuments } from "../platform/ios-files";
 import { ChevronIcon } from "./icons";
 import "./app-menu.css";
 
@@ -49,8 +50,14 @@ export function AppMenu({ x, y, onClose }: AppMenuProps) {
   // list holds NOW (including a file opened since the menu was last up), and
   // nothing about it changes while the menu is on screen.
   useEffect(() => {
-    if (!hasAppMenu) return;
     let alive = true;
+    if (!hasAppMenu) {
+      // iPhone: the app keeps its own list (platform/ios-files.ts).
+      void recentIOSDocuments().then((list) => alive && setRecents(list));
+      return () => {
+        alive = false;
+      };
+    }
     void menuIpc
       .listRecentFiles()
       .then((list) => {
@@ -72,7 +79,7 @@ export function AppMenu({ x, y, onClose }: AppMenuProps) {
         items={
           hasAppMenu
             ? buildAppMenu(t, settings.shortcuts, recents)
-            : buildMobileMenu(t)
+            : buildMobileMenu(t, recents)
         }
         onDismiss={onClose}
         autoFocus

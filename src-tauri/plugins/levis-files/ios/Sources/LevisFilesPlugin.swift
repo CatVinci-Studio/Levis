@@ -19,6 +19,11 @@ struct WriteArgs: Decodable {
   let text: String
 }
 
+struct ShareArgs: Decodable {
+  /// A plain path in the app's container or a picked file's URL.
+  let path: String
+}
+
 struct PickArgs: Decodable {
   var allowedExtensions: [String]?
 }
@@ -164,6 +169,52 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
       invoke.resolve(["data": data.base64EncodedString()])
     } catch {
       invoke.reject(error.localizedDescription)
+    }
+  }
+
+  /// The system share sheet (AirDrop, Mail, Messages, Save to Files...) for
+  /// a document. It gets a copy in the temporary folder, not the file
+  /// itself: a picked file's security scope would have to stay open for as
+  /// long as the sheet and whatever app receives it take to read it.
+  @objc public func share(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(ShareArgs.self)
+    let source = args.path.hasPrefix("file://")
+      ? URL(string: args.path) : URL(fileURLWithPath: args.path)
+    guard let source = source else { return invoke.reject("Invalid path") }
+    let folder = FileManager.default.temporaryDirectory
+      .appendingPathComponent("share-\(UUID().uuidString)", isDirectory: true)
+    let copy = folder.appendingPathComponent(source.lastPathComponent)
+    do {
+      let data: Data = try withAccess(to: source) {
+        var result: Result<Data, Error> = .failure(CocoaError(.fileReadUnknown))
+        var coordError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: source, options: [], error: &coordError) { u in
+          result = Result { try Data(contentsOf: u) }
+        }
+        if let coordError = coordError { throw coordError }
+        return try result.get()
+      }
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      try data.write(to: copy)
+    } catch {
+      return invoke.reject(error.localizedDescription)
+    }
+    DispatchQueue.main.async {
+      guard let host = self.manager.viewController else {
+        return invoke.reject("No view to present from")
+      }
+      let sheet = UIActivityViewController(activityItems: [copy], applicationActivities: nil)
+      // iPad shows the sheet as a popover, which needs an anchor: the top
+      // edge, under the title row's menu button.
+      if let popover = sheet.popoverPresentationController {
+        popover.sourceView = host.view
+        popover.sourceRect = CGRect(x: 24, y: host.view.safeAreaInsets.top + 44, width: 1, height: 1)
+      }
+      sheet.completionWithItemsHandler = { _, completed, _, _ in
+        try? FileManager.default.removeItem(at: folder)
+        invoke.resolve(["completed": completed])
+      }
+      host.present(sheet, animated: true)
     }
   }
 
