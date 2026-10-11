@@ -22,7 +22,11 @@ import { AppMenuButton, WindowCaptionButtons } from "./ui/WindowControls";
 import { installClipboardCapture } from "./utils/clipboard-history";
 import { EditorPane } from "./editor/EditorPane";
 import { flushEditor } from "./editor/editor-flush";
-import { isMacPlatform } from "./utils/platform";
+import {
+  canDragTabsBetweenWindows,
+  canToggleFullscreen,
+  canUseWindows,
+} from "./platform/capabilities";
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
@@ -168,6 +172,7 @@ function App() {
   // The OS title names the document too: it is what the taskbar, Alt+Tab
   // and window lists show, where every window read "Levis" before.
   useEffect(() => {
+    if (!canUseWindows) return;
     void getCurrentWindow()
       .setTitle(`${activeTitle} - Levis`)
       .catch(() => {});
@@ -180,6 +185,7 @@ function App() {
   // content edits don't spam the round trip.
   const sessionPathsKey = tabs.map((tab) => tab.path ?? "").join("\n");
   useEffect(() => {
+    if (!canUseWindows) return;
     const paths = tabs
       .filter((tab) => tab.path)
       .map((tab) => tab.path as string);
@@ -517,7 +523,7 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("zen", zenMode);
     window.dispatchEvent(new CustomEvent(ZEN_MODE_EVENT, { detail: zenMode }));
-    if (!zenMode) return;
+    if (!zenMode || !canToggleFullscreen) return;
     const win = getCurrentWindow();
     // Leaving zen may come before isFullscreen() answers: then fullscreen
     // is never entered, rather than entered after the restore already ran.
@@ -578,6 +584,8 @@ function App() {
       setTabs((prev) => {
         const next = prev.filter((tb) => tb.id !== id);
         if (next.length === 0) {
+          // No window to close on iOS: the last tab simply stays.
+          if (!canUseWindows) return prev;
           // Closing the last tab destroys the window, so useDraftAutosave's
           // cleanup effect (which clears a departed tab's snapshot) never gets
           // another run - without the explicit clear here, a dirty tab closed
@@ -956,7 +964,7 @@ function App() {
               // Tear-off needs global cursor and window positions - macOS
               // only (tab_drag.rs); on Linux, and above all under Wayland,
               // the drag could only fail and cancel the reorder with it.
-              onDetach={isMacPlatform() ? handleTabDetach : undefined}
+              onDetach={canDragTabsBetweenWindows ? handleTabDetach : undefined}
               onReorder={reorderTab}
               previewTab={dragHoverPreview}
             />

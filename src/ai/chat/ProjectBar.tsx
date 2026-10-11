@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ai, exportDoc, type AgentWorkspaceInfo } from "../../ipc";
+import {
+  canPickFolder,
+  canRevealInFileManager,
+} from "../../platform/capabilities";
 import { useSettings } from "../../settings/SettingsContext";
 import { useActiveProvider } from "../provider-catalog";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
@@ -189,9 +193,11 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
         )}
         {menuOpen && (
           <div className="project-bar-menu floating-surface" role="menu">
-            <button role="menuitem" onClick={pickFolder}>
-              {t.projectPickFolder}
-            </button>
+            {canPickFolder && (
+              <button role="menuitem" onClick={pickFolder}>
+                {t.projectPickFolder}
+              </button>
+            )}
             {workspaceRoot && (
               <button
                 role="menuitem"
@@ -203,16 +209,20 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
                 {t.projectUseDocFolder}
               </button>
             )}
-            <button
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                void exportDoc.revealInDir(root);
-              }}
-            >
-              {t.projectReveal}
-            </button>
-            <div className="project-bar-menu-sep" />
+            {canRevealInFileManager && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void exportDoc.revealInDir(root);
+                }}
+              >
+                {t.projectReveal}
+              </button>
+            )}
+            {(canPickFolder || !!workspaceRoot || canRevealInFileManager) && (
+              <div className="project-bar-menu-sep" />
+            )}
             <button role="menuitem" onClick={learnStyle}>
               {t.projectLearnStyle}
             </button>

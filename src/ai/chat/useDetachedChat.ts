@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { windowIpc } from "../../ipc";
+import { canDetachChat } from "../../platform/capabilities";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
 import { useLatest } from "../../utils/useLatest";
 import type { AgentTurn, EditProposal } from "../types";
@@ -81,6 +82,8 @@ let watchers = 0;
 let stopWatching: (() => void) | null = null;
 
 function watchChatWindows(): () => void {
+  // No chat windows to watch where the chat cannot be detached (iOS).
+  if (!canDetachChat) return () => {};
   if (watchers++ === 0) {
     const onFocus = () => void refreshChatLabel();
     window.addEventListener("focus", onFocus);

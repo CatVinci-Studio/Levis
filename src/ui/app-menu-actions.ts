@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { EDIT_ACTION_EVENT } from "../utils/events";
 import type { LocalMenuAction } from "./app-menu-model";
+import { canToggleFullscreen } from "../platform/capabilities";
 
 /**
  * The app-drawn menu's items that never had a native id to send.
@@ -15,6 +16,7 @@ import type { LocalMenuAction } from "./app-menu-model";
  */
 export function runLocalMenuAction(action: LocalMenuAction): void {
   if (action === "fullscreen") {
+    if (!canToggleFullscreen) return;
     void (async () => {
       const win = getCurrentWindow();
       await win.setFullscreen(!(await win.isFullscreen()));

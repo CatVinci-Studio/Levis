@@ -54,6 +54,7 @@ import {
 } from "../ai/doc-markdown";
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
+import { canDetachChat } from "../platform/capabilities";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
 import { InsertTableDialog } from "./InsertTableDialog";
@@ -1158,7 +1159,7 @@ export function MilkdownEditor({
     }
     quickConversation.reset();
     inlineChat.close();
-    if (settings.agentExpandToWindow) {
+    if (settings.agentExpandToWindow && canDetachChat) {
       // After the restore has rendered, so the window gets the new turns.
       requestAnimationFrame(() => handleDetachChat());
       return;
@@ -1319,7 +1320,7 @@ export function MilkdownEditor({
               close: t.chatClose,
             }}
             onNewConversation={startPanelConversation}
-            onPopOut={popOutPanel}
+            onPopOut={canDetachChat ? popOutPanel : undefined}
             onClose={() => agentPanel.setOpen(false)}
             headerExtra={<ProjectBar docPath={filePath} />}
           >

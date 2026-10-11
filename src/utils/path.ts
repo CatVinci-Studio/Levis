@@ -6,7 +6,15 @@
 
 export function basename(path: string): string {
   const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx >= 0 ? path.slice(idx + 1) : path;
+  const name = idx >= 0 ? path.slice(idx + 1) : path;
+  // A document picked on iOS is a file:// URL - "My%20Notes.md" on disk
+  // is "My Notes.md".
+  if (!path.startsWith("file://")) return name;
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
 }
 
 // The folder part of a path: "/" for a root-level "/name" (returning the

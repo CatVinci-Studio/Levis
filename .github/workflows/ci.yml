@@ -64,6 +64,35 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
+  # iOS: proves the shared code and the #[cfg(desktop)] gating compile for
+  # the iOS simulator (docs/IOS-CODE-MAP.md). No secrets and no signing: the
+  # Xcode project is generated fresh (gen/apple is not committed) and the
+  # simulator build is unsigned (--no-sign). Deliberately NOT a dependency of
+  # the required "rust" check below while the iOS port is young.
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          key: ios
+      - name: Install XcodeGen (used by tauri ios init)
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - run: npm ci
+      - run: npm run build
+      - name: Generate the Xcode project (src-tauri/gen/apple)
+        run: npx tauri ios init --ci
+      - name: Build for the iOS simulator, unsigned
+        run: npx tauri ios build --ci --debug --target aarch64-sim --no-sign
+
   # Preserve the required "rust" check used by branch protection. It passes
   # only when every platform passes, including when one job fails or skips.
   rust:

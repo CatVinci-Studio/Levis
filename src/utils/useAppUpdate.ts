@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { selfUpdateAllowed } from "./distribution";
+import { canAutoUpdate } from "../platform/capabilities";
 
 export type UpdateStatus = "idle" | "available" | "downloading" | "error";
 
@@ -26,6 +27,8 @@ export function useAppUpdate() {
   const [selfUpdate, setSelfUpdate] = useState(true);
 
   useEffect(() => {
+    // iOS updates come from the App Store; the updater isn't built there.
+    if (!canAutoUpdate) return;
     let cancelled = false;
     void selfUpdateAllowed().then((allowed) => {
       if (!cancelled) setSelfUpdate(allowed);
@@ -55,7 +58,7 @@ export function useAppUpdate() {
   }, []);
 
   async function install() {
-    if (!update || !(await selfUpdateAllowed())) return;
+    if (!canAutoUpdate || !update || !(await selfUpdateAllowed())) return;
     setStatus("downloading");
     try {
       await update.downloadAndInstall();

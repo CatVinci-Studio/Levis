@@ -238,6 +238,8 @@ pub async fn load_agent_workspace(
 }
 
 /// Folder picker behind Settings > Agent's "switch workspace" button.
+/// Desktop only: the dialog plugin has no folder picker on iOS.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn pick_workspace_root(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
     let picked = tauri::async_runtime::spawn_blocking(move || {
@@ -260,7 +262,9 @@ pub async fn pick_workspace_root(window: tauri::WebviewWindow) -> Result<Option<
 
 /// Creates the global agent directory (with a starter agent.md and skills/
 /// folder on first use) and reveals it in the file manager - the Settings
-/// "open folder" button.
+/// "open folder" button. Desktop only: iOS has no file manager to reveal a
+/// folder in (the opener plugin only opens URLs there).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn open_global_agent_dir(app: AppHandle, lang: Option<String>) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;

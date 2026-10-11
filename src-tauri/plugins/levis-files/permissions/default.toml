@@ -1,0 +1,14 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Everything Levis's iOS document access needs."
+permissions = [
+  "allow-pick-document",
+  "allow-pick-folder",
+  "allow-read-text",
+  "allow-write-text",
+  "allow-list-folder",
+  "allow-remembered",
+  "allow-forget",
+  "allow-begin-access",
+]

@@ -5,6 +5,7 @@ import { basename, dirname } from "./utils/path";
 import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
 import { isMacPlatform, isWindowsPlatform } from "./utils/platform";
+import { canExportPdf, canExportWithPandoc } from "./platform/capabilities";
 import {
   MAC_PAGE,
   WINDOWS_PAGE,
@@ -295,6 +296,7 @@ async function settleRender(editor: Element): Promise<void> {
 // File > Export as PDF. Requires the WYSIWYG view (source mode has no themed
 // DOM) and exports the active tab as-is - unsaved edits included.
 export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
+  if (!canExportPdf) return;
   const editor = document.querySelector('[data-active-tab="true"] .milkdown');
   if (!editor) {
     await showMessage(t.exportNeedsWysiwyg, { title: t.exportFailedTitle });
@@ -360,7 +362,7 @@ export async function exportViaPandoc(
   t: Strings,
 ): Promise<void> {
   const info = PANDOC_FORMATS[format];
-  if (!info) return;
+  if (!info || !canExportWithPandoc) return;
   const pandoc = await exportDoc.detectPandoc();
   if (!pandoc) {
     // Typora's model: guide the user to install pandoc rather than

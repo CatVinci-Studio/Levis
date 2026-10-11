@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-begin-access"
+description = "Enables the begin_access command without any pre-configured scope."
+commands.allow = ["begin_access"]
+
+[[permission]]
+identifier = "deny-begin-access"
+description = "Denies the begin_access command without any pre-configured scope."
+commands.deny = ["begin_access"]

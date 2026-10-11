@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isInside, parentDir } from "./path";
+import { basename, isInside, parentDir } from "./path";
 
 describe("parentDir", () => {
   it("steps up on POSIX and Windows paths", () => {
@@ -23,5 +23,14 @@ describe("isInside", () => {
     expect(isInside("C:\\a\\c.md", "C:\\")).toBe(true);
     expect(isInside("/ab/c.md", "/a")).toBe(false);
     expect(isInside("/a", "/a")).toBe(false);
+  });
+});
+
+describe("basename of an iOS document URL", () => {
+  it("decodes the file name", () => {
+    expect(basename("file:///private/var/mobile/My%20Notes.md")).toBe(
+      "My Notes.md",
+    );
+    expect(basename("/home/me/100%25.md")).toBe("100%25.md");
   });
 });

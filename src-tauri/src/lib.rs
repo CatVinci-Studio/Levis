@@ -2,6 +2,13 @@
 //! (state, plugins, command registration). The menu bar lives in menu.rs;
 //! tabs dragged between windows in tab_drag.rs; everything invoked by the
 //! frontend beyond that in commands/, ai/ and auth/.
+//!
+//! The same crate builds the desktop app and the iOS app. Everything about
+//! OS windows - the menu bar, more than one window, window chrome, single
+//! instance, tabs dragged between windows, the detached chat, the updater,
+//! session restore, argv - exists on desktop only and is gated with
+//! `#[cfg(desktop)]` (tauri-build sets `desktop` / `mobile` per target).
+//! Ungated code is shared. docs/IOS-CODE-MAP.md has the map.
 
 mod ai;
 mod app_identity;
@@ -9,7 +16,9 @@ mod atomic;
 mod auth;
 mod commands;
 mod distribution;
+#[cfg(desktop)]
 mod menu;
+#[cfg(desktop)]
 mod tab_drag;
 
 use ai::agent::ai_agent_message;
@@ -23,34 +32,46 @@ use auth::custom_endpoint::{
 use auth::keys::{clear_provider_api_key, provider_api_key_status, set_provider_api_key};
 use auth::openai_codex::{codex_auth_status, codex_login, codex_logout};
 use commands::attachment::pick_attachment_file;
-use commands::cli::{cli_command_status, install_cli_command};
 use commands::drafts::{
     clear_all_drafts, clear_draft_snapshot, save_draft_snapshot, take_draft_snapshots,
 };
-use commands::export::{
-    detect_pandoc, export_pdf_native, export_save_dialog, export_via_pandoc,
-    open_pandoc_install_page, reveal_in_dir,
-};
+use commands::export::export_save_dialog;
 use commands::fs::{
     file_mtime_ms, list_dir, migrate_draft_images, open_css_file_dialog, open_file_dialog,
     read_binary_file_base64, read_text_file, save_file_dialog, save_pasted_image, write_text_file,
 };
 use commands::image_host::upload_image;
-use commands::prefs::{set_new_document_mode, set_restore_session_on_startup};
-use commands::session::{cancel_session_quit, update_session_paths, SessionTabsState};
 use commands::themes::{delete_theme, load_theme_css, save_theme_css};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use tauri::{Emitter, EventTarget, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, State};
 
+#[cfg(desktop)]
+use commands::cli::{cli_command_status, install_cli_command};
+#[cfg(desktop)]
+use commands::export::{
+    detect_pandoc, export_pdf_native, export_via_pandoc, open_pandoc_install_page, reveal_in_dir,
+};
+#[cfg(desktop)]
+use commands::prefs::{set_new_document_mode, set_restore_session_on_startup};
+#[cfg(desktop)]
+use commands::session::{cancel_session_quit, update_session_paths, SessionTabsState};
+#[cfg(desktop)]
+use std::collections::HashMap;
+#[cfg(desktop)]
+use std::sync::atomic::AtomicU32;
+#[cfg(desktop)]
 use tab_drag::{DragTrackers, PendingDetachedTabs};
+#[cfg(desktop)]
+use tauri::{EventTarget, WebviewUrl, WebviewWindowBuilder};
 
 /// Each new window is a fresh, independent instance of the whole SPA (its
 /// own React tree, own in-memory document state) - just like opening a new
 /// browser tab to the same URL. Labels only need to be unique per window.
+#[cfg(desktop)]
 static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
 
+#[cfg(desktop)]
 pub(crate) fn next_window_id() -> u32 {
     WINDOW_COUNTER.fetch_add(1, Ordering::Relaxed)
 }
@@ -73,8 +94,10 @@ static UI_READY: AtomicBool = AtomicBool::new(false);
 /// reasoning as PendingOpenPaths (an emit would fire before the new webview
 /// mounts its listeners). The docs themselves are bundled in the frontend
 /// (src/help/), so the doc id is all Rust needs to carry.
+#[cfg(desktop)]
 pub(crate) static PENDING_SHOW_HELP: Mutex<Option<String>> = Mutex::new(None);
 
+#[cfg(desktop)]
 #[tauri::command]
 fn take_pending_show_help() -> Option<String> {
     PENDING_SHOW_HELP.lock().unwrap().take()
@@ -111,6 +134,7 @@ fn queue_pending(app: &tauri::AppHandle, paths: Vec<String>) {
         .extend(paths);
 }
 
+#[cfg(desktop)]
 pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     if paths.is_empty() {
         return;
@@ -166,6 +190,21 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
     }
 }
 
+/// iOS: one webview, no windows to open. Before it has mounted, the paths are
+/// parked for it to drain (take_pending_open_path(s)); after, they are handed
+/// straight over as tabs - the same event desktop's tab mode uses.
+#[cfg(mobile)]
+pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    if UI_READY.load(Ordering::Relaxed) {
+        let _ = app.emit("open-paths-as-tabs", paths);
+    } else {
+        queue_pending(app, paths);
+    }
+}
+
 /// Places a window, gives it this app's chrome, and builds it. Shared by
 /// editor windows and the detached chat window so the platform cfgs live in
 /// exactly one place - the two used to carry byte-identical copies of them.
@@ -193,6 +232,7 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
 /// declares; `decorations: false` is set for it in tauri.windows.conf.json
 /// and tauri.linux.conf.json, which Tauri merges over the base config on
 /// those targets only.
+#[cfg(desktop)]
 pub(crate) fn build_with_app_chrome(
     builder: WebviewWindowBuilder<'_, tauri::Wry, tauri::AppHandle>,
     position: Option<(f64, f64)>,
@@ -258,6 +298,7 @@ fn detect_wayland() {
 /// only activates the accelerator of a menu item that is drawable, so on
 /// Linux a hidden bar's accelerators are dead, and the frontend handles
 /// those keys itself (`ownsMenuAccelerators` in window-chrome.ts).
+#[cfg(desktop)]
 pub(crate) fn hide_native_menu_bar(window: &tauri::WebviewWindow) {
     #[cfg(any(windows, target_os = "linux"))]
     let _ = window.hide_menu();
@@ -265,6 +306,7 @@ pub(crate) fn hide_native_menu_bar(window: &tauri::WebviewWindow) {
     let _ = window;
 }
 
+#[cfg(desktop)]
 pub(crate) fn build_window(
     app: &tauri::AppHandle,
     label: &str,
@@ -282,8 +324,10 @@ pub(crate) fn build_window(
 /// Below this the app-drawn window bar's menu button, centred title and
 /// caption buttons run into each other. Keep in step with the minWidth/
 /// minHeight of the config window in tauri*.conf.json.
+#[cfg(desktop)]
 const EDITOR_MIN_SIZE: (f64, f64) = (480.0, 320.0);
 
+#[cfg(desktop)]
 pub(crate) fn open_new_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     build_window(app, &format!("window-{}", next_window_id()), None)
 }
@@ -294,6 +338,7 @@ pub(crate) fn open_new_window(app: &tauri::AppHandle) -> tauri::Result<()> {
 /// over by single-instance, is not this process's own - while everything
 /// downstream (tabs, recents, session) wants it absolute. Desktop launchers
 /// already pass absolute paths, which `join` leaves as they are.
+#[cfg(desktop)]
 fn paths_from_argv(args: impl IntoIterator<Item = String>, cwd: &std::path::Path) -> Vec<String> {
     args.into_iter()
         .skip(1)
@@ -302,34 +347,16 @@ fn paths_from_argv(args: impl IntoIterator<Item = String>, cwd: &std::path::Path
         .collect()
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    let builder = tauri::Builder::default();
-    // Windows and Linux start a whole new process for every file opened
-    // from the file manager - its own windows, settings and session file,
-    // so "open in a tab" couldn't work and two processes wrote the same
-    // session. Must be the first plugin: a second launch hands its argv to
-    // the running instance here and exits before setting anything else up.
-    // (macOS routes later opens to the running app itself; see
-    // RunEvent::Opened below.) Release builds only, so a dev build can run
-    // next to an installed Levis instead of forwarding to it.
-    #[cfg(all(any(windows, target_os = "linux"), not(debug_assertions)))]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-        let paths = paths_from_argv(argv, std::path::Path::new(&cwd));
-        if paths.is_empty() {
-            // Launched again from the app menu or dock: a fresh window,
-            // as a second process used to give.
-            let _ = open_new_window(app);
-        } else {
-            queue_paths_to_open(app, paths);
-        }
-    }));
+/// Everything the builder needs on desktop only: the updater and process
+/// plugins, the window/tab/session state, window-lifecycle bookkeeping, and
+/// a startup that handles argv, session restore, the CLI shim and the menu
+/// bar. iOS has none of these - one webview, no menu, no argv, App Store
+/// updates.
+#[cfg(desktop)]
+fn desktop_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .manage(PendingOpenPaths(Mutex::new(Vec::new())))
         .manage(PendingDetachedTabs(Mutex::new(HashMap::new())))
         .manage(DragTrackers::default())
         .manage(SessionTabsState(Mutex::new(HashMap::new())))
@@ -423,25 +450,48 @@ pub fn run() {
 
             Ok(())
         })
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let builder = tauri::Builder::default();
+    // Windows and Linux start a whole new process for every file opened
+    // from the file manager - its own windows, settings and session file,
+    // so "open in a tab" couldn't work and two processes wrote the same
+    // session. Must be the first plugin: a second launch hands its argv to
+    // the running instance here and exits before setting anything else up.
+    // (macOS routes later opens to the running app itself; see
+    // RunEvent::Opened below.) Release builds only, so a dev build can run
+    // next to an installed Levis instead of forwarding to it.
+    #[cfg(all(any(windows, target_os = "linux"), not(debug_assertions)))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+        let paths = paths_from_argv(argv, std::path::Path::new(&cwd));
+        if paths.is_empty() {
+            // Launched again from the app menu or dock: a fresh window,
+            // as a second process used to give.
+            let _ = open_new_window(app);
+        } else {
+            queue_paths_to_open(app, paths);
+        }
+    }));
+    let builder = builder
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(PendingOpenPaths(Mutex::new(Vec::new())));
+    // Document access outside the app's own folder (plugins/levis-files).
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(tauri_plugin_levis_files::init());
+    #[cfg(desktop)]
+    let builder = desktop_builder(builder);
+    builder
+        // One handler list for both targets. Desktop-only commands carry
+        // #[cfg(desktop)] and are simply not registered on iOS - the
+        // frontend never calls them there (src/platform/capabilities.ts and
+        // the desktop-only wrappers in src/ipc.ts).
         .invoke_handler(tauri::generate_handler![
+            // Shared: desktop and iOS.
             take_pending_open_path,
             take_pending_open_paths,
-            take_pending_show_help,
-            menu::trigger_menu_item,
-            menu::list_recent_files,
-            tab_drag::take_detached_tab,
-            commands::chat_window::detach_chat_window,
-            commands::chat_window::take_chat_handoff,
-            commands::chat_window::close_chat_window,
-            commands::chat_window::focus_chat_window,
-            commands::chat_window::current_chat_window,
-            tab_drag::list_window_bounds,
-            tab_drag::start_window_drag_tracking,
-            tab_drag::start_floating_tab_drag,
-            set_new_document_mode,
-            set_restore_session_on_startup,
-            update_session_paths,
-            cancel_session_quit,
             commands::recents::add_recent_file,
             open_file_dialog,
             open_css_file_dialog,
@@ -471,8 +521,6 @@ pub fn run() {
             set_ai_proxy,
             crate::ai::catalog::list_providers,
             crate::ai::workspace::load_agent_workspace,
-            crate::ai::workspace::pick_workspace_root,
-            crate::ai::workspace::open_global_agent_dir,
             crate::ai::workspace::ensure_global_agent_md,
             crate::ai::workspace::import_agent_skill,
             crate::ai::project::list_project_files,
@@ -489,28 +537,85 @@ pub fn run() {
             clear_custom_endpoint,
             fetch_custom_models,
             test_custom_endpoint,
-            cli_command_status,
-            install_cli_command,
-            detect_pandoc,
-            export_via_pandoc,
             export_save_dialog,
-            export_pdf_native,
-            open_pandoc_install_page,
-            reveal_in_dir,
             save_draft_snapshot,
             take_draft_snapshots,
             clear_draft_snapshot,
             clear_all_drafts,
-            distribution::app_distribution
+            distribution::app_distribution,
+            // Desktop only: menus, windows, tab drag, detached chat, session
+            // restore, the window-mode prefs mirror, the terminal command,
+            // pandoc/PDF export, folder pickers and file-manager reveals.
+            #[cfg(desktop)]
+            take_pending_show_help,
+            #[cfg(desktop)]
+            menu::trigger_menu_item,
+            #[cfg(desktop)]
+            menu::list_recent_files,
+            #[cfg(desktop)]
+            tab_drag::take_detached_tab,
+            #[cfg(desktop)]
+            tab_drag::list_window_bounds,
+            #[cfg(desktop)]
+            tab_drag::start_window_drag_tracking,
+            #[cfg(desktop)]
+            tab_drag::start_floating_tab_drag,
+            #[cfg(desktop)]
+            commands::chat_window::detach_chat_window,
+            #[cfg(desktop)]
+            commands::chat_window::take_chat_handoff,
+            #[cfg(desktop)]
+            commands::chat_window::close_chat_window,
+            #[cfg(desktop)]
+            commands::chat_window::focus_chat_window,
+            #[cfg(desktop)]
+            commands::chat_window::current_chat_window,
+            #[cfg(desktop)]
+            set_new_document_mode,
+            #[cfg(desktop)]
+            set_restore_session_on_startup,
+            #[cfg(desktop)]
+            update_session_paths,
+            #[cfg(desktop)]
+            cancel_session_quit,
+            #[cfg(desktop)]
+            crate::ai::workspace::pick_workspace_root,
+            #[cfg(desktop)]
+            crate::ai::workspace::open_global_agent_dir,
+            #[cfg(desktop)]
+            cli_command_status,
+            #[cfg(desktop)]
+            install_cli_command,
+            #[cfg(desktop)]
+            detect_pandoc,
+            #[cfg(desktop)]
+            export_via_pandoc,
+            #[cfg(desktop)]
+            export_pdf_native,
+            #[cfg(desktop)]
+            open_pandoc_install_page,
+            #[cfg(desktop)]
+            reveal_in_dir,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
             // Finder "Open With"/double-click on an associated .md lands
             // here as an Apple open-documents event (macOS never passes
-            // opened files via argv).
-            #[cfg(target_os = "macos")]
+            // opened files via argv). iOS delivers "Open in Levis" from the
+            // Files app the same way.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             if let tauri::RunEvent::Opened { urls } = event {
+                // iOS hands over a security-scoped URL: kept as a URL, it is
+                // read and written through plugins/levis-files, which opens
+                // its scope. A plain path would be unreadable there.
+                #[cfg(target_os = "ios")]
+                let paths: Vec<String> = urls
+                    .iter()
+                    .filter(|url| url.scheme() == "file")
+                    .map(|url| url.to_string())
+                    .collect();
+                #[cfg(not(target_os = "ios"))]
                 let paths: Vec<String> = urls
                     .iter()
                     .filter_map(|url| url.to_file_path().ok())
@@ -518,7 +623,7 @@ pub fn run() {
                     .collect();
                 queue_paths_to_open(app_handle, paths);
             }
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
             let _ = (app_handle, event);
         });
 }

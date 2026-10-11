@@ -14,6 +14,7 @@ import {
   type StringKey,
 } from "../i18n/strings";
 import { ai, prefs, themes } from "../ipc";
+import { canUseWindows } from "../platform/capabilities";
 import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
 import { adaptTyporaCss } from "./typora-compat";
 
@@ -407,11 +408,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Mirrors for Rust's window/session startup (prefs.rs) - desktop only.
   useEffect(() => {
+    if (!canUseWindows) return;
     void prefs.setNewDocumentMode(settings.newDocumentMode);
   }, [settings.newDocumentMode]);
 
   useEffect(() => {
+    if (!canUseWindows) return;
     void prefs.setRestoreSessionOnStartup(settings.restoreSessionOnStartup);
   }, [settings.restoreSessionOnStartup]);
 

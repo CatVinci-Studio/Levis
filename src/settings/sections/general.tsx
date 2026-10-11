@@ -6,6 +6,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import type { Strings } from "../../i18n/strings";
 import { cli } from "../../ipc";
 import { selfUpdateAllowed } from "../../utils/distribution";
+import { canAutoUpdate } from "../../platform/capabilities";
 
 // The General category's sections beyond plain settings rows.
 
@@ -26,7 +27,7 @@ export function UpdateSection({ t }: { t: Strings }) {
   const [selfUpdate, setSelfUpdate] = useState(true);
 
   useEffect(() => {
-    void selfUpdateAllowed().then(setSelfUpdate);
+    if (canAutoUpdate) void selfUpdateAllowed().then(setSelfUpdate);
     getVersion()
       .then(setVersion)
       .catch(() => setVersion(""));
@@ -84,25 +85,28 @@ export function UpdateSection({ t }: { t: Strings }) {
           </div>
         )}
       </div>
-      <div className="shortcut-row-controls">
-        {selfUpdate && (phase === "available" || phase === "downloading") ? (
-          <button
-            className="text-button settings-inline-button"
-            onClick={install}
-            disabled={phase === "downloading"}
-          >
-            {t.updateInstall}
-          </button>
-        ) : (
-          <button
-            className="text-button settings-inline-button"
-            onClick={checkNow}
-            disabled={phase === "checking"}
-          >
-            {phase === "checking" ? t.updateChecking : t.updateCheckButton}
-          </button>
-        )}
-      </div>
+      {/* No updater on iOS (App Store updates): the version alone. */}
+      {canAutoUpdate && (
+        <div className="shortcut-row-controls">
+          {selfUpdate && (phase === "available" || phase === "downloading") ? (
+            <button
+              className="text-button settings-inline-button"
+              onClick={install}
+              disabled={phase === "downloading"}
+            >
+              {t.updateInstall}
+            </button>
+          ) : (
+            <button
+              className="text-button settings-inline-button"
+              onClick={checkNow}
+              disabled={phase === "checking"}
+            >
+              {phase === "checking" ? t.updateChecking : t.updateCheckButton}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

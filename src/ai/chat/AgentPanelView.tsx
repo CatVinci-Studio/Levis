@@ -24,7 +24,9 @@ export function AgentPanelView({
 }: {
   labels: AgentPanelLabels;
   onNewConversation: () => void;
-  onPopOut: () => void;
+  /** Absent where the chat cannot be detached into its own window (iOS):
+   *  the button is not drawn. */
+  onPopOut?: () => void;
   onClose: () => void;
   /** A second header row (the project folder chip). */
   headerExtra?: ReactNode;
@@ -46,15 +48,17 @@ export function AgentPanelView({
           >
             <PlusIcon />
           </button>
-          <button
-            type="button"
-            className="inline-chat-header-button"
-            aria-label={labels.popOut}
-            title={labels.popOut}
-            onClick={onPopOut}
-          >
-            <DetachIcon />
-          </button>
+          {onPopOut && (
+            <button
+              type="button"
+              className="inline-chat-header-button"
+              aria-label={labels.popOut}
+              title={labels.popOut}
+              onClick={onPopOut}
+            >
+              <DetachIcon />
+            </button>
+          )}
           <button
             type="button"
             className="inline-chat-header-button"

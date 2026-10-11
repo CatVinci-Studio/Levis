@@ -24,3 +24,24 @@ export function isLinuxPlatform(): boolean {
     !/android/i.test(navigator.userAgent)
   );
 }
+
+/** iOS and iPadOS - the Tauri iOS app's WKWebView. An iPhone reports
+ *  "iPhone" as its platform. An iPad, though, gets the desktop-class
+ *  WebKit user agent by default and reports "MacIntel" like a real Mac; the
+ *  tell is the touch screen, which no Mac has (`maxTouchPoints` is 0 there,
+ *  5 on an iPad). */
+export function isIOSPlatform(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const platform = navigator.platform ?? "";
+  if (/^(iPhone|iPad|iPod)/.test(platform)) return true;
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return true;
+  return platform === "MacIntel" && (navigator.maxTouchPoints ?? 0) > 1;
+}
+
+/** A desktop build (macOS, Windows, Linux): everything that isn't the iOS
+ *  app (or an Android webview, which Levis doesn't ship but which must
+ *  never be mistaken for desktop Linux). The Rust side's `cfg(desktop)`. */
+export function isDesktop(): boolean {
+  if (typeof navigator === "undefined") return true;
+  return !isIOSPlatform() && !/android/i.test(navigator.userAgent);
+}

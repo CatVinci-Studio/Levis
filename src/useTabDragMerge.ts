@@ -17,6 +17,7 @@ import {
   type DocTab,
 } from "./doc-tabs";
 import { windowIpc, type WindowBounds } from "./ipc";
+import { canUseWindows } from "./platform/capabilities";
 
 // Everything about moving tabs BETWEEN windows lives here, both directions:
 //
@@ -145,6 +146,8 @@ export function useTabDragMerge(opts: {
   const windowDragRef = useRef<"idle" | "watching" | "handed-off">("idle");
 
   useEffect(() => {
+    // One window, never dragged, on iOS.
+    if (!canUseWindows) return;
     const win = getCurrentWindow();
 
     async function handleTick(x: number, y: number, down: boolean) {

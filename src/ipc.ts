@@ -10,6 +10,8 @@ import type {
   ImageAttachment,
 } from "./ai/types";
 import type { GrammarIssue } from "./ai/grammar-check-plugin";
+import { isDesktopApp, isIOSApp } from "./platform/capabilities";
+import { iosFiles, isScopedUrl } from "./platform/ios-files";
 
 /**
  * Thin, typed wrappers around every Tauri command the frontend calls -
@@ -48,6 +50,33 @@ async function call<T>(command: string, args?: object): Promise<T> {
   }
 }
 
+/**
+ * Commands that exist on desktop only - registered under `#[cfg(desktop)]`
+ * in src-tauri/src/lib.rs, so on iOS there is nothing to call.
+ *
+ * Call sites already avoid these on iOS through src/platform/capabilities.ts;
+ * this is the backstop that keeps a missed call site from reaching Rust.
+ * `desktopQuery` answers with what the command would report when there is
+ * nothing to report (no pending tab, no chat window, no windows) - safe for
+ * reads and fire-and-forget bookkeeping. `desktopAction` rejects, for calls
+ * whose caller needs to know nothing happened.
+ */
+function desktopQuery<T>(
+  command: string,
+  fallback: T,
+  args?: object,
+): Promise<T> {
+  return isDesktopApp ? call<T>(command, args) : Promise.resolve(fallback);
+}
+
+function desktopAction<T>(command: string, args?: object): Promise<T> {
+  return isDesktopApp
+    ? call<T>(command, args)
+    : Promise.reject(
+        new IpcError(command, new Error("not available on this platform")),
+      );
+}
+
 // ---------------------------------------------------------------------------
 // fs (src-tauri/src/commands/fs.rs)
 // ---------------------------------------------------------------------------
@@ -64,13 +93,30 @@ export interface ImageMigration {
 }
 
 export const fs = {
-  openFileDialog: () => call<string | null>("open_file_dialog"),
+  // On iOS a picked document is a file:// URL read and written through the
+  // native plugin (platform/ios-files.ts); sandbox paths and every desktop
+  // path go to Rust as before.
+  openFileDialog: (): Promise<string | null> =>
+    isIOSApp
+      ? iosFiles.pickDocument()
+      : call<string | null>("open_file_dialog"),
   openCssFileDialog: () => call<string | null>("open_css_file_dialog"),
   saveFileDialog: (defaultName: string) =>
     call<string | null>("save_file_dialog", { defaultName }),
-  listDir: (path: string) => call<DirEntryInfo[]>("list_dir", { path }),
-  fileMtimeMs: (path: string) => call<number | null>("file_mtime_ms", { path }),
-  readTextFile: (path: string) => call<string>("read_text_file", { path }),
+  listDir: (path: string): Promise<DirEntryInfo[]> =>
+    isScopedUrl(path)
+      ? iosFiles.listFolder(path)
+      : call<DirEntryInfo[]>("list_dir", { path }),
+  // No change watching for picked documents: the coordinator serialises
+  // our writes with iCloud's, and the app re-reads on open.
+  fileMtimeMs: (path: string): Promise<number | null> =>
+    isScopedUrl(path)
+      ? Promise.resolve(null)
+      : call<number | null>("file_mtime_ms", { path }),
+  readTextFile: (path: string): Promise<string> =>
+    isScopedUrl(path)
+      ? iosFiles.readText(path)
+      : call<string>("read_text_file", { path }),
   readBinaryFileBase64: (path: string) =>
     call<string>("read_binary_file_base64", { path }),
   savePastedImage: (docPath: string | null, dataBase64: string, ext: string) =>
@@ -91,8 +137,10 @@ export const fs = {
     }),
   migrateDraftImages: (docPath: string, srcs: string[]) =>
     call<ImageMigration[]>("migrate_draft_images", { docPath, srcs }),
-  writeTextFile: (path: string, contents: string) =>
-    call<void>("write_text_file", { path, contents }),
+  writeTextFile: (path: string, contents: string): Promise<void> =>
+    isScopedUrl(path)
+      ? iosFiles.writeText(path, contents)
+      : call<void>("write_text_file", { path, contents }),
 };
 
 // ---------------------------------------------------------------------------
@@ -101,8 +149,8 @@ export const fs = {
 
 export const session = {
   updateSessionPaths: (paths: string[]) =>
-    call<void>("update_session_paths", { paths }),
-  cancelQuit: () => call<void>("cancel_session_quit"),
+    desktopQuery<void>("update_session_paths", undefined, { paths }),
+  cancelQuit: () => desktopQuery<void>("cancel_session_quit", undefined),
   addRecentFile: (path: string) => call<void>("add_recent_file", { path }),
 };
 
@@ -113,9 +161,11 @@ export const session = {
 
 export const prefs = {
   setNewDocumentMode: (mode: string) =>
-    call<void>("set_new_document_mode", { mode }),
+    desktopQuery<void>("set_new_document_mode", undefined, { mode }),
   setRestoreSessionOnStartup: (enabled: boolean) =>
-    call<void>("set_restore_session_on_startup", { enabled }),
+    desktopQuery<void>("set_restore_session_on_startup", undefined, {
+      enabled,
+    }),
 };
 
 // ---------------------------------------------------------------------------
@@ -145,12 +195,16 @@ export interface WindowBounds {
 }
 
 export const windowIpc = {
-  takeDetachedTab: () => call<DetachedTabDoc | null>("take_detached_tab"),
-  listWindowBounds: () => call<WindowBounds[]>("list_window_bounds"),
+  takeDetachedTab: () =>
+    desktopQuery<DetachedTabDoc | null>("take_detached_tab", null),
+  listWindowBounds: () =>
+    desktopQuery<WindowBounds[]>("list_window_bounds", []),
   startFloatingTabDrag: (args: FloatingDragArgs) =>
-    call<void>("start_floating_tab_drag", args),
-  startWindowDragTracking: () => call<boolean>("start_window_drag_tracking"),
-  takePendingShowHelp: () => call<string | null>("take_pending_show_help"),
+    desktopAction<void>("start_floating_tab_drag", args),
+  startWindowDragTracking: () =>
+    desktopQuery<boolean>("start_window_drag_tracking", false),
+  takePendingShowHelp: () =>
+    desktopQuery<string | null>("take_pending_show_help", null),
   takePendingOpenPath: () => call<string | null>("take_pending_open_path"),
   takePendingOpenPaths: () => call<string[]>("take_pending_open_paths"),
   /** Pops the chat panel out into its own OS window; resolves to its label,
@@ -165,15 +219,17 @@ export const windowIpc = {
     position: [number, number] | null;
     title: string;
     pinned: boolean;
-  }) => call<string>("detach_chat_window", args),
-  takeChatHandoff: () => call<ChatHandoff | null>("take_chat_handoff"),
-  closeChatWindow: () => call<void>("close_chat_window"),
+  }) => desktopAction<string>("detach_chat_window", args),
+  takeChatHandoff: () =>
+    desktopQuery<ChatHandoff | null>("take_chat_handoff", null),
+  closeChatWindow: () => desktopQuery<void>("close_chat_window", undefined),
   /** Brings the chat window serving this editor to the front, handing it
    *  nothing; false when there is none. */
-  focusChatWindow: () => call<boolean>("focus_chat_window"),
+  focusChatWindow: () => desktopQuery<boolean>("focus_chat_window", false),
   /** The chat window serving THIS editor window, if any - re-read after a
    *  reload, or when Rust announces a chat window opened or closed. */
-  currentChatWindow: () => call<string | null>("current_chat_window"),
+  currentChatWindow: () =>
+    desktopQuery<string | null>("current_chat_window", null),
 };
 
 // ---------------------------------------------------------------------------
@@ -184,10 +240,11 @@ export const windowIpc = {
 export const menuIpc = {
   /** Runs a menu id exactly as clicking its native twin would. The ids come
    *  from ui/app-menu-model.ts and are defined in src-tauri/src/menu.rs. */
-  triggerMenuItem: (id: string) => call<void>("trigger_menu_item", { id }),
+  triggerMenuItem: (id: string) =>
+    desktopQuery<void>("trigger_menu_item", undefined, { id }),
   /** Backs File > Open Recent, whose native submenu the app-drawn menu
    *  cannot read. */
-  listRecentFiles: () => call<string[]>("list_recent_files"),
+  listRecentFiles: () => desktopQuery<string[]>("list_recent_files", []),
 };
 
 // ---------------------------------------------------------------------------
@@ -197,7 +254,7 @@ export const menuIpc = {
 export const exportDoc = {
   exportSaveDialog: (defaultName: string, filterName: string, ext: string) =>
     call<string | null>("export_save_dialog", { defaultName, filterName, ext }),
-  detectPandoc: () => call<string | null>("detect_pandoc"),
+  detectPandoc: () => desktopQuery<string | null>("detect_pandoc", null),
   exportViaPandoc: (args: {
     pandocPath: string;
     markdown: string;
@@ -205,9 +262,12 @@ export const exportDoc = {
     format: string;
     resourceDir: string | null;
     title: string;
-  }) => call<void>("export_via_pandoc", args),
-  openPandocInstallPage: () => call<void>("open_pandoc_install_page"),
-  revealInDir: (path: string) => call<void>("reveal_in_dir", { path }),
+  }) => desktopAction<void>("export_via_pandoc", args),
+  openPandocInstallPage: () =>
+    desktopQuery<void>("open_pandoc_install_page", undefined),
+  /** Nothing to show the file in on iOS - resolves without doing anything. */
+  revealInDir: (path: string) =>
+    desktopQuery<void>("reveal_in_dir", undefined, { path }),
   // Renders the self-contained, already-paginated themed HTML offscreen and
   // writes the PDF straight to `path` - no print dialog on any platform
   // (WKWebView createPDF / WebView2 PrintToPdf / WebKitGTK print-to-file;
@@ -216,7 +276,7 @@ export const exportDoc = {
     html: string;
     baseDir: string | null;
     outputPath: string;
-  }) => call<void>("export_pdf_native", args),
+  }) => desktopAction<void>("export_pdf_native", args),
 };
 
 // ---------------------------------------------------------------------------
@@ -465,9 +525,12 @@ export const ai = {
     files: string[];
   }) => call<string>("learn_style", args),
   /** Folder picker behind Settings > Agent's "switch workspace" button. */
-  pickWorkspaceRoot: () => call<string | null>("pick_workspace_root"),
+  pickWorkspaceRoot: (): Promise<string | null> =>
+    isIOSApp
+      ? iosFiles.pickProjectFolder()
+      : desktopQuery<string | null>("pick_workspace_root", null),
   openGlobalAgentDir: (lang: string) =>
-    call<void>("open_global_agent_dir", { lang }),
+    desktopAction<void>("open_global_agent_dir", { lang }),
   ensureGlobalAgentMd: (lang: string) =>
     call<string>("ensure_global_agent_md", { lang }),
   importAgentSkill: () => call<AgentSkill[] | null>("import_agent_skill"),
@@ -479,8 +542,8 @@ export const ai = {
 // ---------------------------------------------------------------------------
 
 export const cli = {
-  cliCommandStatus: () => call<boolean>("cli_command_status"),
-  installCliCommand: () => call<void>("install_cli_command"),
+  cliCommandStatus: () => desktopQuery<boolean>("cli_command_status", false),
+  installCliCommand: () => desktopAction<void>("install_cli_command"),
 };
 
 // ---------------------------------------------------------------------------
