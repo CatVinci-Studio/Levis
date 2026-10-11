@@ -8,7 +8,7 @@
 
 [Apple Developer › Identifiers](https://developer.apple.com/account/resources/identifiers/list)：
 
-- 确认已有 `com.chengaoshen.levis`（macOS 版在用）。iOS 版用同一个标识符，平台勾选 iOS。
+- iOS 版和 macOS 版用同一个套装 ID `com.chengaoshen.levis`（`tauri.conf.json` 的 `identifier`）。App ID 不区分平台；macOS 版用 Developer ID 签名、不走 App Store，所以这里可能还没有注册过，没有就新注册一个。共用同一个 ID，将来 macOS 版上 Mac App Store 时，可以和 iOS 版合并成同一个商品（Universal Purchase）。
 - Capabilities 不需要额外开启。以后要用 iCloud 容器时再加 iCloud。
 
 ### 2. 在 App Store Connect 新建 App
@@ -20,6 +20,7 @@
 - 主要语言：简体中文（或英文）
 - 套装 ID：`com.chengaoshen.levis`
 - SKU：例如 `levis-ios`
+- 创建后在 App › 价格与销售范围里，取消"在 Apple 芯片 Mac 上提供"：Mac 上已经有原生的 macOS 版，不要让 iPad 版在 Mac App Store 里重复出现。
 
 ### 3. 创建 App Store Connect API 密钥
 
