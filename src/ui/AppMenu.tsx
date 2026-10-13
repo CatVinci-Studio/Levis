@@ -13,6 +13,7 @@ import {
 } from "./app-menu-model";
 import { hasAppMenu } from "../platform/capabilities";
 import { CheckIcon, ChevronIcon } from "./icons";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import "./app-menu.css";
 
 /**
@@ -47,6 +48,7 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
   const [recents, setRecents] = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(ref, x, y);
+  const phone = usePhoneLayout();
 
   // Read once per opening, not per render: Open Recent must show what the
   // list holds NOW (including a file opened since the menu was last up), and
@@ -78,7 +80,9 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
             : buildMobileMenu(t, checks)
         }
         onDismiss={onClose}
-        autoFocus
+        // The arrow keys need a row to start from; a finger doesn't, and on
+        // a phone the first row would only sit there looking selected.
+        autoFocus={!phone}
       />
     </div>
   );

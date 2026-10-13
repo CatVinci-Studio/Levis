@@ -1,5 +1,6 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { CloseIcon } from "./ui/icons";
+import { usePhoneLayout } from "./mobile/usePhoneLayout";
 
 interface TabInfo {
   id: string;
@@ -55,6 +56,27 @@ export function TabBar({
   previewTab,
 }: TabBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
+
+  // A phone shows two or three pills at a time, and the tab that just
+  // opened (a new file, a document picked from the list) lands at the end
+  // of the row, out of sight. Bring the active one into view - by scrolling
+  // the bar alone, so the page under it never moves.
+  const phone = usePhoneLayout();
+  useEffect(() => {
+    if (!phone) return;
+    const bar = barRef.current;
+    const pill = bar?.querySelector<HTMLElement>(
+      `[data-flip-id="${CSS.escape(activeTabId)}"]`,
+    );
+    if (!bar || !pill) return;
+    const barBox = bar.getBoundingClientRect();
+    const pillBox = pill.getBoundingClientRect();
+    const margin = 12;
+    if (pillBox.left < barBox.left + margin)
+      bar.scrollBy({ left: pillBox.left - barBox.left - margin });
+    else if (pillBox.right > barBox.right - margin)
+      bar.scrollBy({ left: pillBox.right - barBox.right + margin });
+  }, [phone, activeTabId, tabs.length]);
 
   // FLIP: whenever a commit is about to change the bar's layout (a tab
   // detaching, a reorder landing), the CURRENT on-screen left edge of

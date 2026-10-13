@@ -37,6 +37,8 @@ import {
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { DocumentList } from "./mobile/DocumentList";
 import { KeyboardToolbar } from "./mobile/KeyboardToolbar";
+import { ActionSheet } from "./mobile/ActionSheet";
+import { usePhoneLayout } from "./mobile/usePhoneLayout";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
@@ -888,6 +890,7 @@ function App() {
     pendingClose !== null,
     ".close-prompt-primary",
   );
+  const phone = usePhoneLayout();
 
   return (
     <AgentPanelProvider
@@ -1136,7 +1139,26 @@ function App() {
           />
         )}
 
-        {pendingClose && (
+        {pendingClose && phone && (
+          // The iPhone asks what to do with an edited document from the
+          // bottom of the screen, as Notes and Pages do. The sheet runs its
+          // onClose before the chosen action: cancelClose's quit-cancel is
+          // a desktop-only call (a no-op here), and the two handlers still
+          // hold the pending close they were rendered with.
+          <ActionSheet
+            title={t.closePromptMessage}
+            items={[
+              { label: t.closePromptSave, onSelect: () => void closeSaving() },
+              {
+                label: t.closePromptDiscard,
+                danger: true,
+                onSelect: () => void closeDiscarding(),
+              },
+            ]}
+            onClose={cancelClose}
+          />
+        )}
+        {pendingClose && !phone && (
           <div className="close-prompt-overlay">
             <div
               className="close-prompt"

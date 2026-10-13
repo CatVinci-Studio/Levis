@@ -1,4 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
 
 const FOCUSABLE =
   ':is(button, input, select, textarea, a[href], [tabindex]):not(:disabled):not([tabindex="-1"]):not([type="hidden"])';
@@ -10,21 +11,27 @@ export function useModalDialog(
   initialFocusSelector?: string,
 ) {
   const ref = useRef<HTMLDivElement>(null);
+  const phone = usePhoneLayout();
   useEffect(() => {
     if (!enabled) return;
     const dialog = ref.current;
     if (!dialog) return;
     const previous = document.activeElement;
-    const first =
+    let first =
       (initialFocusSelector
         ? dialog.querySelector<HTMLElement>(initialFocusSelector)
         : null) ?? dialog.querySelector<HTMLElement>(FOCUSABLE);
+    // On a phone a button is pressed, not focused: nothing iOS draws
+    // starts with one, and a focused button only waits for an Enter no
+    // one will type. A text field still takes the focus - the keyboard
+    // coming up is what the dialog is asking for.
+    if (phone && first && !first.matches("input, textarea")) first = null;
     (first ?? dialog).focus();
     return () => {
       if (previous instanceof HTMLElement && previous.isConnected)
         previous.focus();
     };
-  }, [enabled, initialFocusSelector]);
+  }, [enabled, initialFocusSelector, phone]);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!enabled) return;

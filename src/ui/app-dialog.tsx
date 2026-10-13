@@ -21,6 +21,10 @@ interface Request extends AppDialogOptions {
   /** Confirm only: the action button and the way out. */
   okLabel?: string;
   cancelLabel?: string;
+  /** Confirm only: the action destroys something (a delete). The phone's
+   *  alert draws its button in red (mobile/phone-chrome.css); elsewhere
+   *  it is the usual primary button. */
+  danger?: boolean;
   confirm: boolean;
   /** Prompt only: the text field's starting value. */
   input?: string;
@@ -54,7 +58,11 @@ export async function showMessage(
  *  cancel, Escape or the backdrop. */
 export function showConfirm(
   text: string,
-  options: AppDialogOptions & { okLabel: string; cancelLabel: string },
+  options: AppDialogOptions & {
+    okLabel: string;
+    cancelLabel: string;
+    danger?: boolean;
+  },
 ): Promise<boolean> {
   return enqueue({ ...options, text, confirm: true });
 }
@@ -148,7 +156,10 @@ export function AppDialogHost({ okLabel }: { okLabel: string }) {
               {current.cancelLabel}
             </button>
           )}
-          <button className="close-prompt-primary" onClick={ok}>
+          <button
+            className={`close-prompt-primary${current.danger ? " app-dialog-danger" : ""}`}
+            onClick={ok}
+          >
             {current.confirm ? current.okLabel : okLabel}
           </button>
         </div>

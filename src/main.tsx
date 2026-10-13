@@ -10,6 +10,7 @@ import { installWebviewGuards } from "./ui/webview-guards";
 import { restoreFolderAccess } from "./platform/ios-files";
 import { installMobileViewport } from "./platform/mobile-viewport";
 import "./ui/mobile.css";
+import "./mobile/phone-chrome.css";
 
 installDevTauriShim();
 installWebviewGuards();

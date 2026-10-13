@@ -18,13 +18,26 @@ export function useCloseOnOutsideClick<T extends HTMLElement>(
 
   useEffect(() => {
     if (!open) return;
+    // Both a touch's pointerdown and the mousedown WebKit may synthesise
+    // after it reach here; the overlay closes once.
+    let closed = false;
     function onPointerDown(e: MouseEvent) {
+      if (closed) return;
+      // A mouse press is handled at its mousedown, as it always was.
+      if (
+        e.type === "pointerdown" &&
+        (e as PointerEvent).pointerType === "mouse"
+      )
+        return;
       const target = e.target as Node;
       // A Select's open list is portalled to <body>; picking from it is
       // still a click inside whatever holds the Select.
       if (target instanceof Element && target.closest("[data-floating-select]"))
         return;
-      if (ref.current && !ref.current.contains(target)) onClose();
+      if (ref.current && !ref.current.contains(target)) {
+        closed = true;
+        onClose();
+      }
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.isComposing || e.keyCode === 229) return;
@@ -36,11 +49,17 @@ export function useCloseOnOutsideClick<T extends HTMLElement>(
     }
     const id = setTimeout(() => {
       document.addEventListener("mousedown", onPointerDown, true);
+      // iOS sends no mousedown for a tap on something that isn't clickable
+      // (the page's text, an empty stretch of the title row), so a menu
+      // stayed open under a finger that tapped beside it. A touch's
+      // pointerdown arrives wherever it lands.
+      document.addEventListener("pointerdown", onPointerDown, true);
       if (closeOnEscape) document.addEventListener("keydown", onKeyDown);
     }, 0);
     return () => {
       clearTimeout(id);
       document.removeEventListener("mousedown", onPointerDown, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       if (closeOnEscape) document.removeEventListener("keydown", onKeyDown);
     };
   }, [onClose, closeOnEscape, open]);

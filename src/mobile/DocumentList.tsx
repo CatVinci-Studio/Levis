@@ -158,6 +158,7 @@ export function DocumentList({
         tone: "warning",
         okLabel: t.docDeleteOk,
         cancelLabel: t.closePromptCancel,
+        danger: true,
       },
     );
     if (!ok) return;

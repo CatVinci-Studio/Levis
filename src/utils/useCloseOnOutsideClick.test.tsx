@@ -45,4 +45,29 @@ describe("useCloseOnOutsideClick", () => {
     expect(later).toHaveBeenCalledOnce();
     window.removeEventListener("keydown", later);
   });
+
+  // iOS sends no mousedown for a tap on plain text; the touch's pointerdown
+  // closes the overlay, and the mousedown that may follow doesn't again.
+  it("closes on a touch outside, once", async () => {
+    const onClose = vi.fn();
+    render(<Overlay open onClose={onClose} />);
+    await settle();
+    const touch = new MouseEvent("pointerdown", { bubbles: true });
+    Object.defineProperty(touch, "pointerType", { value: "touch" });
+    document.body.dispatchEvent(touch);
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a mouse press to its mousedown", async () => {
+    const onClose = vi.fn();
+    render(<Overlay open onClose={onClose} />);
+    await settle();
+    const press = new MouseEvent("pointerdown", { bubbles: true });
+    Object.defineProperty(press, "pointerType", { value: "mouse" });
+    document.body.dispatchEvent(press);
+    expect(onClose).not.toHaveBeenCalled();
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });
