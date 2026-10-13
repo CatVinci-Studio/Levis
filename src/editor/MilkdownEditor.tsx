@@ -83,7 +83,6 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
-import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { keepClearOfDock } from "../mobile/quick-ask-dock";
 import {
   locateAnchor,
@@ -1031,7 +1030,6 @@ export function MilkdownEditor({
   useWindowEvent(ZEN_MODE_EVENT, () => {
     if (isActive) refreshEditor();
   });
-  const phone = usePhoneLayout();
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
   // A phone has no hover and no arrow keys - a tap on an underline is the
   // way in, so there the caret opens the suggestion only right after a

@@ -126,3 +126,9 @@
     background: color-mix(in srgb, var(--chrome-primary) 86%, #000);
   }
 }
+
+/* Attach and web search: symbols at the size of the buttons around them. */
+:root[data-window-chrome="mobile"] .inline-chat-bar button svg {
+  width: 18px;
+  height: 18px;
+}

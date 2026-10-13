@@ -77,7 +77,10 @@ CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，�
 
 ## iPhone 界面
 
-- **样式：** 全部在 `src/ui/mobile.css`，规则都以 `:root[data-window-chrome="mobile"]` 开头，桌面样式表不动。内容：44pt 的标题栏和触控按钮；侧边栏是盖在页面上的抽屉（点旁边的遮罩关闭，选中文件后自动关闭）；Levis AI 面板占满标题栏以下的整个屏幕；状态栏和 Home 指示条下的留白用文档背景色（`--page-bg`）；iOS 可用的字体栈（`-apple-system`、`system-ui`、`ui-monospace` 在 iOS 26 WebKit 上会把中日文显示成方框）。
+- **样式：** 规则都以 `:root[data-window-chrome="mobile"]` 开头，桌面样式表不动。通用的在 `src/ui/mobile.css`：44pt 的标题栏和触控按钮、20pt 的图标；侧边栏是盖在页面上的抽屉（点旁边的遮罩关闭，选中文件后自动关闭）；状态栏和 Home 指示条下的留白用文档背景色（`--page-bg`）；iOS 可用的字体栈（`-apple-system`、`system-ui`、`ui-monospace` 在 iOS 26 WebKit 上会把中日文显示成方框）；输入框至少 16px；触控时不画焦点环；整块选中（列表项、代码块、公式）不用 ProseMirror 自带的 #8cf 蓝框，而是淡淡的主题色底。各界面自己的手机样式放在 `src/mobile/` 下（`phone-chrome.css` 弹窗/菜单/查找栏/标签栏，`phone-editor.css`，`phone-composer.css`，`quick-ask-dock.css`）和 `settings/PhoneSettings.css`。
+- **手机形态的开关：** `mobile/usePhoneLayout.ts`（iOS 且宽度 ≤ 760px）。iPad 宽屏保持桌面的弹出菜单和对话框。
+- **选择框：** `ui/Select.tsx` 在 iOS 上是原生 `<select>`（透明地盖在同样外观的按钮上），点开就是系统的选择器。
+- **操作表：** `mobile/ActionSheet.tsx`，UIKit 式的底部操作列表，"取消"单独一块。`ContextMenu` 在手机宽度下自动渲染成它，所以文件长按、文档"⋯"、项目文件夹菜单、"保存更改？"都是操作表。
 - **菜单：** 标题栏左侧的按钮打开 `buildMobileMenu`（`ui/app-menu-model.ts`）：一列平铺，没有子菜单。iOS 没有 `menu.rs`，所以 `emitMenuEvent`（`ui/app-menu-actions.ts`）把菜单 id 转成 `useMenuBridge` 监听的同名事件发给本窗口。目标必须写成 `WebviewWindow`：只写标签会变成 `AnyLabel`，而 iOS 上窗口和 webview 都叫 main，事件会到两次，开关类操作互相抵消。
 - **键盘：** `KeyboardFit.swift`（同在 levis-files 插件里，由插件的 `load(webview:)` 启动）在键盘弹出时把 webview 缩短到键盘上方，并关闭 webview 自身的滚动和回弹；否则 WebKit 会把整页往上推，标题栏被顶出屏幕。页面的静止位置不是 0，而是负的顶部安全区高度（`pinToTop`）；从别的 App 切回来时也会重新校正，否则标题栏和正文会落到状态栏下面。`platform/mobile-viewport.ts` 只设置 `maximum-scale=1`，防止聚焦输入框时页面被放大。
 - **存与开：** 新文档"保存"直接写进 Documents，文件名用建议名，重名时加序号（`newDocumentPath`）。文件树没有打开文档时显示 Documents，不提供"上一级"。"新建文件"在 iOS 上新增一个标签（没有窗口可开）。上次打开的文档记在 localStorage，Documents 内的按相对路径记，因为重装和 App Store 更新都会改变容器路径。

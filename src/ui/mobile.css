@@ -188,8 +188,8 @@
 
   :root[data-window-chrome="mobile"] .agent-panel-header {
     /* The grip's height: the buttons centre on the grip's line. */
-    margin-top: -30px;
-    min-height: 30px;
+    margin-top: -44px;
+    min-height: 44px;
     padding-top: 0;
     padding-bottom: 0;
     pointer-events: none;
@@ -199,8 +199,17 @@
     pointer-events: auto;
   }
 
+  /* New conversation and close: finger-sized, like every other button on
+     the phone. */
+  :root[data-window-chrome="mobile"]
+    .agent-panel-actions
+    .inline-chat-header-button {
+    width: 44px;
+    height: 44px;
+  }
+
   :root[data-window-chrome="mobile"] .agent-panel-placeholder {
-    inset: 24px 0 0;
+    inset: 44px 0 0;
   }
 }
 
@@ -226,7 +235,7 @@
    draggable. */
 .agent-panel-grip {
   display: flex;
-  flex: 0 0 30px;
+  flex: 0 0 44px;
   align-items: center;
   justify-content: center;
   touch-action: none;
@@ -291,4 +300,13 @@
   :root[data-window-chrome="mobile"] :focus-visible {
     outline: none;
   }
+}
+
+/* The desktop's 12-14px glyphs read as specks in a 44pt button; iOS draws
+   bar and toolbar symbols at about 20pt. */
+:root[data-window-chrome="mobile"]
+  :is(.window-menu-button, .window-bar-toggle, .agent-panel-actions button)
+  svg {
+  width: 20px;
+  height: 20px;
 }
