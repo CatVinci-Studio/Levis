@@ -106,9 +106,22 @@ export function createQuickAskWidgetPlugin(options: {
               return { pos: null, decoration: DecorationSet.empty };
             }
             if (tr.docChanged && prev.pos !== null) {
+              const pos = Math.min(
+                tr.mapping.map(prev.pos, 1),
+                tr.doc.content.size,
+              );
+              const decoration = prev.decoration.map(tr.mapping, tr.doc);
+              // A deletion across the widget's spot (Backspace joining the
+              // next paragraph up, deleting the block below) drops a widget
+              // decoration outright. The panel is still open, so it is put
+              // back where its spot mapped to - before, it vanished and
+              // nothing ever showed it again.
               return {
-                pos: tr.mapping.map(prev.pos, 1),
-                decoration: prev.decoration.map(tr.mapping, tr.doc),
+                pos,
+                decoration:
+                  decoration.find().length > 0
+                    ? decoration
+                    : build(tr.doc, pos),
               };
             }
             return prev;

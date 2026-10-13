@@ -160,13 +160,34 @@ export function AgentPanelResizer({
   );
 }
 
-/** How far a drag on the sheet's handle must go to count as one. */
-const SHEET_DRAG_THRESHOLD = 40;
+/** Movement under this many px is a tap on the handle, not a drag. */
+const SHEET_TAP_SLOP = 10;
+
+/** Where a sheet let go at `height` (of a `full`-tall maximum) comes to
+ *  rest: a flick decides by its direction, a slow drag by the nearest stop -
+ *  below a third of the screen the sheet closes. */
+export function sheetRestingPlace(
+  height: number,
+  full: number,
+  velocity: number,
+): "full" | "half" | "closed" {
+  const FLICK = 0.5; // px per ms
+  if (velocity < -FLICK) return "full";
+  if (velocity > FLICK) return height > full * 0.7 ? "half" : "closed";
+  if (height > full * 0.75) return "full";
+  if (height < full * 0.33) return "closed";
+  return "half";
+}
 
 /**
  * The handle on top of the panel when it is a bottom sheet (phone widths,
- * ui/mobile.css). A tap toggles half and full height; dragging up expands,
- * dragging down collapses to half, and from half closes the panel.
+ * ui/mobile.css). The sheet follows the finger while it is dragged and
+ * settles at full height, half, or closed (sheetRestingPlace); a tap toggles
+ * half and full.
+ *
+ * The press is default-prevented so the handle never takes focus: focus
+ * moving off the composer dropped the keyboard, and the web view shrinking
+ * under the finger (KeyboardFit.swift) cancelled the drag.
  */
 export function AgentPanelSheetGrip({
   full,
@@ -179,7 +200,19 @@ export function AgentPanelSheetGrip({
   onClose: () => void;
   label: string;
 }) {
-  const startY = useRef<number | null>(null);
+  const drag = useRef<{
+    startY: number;
+    startHeight: number;
+    lastY: number;
+    lastT: number;
+    velocity: number;
+    sheet: HTMLElement;
+    moved: boolean;
+  } | null>(null);
+  const settle = (sheet: HTMLElement) => {
+    sheet.style.removeProperty("height");
+    sheet.style.removeProperty("transition");
+  };
   return (
     <div
       className="agent-panel-grip"
@@ -188,21 +221,57 @@ export function AgentPanelSheetGrip({
       aria-expanded={full}
       tabIndex={0}
       onPointerDown={(e) => {
-        startY.current = e.clientY;
+        const sheet = e.currentTarget.parentElement;
+        if (!sheet) return;
+        e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = {
+          startY: e.clientY,
+          startHeight: sheet.getBoundingClientRect().height,
+          lastY: e.clientY,
+          lastT: e.timeStamp,
+          velocity: 0,
+          sheet,
+          moved: false,
+        };
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        const dy = e.clientY - d.startY;
+        if (!d.moved && Math.abs(dy) < SHEET_TAP_SLOP) return;
+        d.moved = true;
+        const dt = e.timeStamp - d.lastT;
+        if (dt > 0) d.velocity = (e.clientY - d.lastY) / dt;
+        d.lastY = e.clientY;
+        d.lastT = e.timeStamp;
+        const max = maxSheetHeight(d.sheet);
+        d.sheet.style.transition = "none";
+        d.sheet.style.height = `${Math.max(0, Math.min(max, d.startHeight - dy))}px`;
       }}
       onPointerUp={(e) => {
-        const from = startY.current;
-        startY.current = null;
-        if (from === null) return;
-        const dy = e.clientY - from;
-        if (dy < -SHEET_DRAG_THRESHOLD) onFullChange(true);
-        else if (dy > SHEET_DRAG_THRESHOLD) {
-          if (full) onFullChange(false);
-          else onClose();
-        } else onFullChange(!full);
+        const d = drag.current;
+        drag.current = null;
+        if (!d) return;
+        const dy = e.clientY - d.startY;
+        settle(d.sheet);
+        if (!d.moved || Math.abs(dy) < SHEET_TAP_SLOP) {
+          onFullChange(!full);
+          return;
+        }
+        const height = Math.max(0, d.startHeight - dy);
+        const place = sheetRestingPlace(
+          height,
+          maxSheetHeight(d.sheet),
+          d.velocity,
+        );
+        if (place === "closed") onClose();
+        else onFullChange(place === "full");
       }}
-      onPointerCancel={() => (startY.current = null)}
+      onPointerCancel={() => {
+        if (drag.current) settle(drag.current.sheet);
+        drag.current = null;
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -213,4 +282,12 @@ export function AgentPanelSheetGrip({
       <span />
     </div>
   );
+}
+
+/** The sheet's full height: the screen below the title row. */
+function maxSheetHeight(sheet: HTMLElement): number {
+  const bar = parseFloat(
+    getComputedStyle(sheet).getPropertyValue("--mobile-bar") || "44",
+  );
+  return window.innerHeight - (Number.isFinite(bar) ? bar : 44);
 }

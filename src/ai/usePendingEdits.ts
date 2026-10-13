@@ -10,6 +10,7 @@ import {
   type MarkdownMatch,
 } from "./doc-markdown";
 import { applyEditRange } from "./apply-edit";
+import { isIOSApp } from "../platform/capabilities";
 import { pendingEditKey, type PendingPreview } from "./pending-edit-plugin";
 import { nextFocusAfterChange, orderForReview } from "./pending-edit-focus";
 import { locatePlainText } from "./text-locate";
@@ -342,7 +343,10 @@ export function usePendingEdits(run: EditorRunner) {
         // frame where a stale preview paints over the just-applied text).
         tr.setMeta(pendingEditKey, { type: "remove", callId });
         view.dispatch(tr.scrollIntoView());
-        view.focus();
+        // On a phone, focusing the document raises the keyboard over the
+        // AI sheet the Accept was tapped in, and what the user types next
+        // lands in the document instead of the composer.
+        if (!isIOSApp) view.focus();
         ok = true;
       });
       if (stillStreaming) return false;

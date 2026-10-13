@@ -149,7 +149,14 @@
     border-radius: 14px 14px 0 0;
     box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
     flex-direction: column;
+    /* Whatever the conversation's length, the composer stays on screen:
+       the message list scrolls inside the sheet instead. */
+    overflow: hidden;
     transition: height 0.2s ease;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel .inline-chat-messages {
+    overscroll-behavior: contain;
   }
 
   :root[data-window-chrome="mobile"] .agent-panel-sheet-full {
@@ -243,4 +250,33 @@
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* A tap on a list marker, a code block's edge, a formula or a rule makes
+   ProseMirror select the whole block, which its stock stylesheet rings in
+   a light blue (#8cf) whatever the theme - the stray box around a line or
+   several. On a phone the selection is shown as a faint wash in the
+   theme's accent instead; an image keeps its own ring (milkdown-theme.css). */
+:root[data-window-chrome="mobile"]
+  .milkdown
+  .ProseMirror-selectednode:not(.image-view) {
+  outline: none;
+  border-radius: var(--radius-small, 4px);
+  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+}
+
+:root[data-window-chrome="mobile"]
+  .milkdown
+  li.ProseMirror-selectednode::after {
+  border: none;
+}
+
+/* Focus rings are for finding your place with a keyboard. A finger knows
+   where it is, and WebKit counts a focus the app moves itself (a dialog's
+   first button, the sheet's grip) as "visible" - an accent box around
+   whatever was just tapped. Text fields keep their own focused border. */
+@media (pointer: coarse) {
+  :root[data-window-chrome="mobile"] :focus-visible {
+    outline: none;
+  }
 }

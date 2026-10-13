@@ -781,11 +781,16 @@ export function MilkdownEditor({
       // Never pull focus out of a text field: when an edit arrives while the
       // user is typing a follow-up, the rest of their message used to land
       // in the document (and invalidate the very preview it jumped to).
+      // On a phone a tapped button never holds focus, so that check alone
+      // let every Next/Previous raise the keyboard over the AI sheet.
       const active = document.activeElement;
-      if (!(
-        active instanceof HTMLTextAreaElement ||
-        active instanceof HTMLInputElement
-      ))
+      if (
+        !isIOSApp &&
+        !(
+          active instanceof HTMLTextAreaElement ||
+          active instanceof HTMLInputElement
+        )
+      )
         view.focus();
     });
   }

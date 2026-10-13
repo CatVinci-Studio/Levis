@@ -18,6 +18,10 @@
 .agent-panel-mount {
   flex: 1;
   min-width: 0;
+  /* As a column (the phone's bottom sheet) the mount must be allowed to
+     be shorter than its conversation, or the message list never scrolls
+     and the composer is laid out below the screen. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
