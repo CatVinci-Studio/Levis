@@ -183,7 +183,25 @@
     min-width: 3.5em;
   }
 
-  /* Levis's own ornaments - see the header comment. */
+  /* Cells in a cell selection (Select Row/Column, dragging across cells).
+     prosemirror-tables hides the native highlight for these and marks them
+     .selectedCell instead; without a rule they looked unselected (#30). */
+  .milkdown td,
+  .milkdown th {
+    position: relative;
+  }
+
+  .milkdown .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--editor-accent) 18%, transparent);
+    pointer-events: none;
+  }
+
+  /* Levis's own ornaments - see the header comment. Settings > Theme >
+     Export writes each of these out as a #write rule (theme-export.ts), so
+     keep them one selector per rule under this exact prefix. */
   :root:not([data-user-theme]) .milkdown h2 {
     padding-bottom: 0.3em;
     border-bottom: 1px solid var(--editor-border);
@@ -223,5 +241,9 @@
 
   :root:not([data-user-theme]) .milkdown table {
     font-size: 0.95em;
+  }
+
+  :root:not([data-user-theme]) .milkdown th {
+    background: var(--editor-code-bg);
   }
 }

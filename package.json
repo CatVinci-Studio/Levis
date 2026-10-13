@@ -20,8 +20,8 @@
     "sync-models": "node scripts/sync-models.mjs"
   },
   "dependencies": {
-    "@milkdown/kit": "^7.21.2",
-    "@milkdown/react": "^7.21.2",
+    "@milkdown/kit": "^7.22.3",
+    "@milkdown/react": "^7.22.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",

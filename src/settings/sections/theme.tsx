@@ -8,6 +8,7 @@ import {
 } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
 import { importThemeCss } from "../../utils/theme-import";
+import { ornamentRules } from "../../utils/theme-export";
 import { basename } from "../../utils/path";
 import { showMessage } from "../../ui/app-dialog";
 import { exportDoc, fs, themes } from "../../ipc";
@@ -36,8 +37,9 @@ const THEME_VARIABLES = [
 
 /**
  * Writes the current theme out as a starter CSS file (#13): the colour and
- * font variables as they resolve right now, the user's own CSS, and a few
- * commented hooks for the usual adjustments. Importing the edited file
+ * font variables as they resolve right now, Levis's heading/quote/table
+ * ornaments (#29), the user's own CSS, and a few commented hooks for the
+ * usual adjustments. Importing the edited file
  * (Import Theme) makes it a theme of its own.
  */
 async function exportThemeCss(t: Strings, customCss: string): Promise<void> {
@@ -74,6 +76,9 @@ ${variables}
 #write h3 {
   /* font-family: "Songti SC", serif; */
 }
+
+/* Levis's ornaments - delete any you don't want */
+${ornamentRules()}
 ${customCss.trim() ? `\n/* Custom CSS */\n${customCss}\n` : ""}`;
   const picked = await exportDoc.exportSaveDialog(
     "levis-theme.css",

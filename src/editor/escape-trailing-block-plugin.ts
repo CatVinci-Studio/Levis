@@ -105,10 +105,9 @@ function backspaceOutOfBlockquote(view: EditorView): boolean {
 /**
  * A code block, math block, or table at the very start or end of the
  * document has nothing before/after it to move a cursor into - normal
- * arrow-key/Enter navigation can't escape it in that direction, and gets
- * stuck. This adds a trailing/leading empty paragraph on demand so there's
- * always somewhere to land, the same way pressing Enter after any other
- * block would work.
+ * arrow-key navigation can't escape it in that direction, and gets stuck.
+ * This adds a trailing/leading empty paragraph on demand so there's always
+ * somewhere to land.
  *
  * The same "nothing to land on" gap exists for a plain non-empty last/first
  * line too, just for the vertical arrows: pressing Down on the document's
@@ -129,10 +128,9 @@ export function createEscapeTrailingBlockPlugin() {
           );
         }
 
+        // Enter leaves code/math blocks and tables in block-keys-plugin.ts.
         const isForwardKey =
-          event.key === "ArrowDown" ||
-          event.key === "ArrowRight" ||
-          event.key === "Enter";
+          event.key === "ArrowDown" || event.key === "ArrowRight";
         const isBackwardKey =
           event.key === "ArrowUp" || event.key === "ArrowLeft";
         if (!isForwardKey && !isBackwardKey) return false;
@@ -178,17 +176,6 @@ export function createEscapeTrailingBlockPlugin() {
           if (!isLastTopLevelNode($from, state.doc)) return false;
           const atEndOfBlock = $from.parentOffset === $from.parent.content.size;
           if (!atEndOfBlock) return false;
-
-          if (event.key === "Enter") {
-            const textBeforeCursor = $from.parent.textBetween(
-              0,
-              $from.parentOffset,
-              "\n",
-            );
-            const onEmptyLastLine =
-              textBeforeCursor.length === 0 || textBeforeCursor.endsWith("\n");
-            if (!onEmptyLastLine) return false;
-          }
           return escapeAfterLastNode(view);
         }
 

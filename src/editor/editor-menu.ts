@@ -20,7 +20,12 @@ import {
   CellSelection,
   selectionCell,
 } from "@milkdown/kit/prose/tables";
-import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import {
+  Selection,
+  type EditorState,
+  type Transaction,
+} from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import type { ContextMenuItem } from "./ContextMenu";
 import { readImagePresentation, writeImageWidth } from "./image-plugin";
 import type { EditorRunner } from "./useEditorRunner";
@@ -96,6 +101,13 @@ function alignTableColumn(
       view.state.tr.setSelection(CellSelection.colSelection($cell)),
     );
     setCellAttr("alignment", alignment)(view.state, view.dispatch);
+    // Back to a caret in the clicked cell rather than leaving the column
+    // selected.
+    view.dispatch(
+      view.state.tr.setSelection(
+        Selection.near(view.state.doc.resolve($cell.pos + 1)),
+      ),
+    );
     view.focus();
   });
 }
@@ -120,6 +132,50 @@ function setImageWidth(
 }
 
 /**
+ * A right-click on a table cell other than the one being edited moves the
+ * caret into it, so the table items act on the cell under the pointer. A
+ * cell inside a cell selection keeps the selection, for Delete Row etc. on
+ * several rows at once.
+ */
+function moveCaretToClickedCell(view: EditorView, target: EventTarget | null) {
+  const cell = target instanceof Element ? target.closest("td, th") : null;
+  if (!cell || !view.dom.contains(cell)) return;
+  let $inside;
+  try {
+    $inside = view.state.doc.resolve(view.posAtDOM(cell, 0));
+  } catch {
+    return;
+  }
+  let depth = $inside.depth;
+  while (
+    depth > 0 &&
+    !$inside.node(depth).type.spec.tableRole?.endsWith("cell")
+  )
+    depth--;
+  if (depth === 0) return;
+  const cellStart = $inside.before(depth);
+  const { selection } = view.state;
+  if (selection instanceof CellSelection) {
+    let covered = false;
+    selection.forEachCell((_, pos) => {
+      if (pos === cellStart) covered = true;
+    });
+    if (covered) return;
+  } else if (
+    isInTable(view.state) &&
+    selectionCell(view.state).pos === cellStart
+  ) {
+    return;
+  }
+  const cellEnd = cellStart + $inside.node(depth).nodeSize - 1;
+  view.dispatch(
+    view.state.tr.setSelection(
+      Selection.near(view.state.doc.resolve(cellEnd), -1),
+    ),
+  );
+}
+
+/**
  * Prepares the editor for a right-click and reports the image under the
  * pointer, if any (its doc position, for the width items).
  *
@@ -138,6 +194,7 @@ export function contextMenuTarget(
   return (
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
+      moveCaretToClickedCell(view, e.target);
       const { anchor, head } = view.state.selection;
       try {
         const a = view.domAtPos(anchor);
