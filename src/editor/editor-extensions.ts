@@ -42,6 +42,7 @@ import { syntaxHighlightPlugin } from "./syntax-highlight-plugin";
 import { codeBlockLanguageView } from "./code-block-language-view";
 import { tableColumnResizing, tableHoverView } from "./table-hover-view";
 import { createMermaidPreviewPlugin } from "./mermaid-plugin";
+import { blockKeysPlugin } from "./block-keys-plugin";
 import { tabExtendPlugin } from "./tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
 import { codeBlockIndentPlugin } from "./code-block-indent-plugin";
@@ -192,6 +193,9 @@ export function withEditorExtensions(
       .use(clipboard)
       .use(clipboardHistoryPlugin)
       .use(listener)
+      // Enter / Mod+Enter in tables, code blocks and quotes - ahead of the
+      // other key handlers and the preset keymaps.
+      .use(blockKeysPlugin)
       .use(tabExtendPlugin)
       .use(escapeTrailingBlockPlugin)
       .use(codeBlockIndentPlugin)

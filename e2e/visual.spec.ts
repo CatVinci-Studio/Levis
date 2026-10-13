@@ -430,3 +430,71 @@ test("menu events: New File opens one tab after edits, Zen and Split View respon
   await emit("menu-toggle-split-view");
   await expect(page.locator(".split-view")).toBeVisible();
 });
+
+test("Enter turns a pipe row into a table, adds rows at the end and leaves from an empty one", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("|a|b|c|");
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("table")).toHaveCount(1);
+  await expect(editor.locator("th")).toHaveText(["a", "b", "c"]);
+
+  await page.keyboard.type("1");
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("tr")).toHaveCount(3);
+  await page.keyboard.type("2");
+  await expect(editor.locator("tr").nth(2).locator("td").first()).toHaveText(
+    "2",
+  );
+
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("tr")).toHaveCount(3);
+  await page.keyboard.type("after");
+  await expect(editor.locator(":scope > p").last()).toHaveText("after");
+});
+
+test("Enter on a code block's empty last line leaves it; Ctrl+Enter leaves a quote", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "```\nlet x;\n```\n\nbelow\n\n> one\n>\n> two");
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+
+  await editor.locator("pre code").click();
+  // Let ProseMirror read the click's caret back before keys arrive.
+  await page.waitForTimeout(100);
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("out");
+  await expect(editor.locator("pre code")).toHaveText("let x;");
+  await expect(editor.locator(":scope > p").first()).toHaveText("out");
+
+  await editor.locator("blockquote p").first().click();
+  await page.waitForTimeout(100);
+  await page.keyboard.press("Control+Enter");
+  await page.keyboard.type("free");
+  await expect(editor.locator("blockquote p")).toHaveCount(2);
+  await expect(editor.locator(":scope > p").last()).toHaveText("free");
+});
+
+test("Select Row from the right-click menu highlights the clicked row", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| h1 | h2 |\n|---|---|\n| a | b |\n| c | d |");
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.locator("td", { hasText: "a" }).click();
+  await editor.locator("td", { hasText: "d" }).click({ button: "right" });
+  await page.locator(".context-menu-item", { hasText: "选中整行" }).click();
+  await expect(editor.locator("td.selectedCell")).toHaveText(["c", "d"]);
+  const tint = await editor
+    .locator("td.selectedCell")
+    .first()
+    .evaluate((el) => getComputedStyle(el, "::after").backgroundColor);
+  expect(tint).not.toBe("rgba(0, 0, 0, 0)");
+});

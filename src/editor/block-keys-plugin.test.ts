@@ -1,0 +1,244 @@
+import { describe, expect, it } from "vitest";
+import { Schema, type Node } from "@milkdown/kit/prose/model";
+import {
+  EditorState,
+  TextSelection,
+  type Command,
+} from "@milkdown/kit/prose/state";
+import { tableNodes } from "@milkdown/kit/prose/tables";
+import {
+  enterInTable,
+  leaveBlockquote,
+  leaveTextBlockOnEmptyLastLine,
+  parsePipeRow,
+  pipeRowToTable,
+} from "./block-keys-plugin";
+
+// The node names gfm/commonmark register, with just enough spec to run
+// the commands against.
+const cells = tableNodes({
+  tableGroup: "block",
+  cellContent: "paragraph",
+  cellAttributes: {},
+});
+const schema = new Schema({
+  nodes: {
+    doc: { content: "block+" },
+    paragraph: { group: "block", content: "text*" },
+    blockquote: { group: "block", content: "block+" },
+    code_block: { group: "block", content: "text*", code: true },
+    text: {},
+    table: { ...cells.table, content: "table_header_row table_row+" },
+    table_header_row: { ...cells.table_row, content: "table_header*" },
+    table_row: { ...cells.table_row, content: "table_cell*" },
+    table_header: cells.table_header,
+    table_cell: cells.table_cell,
+  },
+});
+const n = schema.nodes;
+
+const p = (text = "") =>
+  n.paragraph.create(null, text ? schema.text(text) : null);
+const code = (text: string) =>
+  n.code_block.create(null, text ? schema.text(text) : null);
+const quote = (...blocks: Node[]) => n.blockquote.create(null, blocks);
+const table = (header: string[], ...rows: string[][]) =>
+  n.table.create(null, [
+    n.table_header_row.create(
+      null,
+      header.map((t) => n.table_header.create(null, p(t))),
+    ),
+    ...rows.map((r) =>
+      n.table_row.create(
+        null,
+        r.map((t) => n.table_cell.create(null, p(t))),
+      ),
+    ),
+  ]);
+
+/** State with the cursor at the end of the first text block whose text is
+ *  `marker` (or in the `nth` empty one when marker is ""). */
+function stateAt(doc: Node, marker: string, nth = 0): EditorState {
+  let found = -1;
+  let seen = 0;
+  doc.descendants((node, pos) => {
+    if (found >= 0 || !node.isTextblock) return found < 0;
+    if (node.textContent === marker && seen++ === nth)
+      found = pos + 1 + node.content.size;
+    return false;
+  });
+  if (found < 0) throw new Error(`no text block "${marker}"`);
+  const state = EditorState.create({
+    schema,
+    doc: n.doc.create(null, doc.content),
+  });
+  return state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, found)),
+  );
+}
+
+function run(command: Command, state: EditorState): EditorState | null {
+  let next: EditorState | null = null;
+  const handled = command(state, (tr) => (next = state.apply(tr)));
+  return handled ? next : null;
+}
+
+const docOf = (...blocks: Node[]) => n.doc.create(null, blocks);
+const cursorText = (state: EditorState) =>
+  state.selection.$from.parent.textContent;
+
+describe("parsePipeRow", () => {
+  it("reads the cells of a pipe row", () => {
+    expect(parsePipeRow("|a|b|c|")).toEqual(["a", "b", "c"]);
+    expect(parsePipeRow(" | name | age | ")).toEqual(["name", "age"]);
+    expect(parsePipeRow("| a |  |")).toEqual(["a", ""]);
+  });
+
+  it("keeps escaped pipes inside a cell", () => {
+    expect(parsePipeRow("| a \\| b | c |")).toEqual(["a \\| b", "c"]);
+  });
+
+  it("rejects lines that aren't one", () => {
+    expect(parsePipeRow("a | b")).toBeNull();
+    expect(parsePipeRow("|a|b")).toBeNull();
+    expect(parsePipeRow("||")).toBeNull();
+    expect(parsePipeRow("| |  |")).toBeNull();
+    expect(parsePipeRow("|a\\|")).toBeNull();
+  });
+});
+
+describe("pipeRowToTable", () => {
+  it("turns the line into a header row plus one empty row, cursor below", () => {
+    const next = run(pipeRowToTable, stateAt(docOf(p("|a|b|c|")), "|a|b|c|"))!;
+    const t = next.doc.firstChild!;
+    expect(t.type.name).toBe("table");
+    expect(t.childCount).toBe(2);
+    expect(t.child(0).textContent).toBe("abc");
+    expect(t.child(1).childCount).toBe(3);
+    expect(next.selection.$from.node(-2).type.name).toBe("table_row");
+    expect(next.selection.$from.index(-2)).toBe(0);
+  });
+
+  it("works inside a quote", () => {
+    const next = run(
+      pipeRowToTable,
+      stateAt(docOf(quote(p("|a|b|"))), "|a|b|"),
+    )!;
+    expect(next.doc.firstChild!.firstChild!.type.name).toBe("table");
+  });
+
+  it("leaves ordinary paragraphs alone", () => {
+    expect(run(pipeRowToTable, stateAt(docOf(p("a | b")), "a | b"))).toBeNull();
+  });
+});
+
+describe("enterInTable", () => {
+  it("moves down a row, keeping the column", () => {
+    const doc = docOf(table(["h1", "h2"], ["a", "b"], ["c", "d"]));
+    const next = run(enterInTable, stateAt(doc, "b"))!;
+    expect(cursorText(next)).toBe("d");
+    expect(next.doc.eq(doc)).toBe(true);
+  });
+
+  it("moves from the header into the first row", () => {
+    const next = run(
+      enterInTable,
+      stateAt(docOf(table(["h1", "h2"], ["a", "b"])), "h2"),
+    )!;
+    expect(cursorText(next)).toBe("b");
+  });
+
+  it("adds a row below the last one, keeping the column", () => {
+    const next = run(
+      enterInTable,
+      stateAt(docOf(table(["h1", "h2"], ["a", "b"])), "b"),
+    )!;
+    const t = next.doc.firstChild!;
+    expect(t.childCount).toBe(3);
+    expect(next.selection.$from.index(-2)).toBe(1);
+    expect(next.selection.$from.index(-3)).toBe(2);
+  });
+
+  it("leaves the table from an empty last row, removing it", () => {
+    const doc = docOf(table(["h"], ["a"], [""]), p("after"));
+    const next = run(enterInTable, stateAt(doc, ""))!;
+    expect(next.doc.firstChild!.childCount).toBe(2);
+    expect(next.doc.child(1).type.name).toBe("paragraph");
+    expect(cursorText(next)).toBe("");
+    expect(next.selection.$from.depth).toBe(1);
+    expect(next.doc.child(2).textContent).toBe("after");
+  });
+
+  it("keeps the only body row when leaving", () => {
+    const next = run(enterInTable, stateAt(docOf(table(["h"], [""])), ""))!;
+    expect(next.doc.firstChild!.childCount).toBe(2);
+    expect(next.doc.childCount).toBe(2);
+    expect(next.selection.$from.depth).toBe(1);
+  });
+
+  it("does nothing outside a table", () => {
+    expect(run(enterInTable, stateAt(docOf(p("x")), "x"))).toBeNull();
+  });
+});
+
+describe("leaveTextBlockOnEmptyLastLine", () => {
+  it("drops the empty last line and continues below the block", () => {
+    const doc = docOf(code("let x;\n"), p("after"));
+    const next = run(leaveTextBlockOnEmptyLastLine, stateAt(doc, "let x;\n"))!;
+    expect(next.doc.child(0).textContent).toBe("let x;");
+    expect(next.doc.child(1).type.name).toBe("paragraph");
+    expect(next.selection.$from.parent).toBe(next.doc.child(1));
+    expect(next.doc.child(2).textContent).toBe("after");
+  });
+
+  it("reuses an empty paragraph already below", () => {
+    const next = run(
+      leaveTextBlockOnEmptyLastLine,
+      stateAt(docOf(code("x\n"), p()), "x\n"),
+    )!;
+    expect(next.doc.childCount).toBe(2);
+    expect(next.selection.$from.parent).toBe(next.doc.child(1));
+  });
+
+  it("needs the empty line first: one Enter on text only adds a line", () => {
+    expect(
+      run(
+        leaveTextBlockOnEmptyLastLine,
+        stateAt(docOf(code("let x;")), "let x;"),
+      ),
+    ).toBeNull();
+    expect(
+      run(leaveTextBlockOnEmptyLastLine, stateAt(docOf(code("")), "")),
+    ).toBeNull();
+  });
+});
+
+describe("leaveBlockquote", () => {
+  it("continues below the quote from any line", () => {
+    const doc = docOf(quote(p("one"), p("two")), p("after"));
+    const next = run(leaveBlockquote, stateAt(doc, "one"))!;
+    expect(next.doc.child(0).childCount).toBe(2);
+    expect(next.doc.child(1).type.name).toBe("paragraph");
+    expect(next.selection.$from.depth).toBe(1);
+    expect(next.selection.$from.index(0)).toBe(1);
+  });
+
+  it("leaves the innermost quote", () => {
+    const next = run(
+      leaveBlockquote,
+      stateAt(docOf(quote(quote(p("in")))), "in"),
+    )!;
+    expect(next.selection.$from.depth).toBe(2);
+    expect(next.selection.$from.node(1).type.name).toBe("blockquote");
+  });
+
+  it("leaves code blocks inside the quote to their own exit", () => {
+    expect(
+      run(leaveBlockquote, stateAt(docOf(quote(code("x"))), "x")),
+    ).toBeNull();
+  });
+
+  it("does nothing outside a quote", () => {
+    expect(run(leaveBlockquote, stateAt(docOf(p("x")), "x"))).toBeNull();
+  });
+});

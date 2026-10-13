@@ -52,11 +52,11 @@ Task list (click a checkbox to toggle it):
 | Highlight | `==text==` | ==text== |
 | Inline math | `$x^2$` | $x^2$ |
 
-Hover over a table to add or remove rows and columns.
+Hover over a table to add or remove rows and columns. Type `| Name | Age |` and press Enter to make a table. Enter moves down a row, adds one at the last row, and leaves the table from a new row left empty; Ctrl/⌘+Enter leaves it at any time.
 
 ## Code blocks
 
-Fenced code blocks with syntax highlighting (switch the language from the block's top-right corner):
+Fenced code blocks with syntax highlighting (switch the language from the block's top-right corner). Enter on the empty last line leaves the block, as does Ctrl/⌘+Enter at any time; the same goes for quotes.
 
 ```python
 def fib(n: int) -> int:
