@@ -338,6 +338,7 @@ function DocumentItem({
         <ContextMenu
           x={at.x}
           y={at.y}
+          title={name}
           items={actions()}
           onClose={() => {
             setMenuAt(null);

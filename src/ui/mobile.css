@@ -27,6 +27,18 @@
   --page-bg: var(--editor-bg, var(--bg));
   /* No grey flash over whatever a finger lands on. */
   -webkit-tap-highlight-color: transparent;
+  /* Phone-only layers, above the title row (45) and the desktop's menus
+     and dialogs (up to 450): an action sheet (mobile/ActionSheet.tsx) and
+     full-screen pages over everything. */
+  --z-phone-page: 480;
+  --z-sheet-menu: 500;
+}
+
+/* 16px is the least WebKit will show a focused field at without zooming
+   the page in, and the size iOS sets its own fields in. */
+:root[data-window-chrome="mobile"]
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea) {
+  font-size: max(16px, 1em);
 }
 
 /* The strips under the status bar and the home indicator are page

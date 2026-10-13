@@ -1,5 +1,7 @@
 import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
 import { useViewportClamp } from "../utils/useViewportClamp";
+import { ActionSheet } from "../mobile/ActionSheet";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import "./ContextMenu.css";
 
 export interface ContextMenuItem {
@@ -13,9 +15,27 @@ interface ContextMenuProps {
   y: number;
   items: (ContextMenuItem | "separator")[];
   onClose: () => void;
+  /** Heads the phone's action sheet (a file's name, say); unused by the
+   *  menu at the pointer, which shows where it was opened. */
+  title?: string;
 }
 
-export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
+/** A menu at the pointer - or, on a phone, the same items as an action
+ *  sheet from the bottom edge (mobile/ActionSheet.tsx). */
+export function ContextMenu(props: ContextMenuProps) {
+  const phone = usePhoneLayout();
+  if (phone)
+    return (
+      <ActionSheet
+        title={props.title}
+        items={props.items}
+        onClose={props.onClose}
+      />
+    );
+  return <PointerMenu {...props} />;
+}
+
+function PointerMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useCloseOnOutsideClick<HTMLDivElement>(onClose, true);
   const pos = useViewportClamp(ref, x, y);
 
