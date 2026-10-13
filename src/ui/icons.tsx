@@ -760,6 +760,89 @@ export function NumberedListIcon({ className }: IconProps) {
   );
 }
 
+/** The table edits (the iPhone keyboard toolbar): a two-by-two grid - or
+ *  one row or column of it - with a plus on the side the new row or column
+ *  goes, or a cross for a delete. */
+const TABLE_EDIT_ICONS = {
+  "row-above": { grid: [2.5, 6.5, 11, 8], mark: "M8 1V5M6 3H10" },
+  "row-below": { grid: [2.5, 1.5, 11, 8], mark: "M8 11V15M6 13H10" },
+  "column-left": { grid: [6.5, 2.5, 8, 11], mark: "M3 6V10M1 8H5" },
+  "column-right": { grid: [1.5, 2.5, 8, 11], mark: "M13 6V10M11 8H15" },
+  "delete-row": {
+    grid: [1.5, 5, 9, 6],
+    mark: "M11.5 6.5L14.5 9.5M14.5 6.5L11.5 9.5",
+  },
+  "delete-column": {
+    grid: [5, 1.5, 6, 9],
+    mark: "M6.5 11.5L9.5 14.5M9.5 11.5L6.5 14.5",
+  },
+  "delete-table": {
+    grid: [1.5, 1.5, 9.5, 9.5],
+    mark: "M11.8 11.8L14.8 14.8M14.8 11.8L11.8 14.8",
+  },
+} as const;
+
+export function TableEditIcon({
+  kind,
+  className,
+}: IconProps & { kind: keyof typeof TABLE_EDIT_ICONS }) {
+  const { grid, mark } = TABLE_EDIT_ICONS[kind];
+  const [x, y, w, h] = grid;
+  // A single row or column is split only across its length.
+  const across = !kind.startsWith("delete-") || kind === "delete-table";
+  const lines = [
+    w >= h || across ? `M${x + w / 2} ${y}V${y + h}` : "",
+    h >= w || across ? `M${x} ${y + h / 2}H${x + w}` : "",
+  ].join("");
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      <path d={lines} stroke="currentColor" strokeWidth="1" />
+      <path
+        d={mark}
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Delete: a bin. */
+export function TrashIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path
+        d="M2.5 4H13.5M6 4V2.5H10V4M4 4L4.7 13.5H11.3L12 4M6.7 6.5V11M9.3 6.5V11"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** Documents list: show as a grid of page thumbnails. */
 export function GridViewIcon({ className }: IconProps) {
   return (

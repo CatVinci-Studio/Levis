@@ -125,8 +125,10 @@ export function useGrammarPopover(
     setApplyError(null);
   }, []);
 
-  const applyFix = useCallback(() => {
-    if (!popover) return;
+  /** Whether the fix went in (the phone's sheet, closed by then, reports a
+   *  stale one itself). */
+  const applyFix = useCallback((): boolean => {
+    if (!popover) return false;
     const { suggestion, original } = popover;
     let applied = false;
     run((ctx) => {
@@ -170,6 +172,7 @@ export function useGrammarPopover(
       // button reads as a broken feature.
       setApplyError(getStaleMessage());
     }
+    return applied;
   }, [popover, run, getStaleMessage]);
 
   return {

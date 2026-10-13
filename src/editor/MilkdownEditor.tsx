@@ -30,10 +30,15 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { registerEditorFlush } from "./editor-flush";
 import {
   buildContextMenuItems,
+  buildPhoneMoreItems,
   contextMenuTarget,
+  deleteImage,
   insertHeading,
   insertTable,
   runCommand,
+  runTableAction,
+  selectedImagePos,
+  setImageWidth,
 } from "./editor-menu";
 import { toggleSpan } from "./span-commands";
 import { cycleHeading, toggleBlockquote, toggleList } from "./block-toggles";
@@ -59,6 +64,8 @@ import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { canDetachChat, isIOSApp } from "../platform/capabilities";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
+import { ActionSheet } from "../mobile/ActionSheet";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -106,6 +113,9 @@ import {
   INSERT_BLOCK_EVENT,
   TOGGLE_BLOCK_EVENT,
   TOGGLE_MARK_EVENT,
+  TABLE_ACTION_EVENT,
+  IMAGE_ACTION_EVENT,
+  EDITOR_MORE_EVENT,
   EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,
@@ -125,6 +135,7 @@ import "katex/dist/katex.min.css";
 import "./content-base.css";
 import "./milkdown-theme.css";
 import "./content-themes.css";
+import "../mobile/phone-editor.css";
 
 interface MilkdownEditorProps {
   /** The owning tab - the key App.tsx flushes this editor under (see
@@ -162,6 +173,9 @@ export function MilkdownEditor({
     x: number;
     y: number;
     imagePos: number | null;
+    /** Opened by the iPhone keyboard toolbar's "More": the phone's items
+     *  (buildPhoneMoreItems), as an action sheet. */
+    phone?: boolean;
   } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
   const [imageNameRequest, setImageNameRequest] =
@@ -1017,15 +1031,31 @@ export function MilkdownEditor({
   useWindowEvent(ZEN_MODE_EVENT, () => {
     if (isActive) refreshEditor();
   });
+  const phone = usePhoneLayout();
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
-  grammarCaretRef.current = grammar.onCaretMove;
+  // A phone has no hover and no arrow keys - a tap on an underline is the
+  // way in, so there the caret opens the suggestion only right after a
+  // touch, not whenever typing happens to end against a flagged word (the
+  // ranges include their edges). The listener reports the selection while
+  // the transaction is still being applied, before the view holds it, so
+  // the phone's check waits a frame to see where the tap put the caret.
+  const lastTouchRef = useRef(0);
+  const onGrammarCaret = grammar.onCaretMove;
+  grammarCaretRef.current = () => {
+    if (!phone) onGrammarCaret();
+    else if (Date.now() - lastTouchRef.current < 800)
+      requestAnimationFrame(onGrammarCaret);
+  };
   const findReplace = useFindReplace(run);
 
   // Fixed-position popups are placed once, from where their anchor was:
   // when the page moves under them (scroll, resize, the window losing
   // focus) they'd point at the wrong text, so they close instead.
+  // A phone shows both as action sheets, which point at nothing - and
+  // closing them when the sheet's own list scrolls or the keyboard goes
+  // down would only lose them.
   const hideGrammar = grammar.hide;
-  const anyPopup = menu !== null || grammar.popover !== null;
+  const anyPopup = !phone && (menu !== null || grammar.popover !== null);
   useEffect(() => {
     if (!anyPopup) return;
     const close = () => {
@@ -1181,6 +1211,38 @@ export function MilkdownEditor({
     });
   });
 
+  // The iPhone keyboard toolbar's table buttons: the right-click menu's
+  // insert and delete items, for the table under the caret.
+  useWindowEvent(TABLE_ACTION_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    runTableAction(run, (e as CustomEvent<string>).detail);
+  });
+
+  // The iPhone keyboard toolbar's image buttons: the right-click menu's
+  // width presets, and delete, for the image the selection is on.
+  useWindowEvent(IMAGE_ACTION_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    const pos = selectedImagePos(run);
+    if (pos === null) return;
+    const action = (e as CustomEvent<string>).detail;
+    if (action === "delete") {
+      deleteImage(run, pos);
+      return;
+    }
+    const width = /^width:(auto|\d+)$/.exec(action)?.[1];
+    // Still selected afterwards, so the toolbar shows the new width on and
+    // another preset is a tap away.
+    if (width)
+      setImageWidth(run, pos, width === "auto" ? null : Number(width), true);
+  });
+
+  // The iPhone keyboard toolbar's "More": the editor's menu for where the
+  // caret is, as an action sheet.
+  useWindowEvent(EDITOR_MORE_EVENT, () => {
+    if (!isOnScreen()) return;
+    setMenu({ x: 0, y: 0, imagePos: selectedImagePos(run), phone: true });
+  });
+
   // The app-drawn menu's Edit submenu (Windows - see ui/app-menu-actions.ts).
   // These are `PredefinedMenuItem`s in the native menu, which gives them no
   // id to dispatch by, so they arrive as an event and run the very commands
@@ -1303,8 +1365,11 @@ export function MilkdownEditor({
   return (
     <div
       onContextMenu={onContextMenu}
-      onMouseOver={grammar.onMouseOver}
-      onMouseOut={grammar.onMouseOut}
+      // iOS fires mouseover on a tap; there the caret opens the suggestion.
+      onMouseOver={phone ? undefined : grammar.onMouseOver}
+      onMouseOut={phone ? undefined : grammar.onMouseOut}
+      onPointerDown={() => (lastTouchRef.current = Date.now())}
+      onPointerUp={() => (lastTouchRef.current = Date.now())}
     >
       <Milkdown />
       {findReplace.open && (
@@ -1314,36 +1379,45 @@ export function MilkdownEditor({
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          items={buildContextMenuItems(run, {
-            t,
-            imagePos: menu.imagePos,
-            // Each AI item is only offered while its feature is enabled in
-            // Settings. The provider-free newcomer guide always exposes Ask
-            // AI so its real right-click entry point remains available even
-            // if the user previously disabled Agent chat before replaying
-            // the guide from Help.
-            aiItems: [
-              ...(settings.enableAskAi || tutorialMock
-                ? [{ label: t.askAi, onSelect: openAgentConversation }]
-                : []),
-              ...(settings.enableCompletion
-                ? [{ label: t.triggerCompletion, onSelect: triggerCompletion }]
-                : []),
-              ...(settings.enableGrammarCheck
-                ? [
-                    {
-                      label: t.triggerGrammarCheck,
-                      onSelect: triggerGrammarCheck,
-                    },
-                  ]
-                : []),
-            ],
-            copyOrCut,
-            paste,
-            selectAll,
-            toggleFindReplace: findReplace.toggle,
-            openTableDialog: () => setTableDialogOpen(true),
-          })}
+          items={(menu.phone ? buildPhoneMoreItems : buildContextMenuItems)(
+            run,
+            {
+              t,
+              imagePos: menu.imagePos,
+              // Each AI item is only offered while its feature is enabled in
+              // Settings. The provider-free newcomer guide always exposes Ask
+              // AI so its real right-click entry point remains available even
+              // if the user previously disabled Agent chat before replaying
+              // the guide from Help. The phone's "More" leaves it to the
+              // toolbar's own button.
+              aiItems: [
+                ...((settings.enableAskAi || tutorialMock) && !menu.phone
+                  ? [{ label: t.askAi, onSelect: openAgentConversation }]
+                  : []),
+                ...(settings.enableCompletion
+                  ? [
+                      {
+                        label: t.triggerCompletion,
+                        onSelect: triggerCompletion,
+                      },
+                    ]
+                  : []),
+                ...(settings.enableGrammarCheck
+                  ? [
+                      {
+                        label: t.triggerGrammarCheck,
+                        onSelect: triggerGrammarCheck,
+                      },
+                    ]
+                  : []),
+              ],
+              copyOrCut,
+              paste,
+              selectAll,
+              toggleFindReplace: findReplace.toggle,
+              openTableDialog: () => setTableDialogOpen(true),
+            },
+          )}
           onClose={() => setMenu(null)}
         />
       )}
@@ -1374,7 +1448,27 @@ export function MilkdownEditor({
           onClose={closeImageNameDialog}
         />
       )}
-      {grammar.popover && (
+      {grammar.popover && phone && (
+        // The phone's form: the explanation heads a sheet whose action is
+        // the suggested text itself, as iOS offers a spelling replacement.
+        // A fix that no longer fits the text says so in the notice, the
+        // sheet having closed on the tap.
+        <ActionSheet
+          title={grammar.popover.issue}
+          items={[
+            {
+              // A fix that deletes has no text to show.
+              label: grammar.popover.suggestion || t.grammarApply,
+              onSelect: () => {
+                if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
+              },
+            },
+            { label: t.grammarIgnore, onSelect: grammar.ignore },
+          ]}
+          onClose={grammar.hide}
+        />
+      )}
+      {grammar.popover && !phone && (
         <GrammarPopover
           info={grammar.popover}
           applyLabel={t.grammarApply}

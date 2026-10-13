@@ -21,6 +21,7 @@ import {
   selectionCell,
 } from "@milkdown/kit/prose/tables";
 import {
+  NodeSelection,
   Selection,
   type EditorState,
   type Transaction,
@@ -112,21 +113,71 @@ function alignTableColumn(
   });
 }
 
-function setImageWidth(
+/** What the iPhone keyboard toolbar's table buttons send
+ *  (TABLE_ACTION_EVENT) - the right-click menu's insert and delete items,
+ *  by name. */
+export const TABLE_ACTIONS = {
+  "row-above": addRowBefore,
+  "row-below": addRowAfter,
+  "column-left": addColumnBefore,
+  "column-right": addColumnAfter,
+  "delete-row": deleteRow,
+  "delete-column": deleteColumn,
+  "delete-table": deleteTable,
+} as const;
+export type TableAction = keyof typeof TABLE_ACTIONS;
+
+export function runTableAction(run: EditorRunner, action: string) {
+  if (action in TABLE_ACTIONS)
+    runTableCommand(run, TABLE_ACTIONS[action as TableAction]);
+}
+
+/** The image the selection is on - a tapped image is node-selected - for
+ *  the keyboard toolbar's image buttons: its doc position, as
+ *  contextMenuTarget reports the right-clicked one. */
+export function selectedImagePos(run: EditorRunner): number | null {
+  return (
+    run((ctx) => {
+      const { selection } = ctx.get(editorViewCtx).state;
+      return selection instanceof NodeSelection &&
+        selection.node.type.name === "image"
+        ? selection.from
+        : null;
+    }) ?? null
+  );
+}
+
+export function deleteImage(run: EditorRunner, pos: number) {
+  run((ctx) => {
+    const view = ctx.get(editorViewCtx);
+    const node = view.state.doc.nodeAt(pos);
+    if (node?.type.name !== "image") return;
+    view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
+    view.focus();
+  });
+}
+
+/**
+ * `keepSelected`: the image stays selected, as the keyboard toolbar needs
+ * it to keep showing the image's buttons - new markup on a leaf node is a
+ * replacement, which otherwise maps a node selection on it to a caret.
+ */
+export function setImageWidth(
   run: EditorRunner,
   pos: number,
   widthPercent: number | null,
+  keepSelected = false,
 ) {
   run((ctx) => {
     const view = ctx.get(editorViewCtx);
     const node = view.state.doc.nodeAt(pos);
     if (node?.type.name !== "image") return;
-    view.dispatch(
-      view.state.tr.setNodeMarkup(pos, undefined, {
-        ...node.attrs,
-        title: writeImageWidth(node.attrs.title as string | null, widthPercent),
-      }),
-    );
+    const tr = view.state.tr.setNodeMarkup(pos, undefined, {
+      ...node.attrs,
+      title: writeImageWidth(node.attrs.title as string | null, widthPercent),
+    });
+    if (keepSelected) tr.setSelection(NodeSelection.create(tr.doc, pos));
+    view.dispatch(tr);
     view.focus();
   });
 }
@@ -236,43 +287,116 @@ export function buildContextMenuItems(
   run: EditorRunner,
   options: ContextMenuOptions,
 ): MenuEntry[] {
-  const { t, imagePos, aiItems } = options;
-
-  const imageItems: MenuEntry[] = [];
-  if (imagePos !== null) {
-    const currentWidth =
-      run((ctx) => {
-        const node = ctx.get(editorViewCtx).state.doc.nodeAt(imagePos);
-        return node?.type.name === "image"
-          ? readImagePresentation(node.attrs.title as string | null)
-              .widthPercent
-          : null;
-      }) ?? null;
-    const widthItem = (widthPercent: number | null, label: string) => ({
-      label: `${currentWidth === widthPercent ? "✓ " : ""}${label}`,
-      onSelect: () => setImageWidth(run, imagePos, widthPercent),
-    });
-    imageItems.push(
-      widthItem(null, t.imageWidthAuto),
-      widthItem(30, t.imageWidth30),
-      widthItem(50, t.imageWidth50),
-      widthItem(70, t.imageWidth70),
-      widthItem(100, t.imageWidth100),
-      "separator",
-    );
-  }
-
+  const { t, imagePos } = options;
+  const imageItems: MenuEntry[] =
+    imagePos === null
+      ? []
+      : [...imageWidthItems(run, t, imagePos), "separator"];
   const clipboardItems: MenuEntry[] = [
     { label: t.cut, onSelect: () => options.copyOrCut(true) },
     { label: t.copy, onSelect: () => options.copyOrCut(false) },
     { label: t.paste, onSelect: options.paste },
+    ...generalItems(options),
+  ];
+
+  if (!inTable(run)) {
+    return [
+      ...imageItems,
+      ...clipboardItems,
+      "separator",
+      ...insertItems(run, options),
+    ];
+  }
+  return [
+    ...imageItems,
+    ...clipboardItems,
+    "separator",
+    ...tableLayoutItems(run, t),
+    "separator",
+    ...tableEditItems(run, t),
+  ];
+}
+
+/**
+ * The iPhone's "More" sheet (the keyboard toolbar's last button), which
+ * stands in for the right-click menu a phone never opens: what that menu
+ * offers where the caret is, less what the toolbar already carries there -
+ * copy and paste always, the insert and delete buttons in a table, the
+ * width presets on an image, lists, quote and code block elsewhere. The
+ * caller leaves Ask AI out of aiItems: the toolbar has its own button.
+ */
+export function buildPhoneMoreItems(
+  run: EditorRunner,
+  options: ContextMenuOptions,
+): MenuEntry[] {
+  const { t, imagePos } = options;
+  const cut: MenuEntry = {
+    label: t.cut,
+    onSelect: () => options.copyOrCut(true),
+  };
+  if (inTable(run)) {
+    return [
+      ...tableLayoutItems(run, t),
+      "separator",
+      cut,
+      ...generalItems(options),
+    ];
+  }
+  if (imagePos !== null) return [cut, ...generalItems(options)];
+  return [
+    { label: t.insertTable, onSelect: options.openTableDialog },
+    "separator",
+    cut,
+    ...generalItems(options),
+  ];
+}
+
+function inTable(run: EditorRunner): boolean {
+  return run((ctx) => isInTable(ctx.get(editorViewCtx).state)) ?? false;
+}
+
+function imageWidthItems(
+  run: EditorRunner,
+  t: Strings,
+  imagePos: number,
+): MenuEntry[] {
+  const currentWidth =
+    run((ctx) => {
+      const node = ctx.get(editorViewCtx).state.doc.nodeAt(imagePos);
+      return node?.type.name === "image"
+        ? readImagePresentation(node.attrs.title as string | null).widthPercent
+        : null;
+    }) ?? null;
+  const widthItem = (widthPercent: number | null, label: string) => ({
+    label: `${currentWidth === widthPercent ? "✓ " : ""}${label}`,
+    onSelect: () => setImageWidth(run, imagePos, widthPercent),
+  });
+  return [
+    widthItem(null, t.imageWidthAuto),
+    widthItem(30, t.imageWidth30),
+    widthItem(50, t.imageWidth50),
+    widthItem(70, t.imageWidth70),
+    widthItem(100, t.imageWidth100),
+  ];
+}
+
+/** Select All, Find, and the AI items: offered wherever the caret is. */
+function generalItems(options: ContextMenuOptions): MenuEntry[] {
+  const { t, aiItems } = options;
+  return [
     { label: t.selectAll, onSelect: options.selectAll },
     "separator",
     { label: t.findReplace, onSelect: options.toggleFindReplace },
     ...(aiItems.length > 0 ? (["separator", ...aiItems] as MenuEntry[]) : []),
   ];
+}
 
-  const insertItems: MenuEntry[] = [
+function insertItems(
+  run: EditorRunner,
+  options: ContextMenuOptions,
+): MenuEntry[] {
+  const { t } = options;
+  return [
     {
       label: t.insertBulletList,
       onSelect: () => runCommand(run, wrapInBulletListCommand.key),
@@ -291,35 +415,31 @@ export function buildContextMenuItems(
     },
     { label: t.insertTable, onSelect: options.openTableDialog },
   ];
+}
 
-  const inTable =
-    run((ctx) => isInTable(ctx.get(editorViewCtx).state)) ?? false;
-  if (!inTable) {
-    return [...imageItems, ...clipboardItems, "separator", ...insertItems];
-  }
-
-  const table =
-    (command: Parameters<typeof runTableCommand>[1]): (() => void) =>
-    () =>
-      runTableCommand(run, command);
+/** Column alignment and row/column selection. */
+function tableLayoutItems(run: EditorRunner, t: Strings): MenuEntry[] {
   return [
-    ...imageItems,
-    ...clipboardItems,
-    "separator",
     { label: t.alignLeft, onSelect: () => alignTableColumn(run, "left") },
     { label: t.alignCenter, onSelect: () => alignTableColumn(run, "center") },
     { label: t.alignRight, onSelect: () => alignTableColumn(run, "right") },
     "separator",
     { label: t.selectRow, onSelect: () => selectTableLine(run, "row") },
     { label: t.selectColumn, onSelect: () => selectTableLine(run, "column") },
+  ];
+}
+
+/** Inserting and deleting rows and columns. */
+function tableEditItems(run: EditorRunner, t: Strings): MenuEntry[] {
+  const table = (action: TableAction) => () => runTableAction(run, action);
+  return [
+    { label: t.insertRowAbove, onSelect: table("row-above") },
+    { label: t.insertRowBelow, onSelect: table("row-below") },
+    { label: t.insertColumnLeft, onSelect: table("column-left") },
+    { label: t.insertColumnRight, onSelect: table("column-right") },
     "separator",
-    { label: t.insertRowAbove, onSelect: table(addRowBefore) },
-    { label: t.insertRowBelow, onSelect: table(addRowAfter) },
-    { label: t.insertColumnLeft, onSelect: table(addColumnBefore) },
-    { label: t.insertColumnRight, onSelect: table(addColumnAfter) },
-    "separator",
-    { label: t.deleteRow, onSelect: table(deleteRow), danger: true },
-    { label: t.deleteColumn, onSelect: table(deleteColumn), danger: true },
-    { label: t.deleteTable, onSelect: table(deleteTable), danger: true },
+    { label: t.deleteRow, onSelect: table("delete-row"), danger: true },
+    { label: t.deleteColumn, onSelect: table("delete-column"), danger: true },
+    { label: t.deleteTable, onSelect: table("delete-table"), danger: true },
   ];
 }
