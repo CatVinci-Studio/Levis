@@ -76,6 +76,8 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
+import { keepClearOfDock } from "../mobile/quick-ask-dock";
 import {
   locateAnchor,
   usePendingEdits,
@@ -169,6 +171,8 @@ export function MilkdownEditor({
   // so the panel's actual pixels sit wherever ProseMirror placed the
   // decoration (in the document flow, pushing content below it down).
   const [quickAskEl, setQuickAskEl] = useState<HTMLElement | null>(null);
+  // iPhone: Quick Ask docks at the bottom of the screen instead.
+  const phone = usePhoneLayout();
   const { t, settings } = useSettings();
 
   // The editor plugin chain below is only built once (empty deps), so
@@ -367,18 +371,23 @@ export function MilkdownEditor({
   // undo that tracking. `visible` transitioning true is exactly "just
   // opened (or reopened)", which is the only moment a fresh position makes
   // sense - `open()` always sets both chatInfo and visible together.
+  // On a phone there is no widget at all: the panel docks above the
+  // keyboard instead (InlineChat's `docked`), since a block in the
+  // document ends up under the keyboard with no way to scroll to it.
   useEffect(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dispatch(
         setQuickAskWidget(
           view.state.tr,
-          inlineChat.visible ? (inlineChat.chatInfo?.widgetPos ?? null) : null,
+          inlineChat.visible && !phone
+            ? (inlineChat.chatInfo?.widgetPos ?? null)
+            : null,
         ),
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inlineChat.visible, run]);
+  }, [inlineChat.visible, phone, run]);
   const pendingEdits = usePendingEdits(run);
   useEffect(() => {
     pendingEditActionsRef.current = {
@@ -774,10 +783,15 @@ export function MilkdownEditor({
       let tr = view.state.tr
         .setSelection(TextSelection.near(doc.resolve(preview.from)))
         .scrollIntoView();
-      if (inlineChat.visible) {
+      if (inlineChat.visible && !phone) {
         tr = setQuickAskWidget(tr, blockPositionAfter(doc, preview.from));
       }
       view.dispatch(tr);
+      // Docked on a phone, the panel covers the bottom of the scroll area
+      // that scrollIntoView counted as visible.
+      if (inlineChat.visible && phone) {
+        requestAnimationFrame(() => keepClearOfDock(view, preview.from, true));
+      }
       // Never pull focus out of a text field: when an edit arrives while the
       // user is typing a follow-up, the rest of their message used to land
       // in the document (and invalidate the very preview it jumped to).
@@ -915,9 +929,26 @@ export function MilkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, runReady]);
 
+  // Where the Quick Ask panel renders: the zone widget in the document, or
+  // on a phone the page itself, docked - for the active tab only, since
+  // the page is shared by every tab's editor.
+  const quickAskHost = phone ? (isActive ? document.body : null) : quickAskEl;
   const chatComposer = () =>
-    quickAskEl?.querySelector<HTMLTextAreaElement>(".inline-chat textarea") ??
+    quickAskHost?.querySelector<HTMLTextAreaElement>(".inline-chat textarea") ??
     null;
+
+  /** Docked Quick Ask: keeps what it is about - the edit under review, the
+   *  first one proposed, else the passage it was opened on - above the
+   *  panel as the panel opens and grows. */
+  function keepQuickAskTargetInView(first: boolean) {
+    const info = inlineChat.chatInfo;
+    const target =
+      (pendingEdits.focusedPreview ?? pendingEdits.decidable[0])?.from ??
+      info?.range?.from ??
+      info?.anchor;
+    if (target === undefined) return;
+    run((ctx) => keepClearOfDock(ctx.get(editorViewCtx), target, first));
+  }
 
   function focusEditor() {
     run((ctx) => ctx.get(editorViewCtx).focus());
@@ -948,7 +979,7 @@ export function MilkdownEditor({
     // A fresh Quick Ask is a fresh question; an open one keeps its exchange.
     if (!wasVisible && !quickConversation.busy) quickConversation.reset();
     const moveTo = inlineChat.open();
-    if (moveTo !== null) {
+    if (moveTo !== null && !phone) {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         view.dispatch(setQuickAskWidget(view.state.tr, moveTo));
@@ -1420,11 +1451,12 @@ export function MilkdownEditor({
         )}
       {inlineChat.chatInfo &&
         inlineChat.visible &&
-        quickAskEl &&
+        quickAskHost &&
         // The panel renders through a portal into the zone widget's DOM
         // container (quick-ask-widget-plugin) - a real block in the
         // document flow, so it pushes content below it down instead of
-        // floating over it.
+        // floating over it. On a phone, into the page, docked above the
+        // keyboard.
         createPortal(
           <InlineChat
             document={inlineChat.chatInfo.document}
@@ -1467,8 +1499,10 @@ export function MilkdownEditor({
                   }
                 : null
             }
+            docked={phone}
+            onDockResize={keepQuickAskTargetInView}
           />,
-          quickAskEl,
+          quickAskHost,
         )}
     </div>
   );

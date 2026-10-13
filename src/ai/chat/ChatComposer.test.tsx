@@ -36,6 +36,7 @@ const { IpcError } = await import("../../ipc");
 
 const labels = {
   dropSelection: "Remove selection",
+  atCursor: "At the cursor",
   placeholder: "Ask anything",
   send: "Send",
   stop: "Stop",
@@ -46,6 +47,7 @@ const labels = {
   modeAsk: "Ask",
   modeEdit: "Edit",
   modePlan: "Plan",
+  modeLabel: "Mode",
   webSearch: "Web search",
 };
 

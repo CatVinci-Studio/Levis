@@ -116,6 +116,9 @@ export interface ChatBodyProps {
    *  without it the quick variant renders no pending bar at all, rather
    *  than a bar whose buttons silently do nothing. */
   quickReview?: QuickReview;
+  /** Quick variant docked on a phone: the panel's own controls, shown in
+   *  the composer's top row (ChatComposer's `dockActions`). */
+  dockActions?: React.ReactNode;
 }
 
 /** The Quick Ask nav bar's whole contract - see ChatBodyProps.quickReview. */
@@ -207,6 +210,7 @@ export function ChatBody({
   refreshContext,
   onRevealPending,
   quickReview,
+  dockActions,
 }: ChatBodyProps) {
   const {
     history,
@@ -597,6 +601,7 @@ export function ChatBody({
         defaultMode={defaultMode}
         allowPlan={variant !== "quick"}
         compact={variant === "quick"}
+        dockActions={dockActions}
         defaultWebSearch={defaultWebSearch}
         onSend={handleSend}
         onStop={stop}

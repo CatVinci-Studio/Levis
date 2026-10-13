@@ -1,0 +1,128 @@
+/* The AI composer on an iPhone (ChatComposer.tsx), in the docked Quick Ask
+   and the Levis AI sheet alike: every control a 44pt target - Apple's
+   minimum - and no :hover left stuck on whatever was tapped last. Phone
+   width only, like the rest of the phone layout (ui/mobile.css): an iPad
+   keeps the desktop's compact composer. */
+
+/* Ask / Edit / Plan as a segmented control: a tinted track with the
+   chosen segment raised out of it. Rendered only on a phone. */
+.chat-mode-segments {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--editor-text) 8%, transparent);
+}
+
+.chat-mode-segment {
+  min-width: 56px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--editor-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.chat-mode-segment[aria-checked="true"] {
+  background: var(--editor-bg, var(--bg));
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  :root[data-window-chrome="mobile"]
+    :is(.inline-chat-attach, .inline-chat-web-search) {
+    width: 44px;
+    height: 44px;
+  }
+
+  :root[data-window-chrome="mobile"] .inline-chat-send {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: var(--text-md);
+  }
+
+  /* The chips stay small to look at; their x reaches past their edges. */
+  :root[data-window-chrome="mobile"] .inline-chat-selection-chip {
+    overflow: visible;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .inline-chat-toolbar
+    .inline-chat-chip-remove,
+  :root[data-window-chrome="mobile"] .inline-chat-attachment-remove {
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -14px -12px -14px -8px;
+  }
+
+  /* The / skill and @ file suggestions: rows a finger can pick. */
+  :root[data-window-chrome="mobile"] .inline-chat-skill-item {
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+
+  :root[data-window-chrome="mobile"] .inline-chat-skill-menu {
+    max-height: 220px;
+    overscroll-behavior: contain;
+  }
+
+  /* A tap leaves :hover on what it touched until something else is; the
+     pressed state (:active) is the feedback instead. */
+  :root[data-window-chrome="mobile"]
+    .inline-chat-skill-item:hover:not(.inline-chat-skill-item-active, :active) {
+    background: transparent;
+  }
+
+  :root[data-window-chrome="mobile"]
+    :is(
+      .inline-chat-attach,
+      .inline-chat-web-search:not(.is-active),
+      .inline-chat-header-button,
+      .quick-ask-pending-nav-button
+    ):not(:disabled, :active):hover {
+    background: transparent;
+    color: var(--editor-muted);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .inline-chat-action:not(.inline-chat-action-primary):not(
+      :disabled,
+      :active
+    ):hover {
+    background: transparent;
+  }
+
+  :root[data-window-chrome="mobile"]
+    :is(.inline-chat-send, .inline-chat-action-primary):not(:disabled):hover {
+    border-color: var(--chrome-primary);
+    background: var(--chrome-primary);
+  }
+
+  :root[data-window-chrome="mobile"] .inline-chat-chip-remove:hover {
+    opacity: 0.6;
+  }
+
+  :root[data-window-chrome="mobile"]
+    :is(
+      .inline-chat-attach,
+      .inline-chat-web-search,
+      .inline-chat-header-button,
+      .quick-ask-pending-nav-button,
+      .inline-chat-action:not(.inline-chat-action-primary),
+      .inline-chat-skill-item
+    ):active {
+    background: color-mix(in srgb, var(--editor-text) 12%, transparent);
+  }
+
+  :root[data-window-chrome="mobile"]
+    :is(.inline-chat-send, .inline-chat-action-primary):not(:disabled):active {
+    background: color-mix(in srgb, var(--chrome-primary) 86%, #000);
+  }
+}

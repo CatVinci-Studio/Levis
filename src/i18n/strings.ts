@@ -246,6 +246,7 @@ export const strings = {
     agentModeAsk: "Ask",
     agentModeEdit: "Edit",
     agentModePlan: "Plan",
+    chatModeLabel: "Mode",
     agentCapabilitiesLabel: "Current capabilities",
     agentCapabilityConversation: "Conversation",
     agentCapabilityDocumentTools: "Document tools",
@@ -431,6 +432,7 @@ export const strings = {
     quickAskAcceptAllCount: "Accept all ({n})",
     quickAskRejectAllCount: "Reject all ({n})",
     chatDropSelection: "Don't send the selection",
+    quickAskAtCursor: "At the cursor",
     proposalRelocateRequest:
       "That edit no longer matches the document. Please look at the document as it reads now and propose the change again.",
     chatSelectionChip: "Selected text ({n} chars)",
@@ -898,6 +900,7 @@ export const strings = {
     agentModeAsk: "询问",
     agentModeEdit: "编辑",
     agentModePlan: "计划",
+    chatModeLabel: "模式",
     agentCapabilitiesLabel: "当前能力",
     agentCapabilityConversation: "连续对话",
     agentCapabilityDocumentTools: "文档工具",
@@ -1076,6 +1079,7 @@ export const strings = {
     quickAskAcceptAllCount: "全部采纳（{n}）",
     quickAskRejectAllCount: "全部拒绝（{n}）",
     chatDropSelection: "不发送选中内容",
+    quickAskAtCursor: "在光标处",
     proposalRelocateRequest:
       "这处修改已经和文档对不上了。请按文档现在的内容重新给出这个修改。",
     chatSelectionChip: "选中内容({n} 字)",
@@ -1549,6 +1553,7 @@ export const strings = {
     agentModeAsk: "質問",
     agentModeEdit: "編集",
     agentModePlan: "計画",
+    chatModeLabel: "モード",
     agentCapabilitiesLabel: "現在の機能",
     agentCapabilityConversation: "会話",
     agentCapabilityDocumentTools: "文書ツール",
@@ -1732,6 +1737,7 @@ export const strings = {
     quickAskAcceptAllCount: "すべて承認（{n}）",
     quickAskRejectAllCount: "すべて却下（{n}）",
     chatDropSelection: "選択範囲を送らない",
+    quickAskAtCursor: "カーソル位置",
     proposalRelocateRequest:
       "この編集は現在の文書と一致しません。今の文書の内容に基づいて、もう一度提案してください。",
     chatSelectionChip: "選択範囲（{n}文字）",
