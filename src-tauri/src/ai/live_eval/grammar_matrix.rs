@@ -6,7 +6,7 @@
 
 use super::checks::{self, Lang};
 use super::harness::{self, Checks, Record};
-use crate::ai::client::{grammar_instructions, parse_grammar_reply, GrammarIssue};
+use crate::ai::client::{finish_grammar, grammar_instructions, grammar_user_text, GrammarIssue};
 use aicompat::providers::anthropic::AnthropicAuth;
 use serde_json::json;
 
@@ -50,7 +50,10 @@ impl GrammarCase {
     }
 }
 
-/// A fix expectation may list alternatives: "late. We|late; we".
+/// A fix expectation may list alternatives: "late. We|late; we". Each one
+/// carries enough of its neighbourhood to fail on a fix that leaves the
+/// wrong word standing ("nous sommes allés", not just "sommes allés",
+/// which "nous avons sommes allés" contains).
 fn fix_ok(corrected: &str, fix: &str) -> bool {
     fix.split('|').any(|f| corrected.contains(f))
 }
@@ -73,7 +76,7 @@ pub const CASES: &[GrammarCase] = &[
     GrammarCase { id: "zh/clean/strict", lang: Lang::ZhHans, strictness: "strict", paragraph: "市图书馆在一月份启动了周末读书会。一年下来，注册参与者从 120 人增长到 310 人，周日闭馆太早是大家最常提到的问题。", fixes: &[], protected: &["120", "310"], extra: 1, ..G },
     GrammarCase { id: "zh/mixed-terms/standard", lang: Lang::Mixed, strictness: "standard", paragraph: "我们用 Tauri 重写了 editor，安装包从 180 MB 降到了 12 MB，冷启动也块了很多。", fixes: &[("块了", "快了")], protected: &["Tauri", "editor", "180 MB", "12 MB"], extra: 0, ..G },
     GrammarCase { id: "zh-Hant/wrong-script/standard", lang: Lang::ZhHant, strictness: "standard", paragraph: "我們明天要去圖書館借書。他的作業寫得很好，老師很满意。", fixes: &[("满意", "滿意")], protected: &[], extra: 0, ..G },
-    GrammarCase { id: "ja/typo/standard", lang: Lang::Ja, strictness: "standard", paragraph: "昨日は友達と映画を見に行きました。とても面白かったでしだ。", fixes: &[("でしだ", "でした")], protected: &[], extra: 0, ..G },
+    GrammarCase { id: "ja/typo/standard", lang: Lang::Ja, strictness: "standard", paragraph: "昨日は友達と映画を見に行きました。とても面白かったでしだ。", fixes: &[("でしだ", "でした|かったです")], protected: &[], extra: 0, ..G },
     GrammarCase { id: "ja/clean/standard", lang: Lang::Ja, strictness: "standard", paragraph: "市立図書館は一月に週末読書クラブを始めました。登録参加者は一年で120人から310人に増えました。", fixes: &[], protected: &[], extra: 0, ..G },
     GrammarCase { id: "ko/typo/standard", lang: Lang::Ko, strictness: "standard", paragraph: "저는 어제 오랜만에 친구를 만낫어요. 같이 저녁을 먹고 산책을 했어요.", fixes: &[("만낫어요", "만났어요")], protected: &[], extra: 0, ..G },
     GrammarCase { id: "es/accent/standard", lang: Lang::Es, strictness: "standard", paragraph: "Ayer fuimos a la playa y nos divertimos mucho, aunque hacia demasiado calor para quedarnos toda la tarde.", fixes: &[("hacia", "hacía")], protected: &[], extra: 0, ..G },
@@ -151,13 +154,13 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
         match harness::complete(
             auth,
             &instructions,
-            &paragraph,
+            &grammar_user_text(&paragraph),
             harness::writing_model_arg(model),
         ) {
             Ok(reply) => {
                 usage.add(&reply.model, &reply.usage);
                 latency += reply.ms;
-                parsed = parse_grammar_reply(&reply.text, &paragraph);
+                parsed = finish_grammar(&reply.text, &paragraph, Some(case.strictness));
                 raw = reply.text;
             }
             Err(e) => {
@@ -181,6 +184,22 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
             Vec::new()
         }
     };
+    // What the user sees: the editor drops any fix that touches inline code
+    // (grammar-check-plugin.ts's touchesCode).
+    let issues: Vec<GrammarIssue> = match case.markdown {
+        Some(md) => {
+            let it = checks::inline_text(md);
+            issues
+                .into_iter()
+                .filter(|i| {
+                    !it.marks
+                        .iter()
+                        .any(|m| m.kind == "code" && i.start < m.end && i.end > m.start)
+                })
+                .collect()
+        }
+        None => issues,
+    };
     let corrected = apply(&paragraph, &issues);
     checks.add(
         "applies cleanly",
@@ -202,8 +221,17 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
             || format!("corrected: {corrected}"),
         );
     }
+    // Accepting every suggestion must not write anything twice: "has a an
+    // opinion", "uns uns", "高兴的高兴地" - the kind of damage a misplaced
+    // span did while "fix gives" still found the fix inside it.
+    if !corrected.is_empty() {
+        let doubled = checks::doubled_words(&paragraph, &corrected);
+        checks.expect("no doubled text", doubled.is_none(), || {
+            format!("{:?} in: {corrected}", doubled.clone().unwrap_or_default())
+        });
+    }
     // Issues that touch none of the known mistakes.
-    let extra = issues
+    let extras: Vec<&GrammarIssue> = issues
         .iter()
         .filter(|i| {
             !case.fixes.iter().any(|(wrong, _)| {
@@ -211,11 +239,12 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
                 i.start < end && i.end > at
             })
         })
-        .count();
-    checks.expect("no false positives", extra <= case.extra, || {
+        .collect();
+    checks.expect("no false positives", extras.len() <= case.extra, || {
         format!(
-            "{extra} extra issue(s): {}",
-            issues
+            "{} extra issue(s): {}",
+            extras.len(),
+            extras
                 .iter()
                 .map(|i| format!("{:?}->{:?}", span_text(&paragraph, i), i.suggestion))
                 .collect::<Vec<_>>()

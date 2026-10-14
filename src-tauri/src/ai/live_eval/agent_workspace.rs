@@ -36,9 +36,13 @@ use std::sync::Arc;
 
 /// A fresh folder for one case under the system temp dir.
 fn scratch(name: &str) -> PathBuf {
+    // A fresh folder per call: unit tests build the case list concurrently,
+    // and a shared one was emptied by one test while another loaded it.
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let dir = std::env::temp_dir()
         .join(format!("levis-eval-ws-{}", std::process::id()))
-        .join(name);
+        .join(format!("{n}-{name}"));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("scratch dir");
     dir
@@ -67,6 +71,18 @@ fn says_cannot(reply: &str, words: &[&str]) -> Result<(), String> {
         .any(|w| lower.contains(&w.to_lowercase()))
         .then_some(())
         .ok_or_else(|| "the reply doesn't say the file can't be read".into())
+}
+
+/// The unsaved-draft reply names the cause (the document isn't saved) or
+/// the way out (save it, or choose a project folder) - not
+/// just "I can't open it from here".
+fn mentions(reply: &str, words: &[&str]) -> Result<(), String> {
+    let lower = reply.to_lowercase();
+    words
+        .iter()
+        .any(|w| lower.contains(&w.to_lowercase()))
+        .then_some(())
+        .ok_or_else(|| format!("mentions none of {words:?}"))
 }
 
 const CANNOT_EN: &[&str] = &[
@@ -409,8 +425,8 @@ fn workspace_cases() -> Vec<AgentCase> {
 
     // An unsaved draft: no folder, so no file tools at all.
     let no_folder = DiskWorkspace::default();
-    c.push(AgentCase::new("workspace/en/unsaved-draft", Lang::En, Lang::En, BUDGET_EN, "Update the Costs paragraph with the figures from my notes/costs.md file.", either().check("no invented figures", no_new_numbers).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_EN)).without_tools(&["read_file", "list_files", "search_files"]), "The document is unsaved and no workspace is set, so there is no folder to read (no file tools are offered). Expect the agent to say it can't open the file and ask for the figures (or to save the document in a folder / pick a workspace); no invented numbers.").disk(no_folder.clone()));
-    c.push(AgentCase::new("workspace/zh/unsaved-draft", Lang::ZhHans, Lang::ZhHans, INVITE_ZH, "根据我 notes.md 里记的场地，补上活动地点。", either().lacks(&["图书馆", "多功能厅"]).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_ZH)), "Unsaved draft, no workspace: the agent can't read notes.md. Expect a Chinese reply saying so and asking for the venue (a clearly marked placeholder is acceptable), never an invented venue.").disk(no_folder));
+    c.push(AgentCase::new("workspace/en/unsaved-draft", Lang::En, Lang::En, BUDGET_EN, "Update the Costs paragraph with the figures from my notes/costs.md file.", either().check("no invented figures", no_new_numbers).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_EN)).check("says why and what to do", |o| mentions(&o.reply, &["save", "project folder", "settings"])).without_tools(&["read_file", "list_files", "search_files"]), "The document is unsaved and no workspace is set, so there is no folder to read (no file tools are offered). Expect the agent to say it can't open the file and ask for the figures (or to save the document in a folder / pick a workspace); no invented numbers.").disk(no_folder.clone()));
+    c.push(AgentCase::new("workspace/zh/unsaved-draft", Lang::ZhHans, Lang::ZhHans, INVITE_ZH, "根据我 notes.md 里记的场地，补上活动地点。", either().lacks(&["图书馆", "多功能厅"]).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_ZH)).check("says why and what to do", |o| mentions(&o.reply, &["保存", "项目文件夹", "设置"])), "Unsaved draft, no workspace: the agent can't read notes.md. Expect a Chinese reply saying so and asking for the venue (a clearly marked placeholder is acceptable), never an invented venue.").disk(no_folder));
 
     // The panel's workspace override: another folder than the document's.
     let base = scratch("override");

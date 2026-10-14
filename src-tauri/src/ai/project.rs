@@ -321,12 +321,17 @@ pub fn relevant_library<'a>(library: &'a [LibraryEntry], context: &str) -> Vec<&
 }
 
 /// The prompt section for the style profile and the relevant library
-/// entries - shared by the agent and the inline completion.
+/// entries - shared by the agent and the inline completion. Each header
+/// says what the material is and how it binds: in the round-2 eval the
+/// agent applied a profile's present tense to a plan for next year, split a
+/// sentence under a length rule so it no longer covered what it had, and
+/// shrank a requested expansion; and it recited a library entry's back
+/// story as exposition where a scene was asked for.
 pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(style) = style {
         parts.push(format!(
-            "---the author's style profile (follow it when writing for this project)---\n{style}"
+            "---the author's style profile (.levis/style.md: how this author writes, drafted from their own writing with \"Learn my style\" or written by them; follow it in everything you write for this project, in any language. Its concrete limits - sentence length, words and punctuation to avoid - are rules; its habits apply where they read naturally and never override the request or the sense of the text: a habit of the present tense doesn't turn a plan into a fact, a length limit doesn't let a sentence drop what it covered, and an expansion still comes out longer)---\n{style}"
         ));
     }
     if !entries.is_empty() {
@@ -343,7 +348,7 @@ pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -
             .collect::<Vec<_>>()
             .join("\n\n");
         parts.push(format!(
-            "---project library: established facts about the people, places and terms mentioned here - stay consistent with them---\n{body}"
+            "---project library (.levis/library): established facts about the people, places and terms mentioned here - stay consistent with them, add nothing about them that neither this nor the text gives, and treat them as background: use them as constraints, not as text to recite---\n{body}"
         ));
     }
     (!parts.is_empty()).then(|| parts.join("\n\n"))
@@ -537,7 +542,23 @@ pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
     Ok(samples)
 }
 
-pub(crate) const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write a style profile in Markdown, in the same language as the samples, with exactly these sections:\n\n# Style profile\n\n## Voice and tone\n## Sentences and rhythm\n## Word choice\n## Punctuation and formatting\n## Structure\n## Never\n## Examples\n\nUnder each heading give 3-6 short, concrete, checkable bullet points drawn from the samples (\"opens paragraphs with a concrete scene, then the claim\", \"average sentence 12-18 characters, many one-clause sentences\", \"uses full-width Chinese punctuation, no em dashes\") - not generic praise or advice. 'Never' lists things this author clearly avoids. 'Examples' quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile.";
+/// "Learn my style": the prompt that drafts the style profile from samples.
+/// The profile is written in the samples' language, headings included:
+/// the author reviews and edits it in a tab right afterwards, and the
+/// app's own template for a Chinese UI is Chinese. The round-2 eval found
+/// Chinese samples profiled in English bullets - the earlier prompt fixed
+/// English headings, gave only English examples and mentioned the language
+/// once, mid-sentence - and bullets that didn't hold for the samples
+/// ("about 6-8 paragraphs" for pieces of five and six, "no metaphors" next
+/// to a metaphor).
+pub(crate) const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write their style profile in Markdown.
+
+Write the whole profile in the language the samples are written in - headings, bullets and all: Chinese samples get a Chinese profile, English samples an English one. The author reads and edits this file, and the assistant follows it. Use exactly these seven sections, in this order, with the headings in that language:
+
+English: # Style profile / ## Voice and tone / ## Sentences and rhythm / ## Word choice / ## Punctuation and formatting / ## Structure / ## Never / ## Examples
+Chinese: # 文风档案 / ## 语气 / ## 句子与节奏 / ## 用词 / ## 标点与格式 / ## 结构 / ## 从不 / ## 示例
+
+Under each heading give 3-6 short, concrete, checkable bullet points drawn from the samples - \"opens paragraphs with a concrete scene, then the claim\", \"句子很短，多数不超过十五个字\", \"uses full-width Chinese punctuation, no em dashes\" - not generic praise or advice. Every bullet must hold for the samples as given: count instead of estimating, and call something absent (metaphors, exclamation marks) only if no sample uses it. The Never section lists what this author clearly avoids. The Examples section quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile, in the samples' language.";
 
 /// "Learn my style": analyses the picked samples and writes the project's
 /// `.levis/style.md` (keeping the previous one as style.previous.md), which

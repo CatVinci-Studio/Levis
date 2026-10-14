@@ -61,17 +61,7 @@ pub fn quotes_kept(o: &TurnOutcome, marks: &[char]) -> Result<(), String> {
 /// Digits the edit wrote that the document didn't have - an invented
 /// figure (a reformatted one, "1,056" -> "1056", is allowed).
 pub fn no_new_numbers(o: &TurnOutcome) -> Result<(), String> {
-    let digits_of = |s: &str| -> Vec<String> {
-        s.split(|c: char| !c.is_ascii_digit() && c != ',' && c != '.')
-            .map(|t| t.trim_matches(|c| c == ',' || c == '.').replace(',', ""))
-            .filter(|t| t.chars().any(|c| c.is_ascii_digit()))
-            .collect()
-    };
-    let known = digits_of(&o.doc_before);
-    let new: Vec<String> = digits_of(&proposed_text(o))
-        .into_iter()
-        .filter(|d| !known.contains(d))
-        .collect();
+    let new = super::checks::new_numbers(&o.doc_before, &proposed_text(o));
     new.is_empty()
         .then_some(())
         .ok_or_else(|| format!("new numbers {new:?}"))
@@ -355,9 +345,9 @@ fn en_cases() -> Vec<AgentCase> {
     // Five turns in the side panel on the same paragraph (no selection).
     let span = |o: &TurnOutcome| between(o, "Hi Daniel,", "What we can do");
     c.push(
-        AgentCase::new("panel/en/five-turn", Lang::En, Lang::En, EMAIL_EN, "Tighten the first paragraph after the greeting.", edit_anywhere().shorter().check("edit stays in the paragraph", span), "Five panel turns on the same paragraph, each edit accepted: (1) tighten; (2) warmer, Daniel is a long-time client; (3) add that we've found a second supplier for future orders; (4) cut it to three sentences; (5) a question - does it still mention the original ship date? - answered without editing. Every edit stays in that paragraph and keeps PO 4471 and 1,200 units / 30 September.")
+        AgentCase::new("panel/en/five-turn", Lang::En, Lang::En, EMAIL_EN, "Tighten the first paragraph after the greeting.", edit_anywhere().shorter().check("edit stays in the paragraph", span), "Five panel turns on the same paragraph, each edit accepted: (1) tighten; (2) warmer, Daniel is a long-time client; (3) add to the first paragraph that we've found a second supplier for future orders; (4) cut it to three sentences; (5) a question - does it still mention the original ship date? - answered without editing. Every edit stays in that paragraph and keeps PO 4471 and 1,200 units / 30 September.")
             .then(true, "Good. Now make it warmer - Daniel has been a client for years.", edit_anywhere().check("edit stays in the paragraph", span))
-            .then(true, "Add that we've already lined up a second supplier for future orders.", edit_anywhere().has(&["second supplier"]).check("edit stays in the paragraph", span))
+            .then(true, "Add to the first paragraph that we've already lined up a second supplier for future orders.", edit_anywhere().has(&["second supplier"]).check("edit stays in the paragraph", span))
             .then(true, "That's too long now. Cut it to three sentences.", edit_anywhere().check("edit stays in the paragraph", span).check("three sentences", |o| {
                 let p = o.doc_after.split("\n\n").nth(2).unwrap_or("");
                 let n = checks::sentences(p).len();

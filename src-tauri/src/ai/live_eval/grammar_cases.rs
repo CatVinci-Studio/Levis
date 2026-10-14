@@ -24,7 +24,7 @@ pub const MORE: &[GrammarCase] = &[
     GrammarCase { id: "zh/clean-long/standard", lang: Lang::ZhHans, paragraph: "调研组在三个月里走访了六个街道，和两百多位居民谈过话。多数人支持改造，但希望施工能分段进行，并且在动工之前就把临时安置的方案公布出来，让大家心里有数。", ..G },
     GrammarCase { id: "zh/typos-only/typos", lang: Lang::ZhHans, strictness: "typos", paragraph: "他高兴的跳了起来，跑去告诉妈妈这个好消息，妈妈听了也很开新。", fixes: &[("开新", "开心")], protected: &["高兴的跳"], ..G },
     GrammarCase { id: "zh/dialogue-colloquial/standard", lang: Lang::ZhHans, paragraph: "“吃了没？”奶奶在门口喊，“没吃就在这儿吃呗，锅里还有饺子。”", protected: &["吃了没", "吃呗"], ..G },
-    GrammarCase { id: "zh/measure-word/standard", lang: Lang::ZhHans, paragraph: "周末我在书店买了三个书，又给孩子买了两件裤子。", fixes: &[("三个书", "三本书")], protected: &["两件裤子"], ..G },
+    GrammarCase { id: "zh/measure-word/standard", lang: Lang::ZhHans, paragraph: "周末我在书店买了三个书，又给孩子买了两条裤子。", fixes: &[("三个书", "三本书")], protected: &["两条裤子"], ..G },
 
     // English.
     GrammarCase { id: "en/articles/standard", lang: Lang::En, paragraph: "She is an university student and has a honest opinion about the exam.", fixes: &[("an university", "a university"), ("a honest", "an honest")], ..G },
@@ -48,7 +48,7 @@ pub const MORE: &[GrammarCase] = &[
     GrammarCase { id: "zh-Hant/typo-late/standard", lang: Lang::ZhHant, paragraph: "我們明天早上九點在公司門口集合，請大家準時到達，不要遲倒。", fixes: &[("遲倒", "遲到")], ..G },
     GrammarCase { id: "ja/particles/standard", lang: Lang::Ja, paragraph: "私は昨日図書館を行きました。そこで面白い本が見つけました。", fixes: &[("図書館を", "図書館に|図書館へ"), ("本が見つけ", "本を見つけ|本が見つかり")], ..G },
     GrammarCase { id: "es/agreement-two/standard", lang: Lang::Es, paragraph: "Las casas blancos del pueblo son muy bonitas, pero la calle principal está sucio.", fixes: &[("blancos", "blancas"), ("sucio", "sucia")], ..G },
-    GrammarCase { id: "fr/auxiliary/standard", lang: Lang::Fr, paragraph: "Hier, nous avons allé au marché et j'ai acheté des pommes rouge.", fixes: &[("avons allé", "sommes allés"), ("rouge", "pommes rouges")], ..G },
+    GrammarCase { id: "fr/auxiliary/standard", lang: Lang::Fr, paragraph: "Hier, nous avons allé au marché et j'ai acheté des pommes rouge.", fixes: &[("avons allé", "nous sommes allés"), ("rouge", "pommes rouges")], ..G },
     GrammarCase { id: "ru/case-two/standard", lang: Lang::Ru, paragraph: "Я вчера читал интересная книга о истории России.", fixes: &[("интересная книга", "интересную книгу"), ("о истории", "об истории")], ..G },
     GrammarCase { id: "pt/agreement-two/standard", lang: Lang::Pt, paragraph: "As crianças está brincando no parque desde de manhã.", fixes: &[("está", "crianças estão"), ("desde de", "desde manhã|desde a manhã|desde cedo")], ..G },
 ];

@@ -145,7 +145,7 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         &[
             "el", "los", "las", "y", "del", "una", "es", "con", "se", "más", "pero", "muy", "pues",
             "aquí", "también", "está", "están", "sus", "hay", "fue", "este", "la", "lo", "por",
-            "su", "al",
+            "su", "al", "como",
         ],
     ),
     (
@@ -153,6 +153,7 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         &[
             "le", "les", "des", "et", "est", "une", "pour", "dans", "pas", "sur", "du", "avec",
             "au", "ce", "qui", "nous", "vous", "sont", "mais", "plus", "être", "cette", "aux",
+            "la", "je", "tu", "il", "elle", "avant", "très", "sans",
         ],
     ),
     (
@@ -276,7 +277,11 @@ pub fn detect(text: &str) -> Option<Lang> {
         .split(|ch: char| !ch.is_alphabetic())
         .filter(|w| !w.is_empty())
         .collect();
+    // No evidence, or a tie between languages: too little to tell. Short
+    // completions ("alojamiento", " buchen", "tu me promets de revenir")
+    // used to default to English, or to whichever list came first.
     let mut best = (Lang::En, 0.0f64);
+    let mut tied = false;
     for (lang, list) in LATIN_WORDS {
         let mut score = words.iter().filter(|w| list.contains(w)).count() as f64;
         // Letters only one of these languages uses.
@@ -294,9 +299,12 @@ pub fn detect(text: &str) -> Option<Lang> {
         };
         if score > best.1 {
             best = (*lang, score);
+            tied = false;
+        } else if score > 0.0 && score == best.1 {
+            tied = true;
         }
     }
-    Some(best.0)
+    (best.1 > 0.0 && !tied).then_some(best.0)
 }
 
 /// Ok when `text` reads as `expected`; texts too short to tell pass.
@@ -700,7 +708,8 @@ fn join_inline(left: &str, right: &str) -> String {
                 && !b.is_whitespace()
                 && !is_cjk(a)
                 && !is_cjk(b)
-                && !".,;:!?)]}".contains(b) =>
+                && !".,;:!?)]}".contains(b)
+                && !right.starts_with("[^") =>
         {
             format!("{left} {right}")
         }
@@ -1201,13 +1210,183 @@ pub fn meta_commentary(text: &str) -> Option<&'static str> {
         "<reasoning",
         "the instructions",
         "per instructions",
+        "per the scope",
+        "the rules say",
         "text-before-cursor",
+        "word-at-cursor",
         "the last word",
+        "the text ends with",
+        "so i repeat",
         "wait—",
+        "wait —",
         "wait -",
+        "i'll report",
     ]
     .into_iter()
     .find(|m| lower.contains(m))
+}
+
+/// Text written twice in `after` that `before` didn't have twice: a doubled
+/// word ("uns uns"), two articles in a row ("a an"), or a repeated run of
+/// two to four characters in Chinese or Japanese ("高兴的高兴地").
+pub fn doubled_words(before: &str, after: &str) -> Option<String> {
+    fn words(text: &str) -> Vec<String> {
+        text.split(|c: char| !c.is_alphanumeric() && c != '\'' || is_cjk(c))
+            .filter(|w| w.chars().any(char::is_alphabetic))
+            .map(str::to_lowercase)
+            .collect()
+    }
+    fn pairs(text: &str) -> Vec<String> {
+        const ARTICLES: [&str; 3] = ["a", "an", "the"];
+        words(text)
+            .windows(2)
+            .filter(|p| {
+                p[0] == p[1]
+                    || (ARTICLES.contains(&p[0].as_str()) && ARTICLES.contains(&p[1].as_str()))
+            })
+            .map(|p| format!("{} {}", p[0], p[1]))
+            .collect()
+    }
+    // A run repeated right away or after one character ("高兴的高兴").
+    fn cjk_repeats(text: &str) -> Vec<String> {
+        let chars: Vec<char> = text.chars().collect();
+        let mut found = Vec::new();
+        for n in 2..=4 {
+            for gap in 0..=1 {
+                for i in 0..(chars.len() + 1).saturating_sub(2 * n + gap) {
+                    let (a, b) = (&chars[i..i + n], &chars[i + n + gap..i + 2 * n + gap]);
+                    if a == b && a.iter().all(|&c| is_cjk(c) && c.is_alphabetic()) {
+                        found.push(a.iter().collect::<String>());
+                    }
+                }
+            }
+        }
+        found
+    }
+    let count = |all: &[String], x: &String| all.iter().filter(|y| *y == x).count();
+    for (old, new) in [
+        (pairs(before), pairs(after)),
+        (cjk_repeats(before), cjk_repeats(after)),
+    ] {
+        if let Some(x) = new.iter().find(|x| count(&new, x) > count(&old, x)) {
+            return Some(x.clone());
+        }
+    }
+    None
+}
+
+/// `text` without what it quotes ("...", “...”, 「...」) - a reply in English
+/// about a Chinese edit quotes Chinese words, which say nothing about the
+/// reply's own language.
+pub fn unquoted(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut closing: Option<char> = None;
+    for c in text.chars() {
+        match closing {
+            Some(end) if c == end => closing = None,
+            Some(_) => {}
+            None => match c {
+                '"' => closing = Some('"'),
+                '“' => closing = Some('”'),
+                '「' => closing = Some('」'),
+                '『' => closing = Some('』'),
+                _ => out.push(c),
+            },
+        }
+    }
+    out
+}
+
+/// The agent's machinery surfacing in a reply to the writer: a tool's name
+/// or a line number from read_document/search_document ("（第91行）").
+pub fn process_talk(reply: &str) -> Option<String> {
+    let lower = reply.to_lowercase();
+    let tools = [
+        "propose_edit",
+        "read_document",
+        "search_document",
+        "list_files",
+        "read_file",
+        "search_files",
+        "use_skill",
+        "add_comment",
+    ];
+    if let Some(t) = tools.iter().find(|t| lower.contains(*t)) {
+        return Some(t.to_string());
+    }
+    let chars: Vec<char> = lower.chars().collect();
+    for i in 0..chars.len() {
+        let digits = |from: usize| -> String {
+            chars[from.min(chars.len())..]
+                .iter()
+                .take_while(|d| d.is_ascii_digit())
+                .collect()
+        };
+        // "line 12", "lines 3-5"
+        let word = |w: &str| {
+            let w: Vec<char> = w.chars().collect();
+            chars[i..].starts_with(&w) && (i == 0 || !chars[i - 1].is_alphabetic())
+        };
+        for w in ["line ", "lines "] {
+            if word(w) {
+                let n = digits(i + w.chars().count());
+                if !n.is_empty() {
+                    return Some(format!("{w}{n}"));
+                }
+            }
+        }
+        // 第91行
+        if chars[i] == '第' {
+            let n = digits(i + 1);
+            if !n.is_empty() && chars.get(i + 1 + n.len()) == Some(&'行') {
+                return Some(format!("第{n}行"));
+            }
+        }
+    }
+    None
+}
+
+/// ASCII punctuation in Chinese or Japanese prose in a reply - "无法按时出席,
+/// 特向您", "文档\"配置\"一节", "(当前这章)" - outside code spans: a comma,
+/// colon or semicolon right after a CJK character, or a bracket or quote
+/// next to one.
+pub fn half_width_in_cjk(reply: &str) -> Option<String> {
+    let cjk = |c: char| matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}');
+    for line in reply.lines() {
+        for part in line.split('`').step_by(2) {
+            let chars: Vec<char> = part.chars().collect();
+            for (i, &c) in chars.iter().enumerate() {
+                let prev = i.checked_sub(1).map(|j| chars[j]).is_some_and(cjk);
+                let next = chars.get(i + 1).copied().is_some_and(cjk);
+                let wrong = match c {
+                    ',' | ':' | ';' => prev,
+                    '(' | ')' | '"' => prev || next,
+                    _ => false,
+                };
+                if wrong {
+                    let from = i.saturating_sub(4);
+                    return Some(chars[from..(i + 5).min(chars.len())].iter().collect());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Figures in `text` that `context` doesn't have - an invented number,
+/// date or amount (a reformatted one, "1,056" -> "1056", is allowed).
+pub fn new_numbers(context: &str, text: &str) -> Vec<String> {
+    let digits_of = |s: &str| -> Vec<String> {
+        s.split(|c: char| !c.is_ascii_digit() && c != ',' && c != '.')
+            .map(|t| t.trim_matches(|c| c == ',' || c == '.').replace(',', ""))
+            .filter(|t| t.chars().any(|c| c.is_ascii_digit()))
+            .collect()
+    };
+    let known = digits_of(context);
+    digits_of(text)
+        .into_iter()
+        .filter(|d| !known.contains(d))
+        .collect()
 }
 
 // ----------------------------------------------------------------- sentences
@@ -1329,10 +1508,60 @@ more"
         assert_eq!(doubled_at_join("in the", " the end"), None);
         assert_eq!(doubled_at_join("崩溃", "率"), None);
         assert_eq!(doubled_at_join("the docu", "ment is"), None);
+        // Grammar fixes applied: new doubled words, articles, CJK runs.
+        let doubled = |a: &str, b: &str| doubled_words(a, b);
+        assert_eq!(
+            doubled("has a honest opinion", "has a an opinion").as_deref(),
+            Some("a an")
+        );
+        assert_eq!(
+            doubled("Kellner hat uns lange", "Kellner uns uns lange").as_deref(),
+            Some("uns uns")
+        );
+        assert_eq!(
+            doubled("他高兴的跳了起来", "他高兴的高兴地跳了起来").as_deref(),
+            Some("高兴")
+        );
+        assert_eq!(
+            doubled("has a honest opinion", "has an honest opinion"),
+            None
+        );
+        // Already doubled before: not the fix's doing.
+        assert_eq!(doubled("that the the value", "that the the value"), None);
+        assert_eq!(doubled("一个字一个字地", "一个字一个字地"), None);
         assert_eq!(
             meta_commentary("约</reasoning_effort>"),
             Some("</reasoning")
         );
+        assert_eq!(
+            new_numbers("we ship 700 units", "and 1,200 later"),
+            ["1200"]
+        );
+        // An English reply quoting Chinese reads as English.
+        let reply = "I proposed a tighter first paragraph. \"不大\" becomes \"小\", \"一年四季\" becomes \"四季\", and “贴着白色的瓷砖” becomes “贴白瓷砖”.";
+        assert_eq!(detect(&unquoted(reply)), Some(Lang::En));
+        assert_eq!(unquoted("他说「好」。"), "他说。");
+        // Agent replies: machinery and ASCII punctuation in Chinese.
+        assert_eq!(
+            process_talk("答案是 214（第91行）。").as_deref(),
+            Some("第91行")
+        );
+        assert_eq!(
+            process_talk("See line 3 of the notes.").as_deref(),
+            Some("line 3")
+        );
+        assert_eq!(
+            process_talk("I'll call propose_edit").as_deref(),
+            Some("propose_edit")
+        );
+        assert_eq!(process_talk("The deadline moved online 3 times."), None);
+        assert_eq!(process_talk("Streamline 2024 plans."), None);
+        assert!(half_width_in_cjk("无法按时出席,特向您申请").is_some());
+        assert!(half_width_in_cjk("文档\"配置\"一节").is_some());
+        assert!(half_width_in_cjk("(当前这章)").is_some());
+        assert!(half_width_in_cjk("我把 `retry: 3` 改成了 5，叫 \"Levis\" 也行。").is_none());
+        assert!(half_width_in_cjk("Plain English, no CJK: fine (really).").is_none());
+        assert!(new_numbers("closed 2,300 tickets", "the 2300 tickets").is_empty());
         assert!(meta_commentary(
             "率
 

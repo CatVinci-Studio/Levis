@@ -764,24 +764,45 @@ pub fn diff_view(before: &str, after: &str) -> String {
     if before == after {
         return "(document unchanged)".into();
     }
-    let (s, e, e2) = checks::changed_span(before, after);
-    let floor = |text: &str, mut i: usize| {
-        while !text.is_char_boundary(i) {
-            i -= 1;
+    let (mut s, mut e, mut e2) = checks::changed_span(before, after);
+    // Whole words inside the markers ("dachten", not "dach⟫ten"): the
+    // common prefix and suffix are the same text in both versions.
+    let latin = |c: char| c.is_alphanumeric() && !c.is_ascii_digit() && (c as u32) < 0x2e80;
+    while let Some(c) = before[..s].chars().next_back().filter(|&c| latin(c)) {
+        if !before[s..].chars().next().is_some_and(latin)
+            && !after[s..].chars().next().is_some_and(latin)
+        {
+            break;
         }
-        i
-    };
-    let ceil = |text: &str, mut i: usize| {
-        while i < text.len() && !text.is_char_boundary(i) {
-            i += 1;
+        s -= c.len_utf8();
+    }
+    while let Some(c) = before[e..].chars().next().filter(|&c| latin(c)) {
+        if !before[..e].chars().next_back().is_some_and(latin)
+            && !after[..e2].chars().next_back().is_some_and(latin)
+        {
+            break;
         }
-        i
+        e += c.len_utf8();
+        e2 += c.len_utf8();
+    }
+    // 300 characters of context either side, marked when cut.
+    let back = |text: &str, from: usize| -> (usize, &'static str) {
+        match text[..from].char_indices().rev().nth(299) {
+            Some((i, _)) => (i, "…"),
+            None => (0, ""),
+        }
     };
-    let cs = floor(before, s.saturating_sub(300));
-    let ce = ceil(before, (e + 300).min(before.len()));
-    let ce2 = ceil(after, (e2 + 300).min(after.len()));
+    let ahead = |text: &str, from: usize| -> (usize, &'static str) {
+        match text[from..].char_indices().nth(300) {
+            Some((i, _)) => (from + i, "…"),
+            None => (text.len(), ""),
+        }
+    };
+    let (cs, lead) = back(before, s);
+    let (ce, tail) = ahead(before, e);
+    let (ce2, tail2) = ahead(after, e2);
     format!(
-        "BEFORE (changed part between ⟪ ⟫):\n{}⟪{}⟫{}\n\nAFTER:\n{}⟪{}⟫{}",
+        "BEFORE (changed part between ⟪ ⟫):\n{lead}{}⟪{}⟫{}{tail}\n\nAFTER:\n{lead}{}⟪{}⟫{}{tail2}",
         &before[cs..s],
         &before[s..e],
         &before[e..ce],
@@ -1094,6 +1115,20 @@ fn record_spend(dir: &Path, suite: &str, cases: usize, total: &Usage) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_diff_view_marks_whole_words_and_cut_context() {
+        let view = diff_view(
+            "was die Teilnehmenden dachten.",
+            "was die Teilnehmenden hielten.",
+        );
+        assert!(view.contains("⟪dachten⟫"), "{view}");
+        assert!(view.contains("⟪hielten⟫"), "{view}");
+        let long = format!("{}end", "字".repeat(400));
+        let view = diff_view(&long, &long.replace("end", "fin"));
+        assert!(view.contains("…字"), "cut context is marked");
+        assert!(!view.contains("……"));
+    }
 
     #[test]
     fn a_selection_follows_accepted_edits_like_the_editor() {

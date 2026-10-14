@@ -10,7 +10,8 @@
 use super::checks::{self, Lang};
 use super::harness::{self, Checks, Record};
 use crate::ai::client::{
-    add_writing_context, completion_prompt, finish_completion, CompletionHints, CANDIDATE_SEPARATOR,
+    add_writing_context, completion_prompt, finish_completion, CompletionHints,
+    CANDIDATE_SEPARATOR, CODE_BLOCK_HINT,
 };
 use aicompat::providers::anthropic::AnthropicAuth;
 use serde_json::json;
@@ -262,20 +263,15 @@ pub fn all_cases() -> Vec<CompletionCase> {
         .space(true),
     );
 
-    // Code blocks. What the editor sends today: block "paragraph" (code_block
-    // isn't in ghost-text-plugin's BLOCK_NAMES), and the proposed hint.
+    // A code block, with the hint the editor sends since round 1 (the old
+    // "paragraph" variant is gone: the editor no longer sends it, and only
+    // a code block may take a multi-line completion - client.rs's
+    // clean_reply).
     let code = "def average_replay_time(samples):\n    if not samples:\n        return 0.0\n    total = 0\n    for s in samples:\n        ";
-    for block in ["paragraph", "code block"] {
-        let mut c = CompletionCase::new(
-            &format!("code/python-{}", block.replace(' ', "-")),
-            Lang::En,
-            code,
-            block,
-        )
+    let mut c = CompletionCase::new("code/python-code-block", Lang::En, code, CODE_BLOCK_HINT)
         .title("Sync engine notes", &["Sync engine notes", "Design"]);
-        c.code = true;
-        cases.push(c.rubric("The cursor is inside a fenced Python code block, at the start of the loop body. Expect a code continuation (e.g. 'total += s', perhaps then the return line), valid Python with correct indentation, and no prose. Returning nothing is acceptable; prose is not."));
-    }
+    c.code = true;
+    cases.push(c.rubric("The cursor is inside a fenced Python code block, at the start of the loop body. Expect a code continuation (e.g. 'total += s', perhaps then the return line), valid Python with correct indentation, and no prose. Returning nothing is acceptable; prose is not."));
 
     // After-text present (manual trigger mid-document).
     cases.push(
@@ -417,6 +413,12 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
             format!("reads {:?}", tail.chars().take(30).collect::<String>())
         });
     }
+    // A figure the writer never gave: a date, amount or count made up to
+    // fill a slot ("the 14th", "约 30%", "9시부터").
+    let invented = checks::new_numbers(&format!("{}\n{}", case.before, case.after), text);
+    checks.expect("no new figures", invented.is_empty(), || {
+        format!("adds {invented:?}")
+    });
     checks.add("language", checks::check_lang(text, case.lang));
     let words = checks::word_count(text);
     let cjk = matches!(
@@ -430,7 +432,8 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
         (true, true) => 220,
     });
     checks.expect("length", words <= max, || format!("{words} > {max}"));
-    if case.long && case.candidates.is_none() {
+    // Each alternative of a manual trigger is a full continuation too.
+    if case.long {
         let min = if cjk { 30 } else { 20 };
         checks.expect("long enough", words >= min, || {
             format!("{words} < {min} for an explicit continuation")
@@ -548,7 +551,12 @@ pub fn complete_and_check(
         }
     };
     // What ai_complete returns, then what the editor shows of it.
-    let returned = finish_completion(&case.before, &raw);
+    let returned = finish_completion(
+        &case.before,
+        &case.after,
+        &raw,
+        case.block == CODE_BLOCK_HINT,
+    );
     let parts: Vec<String> = if case.candidates.is_some() {
         returned
             .split(CANDIDATE_SEPARATOR)

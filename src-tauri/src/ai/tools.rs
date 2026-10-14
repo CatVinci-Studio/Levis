@@ -240,8 +240,46 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
 
     // On later requests the frontend appends a bracketed status note to this
     // result (accepted / rejected / still undecided) - see
-    // annotateProposalStatuses in src/ai/proposal-status.ts.
-    "Edit proposed - the user now sees it with an Apply button. Don't repeat the full text in your reply; just say briefly what you changed and why.".to_string()
+    // annotateProposalStatuses in src/ai/proposal-status.ts. The size of
+    // the change is measured here so the reply can rest on it: replies
+    // called a 20% cut "about 70% of the original" and an expansion that
+    // shrank "expanded into two paragraphs" (docs/AI-EVAL.md, round 2).
+    let text = parsed.get("text").and_then(|v| v.as_str()).unwrap_or("");
+    let size = match action {
+        "replace" => {
+            let (from, unit) = text_size(anchor);
+            let (to, _) = text_size(text);
+            format!(" It replaces {from} {unit} with {to}.")
+        }
+        "delete" => {
+            let (n, unit) = text_size(anchor);
+            format!(" It removes {n} {unit}.")
+        }
+        "replace_selection" => String::new(),
+        _ => {
+            let (n, unit) = text_size(text);
+            format!(" It adds {n} {unit}.")
+        }
+    };
+    format!("Edit proposed - the user now sees it with an Apply button.{size} This is your proposal for that passage in this reply - don't send another one for it. In your reply, say in a sentence or two what you proposed and why; don't repeat the text or list what you kept.")
+}
+
+/// How long a stretch of text is, in the unit its language counts in:
+/// characters for Chinese and Japanese, words otherwise.
+fn text_size(text: &str) -> (usize, &'static str) {
+    let cjk = text
+        .chars()
+        .filter(|c| matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}'))
+        .count();
+    let words = text
+        .split_whitespace()
+        .filter(|w| w.chars().any(|c| c.is_alphanumeric() && !matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}')))
+        .count();
+    if cjk > words {
+        (cjk, "characters")
+    } else {
+        (words, "words")
+    }
 }
 
 /// One character's matching form: typographic quotes, dash variants,
@@ -249,7 +287,7 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
 /// equivalents - the usual differences between a model's quote and the
 /// author's text. One char in, one char out, so positions stay aligned
 /// (src/ai/doc-markdown.ts's normalizeForMatch mirrors this exactly).
-fn normalize_char(c: char) -> char {
+pub(crate) fn normalize_char(c: char) -> char {
     match c {
         '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{2032}' => '\'',
         '\u{201C}' | '\u{201D}' | '\u{201E}' | '\u{2033}' => '"',
@@ -522,7 +560,7 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
                         },
                         "reason": {
                             "type": "string",
-                            "description": "One short sentence, in the user's language, on why this change - shown on the proposal card so the user can judge it at a glance (e.g. \"Cut the repeated point about cost\")."
+                            "description": "One short sentence, in the language of your reply, on why this change - shown on the proposal card so the user can judge it at a glance (e.g. \"Cut the repeated point about cost\")."
                         }
                     },
                     "required": ["action"],

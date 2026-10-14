@@ -317,8 +317,17 @@ pub fn resolve_skill_message(message: &str, skills: &[AgentSkill]) -> String {
         .split_once(char::is_whitespace)
         .map_or((rest, ""), |(n, t)| (n, t.trim_start()));
     match skills.iter().find(|s| s.name == name) {
-        Some(skill) if tail.is_empty() => skill.prompt.clone(),
-        Some(skill) => format!("{}\n\n{tail}", skill.prompt),
+        Some(skill) => {
+            let body = format!(
+                "<skill name=\"{}\">\n{}\n</skill>",
+                skill.name, skill.prompt
+            );
+            if tail.is_empty() {
+                body
+            } else {
+                format!("{body}\n\n{tail}")
+            }
+        }
         None => message.to_string(),
     }
 }
@@ -518,7 +527,12 @@ fn structure_cases() -> Vec<AgentCase> {
             |sk: &checks::Skeleton| sk.inline.keys().filter(|k| k.starts_with("fnref:")).count();
         let defs =
             |sk: &checks::Skeleton| sk.blocks.iter().filter(|b| b.starts_with("fndef:")).count();
-        if refs(&after) == refs(&before) + 1 && defs(&after) == defs(&before) + 1 {
+        // A reference attaches to its word, as the author's "document[^1]"
+        // does - not "snapshot [^2]".
+        let detached = o.doc_after.matches(" [^").count() > o.doc_before.matches(" [^").count();
+        if detached {
+            Err("the new reference is detached by a space".into())
+        } else if refs(&after) == refs(&before) + 1 && defs(&after) == defs(&before) + 1 {
             Ok(())
         } else {
             Err(format!(
@@ -975,7 +989,7 @@ fn workspace_cases() -> Vec<AgentCase> {
     };
     let mut e = edit_in(para(en, 1), StructureExpect::Same);
     e.shorter = true;
-    cases.push(AgentCase::new("skill/slash-invoked", Lang::En, Lang::En, en, &format!("{}\n\nthe Method paragraph", tighten.prompt), e, "The user invoked the /tighten skill (its instructions are at the top of the message) on the Method paragraph. Expect one edit to that paragraph at roughly 40-60% of its length with every fact kept, and a one-line reply saying how much shorter it got.").workspace(ws));
+    cases.push(AgentCase::new("skill/slash-invoked", Lang::En, Lang::En, en, &resolve_skill_message("/tighten the Method paragraph", std::slice::from_ref(&tighten)), e, "The user invoked the /tighten skill (its instructions are at the top of the message) on the Method paragraph. Expect one edit to that paragraph at roughly 40-60% of its length with every fact kept, and a one-line reply saying how much shorter it got.").workspace(ws));
 
     let headline = AgentSkill {
         name: "house-headline".into(),
@@ -1094,7 +1108,21 @@ fn check_turn(case: &AgentCase, expect: &Expect, o: &TurnOutcome, checks: &mut C
     checks.expect("reply present", !o.reply.trim().is_empty(), || {
         "empty closing reply".into()
     });
-    checks.add("reply language", checks::check_lang(&o.reply, case.lang));
+    checks.add(
+        "reply language",
+        checks::check_lang(&checks::unquoted(&o.reply), case.lang),
+    );
+    // The reply talks to a writer: no tool names, no line numbers.
+    let process = checks::process_talk(&o.reply);
+    checks.expect("no tool or line-number talk", process.is_none(), || {
+        format!("reply says {:?}", process.unwrap_or_default())
+    });
+    if matches!(case.lang, Lang::ZhHans | Lang::ZhHant | Lang::Ja) {
+        let half = checks::half_width_in_cjk(&o.reply);
+        checks.expect("full-width punctuation in reply", half.is_none(), || {
+            format!("{:?}", half.unwrap_or_default())
+        });
+    }
     if !expect.reply_any.is_empty() {
         let lower = o.reply.to_lowercase();
         checks.expect(
@@ -1541,9 +1569,12 @@ mod tests {
         }];
         assert_eq!(
             resolve_skill_message("/润色 第二段", &skills),
-            "Polish it.\n\n第二段"
+            "<skill name=\"润色\">\nPolish it.\n</skill>\n\n第二段"
         );
-        assert_eq!(resolve_skill_message("/润色", &skills), "Polish it.");
+        assert_eq!(
+            resolve_skill_message("/润色", &skills),
+            "<skill name=\"润色\">\nPolish it.\n</skill>"
+        );
         assert_eq!(resolve_skill_message("/other x", &skills), "/other x");
         assert_eq!(resolve_skill_message("plain", &skills), "plain");
     }
