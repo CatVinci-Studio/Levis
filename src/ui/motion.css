@@ -166,6 +166,15 @@
   }
 }
 
+/* Content taking the place of other content (a page of Settings): a fade
+   with a slight rise, nothing that reads as travel. */
+@keyframes motion-settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-sm));
+  }
+}
+
 /* A small rise from below: toasts, chat turns, cards arriving. */
 @keyframes motion-rise-in {
   from {

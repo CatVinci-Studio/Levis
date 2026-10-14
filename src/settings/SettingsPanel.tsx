@@ -34,6 +34,7 @@ import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
+import { usePresenceProps } from "../ui/usePresence";
 import { Select } from "../ui/Select";
 import { emitMenuEvent } from "../ui/app-menu-actions";
 import type { MenuChecks } from "../ui/app-menu-model";
@@ -105,6 +106,8 @@ export function SettingsPanel({
   // Closing Settings on a phone leaves the keyboard down: the user is
   // going back to the page, not necessarily to typing.
   const modal = useModalDialog(onClose, true, undefined, false);
+  // Rendered inside a Presence (App.tsx): it goes the way it came.
+  const presence = usePresenceProps<HTMLDivElement>();
 
   // The guides open as documents, behind this panel - so it gives way.
   const openHelp = (doc: "markdown" | "agent") => {
@@ -507,7 +510,7 @@ export function SettingsPanel({
   );
 
   return (
-    <div className="settings-backdrop" onClick={onClose}>
+    <div {...presence} className="settings-backdrop" onClick={onClose}>
       <div
         {...modal}
         role="dialog"

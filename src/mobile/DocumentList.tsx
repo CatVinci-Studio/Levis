@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "../settings/SettingsContext";
 import { ContextMenu, type ContextMenuItem } from "../editor/ContextMenu";
 import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
 import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
-import { Presence } from "../ui/usePresence";
+import { Presence, usePresenceProps } from "../ui/usePresence";
+import { animate } from "../ui/motion";
 import { fs } from "../ipc";
 import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
@@ -85,6 +86,8 @@ export function DocumentList({
   const { t, settings } = useSettings();
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [view, setView] = useState<View>(loadView);
+  // Rendered inside a Presence (App.tsx): it goes back down as it closes.
+  const presence = usePresenceProps<HTMLDivElement>();
 
   const reload = useCallback(async () => {
     const paths = await recentIOSDocuments();
@@ -100,9 +103,18 @@ export function DocumentList({
     );
   }, []);
 
+  // Switching between rows and tiles crossfades the body rather than
+  // moving each document from its row to its tile - too much at once.
+  const bodyRef = useRef<HTMLDivElement>(null);
   function switchView(next: View) {
+    if (next === view) return;
     setView(next);
     setUiState("documentListView", next);
+    if (bodyRef.current)
+      animate(bodyRef.current, [{ opacity: 0 }, { opacity: 1 }], {
+        duration: "--dur-fast",
+        easing: "--ease-out",
+      });
   }
 
   const dateFormat = new Intl.DateTimeFormat(settings.language, {
@@ -189,7 +201,12 @@ export function DocumentList({
   }
 
   return (
-    <div className="document-list" role="dialog" aria-label={t.docListTitle}>
+    <div
+      {...presence}
+      className="document-list"
+      role="dialog"
+      aria-label={t.docListTitle}
+    >
       <header className="document-list-header">
         <button
           type="button"
@@ -216,7 +233,7 @@ export function DocumentList({
               : t.docCount.replace("{n}", String(entries.length))
             : ""}
         </span>
-        <div className="document-list-views" role="radiogroup">
+        <div className="document-list-views" role="radiogroup" data-view={view}>
           {(
             [
               ["list", t.docViewList, <ListViewIcon key="l" />],
@@ -237,7 +254,7 @@ export function DocumentList({
           ))}
         </div>
       </div>
-      <div className={`document-list-body document-list-${view}`}>
+      <div ref={bodyRef} className={`document-list-body document-list-${view}`}>
         {entries !== null && entries.length === 0 && (
           <p className="document-list-empty">{t.docListEmpty}</p>
         )}

@@ -12,6 +12,13 @@
   background: var(--page-bg, var(--bg));
   color: var(--chrome-text, var(--editor-text));
   font-family: var(--font-sans);
+  /* A modal sheet, like Settings on the phone: up from the bottom edge,
+     and back down when it closes. */
+  animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
+}
+
+.document-list[data-state="closing"] {
+  animation: motion-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
 }
 
 /* Title centred on the screen whatever the two buttons' widths. */
@@ -82,11 +89,13 @@
   color: var(--chrome-muted, var(--editor-muted));
 }
 
-/* A small segmented control, as in Files' view switcher. */
+/* A small segmented control, as in Files' view switcher. The raised
+   segment is one thumb under both buttons that slides to the chosen one. */
 .document-list-views {
+  position: relative;
   display: flex;
   padding: 2px;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   background: color-mix(
     in srgb,
     var(--chrome-text, currentColor) 8%,
@@ -94,22 +103,39 @@
   );
 }
 
+.document-list-views::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  /* Concentric with the track: its radius less the 2px inset. */
+  border-radius: calc(var(--radius-control) - 2px);
+  background: var(--page-bg, var(--bg));
+  box-shadow: var(--shadow-raised);
+  transition: transform var(--dur-medium) var(--ease-spring);
+}
+
+.document-list-views[data-view="grid"]::before {
+  transform: translateX(100%);
+}
+
 .document-list-view-button {
+  position: relative;
   display: grid;
   place-items: center;
   width: 44px;
   height: 30px;
   padding: 0;
   border: none;
-  border-radius: calc(var(--radius-md, 8px) - 2px);
   background: none;
   color: var(--chrome-muted, var(--editor-muted));
+  transition: color var(--dur-fast) var(--ease-standard);
 }
 
 .document-list-view-button[aria-checked="true"] {
-  background: var(--page-bg, var(--bg));
   color: var(--chrome-text, var(--editor-text));
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
 }
 
 /* A page thumbnail: the document's opening lines, tiny, on a sheet. */

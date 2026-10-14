@@ -18,11 +18,28 @@
 }
 
 @media (max-width: 760px) {
-  /* The whole screen, title row included, on the page's own colour. */
+  /* The whole screen, title row included. It comes up from the bottom
+     edge as an iOS modal sheet does, over a page that dims behind it, and
+     goes back down when it closes. */
   :root[data-window-chrome="mobile"] .settings-backdrop {
     top: 0;
     z-index: var(--z-phone-page);
-    background: var(--bg);
+    background: var(--overlay-bg);
+    animation-duration: var(--dur-sheet);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-panel {
+    animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-backdrop[data-state="closing"] {
+    animation-duration: var(--dur-sheet-exit);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-backdrop[data-state="closing"]
+    > .settings-panel {
+    animation: motion-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
   }
 
   :root[data-window-chrome="mobile"] .settings-panel {
@@ -123,21 +140,10 @@
 
   /* UIKit's switch. */
   :root[data-window-chrome="mobile"] .settings-row input[type="checkbox"] {
+    --switch-thumb: 27px;
+    --switch-travel: 20px;
     width: 51px;
     height: 31px;
-  }
-
-  :root[data-window-chrome="mobile"]
-    .settings-row
-    input[type="checkbox"]::after {
-    width: 27px;
-    height: 27px;
-  }
-
-  :root[data-window-chrome="mobile"]
-    .settings-row
-    input[type="checkbox"]:checked::after {
-    transform: translateX(20px);
   }
 
   /* No hover on glass: a tapped tab or row stays as it was. */

@@ -24,6 +24,13 @@
   --overlay-bg: rgb(20 27 40 / 30%);
   --shadow-popover: 0 4px 16px rgb(20 27 40 / 10%);
   --shadow-dialog: 0 16px 48px rgb(20 27 40 / 16%);
+  /* A phone sheet's edge over the page, a drawer's over the editor. */
+  --shadow-sheet: 0 -8px 24px rgb(0 0 0 / 14%);
+  --shadow-drawer: 8px 0 24px rgb(0 0 0 / 16%);
+  /* The selected segment of a segmented control, a page thumbnail. */
+  --shadow-raised: 0 1px 3px rgb(0 0 0 / 12%);
+  /* A switch's thumb, lifted off its track. */
+  --shadow-thumb: 0 1px 3px rgb(0 0 0 / 25%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,6 +42,8 @@
     --overlay-bg: rgb(0 0 0 / 48%);
     --shadow-popover: 0 4px 16px rgb(0 0 0 / 24%);
     --shadow-dialog: 0 16px 48px rgb(0 0 0 / 32%);
+    --shadow-sheet: 0 -8px 24px rgb(0 0 0 / 40%);
+    --shadow-drawer: 8px 0 24px rgb(0 0 0 / 40%);
   }
 }
 
@@ -46,6 +55,8 @@
   --overlay-bg: rgb(0 0 0 / 48%);
   --shadow-popover: 0 4px 16px rgb(0 0 0 / 24%);
   --shadow-dialog: 0 16px 48px rgb(0 0 0 / 32%);
+  --shadow-sheet: 0 -8px 24px rgb(0 0 0 / 40%);
+  --shadow-drawer: 8px 0 24px rgb(0 0 0 / 40%);
 }
 
 /* Existing component styles use editor aliases. Rebind them at UI boundaries
@@ -434,21 +445,28 @@
   );
 }
 
-/* Dialogs: the dimming fades in while the card grows out of the middle;
-   closing, the two go together, a little faster. Settings (a larger card)
-   and the phone's alert move their own way. */
-:is(.close-prompt-overlay, .image-name-overlay, .insert-table-overlay) {
+/* Dialogs, Settings among them: the dimming fades in while the card grows
+   out of the middle; closing, the two go together, a little faster. The
+   phone's alert and its full-screen Settings move their own way
+   (mobile/styles). */
+:is(
+  .close-prompt-overlay,
+  .image-name-overlay,
+  .insert-table-overlay,
+  .settings-backdrop
+) {
   animation: motion-fade-in var(--dur-base) var(--ease-standard);
 }
 
-:is(.close-prompt, .image-name-dialog, .insert-table-dialog) {
+:is(.close-prompt, .image-name-dialog, .insert-table-dialog, .settings-panel) {
   animation: motion-dialog-in var(--dur-base) var(--ease-out);
 }
 
 :is(
   .close-prompt-overlay,
   .image-name-overlay,
-  .insert-table-overlay
+  .insert-table-overlay,
+  .settings-backdrop
 )[data-state="closing"] {
   animation: motion-fade-out var(--dur-fast) var(--ease-in) forwards;
 }
@@ -456,7 +474,8 @@
 :is(
     .close-prompt-overlay,
     .image-name-overlay,
-    .insert-table-overlay
+    .insert-table-overlay,
+    .settings-backdrop
   )[data-state="closing"]
   > * {
   animation: motion-shrink-out var(--dur-fast) var(--ease-in) forwards;

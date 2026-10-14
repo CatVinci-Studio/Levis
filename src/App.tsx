@@ -1170,16 +1170,19 @@ function App() {
           </aside>
         )}
 
-        {settingsOpen && (
-          <SettingsPanel
-            onClose={() => setSettingsOpen(false)}
-            onOpenFile={(path) => void openFile(path)}
-            viewChecks={{
-              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
-              zen: zenMode,
-            }}
-          />
-        )}
+        {/* The longest exit is the phone's: the page going back down. */}
+        <Presence show={settingsOpen} exitMs={320}>
+          {settingsOpen && (
+            <SettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onOpenFile={(path) => void openFile(path)}
+              viewChecks={{
+                sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+                zen: zenMode,
+              }}
+            />
+          )}
+        </Presence>
 
         <Presence show={!!pendingClose && phone} exitMs={250}>
           {pendingClose && phone && (
@@ -1239,19 +1242,21 @@ function App() {
         </Presence>
 
         {isIOSApp && <KeyboardToolbar />}
-        {isIOSApp && documentsOpen && (
-          <DocumentList
-            activePath={activeTab.path}
-            onClose={() => setDocumentsOpen(false)}
-            onOpen={openFromDocuments}
-            onRenamed={documentRenamed}
-            onDeleted={documentDeleted}
-            onOpenOther={() => {
-              setDocumentsOpen(false);
-              void openFileDialog();
-            }}
-          />
-        )}
+        <Presence show={isIOSApp && documentsOpen} exitMs={320}>
+          {isIOSApp && documentsOpen && (
+            <DocumentList
+              activePath={activeTab.path}
+              onClose={() => setDocumentsOpen(false)}
+              onOpen={openFromDocuments}
+              onRenamed={documentRenamed}
+              onDeleted={documentDeleted}
+              onOpenOther={() => {
+                setDocumentsOpen(false);
+                void openFileDialog();
+              }}
+            />
+          )}
+        </Presence>
         <AppDialogHost okLabel={t.dialogOk} />
 
         {zenMode &&
