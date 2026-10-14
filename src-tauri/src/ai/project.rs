@@ -378,6 +378,27 @@ mod tests {
     }
 
     #[test]
+    fn learned_profiles_use_the_template_headings() {
+        // "Create style profile" writes projectStyleTemplate; "Learn my
+        // style" must head its profile the same way in each UI language.
+        const STRINGS_TS: &str = include_str!("../../../src/i18n/strings.ts");
+        let mut headings = 0;
+        for line in STRINGS_TS
+            .lines()
+            .filter(|l| l.trim_start().starts_with("projectStyleTemplate:"))
+        {
+            for part in line.split("\\n") {
+                let part = part.trim_start_matches(|c| c != '#');
+                if part.starts_with("# ") || part.starts_with("## ") {
+                    headings += 1;
+                    assert!(STYLE_INSTRUCTIONS.contains(part), "{part}");
+                }
+            }
+        }
+        assert!(headings >= 15, "found {headings} headings");
+    }
+
+    #[test]
     fn comments_in_library_entries_never_reach_the_model() {
         // The "New library entry…" template explains itself in a comment;
         // left untouched, the entry has no facts and is not an entry.
@@ -566,7 +587,8 @@ pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
 /// "Learn my style": the prompt that drafts the style profile from samples.
 /// The profile is written in the samples' language, headings included:
 /// the author reviews and edits it in a tab right afterwards, and the
-/// app's own template for a Chinese UI is Chinese. The round-2 eval found
+/// app's own templates (projectStyleTemplate in src/i18n/strings.ts) use
+/// the same headings in each UI language. The round-2 eval found
 /// Chinese samples profiled in English bullets - the earlier prompt fixed
 /// English headings, gave only English examples and mentioned the language
 /// once, mid-sentence - and bullets that didn't hold for the samples
@@ -574,10 +596,11 @@ pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
 /// to a metaphor).
 pub(crate) const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write their style profile in Markdown.
 
-Write the whole profile in the language the samples are written in - headings, bullets and all: Chinese samples get a Chinese profile, English samples an English one. The author reads and edits this file, and the assistant follows it. Use exactly these seven sections, in this order, with the headings in that language:
+Write the whole profile in the language the samples are written in - headings, bullets and all: Chinese samples get a Chinese profile, Japanese samples a Japanese one, English samples an English one. The author reads and edits this file, and the assistant follows it. Use exactly these seven sections, in this order, with the headings in that language:
 
 English: # Style profile / ## Voice and tone / ## Sentences and rhythm / ## Word choice / ## Punctuation and formatting / ## Structure / ## Never / ## Examples
 Chinese: # 文风档案 / ## 语气 / ## 句子与节奏 / ## 用词 / ## 标点与格式 / ## 结构 / ## 从不 / ## 示例
+Japanese: # 文体プロファイル / ## 語調 / ## 文とリズム / ## 語彙 / ## 句読点と書式 / ## 構成 / ## 使わない / ## 例
 
 Under each heading give 3-6 short, concrete, checkable bullet points drawn from the samples - \"opens paragraphs with a concrete scene, then the claim\", \"句子很短，多数不超过十五个字\", \"uses full-width Chinese punctuation, no em dashes\" - not generic praise or advice. Every bullet must hold for the samples as given: count instead of estimating, and call something absent (metaphors, exclamation marks) only if no sample uses it. The Never section lists what this author clearly avoids. The Examples section quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile, in the samples' language.";
 

@@ -98,30 +98,44 @@ const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something s
 
 const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
 
+/// What the assistant is called in the UI and what its Settings page is
+/// called: `AI_NAME` in src/i18n/strings.ts ("Levis AI" until the Textus
+/// rename). A test keeps the two in step.
+pub(crate) const AI_NAME: &str = "Levis AI";
+
+/// Where the user changes the project folder, in the UI's own words in
+/// English, Chinese and Japanese (docs/AI-CONCEPTS.md).
+fn where_to_choose_the_project_folder() -> String {
+    format!(
+        "the project menu (click the folder name in the bar under the AI panel's header: Choose project folder… / 选择项目文件夹… / プロジェクトフォルダーを選択…) or Settings > {AI_NAME} > Project Folder (设置 > {AI_NAME} > 项目文件夹 / 設定 > {AI_NAME} > プロジェクトフォルダー)"
+    )
+}
+
 /// What the agent is told about its project folder (in code, the workspace
 /// root) - which one is in use and why - and about what the app calls the
-/// things that shape its work, in the names the UI uses (PR #42's concept
-/// model: project folder, writing instructions, library, style profile).
+/// things that shape its work, in the names the UI uses in en, zh and ja
+/// (docs/AI-CONCEPTS.md: project folder, `.levis/` folder, writing
+/// instructions, global config folder, skills, library, style profile,
+/// "Learn my style"), with the menu items and Settings rows that make them.
 /// Without it, the model made up its own names ("read-only mode"), told a
 /// user with an unsaved draft "I have no tool to open files" without saying
 /// why or what to do, and was told the document's folder held reference
 /// material even when no file tool was offered (docs/AI-EVAL.md, round 2).
 fn workspace_section(workspace: &AgentWorkspace) -> String {
     use crate::ai::workspace::RootSource;
-    const CHANGE: &str =
-        "the folder row at the top of the AI panel (Choose project folder… / 选择项目文件夹…) or Settings > Levis AI (设置 > Levis AI)";
+    let change = where_to_choose_the_project_folder();
     let folder = match (&workspace.root, workspace.root_source) {
         (Some(root), RootSource::Chosen) => format!(
-            "Project folder: {root} - chosen by the user, in {CHANGE}. You can read the text files in it with list_files, search_files and read_file, and nothing outside it."
+            "Project folder: {root} - chosen by the user, in {change}. You can read the text files in it with list_files, search_files and read_file, and nothing outside it."
         ),
         (Some(root), _) => format!(
-            "Project folder: {root} - the open document's own folder, the default. You can read the text files in it with list_files, search_files and read_file, and nothing outside it; the user can choose another one in {CHANGE}."
+            "Project folder: {root} - the open document's own folder, the default. You can read the text files in it with list_files, search_files and read_file, and nothing outside it; the user can choose another one in {change}."
         ),
-        (None, RootSource::TooBroad) => format!("Project folder: none - the document's folder is the user's home folder or a whole drive, which is too broad to open to you, so you can't read any files. If the user refers to one, say so, ask them to paste what you need, and tell them they can choose a narrower project folder in {CHANGE}."),
-        (None, _) => format!("Project folder: none - the document isn't saved yet and no folder has been chosen, so you can't read any files. If the user refers to one, say that this is why, ask them to paste what you need, and tell them that saving the document next to their files, or choosing a project folder in {CHANGE}, lets you read them."),
+        (None, RootSource::TooBroad) => format!("Project folder: none - the document's folder is the user's home folder or a whole drive, which is too broad to open to you, so you can't read any files. If the user refers to one, say so, ask them to paste what you need, and tell them they can choose a narrower project folder in {change}."),
+        (None, _) => format!("Project folder: none - the document isn't saved yet and no folder has been chosen, so you can't read any files. If the user refers to one, say that this is why, ask them to paste what you need, and tell them that saving the document next to their files, or choosing a project folder in {change}, lets you read them."),
     };
     format!(
-        "---project---\n{folder}\nWhat the app calls the things that shape your work here (the user's UI shows them in their language): the project folder (项目文件夹); the writing instructions (写作要求), agent.md files in the global config folder and in the project's .levis/ folder, shown to you as ---user instructions---; skills (技能), reusable instructions in skills/ folders; the library (资料库), facts about people, places and terms in .levis/library, sent to you when the request mentions them; the style profile (文风档案) in .levis/style.md, written by the user or drafted from their own writing with \"Learn my style\" (学习我的文风), sent to you as ---the author's style profile---. The panel's modes are Ask (询问), which only reads and comments, Edit (编辑), which can propose edits, and Plan (计划), which writes a plan first."
+        "---project---\n{folder}\nWhat the app calls the things that shape your work here - when you talk about them, use these names, in the user's language: the project folder (项目文件夹 / プロジェクトフォルダー), whose .levis/ folder holds the project's own settings; the writing instructions (写作要求 / 執筆の指示), agent.md files in the global config folder (全局配置文件夹 / グローバル設定フォルダー) and in .levis/, shown to you under ---user instructions--- headings; skills (技能 / スキル), reusable instructions in skills/ folders that the user calls with /name; the library (资料库 / ライブラリ), facts about people, places and terms in .levis/library, sent to you when the request mentions them; the style profile (文风档案 / 文体プロファイル) in .levis/style.md, written by the user or drafted from their own writing with \"Learn my style\" (学习我的文风 / 文体を学習), sent to you as ---the author's style profile---. The project menu makes the project's files: Learn my style from samples… (从样本学习我的文风… / サンプルから文体を学習…), New library entry… (新建资料库条目… / ライブラリに項目を追加…) and Edit project writing instructions (编辑本项目的写作要求 / このプロジェクトの執筆の指示を編集). The global writing instructions and skills are under Settings > {AI_NAME} > Writing Instructions (agent.md) and Skills (写作要求（agent.md） and 技能 / 執筆の指示（agent.md） and スキル). The panel's modes are Ask (询问 / 質問), which only reads and comments, Edit (编辑 / 編集), which can propose edits, and Plan (计划 / 計画), which writes a plan first."
     )
 }
 
@@ -228,7 +242,7 @@ pub(crate) fn build_instructions(
         "plan" => "---interaction mode: plan---\nProduce a concrete, structured writing plan only - an outline, a revision plan, or the steps to get the document where the user wants it. You may research and inspect context, but do not call propose_edit and do not modify the document. Wait for the user to approve the plan in a later request.".to_string(),
         // The UI's names for the modes: told "read-only mode", the model
         // called it that and never said how to get the edit made.
-        _ => "---interaction mode: ask---\nThe user is in Ask mode (询问 in Chinese): answer, explain, discuss or research, and pin feedback to passages with add_comment; you can't change the document here. When they ask for a change anyway, give the new text in your reply and say that in Edit mode (编辑) you can propose it for them to apply with one click.".to_string(),
+        _ => "---interaction mode: ask---\nThe user is in Ask mode (询问 in Chinese, 質問 in Japanese): answer, explain, discuss or research, and pin feedback to passages with add_comment; you can't change the document here. When they ask for a change anyway, give the new text in your reply and say that in Edit mode (编辑 / 編集) you can propose it for them to apply with one click.".to_string(),
     });
 
     if with_tools {
@@ -473,7 +487,7 @@ async fn ai_agent_message_inner(
     // providers, so reaching here means something got out of step.
     if !images.is_empty() && !entry.supports_vision {
         return Err(format!(
-            "{} can't read images. Remove the image, or switch provider in Settings.",
+            "{} can't read images. Remove the image, or switch provider in Settings > Levis AI.",
             entry.label
         ));
     }
@@ -1101,12 +1115,72 @@ mod tests {
         assert!(text.contains("isn't saved") && text.contains("Settings > Levis AI"));
         assert!(!text.contains("list_files"));
         // The app's names, for every case.
-        assert!(text.contains("project folder (项目文件夹)") && text.contains("Learn my style"));
+        assert!(
+            text.contains("project folder (项目文件夹 / プロジェクトフォルダー)")
+                && text.contains("Learn my style")
+        );
         // The tool-less fallback doesn't hear about file tools.
         let prompt = build_instructions(&unsaved, "draft", false, "edit", "");
         assert!(!prompt.contains("---project---"));
         let ask = build_instructions(&doc_folder, "draft", true, "ask", "");
         assert!(ask.contains("Ask mode") && ask.contains("Edit mode"));
+    }
+
+    #[test]
+    fn the_prompt_names_things_exactly_as_the_ui_does() {
+        // Every UI label the agent is told about must be the one the user
+        // sees (src/i18n/strings.ts), in each language, or the agent sends
+        // people to menu items that don't exist.
+        const STRINGS_TS: &str = include_str!("../../../src/i18n/strings.ts");
+        assert!(
+            STRINGS_TS.contains(&format!("export const AI_NAME = \"{AI_NAME}\";")),
+            "AI_NAME differs from strings.ts"
+        );
+        let workspace = crate::ai::workspace::load_from(None, None, None);
+        let prompt = build_instructions(&workspace, "draft", true, "ask", "");
+        for label in [
+            // Project menu and Settings rows.
+            "Choose project folder…",
+            "选择项目文件夹…",
+            "プロジェクトフォルダーを選択…",
+            "Project Folder",
+            "Learn my style from samples…",
+            "从样本学习我的文风…",
+            "サンプルから文体を学習…",
+            "New library entry…",
+            "新建资料库条目…",
+            "ライブラリに項目を追加…",
+            "Edit project writing instructions",
+            "编辑本项目的写作要求",
+            "このプロジェクトの執筆の指示を編集",
+            "Writing Instructions (agent.md)",
+            "写作要求（agent.md）",
+            "執筆の指示（agent.md）",
+            // Concept names (docs/AI-CONCEPTS.md's glossary).
+            "项目文件夹",
+            "プロジェクトフォルダー",
+            "全局配置文件夹",
+            "グローバル設定フォルダー",
+            "技能",
+            "スキル",
+            "资料库",
+            "ライブラリ",
+            "文风档案",
+            "文体プロファイル",
+            "学习我的文风",
+            "文体を学習",
+            // The composer's modes.
+            "询问",
+            "質問",
+            "编辑",
+            "編集",
+            "计划",
+            "計画",
+        ] {
+            assert!(prompt.contains(label), "the prompt lacks {label}");
+            assert!(STRINGS_TS.contains(label), "the UI has no {label}");
+        }
+        assert!(prompt.contains(&format!("Settings > {AI_NAME} > Project Folder")));
     }
 
     #[test]

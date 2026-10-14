@@ -893,7 +893,7 @@ fn workspace_cases() -> Vec<AgentCase> {
             .then_some(())
             .ok_or_else(|| format!("American spelling kept: {american:?}"))
     });
-    cases.push(AgentCase::new("agentmd/reply-language-and-spelling", Lang::En, Lang::En, us_doc, "把第一段改得更生动一点。", e, "agent.md says: always reply in English, and use British spelling in document text. The user wrote in Chinese, so the reply must still be ENGLISH. Expect the first paragraph rewritten more vividly with British spellings (organised, colour, neighbourhood, centre, favourite, realised), facts kept.").workspace(ws));
+    cases.push(AgentCase::new("agentmd/reply-language-and-spelling", Lang::En, Lang::En, us_doc, "把第一段改得更生动一点。", e, "The writing instructions (agent.md) say: always reply in English, and use British spelling in document text. The user wrote in Chinese, so the reply must still be ENGLISH. Expect the first paragraph rewritten more vividly with British spellings (organised, colour, neighbourhood, centre, favourite, realised), facts kept.").workspace(ws));
 
     let ws = AgentWorkspace {
         instructions: vec!["面向读者时一律用“您”，不要用“你”。数字一律用阿拉伯数字。".into()],
@@ -907,9 +907,9 @@ fn workspace_cases() -> Vec<AgentCase> {
         let text: String = o.proposals.iter().map(|p| p.text.clone()).collect();
         (!text.contains('你'))
             .then_some(())
-            .ok_or_else(|| "used 你 despite agent.md".to_string())
+            .ok_or_else(|| "used 你 despite the writing instructions".to_string())
     });
-    cases.push(AgentCase::new("agentmd/zh-conventions", Lang::ZhHans, Lang::ZhHans, zh, "在文末加一段写给家长的邀请，欢迎他们带孩子来参加。", e, "agent.md: address readers as 您 (never 你) and use Arabic numerals. Expect one new paragraph at the end inviting parents, following both conventions, consistent with the facts (weekend club, monthly author visits next year).").workspace(ws));
+    cases.push(AgentCase::new("agentmd/zh-conventions", Lang::ZhHans, Lang::ZhHans, zh, "在文末加一段写给家长的邀请，欢迎他们带孩子来参加。", e, "Writing instructions (agent.md): address readers as 您 (never 你) and use Arabic numerals. Expect one new paragraph at the end inviting parents, following both conventions, consistent with the facts (weekend club, monthly author visits next year).").workspace(ws));
 
     // The style profile shapes what the agent writes.
     let ws = AgentWorkspace {

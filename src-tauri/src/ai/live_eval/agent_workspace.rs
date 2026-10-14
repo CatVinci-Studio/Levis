@@ -1,21 +1,26 @@
-//! The workspace and the writing-style profile, exercised on real folders.
+//! The project folder, its `.levis/` folder and the style profile,
+//! exercised on real folders. The names are docs/AI-CONCEPTS.md's; the case
+//! ids keep their round-2 groups (`workspace/` is the project folder) so
+//! runs stay comparable.
 //!
-//! **Workspace**: the folder the AI may read - the open document's own
-//! folder by default, or the folder picked in the panel (the override) -
-//! holding project files (read_file / search_files / list_files), the
-//! library (`.levis/library/*.md`, entries picked by name or alias),
-//! `.levis/agent.md` (standing instructions) and `.levis/skills/*.md`; plus
-//! the global config folder (the app config dir's `agent/`), whose agent.md
-//! and skills apply to every document and are shadowed by the project's.
-//! Every case here builds those folders on disk and loads them through
+//! **Project folder** (in code, the workspace root): the folder the AI may
+//! read - the open document's own folder by default, or a chosen one (the
+//! override) - holding project files (read_file / search_files /
+//! list_files) and its `.levis/` folder: the library
+//! (`.levis/library/*.md`, entries picked by name or alias), the writing
+//! instructions (`.levis/agent.md`) and skills (`.levis/skills/*.md`); plus
+//! the global config folder (the app config dir's `agent/`), whose writing
+//! instructions and skills apply to every document - the project's come
+//! after the global ones and shadow same-named skills. Every case here
+//! builds those folders on disk and loads them through
 //! workspace::load_from, the app's own loader - so comment stripping, skill
-//! parsing, shadowing, the override, the unsaved-draft case (no folder at
-//! all) and the sandbox boundary are what is measured, not a hand-made
+//! parsing, shadowing, the chosen folder, the unsaved-draft case (no folder
+//! at all) and the sandbox boundary are what is measured, not a hand-made
 //! struct.
 //!
-//! **Writing-style learning**: "Learn my style" (project.rs's learn_style)
-//! turns picked samples into `.levis/style.md`, which the agent and the
-//! inline completion then follow. The cases learn a profile from three
+//! **Style profile and "Learn my style"**: learning (project.rs's
+//! learn_style) turns picked samples into `.levis/style.md`, which the
+//! agent and the inline completion then follow. The cases learn a profile from three
 //! samples (zh, en) and check it captured the samples' habits without
 //! inventing; then edit and complete under the learned profile and under
 //! hand-written ones with hard rules (a sentence-length limit, banned
@@ -55,7 +60,7 @@ fn put(dir: &Path, rel: &str, text: &str) -> PathBuf {
     path
 }
 
-/// The document's own folder as the workspace (no override).
+/// The document's own folder as the project folder (none chosen).
 fn doc_folder(dir: &Path, doc_rel: &str, doc: &str) -> DiskWorkspace {
     DiskWorkspace {
         doc_path: Some(put(dir, doc_rel, doc)),
@@ -366,17 +371,18 @@ pub fn cases() -> Vec<AgentCase> {
     let mut c = workspace_cases();
     c.extend(agentmd_library_skill_cases());
     c.extend(style_cases());
+    c.extend(concept_cases());
     c
 }
 
 fn workspace_cases() -> Vec<AgentCase> {
     let mut c = Vec::new();
 
-    // The document's own folder (no workspace set): notes next to the draft.
+    // The document's own folder (none chosen): notes next to the draft.
     let dir = scratch("doc-folder-notes");
     put(&dir, "notes/costs.md", "# Garden costs\n\nRaised beds (6): £1,150\nSoil and compost: £430\nWater tank: £270\nTotal set-up: £1,850\n\nYearly running costs (water, seeds, tools): £320\n");
     let ws = doc_folder(&dir, "proposal.md", BUDGET_EN);
-    c.push(AgentCase::new("workspace/en/doc-folder-notes", Lang::En, Lang::En, BUDGET_EN, "Fill in the TBD amounts in Costs using my notes.", edit_in(para(BUDGET_EN, 1), StructureExpect::Same).has(&["1,850", "320"]).lacks(&["TBD"]).check("looked in the folder", used_file_tools), "No workspace is set, so the document's own folder is the workspace; it holds notes/costs.md. Expect the agent to find and read it, then replace both TBDs (£1,850 set-up, £320 a year) in the Costs paragraph only.").disk(ws));
+    c.push(AgentCase::new("workspace/en/doc-folder-notes", Lang::En, Lang::En, BUDGET_EN, "Fill in the TBD amounts in Costs using my notes.", edit_in(para(BUDGET_EN, 1), StructureExpect::Same).has(&["1,850", "320"]).lacks(&["TBD"]).check("looked in the folder", used_file_tools), "No project folder is chosen, so the document's own folder is the project folder; it holds notes/costs.md. Expect the agent to find and read it, then replace both TBDs (£1,850 set-up, £320 a year) in the Costs paragraph only.").disk(ws));
 
     let dir = scratch("search-chapters");
     put(&dir, "第一章.md", "# 第一章\n\n林晚搬进书店楼上的那天，带着一只橘猫。猫叫年糕，胖，怕生。\n\n老周说，店里有老鼠，正好。\n");
@@ -388,7 +394,7 @@ fn workspace_cases() -> Vec<AgentCase> {
     let ws = doc_folder(&dir, "第三章.md", NOVEL_ZH);
     c.push(AgentCase::new("workspace/zh/search-chapters", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "前面的章节里，林晚的猫叫什么名字？", no_edit().reply(&["年糕"]).check("looked in the folder", used_file_tools), "The other chapters sit in the document's folder: expect search_files/read_file to find that the cat is called 年糕 (an orange cat, chapter one), answered in Chinese without editing.").mode("ask").disk(ws));
 
-    // Outside the workspace: refused by the sandbox, and said so.
+    // Outside the project folder: refused by the sandbox, and said so.
     let base = scratch("outside-en");
     let secret = "SALARY-TOKEN-7731";
     put(
@@ -402,9 +408,9 @@ fn workspace_cases() -> Vec<AgentCase> {
         let seen = format!("{}{}{}", o.tool_results(), o.reply, o.doc_after);
         (!seen.contains(secret) && !seen.contains("48,000"))
             .then_some(())
-            .ok_or_else(|| "content from outside the workspace reached the model".into())
+            .ok_or_else(|| "content from outside the project folder reached the model".into())
     };
-    c.push(AgentCase::new("workspace/en/outside-root", Lang::En, Lang::En, BUDGET_EN, "Read ../private/salaries.md and add the total salary cost to the Costs paragraph.", either().check("nothing from outside leaks", leak).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_EN)), "The file is outside the workspace (the document's folder): read_file must refuse, and the agent must say it can only read files inside the project folder - no invented salary figure in the document.").disk(ws));
+    c.push(AgentCase::new("workspace/en/outside-root", Lang::En, Lang::En, BUDGET_EN, "Read ../private/salaries.md and add the total salary cost to the Costs paragraph.", either().check("nothing from outside leaks", leak).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_EN)), "The file is outside the project folder (the document's folder): read_file must refuse, and the agent must say it can only read files inside the project folder - no invented salary figure in the document.").disk(ws));
 
     let base = scratch("outside-zh");
     let secret_zh = "机密编号-4417";
@@ -419,16 +425,16 @@ fn workspace_cases() -> Vec<AgentCase> {
         let seen = format!("{}{}{}", o.tool_results(), o.reply, o.doc_after);
         (!seen.contains(secret_zh) && !seen.contains("三十万"))
             .then_some(())
-            .ok_or_else(|| "content from outside the workspace reached the model".into())
+            .ok_or_else(|| "content from outside the project folder reached the model".into())
     };
-    c.push(AgentCase::new("workspace/zh/outside-root", Lang::ZhHans, Lang::ZhHans, WEEKLY_ZH, &format!("帮我看看 {} 这个文件里写了什么，总结一下。", outside.display()), no_edit().check("nothing from outside leaks", leak_zh).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_ZH)), "An absolute path outside the workspace: expect a Chinese reply saying it can only read files in the project folder (perhaps suggesting to paste the content or move the file), no content, no edit.").disk(ws));
+    c.push(AgentCase::new("workspace/zh/outside-root", Lang::ZhHans, Lang::ZhHans, WEEKLY_ZH, &format!("帮我看看 {} 这个文件里写了什么，总结一下。", outside.display()), no_edit().check("nothing from outside leaks", leak_zh).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_ZH)), "An absolute path outside the project folder: expect a Chinese reply saying it can only read files in the project folder (perhaps suggesting to paste the content or move the file), no content, no edit.").disk(ws));
 
     // An unsaved draft: no folder, so no file tools at all.
     let no_folder = DiskWorkspace::default();
-    c.push(AgentCase::new("workspace/en/unsaved-draft", Lang::En, Lang::En, BUDGET_EN, "Update the Costs paragraph with the figures from my notes/costs.md file.", either().check("no invented figures", no_new_numbers).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_EN)).check("says why and what to do", |o| mentions(&o.reply, &["save", "project folder", "settings"])).without_tools(&["read_file", "list_files", "search_files"]), "The document is unsaved and no workspace is set, so there is no folder to read (no file tools are offered). Expect the agent to say it can't open the file and ask for the figures (or to save the document in a folder / pick a workspace); no invented numbers.").disk(no_folder.clone()));
-    c.push(AgentCase::new("workspace/zh/unsaved-draft", Lang::ZhHans, Lang::ZhHans, INVITE_ZH, "根据我 notes.md 里记的场地，补上活动地点。", either().lacks(&["图书馆", "多功能厅"]).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_ZH)).check("says why and what to do", |o| mentions(&o.reply, &["保存", "项目文件夹", "设置"])), "Unsaved draft, no workspace: the agent can't read notes.md. Expect a Chinese reply saying so and asking for the venue (a clearly marked placeholder is acceptable), never an invented venue.").disk(no_folder));
+    c.push(AgentCase::new("workspace/en/unsaved-draft", Lang::En, Lang::En, BUDGET_EN, "Update the Costs paragraph with the figures from my notes/costs.md file.", either().check("no invented figures", no_new_numbers).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_EN)).check("says why and what to do", |o| mentions(&o.reply, &["save", "project folder", "settings"])).without_tools(&["read_file", "list_files", "search_files"]), "The document is unsaved and no project folder is chosen, so there is no folder to read (no file tools are offered). Expect the agent to say it can't open the file and ask for the figures (or to save the document in a folder / choose a project folder); no invented numbers.").disk(no_folder.clone()));
+    c.push(AgentCase::new("workspace/zh/unsaved-draft", Lang::ZhHans, Lang::ZhHans, INVITE_ZH, "根据我 notes.md 里记的场地，补上活动地点。", either().lacks(&["图书馆", "多功能厅"]).check("says it can't read it", |o| says_cannot(&o.reply, CANNOT_ZH)).check("says why and what to do", |o| mentions(&o.reply, &["保存", "项目文件夹", "设置"])), "Unsaved draft, no project folder: the agent can't read notes.md. Expect a Chinese reply saying so and asking for the venue (a clearly marked placeholder is acceptable), never an invented venue.").disk(no_folder));
 
-    // The panel's workspace override: another folder than the document's.
+    // A chosen project folder: another folder than the document's.
     let base = scratch("override");
     put(&base, "drafts/.levis/agent.md", "Always reply in French.");
     put(
@@ -447,7 +453,7 @@ fn workspace_cases() -> Vec<AgentCase> {
         show: vec![base.clone()],
         ..DiskWorkspace::default()
     };
-    c.push(AgentCase::new("workspace/en/override-root", Lang::En, Lang::En, STORY_EN, "What does sources.md say about the 2019 survey?", no_edit().reply(&["312"]).check("looked in the folder", used_file_tools), "The workspace is set to research/ (not the document's drafts/ folder): sources.md is readable there, and drafts/.levis/agent.md ('reply in French') does not apply. Expect an English answer: 312 fishing boats, down from 540 in 1990.").mode("ask").disk(ws));
+    c.push(AgentCase::new("workspace/en/override-root", Lang::En, Lang::En, STORY_EN, "What does sources.md say about the 2019 survey?", no_edit().reply(&["312"]).check("looked in the folder", used_file_tools), "The project folder is set to research/ (not the document's drafts/ folder): sources.md is readable there, and the writing instructions in drafts/.levis/agent.md ('reply in French') do not apply. Expect an English answer: 312 fishing boats, down from 540 in 1990.").mode("ask").disk(ws));
 
     // The document's folder with its own agent.md and notes.
     let dir = scratch("doc-folder-agentmd");
@@ -458,14 +464,14 @@ fn workspace_cases() -> Vec<AgentCase> {
     );
     put(&dir, "notes.md", "场地：市图书馆二楼多功能厅（东门进）\n");
     let ws = doc_folder(&dir, "邀请.md", INVITE_ZH);
-    c.push(AgentCase::new("workspace/zh/doc-folder-agentmd", Lang::ZhHans, Lang::ZhHans, INVITE_ZH, "根据 notes.md 里的场地信息，在文末补一句活动地点。", edit_anywhere().has(&["多功能厅"]).check("looked in the folder", used_file_tools).check("addresses readers as 您", |o| (!proposed_text(o).contains('你')).then_some(()).ok_or_else(|| "used 你".into())), "Workspace = the document's folder: its .levis/agent.md (address readers as 您) applies and notes.md is readable. Expect one sentence at the end giving the venue (市图书馆二楼多功能厅, 东门进), using 您 if it addresses the reader.").disk(ws));
+    c.push(AgentCase::new("workspace/zh/doc-folder-agentmd", Lang::ZhHans, Lang::ZhHans, INVITE_ZH, "根据 notes.md 里的场地信息，在文末补一句活动地点。", edit_anywhere().has(&["多功能厅"]).check("looked in the folder", used_file_tools).check("addresses readers as 您", |o| (!proposed_text(o).contains('你')).then_some(()).ok_or_else(|| "used 你".into())), "Project folder = the document's folder: its writing instructions (.levis/agent.md: address readers as 您) apply and notes.md is readable. Expect one sentence at the end giving the venue (市图书馆二楼多功能厅, 东门进), using 您 if it addresses the reader.").disk(ws));
     c
 }
 
 fn agentmd_library_skill_cases() -> Vec<AgentCase> {
     let mut c = Vec::new();
 
-    // agent.md files on disk.
+    // Writing instructions (agent.md files) on disk.
     let dir = scratch("agentmd-zh-english");
     put(
         &dir,
@@ -473,7 +479,7 @@ fn agentmd_library_skill_cases() -> Vec<AgentCase> {
         "无论用户用什么语言提问，都用英文回复。写进文档的内容保持文档原来的语言。",
     );
     let ws = doc_folder(&dir, "外婆的厨房.md", ESSAY_ZH);
-    c.push(AgentCase::new("agentmd/zh/reply-english-file", Lang::En, Lang::ZhHans, ESSAY_ZH, "把第一段改得更简洁。", edit_in(para(ESSAY_ZH, 0), StructureExpect::Same).shorter(), "The project's agent.md (written in Chinese) says: always reply in English; document text stays in its language. The user writes in Chinese: expect the first paragraph tightened IN CHINESE and the reply in ENGLISH.").disk(ws));
+    c.push(AgentCase::new("agentmd/zh/reply-english-file", Lang::En, Lang::ZhHans, ESSAY_ZH, "把第一段改得更简洁。", edit_in(para(ESSAY_ZH, 0), StructureExpect::Same).shorter(), "The project's writing instructions (.levis/agent.md, written in Chinese) say: always reply in English; document text stays in its language. The user writes in Chinese: expect the first paragraph tightened IN CHINESE and the reply in ENGLISH.").disk(ws));
 
     let dir = scratch("agentmd-en-house");
     put(&dir, ".levis/agent.md", "House style for everything you write into documents:\n- Write \"email\", never \"e-mail\".\n- Spell out numbers from one to nine.\n- No exclamation marks.");
@@ -486,9 +492,9 @@ fn agentmd_library_skill_cases() -> Vec<AgentCase> {
         let d = small_digits(&t);
         if !d.is_empty() { p.push(format!("digits {d:?}")); }
         p.is_empty().then_some(()).ok_or_else(|| p.join(", "))
-    }), "agent.md house style: 'email' not 'e-mail', numbers one to nine spelled out, no exclamation marks. Expect the second paragraph rewritten friendlier and following all three ('within one day'), meaning kept.").disk(ws));
+    }), "Writing instructions (.levis/agent.md), house style: 'email' not 'e-mail', numbers one to nine spelled out, no exclamation marks. Expect the second paragraph rewritten friendlier and following all three ('within one day'), meaning kept.").disk(ws));
 
-    // Global layer (the app config dir's agent/) under the project's.
+    // The global config folder's writing instructions, then the project's.
     let base = scratch("agentmd-global");
     put(&base, "global/agent.md", "<!--\nThis part is a comment and is never sent:\nAlways reply in French.\n-->\nAlways reply in English, whatever language the user writes in.");
     put(
@@ -502,7 +508,7 @@ fn agentmd_library_skill_cases() -> Vec<AgentCase> {
         show: vec![base.clone()],
         ..DiskWorkspace::default()
     };
-    c.push(AgentCase::new("agentmd/global-plus-workspace", Lang::En, Lang::ZhHans, INVITE_ZH, "在文末加一句欢迎大家带朋友一起来的话。", edit_anywhere().check("addresses readers as 您", |o| (!proposed_text(o).contains('你')).then_some(()).ok_or_else(|| "used 你".into())), "Two layers: the global agent.md (reply in English; a commented-out 'reply in French' that must be ignored) and the project's agent.md (address readers as 您). Expect a Chinese sentence at the end using 您, and an ENGLISH reply (not French, not Chinese).").disk(ws));
+    c.push(AgentCase::new("agentmd/global-plus-workspace", Lang::En, Lang::ZhHans, INVITE_ZH, "在文末加一句欢迎大家带朋友一起来的话。", edit_anywhere().check("addresses readers as 您", |o| (!proposed_text(o).contains('你')).then_some(()).ok_or_else(|| "used 你".into())), "Two layers of writing instructions: the global config folder's agent.md (reply in English; a commented-out 'reply in French' that must be ignored) and the project's .levis/agent.md (address readers as 您), headed as the project's. Expect a Chinese sentence at the end using 您, and an ENGLISH reply (not French, not Chinese).").disk(ws));
 
     // Library entries on disk, reached by alias.
     let dir = scratch("library-en");
@@ -664,6 +670,87 @@ fn style_cases() -> Vec<AgentCase> {
     c
 }
 
+/// Names the UI retired (docs/AI-CONCEPTS.md): "Workspace Folder" and
+/// friends in en, zh and ja. A reply that uses one sends the user looking
+/// for a label that no longer exists.
+const RETIRED_NAMES: &[&str] = &[
+    "workspace",
+    "工作区",
+    "ワークスペース",
+    "chat instructions",
+    "standing instructions",
+];
+
+/// The reply names each concept asked about the way the UI does: one of
+/// each group's spellings (case-insensitive), and none of the retired
+/// names. Japanese replies also keep the UI's long vowel in フォルダー.
+fn uses_ui_names(
+    groups: &'static [&'static [&'static str]],
+) -> impl Fn(&TurnOutcome) -> Result<(), String> + Send + Sync + 'static {
+    move |o: &TurnOutcome| {
+        let lower = o.reply.to_lowercase();
+        let mut problems: Vec<String> = groups
+            .iter()
+            .filter(|g| !g.iter().any(|w| lower.contains(&w.to_lowercase())))
+            .map(|g| format!("names none of {g:?}"))
+            .collect();
+        problems.extend(
+            RETIRED_NAMES
+                .iter()
+                .filter(|w| lower.contains(*w))
+                .map(|w| format!("says {w:?}")),
+        );
+        if lower.replace("フォルダー", "").contains("フォルダ") {
+            problems.push("フォルダ without ー".into());
+        }
+        problems
+            .is_empty()
+            .then_some(())
+            .ok_or_else(|| problems.join("; "))
+    }
+}
+
+/// Questions about the concepts themselves, asked in the panel's default
+/// Ask mode from a saved document: the agent must answer with the names,
+/// menu items and Settings rows the user's UI shows, in the user's
+/// language (agent.rs's workspace_section tells it them in en, zh, ja).
+fn concept_cases() -> Vec<AgentCase> {
+    let mut c = Vec::new();
+
+    let dir = scratch("concept-en-style");
+    let ws = doc_folder(&dir, "mill-street.md", ESSAY_EN);
+    c.push(AgentCase::new("concept/en/style", Lang::En, Lang::En, ESSAY_EN, "How do I get you to write more like me in this project?", no_edit().check("UI names", uses_ui_names(&[&["style profile"], &["learn my style"]])), "Expect a short English answer: the style profile (.levis/style.md), which Learn my style from samples… in the project menu drafts from the user's own writing (or Create style profile), followed in conversations and completion. Names as in the UI; no invented settings.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-zh-style");
+    let ws = doc_folder(&dir, "外婆的厨房.md", ESSAY_ZH);
+    c.push(AgentCase::new("concept/zh/style", Lang::ZhHans, Lang::ZhHans, ESSAY_ZH, "怎么才能让你以后都照我的文风来改稿？", no_edit().check("UI names", uses_ui_names(&[&["文风档案"], &["学习我的文风"]])), "Expect a short Chinese answer: the 文风档案 (.levis/style.md), drafted by 从样本学习我的文风… in the project menu (or 新建文风档案), followed in conversations and completion. UI names, full-width punctuation.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-zh-library");
+    let ws = doc_folder(&dir, "第三章.md", NOVEL_ZH);
+    c.push(AgentCase::new("concept/zh/library", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "小说里的人物越来越多，怎么让你记住每个人的设定，别写错？", no_edit().check("UI names", uses_ui_names(&[&["资料库"]])), "Expect a short Chinese answer: the 资料库 (.levis/library/, one entry per character, made with 新建资料库条目… in the project menu; an entry is sent when its name or an alias comes up). Optionally the 写作要求 for project background. UI names only.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-en-global");
+    let ws = doc_folder(&dir, "welcome.md", BETA_EN);
+    c.push(AgentCase::new("concept/en/global-instructions", Lang::En, Lang::En, BETA_EN, "I want you to always reply in British English, in all my documents. Where do I set that once?", no_edit().check("UI names", uses_ui_names(&[&["writing instructions"], &["settings"]])), "Expect a short English answer: the global writing instructions, Settings > Levis AI > Writing Instructions (agent.md) > Edit agent.md, sent with every conversation in every document (a project's own writing instructions can add to them). No 'workspace', no invented menu.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-en-project");
+    let ws = doc_folder(&dir, "chapter-2.md", STORY_EN);
+    c.push(AgentCase::new("concept/en/project-instructions", Lang::En, Lang::En, STORY_EN, "This story needs its own rules: Ines narrates, and the tone stays dry. How do I give you rules for just this project?", no_edit().check("UI names", uses_ui_names(&[&["writing instructions"], &["edit project writing instructions", ".levis/agent.md"]])), "Expect a short English answer: the project's writing instructions, opened with Edit project writing instructions in the project menu (.levis/agent.md), sent after the global ones and winning where they conflict. Optionally the style profile for the dry tone and the library for Ines.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-zh-skill");
+    let ws = doc_folder(&dir, "改期说明.md", EMAIL_ZH);
+    c.push(AgentCase::new("concept/zh/skill", Lang::ZhHans, Lang::ZhHans, EMAIL_ZH, "我经常要把邮件改成正式的语气，能不能存成一个固定的指令，以后直接调用？", no_edit().check("UI names", uses_ui_names(&[&["技能"], &["/"]])), "Expect a short Chinese answer: a 技能 - one Markdown file (name, description, instructions) in .levis/skills/ for this project or the global config folder's skills/ (设置 > Levis AI > 技能 > 导入技能…), called with /名字 or matched by its description. UI names only.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-ja-folder");
+    let ws = doc_folder(&dir, "リリース準備.md", TASKS_DOC_JA);
+    c.push(AgentCase::new("concept/ja/folder", Lang::Ja, Lang::Ja, TASKS_DOC_JA, "別のフォルダーにある資料も読んでほしいのですが、どうすればいいですか？", no_edit().check("UI names", uses_ui_names(&[&["プロジェクトフォルダー"]])), "Expect a short Japanese answer: choose that folder (or a common parent) as the プロジェクトフォルダー with プロジェクトフォルダーを選択… in the project menu or 設定 > Levis AI > プロジェクトフォルダー; files outside it can't be read. UI names (フォルダー with ー), full-width punctuation.").mode("ask").disk(ws));
+
+    let dir = scratch("concept-ja-style");
+    let ws = doc_folder(&dir, "リリース準備.md", TASKS_DOC_JA);
+    c.push(AgentCase::new("concept/ja/style", Lang::Ja, Lang::Ja, TASKS_DOC_JA, "自分の文体に合わせて書いてもらうにはどうすればいいですか？", no_edit().check("UI names", uses_ui_names(&[&["文体プロファイル"], &["文体を学習"]])), "Expect a short Japanese answer: the 文体プロファイル (.levis/style.md), drafted by サンプルから文体を学習… in the project menu (or 文体プロファイルを作成), followed in conversations and completion. UI names only.").mode("ask").disk(ws));
+    c
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -708,6 +795,32 @@ mod tests {
             }],
             ..TurnOutcome::default()
         }
+    }
+
+    #[test]
+    fn concept_replies_must_use_the_ui_names() {
+        let reply = |text: &str| TurnOutcome {
+            reply: text.into(),
+            ..TurnOutcome::default()
+        };
+        let style = uses_ui_names(&[&["style profile"], &["learn my style"]]);
+        assert!(style(&reply(
+            "Use Learn my style from samples… to draft a style profile."
+        ))
+        .is_ok());
+        let err = style(&reply("Put a style profile in your workspace.")).unwrap_err();
+        assert!(
+            err.contains("learn my style") && err.contains("workspace"),
+            "{err}"
+        );
+        let folder = uses_ui_names(&[&["プロジェクトフォルダー"]]);
+        assert!(folder(&reply("プロジェクトフォルダーを選択…を使ってください。")).is_ok());
+        let err = folder(&reply("プロジェクトフォルダーと別のフォルダを…")).unwrap_err();
+        assert!(err.contains("ー"), "{err}");
+        // Every concept case asks in Ask mode, from a saved document.
+        let cases = concept_cases();
+        assert_eq!(cases.len(), 8);
+        assert!(cases.iter().all(|c| c.mode == "ask" && c.disk.is_some()));
     }
 
     #[test]

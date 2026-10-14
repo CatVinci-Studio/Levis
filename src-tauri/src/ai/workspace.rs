@@ -80,7 +80,7 @@ pub enum RootSource {
     None,
     /// The open document's own folder - the default.
     DocumentFolder,
-    /// The folder the user picked (the AI panel's folder row, or Settings).
+    /// The folder the user chose (the project menu, or Settings > Levis AI).
     Chosen,
     /// The folder would be the home folder or a drive root, which is never
     /// opened to the agent (project::is_too_broad).
