@@ -1,4 +1,5 @@
-import { Plugin } from "@milkdown/kit/prose/state";
+import { Plugin, type EditorState } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import {
@@ -25,6 +26,75 @@ function isMathFenceLine(paragraph: ProseNode): boolean {
       return false;
   }
   return true;
+}
+
+/**
+ * Turns the math_inline node at `nodeStart` back into the literal text it
+ * was typed as: "$", its source, then `suffix` (the closing "$" and/or
+ * what is being typed). The caret lands after it all, or `caretOffset`
+ * characters into the source.
+ */
+function unwrapInlineMath(
+  state: EditorState,
+  nodeStart: number,
+  suffix: string,
+  caretOffset?: number,
+) {
+  const node = state.doc.nodeAt(nodeStart)!;
+  const literal = DOLLAR + node.textContent + suffix;
+  const tr = state.tr.replaceWith(
+    nodeStart,
+    nodeStart + node.nodeSize,
+    state.schema.text(literal),
+  );
+  return caretAt(
+    tr,
+    nodeStart + (caretOffset === undefined ? literal.length : 1 + caretOffset),
+  );
+}
+
+/** A price: the digits of "$5", "$4.99", "$1,000" before a space. */
+const PRICE = /^\d[\d.,]*$/;
+
+/**
+ * Typing prose with dollar amounts in it. A fresh "$" opens a formula
+ * (below), so without this "It costs $5 a month." became the formula
+ * "5 a month." - and stayed one into the next paragraph - while the file
+ * read back as text. Pandoc's rule decides, as it does when the file is
+ * opened (math-schema.ts):
+ * - a space typed right after "$" and a number ("$5 ") ends a price, not
+ *   a formula: the "$" goes back to text. A formula really starting with a
+ *   number still forms when its closing "$" is typed (findRunOpen);
+ * - a digit typed right after a formula ("$...$1") means its closing "$"
+ *   was a price too, so the pair goes back to text.
+ */
+function priceTyping(view: EditorView, from: number, text: string): boolean {
+  const { state } = view;
+  const $pos = state.doc.resolve(from);
+  const parent = $pos.parent;
+  if (
+    parent.type.name === "math_inline" &&
+    /^\s+$/.test(text) &&
+    $pos.parentOffset === parent.content.size &&
+    PRICE.test(parent.textContent)
+  ) {
+    view.dispatch(unwrapInlineMath(state, $pos.before($pos.depth), text));
+    return true;
+  }
+  const before = $pos.nodeBefore;
+  if (
+    /^\d/.test(text) &&
+    parent.isTextblock &&
+    !parent.type.spec.code &&
+    before?.type.name === "math_inline" &&
+    before.content.size > 0
+  ) {
+    view.dispatch(
+      unwrapInlineMath(state, from - before.nodeSize, DOLLAR + text),
+    );
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -55,7 +125,7 @@ export const mathAutopairPlugin = $prose(
           if (view.composing) return false; // dispatching mid-composition aborts the IME preedit
           if (from !== to) return false; // a real selection just gets replaced normally
           if (redirectMisattributedInput(view, from, to, text)) return true;
-          if (text !== DOLLAR) return false;
+          if (text !== DOLLAR) return priceTyping(view, from, text);
 
           const { state } = view;
           const $pos = state.doc.resolve(from);
@@ -69,6 +139,17 @@ export const mathAutopairPlugin = $prose(
 
             const nodeStart = $pos.before($pos.depth);
             const nodeEnd = nodeStart + parent.nodeSize;
+
+            // "$4) and $": Pandoc's rule (math-schema.ts) - a formula
+            // can't start or end with a space. The pair stays the literal
+            // text the file will read back as.
+            if (
+              parent.type.name === "math_inline" &&
+              /^\s|\s$/.test(parent.textContent)
+            ) {
+              view.dispatch(unwrapInlineMath(state, nodeStart, "$"));
+              return true;
+            }
 
             if (parent.content.size === 0) {
               // Empty pair, closed immediately - revert to literal "$$" rather
@@ -180,7 +261,22 @@ export const mathAutopairPlugin = $prose(
           }
 
           if (parent.type.name !== "math_inline") return false;
-          if (parent.content.size !== 0) return false;
+          if (parent.content.size !== 0) {
+            // Enter inside a formula that was never closed ("costs $5."):
+            // a "$" with no partner is just a dollar sign, so it goes back
+            // to text and Enter then splits the line as usual - instead of
+            // carrying the open formula, and everything typed after it,
+            // into the next paragraph.
+            view.dispatch(
+              unwrapInlineMath(
+                state,
+                $from.before($from.depth),
+                "",
+                $from.parentOffset,
+              ),
+            );
+            return false;
+          }
 
           const paragraphDepth = $from.depth - 1;
           const paragraph = $from.node(paragraphDepth);

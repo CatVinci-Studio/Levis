@@ -246,6 +246,12 @@ export default {
   agentSkillsResetConfirm:
     "Удалить вашу копию навыка «{name}» и вернуться к встроенному?",
   agentSkillsShadows: "Заменяет встроенный навык",
+  agentSkillsBuiltinUpdated: "Есть новая версия",
+  agentSkillsBuiltinUpdatedHint:
+    "Встроенный навык изменился с тех пор, как вы его настроили. Сбросьте его, чтобы перейти на новую версию; ваша копия будет удалена.",
+  agentSkillsNotACopy:
+    "Это ваш собственный навык, а не копия встроенного, поэтому сбрасывать нечего.",
+  agentSkillsUnknownBuiltin: `В этой версии ${APP_NAME} нет встроенного навыка с таким названием.`,
   writingConventionsLabel: "Нормы оформления",
   writingConventionsAuto: "Автоматически",
   conventionsStandard: "Стандарт",

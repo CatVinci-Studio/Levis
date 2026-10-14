@@ -220,6 +220,35 @@ test.describe("Settings > Levis AI skills", () => {
     await expect(
       row.getByRole("button", { name: "Customize…: Summarize" }),
     ).toBeVisible();
+    // The tab that showed the deleted copy is gone with it: saving it
+    // would have written the copy back.
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".settings-panel")).toHaveCount(0);
+    await expect(
+      page.locator('[data-active-tab="true"] .ProseMirror'),
+    ).not.toContainText("summarize");
+  });
+
+  test("a copy older than its built-in says so", async ({ page }) => {
+    await openApp(page, { settings: { language: "en" } });
+    await page.evaluate(() => {
+      const skills = (
+        window as unknown as {
+          __devSkills: { customized: Set<string>; outdated: Set<string> };
+        }
+      ).__devSkills;
+      skills.customized.add("email");
+      skills.outdated.add("email");
+    });
+    const panel = await openSettings(page);
+    await panel.getByRole("button", { name: AI_NAME, exact: true }).click();
+    const builtins = panel.locator(".settings-builtin-skills");
+    await builtins.locator("summary").click();
+    const row = builtins.locator('[data-skill="email"]');
+    await expect(row.locator(".settings-skill-tag-notice")).toHaveText(
+      "Built-in updated",
+    );
+    await expect(row).toContainText("Reset to use the new version");
   });
 
   test("Writing conventions picks a profile by its localized name", async ({

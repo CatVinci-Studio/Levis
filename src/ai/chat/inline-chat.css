@@ -519,6 +519,9 @@
 :is(.agent-panel-body, .chat-window-body) .inline-chat-messages {
   gap: 12px;
   padding: 14px 14px 16px;
+  /* Where scrollbars take room (Linux, Windows), the conversation growing
+     past the panel's height must not narrow and rewrap every turn. */
+  scrollbar-gutter: stable;
 }
 
 :is(.agent-panel-body, .chat-window-body)

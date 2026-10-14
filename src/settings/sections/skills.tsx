@@ -146,16 +146,29 @@ const CATEGORY_LABEL: Record<SkillCategory, TextKey> = {
 export function BuiltinSkillsSection({
   t,
   onOpenFile,
+  onFilesDeleted,
   onClose,
 }: {
   t: Strings;
   onOpenFile: (path: string) => void;
+  onFilesDeleted?: (paths: string[]) => void;
   onClose: () => void;
 }) {
   const { settings } = useSettings();
   const lang = settings.language;
   const { list, setList } = useSkillList();
   const [error, setError] = useState<string | null>(null);
+  // The backend's error codes (ai::workspace) in the user's words.
+  const failed = (err: unknown) => {
+    const text = errorText(err);
+    setError(
+      text === "NOT_A_COPY"
+        ? t.agentSkillsNotACopy
+        : text === "UNKNOWN_BUILTIN"
+          ? t.agentSkillsUnknownBuiltin
+          : text,
+    );
+  };
 
   // One item per name (ai::workspace::list_skills): the built-in itself,
   // a copy made by Customize… (`basedOn`, which follows the switch), or a
@@ -182,7 +195,7 @@ export function BuiltinSkillsSection({
       announceChange();
     } catch (err) {
       setList(before);
-      setError(errorText(err));
+      failed(err);
     }
   }
 
@@ -194,7 +207,7 @@ export function BuiltinSkillsSection({
       onClose(); // the editor is behind the settings panel
       onOpenFile(path);
     } catch (err) {
-      setError(errorText(err));
+      failed(err);
     }
   }
 
@@ -206,10 +219,13 @@ export function BuiltinSkillsSection({
     );
     if (!ok) return;
     try {
-      await ai.resetBuiltinSkill(name);
+      const deleted = await ai.resetBuiltinSkill(name);
       announceChange();
+      if (Array.isArray(deleted) && deleted.length > 0) {
+        onFilesDeleted?.(deleted);
+      }
     } catch (err) {
-      setError(errorText(err));
+      failed(err);
     }
   }
 
@@ -247,6 +263,8 @@ export function BuiltinSkillsSection({
                 const current = item(name);
                 const customized = isCopy(current);
                 const own = isOwn(current);
+                // The copy predates the bundled built-in's latest version.
+                const outdated = customized && !!current?.builtinUpdated;
                 const on = enabled(name);
                 return (
                   <div
@@ -265,6 +283,11 @@ export function BuiltinSkillsSection({
                               : t.agentSkillsShadows}
                           </span>
                         )}
+                        {outdated && (
+                          <span className="settings-skill-tag settings-skill-tag-notice">
+                            {t.agentSkillsBuiltinUpdated}
+                          </span>
+                        )}
                       </div>
                       <div className="settings-row-hint">
                         <span className="settings-builtin-skill-name">
@@ -273,6 +296,11 @@ export function BuiltinSkillsSection({
                         {" · "}
                         {text.hint}
                       </div>
+                      {outdated && (
+                        <div className="settings-row-hint settings-skill-update-hint">
+                          {t.agentSkillsBuiltinUpdatedHint}
+                        </div>
+                      )}
                     </div>
                     <div className="settings-row-control">
                       <span className="settings-skill-actions">

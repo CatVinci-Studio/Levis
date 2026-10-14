@@ -15,6 +15,11 @@ const mermaidKey = new PluginKey("mermaid-preview");
 const DEBOUNCE_MS = 500;
 type MermaidApi = (typeof import("mermaid"))["default"];
 let mermaidPromise: Promise<MermaidApi> | null = null;
+// Render ids are unique across every editor, not per editor: two tabs
+// rendering at startup both used "mermaid-preview-1-0", and the first one
+// to finish removed the other's measuring node mid-render (renderMermaid's
+// cleanup), so the diagram in the other tab failed and stayed raw source.
+let renderIdCounter = 0;
 
 export function loadMermaid(): Promise<MermaidApi> {
   mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => mermaid);
@@ -276,7 +281,7 @@ export function createMermaidPreviewPlugin(options: {
               continue;
             }
             try {
-              const id = `mermaid-preview-${mySeq}-${rendered.size}`;
+              const id = `mermaid-preview-${++renderIdCounter}`;
               const svg = await renderMermaid(mermaid, id, code);
               if (mySeq !== renderSeq) return; // superseded by a newer render pass
               rendered.set(code, svg);

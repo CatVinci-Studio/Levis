@@ -225,6 +225,11 @@ export default {
   agentSkillsReset: "还原",
   agentSkillsResetConfirm: "删除你的“{name}”副本，改回使用内置技能？",
   agentSkillsShadows: "替代了同名的内置技能",
+  agentSkillsBuiltinUpdated: "内置技能已更新",
+  agentSkillsBuiltinUpdatedHint:
+    "你自定义之后，内置技能有了新版本。点“还原”即可改用新版本，你的副本会被删除。",
+  agentSkillsNotACopy: "这是你自己写的技能，不是内置技能的副本，无需还原。",
+  agentSkillsUnknownBuiltin: `当前版本的 ${APP_NAME} 没有这个名称的内置技能。`,
   writingConventionsLabel: "写作规范",
   writingConventionsAuto: "自动",
   conventionsStandard: "标准",

@@ -1,5 +1,5 @@
 import type { Ctx } from "@milkdown/kit/ctx";
-import { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { defaultValueCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { linkSchema } from "@milkdown/kit/preset/commonmark";
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { defaultHandlers, type Handle } from "mdast-util-to-markdown";
@@ -75,13 +75,31 @@ function keepLinkAcrossInlineNodes(ctx: Ctx): void {
   });
 }
 
+/**
+ * The bullet the document's own lists use ("-", "*" or "+"), by majority,
+ * or null when it has none. remark writes "*" whatever the file had, so
+ * the first edit to a README written with "-" rewrote every bullet in it
+ * and the file's diff ran to hundreds of lines.
+ */
+export function documentBullet(markdown: string): "-" | "*" | "+" | null {
+  const counts = { "-": 0, "*": 0, "+": 0 };
+  for (const match of markdown.matchAll(/^[ \t]*([-*+])[ \t]+\S/gm))
+    counts[match[1] as keyof typeof counts]++;
+  const [best, count] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return count > 0 ? (best as "-" | "*" | "+") : null;
+}
+
 /** Installs the rules above. `update`, not `set`: the slice already carries
  *  Milkdown's own text/strong/emphasis handlers, and replacing it wholesale
  *  would drop them. */
 export function configureMarkdownOutput(ctx: Ctx): void {
   keepLinkAcrossInlineNodes(ctx);
+  // The editor's opening text (MilkdownEditor sets it before this runs).
+  const initial = ctx.get(defaultValueCtx);
+  const bullet = typeof initial === "string" ? documentBullet(initial) : null;
   ctx.update(remarkStringifyOptionsCtx, (options) => ({
     ...options,
+    ...(bullet ? { bullet } : {}),
     handlers: {
       ...options.handlers,
       thematicBreak,

@@ -243,6 +243,12 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   agentSkillsResetConfirm:
     "Excluir sua cópia de “{name}” e voltar a usar a habilidade integrada?",
   agentSkillsShadows: "Substitui uma habilidade integrada",
+  agentSkillsBuiltinUpdated: "Nova versão disponível",
+  agentSkillsBuiltinUpdatedHint:
+    "A habilidade integrada mudou desde que você a personalizou. Restaure-a para usar a nova versão; sua cópia será excluída.",
+  agentSkillsNotACopy:
+    "Esta habilidade é sua, não uma cópia da integrada, então não há nada para restaurar.",
+  agentSkillsUnknownBuiltin: `Esta versão do ${APP_NAME} não tem nenhuma habilidade integrada com esse nome.`,
   writingConventionsLabel: "Normas de escrita",
   writingConventionsAuto: "Automático",
   conventionsStandard: "Padrão",

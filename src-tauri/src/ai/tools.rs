@@ -28,7 +28,65 @@ pub struct ToolContext<'a> {
     /// The passages this request's proposals already replace or delete
     /// (their `context`, else their anchor; "" for the selection). One
     /// context serves one request, every step of it.
-    pub proposed: std::sync::Mutex<Vec<String>>,
+    pub proposed: std::sync::Mutex<ProposalLedger>,
+}
+
+/// What this request's propose_edit calls have done so far.
+#[derive(Debug, Default)]
+pub struct ProposalLedger {
+    /// The passages proposals already replace or delete.
+    passages: Vec<ProposedPassage>,
+    /// Replacements refused once as looking cut off (degenerate_replacement),
+    /// as `anchor\0text`: the same call sent again is meant, and goes through.
+    refused_short: Vec<String>,
+}
+
+/// A passage one of this request's proposals replaces or deletes: where it
+/// sits in the document when the anchor (or its disambiguating context)
+/// is found there verbatim, and the quoted text either way. Two proposals
+/// overlap when their spans intersect - two fixes of the same repeated
+/// word in one paragraph, pinned by overlapping contexts, are different
+/// passages - and, where a span couldn't be placed, when one quote
+/// contains the other.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ProposedPassage {
+    /// Byte range in the document.
+    span: Option<(usize, usize)>,
+    /// The context if it pins the anchor, else the anchor; "" for the
+    /// selection.
+    quote: String,
+}
+
+impl ProposedPassage {
+    fn selection() -> Self {
+        Self::default()
+    }
+
+    fn locate(document: &str, anchor: &str, context: Option<&str>) -> Self {
+        let context = context.filter(|c| c.len() > anchor.len() && c.contains(anchor));
+        let span = match context {
+            Some(c) if document.matches(c).count() == 1 => document
+                .find(c)
+                .zip(c.find(anchor))
+                .map(|(at, offset)| at + offset),
+            _ if document.matches(anchor).count() == 1 => document.find(anchor),
+            _ => None,
+        }
+        .map(|start| (start, start + anchor.len()));
+        Self {
+            span,
+            quote: context.unwrap_or(anchor).to_string(),
+        }
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        if let (Some(a), Some(b)) = (self.span, other.span) {
+            return a.0 < b.1 && b.0 < a.1;
+        }
+        let (p, q) = (self.quote.as_str(), other.quote.as_str());
+        (p.is_empty() && q.is_empty())
+            || (!p.is_empty() && !q.is_empty() && (p.contains(q) || q.contains(p)))
+    }
 }
 
 /// A tool the agent can call, paired with its local implementation. Built-in
@@ -260,33 +318,30 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
     // shrank "expanded into two paragraphs" (docs/AI-EVAL.md, round 2).
     let text = parsed.get("text").and_then(|v| v.as_str()).unwrap_or("");
     if let Some(problem) = degenerate_replacement(action, anchor, text) {
-        return problem;
+        // Refused once; the identical call again means it ("replace this
+        // sentence with TBD").
+        let key = format!("{anchor}\0{text}");
+        let mut ledger = ctx.proposed.lock().unwrap_or_else(|e| e.into_inner());
+        if !ledger.refused_short.contains(&key) {
+            ledger.refused_short.push(key);
+            return problem;
+        }
     }
     // A second proposal for a passage this reply already changes: the two
     // previews overlap and only one can ever be applied. Sonnet sent the
     // same French proofreading twice in one step (round 4); the first
     // stands, the copy is refused (and never shown - see proposal-status.ts).
     if matches!(action, "replace" | "delete" | "replace_selection") {
-        let key = match action {
-            "replace_selection" => String::new(),
-            _ => parsed
-                .get("context")
-                .and_then(|v| v.as_str())
-                .filter(|c| c.contains(anchor))
-                .unwrap_or(anchor)
-                .to_string(),
+        let context = parsed.get("context").and_then(|v| v.as_str());
+        let passage = match action {
+            "replace_selection" => ProposedPassage::selection(),
+            _ => ProposedPassage::locate(ctx.document, anchor, context),
         };
-        let mut proposed = ctx.proposed.lock().unwrap_or_else(|e| e.into_inner());
-        let overlaps = proposed.iter().any(|p| {
-            (p.is_empty() && key.is_empty())
-                || (!p.is_empty()
-                    && !key.is_empty()
-                    && (p.contains(&key) || key.contains(p.as_str())))
-        });
-        if overlaps {
+        let mut ledger = ctx.proposed.lock().unwrap_or_else(|e| e.into_inner());
+        if ledger.passages.iter().any(|p| p.overlaps(&passage)) {
             return "Not proposed: an edit you already proposed in this reply covers this passage, and overlapping proposals can't both be applied. The first one stands - don't send another; describe it in your reply.".to_string();
         }
-        proposed.push(key);
+        ledger.passages.push(passage);
     }
     let size = match action {
         "replace" => {
@@ -347,6 +402,8 @@ fn is_cjk_char(c: char) -> bool {
 /// (round 4, email/zh/formal). No translation or rewrite of a clause comes
 /// out as a single short token, so the call is refused before it becomes
 /// a proposal (the frontend drops refused calls too) and the model resends.
+/// A user can still ask for exactly that ("replace the sentence with
+/// TBD"): the identical call sent a second time goes through.
 fn degenerate_replacement(action: &str, anchor: &str, text: &str) -> Option<String> {
     if action != "replace" {
         return None;
@@ -358,7 +415,7 @@ fn degenerate_replacement(action: &str, anchor: &str, text: &str) -> Option<Stri
         && !text.contains(char::is_whitespace)
         && !text.chars().any(is_cjk_char);
     (anchor_cjk >= 12 && latin_token).then(|| {
-        format!("Not proposed: `text` is only \"{text}\", which can't be meant to replace this passage - it looks cut off. Send the proposal again with the full new text.")
+        format!("Not proposed: `text` is only \"{text}\", which looks cut off for a passage this long. Send the proposal again with the full new text - or, if the user really asked for exactly this text, send the same call again unchanged.")
     })
 }
 
@@ -1191,8 +1248,13 @@ mod tests {
         let args = |text: &str| {
             serde_json::json!({"action": "replace", "anchor": anchor, "text": text}).to_string()
         };
-        let out = propose_edit(&ctx(doc), &args("due"));
+        let one = ctx(doc);
+        let out = propose_edit(&one, &args("due"));
         assert!(out.starts_with("Not proposed"), "{out}");
+        // Sent again unchanged, it is what the user asked for ("replace the
+        // sentence with TBD") and stands.
+        let out = propose_edit(&one, &args("due"));
+        assert!(out.starts_with("Edit proposed"), "{out}");
         // A real translation and a short Chinese rewrite stand, and so does
         // a Latin name for a short Chinese one.
         for text in [
@@ -1232,6 +1294,20 @@ mod tests {
                 "{args}"
             );
         }
+        // Two fixes of a repeated word, pinned by overlapping contexts, are
+        // two passages; the same occurrence pinned twice is one.
+        let typos = super::tests::ctx("I think its fine and its late, its true.");
+        for args in [
+            r#"{"action":"replace","anchor":"its","context":"think its fine and its","text":"it's"}"#,
+            r#"{"action":"replace","anchor":"its","context":"and its late, its true","text":"it's"}"#,
+        ] {
+            assert!(
+                propose_edit(&typos, args).starts_with("Edit proposed"),
+                "{args}"
+            );
+        }
+        let again = r#"{"action":"replace","anchor":"its","context":"its late","text":"it is"}"#;
+        assert!(propose_edit(&typos, again).starts_with("Not proposed"));
         // A refused call (no match) doesn't count as proposed.
         let missing = r#"{"action":"replace","anchor":"Levis is slow.","text":"x"}"#;
         assert!(propose_edit(&ctx2, missing).starts_with("No exact match"));

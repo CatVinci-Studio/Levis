@@ -972,16 +972,18 @@ pub(crate) fn customize_in(skills_dir: &Path, name: &str) -> Result<PathBuf, Str
 /// copies Customize… made of a built-in skill (those carrying
 /// `levis-based-on`), so the built-in applies again. A same-named skill the
 /// user wrote or imported themselves is theirs: NOT_A_COPY, nothing
-/// deleted. Nothing to delete is not an error.
+/// deleted. Nothing to delete is not an error. Returns the deleted files'
+/// paths, so the frontend can close a tab still showing one: saving that
+/// tab would quietly write the copy back.
 #[tauri::command]
-pub async fn reset_builtin_skill(app: AppHandle, name: String) -> Result<(), String> {
+pub async fn reset_builtin_skill(app: AppHandle, name: String) -> Result<Vec<String>, String> {
     let skills_dir = global_agent_dir(&app)?.join("skills");
     tauri::async_runtime::spawn_blocking(move || reset_in(&skills_dir, &name))
         .await
         .map_err(|e| e.to_string())?
 }
 
-pub(crate) fn reset_in(skills_dir: &Path, name: &str) -> Result<(), String> {
+pub(crate) fn reset_in(skills_dir: &Path, name: &str) -> Result<Vec<String>, String> {
     if builtin::find(name).is_none() {
         return Err(UNKNOWN_BUILTIN.to_string());
     }
@@ -1002,10 +1004,12 @@ pub(crate) fn reset_in(skills_dir: &Path, name: &str) -> Result<(), String> {
     if copies.is_empty() && !same_name.is_empty() {
         return Err(NOT_A_COPY.to_string());
     }
+    let mut deleted = Vec::new();
     for path in copies {
         std::fs::remove_file(path).map_err(|e| e.to_string())?;
+        deleted.push(path.to_string_lossy().to_string());
     }
-    Ok(())
+    Ok(deleted)
 }
 
 /// Turns a built-in skill on or off (Settings > Levis AI > Skills): kept in
@@ -1322,10 +1326,13 @@ mod tests {
                 .unwrap()
                 .builtin_updated
         );
-        // Reset deletes the copy.
-        reset_in(&skills, "tighten").unwrap();
+        // Reset deletes the copy, and says which file went (for the tab).
+        assert_eq!(
+            reset_in(&skills, "tighten").unwrap(),
+            vec![path.to_string_lossy().to_string()]
+        );
         assert!(!path.exists());
-        reset_in(&skills, "tighten").unwrap();
+        assert!(reset_in(&skills, "tighten").unwrap().is_empty());
         // A hand-written skill of the same name is the user's own.
         write(
             &skills.join("mine.md"),
