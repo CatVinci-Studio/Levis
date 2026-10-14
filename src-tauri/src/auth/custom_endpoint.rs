@@ -17,6 +17,22 @@ fn config_file_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("custom_endpoint.json"))
 }
 
+/// What the settings page is told about the saved endpoint. The key itself
+/// never goes back to the webview - it is a secret like the provider keys,
+/// which only ever report whether one is set. `api_key` stays in the shape
+/// (always null) so the page's existing type still fits; `has_api_key`
+/// says whether one is stored.
+#[derive(Serialize)]
+pub struct CustomEndpointStatus {
+    base_url: String,
+    api_key: Option<String>,
+    has_api_key: bool,
+    model: String,
+}
+
+/// Saves the endpoint. A missing key keeps the stored one: the settings page
+/// no longer gets the key back, so an empty key field on re-save means
+/// "unchanged", not "remove it" (clearing the endpoint removes it).
 #[tauri::command]
 pub fn set_custom_endpoint(
     app: AppHandle,
@@ -25,6 +41,10 @@ pub fn set_custom_endpoint(
     model: String,
 ) -> Result<(), String> {
     let path = config_file_path(&app)?;
+    let api_key = match api_key.filter(|k| !k.trim().is_empty()) {
+        Some(key) => Some(key),
+        None => load_custom_endpoint(&app)?.and_then(|c| c.api_key),
+    };
     let config = CustomEndpointConfig {
         base_url,
         api_key,
@@ -47,8 +67,33 @@ pub fn load_custom_endpoint(app: &AppHandle) -> Result<Option<CustomEndpointConf
 }
 
 #[tauri::command]
-pub fn custom_endpoint_status(app: AppHandle) -> Result<Option<CustomEndpointConfig>, String> {
-    load_custom_endpoint(&app)
+pub fn custom_endpoint_status(app: AppHandle) -> Result<Option<CustomEndpointStatus>, String> {
+    Ok(load_custom_endpoint(&app)?.map(|c| CustomEndpointStatus {
+        has_api_key: c.api_key.as_deref().is_some_and(|k| !k.is_empty()),
+        api_key: None,
+        base_url: c.base_url,
+        model: c.model,
+    }))
+}
+
+/// The key to try `base_url` with: the one typed, else the stored one - but
+/// only for the URL it was saved with, so editing the URL to another host
+/// and pressing "Fetch models" doesn't send that host the old key.
+fn key_for(
+    app: &AppHandle,
+    base_url: &str,
+    api_key: Option<String>,
+) -> Result<Option<String>, String> {
+    if let Some(key) = api_key.filter(|k| !k.trim().is_empty()) {
+        return Ok(Some(key));
+    }
+    Ok(load_custom_endpoint(app)?
+        .filter(|c| same_endpoint(&c.base_url, base_url))
+        .and_then(|c| c.api_key))
+}
+
+fn same_endpoint(a: &str, b: &str) -> bool {
+    a.trim().trim_end_matches('/') == b.trim().trim_end_matches('/')
 }
 
 #[tauri::command]
@@ -62,15 +107,39 @@ pub fn clear_custom_endpoint(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn fetch_custom_models(
+    app: AppHandle,
     base_url: String,
     api_key: Option<String>,
 ) -> Result<Vec<String>, String> {
+    let api_key = key_for(&app, &base_url, api_key)?;
     custom::list_models(&base_url, api_key.as_deref()).await
 }
 
 #[tauri::command]
-pub async fn test_custom_endpoint(base_url: String, api_key: Option<String>) -> Result<(), String> {
+pub async fn test_custom_endpoint(
+    app: AppHandle,
+    base_url: String,
+    api_key: Option<String>,
+) -> Result<(), String> {
+    let api_key = key_for(&app, &base_url, api_key)?;
     custom::list_models(&base_url, api_key.as_deref())
         .await
         .map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn endpoints_match_ignoring_a_trailing_slash_only() {
+        assert!(same_endpoint(
+            "http://localhost:11434/v1/",
+            "http://localhost:11434/v1"
+        ));
+        assert!(!same_endpoint(
+            "http://localhost:11434/v1",
+            "https://evil.example/v1"
+        ));
+    }
 }
