@@ -228,21 +228,33 @@ eval proved the frontend - not the model - was at fault.
 1. **Edit composition** (`src/ai/doc-markdown.ts`, `composeMarkdownEdit`;
    mirrored in `checks.rs`). A new row or list item next to a whole row or
    item line now joins its table or list with a single newline, keeping a
-   nested item's indentation; a new block is only started when the text is
-   block content or the anchor is the whole block; anything else -
-   including a sentence after a paragraph's last sentence - joins the
-   paragraph. The `propose_edit` description says the same. Unit tests in
-   `doc-markdown.test.ts`, and an e2e test that accepts a new row and a
-   nested item in the real editor (`e2e/visual.spec.ts`).
+   nested item's indentation. In a paragraph, a new block is only started
+   when the text is block content or the anchor is the whole paragraph -
+   a sentence after its last sentence joins it. Every other block (a
+   heading, list, table, quote, fence) keeps the old rule: text at its edge
+   starts a block of its own, since a sentence glued onto a table row
+   becomes a cell (before the header row, it dissolves the table) and onto
+   a heading or the last item becomes part of them. The `propose_edit`
+   description says the same. Unit tests in `doc-markdown.test.ts`, and an
+   e2e test that accepts a new row and a nested item in the real editor
+   (`e2e/visual.spec.ts`).
 2. **Completion spacing** (`client.rs`, `fit_to_cursor` /
    `finish_completion`). The prompt now has the model repeat the last word
    before the cursor when the text ends in one (completing it if it is
    cut off), and the backend cuts the repetition off again: a cut-off word
    gets finished ("docu" + "document is" → "ment is"), a finished word gets
    its space (" grew"), and a model that skipped the repetition still gets
-   the space a new word needs. Unspaced scripts get nothing added; code
-   indentation at a line start is kept. The rule is deterministic and unit
-   tested because the model alone never produced the space.
+   the space a new word needs. A word with an apostrophe, hyphen or dot is
+   matched whole ("don't", "C'est", "well-known", "3.5") - never just the
+   letters after its apostrophe, which would cut them off the next word. A
+   reply that is only the repeated word adds nothing. Unspaced scripts
+   (Chinese, Japanese, Thai and their neighbours) get nothing added; code
+   indentation at a line start, and a code continuation that opens with a
+   newline, are kept. Each alternative of a manual trigger starts on the
+   line after its separator, and the editor's `splitCandidates` takes only
+   whole lines with the separator, so the alternatives keep their joining
+   space too. The rule is deterministic and unit tested because the model
+   alone never produced the space.
 3. **Completion content** (`COMPLETION_INSTRUCTIONS`). "Move the text
    forward" now means with what the text supports - finish the thought,
    the consequence it sets up, the step it promises - and never invent
