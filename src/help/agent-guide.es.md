@@ -27,7 +27,7 @@ En **Ajustes > Levis AI > Asistencia de escritura** puedes elegir un **tono del 
 
 ### 2. Revisión gramatical
 
-Los posibles problemas aparecen subrayados. Pasa el puntero sobre uno, o lleva el cursor a su interior, para ver la explicación; **Aplicar** (o <kbd>Option</kbd>+<kbd>Enter</kbd> con el cursor encima) acepta la corrección e **Ignorar** la descarta. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> revisa el párrafo actual al momento.
+Los posibles problemas aparecen subrayados. Pasa el puntero sobre uno, o coloca el cursor en él, para ver la explicación; **Aplicar** (o <kbd>Option</kbd>+<kbd>Enter</kbd> con el cursor encima) acepta la corrección e **Ignorar** la descarta. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> revisa el párrafo actual de inmediato.
 
 ### 3. El panel de IA
 
@@ -47,12 +47,12 @@ La conversación completa está en un panel a la derecha del editor. Ábrelo o c
 
 Pulsa <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (o haz clic con el botón derecho > Preguntar a la IA…) para abrir una pequeña barra de chat justo debajo del párrafo en el que estás. Se coloca dentro del documento y empuja hacia abajo el texto que hay debajo en lugar de taparlo. Si había texto seleccionado al abrirla, la selección se incluye. Pregunta rápida se abre en modo **Editar**, porque normalmente se abre sobre un fragmento para cambiarlo («acorta esto»); Preguntar está a un clic en el selector de modo.
 
-- **El atajo otra vez**: si pulsas <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> con la barra abierta, el cursor pasa a su cuadro de texto; si vuelves a pulsarlo desde ahí, la barra se cierra. <kbd>Esc</kbd> en cualquier parte de la barra también la cierra, y el cursor vuelve al documento. Si quedan cambios por revisar, cerrarla (o empezar una conversación nueva) pregunta antes.
+- **El atajo otra vez**: si pulsas <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> con la barra abierta, el cursor pasa a su cuadro de texto; si vuelves a pulsarlo desde ahí, la barra se cierra. <kbd>Esc</kbd> en cualquier parte de la barra también la cierra, y el cursor vuelve al documento. Si quedan cambios por revisar, la barra pregunta antes de cerrarse o de empezar una conversación nueva.
 - Pregunta rápida tiene su propia conversación breve, separada de la del panel, que no se guarda en el historial. Se abre aunque el panel esté abierto. **Continuar en la conversación completa** (el botón de su esquina) pasa el intercambio al panel de IA, donde sigue y se guarda. Activa **Ajustes > Levis AI > Avanzado > Abrir las conversaciones completas en una ventana aparte** para enviarlo a una ventana aparte.
 
 ### 5. Cambios en el documento
 
-El chat nunca escribe directamente en tu documento. Cuando pides a un proveedor que admite llamadas a herramientas que cambie el documento, cada cambio es una propuesta que se muestra justo donde se aplicaría: el texto eliminado aparece tachado y el nuevo, insertado en verde. Nada toca el documento hasta que lo aceptas, y <kbd>Cmd</kbd>+<kbd>Z</kbd> deshace de una vez un cambio aceptado.
+El chat nunca escribe directamente en tu documento. Si usas un proveedor que admite llamadas a herramientas y le pides que cambie el documento, cada cambio es una propuesta que se muestra justo donde se aplicaría: el texto eliminado aparece tachado y el nuevo, insertado en verde. Nada cambia en el documento hasta que aceptas la propuesta, y <kbd>Cmd</kbd>+<kbd>Z</kbd> deshace de una vez un cambio aceptado.
 
 - **Aceptar / Rechazar**: desde la barra flotante junto al cambio, desde la tarjeta de la propuesta en el panel o con el teclado: <kbd>Cmd</kbd>+<kbd>Return</kbd> acepta, y <kbd>Cmd</kbd>+<kbd>Delete</kbd> con el cursor sobre el cambio lo rechaza. Si una respuesta trae varias propuestas, se previsualizan a la vez; pasa de una a otra con ‹› y usa Aceptar todo / Rechazar todo.
 - **Motivos**: cada tarjeta de propuesta explica por qué Levis AI propone ese cambio.
@@ -123,7 +123,7 @@ Cuando ya hay un perfil, el botón **Estilo**, junto al nombre de la carpeta, lo
 
 ## Frases y ritmo
 - Frases cortas, rara vez de más de 15 palabras.
-- Abre cada párrafo con una escena concreta y después va a la idea.
+- Abre cada párrafo con una escena concreta y después pasa a la idea.
 
 ## Nunca
 - Signos de exclamación. La expresión «de repente».

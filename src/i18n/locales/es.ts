@@ -29,7 +29,7 @@ export default {
     "El párrafo cambió durante la revisión. Vuelve a intentarlo.",
   noticeGrammarNoIssues: "No se encontraron problemas.",
   projectTooBroad:
-    "Esta carpeta es demasiado amplia para ser la carpeta del proyecto (es tu carpeta personal o una unidad entera). Elige una carpeta más concreta.",
+    "Esta carpeta es demasiado amplia para ser la carpeta del proyecto (es tu carpeta personal o una unidad entera). Elige una más concreta.",
   projectNoSamples:
     "No se pudo leer como texto ninguno de los archivos elegidos.",
   projectNeedsSave:
@@ -50,7 +50,7 @@ proyecto, después de tus instrucciones de escritura globales
 (Ajustes > ${AI_NAME}). Si se contradicen, prevalece este archivo.
 Los comentarios nunca se envían.
 
-Conviene escribir aquí, por ejemplo:
+Ejemplos de lo que conviene escribir aquí:
 
   Contexto     Una novela de misterio ambientada en el Shanghái de
                los años treinta, narrada por Lin Wan.
@@ -70,7 +70,7 @@ Todo lo que quede fuera de comentarios como este se envía en cada
 conversación (el panel de IA y Pregunta rápida). Los comentarios
 nunca se envían, así que esta guía puede quedarse.
 
-Conviene escribir aquí, por ejemplo:
+Ejemplos de lo que conviene escribir aquí:
 
   Idioma       Responde siempre en español.
   Ortografía   Escribe «solo» sin tilde.
@@ -277,7 +277,7 @@ para usar una.
   agentModeEdit: "Editar",
   agentModePlan: "Planificar",
   chatModeLabel: "Modo",
-  agentPersonalizationGroupLabel: "Instrucciones y habilidades",
+  agentPersonalizationGroupLabel: "Instrucciones de escritura y habilidades",
   agentAdvancedGroupLabel: "Avanzado",
   writingModelLabel: "Modelo de asistencia",
   writingFeaturesLabel: "Asistencia de escritura",
@@ -616,8 +616,8 @@ para usar una.
   imagePasteFailedMessage: "No se pudo guardar la imagen pegada.",
   imageStorageGroupLabel: "Imágenes",
   imageStorageLabel: "Almacenamiento de imágenes",
-  imageStorageLocal: "Carpeta assets local",
-  imageStorageRemote: "Servidor de imágenes",
+  imageStorageLocal: "Carpeta «assets»",
+  imageStorageRemote: "Servidor externo",
   imageUploadEndpointLabel: "Endpoint de subida",
   imageUploadEndpointHint:
     "Recibe multipart/form-data con la imagen en el campo file.",

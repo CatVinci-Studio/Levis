@@ -3,7 +3,7 @@
 Te damos la bienvenida. Este documento integrado muestra el Markdown que admite Levis y cómo se ve. Es solo un borrador sin guardar: edítalo y experimenta con libertad, y después ciérralo sin guardar.
 
 > [!TIP]
-> Pulsa `Cmd+/` para alternar entre WYSIWYG y el modo código fuente y ver la sintaxis que hay detrás de cualquier ejemplo.
+> Pulsa `Cmd+/` para alternar entre WYSIWYG y el modo código fuente, y ver la sintaxis que hay detrás de cualquier ejemplo.
 
 ## Encabezados y citas
 
@@ -25,7 +25,7 @@ Alertas al estilo de GitHub:
 
 **Negrita** (`**texto**`), *cursiva* (`*texto*`), ***negrita y cursiva***, ~~tachado~~ (`~~texto~~`), ==resaltado== (`==texto==`) y `código en línea`.
 
-Los enlaces se ven así: [el repositorio de Levis](https://github.com/CatVinci-Studio/Levis). El HTML en línea también se representa, por ejemplo las teclas <kbd>Cmd</kbd> + <kbd>S</kbd>.
+Los enlaces se ven así: [el repositorio de Levis](https://github.com/CatVinci-Studio/Levis). También se representa el HTML en línea, como las teclas <kbd>Cmd</kbd> + <kbd>S</kbd>.
 
 Fórmulas en línea: la equivalencia entre masa y energía $E = mc^2$, la identidad de Euler $e^{i\pi} + 1 = 0$.
 
