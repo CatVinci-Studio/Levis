@@ -1,9 +1,32 @@
 /* The iPhone's forms of the app's dialogs, menus and bars: an alert in the
    middle of the screen, a pull-down menu, a find bar across the top, a tab
-   row a thumb can scroll. Phone width only, like the rest of the phone
-   layout (ui/mobile.css) - an iPad keeps the desktop's shapes with touch
-   sizes. Imported after mobile.css (main.tsx), so equal selectors here
-   win. */
+   row a thumb can scroll. The first rules hold for any touch (iPad too);
+   the rest are phone width only. */
+
+:root[data-window-chrome="mobile"] :is(.app-menu-item, .context-menu-item) {
+  min-height: 44px;
+}
+
+/* With 44pt rows and the recent documents, the phone menu is taller than
+   the desktop's 560px cap; it may use the screen below the title row. */
+:root[data-window-chrome="mobile"] .app-menu-list {
+  max-height: calc(100vh - var(--mobile-bar) - 24px);
+}
+
+:root[data-window-chrome="mobile"] .tab-bar {
+  padding-top: calc(var(--mobile-bar) + 6px);
+}
+
+:root[data-window-chrome="mobile"]
+  :is(
+    .settings-backdrop,
+    .tutorial-backdrop,
+    .insert-table-overlay,
+    .image-name-overlay,
+    .close-prompt-overlay
+  ) {
+  top: var(--mobile-bar);
+}
 
 @media (max-width: 760px) {
   /* ---- Alerts (ui/app-dialog.tsx): UIAlertController's card. ---- */
@@ -333,22 +356,6 @@
   }
 
   :root[data-window-chrome="mobile"] .tab-bar-add:hover {
-    background: none;
-  }
-
-  /* ---- The sidebar: rows and tabs a finger can hit. ---- */
-
-  :root[data-window-chrome="mobile"] .tree-row {
-    min-height: 44px;
-  }
-
-  :root[data-window-chrome="mobile"] .sidebar-tab {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  :root[data-window-chrome="mobile"]
-    .sidebar-tab:hover:not(.sidebar-tab-active) {
     background: none;
   }
 }

@@ -10,7 +10,6 @@ import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
 import type { AgentMode } from "../../settings/SettingsContext";
 import "../AgentTurnView.css";
 import "./inline-chat.css";
-import "../../mobile/quick-ask-dock.css";
 
 export interface InlineChatLabels extends ChatBodyLabels, CloseConfirmLabels {
   /** Accessible name / tooltip of the header's close button. */
@@ -75,7 +74,7 @@ interface InlineChatProps {
   /** Set while that guard is asking; the bar's answer runs `onProceed`. */
   confirm: { onProceed: () => void; onCancel: () => void } | null;
   /** iPhone: docked at the bottom of the screen, above the keyboard, rather
-   *  than a widget in the document (see quick-ask-dock.css). */
+   *  than a widget in the document (see mobile/styles/quick-ask-dock.css). */
   docked?: boolean;
   /** Docked only: the panel's height changed (`first`: it just opened) -
    *  the editor keeps the passage being discussed in view above it. */
@@ -96,7 +95,7 @@ interface InlineChatProps {
 /// On an iPhone it is DOCKED instead (`docked`): fixed to the bottom of the
 /// screen above the keyboard, where a block in the document would sit under
 /// the keyboard. Same body, same controls; the previews stay in the
-/// document. See mobile/quick-ask-dock.css.
+/// document. See mobile/styles/quick-ask-dock.css.
 ///
 /// This file is only the panel's CHROME: the header and the close
 /// confirmation. The body is ChatBody in its "quick" variant, sharing send

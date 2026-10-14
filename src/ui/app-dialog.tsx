@@ -22,7 +22,7 @@ interface Request extends AppDialogOptions {
   okLabel?: string;
   cancelLabel?: string;
   /** Confirm only: the action destroys something (a delete). The phone's
-   *  alert draws its button in red (mobile/phone-chrome.css); elsewhere
+   *  alert draws its button in red (mobile/styles/chrome.css); elsewhere
    *  it is the usual primary button. */
   danger?: boolean;
   confirm: boolean;

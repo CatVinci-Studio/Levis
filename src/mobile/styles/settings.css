@@ -3,7 +3,7 @@
    (SettingsPanel.css) as iOS grouped lists - white cells in rounded
    groups on a grey page, label at the left, control at the right, 44pt
    rows, hairlines between them. Everything is under .settings-phone, which
-   only usePhoneLayout() renders, and keyed like ui/mobile.css besides, so
+   only usePhoneLayout() renders, and keyed like mobile/styles besides, so
    no rule here can reach the desktop dialog or an iPad's. */
 
 @media (max-width: 760px) {

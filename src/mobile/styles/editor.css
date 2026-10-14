@@ -27,3 +27,28 @@
     font-size: 16px;
   }
 }
+
+/* Completion is accepted with a tap on the suggestion (ghost-text-plugin.ts)
+   rather than Tab, so it has to receive the touch. */
+:root[data-window-chrome="mobile"] .ghost-text {
+  pointer-events: auto;
+}
+
+/* A tap on a list marker, a code block's edge, a formula or a rule makes
+   ProseMirror select the whole block, which its stock stylesheet rings in
+   a light blue (#8cf) whatever the theme - the stray box around a line or
+   several. On a phone the selection is shown as a faint wash in the
+   theme's accent instead; an image keeps its own ring (milkdown-theme.css). */
+:root[data-window-chrome="mobile"]
+  .milkdown
+  .ProseMirror-selectednode:not(.image-view) {
+  outline: none;
+  border-radius: var(--radius-small, 4px);
+  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+}
+
+:root[data-window-chrome="mobile"]
+  .milkdown
+  li.ProseMirror-selectednode::after {
+  border: none;
+}

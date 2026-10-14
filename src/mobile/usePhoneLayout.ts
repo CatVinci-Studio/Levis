@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { isIOSApp } from "../platform/capabilities";
 
-/** The width at which the iPhone layout takes over (ui/mobile.css): the
+/** The width at which the iPhone layout takes over (mobile/styles): the
  *  sidebar becomes a drawer and Levis AI a bottom sheet. */
 export const PHONE_QUERY = "(max-width: 760px)";
 

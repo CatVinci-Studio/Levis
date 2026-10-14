@@ -950,7 +950,7 @@ function App() {
           </div>
           <WindowCaptionButtons />
         </header>
-        {/* iPhone: the sidebar is a drawer over the page (ui/mobile.css),
+        {/* iPhone: the sidebar is a drawer over the page (mobile/styles),
           and a tap beside it closes it. */}
         {isIOSApp && panelOpen && (
           <div className="sidebar-scrim" onClick={toggleSidebar} />
@@ -1009,7 +1009,7 @@ function App() {
                       activePath={activeTab.path}
                       onFileSelect={(path) => {
                         // On a phone the drawer covers the page it just
-                        // opened (ui/mobile.css); a docked one stays.
+                        // opened (mobile/styles); a docked one stays.
                         if (
                           isIOSApp &&
                           window.matchMedia("(max-width: 760px)").matches
@@ -1098,7 +1098,7 @@ function App() {
             className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
             style={{ width: agentPanel.width }}
           >
-            {/* Phone widths: the panel is a bottom sheet (ui/mobile.css)
+            {/* Phone widths: the panel is a bottom sheet (mobile/styles)
               and this is its handle; hidden elsewhere. */}
             {isIOSApp && (
               <AgentPanelSheetGrip

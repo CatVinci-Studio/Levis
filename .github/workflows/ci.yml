@@ -26,9 +26,13 @@ jobs:
           npm run build 2>&1 | tee build.log
           ! grep -q 'css-syntax-error' build.log
       # The Playwright flows, without comparing screenshots: the baselines
-      # were taken with one machine's fonts and would differ here.
+      # were taken with one machine's fonts and would differ here. This is
+      # every spec in e2e/, the desktop's and the phone layout's
+      # (e2e/phone*.spec.ts, in a phone-sized touch viewport) alike, so a
+      # change to a component with a phone form is checked in both.
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:visual -- --ignore-snapshots
+      - name: Playwright flows, desktop and phone
+        run: npm run test:visual -- --ignore-snapshots
 
   rust-platforms:
     strategy:

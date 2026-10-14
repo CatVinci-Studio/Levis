@@ -1,12 +1,12 @@
 /* The AI composer on an iPhone (ChatComposer.tsx), in the docked Quick Ask
    and the Levis AI sheet alike: every control a 44pt target - Apple's
    minimum - and no :hover left stuck on whatever was tapped last. Phone
-   width only, like the rest of the phone layout (ui/mobile.css): an iPad
+   width only, like the rest of the phone layout (mobile/styles): an iPad
    keeps the desktop's compact composer. */
 
 /* Ask / Edit / Plan as a segmented control: a tinted track with the
    chosen segment raised out of it. Rendered only on a phone. */
-.chat-mode-segments {
+:root[data-window-chrome="mobile"] .chat-mode-segments {
   display: inline-flex;
   flex-shrink: 0;
   padding: 2px;
@@ -14,7 +14,7 @@
   background: color-mix(in srgb, var(--editor-text) 8%, transparent);
 }
 
-.chat-mode-segment {
+:root[data-window-chrome="mobile"] .chat-mode-segment {
   min-width: 56px;
   min-height: 40px;
   padding: 0 12px;
@@ -27,7 +27,7 @@
   font-weight: 500;
 }
 
-.chat-mode-segment[aria-checked="true"] {
+:root[data-window-chrome="mobile"] .chat-mode-segment[aria-checked="true"] {
   background: var(--editor-bg, var(--bg));
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
   font-weight: 600;

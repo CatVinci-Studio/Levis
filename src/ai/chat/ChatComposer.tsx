@@ -22,7 +22,6 @@ import {
 import { Select } from "../../ui/Select";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 import { tapKeepingFocus } from "../../mobile/tap";
-import "../../mobile/phone-composer.css";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */

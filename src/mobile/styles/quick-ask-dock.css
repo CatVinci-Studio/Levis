@@ -13,7 +13,7 @@
    (quick-ask-dock.ts). Only rendered on a phone, so nothing here needs the
    phone media query. */
 
-.quick-ask-dock {
+:root[data-window-chrome="mobile"] .quick-ask-dock {
   position: fixed;
   right: 0;
   bottom: 0;
@@ -27,7 +27,7 @@
   color: var(--editor-text);
 }
 
-.quick-ask-dock .inline-chat-shell {
+:root[data-window-chrome="mobile"] .quick-ask-dock .inline-chat-shell {
   /* Never taller than the page below the title row; the reply area gives
      way first (below). */
   max-height: calc(100dvh - var(--mobile-bar, 44px) - 8px);
@@ -41,7 +41,7 @@
 
 /* The context row is the composer's (ChatComposer renders it), but it
    reads first: above the reply, as the header of the whole panel. */
-.quick-ask-dock-head {
+:root[data-window-chrome="mobile"] .quick-ask-dock-head {
   order: -1;
   display: flex;
   align-items: center;
@@ -52,17 +52,20 @@
 
 /* Every section under it is ruled off - including the input when there is
    no reply yet. */
-.quick-ask-dock .inline-chat-shell > * {
+:root[data-window-chrome="mobile"] .quick-ask-dock .inline-chat-shell > * {
   border-top: 1px solid var(--editor-border);
 }
 
-.quick-ask-dock .inline-chat-shell > .quick-ask-dock-head {
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  .inline-chat-shell
+  > .quick-ask-dock-head {
   border-top: none;
 }
 
 /* The passage on one line, marked like a quotation. Line breaks in it
    collapse to spaces. */
-.quick-ask-dock-quote {
+:root[data-window-chrome="mobile"] .quick-ask-dock-quote {
   flex: 1;
   min-width: 0;
   padding-left: 8px;
@@ -74,28 +77,33 @@
   color: var(--editor-muted);
 }
 
-.quick-ask-dock-actions {
+:root[data-window-chrome="mobile"] .quick-ask-dock-actions {
   display: flex;
   flex-shrink: 0;
 }
 
 /* New, continue in the panel, close, and dropping the selection: full
    44pt targets, not the desktop's 24px corner icons. */
-.quick-ask-dock .inline-chat-header-button,
-.quick-ask-dock-head .inline-chat-chip-remove {
+:root[data-window-chrome="mobile"] .quick-ask-dock .inline-chat-header-button,
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock-head
+  .inline-chat-chip-remove {
   width: 44px;
   height: 44px;
   justify-content: center;
 }
 
-.quick-ask-dock .inline-chat-header-button svg {
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  .inline-chat-header-button
+  svg {
   width: 18px;
   height: 18px;
 }
 
 /* The reply: the one part that scrolls, held to about 40% of the page so
    the input and the passage above the panel stay in view. */
-.quick-ask-dock .quick-ask-status {
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-status {
   flex: 0 1 auto;
   min-height: 0;
   max-height: 40vh;
@@ -106,40 +114,44 @@
 
 /* Opened out in full, the transcript scrolls inside that area rather than
    adding a second limit of its own. */
-.quick-ask-dock .quick-ask-transcript {
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-transcript {
   max-height: calc(40dvh - 64px);
 }
 
-.quick-ask-dock .quick-ask-more {
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-more {
   min-height: 44px;
 }
 
 /* Review: accept, reject, previous, next - finger-sized. */
-.quick-ask-dock .quick-ask-pending-bar {
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-pending-bar {
   flex-shrink: 0;
   flex-wrap: wrap;
   padding: 4px 8px;
 }
 
-.quick-ask-dock :is(.inline-chat-action, .quick-ask-split-menu-item) {
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  :is(.inline-chat-action, .quick-ask-split-menu-item) {
   min-height: 44px;
 }
 
-.quick-ask-dock .quick-ask-pending-nav-button {
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  .quick-ask-pending-nav-button {
   width: 44px;
   height: 44px;
   font-size: 22px;
 }
 
 /* "Accept all" opens upward: below the bar is the input. */
-.quick-ask-dock .quick-ask-split-menu {
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-split-menu {
   top: auto;
   bottom: calc(100% + 4px);
 }
 
 /* The panel takes the keyboard toolbar's place (it is the bar above the
    keyboard now), and the document scrolls clear of it, its end included. */
-:root.has-quick-ask-dock .keyboard-toolbar {
+:root[data-window-chrome="mobile"].has-quick-ask-dock .keyboard-toolbar {
   display: none;
 }
 

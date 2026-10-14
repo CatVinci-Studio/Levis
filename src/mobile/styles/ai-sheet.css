@@ -1,0 +1,111 @@
+/* Levis AI on a phone: the panel as a bottom sheet with a handle, the
+   Quick Ask dock above the keyboard and the touch-sized composer
+   (quick-ask-dock.css and composer.css, beside this file). */
+
+@media (max-width: 760px) {
+  /* Levis AI is a bottom sheet: about half the screen, so the document
+     stays in view above it - an edit it proposes can be read against the
+     text. The handle on top (AgentPanelSheetGrip) pulls it up to full
+     height or down to close. The width a desktop user dragged it to means
+     nothing here, hence the !important over the inline style. */
+  :root[data-window-chrome="mobile"] .agent-panel {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: auto !important;
+    max-width: none;
+    height: 55%;
+    padding-top: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
+    flex-direction: column;
+    /* Whatever the conversation's length, the composer stays on screen:
+       the message list scrolls inside the sheet instead. */
+    overflow: hidden;
+    transition: height 0.2s ease;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel .inline-chat-messages {
+    overscroll-behavior: contain;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-sheet-full {
+    height: calc(100% - var(--mobile-bar));
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-resizer {
+    display: none;
+  }
+
+  /* The sheet needs no name: the grip and its buttons say what it is. So
+     its + and x move up beside the grip instead of a row of their own; the
+     rest of that row lets touches through to the grip under it. */
+  :root[data-window-chrome="mobile"] .agent-panel-title {
+    display: none;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-header {
+    /* The grip's height: the buttons centre on the grip's line. */
+    margin-top: -44px;
+    min-height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+    pointer-events: none;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-actions {
+    pointer-events: auto;
+  }
+
+  /* New conversation and close: finger-sized, like every other button on
+     the phone. */
+  :root[data-window-chrome="mobile"]
+    .agent-panel-actions
+    .inline-chat-header-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-placeholder {
+    inset: 44px 0 0;
+  }
+}
+
+/* Wider than a phone (iPad) the panel is a column, not a sheet. */
+@media (min-width: 761px) {
+  .agent-panel-grip {
+    display: none;
+  }
+
+  /* The docked column clears the taller title row. */
+  :root[data-window-chrome="mobile"] .agent-panel {
+    padding-top: var(--mobile-bar);
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-placeholder {
+    inset: var(--mobile-bar) 0 0;
+  }
+}
+
+/* The sheet's handle: a short bar across the top, the whole strip
+   draggable. */
+.agent-panel-grip {
+  display: flex;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+}
+
+.agent-panel-grip span {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--editor-text) 25%, transparent);
+}

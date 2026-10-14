@@ -344,7 +344,7 @@ export function createGhostTextPlugin(options: {
             return ghostTextKey.getState(state)?.decoration;
           },
           // A phone has no Tab key: there the suggestion takes touches
-          // (mobile.css) and a tap on it accepts it. Caught at touchend,
+          // (mobile/styles) and a tap on it accepts it. Caught at touchend,
           // before WebKit moves the caret to the tap - which would clear
           // the suggestion first.
           handleDOMEvents: {

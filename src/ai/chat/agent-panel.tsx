@@ -181,7 +181,7 @@ export function sheetRestingPlace(
 
 /**
  * The handle on top of the panel when it is a bottom sheet (phone widths,
- * ui/mobile.css). The sheet follows the finger while it is dragged and
+ * mobile/styles). The sheet follows the finger while it is dragged and
  * settles at full height, half, or closed (sheetRestingPlace); a tap toggles
  * half and full.
  *

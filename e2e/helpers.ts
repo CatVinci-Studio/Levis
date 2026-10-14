@@ -100,7 +100,7 @@ export const PHONE = {
   userAgent: devices["iPhone 15 Pro Max"].userAgent,
 };
 
-/** openApp as an iPhone: the phone layout (ui/mobile.css) is on. */
+/** openApp as an iPhone: the phone layout (mobile/styles) is on. */
 export async function openPhone(page: Page) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "platform", { get: () => "iPhone" });

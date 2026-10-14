@@ -180,7 +180,7 @@ export function KeyboardToolbar() {
   // In a table or on an image, the buttons for it stand where the text
   // formatting is: Markdown has no headings or lists inside a table cell,
   // and none apply to an image. The table's own "+" strips are hover
-  // controls, hidden on a phone (phone-editor.css).
+  // controls, hidden on a phone (mobile/styles/editor.css).
   let contextGroups: Button[][];
   if (block.image) {
     const width = block.image.width;

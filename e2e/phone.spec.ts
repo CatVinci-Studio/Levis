@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { PHONE, openPhone, pasteMarkdown } from "./helpers";
 
-// The iPhone layout (ui/mobile.css), checked in Chromium with touch and a
+// The iPhone layout (mobile/styles), checked in Chromium with touch and a
 // phone-sized viewport (see PHONE and openPhone in helpers.ts).
 test.use(PHONE);
 

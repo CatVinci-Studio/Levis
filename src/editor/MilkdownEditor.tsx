@@ -134,7 +134,6 @@ import "katex/dist/katex.min.css";
 import "./content-base.css";
 import "./milkdown-theme.css";
 import "./content-themes.css";
-import "../mobile/phone-editor.css";
 
 interface MilkdownEditorProps {
   /** The owning tab - the key App.tsx flushes this editor under (see

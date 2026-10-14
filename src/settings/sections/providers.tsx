@@ -17,7 +17,7 @@ import { PhoneNavBar } from "../../mobile/PhoneNavBar";
 // General > AI Login Settings: two compact disclosure rows (provider, then
 // credentials) plus the per-provider account/API-key/custom panels. On an
 // iPhone the provider list is a page pushed over Settings rather than a
-// popover under its row (PhoneSettings.css).
+// popover under its row (mobile/styles/settings.css).
 
 function localizedLabel(entry: ProviderCatalogEntry, t: Strings): string {
   return entry.id === "custom" ? t.providerCustom : entry.label;

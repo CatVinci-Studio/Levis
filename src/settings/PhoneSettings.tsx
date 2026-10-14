@@ -4,14 +4,13 @@ import type { Category } from "./SettingsPanel";
 import { PhoneNavBar } from "../mobile/PhoneNavBar";
 import { ChevronIcon } from "../ui/icons";
 import { useModalDialog } from "../ui/useModalDialog";
-import "./PhoneSettings.css";
 
 /**
  * Settings on an iPhone, laid out like the Settings app: a full-screen page
  * whose root is the list of categories, each pushing its own page with
  * "‹ Settings" to come back. The rows on those pages are the desktop
  * dialog's own (SettingsPanel's renderCategory), restyled as grouped lists
- * by PhoneSettings.css - only the shell and its navigation are the phone's.
+ * by mobile/styles/settings.css - only the shell and its navigation are the phone's.
  *
  * Done closes from anywhere; Escape (a hardware keyboard) steps back one
  * page first, as the system's navigation controller does.

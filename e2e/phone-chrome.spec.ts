@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PHONE, openPhone } from "./helpers";
 
-// The phone's dialogs, menus and bars (mobile/phone-chrome.css), checked in
+// The phone's dialogs, menus and bars (mobile/styles/chrome.css), checked in
 // Chromium with touch and a phone-sized viewport (see PHONE in helpers.ts).
 test.use(PHONE);
 
