@@ -115,7 +115,7 @@ sequenceDiagram
     participant Вы
     participant Levis
     Вы->>Levis: Текст в Markdown
-    Levis-->>Вы: Готовое оформление
+    Levis-->>Вы: Оформление на лету
 ```
 
 ## Изображения
