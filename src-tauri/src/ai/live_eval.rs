@@ -7,6 +7,8 @@
 //!
 //! Run from src-tauri/ (docs/AI-EVAL.md has the full guide and results):
 //!   cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
+//! The built-in skills suite alone, automatic checks only:
+//!   LEVIS_EVAL_JUDGE=0 cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
 //!
 //! Knobs, all optional:
 //!   LEVIS_ANTHROPIC_KEY_FILE  key file (default: .anthropic-api-key.local at
@@ -24,12 +26,15 @@
 //!
 //! Without a key, every test prints a notice and passes vacuously.
 
+mod agent_builtin;
 mod agent_everyday;
 mod agent_matrix;
 mod agent_workspace;
 mod checks;
+mod checks_builtin;
 mod completion_cases;
 mod completion_matrix;
+mod conventions;
 mod docs;
 mod grammar_cases;
 mod grammar_matrix;
@@ -87,6 +92,19 @@ fn live_agent_matrix() {
     let cases = agent_matrix::all_cases();
     let records = par_map(&cases, |case| agent_matrix::run_case(&auth, case, &model));
     assert_clean("agent", records);
+}
+
+/// The built-in skills suite (agent_builtin.rs): 56 skill cases and 20
+/// routing cases, as their own `agent-builtin` suite so the agent matrix's
+/// numbers stay comparable with earlier rounds.
+#[test]
+#[ignore = "live API - see module docs"]
+fn live_agent_builtin() {
+    let Some(auth) = auth() else { return };
+    let model = harness::agent_model();
+    let cases = agent_builtin::all_cases();
+    let records = par_map(&cases, |case| agent_matrix::run_case(&auth, case, &model));
+    assert_clean("agent-builtin", records);
 }
 
 /// The same subset on each current Claude model, so the agent default is
@@ -254,13 +272,54 @@ fn list_eval_cases() {
         .map(|c| c.id)
         .collect();
     let grammar: Vec<&str> = grammar_matrix::all_cases().iter().map(|c| c.id).collect();
+    let builtin: Vec<String> = agent_builtin::all_cases()
+        .into_iter()
+        .map(|c| c.id)
+        .collect();
     println!("agent ({}): {}", agent.len(), agent.join(" "));
+    println!("agent-builtin ({}): {}", builtin.len(), builtin.join(" "));
     println!(
         "completion ({}): {}",
         completion.len(),
         completion.join(" ")
     );
     println!("grammar ({}): {}", grammar.len(), grammar.join(" "));
+}
+
+/// Free, no key needed: the built-in skills suite one case per line (id,
+/// mode, the user's language, the message), after LEVIS_EVAL_FILTER, with
+/// a per-group count and a cost estimate - for choosing a filter before a
+/// paid run.
+#[test]
+#[ignore = "prints the case list"]
+fn list_builtin_cases() {
+    let cases = agent_builtin::all_cases();
+    let mut groups: std::collections::BTreeMap<String, usize> = Default::default();
+    for case in &cases {
+        println!("{}", agent_builtin::describe(case));
+        let mut parts = case.id.split('/');
+        let group = format!(
+            "{}/{}",
+            parts.next().unwrap_or(""),
+            parts.next().unwrap_or("")
+        );
+        *groups.entry(group).or_default() += 1;
+    }
+    println!(
+        "\n{} case(s): {}",
+        cases.len(),
+        groups
+            .iter()
+            .map(|(g, n)| format!("{g} {n}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    // Round-2 averages: $0.02-0.03 an agent case with LEVIS_EVAL_JUDGE=0.
+    println!(
+        "estimated cost without the judge: ${:.2}-{:.2}",
+        cases.len() as f64 * 0.02,
+        cases.len() as f64 * 0.03
+    );
 }
 
 /// Free: lists models through the app's own paging and tidying, and checks

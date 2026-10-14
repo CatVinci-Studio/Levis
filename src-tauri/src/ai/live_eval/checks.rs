@@ -122,6 +122,23 @@ pub fn check_lang(text: &str, expected: Lang) -> Result<(), String> {
     }
 }
 
+/// Characters in `text` that only Simplified Chinese writes (from the pair
+/// table `detect` uses), each once - a zh-Hant result should have none.
+/// Pairs whose simplified form is also ordinary Traditional (后 queen, 里
+/// the unit, 划 to row) are left out.
+pub fn simplified_only(text: &str) -> Vec<char> {
+    let mut found = Vec::new();
+    for ch in text.chars() {
+        let hans_only = HANS_HANT
+            .iter()
+            .any(|&(s, t)| s == ch && s != t && !matches!(s, '后' | '里' | '划'));
+        if hans_only && !found.contains(&ch) {
+            found.push(ch);
+        }
+    }
+    found
+}
+
 // ----------------------------------------------------------------- structure
 
 fn markdown_options() -> Options {
