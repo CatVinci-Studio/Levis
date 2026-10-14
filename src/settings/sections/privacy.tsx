@@ -40,12 +40,16 @@ function ClearRow({
     setCleared(true);
   }
 
+  // The check mark answers the click, but the button stays enabled: it
+  // holds the focus the confirm dialog handed back, and disabling it would
+  // drop that focus to <body>, where Escape no longer closes Settings.
+  // Clearing again is harmless - it asks first.
   return (
     <SettingRow label={label}>
       <button
         className="text-button settings-inline-button settings-danger-button"
+        aria-label={`${t.privacyClearButton}: ${label}`}
         onClick={() => void clear()}
-        disabled={cleared}
       >
         {cleared ? <CheckIcon /> : t.privacyClearButton}
       </button>

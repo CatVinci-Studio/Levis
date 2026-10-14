@@ -1,8 +1,10 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
 
+// `summary` is a <details> toggle: without it Settings' folded Advanced
+// group can't be reached by Tab - the wrap goes back to the close button.
 const FOCUSABLE =
-  ':is(button, input, select, textarea, a[href], [tabindex]):not(:disabled):not([tabindex="-1"]):not([type="hidden"])';
+  ':is(button, input, select, textarea, summary, a[href], [tabindex]):not(:disabled):not([tabindex="-1"]):not([type="hidden"])';
 
 /** Shared focus lifecycle for modal dialogs; callers provide role and label. */
 export function useModalDialog(
@@ -28,8 +30,11 @@ export function useModalDialog(
     if (phone && first && !first.matches("input, textarea")) first = null;
     (first ?? dialog).focus();
     return () => {
-      if (previous instanceof HTMLElement && previous.isConnected)
-        previous.focus();
+      if (!(previous instanceof HTMLElement) || !previous.isConnected) return;
+      // On a phone, focusing the editor again brings the keyboard back up
+      // over a page the user only meant to return to.
+      if (phone && previous.isContentEditable) return;
+      previous.focus();
     };
   }, [enabled, initialFocusSelector, phone]);
 
@@ -48,6 +53,9 @@ export function useModalDialog(
     ).filter(
       (el) =>
         !el.closest('[hidden], [inert], [aria-hidden="true"]') &&
+        // A folded <details> still has its controls in the DOM, unrendered:
+        // counting one as "last" would stop the wrap after its summary.
+        !el.closest("details:not([open]) > :not(summary)") &&
         getComputedStyle(el).display !== "none" &&
         getComputedStyle(el).visibility !== "hidden",
     );

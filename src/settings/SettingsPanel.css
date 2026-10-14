@@ -328,14 +328,6 @@ button.settings-inline-button {
 
 /* The resolved workspace folder. A path is long and matters exactly, so it
    gets its own line in a mono face rather than being squeezed into the hint. */
-.settings-workspace-root {
-  margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--editor-text);
-  overflow-wrap: anywhere;
-}
-
 .shortcut-row-controls {
   display: flex;
   align-items: center;
@@ -652,16 +644,6 @@ button.settings-inline-button {
 
 /* Label on top, then the controls, then their note - for a field whose
    controls (a model picker and its fetch button) need the row's width. */
-.settings-field-stacked {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.settings-field-stacked > .settings-row-hint {
-  margin-top: -2px;
-}
-
 .settings-field-label {
   font-size: var(--text-md);
   color: var(--editor-text);
@@ -741,11 +723,6 @@ button.settings-inline-button {
 
 /* The agent-workspace explainer needs room to wrap - it's a paragraph, not
    a one-line hint. */
-.settings-workspace-hint {
-  max-width: 420px;
-  line-height: 1.5;
-}
-
 .custom-model-row {
   display: flex;
   align-items: center;

@@ -19,12 +19,13 @@ import { ai, auth } from "../../ipc";
 import { Select } from "../../ui/Select";
 import { SettingRow } from "./controls";
 
-// The Agent category's sections. The agent workspace itself is file-managed
-// (the .levis/ convention) - these sections mostly open folders/files rather
-// than embedding editors; the full write-up lives in Help > AI Agent Guide.
+// The AI category's model pickers and chat-workspace rows. The workspace
+// itself is file-managed (the .levis/ convention) - these sections mostly
+// open folders/files rather than embedding editors; the full write-up lives
+// in Help > AI Features Guide.
 
 /** Fired after a model list is fetched, so both pickers (writing and
- *  Agent) pick up the new list from the cache at once. */
+ *  chat) pick up the new list from the cache at once. */
 const MODELS_FETCHED_EVENT = "levis-models-fetched";
 
 /** Whether "sign in with ChatGPT" is the active OpenAI login - that OAuth
@@ -65,14 +66,14 @@ function useFetchedModels(provider: string) {
   return { models: cached?.models ?? [], at: cached?.at ?? null };
 }
 
-/// Model picker for writing (completion and grammar) or the Agent chat, for
+/// Model picker for writing (completion and grammar) or the chat, for
 /// whichever provider is active. Seeded from the catalog's `knownModels` (a
 /// small pre-supplied list, same idea as pi.dev's models.json) so the
 /// dropdown is never empty; ModelListRow adds any live-fetched extras on
 /// top. Where "sign in with ChatGPT" is active its presets (agent-models.ts)
 /// replace the catalog's. Custom endpoints keep their configured model as
 /// the fallback, while these two fields can optionally override it for
-/// writing and Agent independently.
+/// writing and chat independently.
 function ProviderModelRow({
   t,
   kind,
@@ -180,6 +181,9 @@ function ProviderModelRow({
   return (
     <SettingRow
       label={label}
+      // The writing model sits under its two features, but which features
+      // use it is not obvious from "writing" alone.
+      hint={kind === "writing" ? t.writingModelHint : undefined}
       error={currentMissing ? t.modelMissingHint : null}
     >
       {presetOptions.length > 0 ? (
@@ -229,6 +233,8 @@ export function ModelListRow({ t }: { t: Strings }) {
   const { at } = useFetchedModels(provider);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // A failed fetch belongs to the provider it was tried against.
+  useEffect(() => setError(null), [provider]);
 
   const canFetch =
     provider !== "custom" &&
@@ -325,12 +331,15 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
     }
   }
 
-  // The one row here that keeps a line of explanation: which folder the
-  // agent can read is not something the label alone can say.
+  // Which folder the AI can read is not something the label alone can
+  // say, so the hint names it.
   return (
     <SettingRow
       label={t.agentWorkspaceRootLabel}
-      hint={root || t.agentWorkspaceRootDefault}
+      hint={t.agentWorkspaceRootHint.replace(
+        "{path}",
+        root || t.agentWorkspaceRootDefault,
+      )}
       error={error}
     >
       <div className="settings-inline-buttons">
@@ -382,7 +391,11 @@ export function AgentSystemPromptSection({
   }
 
   return (
-    <SettingRow label={t.agentSystemPromptLabel} error={error}>
+    <SettingRow
+      label={t.agentSystemPromptLabel}
+      hint={t.agentSystemPromptHint}
+      error={error}
+    >
       <button
         className="text-button settings-inline-button"
         onClick={editAgentMd}
@@ -421,7 +434,7 @@ export function AgentSkillsSection({ t }: { t: Strings }) {
     <>
       <SettingRow
         label={t.agentSkillsLabel}
-        hint={skills.length === 0 ? t.agentSkillsEmpty : undefined}
+        hint={t.agentSkillsHint}
         error={error}
       >
         <button
