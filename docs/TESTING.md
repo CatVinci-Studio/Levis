@@ -77,7 +77,8 @@ Settings migration (a rejected value must not discard the rest), the
 composer, streaming tool arguments, the proposal state machine
 (docs/AI-PROPOSALS.md), cancelled turns, AI error classification, the chat
 history grouping, the tutorial, the Windows-only window frame, menus and
-shortcuts, export pagination, themes.
+shortcuts, export pagination, themes, and the AI concept copy (the agent.md
+starters send nothing; templates name the menu items as the menus do).
 
 ### 5. Visual (Playwright, `e2e/`)
 

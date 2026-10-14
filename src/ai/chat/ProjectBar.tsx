@@ -33,11 +33,13 @@ export function libraryFileName(name: string): string {
 }
 
 /**
- * The project the conversation works in, under the Agent panel's header:
- * which folder the agent may read (and search, and @-mention), plus the two
- * writing aids kept in it - the author's style profile and the library of
- * people, places and terms (src-tauri ai::project). The folder used to be a
- * setting three screens deep; this is where it actually matters.
+ * The project the conversation works in, under the AI panel's header: the
+ * project folder Levis AI may read (and search, and @-mention), and the
+ * project-level files kept in its .levis/ folder - the style profile, the
+ * library of people, places and terms (src-tauri ai::project) and the
+ * project's writing instructions (.levis/agent.md). The names follow
+ * docs/AI-CONCEPTS.md. The folder used to be a setting three screens deep;
+ * this is where it actually matters.
  */
 export function ProjectBar({ docPath }: { docPath: string | null }) {
   const { t, settings, setSettings } = useSettings();
@@ -138,6 +140,18 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
       );
     });
 
+  const openInstructions = () =>
+    run(t.projectOpening, async () => {
+      openInTab(
+        await ai.ensureProjectFile(
+          docPath,
+          workspaceRoot,
+          "agent.md",
+          t.projectInstructionsTemplate,
+        ),
+      );
+    });
+
   const createEntry = (name: string) =>
     run(t.projectOpening, async () => {
       setNaming(false);
@@ -205,6 +219,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
         setNaming(true);
       },
     },
+    { label: t.projectEditInstructions, onSelect: openInstructions },
   ];
   const folderName = basename(root.replace(/[\\/]+$/, "")) || root;
 
@@ -214,7 +229,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
         <button
           type="button"
           className="project-bar-folder"
-          title={root}
+          title={t.projectFolderTitle.replace("{path}", root)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen(!menuOpen)}

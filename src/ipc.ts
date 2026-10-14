@@ -439,8 +439,14 @@ export interface LibraryEntry {
   body: string;
 }
 
+/** What shapes Levis AI for one document - see docs/AI-CONCEPTS.md. */
 export interface AgentWorkspaceInfo {
+  /** The global writing instructions (agent.md), comments stripped. */
   instructions: string[];
+  /** The project's writing instructions (.levis/agent.md), if any. */
+  project_instructions: string | null;
+  /** Global and project skills; a project skill replaces a global one of
+   *  the same name. */
   skills: AgentSkill[];
   /** The project folder; null for an unsaved draft or a folder too broad
    *  to expose (home, a drive root). */
@@ -497,9 +503,10 @@ export const ai = {
     provider: string;
     document: string;
     docPath: string | null;
-    /** Settings > Agent's explicit workspace root; null keeps the default
-     *  (the document's own folder). Decides where .levis/ is read from and
-     *  how far list_files/read_file may reach. */
+    /** The chosen project folder (Settings > Levis AI > Project Folder, or
+     *  the project bar); null keeps the default, the document's own folder.
+     *  Decides where .levis/ is read from and how far list_files/read_file
+     *  may reach. */
     workspaceRoot: string | null;
     history: AgentTurn[];
     message: string;
@@ -559,15 +566,19 @@ export const ai = {
     workspaceRoot: string | null;
     files: string[];
   }) => call<string>("learn_style", args),
-  /** Folder picker behind Settings > Agent's "switch workspace" button. */
+  /** Folder picker behind "Choose project folder…" (the project bar's menu
+   *  and Settings > Levis AI > Project Folder). */
   pickWorkspaceRoot: (): Promise<string | null> =>
     isIOSApp
       ? iosFiles.pickProjectFolder()
       : desktopQuery<string | null>("pick_workspace_root", null),
-  openGlobalAgentDir: (lang: string) =>
-    desktopAction<void>("open_global_agent_dir", { lang }),
-  ensureGlobalAgentMd: (lang: string) =>
-    call<string>("ensure_global_agent_md", { lang }),
+  /** Reveals the global config folder, creating it - with `template` as
+   *  its agent.md - on first use. */
+  openGlobalAgentDir: (template: string) =>
+    desktopAction<void>("open_global_agent_dir", { template }),
+  /** The global agent.md's path, created from `template` if missing. */
+  ensureGlobalAgentMd: (template: string) =>
+    call<string>("ensure_global_agent_md", { template }),
   importAgentSkill: () => call<AgentSkill[] | null>("import_agent_skill"),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),
 };

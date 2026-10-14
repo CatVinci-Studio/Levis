@@ -76,9 +76,9 @@ const AGENT_ROLE: &str = "You are a professional writing assistant embedded in L
 
 /// Only appended for providers that actually run the tool loop; telling a
 /// tool-less provider to call tools would just confuse it.
-const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something specific in a long document, and read_document to see a whole section before you revise it - never guess at text you haven't seen. The document's folder may hold reference material - use list_files/read_file to consult it when the user's request depends on it. Read first, propose after: never send a propose_edit in the same step as the read it depends on. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, insert_at_cursor to add text where the user's cursor is (when their message carries a <cursor> block marking it - for \"write a transition here\"), delete to remove text, append to add text at the end of the document. To add a table row or a list item, insert_after the whole neighbouring row or item line with just the new line(s) as `text`, a nested item keeping its indentation. Each proposal must target its own passage - for several changes inside one passage, send a single replace covering it, since overlapping proposals can't all be applied. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and use `-` or `1.` for list items (never `•`, `●` or other bullet symbols) and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. The user reviews and applies each proposal themselves, so your reply should only say briefly what you changed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided. Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change - for feedback on specific passages, pin each point to its passage with add_comment and keep the reply to a short summary. A request for information about the document - summarize it, list its dates, explain a passage, count something - is answered in the reply even when it is phrased as a command, unless the user asks for the result to go into the document ('add a summary at the top'). When a message is genuinely ambiguous between changing the document and talking about it, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it.";
+const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something specific in a long document, and read_document to see a whole section before you revise it - never guess at text you haven't seen. The project folder may hold reference material - use list_files/read_file to consult it when the user's request depends on it. Read first, propose after: never send a propose_edit in the same step as the read it depends on. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, insert_at_cursor to add text where the user's cursor is (when their message carries a <cursor> block marking it - for \"write a transition here\"), delete to remove text, append to add text at the end of the document. To add a table row or a list item, insert_after the whole neighbouring row or item line with just the new line(s) as `text`, a nested item keeping its indentation. Each proposal must target its own passage - for several changes inside one passage, send a single replace covering it, since overlapping proposals can't all be applied. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and use `-` or `1.` for list items (never `•`, `●` or other bullet symbols) and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. The user reviews and applies each proposal themselves, so your reply should only say briefly what you changed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided. Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change - for feedback on specific passages, pin each point to its passage with add_comment and keep the reply to a short summary. A request for information about the document - summarize it, list its dates, explain a passage, count something - is answered in the reply even when it is phrased as a command, unless the user asks for the result to go into the document ('add a summary at the top'). When a message is genuinely ambiguous between changing the document and talking about it, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it.";
 
-const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. The document's folder may hold reference material - use list_files/read_file when the request depends on it. Use use_skill when an available skill matches. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
+const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. The project folder may hold reference material - use list_files/read_file when the request depends on it. Use use_skill when an available skill matches. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
 
 /// Up to this many characters the document is embedded in full; past it,
 /// the prompt gets a line-numbered outline plus a head/tail excerpt, and the
@@ -163,9 +163,10 @@ fn document_section(document: &str, with_tools: bool, focus_heading: Option<&str
     )
 }
 
-/// The static half of the layering: role + workspace instructions + skill
-/// index + document go into the system prompt; skill bodies and workspace
-/// files stay out of it and are pulled in dynamically through tools.
+/// The static half of the layering: role + writing instructions + skill
+/// index (+ the document, tool-less) go into the system prompt; skill bodies
+/// and project files stay out of it and are pulled in dynamically through
+/// tools.
 pub(crate) fn build_instructions(
     workspace: &AgentWorkspace,
     document: &str,
@@ -194,10 +195,20 @@ pub(crate) fn build_instructions(
         );
     }
 
-    // agent.md layers (global, then the document folder's) - the user's own
-    // standing instructions: style, terminology, project background.
+    // The writing instructions (agent.md): global, then the project's - the
+    // user's own standing rules: reply language, terminology, project
+    // background. With both layers present the project's section says it
+    // wins a conflict (docs/AI-CONCEPTS.md); a single layer keeps the plain
+    // header the rest of the prompt refers to.
     for instructions in &workspace.instructions {
         sections.push(format!("---user instructions---\n{instructions}"));
+    }
+    if let Some(project) = &workspace.project_instructions {
+        sections.push(if workspace.instructions.is_empty() {
+            format!("---user instructions---\n{project}")
+        } else {
+            format!("---user instructions for this project (where they conflict with the ones above, follow these)---\n{project}")
+        });
     }
 
     // The skill index: names + descriptions only. Bodies load on demand via
@@ -336,8 +347,8 @@ pub(crate) fn compact_history(history: Vec<AgentTurn>) -> Vec<AgentTurn> {
 /// `flattened_chat_turn` on a hard failure, since not every compatible
 /// server actually implements `tools` correctly. A provider with no dialect
 /// at all falls straight to `flattened_chat_turn`, a single non-agentic
-/// completion (with the workspace's agent.md layers still in the system
-/// prompt; skills reach them via the frontend's /name injection instead of
+/// completion (with the writing instructions still in the system prompt;
+/// skills reach them via the frontend's /name injection instead of
 /// use_skill). The orchestration loop (`run_agent_loop`) and the tool
 /// implementations (`crate::ai::tools`) don't know which dialect is in play -
 /// adding tool-calling support for another provider is just wiring up its
@@ -357,8 +368,8 @@ pub async fn ai_agent_message(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Agent's explicit workspace override. None
-    // keeps the default - the document's own folder (see workspace::load).
+    // `workspace_root`: the chosen project folder. None keeps the default -
+    // the document's own folder (see workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -389,8 +400,8 @@ async fn ai_agent_message_inner(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Agent's explicit workspace override. None
-    // keeps the default - the document's own folder (see workspace::load).
+    // `workspace_root`: the chosen project folder. None keeps the default -
+    // the document's own folder (see workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -1030,5 +1041,39 @@ mod tests {
 
         let edit = build_instructions(&workspace, "draft", true, "edit", "");
         assert!(edit.contains("interaction mode: edit"));
+    }
+
+    #[test]
+    fn project_writing_instructions_follow_and_override_the_global_ones() {
+        let global = "Always reply in English.";
+        let project = "Reply in Chinese.";
+        let both = AgentWorkspace {
+            instructions: vec![global.into()],
+            project_instructions: Some(project.into()),
+            ..AgentWorkspace::default()
+        };
+        let prompt = build_instructions(&both, "draft", true, "edit", "");
+        let global_at = prompt.find(global).unwrap();
+        let project_at = prompt.find(project).unwrap();
+        assert!(global_at < project_at, "global first, project after");
+        assert!(prompt.contains(
+            "---user instructions for this project (where they conflict with the ones above, follow these)---\nReply in Chinese."
+        ));
+
+        // One layer alone keeps the plain header, whichever layer it is.
+        for alone in [
+            AgentWorkspace {
+                instructions: vec![global.into()],
+                ..AgentWorkspace::default()
+            },
+            AgentWorkspace {
+                project_instructions: Some(global.into()),
+                ..AgentWorkspace::default()
+            },
+        ] {
+            let prompt = build_instructions(&alone, "draft", true, "edit", "");
+            assert!(prompt.contains("---user instructions---\nAlways reply in English."));
+            assert!(!prompt.contains("---user instructions for this project"));
+        }
     }
 }

@@ -8,12 +8,13 @@ use std::path::Path;
 /// each tool's call signature.
 pub struct ToolContext<'a> {
     pub document: &'a str,
-    /// Skills from the agent workspace (global + document folder).
+    /// Skills from the global config folder and the project's .levis/.
     pub skills: &'a [AgentSkill],
-    /// The workspace root - the sandbox boundary for the file tools. The
-    /// document's own folder by default, or the folder chosen in Settings >
-    /// Agent (see workspace::resolve_root). None for an unsaved draft with no
-    /// override, in which case the file tools aren't offered at all.
+    /// The project folder (workspace root) - the sandbox boundary for the
+    /// file tools. The document's own folder by default, or the chosen
+    /// project folder (see workspace::resolve_root). None for an unsaved
+    /// draft with no folder chosen, or a folder too broad to use, in which
+    /// case the file tools aren't offered at all.
     pub root: Option<&'a Path>,
 }
 
@@ -374,7 +375,7 @@ const SEARCH_FILES_TOOL_NAME: &str = "search_files";
 /// and build/dependency folders are skipped - see ai::project.
 fn list_files(ctx: &ToolContext, _arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "There is no project folder for this document yet (it isn't saved), so there are no files to list."
+        return "There is no project folder for this document (it hasn't been saved, or its folder is too broad to use), so there are no files to list."
             .to_string();
     };
     let files = crate::ai::project::walk_text_files(root);
@@ -402,7 +403,7 @@ fn path_argument(arguments: &str, key: &str) -> String {
 /// files and size are enforced by ai::project::read_text.
 fn read_file(ctx: &ToolContext, arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "There is no project folder for this document yet (it isn't saved), so there are no files to read."
+        return "There is no project folder for this document (it hasn't been saved, or its folder is too broad to use), so there are no files to read."
             .to_string();
     };
     crate::ai::project::read_text(root, &path_argument(arguments, "path")).unwrap_or_else(|err| err)
@@ -412,7 +413,7 @@ fn read_file(ctx: &ToolContext, arguments: &str) -> String {
 /// to search_document.
 fn search_files(ctx: &ToolContext, arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "There is no project folder for this document yet (it isn't saved), so there is nothing to search."
+        return "There is no project folder for this document (it hasn't been saved, or its folder is too broad to use), so there is nothing to search."
             .to_string();
     };
     crate::ai::project::search(root, &path_argument(arguments, "query"))

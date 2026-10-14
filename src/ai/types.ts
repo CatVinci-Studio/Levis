@@ -39,8 +39,8 @@ export interface EditProposal {
 }
 
 /**
- * One skill from the agent workspace (global dir or the document folder's
- * .levis/skills/*.md files) - see src-tauri/src/ai/workspace.rs. The
+ * One skill, from the global config folder's skills/ or the project's
+ * .levis/skills/*.md files - see src-tauri/src/ai/workspace.rs. The
  * frontend only needs name/description for the /name picker; the prompt is
  * used when the user forces a skill manually.
  */

@@ -30,17 +30,57 @@ export const strings = {
     noticeGrammarChanged: "The paragraph changed while checking - try again.",
     noticeGrammarNoIssues: "No issues found.",
     projectTooBroad:
-      "This folder is too broad to use as a project (your home folder or a drive). Pick a project folder instead.",
+      "This folder is too broad to be a project folder (your home folder or a whole drive). Choose a more specific folder.",
     projectNoSamples: "None of the picked files could be read as text.",
-    projectNeedsSave: "Save this document to use its folder as the project.",
+    projectNeedsSave:
+      "Save this document first - its folder becomes the project folder.",
     projectPicking: "Choosing a folder…",
     projectLearningStyle: "Learning your style from the samples…",
     projectStyleLearned:
       "Style profile saved - review and edit it in the new tab.",
     projectOpening: "Opening…",
-    projectStyleTemplate: `# Style profile\n\n<!-- ${AI_NAME} and inline completion follow this file for this project. Describe how you write: voice, sentence rhythm, word choice, punctuation, things you never do. Or use “Learn my style” to draft it from your own writing. -->\n\n## Voice and tone\n\n- \n\n## Sentences and rhythm\n\n- \n\n## Word choice\n\n- \n\n## Never\n\n- \n`,
-    projectLibraryTemplate:
-      "---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- Facts the AI should keep consistent whenever {name} (or an alias) comes up. include: always | detected | never -->\n\n",
+    projectStyleTemplate: `# Style profile\n\n<!-- ${AI_NAME} and completion follow this profile in every document of this project. Describe how you write - voice, sentence rhythm, word choice, punctuation, things you never do - in concrete points ("short sentences, rarely over 15 words") rather than adjectives. “Learn my style from samples…” in the project menu drafts it from your own writing. Comments like this one are never sent. -->\n\n## Voice and tone\n\n- \n\n## Sentences and rhythm\n\n- \n\n## Word choice\n\n- \n\n## Never\n\n- \n`,
+    projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- Facts ${AI_NAME} should keep consistent whenever {name} or an alias comes up. include: detected (when mentioned, the default) | always | never. Comments like this one are never sent. -->\n\n`,
+    projectInstructionsTemplate: `<!--
+Writing instructions for this project.
+
+Everything outside comments like this one is sent to ${AI_NAME} with
+every conversation about a document in this project, after your
+global writing instructions (Settings > ${AI_NAME}). Where the two
+disagree, this file wins. Comments are never sent.
+
+Worth writing here, for example:
+
+  Background   A mystery novel set in 1930s Shanghai, told by Lin Wan.
+  Language     Reply in English; the novel itself is in Chinese.
+  Terms        "Harbour City", never "Harbor City".
+
+How the text should sound belongs in the style profile (style.md);
+facts about characters, places and terms in the library (library/).
+-->
+`,
+    agentInstructionsTemplate: `<!--
+Your writing instructions for ${AI_NAME}, for all documents.
+
+Everything outside comments like this one is sent with every
+conversation (the AI panel and Quick Ask). Comments are never sent,
+so this guide can stay.
+
+Worth writing here, for example:
+
+  Language     Always reply in English.
+  Spelling     Use British spelling.
+  Terms        Write "e-mail", never "email".
+  Background   I write long-form science journalism for a general audience.
+
+Instructions for one project only go in that project's .levis/agent.md
+(the AI panel's project menu > Edit project writing instructions).
+Both are sent; where they disagree, the project's win.
+
+Skills go in the skills/ folder next to this file, one .md file each;
+type /name in a conversation to use one.
+-->
+`,
     projectOpenStyle: "Open style profile",
     projectStyleChip: "Style",
     projectLibraryChip: "Library {n}",
@@ -50,6 +90,8 @@ export const strings = {
     projectLearnStyle: "Learn my style from samples…",
     projectCreateStyle: "Create style profile",
     projectNewEntry: "New library entry…",
+    projectEditInstructions: "Edit project writing instructions",
+    projectFolderTitle: "Project folder: {path}",
     projectEntryPlaceholder: "Name of a character, place or term",
     projectEntryCreate: "Create",
     chatHistoryUnsaved: "Unsaved documents",
@@ -165,13 +207,12 @@ export const strings = {
     editAnimationLabel: "Animate edit previews",
     agentWorkspaceLabel: "Global Config Folder",
     agentWorkspaceOpenButton: "Open Folder",
-    agentWorkspaceRootLabel: "Workspace Folder",
+    agentWorkspaceRootLabel: "Project Folder",
     agentWorkspaceRootHint: `${AI_NAME} can only read this folder: {path}`,
     agentWorkspaceRootDefault: "the current document's folder",
-    agentWorkspaceRootPick: "Switch…",
-    agentWorkspaceRootReset: "Use document folder",
-    agentSystemPromptLabel: "Chat Instructions (agent.md)",
-    agentSystemPromptHint: "Writing instructions sent with every conversation",
+    agentWorkspaceRootPick: "Choose…",
+    agentSystemPromptLabel: "Writing Instructions (agent.md)",
+    agentSystemPromptHint: "Sent with every conversation, for all documents",
     agentSystemPromptEdit: "Edit agent.md",
     agentSkillsLabel: "Skills",
     agentSkillsHint: "Type /name in a conversation to use one",
@@ -654,16 +695,53 @@ export const strings = {
     noticeGrammarChanged: "检查期间段落有改动，请重试。",
     noticeGrammarNoIssues: "没有发现问题。",
     projectTooBroad:
-      "这个文件夹范围太大（主目录或整个磁盘），不能作为项目，请选择具体的项目文件夹。",
+      "这个文件夹范围太大（主目录或整个磁盘），不能作为项目文件夹，请选择更具体的文件夹。",
     projectNoSamples: "选中的文件都无法作为文本读取。",
-    projectNeedsSave: "保存文档后，就能把它所在的文件夹作为项目。",
+    projectNeedsSave: "请先保存文档——它所在的文件夹就是项目文件夹。",
     projectPicking: "正在选择文件夹…",
     projectLearningStyle: "正在从样本中学习你的文风…",
     projectStyleLearned: "文风档案已保存，可以在新标签页里查看和修改。",
     projectOpening: "正在打开…",
-    projectStyleTemplate: `# 文风档案\n\n<!-- 在这个项目里，${AI_NAME} 和续写都会遵循这份文件。写下你的写作习惯：语气、句子节奏、用词、标点、从不使用的写法。也可以用“学习我的文风”根据你的文章自动生成。 -->\n\n## 语气\n\n- \n\n## 句子与节奏\n\n- \n\n## 用词\n\n- \n\n## 从不\n\n- \n`,
-    projectLibraryTemplate:
-      "---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- 每当提到 {name}（或别名）时，AI 需要保持一致的设定。include: always（总是附带）| detected（被提到时附带）| never（不附带） -->\n\n",
+    projectStyleTemplate: `# 文风档案\n\n<!-- 在这个项目的所有文档里，${AI_NAME} 和续写都会遵循这份档案。写下你的写作习惯：语气、句子节奏、用词、标点、从不使用的写法——写具体的要点（“多用短句，很少超过 25 个字”），不要只写形容词。项目菜单里的“从样本学习我的文风…”可以根据你自己的文章起草它。注释（比如这一段）不会发送。 -->\n\n## 语气\n\n- \n\n## 句子与节奏\n\n- \n\n## 用词\n\n- \n\n## 从不\n\n- \n`,
+    projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- 每当提到 {name}（或别名）时，${AI_NAME} 需要保持一致的设定写在这里。include: detected（被提到时附带，默认）| always（总是附带）| never（不附带）。注释不会发送。 -->\n\n`,
+    projectInstructionsTemplate: `<!--
+这是本项目的写作要求。
+
+写在注释（比如这一段）之外的内容，会在本项目每篇文档的每次对话中
+发给 ${AI_NAME}，排在全局写作要求（设置 > ${AI_NAME}）之后；两者
+冲突时以这份为准。注释永远不会发送。
+
+适合写在这里的内容，例如：
+
+  背景    一部以 1930 年代上海为背景的悬疑小说，第一人称，叙述者是林晚。
+  语言    始终用中文回复。
+  用词    人物名统一写作“林晚”，不要写成“林婉”。
+
+文字读起来应该是什么样，写进文风档案（style.md）；人物、地点、
+术语的设定，写进资料库（library/）。
+-->
+`,
+    agentInstructionsTemplate: `<!--
+这是你给 ${AI_NAME} 的写作要求，对所有文档生效。
+
+写在注释（比如这一段）之外的内容，每次对话（AI 面板和快速提问）
+都会发给 ${AI_NAME}。注释永远不会发送，这份说明可以一直留着。
+
+适合写在这里的内容，例如：
+
+  语言    始终用中文回复。
+  用词    “登录”不要写成“登陆”。
+  格式    数字一律用阿拉伯数字。
+  背景    我写面向大众读者的科普长文。
+
+只针对某个项目的要求，写在那个项目的 .levis/agent.md 里（AI 面板的
+项目菜单 > 编辑本项目的写作要求）。两份都会发送；有冲突时以项目的
+为准。
+
+技能放在本文件旁边的 skills/ 文件夹里，一个技能一个 .md 文件；
+在对话中输入 /名称 即可使用。
+-->
+`,
     projectOpenStyle: "打开文风档案",
     projectStyleChip: "文风",
     projectLibraryChip: "资料库 {n}",
@@ -672,7 +750,9 @@ export const strings = {
     projectReveal: "在文件管理器中显示",
     projectLearnStyle: "从样本学习我的文风…",
     projectCreateStyle: "新建文风档案",
-    projectNewEntry: "新建资料条目…",
+    projectNewEntry: "新建资料库条目…",
+    projectEditInstructions: "编辑本项目的写作要求",
+    projectFolderTitle: "项目文件夹：{path}",
     projectEntryPlaceholder: "人物、地点或术语的名称",
     projectEntryCreate: "创建",
     chatHistoryUnsaved: "未保存的文档",
@@ -781,15 +861,14 @@ export const strings = {
     editAnimationLabel: "编辑预览动画",
     agentWorkspaceLabel: "全局配置文件夹",
     agentWorkspaceOpenButton: "打开文件夹",
-    agentWorkspaceRootLabel: "工作区文件夹",
+    agentWorkspaceRootLabel: "项目文件夹",
     agentWorkspaceRootHint: `${AI_NAME} 只能读取这个文件夹：{path}`,
     agentWorkspaceRootDefault: "当前文档所在文件夹",
-    agentWorkspaceRootPick: "切换…",
-    agentWorkspaceRootReset: "改回文档所在文件夹",
-    agentSystemPromptLabel: "对话指令（agent.md）",
-    agentSystemPromptHint: "每次对话都会附上的写作要求",
+    agentWorkspaceRootPick: "选择…",
+    agentSystemPromptLabel: "写作要求（agent.md）",
+    agentSystemPromptHint: "每次对话都会附上，对所有文档生效",
     agentSystemPromptEdit: "编辑 agent.md",
-    agentSkillsLabel: "技能目录",
+    agentSkillsLabel: "技能",
     agentSkillsHint: "在对话中输入 /名称 即可使用",
     agentSkillsImport: "导入技能…",
     agentAttachFile: "附加文件：PDF、Word、PPT、表格、图片或纯文本",
@@ -1255,27 +1334,69 @@ export const strings = {
       "チェック中に段落が変更されました。もう一度お試しください。",
     noticeGrammarNoIssues: "問題は見つかりませんでした。",
     projectTooBroad:
-      "このフォルダーは範囲が広すぎるため（ホームやドライブ全体）、プロジェクトにできません。プロジェクト用のフォルダーを選んでください。",
+      "このフォルダーは範囲が広すぎるため（ホームフォルダーやドライブ全体）、プロジェクトフォルダーにできません。もっと具体的なフォルダーを選んでください。",
     projectNoSamples: "選んだファイルをテキストとして読み込めませんでした。",
     projectNeedsSave:
-      "文書を保存すると、そのフォルダーをプロジェクトとして使えます。",
+      "先に文書を保存してください。そのフォルダーがプロジェクトフォルダーになります。",
     projectPicking: "フォルダーを選択中…",
     projectLearningStyle: "サンプルから文体を学習中…",
     projectStyleLearned:
       "文体プロファイルを保存しました。新しいタブで確認・編集できます。",
     projectOpening: "開いています…",
-    projectStyleTemplate: `# 文体プロファイル\n\n<!-- このプロジェクトでは、${AI_NAME}と補完がこのファイルに従います。語調、文のリズム、語彙、句読点、使わない書き方などを書いてください。「文体を学習」で自分の文章から下書きを作ることもできます。 -->\n\n## 語調\n\n- \n\n## 文とリズム\n\n- \n\n## 語彙\n\n- \n\n## 使わない\n\n- \n`,
-    projectLibraryTemplate:
-      "---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- {name}（または別名）が出てくるたびにAIが守るべき設定。include: always | detected | never -->\n\n",
+    projectStyleTemplate: `# 文体プロファイル\n\n<!-- このプロジェクトのすべての文書で、${AI_NAME}と補完がこのプロファイルに従います。語調、文のリズム、語彙、句読点、使わない書き方などを、形容詞ではなく具体的な項目（「一文は短く、40字を超えることはまれ」）で書いてください。プロジェクトメニューの「サンプルから文体を学習…」で、自分の文章から下書きを作れます。このようなコメントは送信されません。 -->\n\n## 語調\n\n- \n\n## 文とリズム\n\n- \n\n## 語彙\n\n- \n\n## 使わない\n\n- \n`,
+    projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- {name}（または別名）が出てくるたびに${AI_NAME}が守るべき設定をここに書きます。include: detected（言及されたとき、既定）| always（常に）| never（送らない）。このようなコメントは送信されません。 -->\n\n`,
+    projectInstructionsTemplate: `<!--
+このプロジェクトの執筆の指示です。
+
+このようなコメントの外に書いた内容は、このプロジェクトの文書に
+ついての毎回の会話で、グローバルな執筆の指示（設定 > ${AI_NAME}）
+の後に${AI_NAME}へ送られます。食い違う点はこのファイルが優先され
+ます。コメントは送信されません。
+
+ここに書くとよい内容の例：
+
+  背景    1930年代の上海を舞台にしたミステリー。語り手は林晩（一人称）。
+  言語    常に日本語で返信する。
+  用語    人物名は「林晩」と書き、「林晚」とは書かない。
+
+文章の書きぶりは文体プロファイル（style.md）に、人物・場所・用語
+の設定はライブラリ（library/）に書きます。
+-->
+`,
+    agentInstructionsTemplate: `<!--
+${AI_NAME}への執筆の指示です。すべての文書に適用されます。
+
+このようなコメントの外に書いた内容は、毎回の会話（AIパネルと
+クイック質問）で${AI_NAME}に送られます。コメントは送信されない
+ので、この説明は残しておいて構いません。
+
+ここに書くとよい内容の例：
+
+  言語    常に日本語で返信する。
+  表記    「全て」ではなく「すべて」と書く。
+  用語    「ユーザー」と書き、「ユーザ」とは書かない。
+  背景    一般読者向けの科学記事を書いている。
+
+特定のプロジェクトだけの指示は、そのプロジェクトの .levis/agent.md
+に書きます。AIパネルのプロジェクトメニューにある
+「このプロジェクトの執筆の指示を編集」で開けます。両方が送られ、
+食い違う点はプロジェクトの指示が優先されます。
+
+スキルはこのファイルの隣の skills/ フォルダーに、1つにつき1つの
+.md ファイルとして置きます。会話で /名前 と入力すると使えます。
+-->
+`,
     projectOpenStyle: "文体プロファイルを開く",
     projectStyleChip: "文体",
-    projectLibraryChip: "資料 {n}",
+    projectLibraryChip: "ライブラリ {n}",
     projectPickFolder: "プロジェクトフォルダーを選択…",
     projectUseDocFolder: "文書のフォルダーを使う",
     projectReveal: "ファイルマネージャーで表示",
     projectLearnStyle: "サンプルから文体を学習…",
     projectCreateStyle: "文体プロファイルを作成",
-    projectNewEntry: "資料を新規作成…",
+    projectNewEntry: "ライブラリに項目を追加…",
+    projectEditInstructions: "このプロジェクトの執筆の指示を編集",
+    projectFolderTitle: "プロジェクトフォルダー：{path}",
     projectEntryPlaceholder: "人物・場所・用語の名前",
     projectEntryCreate: "作成",
     chatHistoryUnsaved: "未保存の文書",
@@ -1389,19 +1510,18 @@ export const strings = {
     webSearchLabel: "ウェブ検索",
     webSearchHint: "現在のサービスが対応している場合のみ",
     editAnimationLabel: "編集プレビューのアニメーション",
-    agentWorkspaceLabel: "グローバル設定フォルダ",
-    agentWorkspaceOpenButton: "フォルダを開く",
-    agentWorkspaceRootLabel: "ワークスペースフォルダ",
-    agentWorkspaceRootHint: `${AI_NAME} が読み取れるのはこのフォルダだけです：{path}`,
-    agentWorkspaceRootDefault: "現在の文書のフォルダ",
-    agentWorkspaceRootPick: "変更…",
-    agentWorkspaceRootReset: "文書のフォルダに戻す",
-    agentSystemPromptLabel: "チャットの指示（agent.md）",
-    agentSystemPromptHint: "毎回の会話に添える執筆の指示",
+    agentWorkspaceLabel: "グローバル設定フォルダー",
+    agentWorkspaceOpenButton: "フォルダーを開く",
+    agentWorkspaceRootLabel: "プロジェクトフォルダー",
+    agentWorkspaceRootHint: `${AI_NAME} が読み取れるのはこのフォルダーだけです：{path}`,
+    agentWorkspaceRootDefault: "現在の文書のフォルダー",
+    agentWorkspaceRootPick: "選択…",
+    agentSystemPromptLabel: "執筆の指示（agent.md）",
+    agentSystemPromptHint: "すべての文書で、毎回の会話に添えられます",
     agentSystemPromptEdit: "agent.mdを編集",
-    agentSkillsLabel: "Skill",
+    agentSkillsLabel: "スキル",
     agentSkillsHint: "会話で /名前 と入力すると使えます",
-    agentSkillsImport: "Skillをインポート…",
+    agentSkillsImport: "スキルをインポート…",
     agentAttachFile:
       "ファイルを添付：PDF、Word、PowerPoint、表計算、画像、テキスト",
     chatAttachmentTruncated: "（一部のみ）",
@@ -1454,7 +1574,7 @@ export const strings = {
     agentModeEdit: "編集",
     agentModePlan: "計画",
     chatModeLabel: "モード",
-    agentPersonalizationGroupLabel: "執筆の指示とSkill",
+    agentPersonalizationGroupLabel: "執筆の指示とスキル",
     agentAdvancedGroupLabel: "詳細設定",
     writingModelLabel: "補助モデル",
     writingFeaturesLabel: "執筆アシスト",

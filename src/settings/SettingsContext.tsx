@@ -173,11 +173,13 @@ export interface Settings {
   /// Whether the detached Agent window floats above other windows. Kept
   /// here rather than per-window so the choice survives closing it.
   pinAgentWindow: boolean;
-  /// Explicit agent workspace root, or "" for the default (the folder of
-  /// the document being edited). This is the folder `.levis/agent.md` and
-  /// `.levis/skills/` are read from AND the sandbox boundary of the agent's
-  /// list_files/read_file tools, so setting it is what lets the agent reach
-  /// reference material that doesn't live next to the draft.
+  /// The chosen project folder (in code, the workspace root), or "" for
+  /// the default: the folder of the document being edited. One setting for
+  /// every document. It is the folder whose `.levis/` (style profile,
+  /// library, agent.md, skills) is read AND the sandbox boundary of the
+  /// agent's list_files/read_file tools, so setting it is what lets the
+  /// agent reach reference material that doesn't live next to the draft.
+  /// See docs/AI-CONCEPTS.md.
   agentWorkspaceRoot: string;
   /// Proxy all AI provider requests route through, as type + host + port
   /// ("none" or an empty host means direct connection). Handed to Rust as a

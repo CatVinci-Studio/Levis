@@ -19,10 +19,11 @@ import { ai, auth } from "../../ipc";
 import { Select } from "../../ui/Select";
 import { SettingRow } from "./controls";
 
-// The AI category's model pickers and chat-workspace rows. The workspace
-// itself is file-managed (the .levis/ convention) - these sections mostly
-// open folders/files rather than embedding editors; the full write-up lives
-// in Help > AI Features Guide.
+// The AI category's model pickers, and the rows for the concepts in
+// docs/AI-CONCEPTS.md: the project folder, the global writing instructions
+// (agent.md), skills and the global config folder. Those are files, not
+// settings - these rows open folders and files rather than embedding
+// editors; Help > AI Features Guide explains them.
 
 /** Fired after a model list is fetched, so both pickers (writing and
  *  chat) pick up the new list from the cache at once. */
@@ -277,17 +278,16 @@ export function ModelListRow({ t }: { t: Strings }) {
   );
 }
 
-/// The agent workspace is configured through files, not settings controls -
-/// this section just explains the .levis/ convention and opens the global
-/// folder.
+/// The global config folder: the global agent.md and skills/, which apply
+/// to every document. Opens it in the file manager (creating it, with the
+/// starter agent.md, on first use).
 export function AgentWorkspaceSection({ t }: { t: Strings }) {
-  const { settings } = useSettings();
   const [error, setError] = useState<string | null>(null);
 
   async function openFolder() {
     try {
-      // Language picks the starter agent.md template on first use.
-      await ai.openGlobalAgentDir(settings.language);
+      // The starter agent.md, in the UI language, if there is none yet.
+      await ai.openGlobalAgentDir(t.agentInstructionsTemplate);
     } catch (err) {
       setError(errorText(err));
     }
@@ -305,14 +305,15 @@ export function AgentWorkspaceSection({ t }: { t: Strings }) {
   );
 }
 
-/// WHICH folder is the workspace.
+/// WHICH folder is the project folder (in code: the workspace root).
 ///
 /// The default - the folder of the document being edited - is right until
 /// the user's sources and their draft don't live together, and then there is
 /// no way out of it: `.levis/` is looked for there, and the agent's
 /// list_files/read_file are sandboxed to it (ai/workspace.rs), so material
 /// one folder over is simply unreachable. This makes the root explicit while
-/// keeping the default for everyone it already suits.
+/// keeping the default for everyone it already suits. The project bar's
+/// menu offers the same choice, with the same labels.
 export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
   const { settings, setSettings } = useSettings();
   const [error, setError] = useState<string | null>(null);
@@ -345,7 +346,7 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
             className="text-button settings-inline-button"
             onClick={() => setSettings({ agentWorkspaceRoot: "" })}
           >
-            {t.agentWorkspaceRootReset}
+            {t.projectUseDocFolder}
           </button>
         )}
         <button
@@ -359,11 +360,12 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
   );
 }
 
-/// The GLOBAL agent.md - the standing instructions in every chat's system
-/// prompt. Levis IS a markdown editor, so the button just opens the file as
-/// a document (creating an empty starter on first use) instead of embedding
-/// a bespoke editor here. A document folder's .levis/agent.md layers on top
-/// and stays file-managed.
+/// The GLOBAL writing instructions (agent.md) - sent with every
+/// conversation, for all documents. Levis IS a markdown editor, so the
+/// button just opens the file as a document (creating the comment-only
+/// starter on first use) instead of embedding a bespoke editor here. A
+/// project's .levis/agent.md is layered after it; the project bar's menu
+/// opens that one.
 export function AgentSystemPromptSection({
   t,
   onOpenFile,
@@ -373,13 +375,12 @@ export function AgentSystemPromptSection({
   onOpenFile: (path: string) => void;
   onClose: () => void;
 }) {
-  const { settings } = useSettings();
   const [error, setError] = useState<string | null>(null);
 
   async function editAgentMd() {
     try {
-      // Language picks the starter agent.md template on first use.
-      const path = await ai.ensureGlobalAgentMd(settings.language);
+      // The starter agent.md, in the UI language, if there is none yet.
+      const path = await ai.ensureGlobalAgentMd(t.agentInstructionsTemplate);
       onClose(); // the editor is behind the settings panel
       onOpenFile(path);
     } catch (err) {
@@ -404,8 +405,9 @@ export function AgentSystemPromptSection({
 }
 
 /// The GLOBAL skill list, plus an import button that copies a .md skill
-/// file into the global skills folder. Per-document .levis/skills still
-/// layer on top when chatting - this section only manages the global set.
+/// file into the global config folder's skills/. A project's .levis/skills
+/// are added in conversations (replacing a global skill of the same name) -
+/// this section only manages the global set.
 export function AgentSkillsSection({ t }: { t: Strings }) {
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [error, setError] = useState<string | null>(null);
