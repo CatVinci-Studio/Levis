@@ -28,14 +28,11 @@ concurrency:
 
 jobs:
   # Cheap checks on a Linux runner before any macOS/Windows minutes are
-  # spent: the tag must name the version the app's files carry, a stable
-  # tag needs its release notes, and only the newest stable tag may move
-  # the Homebrew cask and the pacman repository.
+  # spent: the tag must name the version the app's files carry, and a
+  # stable tag needs its release notes.
   preflight:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
-    outputs:
-      newest-stable: ${{ steps.newest.outputs.newest-stable }}
     steps:
       - name: Validate version tag
         run: '[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]'
@@ -68,22 +65,6 @@ jobs:
             exit 1
           fi
           echo "::warning::$notes is missing at $RELEASE_TAG; the release keeps its current notes."
-
-      # A workflow_dispatch rebuild of an old tag republishes that release,
-      # but pointing the cask or arch-repo at it would downgrade everyone.
-      - name: Is this the newest stable tag?
-        id: newest
-        run: |
-          newest=$(git ls-remote --tags --refs origin 'v*.*.*' \
-            | sed 's|.*refs/tags/||' \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V | tail -n1)
-          echo "Newest stable tag: ${newest:-none}"
-          if [ "$newest" = "$RELEASE_TAG" ]; then
-            echo "newest-stable=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "newest-stable=false" >> "$GITHUB_OUTPUT"
-          fi
 
   release:
     needs: preflight
@@ -220,9 +201,11 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [preflight, release, arch-package]
+    needs: [release, arch-package]
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    outputs:
+      newest-stable: ${{ steps.newest.outputs.newest-stable }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -253,11 +236,30 @@ jobs:
             fi
           done
 
+      # A workflow_dispatch rebuild of an old tag republishes that release,
+      # but making it "Latest" or pointing the cask or arch-repo at it
+      # would downgrade everyone. Asked here, after the builds, not when
+      # the run started: a hotfix tag pushed while this one was still
+      # building is newer by the time this one is published.
+      - name: Is this the newest stable tag?
+        id: newest
+        run: |
+          newest=$(git ls-remote --tags --refs origin 'v*.*.*' \
+            | sed 's|.*refs/tags/||' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n1)
+          echo "Newest stable tag: ${newest:-none}"
+          if [ "$newest" = "$RELEASE_TAG" ]; then
+            echo "newest-stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "newest-stable=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # A rebuilt older tag must not become GitHub's "Latest" release: the
       # updater and the website's download links follow releases/latest.
       - name: Publish completed release
         env:
-          NEWEST_STABLE: ${{ needs.preflight.outputs.newest-stable }}
+          NEWEST_STABLE: ${{ steps.newest.outputs.newest-stable }}
         run: |
           NOTES="docs/releases/${RELEASE_TAG#v}.md"
           if [ -f "$NOTES" ]; then
@@ -279,8 +281,8 @@ jobs:
   # upgrade` - the same mistake marking the GitHub release as a pre-release
   # exists to prevent. Rebuilds of an older tag: that would downgrade.
   update-homebrew-tap:
-    needs: [preflight, publish]
-    if: ${{ needs.preflight.outputs.newest-stable == 'true' }}
+    needs: publish
+    if: ${{ needs.publish.outputs.newest-stable == 'true' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
@@ -323,8 +325,8 @@ jobs:
   # Only for the newest stable tag, like the Homebrew cask: pacman sorts
   # 0.9.0_rc.1 above 0.9.0, and an older tag would downgrade.
   update-arch-repo:
-    needs: [preflight, publish]
-    if: ${{ needs.preflight.outputs.newest-stable == 'true' }}
+    needs: publish
+    if: ${{ needs.publish.outputs.newest-stable == 'true' }}
     uses: ./.github/workflows/update-arch-repo.yml
     with:
       tag: ${{ inputs.tag || github.ref_name }}
