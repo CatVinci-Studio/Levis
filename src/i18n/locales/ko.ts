@@ -521,7 +521,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   tutorialMarkdownStepFormula: "$E=mc^2$ 입력",
   tutorialMarkdownDone: "모든 연습을 마치거나 건너뛰었습니다.",
   tutorialAiIntroTitle: "AI 글쓰기 보조",
-  tutorialAiIntroBody: `이어 쓰기, 문법 검사, 채팅, 문서 수정을 연습합니다. 이 튜토리얼은 미리 준비된 예시를 사용하므로 로그인할 필요가 없습니다. 실제로 사용하려면 설정 >${AI_NAME}에서 서비스를 연결하세요.`,
+  tutorialAiIntroBody: `이어 쓰기, 문법 검사, 채팅, 문서 수정을 연습합니다. 이 튜토리얼은 미리 준비된 예시를 사용하므로 로그인할 필요가 없습니다. 실제로 사용하려면 설정 > ${AI_NAME}에서 서비스를 연결하세요.`,
   tutorialCompletionTitle: "이어 쓰기",
   tutorialCompletionBody:
     "제안은 회색으로 표시됩니다. Tab 키를 누르면 수락되고, 계속 입력하면 사라집니다. 오른쪽 클릭 메뉴에서 제안을 요청할 수도 있습니다.",
@@ -581,7 +581,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
     "문서가 커서 입력이 느려지지 않도록 이어 쓰기, 문법 검사, Mermaid 실시간 미리 보기를 일시 중지했습니다.",
   imageMigrationFailedTitle: "일부 이미지를 옮기지 못함",
   imageMigrationFailedMessage:
-    "붙여넣은 다음 이미지를 저장한 문서 옆으로 옮기지 못해 원래 위치에 그대로 있습니다:",
+    "붙여넣은 이미지 중 다음 이미지는 저장한 문서 옆으로 옮기지 못해 원래 위치에 그대로 있습니다:",
   imagePasteFailedMessage: "붙여넣은 이미지를 저장하지 못했습니다.",
   imageStorageGroupLabel: "이미지",
   imageStorageLabel: "이미지 저장 위치",
