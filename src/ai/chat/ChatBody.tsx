@@ -27,6 +27,7 @@ import { parseProposal } from "./proposal";
 import { toolActivityText } from "../AgentTurnView";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
+import { scrollBehavior } from "../../ui/motion";
 import {
   attachedFileBlock,
   selectedTextBlock,
@@ -292,7 +293,7 @@ export function ChatBody({
     requestAnimationFrame(() => {
       listRef.current?.scrollTo({
         top: listRef.current.scrollHeight,
-        behavior: "smooth",
+        behavior: scrollBehavior(),
       });
     });
   }

@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { renderDocumentHtml } from "../ai/markdown-render";
 import { resolveImageSrc } from "./image-plugin";
-import { configureMermaid, loadMermaid } from "./mermaid-plugin";
+import { configureMermaid, loadMermaid, renderMermaid } from "./mermaid-plugin";
 import { SourceTextarea } from "./SourceTextarea";
 import "./SplitView.css";
 
@@ -12,8 +12,8 @@ import "./SplitView.css";
  * inside the editor's content classes, so the same theme styles it.
  *
  * Scrolling is kept in step by proportion; the side being scrolled by the
- * user leads, and a guard stops the other side's scroll event from echoing
- * back. With typewriter mode on, the source keeps the caret's line in the
+ * user leads, and the scroll event the follower then fires is recognized by
+ * its position and not echoed back. With typewriter mode on, the source keeps the caret's line in the
  * middle the way the rich editor does.
  */
 export function SplitView({
@@ -51,12 +51,17 @@ export function SplitView({
     // The editor's own loader and settings: mermaid is one global, so a
     // second initialize() here would reset the editor's diagrams too.
     void loadMermaid().then(async (mermaid) => {
-      configureMermaid(mermaid, root.clientWidth);
+      configureMermaid(
+        mermaid,
+        root.clientWidth,
+        getComputedStyle(root).fontFamily,
+      );
       let n = 0;
       for (const code of diagrams) {
         if (cancelled) return;
         try {
-          const { svg } = await mermaid.render(
+          const svg = await renderMermaid(
+            mermaid,
             `split-mermaid-${Date.now()}-${n++}`,
             code.textContent ?? "",
           );
@@ -74,20 +79,31 @@ export function SplitView({
     };
   }, [html, filePath]);
 
-  const syncing = useRef<"source" | "preview" | null>(null);
+  // The scrollTop each side was last moved to by the other one. The scroll
+  // event that move fires arrives a frame or more later (WebKitGTK, long
+  // documents) - matching it by position, not by a one-frame guard, is what
+  // keeps it from steering the side the user is actually scrolling back.
+  const echo = useRef<{ source: number | null; preview: number | null }>({
+    source: null,
+    preview: null,
+  });
   function follow(
     from: HTMLElement,
     to: HTMLElement,
     side: "source" | "preview",
   ) {
-    if (syncing.current && syncing.current !== side) return;
-    syncing.current = side;
+    const expected = echo.current[side];
+    echo.current[side] = null;
+    if (expected !== null && Math.abs(from.scrollTop - expected) < 2) return;
     const range = from.scrollHeight - from.clientHeight;
     const ratio = range > 0 ? from.scrollTop / range : 0;
-    to.scrollTop = ratio * (to.scrollHeight - to.clientHeight);
-    requestAnimationFrame(() => {
-      syncing.current = null;
-    });
+    const target = Math.round(ratio * (to.scrollHeight - to.clientHeight));
+    const before = to.scrollTop;
+    if (Math.abs(before - target) < 1) return;
+    to.scrollTop = target;
+    // Read back: clamped at either end, or rounded to a device pixel.
+    if (to.scrollTop !== before)
+      echo.current[side === "source" ? "preview" : "source"] = to.scrollTop;
   }
 
   return (

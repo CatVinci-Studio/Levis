@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { parseHeadings } from "./outline-parse";
 import { ChevronIcon } from "../ui/icons";
 import { useSettings } from "../settings/SettingsContext";
+import { scrollBehavior } from "../ui/motion";
 import "./FileTree.css";
 
 interface OutlineProps {
@@ -19,7 +20,17 @@ function scrollToHeading(index: number) {
   const heading = root?.querySelectorAll(
     ":scope > :is(h1, h2, h3, h4, h5, h6)",
   )[index];
-  heading?.scrollIntoView({ behavior: "smooth", block: "start" });
+  heading?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+}
+
+/** A heading's source as it reads in the document: inline code, emphasis
+ *  and link syntax dropped, so "`text-spacing`" shows as text-spacing. */
+export function headingLabel(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/`+([^`]+)`+/g, "$1")
+    .replace(/(\*\*|__|~~|==)(?=\S)(.+?)(?<=\S)\1/g, "$2")
+    .replace(/([*_])(?=\S)(.+?)(?<=\S)\1/g, "$2");
 }
 
 export function Outline({ content }: OutlineProps) {
@@ -98,7 +109,7 @@ export function Outline({ content }: OutlineProps) {
               className="tree-row"
               onClick={() => scrollToHeading(h.index)}
             >
-              <span className="tree-label">{h.text}</span>
+              <span className="tree-label">{headingLabel(h.text)}</span>
             </button>
           </div>
         );

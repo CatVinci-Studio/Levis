@@ -338,11 +338,18 @@ body {
   left: 50%;
   transform: translateX(-50%);
   max-width: 45%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--text-sm);
   color: var(--editor-muted);
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
+}
+
+.window-bar-title-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -635,6 +642,12 @@ body {
   flex: 1;
   overflow-y: auto;
   background: var(--editor-bg, var(--bg));
+}
+
+/* An outline jump lands the heading clear of the 28px window bar the page
+   scrolls under, with a little air - not behind it. */
+.editor-content .ProseMirror > :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 44px;
 }
 
 /* --content-zoom (set by utils/useZoom.ts) scales ONLY the document text,
@@ -1238,9 +1251,13 @@ body {
   bottom: 0;
 }
 
+/* Both ways: leaving zen fades the bar back in as entering faded it out. */
+.window-bar {
+  transition: opacity var(--dur-base) var(--ease-standard);
+}
+
 .zen .window-bar {
   opacity: 0;
-  transition: opacity var(--dur-base) var(--ease-standard);
 }
 
 .zen .window-bar:hover {

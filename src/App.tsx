@@ -985,11 +985,16 @@ function App() {
               zen: zenMode,
             }}
           />
-          <span className="window-bar-title">{activeTitle}</span>
-          <div className="window-bar-status">
+          {/* The unsaved dot leads the title, as a native edited-document
+            title does - in the status group it sat on top of a long title
+            on a narrow window. */}
+          <span className="window-bar-title">
             {activeDirty && (
               <span className="unsaved-dot" title={t.unsavedIndicator} />
             )}
+            <span className="window-bar-title-text">{activeTitle}</span>
+          </span>
+          <div className="window-bar-status">
             {isLargeDoc && (
               <span className="large-doc-badge" title={t.largeDocHint}>
                 {t.largeDocBadge}

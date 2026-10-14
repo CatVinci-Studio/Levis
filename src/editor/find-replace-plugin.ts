@@ -163,7 +163,12 @@ export const findReplacePlugin = $prose(
               meta.caseSensitive,
               meta.useRegex,
             );
-            const activeIndex = matches.length ? 0 : -1;
+            // The first match from the caret on (wrapping), as in every
+            // other editor - not the document's first, which can be pages
+            // away from where the user is reading.
+            const caret = tr.selection.from;
+            const fromCaret = matches.findIndex((m) => m.from >= caret);
+            const activeIndex = matches.length ? Math.max(fromCaret, 0) : -1;
             return {
               query: meta.query,
               caseSensitive: meta.caseSensitive,

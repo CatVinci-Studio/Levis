@@ -27,11 +27,22 @@ export function loadMermaid(): Promise<MermaidApi> {
 // which shrank their 11px labels to unreadable; at the column's own width
 // they render at their real size. securityLevel "strict" is mermaid's
 // default, stated because the SVG lands in the editor as innerHTML.
-export function configureMermaid(mermaid: MermaidApi, width: number): void {
+export function configureMermaid(
+  mermaid: MermaidApi,
+  width: number,
+  fontFamily?: string,
+): void {
   mermaid.initialize({
     startOnLoad: false,
-    theme: "neutral",
+    // Follows the app's appearance - "neutral" in a dark theme left white
+    // boxes and near-invisible arrows on the dark page. In the document's
+    // own face rather than mermaid's "trebuchet ms".
+    theme: appearanceIsDark() ? "dark" : "neutral",
+    ...(fontFamily ? { fontFamily, themeVariables: { fontFamily } } : {}),
     securityLevel: "strict",
+    // A broken diagram must not draw mermaid's "Syntax error" bomb into a
+    // node of its own: render() throws, and the caller keeps the source.
+    suppressErrorRendering: true,
     gantt: {
       useWidth: Math.max(320, Math.round(width)),
       fontSize: 13,
@@ -43,6 +54,35 @@ export function configureMermaid(mermaid: MermaidApi, width: number): void {
       axisFormat: "%m-%d",
     },
   });
+}
+
+/** Whether the app is showing its dark appearance: the explicit choice
+ *  (data-theme on <html>, set by SettingsContext), else the system's. */
+export function appearanceIsDark(): boolean {
+  const chosen = document.documentElement.getAttribute("data-theme");
+  if (chosen === "dark") return true;
+  if (chosen === "light") return false;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
+/**
+ * mermaid.render, minus what it leaves behind: it measures in a temporary
+ * `#d<id>` node appended to <body>, and on a failure (or when it is cut
+ * short) that node stays there - a 150px block under the app that gave the
+ * whole window a second scrollbar.
+ */
+export async function renderMermaid(
+  mermaid: MermaidApi,
+  id: string,
+  code: string,
+): Promise<string> {
+  try {
+    const { svg } = await mermaid.render(id, code);
+    return svg;
+  } finally {
+    document.getElementById(`d${id}`)?.remove();
+    document.getElementById(id)?.remove();
+  }
 }
 
 // Cheap stable hash of a diagram's source, for the widget key below.
@@ -101,6 +141,8 @@ export function createMermaidPreviewPlugin(options: {
     // renders sources it hasn't seen, instead of every diagram again 500ms
     // after each keystroke anywhere in the document.
     let lastWidth = 0;
+    // And the appearance and face it was drawn in (see configureMermaid).
+    let lastStyle = "";
 
     function buildDecorations(state: EditorState): RevealState {
       if (!options.enabled()) return emptyReveal;
@@ -181,6 +223,15 @@ export function createMermaidPreviewPlugin(options: {
             return;
           }
 
+          // A tab opened in the background is display:none: nothing can be
+          // measured there, and mermaid laid diagrams out at zero width or
+          // failed outright. Render once it is shown (the observer below).
+          if (editorView.dom.clientWidth === 0) {
+            waitingToBeShown = true;
+            return;
+          }
+          waitingToBeShown = false;
+
           const mySeq = ++renderSeq;
           const blocks = collectMermaidBlocks(editorView.state.doc);
           if (blocks.length === 0) {
@@ -198,8 +249,13 @@ export function createMermaidPreviewPlugin(options: {
           if (mySeq !== renderSeq) return;
           // The preview box's inner width: the column less its padding.
           const width = editorView.dom.clientWidth - 40;
-          configureMermaid(mermaid, width);
-          const reusable = width === lastWidth ? lastRenders : new Map();
+          const fontFamily = getComputedStyle(editorView.dom).fontFamily;
+          const style = `${appearanceIsDark()}|${fontFamily}`;
+          configureMermaid(mermaid, width, fontFamily);
+          const reusable =
+            width === lastWidth && style === lastStyle
+              ? lastRenders
+              : new Map();
 
           const rendered = new Map<string, string>();
           for (const { code } of blocks) {
@@ -211,7 +267,7 @@ export function createMermaidPreviewPlugin(options: {
             }
             try {
               const id = `mermaid-preview-${mySeq}-${rendered.size}`;
-              const { svg } = await mermaid.render(id, code);
+              const svg = await renderMermaid(mermaid, id, code);
               if (mySeq !== renderSeq) return; // superseded by a newer render pass
               rendered.set(code, svg);
             } catch {
@@ -224,17 +280,41 @@ export function createMermaidPreviewPlugin(options: {
           // already show exactly this, so skip the rebuild.
           const unchanged =
             width === lastWidth &&
+            style === lastStyle &&
             rendered.size === lastRenders.size &&
             [...rendered].every(([code, svg]) => lastRenders.get(code) === svg);
           lastRenders = rendered;
           lastWidth = width;
+          lastStyle = style;
           if (unchanged) return;
           editorView.dispatch(
             editorView.state.tr.setMeta(mermaidKey, "rerender"),
           );
         }
 
-        renderAll();
+        let waitingToBeShown = false;
+        const shown =
+          typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(() => {
+                if (waitingToBeShown && editorView.dom.clientWidth > 0)
+                  void renderAll();
+              });
+        shown?.observe(editorView.dom);
+        // An appearance switch redraws the diagrams in the new colours.
+        const restyle = () => {
+          if (collectMermaidBlocks(editorView.state.doc).length > 0)
+            void renderAll();
+        };
+        const appearance = new MutationObserver(restyle);
+        appearance.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme", "data-content-theme"],
+        });
+        const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)");
+        systemDark?.addEventListener("change", restyle);
+
+        void renderAll();
 
         return {
           update(view, prevState) {
@@ -248,6 +328,9 @@ export function createMermaidPreviewPlugin(options: {
           },
           destroy() {
             if (debounceTimer) clearTimeout(debounceTimer);
+            shown?.disconnect();
+            appearance.disconnect();
+            systemDark?.removeEventListener("change", restyle);
           },
         };
       },

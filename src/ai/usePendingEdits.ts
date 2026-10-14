@@ -102,6 +102,44 @@ export function locateAnchor(
   );
 }
 
+/** Where an anchored proposal (replace/delete/insert_before/after) lands
+ *  in `doc` now, and what it would write there. Null when its anchor no
+ *  longer resolves. */
+function resolveAnchored(
+  ctx: Ctx,
+  doc: ProseNode,
+  blocks: MarkdownBlock[],
+  proposal: EditProposal,
+): {
+  range: { from: number; to: number };
+  replacement: string;
+  strikeRange: { from: number; to: number } | null;
+} | null {
+  const match = findMarkdownMatch(
+    blocks,
+    proposal.anchor ?? "",
+    proposal.context,
+  );
+  if (!match) return null;
+  return {
+    range: { from: match.from, to: match.to },
+    replacement: composeMarkdownEdit(
+      match,
+      proposal.action,
+      proposal.text ?? "",
+    ),
+    strikeRange:
+      proposal.action === "replace" || proposal.action === "delete"
+        ? computeStrikeRange(ctx, doc, blocks, match)
+        : null,
+  };
+}
+
+const isAnchored = (proposal: EditProposal) =>
+  proposal.action !== "append" &&
+  proposal.action !== "insert_at_cursor" &&
+  proposal.action !== "replace_selection";
+
 /**
  * Resolves propose_edit proposals to live document ranges and shows them as
  * in-document decorations (pending-edit-plugin.ts). Accept/reject lives in
@@ -216,22 +254,8 @@ export function usePendingEdits(run: EditorRunner) {
               range = chatInfo.range;
             }
           } else {
-            const snippet = proposal.anchor ?? "";
-            const match = findMarkdownMatch(blocks, snippet, proposal.context);
-            if (match) {
-              range = { from: match.from, to: match.to };
-              replacement = composeMarkdownEdit(
-                match,
-                proposal.action,
-                proposal.text ?? "",
-              );
-              if (
-                proposal.action === "replace" ||
-                proposal.action === "delete"
-              ) {
-                strikeRange = computeStrikeRange(ctx, state.doc, blocks, match);
-              }
-            }
+            const resolved = resolveAnchored(ctx, state.doc, blocks, proposal);
+            if (resolved) ({ range, replacement, strikeRange } = resolved);
           }
 
           if (!range) {
@@ -287,9 +311,8 @@ export function usePendingEdits(run: EditorRunner) {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
-        const preview = (pendingEditKey.getState(state)?.previews ?? []).find(
-          (p) => p.callId === callId,
-        );
+        const before = pendingEditKey.getState(state)?.previews ?? [];
+        const preview = before.find((p) => p.callId === callId);
         if (!preview) return;
         // The arguments are still streaming in: `replacement` is incomplete,
         // so applying now would write a half-generated edit. Not a failure -
@@ -343,6 +366,44 @@ export function usePendingEdits(run: EditorRunner) {
         // frame where a stale preview paints over the just-applied text).
         tr.setMeta(pendingEditKey, { type: "remove", callId });
         view.dispatch(tr.scrollIntoView());
+        // A second proposal in the same paragraph resolved to the same whole
+        // block, so this edit changed the text it was waiting on and the
+        // plugin let it go ("Couldn't locate that text") although its own
+        // words are still there. Find those again in the new text.
+        const after = pendingEditKey.getState(view.state)?.previews ?? [];
+        const lost = before.filter(
+          (p) =>
+            p.callId !== callId &&
+            !p.streaming &&
+            isAnchored(p.proposal) &&
+            !after.some((a) => a.callId === p.callId),
+        );
+        if (lost.length > 0) {
+          const doc = view.state.doc;
+          const blocks = serializeBlocks(ctx, doc);
+          const found: PendingPreview[] = [];
+          for (const p of lost) {
+            const resolved = resolveAnchored(ctx, doc, blocks, p.proposal);
+            if (!resolved) continue;
+            const { range, replacement: text, strikeRange } = resolved;
+            found.push({
+              ...p,
+              from: range.from,
+              to: range.to,
+              expectedText: doc.textBetween(range.from, range.to, " "),
+              replacement: text,
+              strikeFrom: strikeRange?.from,
+              strikeTo: strikeRange?.to,
+            });
+          }
+          if (found.length > 0)
+            view.dispatch(
+              view.state.tr.setMeta(pendingEditKey, {
+                type: "add",
+                previews: found,
+              }),
+            );
+        }
         // On a phone, focusing the document raises the keyboard over the
         // AI sheet the Accept was tapped in, and what the user types next
         // lands in the document instead of the composer.
