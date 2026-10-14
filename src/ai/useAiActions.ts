@@ -5,14 +5,14 @@ import { triggerGrammarCheckNow } from "./grammar-check-plugin";
 import { buildCompletionStyle } from "./completion-style";
 import type { EditorRunner } from "../editor/useEditorRunner";
 import type { Settings } from "../settings/SettingsContext";
-import type { Strings } from "../i18n/strings";
+import type { Strings, TextKey } from "../i18n/strings";
 import {
   AiNoticeError,
   errorText,
   type AiNoticeCode,
 } from "../utils/error-text";
 
-const NOTICE_TEXT: Record<AiNoticeCode, keyof Strings> = {
+const NOTICE_TEXT: Record<AiNoticeCode, TextKey> = {
   "completion-needs-caret": "noticeCompletionNeedsCaret",
   "completion-needs-paragraph-end": "noticeCompletionNeedsParagraphEnd",
   "completion-empty": "noticeCompletionEmpty",

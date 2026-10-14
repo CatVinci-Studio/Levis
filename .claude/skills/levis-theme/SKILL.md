@@ -107,9 +107,10 @@ picker.
 2. **`src/settings/SettingsContext.tsx`** - add the id to
    `BuiltinContentThemeId` and an entry to `BUILTIN_CONTENT_THEMES`
    (`{ id, name, nameKey }`).
-3. **`src/i18n/strings.ts`** - add the `nameKey` string to **all three**
-   language blocks (en, zh, ja). `nameKey` is typed `StringKey`, so a missing
-   one is a type error rather than a runtime surprise.
+3. **`src/i18n/locales/en.ts`** - add the `nameKey` string, and its
+   translation to every language file that is complete (`zh.ts`, `ja.ts`,
+   ...; `npm test` names any that miss it). `nameKey` is typed `TextKey`, so
+   a key English lacks is a type error rather than a runtime surprise.
 
 Then check every combination: the new theme in light, in dark, and under
 "follow system" with the OS flipped both ways.

@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LANGS, LANG_NAMES } from "../i18n/strings";
 import { LanguageWelcome } from "./LanguageWelcome";
 afterEach(cleanup);
 describe("first-run language choice", () => {
@@ -15,7 +16,20 @@ describe("first-run language choice", () => {
     );
     expect(screen.getByRole("button", { name: /继续/ })).toHaveFocus();
     fireEvent.keyDown(document.activeElement!, { key: "Tab" });
-    expect(screen.getByRole("button", { name: /中文/ })).toHaveFocus();
+    expect(screen.getByRole("combobox", { name: "语言" })).toHaveFocus();
+  });
+  it("offers every language, each named in itself", () => {
+    render(
+      <LanguageWelcome
+        language="en"
+        onLanguage={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Language" }));
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(LANGS.map((lang) => LANG_NAMES[lang]));
   });
   it("does not advance while changing language or cancelling IME input", () => {
     const onLanguage = vi.fn();
@@ -27,7 +41,8 @@ describe("first-run language choice", () => {
         onContinue={onContinue}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /English/ }));
+    fireEvent.click(screen.getByRole("combobox", { name: "语言" }));
+    fireEvent.click(screen.getByRole("option", { name: "English" }));
     expect(onLanguage).toHaveBeenCalledWith("en");
     fireEvent.keyDown(screen.getByRole("dialog"), {
       key: "Escape",

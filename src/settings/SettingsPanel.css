@@ -54,8 +54,12 @@
   min-height: 0;
 }
 
+/* As wide as the longest category name needs, within bounds: a German or
+   Russian "Editor & Appearance" gets room for one line, and a name longer
+   still wraps (hyphenated where the language allows) inside the cap. */
 .settings-nav {
-  width: 176px;
+  min-width: 176px;
+  max-width: 232px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -76,6 +80,8 @@
   background: transparent;
   color: var(--sidebar-text, var(--editor-muted));
   cursor: pointer;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .settings-nav-item:hover {
@@ -755,6 +761,8 @@ button.settings-inline-button {
      second line when the labels don't fit (narrow windows, the iPhone). */
   .settings-nav {
     width: auto;
+    min-width: 0;
+    max-width: none;
     flex-direction: row;
     flex-wrap: nowrap;
     overflow-x: auto;

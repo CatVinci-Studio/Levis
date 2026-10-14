@@ -31,6 +31,10 @@ export const canUseWindows = isDesktopApp;
  *  File > Open Recent, menu accelerators. */
 export const hasAppMenu = isDesktopApp;
 
+/** The menu bar is the OS's own (macOS), built in Rust: it follows the UI
+ *  language only by being sent the labels (menu.rs's set_menu_labels). */
+export const hasNativeMenuBar = isDesktopApp && isMacPlatform();
+
 /** Tabs dragged out of one window into another, or into a new one
  *  (tab_drag.rs). Tear-off needs global cursor and window positions, which
  *  only macOS gives reliably; on Linux, above all under Wayland, the drag

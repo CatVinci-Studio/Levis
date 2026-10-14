@@ -41,7 +41,7 @@ const labels = {
   send: "Send",
   stop: "Stop",
   attachFile: "Attach a file",
-  selectedChars: "{n} chars selected",
+  selectedChars: (n: number) => `${n} chars selected`,
   attachmentTruncated: "(shortened)",
   attachmentNoVision: "This provider can't read images.",
   modeAsk: "Ask",

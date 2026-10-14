@@ -7,9 +7,13 @@
 import { describe, expect, it } from "vitest";
 import type { Shortcuts } from "../settings/SettingsContext";
 import type { Strings } from "../i18n/strings";
-import { strings } from "../i18n/strings";
+import { APP_NAME, resolveStrings } from "../i18n/strings";
 import { formatCombo } from "../utils/shortcuts";
-import { buildAppMenu, type MenuNode } from "./app-menu-model";
+import {
+  buildAppMenu,
+  nativeMenuLabels,
+  type MenuNode,
+} from "./app-menu-model";
 
 /**
  * The app-drawn menu is the ONLY menu Windows users see, so the combos it
@@ -23,7 +27,7 @@ import { buildAppMenu, type MenuNode } from "./app-menu-model";
  * so the expectations don't depend on which platform runs the suite.
  */
 
-const t = strings.en as Strings;
+const t = resolveStrings("en") as Strings;
 
 const shortcuts: Shortcuts = {
   triggerCompletion: "mod+shift+space",
@@ -88,5 +92,35 @@ describe("the Windows app menu", () => {
     // the one step between the combos above and what the user reads.
     expect(formatCombo("f11")).toBe("F11");
     expect(formatCombo("alt+f4")).toContain("F4");
+  });
+});
+
+describe("the macOS menu bar's labels", () => {
+  it("label every native item the app-drawn menu has, in the UI's language", () => {
+    const zh = resolveStrings("zh");
+    const labels = nativeMenuLabels(zh);
+    const ids: string[] = [];
+    const collect = (nodes: MenuNode[]) => {
+      for (const node of nodes) {
+        if (node === "separator") continue;
+        if (node.action && "native" in node.action)
+          ids.push(node.action.native);
+        if (node.submenu) collect(node.submenu);
+      }
+    };
+    collect(buildAppMenu(zh, shortcuts, []));
+    for (const id of ids) expect(labels[id], id).toBeTruthy();
+    expect(labels["insert-block:h2"]).toBe(
+      zh.menuHeadingTemplate.replace("{n}", "2"),
+    );
+    expect(labels["menu:edit"]).toBe(zh.menuEdit);
+    expect(labels["predefined:copy"]).toBe(zh.copy);
+  });
+
+  it("name the app where macOS does", () => {
+    const labels = nativeMenuLabels(t);
+    expect(labels.quit).toBe(`Quit ${APP_NAME}`);
+    expect(labels["predefined:about"]).toBe(`About ${APP_NAME}`);
+    expect(labels["predefined:hide"]).toBe(`Hide ${APP_NAME}`);
   });
 });

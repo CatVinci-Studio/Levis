@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { strings } from "../../i18n/strings";
+import { resolveStrings } from "../../i18n/strings";
 import type { ProviderCatalogEntry } from "../../ai/provider-catalog";
 import { auth, type CustomEndpointConfig } from "../../ipc";
 import {
@@ -74,7 +74,7 @@ describe("ProviderAuthPanel", () => {
   it("shows the API key form for providers that do not offer account login", () => {
     render(
       <ProviderAuthPanel
-        t={strings.en}
+        t={resolveStrings("en")}
         entry={google}
         onStatusChange={() => {}}
       />,
@@ -88,7 +88,7 @@ describe("ProviderAuthPanel", () => {
   });
 
   it("keeps credentials collapsed behind a second compact disclosure row", () => {
-    render(<ProviderListPanel t={strings.en} />);
+    render(<ProviderListPanel t={resolveStrings("en")} />);
 
     expect(
       screen.getByRole("button", { name: /Provider: Google Gemini/i }),
@@ -105,7 +105,7 @@ describe("ProviderAuthPanel", () => {
     const parentKey = vi.fn();
     render(
       <div onKeyDown={parentKey}>
-        <ProviderListPanel t={strings.en} />
+        <ProviderListPanel t={resolveStrings("en")} />
       </div>,
     );
     const trigger = screen.getByRole("button", {
@@ -114,7 +114,7 @@ describe("ProviderAuthPanel", () => {
     fireEvent.click(trigger);
     fireEvent.keyDown(
       screen.getByRole("textbox", {
-        name: strings.en.providerSearchPlaceholder,
+        name: resolveStrings("en").providerSearchPlaceholder,
       }),
       { key: "Escape" },
     );
@@ -134,52 +134,68 @@ describe("CustomProviderPanel", () => {
 
   async function renderPanel(status: CustomEndpointConfig | null) {
     vi.mocked(auth.customEndpointStatus).mockResolvedValue(status);
-    render(<CustomProviderPanel t={strings.en} />);
+    render(<CustomProviderPanel t={resolveStrings("en")} />);
     await waitFor(() =>
       expect(
-        screen.getByPlaceholderText(strings.en.customBaseUrlPlaceholder),
+        screen.getByPlaceholderText(
+          resolveStrings("en").customBaseUrlPlaceholder,
+        ),
       ).toHaveValue(status?.base_url ?? ""),
     );
-    return screen.getByLabelText(strings.en.customApiKeyLabel);
+    return screen.getByLabelText(resolveStrings("en").customApiKeyLabel);
   }
 
   it("says a saved key is there instead of showing an empty field", async () => {
     const key = await renderPanel(saved);
     expect(key).toHaveValue("");
-    expect(key).toHaveAttribute("placeholder", strings.en.customApiKeySaved);
+    expect(key).toHaveAttribute(
+      "placeholder",
+      resolveStrings("en").customApiKeySaved,
+    );
   });
 
   it("stops claiming the saved key once the URL names another host", async () => {
     const key = await renderPanel(saved);
     const url = screen.getByPlaceholderText(
-      strings.en.customBaseUrlPlaceholder,
+      resolveStrings("en").customBaseUrlPlaceholder,
     );
     // A trailing slash is the same endpoint (the backend's rule)...
     fireEvent.change(url, { target: { value: "https://api.example/v1/" } });
-    expect(key).toHaveAttribute("placeholder", strings.en.customApiKeySaved);
+    expect(key).toHaveAttribute(
+      "placeholder",
+      resolveStrings("en").customApiKeySaved,
+    );
     // ...another host is not, and won't be sent the old key.
     fireEvent.change(url, { target: { value: "https://other.example/v1" } });
-    expect(key).toHaveAttribute("placeholder", strings.en.apiKeyPlaceholder);
+    expect(key).toHaveAttribute(
+      "placeholder",
+      resolveStrings("en").apiKeyPlaceholder,
+    );
   });
 
   it("shows no saved key for an endpoint saved without one", async () => {
     const key = await renderPanel({ ...saved, has_api_key: false });
-    expect(key).toHaveAttribute("placeholder", strings.en.apiKeyPlaceholder);
+    expect(key).toHaveAttribute(
+      "placeholder",
+      resolveStrings("en").apiKeyPlaceholder,
+    );
   });
 
   it("empties the field after saving a key, and Remove forgets it", async () => {
     const key = await renderPanel(null);
     fireEvent.change(
-      screen.getByPlaceholderText(strings.en.customBaseUrlPlaceholder),
+      screen.getByPlaceholderText(
+        resolveStrings("en").customBaseUrlPlaceholder,
+      ),
       { target: { value: "https://api.example/v1" } },
     );
     fireEvent.change(
-      screen.getByPlaceholderText(strings.en.customModelPlaceholder),
+      screen.getByPlaceholderText(resolveStrings("en").customModelPlaceholder),
       { target: { value: "m1" } },
     );
     fireEvent.change(key, { target: { value: "sk-new" } });
     fireEvent.click(
-      screen.getByRole("button", { name: strings.en.customSave }),
+      screen.getByRole("button", { name: resolveStrings("en").customSave }),
     );
     await waitFor(() => expect(key).toHaveValue(""));
     expect(auth.setCustomEndpoint).toHaveBeenCalledWith(
@@ -187,13 +203,19 @@ describe("CustomProviderPanel", () => {
       "sk-new",
       "m1",
     );
-    expect(key).toHaveAttribute("placeholder", strings.en.customApiKeySaved);
+    expect(key).toHaveAttribute(
+      "placeholder",
+      resolveStrings("en").customApiKeySaved,
+    );
 
     fireEvent.click(
-      screen.getByRole("button", { name: strings.en.apiKeyClear }),
+      screen.getByRole("button", { name: resolveStrings("en").apiKeyClear }),
     );
     await waitFor(() =>
-      expect(key).toHaveAttribute("placeholder", strings.en.apiKeyPlaceholder),
+      expect(key).toHaveAttribute(
+        "placeholder",
+        resolveStrings("en").apiKeyPlaceholder,
+      ),
     );
     expect(auth.clearCustomEndpoint).toHaveBeenCalled();
   });

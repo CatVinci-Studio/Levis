@@ -49,6 +49,28 @@ async function faces(page: Page, lang: string, selector: string) {
   );
 }
 
+test("a Latin face comes before the CJK ones outside Chinese, Japanese and Korean", async ({
+  page,
+}) => {
+  // A CJK face draws ’ full-width: with it ahead of system-ui on Linux,
+  // French "d’habitants" showed a gap after the apostrophe.
+  await openApp(page);
+  for (const selector of ["body", ".milkdown .ProseMirror"]) {
+    for (const lang of ["fr", "de", "ru", "en"]) {
+      const stack = await faces(page, lang, selector);
+      expect(stack.indexOf("system-ui"), `${lang} ${selector}`).toBeLessThan(
+        stack.indexOf("PingFang SC"),
+      );
+    }
+    for (const lang of ["zh-CN", "ja", "ko"]) {
+      const stack = await faces(page, lang, selector);
+      expect(stack.indexOf("system-ui"), `${lang} ${selector}`).toBeGreaterThan(
+        stack.findIndex((f) => /PingFang|Hiragino|Apple SD/.test(f)),
+      );
+    }
+  }
+});
+
 test("every language falls back to the Simplified Chinese faces last", async ({
   page,
 }) => {

@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ShortcutRow } from "./controls";
-import { strings } from "../../i18n/strings";
+import { resolveStrings } from "../../i18n/strings";
 import type { Shortcuts } from "../SettingsContext";
 afterEach(() => {
   cleanup();
@@ -30,7 +30,7 @@ function setup() {
       action="findReplace"
       shortcuts={shortcuts}
       setSettings={save}
-      t={strings.en}
+      t={resolveStrings("en")}
     />,
   );
   const button = screen.getByRole("button", { name: "Find: ⌘F" });
@@ -42,7 +42,7 @@ describe("shortcut recording", () => {
     const { save, button } = setup();
     fireEvent.keyDown(button, { key: "g", metaKey: true, shiftKey: true });
     expect(screen.getByRole("alert")).toHaveTextContent(
-      strings.en.shortcutTriggerGrammarCheck,
+      resolveStrings("en").shortcutTriggerGrammarCheck,
     );
     expect(save).not.toHaveBeenCalled();
   });
@@ -50,7 +50,7 @@ describe("shortcut recording", () => {
     const { save, button } = setup();
     fireEvent.keyDown(button, { key: "s", metaKey: true });
     expect(screen.getByRole("alert")).toHaveTextContent(
-      strings.en.shortcutReserved,
+      resolveStrings("en").shortcutReserved,
     );
     fireEvent.keyDown(button, { key: "u", metaKey: true, shiftKey: true });
     expect(save).toHaveBeenCalledWith({

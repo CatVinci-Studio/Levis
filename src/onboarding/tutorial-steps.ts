@@ -1,4 +1,4 @@
-import type { Strings } from "../i18n/strings";
+import type { TextKey } from "../i18n/strings";
 
 type TutorialSectionId = "markdown" | "workspace" | "ai";
 
@@ -16,7 +16,7 @@ export type TutorialStepId =
 
 export interface TutorialSection {
   id: TutorialSectionId;
-  titleKey: keyof Strings;
+  titleKey: TextKey;
 }
 
 export interface TutorialStep {
@@ -24,8 +24,8 @@ export interface TutorialStep {
   /** Opening and ending frame the two chapters rather than belonging to one. */
   section: TutorialSectionId | null;
   layout: "overlay" | "card";
-  titleKey: keyof Strings;
-  bodyKey: keyof Strings;
+  titleKey: TextKey;
+  bodyKey: TextKey;
 }
 
 /**

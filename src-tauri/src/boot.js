@@ -17,8 +17,20 @@ window.__levisBoot = function (boot, themeCss) {
   var settings = boot.settings || {};
 
   function apply(root) {
-    // Same mapping as htmlLang() in SettingsContext.tsx.
-    var lang = { en: "en", zh: "zh-CN", ja: "ja" }[settings.language];
+    // Same mapping as localeOf() in src/i18n/langs.ts: a code of LANGS,
+    // with Chinese given the region that picks its glyphs.
+    var lang = {
+      en: "en",
+      zh: "zh-CN",
+      "zh-Hant": "zh-TW",
+      ja: "ja",
+      ko: "ko",
+      es: "es",
+      fr: "fr",
+      de: "de",
+      ru: "ru",
+      pt: "pt",
+    }[settings.language];
     if (lang) root.setAttribute("lang", lang);
     if (settings.theme === "light" || settings.theme === "dark")
       root.setAttribute("data-theme", settings.theme);

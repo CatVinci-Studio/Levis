@@ -445,7 +445,8 @@ test("the empty-document hint follows the language picked at first run", async (
     "data-placeholder",
     "Start writing in Markdown…",
   );
-  await page.locator(".language-welcome-option").first().click();
+  await page.getByRole("combobox", { name: "Language" }).click();
+  await page.getByRole("option", { name: "简体中文" }).click();
   await page.locator(".language-welcome-continue").click();
   await expect(hint).toHaveAttribute("data-placeholder", "开始输入 Markdown…");
 });

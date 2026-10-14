@@ -1373,7 +1373,7 @@ pub fn run_case(auth: &AnthropicAuth, case: &AgentCase, model: &str) -> Record {
         let samples = crate::ai::project::style_samples(&files).unwrap_or_default();
         match harness::complete(
             auth,
-            crate::ai::project::STYLE_INSTRUCTIONS,
+            &crate::ai::project::style_instructions(),
             &samples,
             Some(model),
         ) {
@@ -1431,6 +1431,8 @@ pub fn run_case(auth: &AnthropicAuth, case: &AgentCase, model: &str) -> Record {
             mode: case.mode,
             workspace: &ws,
             focus_heading: None,
+            // The UI in the language the user writes in.
+            ui_language: case.lang.ui_code(),
         };
         let conv = run_conversation(auth, &setup, &case.doc, &script);
         if let Some(e) = &conv.error {

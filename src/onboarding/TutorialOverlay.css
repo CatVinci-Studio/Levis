@@ -62,13 +62,14 @@
 .tutorial-section-nav-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
-  padding: 7px 8px;
-  /* Three chapters share one row; a label breaking onto two lines made the
-     chips uneven heights. */
-  white-space: nowrap;
-  overflow: hidden;
+  padding: 7px 6px;
+  /* Three chapters share one row. A name too long for its chip (German,
+     Russian) wraps inside it rather than being cut off; the grid stretches
+     every chip in the row to the tallest, so they stay even. */
+  overflow-wrap: anywhere;
+  hyphens: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-control);
   color: var(--editor-muted);
@@ -78,8 +79,10 @@
 }
 
 .tutorial-section-nav-item > span {
+  flex: none;
   color: var(--editor-muted);
   font: 700 9px/1 var(--font-mono);
+  white-space: nowrap;
 }
 
 .tutorial-section-nav-item.is-done {
@@ -121,6 +124,11 @@
   gap: 12px;
 }
 
+/* The title gives way to the Minimize button, never the other way. */
+.tutorial-header > div {
+  min-width: 0;
+}
+
 .tutorial-glyph {
   display: grid;
   place-items: center;
@@ -156,6 +164,8 @@
   font-size: 20px;
   font-weight: 680;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .tutorial-body {
@@ -348,8 +358,11 @@
   background: var(--chrome-primary);
 }
 
+/* Wraps: in a long language the links and buttons don't fit one row of
+   the card, and the buttons move under the links instead of off its edge. */
 .tutorial-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px 16px;
@@ -358,6 +371,7 @@
 
 .tutorial-actions-main {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 7px;
   margin-left: auto;

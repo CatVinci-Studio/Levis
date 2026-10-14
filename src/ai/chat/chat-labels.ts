@@ -1,4 +1,4 @@
-import type { Strings } from "../../i18n/strings";
+import { plural, type Lang, type Strings } from "../../i18n/strings";
 import type { InlineChatLabels } from "./InlineChat";
 
 /**
@@ -6,9 +6,10 @@ import type { InlineChatLabels } from "./InlineChat";
  * each mount point - the embedded Quick Ask bar (MilkdownEditor) and the
  * detached window (ChatWindowApp) render the same components and so need
  * exactly the same set, and a second hand-written copy would go stale the
- * first time a label was added.
+ * first time a label was added. `lang` is the language `t` is in, which
+ * picks the plural forms of the counts.
  */
-export function chatLabels(t: Strings): InlineChatLabels {
+export function chatLabels(t: Strings, lang: Lang): InlineChatLabels {
   return {
     placeholder: t.agentInputPlaceholder,
     send: t.agentSend,
@@ -18,8 +19,8 @@ export function chatLabels(t: Strings): InlineChatLabels {
     attachFile: t.agentAttachFile,
     attachmentTruncated: t.chatAttachmentTruncated,
     attachmentNoVision: t.chatAttachmentNoVision,
-    selectedChars: t.chatSelectedChars,
-    selectionChip: t.chatSelectionChip,
+    selectedChars: (n) => plural(t.chatSelectedChars, n, lang),
+    selectionChip: (n) => plural(t.chatSelectionChip, n, lang),
     proposalTitle: t.agentProposalTitle,
     proposalStatus: {
       streaming: t.proposalStatusStreaming,

@@ -351,7 +351,7 @@ pub fn ensure_global_agent_md(app: AppHandle, template: String) -> Result<String
 
 /// Guarantees the global config folder exists with its starter files;
 /// returns it. `template` is the starter agent.md in the UI language
-/// (`agentInstructionsTemplate` in src/i18n/strings.ts): a how-to written
+/// (`agentInstructionsTemplate` in src/i18n/locales/): a how-to written
 /// entirely in HTML comments, which `read_layer` strips before anything
 /// reaches the model - so it teaches without polluting the system prompt.
 /// It is only written when there is no agent.md yet.

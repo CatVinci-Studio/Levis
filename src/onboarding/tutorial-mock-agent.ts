@@ -10,7 +10,7 @@ import type { MockAgentReply } from "../ai/useAgentConversation";
 /// Punctuation-, whitespace-, and case-insensitive containment. Learners
 /// retype the displayed prompt by hand - the zh prompt's curly quotes, a
 /// trailing period, or capitalization must not derail the exercise.
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text.replace(/[\p{P}\p{S}\s]+/gu, "").toLowerCase();
 }
 

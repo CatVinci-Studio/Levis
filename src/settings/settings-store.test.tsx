@@ -311,8 +311,20 @@ describe("closing the window", () => {
 
 describe("language", () => {
   it("falls back to English for a language it doesn't know", () => {
-    expect(normaliseSettings({ language: "fr" }).language).toBe("en");
+    expect(normaliseSettings({ language: "it" }).language).toBe("en");
     expect(normaliseSettings({ language: "ja" }).language).toBe("ja");
+    expect(normaliseSettings({ language: "zh-Hant" }).language).toBe("zh-Hant");
+  });
+
+  it("starts a new installation in the system's language", () => {
+    const spy = vi.spyOn(navigator, "language", "get");
+    spy.mockReturnValue("zh-TW");
+    expect(normaliseSettings(null).language).toBe("zh-Hant");
+    spy.mockReturnValue("pt-BR");
+    expect(normaliseSettings(null).language).toBe("pt");
+    spy.mockReturnValue("it-IT");
+    expect(normaliseSettings(null).language).toBe("en");
+    spy.mockRestore();
   });
 
   it("renders instead of crashing on an unknown stored language", () => {
@@ -328,6 +340,7 @@ describe("language", () => {
 
   it("sets the document language for the CSS :lang() font stacks", () => {
     expect(htmlLang("zh")).toBe("zh-CN");
+    expect(htmlLang("zh-Hant")).toBe("zh-TW");
     expect(htmlLang("ja")).toBe("ja");
     expect(htmlLang("en")).toBe("en");
     boot({ language: "zh", languageChosen: true });

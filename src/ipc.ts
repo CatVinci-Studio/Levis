@@ -289,6 +289,10 @@ export const menuIpc = {
   /** Backs File > Open Recent, whose native submenu the app-drawn menu
    *  cannot read. */
   listRecentFiles: () => desktopQuery<string[]>("list_recent_files", []),
+  /** Rebuilds the native (macOS) menu bar with these labels, keyed as
+   *  ui/app-menu-model.ts's nativeMenuLabels keys them. */
+  setMenuLabels: (labels: Record<string, string>) =>
+    desktopQuery<void>("set_menu_labels", undefined, { labels }),
 };
 
 // ---------------------------------------------------------------------------
@@ -535,6 +539,9 @@ export const ai = {
     /** Heading of the section the cursor/selection is in - embedded in full
      *  when the document is too long to send whole (agent.rs). */
     focusHeading?: string | null;
+    /** The UI language: the agent is given that UI's names for the app's
+     *  concepts and controls (agent.rs, UiNames). */
+    uiLanguage?: string;
     /** Live fragments while the request runs - see StreamEvent. */
     onEvent?: (event: StreamEvent) => void;
   }) => {

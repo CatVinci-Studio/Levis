@@ -53,10 +53,10 @@ vi.mock("@tauri-apps/api/window", () => ({
 // that it follows the language picked in Settings, and a hand-written stub
 // would pass whether or not it does.
 vi.mock("../settings/SettingsContext", async () => {
-  const { strings } = await import("../i18n/strings");
+  const { resolveStrings } = await import("../i18n/strings");
   return {
     useSettings: () => ({
-      t: strings.zh,
+      t: resolveStrings("zh"),
       settings: {
         shortcuts: {
           triggerCompletion: "mod+shift+space",

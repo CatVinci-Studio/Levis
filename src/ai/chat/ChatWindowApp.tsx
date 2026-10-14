@@ -266,7 +266,10 @@ export function ChatWindowApp() {
     [statuses],
   );
 
-  const labels = useMemo(() => chatLabels(t), [t]);
+  const labels = useMemo(
+    () => chatLabels(t, settings.language),
+    [t, settings.language],
+  );
 
   // The window's top row, and the only chrome this view draws. It sits where
   // the title bar would be (see build_with_app_chrome), so it doubles as the

@@ -1,4 +1,5 @@
 import { useSettings } from "../settings/SettingsContext";
+import { localeOf } from "../i18n/strings";
 import { useChatHistory, deleteConversation } from "../ai/chat-history";
 import { RESTORE_CHAT_EVENT } from "../utils/events";
 import { CloseIcon } from "../ui/icons";
@@ -26,8 +27,11 @@ export function groupByProject(
  * as the clipboard panel's insert event).
  */
 export function ChatHistory() {
-  const { t } = useSettings();
+  const { t, settings } = useSettings();
   const entries = useChatHistory();
+  // In the UI's language, not the OS's: a Chinese UI on an English system
+  // dated its conversations in English.
+  const locale = localeOf(settings.language);
 
   if (entries.length === 0) {
     return <div className="clipboard-empty">{t.chatHistoryEmpty}</div>;
@@ -58,7 +62,7 @@ export function ChatHistory() {
                   {entry.title || "…"}
                 </span>
                 <span className="chat-history-entry-meta">
-                  {new Date(entry.updatedAt).toLocaleString()}
+                  {new Date(entry.updatedAt).toLocaleString(locale)}
                   {entry.docPath ? ` · ${basename(entry.docPath)}` : ""}
                 </span>
               </div>
