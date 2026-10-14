@@ -35,8 +35,7 @@ export default {
     "Salve este documento primeiro: a pasta dele se torna a pasta do projeto.",
   projectPicking: "Escolhendo uma pasta…",
   projectLearningStyle: "Aprendendo seu estilo com as amostras…",
-  projectStyleLearned:
-    "Perfil de estilo salvo. Revise e edite o perfil na nova aba.",
+  projectStyleLearned: "Perfil de estilo salvo. Revise e edite-o na nova aba.",
   projectOpening: "Abrindo…",
   projectStyleTemplate: `# Perfil de estilo\n\n<!-- A ${AI_NAME} e o autocompletar seguem este perfil em todos os documentos deste projeto. Descreva como você escreve (voz, ritmo das frases, escolha de palavras, pontuação, o que você nunca faz) em pontos concretos (“frases curtas, raramente com mais de 15 palavras”) em vez de adjetivos. “Aprender meu estilo com amostras…”, no menu do projeto, faz um rascunho a partir dos seus próprios textos. Comentários como este nunca são enviados. -->\n\n## Voz e tom\n\n- \n\n## Frases e ritmo\n\n- \n\n## Escolha de palavras\n\n- \n\n## Nunca\n\n- \n`,
   projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- Fatos que a ${AI_NAME} deve manter coerentes sempre que {name} ou um nome alternativo aparecer. include: detected (quando mencionado; o padrão) | always (sempre) | never (nunca). Comentários como este nunca são enviados. -->\n\n`,
@@ -60,7 +59,7 @@ sobre personagens, lugares e termos ficam na biblioteca (library/).
 -->
 `,
   agentInstructionsTemplate: `<!--
-Suas instruções de escrita para a ${AI_NAME}, para todos os documentos.
+Suas instruções de escrita para a ${AI_NAME}, válidas em todos os documentos.
 
 Tudo o que estiver fora de comentários como este é enviado em toda
 conversa (no painel de IA e na Pergunta rápida). Comentários nunca
@@ -133,9 +132,9 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   aiErrorNotConfigured: `Este serviço de IA ainda não está conectado. Configure-o em Ajustes > ${AI_NAME}.`,
   aiErrorAuth: `O serviço recusou as credenciais. Verifique a chave de API (ou entre de novo) em Ajustes > ${AI_NAME}.`,
   aiErrorWorkspaceKey:
-    "Esta chave da Anthropic não pertence a um workspace. Crie uma chave dentro de um workspace no Anthropic Console e use essa chave.",
+    "Esta chave da Anthropic não pertence a um workspace. Crie uma chave dentro de um workspace no Anthropic Console e use-a.",
   aiErrorRateLimit:
-    "O serviço está ocupado ou você atingiu um limite de uso. Aguarde um pouco e tente de novo.",
+    "O serviço está ocupado ou você atingiu o limite de requisições. Aguarde um pouco e tente de novo.",
   aiErrorServer:
     "Houve um problema do lado do serviço. Tente de novo daqui a pouco.",
   aiErrorTimeout:
@@ -153,7 +152,7 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   menuDocuments: "Documentos",
   docListTitle: "Documentos",
   docListClose: "Fechar",
-  docListOpenOther: "Abrir do app Arquivos…",
+  docListOpenOther: "Abrir de Arquivos…",
   docListEmpty: "Os documentos que você abrir aparecerão aqui.",
   docMore: "Mais",
   docViewList: "Ver como Lista",
@@ -296,7 +295,7 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   agentThinking: "Pensando…",
   chatTab: "Conversas",
   chatHistoryEmpty: "Nenhuma conversa anterior.",
-  chatHistoryRestoreHint: "Abrir esta conversa no chat do editor",
+  chatHistoryRestoreHint: "Abrir esta conversa no painel de IA",
   chatHistoryDelete: "Apagar conversa",
   chatSelectedChars: {
     one: "{n} caractere selecionado",
@@ -496,7 +495,7 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   tutorialSectionWorkspace: "Conhecendo o app",
   tutorialSidebarTitle: "A barra lateral",
   tutorialSidebarBody:
-    "O painel à esquerda já está aberto para você. Você pode abri-lo ou fechá-lo a qualquer momento com {shortcut} ou pelo menu Visualizar. Clique em cada uma das quatro abas para ver o que ela guarda.",
+    "O painel à esquerda foi aberto para você; use {shortcut} ou o menu Visualizar para mostrá-lo ou ocultá-lo quando quiser. Clique em cada uma das quatro abas para ver o que há nela.",
   tutorialSidebarTree:
     "Arquivos: a pasta do documento aberto. Clique em um arquivo para abri-lo e em ↑ para subir um nível; clique duas vezes em uma pasta para entrar nela.",
   tutorialSidebarOutline:
@@ -657,7 +656,7 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
     "A exportação para HTML usa a visualização renderizada. Saia do modo código-fonte e exporte de novo.",
   pandocMissingTitle: "Pandoc necessário",
   pandocMissingMessage:
-    "Para exportar neste formato é preciso o Pandoc, um conversor de documentos gratuito. Instale-o com o Homebrew (brew install pandoc) ou baixe-o em pandoc.org e exporte de novo.",
+    "Para exportar neste formato, é preciso o Pandoc, um conversor de documentos gratuito. Instale-o com o Homebrew (brew install pandoc) ou baixe-o em pandoc.org e exporte de novo.",
   pandocMissingDownload: "Abrir pandoc.org",
   exportFailedTitle: "Falha na exportação",
   exportFailed: "Falha na exportação:",
@@ -668,8 +667,8 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   themeNameParchment: "Pergaminho",
   appearanceLabel: "Aparência",
   appearanceSystem: "Seguir o sistema",
-  appearanceLight: "Clara",
-  appearanceDark: "Escura",
+  appearanceLight: "Claro",
+  appearanceDark: "Escuro",
   pdfPreparing: "Preparando o PDF…",
   pdfFailed: "Não foi possível preparar o PDF:",
   languageWelcomeTitle: "Escolha seu idioma",

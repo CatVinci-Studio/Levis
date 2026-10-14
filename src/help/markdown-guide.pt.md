@@ -3,7 +3,7 @@
 Este documento integrado mostra a renderização de Markdown que o Levis oferece. É só um rascunho não salvo: edite e experimente à vontade e depois feche sem salvar.
 
 > [!TIP]
-> Pressione `Cmd+/` para alternar entre o modo WYSIWYG e o modo código-fonte e ver a sintaxe por trás de qualquer exemplo daqui.
+> Pressione `Cmd+/` para alternar entre o modo WYSIWYG e o modo código-fonte e ver a sintaxe por trás de qualquer exemplo deste guia.
 
 ## Títulos e citações
 
@@ -52,11 +52,11 @@ Lista de tarefas (clique em uma caixa de seleção para marcá-la ou desmarcá-l
 | Destaque | `==texto==` | ==texto== |
 | Fórmula no texto | `$x^2$` | $x^2$ |
 
-Passe o ponteiro sobre uma tabela para adicionar ou remover linhas e colunas. Digite `| Nome | Idade |` e pressione Enter para criar uma tabela. Enter desce uma linha, cria uma nova quando você está na última e sai da tabela a partir de uma linha nova deixada vazia; Ctrl/⌘+Enter sai a qualquer momento.
+Passe o ponteiro sobre uma tabela para adicionar ou remover linhas e colunas. Digite `| Nome | Idade |` e pressione Enter para criar uma tabela. Enter desce uma linha, cria uma nova quando você está na última e, em uma linha nova deixada vazia, sai da tabela; Ctrl/⌘+Enter sai a qualquer momento.
 
 ## Blocos de código
 
-Blocos de código delimitados, com realce de sintaxe (troque a linguagem no canto superior direito do bloco). Enter na última linha, vazia, sai do bloco, assim como Ctrl/⌘+Enter a qualquer momento; o mesmo vale para as citações.
+Blocos de código delimitados, com realce de sintaxe (troque a linguagem no canto superior direito do bloco). Enter na última linha, quando ela está vazia, sai do bloco, assim como Ctrl/⌘+Enter a qualquer momento; o mesmo vale para as citações.
 
 ```python
 def fib(n: int) -> int:
@@ -146,4 +146,4 @@ Notas de rodapé ficam assim[^1], e logo abaixo há uma linha horizontal:
 
 [^1]: O conteúdo das notas de rodapé fica reunido no fim do documento.
 
-Bons textos.
+Boa escrita.
