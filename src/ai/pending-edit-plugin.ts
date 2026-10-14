@@ -1,4 +1,4 @@
-import type { EditorState } from "@milkdown/kit/prose/state";
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
@@ -351,6 +351,46 @@ function buildDecorations(
 }
 
 /**
+ * The previews carried through a document change: each range (strike
+ * included) mapped through the transaction, and any whose mapped range no
+ * longer holds the text it was resolved against dropped - an edit inside
+ * or around a pending change invalidates it rather than risk applying it
+ * to the wrong text later. `changed` says whether anything moved or went.
+ */
+function mapPreviews(
+  previews: PendingPreview[],
+  tr: Transaction,
+): { survivors: PendingPreview[]; changed: boolean } {
+  let changed = false;
+  const survivors: PendingPreview[] = [];
+  for (const p of previews) {
+    const from = tr.mapping.map(p.from, -1);
+    const to = tr.mapping.map(p.to, 1);
+    if (from > to || tr.doc.textBetween(from, to, " ") !== p.expectedText) {
+      changed = true;
+      continue;
+    }
+    if (from === p.from && to === p.to) {
+      survivors.push(p);
+      continue;
+    }
+    changed = true;
+    survivors.push({
+      ...p,
+      from,
+      to,
+      strikeFrom:
+        p.strikeFrom === undefined
+          ? undefined
+          : tr.mapping.map(p.strikeFrom, -1),
+      strikeTo:
+        p.strikeTo === undefined ? undefined : tr.mapping.map(p.strikeTo, 1),
+    });
+  }
+  return { survivors, changed };
+}
+
+/**
  * Shows agent propose_edit proposals as live decorations in the document
  * instead of only a chat-panel diff card - the pending-insert/pending-delete
  * pair is this plugin's whole job; the actual document mutation on accept
@@ -443,9 +483,17 @@ export function createPendingEditPlugin(options: {
               };
             }
             if (meta?.type === "remove") {
-              const previews = prev.previews.filter(
+              const rest = prev.previews.filter(
                 (p) => p.callId !== meta.callId,
               );
+              // Accepting a proposal applies it and removes its preview in
+              // one transaction (usePendingEdits.ts): the others still have
+              // to be mapped through that edit. Left at their old positions,
+              // every preview below a grown or shrunk block drifted off its
+              // text, and its Accept then refused.
+              const previews = tr.docChanged
+                ? mapPreviews(rest, tr).survivors
+                : rest;
               dropRemovedAnimations(prev.previews, previews);
               return {
                 previews,
@@ -459,23 +507,7 @@ export function createPendingEditPlugin(options: {
                 : { previews: [], decoration: DecorationSet.empty };
             }
             if (tr.docChanged && prev.previews.length > 0) {
-              let changed = false;
-              const survivors: PendingPreview[] = [];
-              for (const p of prev.previews) {
-                const from = tr.mapping.map(p.from, -1);
-                const to = tr.mapping.map(p.to, 1);
-                if (
-                  from > to ||
-                  tr.doc.textBetween(from, to, " ") !== p.expectedText
-                ) {
-                  changed = true;
-                  continue;
-                }
-                if (from !== p.from || to !== p.to) changed = true;
-                survivors.push(
-                  from === p.from && to === p.to ? p : { ...p, from, to },
-                );
-              }
+              const { survivors, changed } = mapPreviews(prev.previews, tr);
               if (!changed) {
                 // Typing below the last pending edit - the common case while
                 // a preview sits mid-document. Keeping the ARRAY's identity

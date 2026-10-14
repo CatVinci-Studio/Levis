@@ -120,15 +120,23 @@ pub fn set_ai_proxy(proxy: Option<String>) -> Result<(), String> {
 //     section gets text about that section.
 //   - length: one sentence for the as-you-type nudge; two to four sentences
 //     when the writer explicitly triggers a continuation.
+//   - the join: the model repeats the last word before the cursor and
+//     fit_to_cursor cuts it off again (see there for why).
+//
+// The live eval (live_eval/completion_matrix.rs) found the two rules below
+// that the earlier prompt lacked: models never start a reply with a space,
+// so "it quickly" + "grew" landed as "quicklygrew" in every space-separated
+// language; and "the next concrete detail" read as licence to invent
+// figures and findings the writer never gave.
 const COMPLETION_INSTRUCTIONS: &str = "You are the inline autocomplete of a markdown writing app. When the writer pauses, you propose the words they would most plausibly write next; they see it as grey text and accept it with Tab.
 
 The input marks the insertion point: <text-before-cursor> ends exactly at the cursor and <text-after-cursor> starts exactly there (it may be empty). When present, <document-title>, <section> (the headings around the cursor, outermost first) and <block> (what the cursor is in) say where in the document this is.
 
 Write ONLY the text to insert at the cursor:
-- Continue from the exact last character. Mid-word or mid-sentence: finish it. After a finished sentence: begin the next one, with whatever leading space the language needs.
-- Move the text forward: the next concrete point, detail, example or step the preceding text sets up. Never restate, summarize or paraphrase what is already written, and skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
+- Continue from the exact last character. When <text-before-cursor> ends with a letter or digit, begin your output by repeating its last word exactly as typed - completed, if the cursor is in the middle of it - and continue from there; the repeated part is removed before the writer sees it, which is how a cut-off word gets finished and how the space after a finished word comes out right. When it ends with a space, punctuation or a character of a script written without spaces (Chinese, Japanese, Thai), repeat nothing and just continue.
+- Move the text forward with what the text already supports: finish the thought, draw the consequence it sets up, give the next step or point it promises. Never invent facts the writer hasn't given - figures, names, dates, findings, quotes - and never restate, summarize or paraphrase what is already written. Skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
 - Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese.
-- Stay inside the block: in a list item write only that item's text, in a heading only the heading, in a table cell only the cell. Never add a line break, list marker or markdown the surrounding text isn't already using.
+- Stay inside the block: in a list item write only that item's text, in a heading only the heading, in a table cell only the cell, in a code block only code in that language and indentation. Never add a line break (except inside code), list marker or markdown the surrounding text isn't already using.
 - Where after-text exists, lead into it without repeating any of it.
 - If nothing worthwhile can be added, return nothing.
 No explanations, quotation marks or code fences.";
@@ -216,7 +224,122 @@ pub async fn ai_complete(
         instructions.push_str("\n\n");
         instructions.push_str(&section);
     }
-    call(&app, &provider, instructions, user_text, model.as_deref()).await
+    let raw = call(&app, &provider, instructions, user_text, model.as_deref()).await?;
+    Ok(finish_completion(&before, &raw))
+}
+
+/// Scripts written without spaces between words: ideographs, kana and
+/// full-width forms, and Thai, Lao, Tibetan, Myanmar and Khmer. Hangul is
+/// not among them - Korean spaces its words.
+fn is_unspaced_script(c: char) -> bool {
+    matches!(c,
+        '\u{0e00}'..='\u{109f}'
+        | '\u{1780}'..='\u{17ff}'
+        | '\u{2e80}'..='\u{9fff}'
+        | '\u{f900}'..='\u{faff}'
+        | '\u{ff00}'..='\u{ffef}'
+        | '\u{20000}'..='\u{3134f}')
+}
+
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() && !is_unspaced_script(c)
+}
+
+/// What holds letters together in one written word: "don't", "C'est",
+/// "well-known", "3.5", "total_count".
+const WORD_JOINERS: [char; 5] = ['\'', '\u{2019}', '-', '.', '_'];
+
+/// What the model may repeat as the last word before the cursor, longest
+/// first: the whole written word ("don't", "well-known", "3.5") and its
+/// tails after a hyphen, dot or underscore ("known", "5"). Never the tail
+/// after an apostrophe: nobody repeats the "t" of "don't", and matching it
+/// would cut the "t" off a next word like "think".
+fn repeatable_words(before: &str) -> Vec<&str> {
+    let start = before
+        .char_indices()
+        .rev()
+        .take_while(|&(_, c)| is_word_char(c) || WORD_JOINERS.contains(&c))
+        .last()
+        .map_or(before.len(), |(i, _)| i);
+    let token = &before[start..];
+    let mut words = Vec::new();
+    let mut prev: Option<char> = None;
+    for (i, c) in token.char_indices() {
+        let starts_word = is_word_char(c) && !prev.is_some_and(is_word_char);
+        let after_apostrophe = matches!(prev, Some('\'' | '\u{2019}')) && !words.is_empty();
+        if starts_word && !after_apostrophe {
+            words.push(&token[i..]);
+        }
+        prev = Some(c);
+    }
+    words
+}
+
+/// Joins one continuation onto the text before the cursor. The prompt has
+/// the model repeat the last word when the before-text ends inside or right
+/// after one: cutting that word off again leaves exactly the rest of a
+/// cut-off word ("docu" + "document is" -> "ment is") or a space and the
+/// next word ("quickly" + "quickly grew" -> " grew"). A model that skipped
+/// the repeat gets the space a new word needs. Models never begin a reply
+/// with a space on their own, which is why this can't be left to them.
+pub(crate) fn fit_to_cursor(before: &str, text: &str) -> String {
+    // Spaces the model led with are its guess at the join, which is made
+    // here instead - except at the start of a line, where they are code
+    // indentation.
+    let text = if before.ends_with('\n') {
+        text
+    } else {
+        text.trim_start_matches([' ', '\t'])
+    };
+    // The repeated word cut off again - all of the reply when the model
+    // repeated it and had nothing to add.
+    if let Some(rest) = repeatable_words(before)
+        .into_iter()
+        .find_map(|word| text.strip_prefix(word))
+    {
+        return rest.to_string();
+    }
+    let joins_words = before
+        .chars()
+        .last()
+        .is_some_and(|c| is_word_char(c) || ".,;:!?)]}\"'”’…".contains(c))
+        && text
+            .chars()
+            .next()
+            .is_some_and(|c| is_word_char(c) || "(\"“'‘".contains(c));
+    if joins_words {
+        format!(" {text}")
+    } else {
+        text.to_string()
+    }
+}
+
+/// The model's reply as the editor should get it: each candidate fitted to
+/// the cursor, the separator lines kept for the frontend's splitCandidates.
+/// A newline the first (or only) candidate opens with is its own - code
+/// going on on the next line, whose indentation must survive - while after
+/// a separator, newlines only end the separator's line: each later
+/// candidate gets exactly one, so the frontend can split there and keep the
+/// joining space that follows it.
+pub(crate) fn finish_completion(before: &str, raw: &str) -> String {
+    raw.split(CANDIDATE_SEPARATOR)
+        .enumerate()
+        .map(|(i, part)| {
+            let (lead, part) = if i == 0 {
+                ("", part)
+            } else {
+                ("\n", part.trim_start_matches('\n'))
+            };
+            let body = part.trim_end_matches('\n');
+            if body.trim().is_empty() {
+                format!("{lead}{part}")
+            } else {
+                let tail = &part[body.len()..];
+                format!("{lead}{}{tail}", fit_to_cursor(before, body))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(CANDIDATE_SEPARATOR)
 }
 
 /// The workspace for a completion, re-read at most every few seconds:
@@ -278,30 +401,33 @@ pub(crate) fn completion_prompt(
     (instructions, user_text)
 }
 
-const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain prose text (already stripped of markdown syntax - never expect or emit formatting markup). Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"context\": \"the span plus a few words of surrounding paragraph text on each side, copied verbatim - REQUIRED whenever the span's text occurs more than once in the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}].\n\nRules for choosing a span: make it as small as possible - just the word or short phrase that is actually wrong, never the whole sentence or clause around it. `suggestion` replaces `original` exactly in place, so it must fit grammatically both where `original` was cut off and where it resumes, and it must not repeat any surrounding text that is outside the span. Never let two reported spans overlap; if two issues touch overlapping text, report only the more important one.\n\nBe conservative: only report something you are genuinely confident is wrong, never a hallucinated issue or a preference disguised as a fix. Skip: proper nouns, names, and invented/brand words even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens, and URLs. When a sentence is grammatically valid but could be phrased differently, only flag it under the scope rules given below - matching an ordinary reader's taste is not itself a reason to report something.\n\nOffsets must index into the exact paragraph text given, counting Unicode scalar values left to right. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
+const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedded in a markdown editor. You will be given a single paragraph of plain prose text (already stripped of markdown syntax - never expect or emit formatting markup). Respond with ONLY a JSON array (no markdown fences, no explanation, no surrounding text) of objects shaped like: [{\"start\": <0-indexed char offset, inclusive>, \"end\": <0-indexed char offset, exclusive>, \"original\": \"the exact text of that span, copied verbatim from the paragraph\", \"context\": \"the span plus a few words of surrounding paragraph text on each side, copied verbatim - REQUIRED whenever the span's text occurs more than once in the paragraph\", \"issue\": \"short description\", \"suggestion\": \"replacement text for that span\"}].\n\nRules for choosing a span: make it as small as possible - just the word or short phrase that is actually wrong, never the whole sentence or clause around it, and never a correct word next to the mistake. When the fix removes a word (a doubled \"the the\", a stray particle), include one neighbouring space in the span so that no double space is left behind. `suggestion` replaces `original` exactly in place, so it must fit grammatically both where `original` was cut off and where it resumes, and it must not repeat any surrounding text that is outside the span. Never let two reported spans overlap; if two issues touch overlapping text, report only the more important one.\n\nBe conservative: only report something you are genuinely confident is wrong, never a hallucinated issue or a preference disguised as a fix. Skip: proper nouns, names, and invented/brand words even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens, and URLs. When a sentence is grammatically valid but could be phrased differently, only flag it under the scope rules given below - matching an ordinary reader's taste is not itself a reason to report something.\n\nOffsets must index into the exact paragraph text given, counting Unicode scalar values left to right. Write `issue` in the same language as the paragraph. If there are no issues, respond with exactly: []";
 
 /// The scope limit appended per strictness level - what the check is allowed
-/// to report. Unknown/absent values fall back to "standard".
+/// to report. Unknown/absent values fall back to "standard". Spelled out
+/// after the live eval caught the cheap default model reporting a verb
+/// agreement fix as a "typo", missing 的/地 confusion at the standard level,
+/// and finding something to say about a correct paragraph at "strict".
 fn strictness_instructions(strictness: Option<&str>) -> &'static str {
     match strictness {
-        Some("typos") => "Scope: report ONLY unambiguous typos, misspellings and wrong characters you are certain about. Do not report grammar, phrasing or style.",
-        Some("strict") => "Scope: report typos, grammar mistakes, and additionally redundancy, ambiguity and unclear phrasing worth tightening.",
-        _ => "Scope: report typos and clear grammar mistakes. Do not report stylistic preferences or optional rephrasing.",
+        Some("typos") => "Scope: report ONLY unambiguous typos you are certain about - misspelled words, wrong characters (including a character from the wrong script, such as a simplified character in traditional Chinese) and accidentally doubled words. Wrong verb forms, agreement, tense and word choice are grammar, not typos: do not report them at this level, however wrong they are. No phrasing or style.",
+        Some("strict") => "Scope: report typos, grammar mistakes, and additionally redundancy, ambiguity and unclear phrasing worth tightening. A paragraph that is already clear and correct still gets [] - strict widens what counts as a problem, not how hard to look for one.",
+        _ => "Scope: report typos and clear grammar mistakes - agreement, verb forms, wrong or missing particles and function words (such as Chinese 的/地/得), doubled or missing words. Do not report stylistic preferences or optional rephrasing.",
     }
 }
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GrammarIssue {
-    start: usize,
-    end: usize,
-    issue: String,
-    suggestion: String,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) issue: String,
+    pub(crate) suggestion: String,
     /// The span's exact text as the model saw it. Models routinely get char
     /// offsets wrong (especially in CJK text) while quoting the span itself
     /// correctly, so this is the ground truth offsets are checked against -
     /// and what the frontend re-verifies at apply time.
     #[serde(default)]
-    original: Option<String>,
+    pub(crate) original: Option<String>,
     /// The span plus a little verbatim surrounding text - disambiguates
     /// which occurrence is meant when `original` repeats in the paragraph.
     /// Never sent to the frontend; only used to repair offsets here.
@@ -402,22 +528,40 @@ pub async fn ai_grammar_check(
     strictness: Option<String>,
     model: Option<String>,
 ) -> Result<Vec<GrammarIssue>, String> {
-    let instructions = format!(
+    let ask = || {
+        call(
+            &app,
+            &provider,
+            grammar_instructions(strictness.as_deref()),
+            paragraph.clone(),
+            model.as_deref(),
+        )
+    };
+    // One retry on a malformed reply: the cheap default model occasionally
+    // returns something that isn't the issue array (the live eval caught a
+    // bare `[10, ...]`), and a second sample almost always parses.
+    match parse_grammar_reply(&ask().await?, &paragraph) {
+        Ok(issues) => Ok(issues),
+        Err(_) => parse_grammar_reply(&ask().await?, &paragraph),
+    }
+}
+
+/// The grammar check's system prompt for a strictness level - shared with
+/// the live eval (live_eval.rs), like completion_prompt.
+pub(crate) fn grammar_instructions(strictness: Option<&str>) -> String {
+    format!(
         "{GRAMMAR_INSTRUCTIONS}\n\n{}",
-        strictness_instructions(strictness.as_deref())
-    );
-    let raw = call(
-        &app,
-        &provider,
-        instructions,
-        paragraph.clone(),
-        model.as_deref(),
+        strictness_instructions(strictness)
     )
-    .await?;
+}
+
+/// The model's reply as verified issues: the JSON array pulled out of it,
+/// with every span checked against (and repaired from) the paragraph.
+pub(crate) fn parse_grammar_reply(raw: &str, paragraph: &str) -> Result<Vec<GrammarIssue>, String> {
     let json_slice =
-        extract_json_array(&raw).ok_or_else(|| "no JSON array in model response".to_string())?;
+        extract_json_array(raw).ok_or_else(|| "no JSON array in model response".to_string())?;
     let issues: Vec<GrammarIssue> = serde_json::from_str(json_slice).map_err(|e| e.to_string())?;
-    Ok(validate_issues(issues, &paragraph))
+    Ok(validate_issues(issues, paragraph))
 }
 
 #[cfg(test)]
@@ -446,6 +590,67 @@ mod tests {
         assert_eq!(
             completion_user_text("a", "b", &CompletionHints::default()),
             "<text-before-cursor>a</text-before-cursor>\n<text-after-cursor>b</text-after-cursor>"
+        );
+    }
+
+    #[test]
+    fn completions_join_the_text_before_the_cursor() {
+        // The repeated last word is cut off again: the rest of a cut-off
+        // word, or a space and the next word.
+        assert_eq!(
+            fit_to_cursor("a full copy of the docu", "document grew"),
+            "ment grew"
+        );
+        assert_eq!(
+            fit_to_cursor("on long files it quickly", "quickly grew"),
+            " grew"
+        );
+        assert_eq!(fit_to_cursor("직장인들이", "직장인들이 들른다"), " 들른다");
+        // No repeat from the model: a new word gets its space.
+        assert_eq!(fit_to_cursor("on long files it quickly", "grew"), " grew");
+        assert_eq!(
+            fit_to_cursor("doubled in six months.", "Le problème"),
+            " Le problème"
+        );
+        assert_eq!(
+            fit_to_cursor("Berufstätige", ", die abends"),
+            ", die abends"
+        );
+        // A word with an apostrophe, hyphen or dot is repeated whole - and
+        // without the repeat, the letters after an apostrophe never eat
+        // the start of the next word.
+        assert_eq!(fit_to_cursor("I don't", "don't think so"), " think so");
+        assert_eq!(fit_to_cursor("I don't", "think so"), " think so");
+        assert_eq!(fit_to_cursor("I don'", "don't know"), "t know");
+        assert_eq!(fit_to_cursor("C'est", "C'est la vie"), " la vie");
+        assert_eq!(fit_to_cursor("a well-known", "well-known fact"), " fact");
+        assert_eq!(fit_to_cursor("a well-known", "known fact"), " fact");
+        assert_eq!(fit_to_cursor("version 3.5", "3.5 adds"), " adds");
+        // The repeat and nothing more: nothing to add.
+        assert_eq!(fit_to_cursor("it quickly", "quickly"), "");
+        // Unspaced scripts and spaces already typed: nothing added.
+        assert_eq!(fit_to_cursor("规划者在制定方案时", "应当"), "应当");
+        assert_eq!(fit_to_cursor("我们用", "React 重写"), "React 重写");
+        assert_eq!(fit_to_cursor("ฉันชอบ", "กินข้าว"), "กินข้าว");
+        assert_eq!(fit_to_cursor("thank you for ", "your note"), "your note");
+        // Code indentation at the start of a line is kept.
+        assert_eq!(
+            fit_to_cursor("for s in xs:\n", "    total += s"),
+            "    total += s"
+        );
+        assert_eq!(
+            finish_completion("def f():", "\n    return 1"),
+            "\n    return 1"
+        );
+        // Each candidate is fitted, and each later one starts on the line
+        // after its separator, so its joining space survives the split.
+        assert_eq!(
+            finish_completion("it quickly", "quickly grew\n<<<>>>\nslowed"),
+            " grew\n<<<>>>\n slowed"
+        );
+        assert_eq!(
+            finish_completion("it quickly", "grew\n\n<<<>>>\n\nslowed\n<<<>>>\n"),
+            " grew\n\n<<<>>>\n slowed\n<<<>>>\n"
         );
     }
 
