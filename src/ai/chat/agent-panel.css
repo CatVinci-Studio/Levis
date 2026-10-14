@@ -203,6 +203,12 @@
   display: flex;
   flex-direction: column;
   min-width: 220px;
+  transform-origin: top left;
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.project-bar-menu[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .project-bar-naming {

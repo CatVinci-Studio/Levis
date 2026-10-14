@@ -451,8 +451,16 @@
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-surface);
   background: var(--bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--shadow-popover);
   pointer-events: none;
+  /* Plays each time it is shown (display: none in between); typing in the
+     formula re-renders it without moving it. */
+  transform-origin: var(--transform-origin, top left);
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.math-float-preview[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .math-inline-rendered {

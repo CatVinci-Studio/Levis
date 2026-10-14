@@ -81,6 +81,7 @@ import { drafts, fs, session } from "./ipc";
 import { flushPendingWrites } from "./storage/pending-writes";
 import { defaultMarkdownFilename } from "./save-default-name";
 import { useModalDialog } from "./ui/useModalDialog";
+import { Presence, PresenceDiv } from "./ui/usePresence";
 import { SplitView } from "./editor/SplitView";
 import { SourceTextarea } from "./editor/SourceTextarea";
 import { useWindowEvent } from "./utils/useWindowEvent";
@@ -593,7 +594,7 @@ function App() {
       if (e.isComposing || e.keyCode === 229) return;
       if (
         document.querySelector(
-          '[role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu',
+          ':is([role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu):not([data-state="closing"] *, [data-state="closing"])',
         )
       )
         return;
@@ -1180,55 +1181,62 @@ function App() {
           />
         )}
 
-        {pendingClose && phone && (
-          // The iPhone asks what to do with an edited document from the
-          // bottom of the screen, as Notes and Pages do. The sheet runs its
-          // onClose before the chosen action: cancelClose's quit-cancel is
-          // a desktop-only call (a no-op here), and the two handlers still
-          // hold the pending close they were rendered with.
-          <ActionSheet
-            title={t.closePromptMessage}
-            items={[
-              { label: t.closePromptSave, onSelect: () => void closeSaving() },
-              {
-                label: t.closePromptDiscard,
-                danger: true,
-                onSelect: () => void closeDiscarding(),
-              },
-            ]}
-            onClose={cancelClose}
-          />
-        )}
-        {pendingClose && !phone && (
-          <div className="close-prompt-overlay">
-            <div
-              className="close-prompt"
-              {...closePrompt}
-              role="dialog"
-              aria-modal="true"
-              aria-label={t.closePromptMessage}
-            >
-              <p>{t.closePromptMessage}</p>
-              <div className="close-prompt-buttons">
-                <button
-                  className="close-prompt-discard"
-                  onClick={() => void closeDiscarding()}
-                >
-                  {t.closePromptDiscard}
-                </button>
-                <div className="close-prompt-spacer" />
-                <button onClick={cancelClose}>{t.closePromptCancel}</button>
-                <button
-                  className="close-prompt-primary"
-                  autoFocus
-                  onClick={() => void closeSaving()}
-                >
-                  {t.closePromptSave}
-                </button>
+        <Presence show={!!pendingClose && phone} exitMs={250}>
+          {pendingClose && phone && (
+            // The iPhone asks what to do with an edited document from the
+            // bottom of the screen, as Notes and Pages do. The sheet runs its
+            // onClose before the chosen action: cancelClose's quit-cancel is
+            // a desktop-only call (a no-op here), and the two handlers still
+            // hold the pending close they were rendered with.
+            <ActionSheet
+              title={t.closePromptMessage}
+              items={[
+                {
+                  label: t.closePromptSave,
+                  onSelect: () => void closeSaving(),
+                },
+                {
+                  label: t.closePromptDiscard,
+                  danger: true,
+                  onSelect: () => void closeDiscarding(),
+                },
+              ]}
+              onClose={cancelClose}
+            />
+          )}
+        </Presence>
+        <Presence show={!!pendingClose && !phone} exitMs={120}>
+          {pendingClose && !phone && (
+            <PresenceDiv className="close-prompt-overlay">
+              <div
+                className="close-prompt"
+                {...closePrompt}
+                role="dialog"
+                aria-modal="true"
+                aria-label={t.closePromptMessage}
+              >
+                <p>{t.closePromptMessage}</p>
+                <div className="close-prompt-buttons">
+                  <button
+                    className="close-prompt-discard"
+                    onClick={() => void closeDiscarding()}
+                  >
+                    {t.closePromptDiscard}
+                  </button>
+                  <div className="close-prompt-spacer" />
+                  <button onClick={cancelClose}>{t.closePromptCancel}</button>
+                  <button
+                    className="close-prompt-primary"
+                    autoFocus
+                    onClick={() => void closeSaving()}
+                  >
+                    {t.closePromptSave}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </PresenceDiv>
+          )}
+        </Presence>
 
         {isIOSApp && <KeyboardToolbar />}
         {isIOSApp && documentsOpen && (
@@ -1263,61 +1271,65 @@ function App() {
             </div>
           ))}
 
-        {draftsRestoredCount > 0 && (
-          <div className="draft-restored-toast">
-            <span>{t.draftRestoredMessage}</span>
-            <button
-              className="update-toast-secondary"
-              onClick={() => setDraftsRestoredCount(0)}
-            >
-              {t.draftRestoredDismiss}
-            </button>
-          </div>
-        )}
+        <Presence show={draftsRestoredCount > 0} exitMs={120}>
+          {draftsRestoredCount > 0 && (
+            <PresenceDiv className="draft-restored-toast">
+              <span>{t.draftRestoredMessage}</span>
+              <button
+                className="update-toast-secondary"
+                onClick={() => setDraftsRestoredCount(0)}
+              >
+                {t.draftRestoredDismiss}
+              </button>
+            </PresenceDiv>
+          )}
+        </Presence>
 
-        {appUpdate.status !== "idle" && (
-          <div className="update-toast">
-            {appUpdate.status === "available" && (
-              <>
-                <span>
-                  {t.updateAvailable} v{appUpdate.version}
-                </span>
-                {appUpdate.selfUpdate ? (
+        <Presence show={appUpdate.status !== "idle"} exitMs={120}>
+          {appUpdate.status !== "idle" && (
+            <PresenceDiv className="update-toast">
+              {appUpdate.status === "available" && (
+                <>
+                  <span>
+                    {t.updateAvailable} v{appUpdate.version}
+                  </span>
+                  {appUpdate.selfUpdate ? (
+                    <button
+                      className="update-toast-primary"
+                      onClick={() => void appUpdate.install()}
+                    >
+                      {t.updateInstall}
+                    </button>
+                  ) : (
+                    <span>{t.updateViaPackageManager}</span>
+                  )}
                   <button
-                    className="update-toast-primary"
-                    onClick={() => void appUpdate.install()}
+                    className="update-toast-secondary"
+                    onClick={appUpdate.dismiss}
                   >
-                    {t.updateInstall}
+                    {t.updateLater}
                   </button>
-                ) : (
-                  <span>{t.updateViaPackageManager}</span>
-                )}
-                <button
-                  className="update-toast-secondary"
-                  onClick={appUpdate.dismiss}
-                >
-                  {t.updateLater}
-                </button>
-              </>
-            )}
-            {appUpdate.status === "downloading" && (
-              <span>{t.updateDownloading}</span>
-            )}
-            {appUpdate.status === "error" && (
-              <>
-                <span>
-                  {t.updateFailed} {appUpdate.error}
-                </span>
-                <button
-                  className="update-toast-secondary"
-                  onClick={appUpdate.dismiss}
-                >
-                  {t.updateLater}
-                </button>
-              </>
-            )}
-          </div>
-        )}
+                </>
+              )}
+              {appUpdate.status === "downloading" && (
+                <span>{t.updateDownloading}</span>
+              )}
+              {appUpdate.status === "error" && (
+                <>
+                  <span>
+                    {t.updateFailed} {appUpdate.error}
+                  </span>
+                  <button
+                    className="update-toast-secondary"
+                    onClick={appUpdate.dismiss}
+                  >
+                    {t.updateLater}
+                  </button>
+                </>
+              )}
+            </PresenceDiv>
+          )}
+        </Presence>
 
         {tutorial.active && settings.languageChosen && (
           <TutorialExperience

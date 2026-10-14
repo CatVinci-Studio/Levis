@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useModalDialog } from "./useModalDialog";
+import { usePresence } from "./usePresence";
 
 /**
  * The app's own alert and confirm boxes, in place of the OS dialogs
@@ -106,44 +107,49 @@ export function AppDialogHost({ okLabel }: { okLabel: string }) {
     };
   }, []);
   const current = pending[0];
+  // The answered box stays a moment to fade out; a queued one takes its
+  // place without the dimming going away and coming back.
+  const presence = usePresence(!!current, { exitMs: 150 });
+  const lastShown = useRef<Request | null>(null);
+  if (current) lastShown.current = current;
+  const shown = current ?? lastShown.current;
   const inputRef = useRef<HTMLInputElement>(null);
   const dialog = useModalDialog(
     () => current && answer(current, false),
     !!current,
-    current?.input !== undefined
-      ? ".app-dialog-input"
-      : ".close-prompt-primary",
+    shown?.input !== undefined ? ".app-dialog-input" : ".close-prompt-primary",
   );
   const ok = () => current && answer(current, true, inputRef.current?.value);
-  if (!current) return null;
+  if (!presence.mounted || !shown) return null;
   return (
     <div
+      ref={presence.ref}
+      data-state={presence.state}
+      inert={presence.state === "closing" || undefined}
       className="close-prompt-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) answer(current, false);
+        if (current && e.target === e.currentTarget) answer(current, false);
       }}
     >
       <div
-        key={current.id}
+        key={shown.id}
         className="close-prompt app-dialog"
         {...dialog}
-        role={current.confirm ? "dialog" : "alertdialog"}
+        role={shown.confirm ? "dialog" : "alertdialog"}
         aria-modal="true"
-        aria-label={current.title ?? current.text}
+        aria-label={shown.title ?? shown.text}
       >
-        {current.title && (
-          <h2
-            className={`app-dialog-title app-dialog-${current.tone ?? "info"}`}
-          >
-            {current.title}
+        {shown.title && (
+          <h2 className={`app-dialog-title app-dialog-${shown.tone ?? "info"}`}>
+            {shown.title}
           </h2>
         )}
-        <p>{current.text}</p>
-        {current.input !== undefined && (
+        <p>{shown.text}</p>
+        {shown.input !== undefined && (
           <input
             ref={inputRef}
             className="app-dialog-input"
-            defaultValue={current.input}
+            defaultValue={shown.input}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.nativeEvent.isComposing) ok();
             }}
@@ -151,16 +157,16 @@ export function AppDialogHost({ okLabel }: { okLabel: string }) {
         )}
         <div className="close-prompt-buttons">
           <div className="close-prompt-spacer" />
-          {current.confirm && (
-            <button onClick={() => answer(current, false)}>
-              {current.cancelLabel}
+          {shown.confirm && (
+            <button onClick={() => current && answer(current, false)}>
+              {shown.cancelLabel}
             </button>
           )}
           <button
-            className={`close-prompt-primary${current.danger ? " app-dialog-danger" : ""}`}
+            className={`close-prompt-primary${shown.danger ? " app-dialog-danger" : ""}`}
             onClick={ok}
           >
-            {current.confirm ? current.okLabel : okLabel}
+            {shown.confirm ? shown.okLabel : okLabel}
           </button>
         </div>
       </div>

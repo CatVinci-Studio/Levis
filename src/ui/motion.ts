@@ -10,7 +10,12 @@
  */
 
 export type DurationToken =
-  "--dur-instant" | "--dur-fast" | "--dur-base" | "--dur-slow" | "--dur-sheet";
+  | "--dur-instant"
+  | "--dur-fast"
+  | "--dur-base"
+  | "--dur-medium"
+  | "--dur-slow"
+  | "--dur-sheet";
 
 export type EasingToken =
   | "--ease-standard"
@@ -27,6 +32,7 @@ const DURATIONS: Record<DurationToken, number> = {
   "--dur-instant": 80,
   "--dur-fast": 120,
   "--dur-base": 200,
+  "--dur-medium": 250,
   "--dur-slow": 320,
   "--dur-sheet": 450,
 };

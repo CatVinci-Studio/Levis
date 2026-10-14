@@ -14,6 +14,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { isIOSApp } from "../platform/capabilities";
+import { useMergedRef, usePresence } from "./usePresence";
 import "./Select.css";
 
 /**
@@ -146,6 +147,10 @@ function DrawnSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
+  // The list stays a moment after it closes, shrinking back into the
+  // trigger; the choice has already gone through by then.
+  const presence = usePresence(open, { exitMs: 120 });
+  const presenceRef = useMergedRef(listRef, presence.ref);
 
   function openMenu() {
     if (disabled || options.length === 0) return;
@@ -180,6 +185,10 @@ function DrawnSelect({
       ...(up
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }),
+      // It grows out of the edge that touches the trigger.
+      ...({
+        "--transform-origin": up ? "bottom left" : "top left",
+      } as CSSProperties),
     });
   }, [open]);
 
@@ -286,11 +295,13 @@ function DrawnSelect({
       >
         <span className="ui-select-value">{current?.label ?? ""}</span>
       </button>
-      {open &&
+      {presence.mounted &&
         createPortal(
           <ul
-            ref={listRef}
+            ref={presenceRef}
             id={listId}
+            data-state={presence.state}
+            inert={presence.state === "closing" || undefined}
             className="ui-select-menu floating-surface"
             role="listbox"
             aria-label={ariaLabel}

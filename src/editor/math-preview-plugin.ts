@@ -4,6 +4,7 @@ import { Decoration } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { duration, motionAllowed } from "../ui/motion";
 import {
   applyReveal,
   buildReveal,
@@ -174,21 +175,44 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
               showTimer = null;
             }
           };
+          // Hiding plays the box's short exit first (milkdown-theme.css);
+          // coming back mid-exit just cancels it.
+          let hideTimer: number | null = null;
+          const cancelHide = () => {
+            if (hideTimer !== null) {
+              window.clearTimeout(hideTimer);
+              hideTimer = null;
+            }
+            delete floatEl.dataset.state;
+          };
+          const hide = () => {
+            cancelShow();
+            if (floatEl.style.display === "none" || hideTimer !== null) return;
+            if (!motionAllowed()) {
+              floatEl.style.display = "none";
+              return;
+            }
+            floatEl.dataset.state = "closing";
+            hideTimer = window.setTimeout(() => {
+              hideTimer = null;
+              delete floatEl.dataset.state;
+              floatEl.style.display = "none";
+            }, duration("--dur-fast"));
+          };
 
           function updateFloat(view: EditorView, fromTimer = false) {
             if (!options.enabled()) {
-              cancelShow();
-              floatEl.style.display = "none";
+              hide();
               return;
             }
             const found = findMathNodeAtSelection(view.state);
             // Nothing to preview until there's actual source - an empty
             // shell would show a bare floating box.
             if (!found || !found.node.textContent.trim()) {
-              cancelShow();
-              floatEl.style.display = "none";
+              hide();
               return;
             }
+            cancelHide();
             if (floatEl.style.display === "none" && !fromTimer) {
               if (showTimer === null) {
                 showTimer = window.setTimeout(() => {
@@ -219,9 +243,15 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             if (rect.right > window.innerWidth - 8) {
               floatEl.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`;
             }
-            if (rect.bottom > window.innerHeight - 8) {
+            const above = rect.bottom > window.innerHeight - 8;
+            if (above) {
               floatEl.style.top = `${Math.max(8, coords.top - rect.height - 10)}px`;
             }
+            // It grows out of the corner nearest the caret.
+            floatEl.style.setProperty(
+              "--transform-origin",
+              above ? "bottom left" : "top left",
+            );
           }
 
           updateFloat(editorView);
@@ -232,6 +262,7 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             update: (view) => updateFloat(view),
             destroy() {
               cancelShow();
+              cancelHide();
               floatEl.remove();
             },
           };

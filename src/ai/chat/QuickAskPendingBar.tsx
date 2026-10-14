@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronIcon } from "../../ui/icons";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { ActionSheet } from "../../mobile/ActionSheet";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 
@@ -173,26 +174,30 @@ function SplitButton({
       >
         <ChevronIcon className="quick-ask-split-chevron-icon" />
       </button>
-      {open && phone && (
-        <ActionSheet
-          items={[{ label: menuLabel, onSelect: onMenuClick }]}
-          onClose={() => setOpen(false)}
-        />
-      )}
-      {open && !phone && (
-        <div className="quick-ask-split-menu floating-surface">
-          <button
-            type="button"
-            className="quick-ask-split-menu-item"
-            onClick={() => {
-              setOpen(false);
-              onMenuClick();
-            }}
-          >
-            {menuLabel}
-          </button>
-        </div>
-      )}
+      <Presence show={open && phone} exitMs={250}>
+        {open && phone && (
+          <ActionSheet
+            items={[{ label: menuLabel, onSelect: onMenuClick }]}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </Presence>
+      <Presence show={open && !phone} exitMs={120}>
+        {open && !phone && (
+          <PresenceDiv className="quick-ask-split-menu floating-surface">
+            <button
+              type="button"
+              className="quick-ask-split-menu-item"
+              onClick={() => {
+                setOpen(false);
+                onMenuClick();
+              }}
+            >
+              {menuLabel}
+            </button>
+          </PresenceDiv>
+        )}
+      </Presence>
     </div>
   );
 }

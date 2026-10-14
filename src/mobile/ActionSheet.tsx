@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSettings } from "../settings/SettingsContext";
+import { usePresenceProps } from "../ui/usePresence";
 import "./ActionSheet.css";
 
 export interface ActionSheetItem {
@@ -17,7 +18,8 @@ export interface ActionSheetItem {
  * without its own phone branch.
  *
  * A tap on the dimmed page or on Cancel closes it; picking an action runs
- * it and closes.
+ * it and closes. Inside a Presence (ui/usePresence.ts) it goes back down
+ * as it closes.
  */
 export function ActionSheet({
   title,
@@ -29,13 +31,16 @@ export function ActionSheet({
   onClose: () => void;
 }) {
   const { t } = useSettings();
+  const presence = usePresenceProps<HTMLDivElement>();
+  const open = presence["data-state"] === "open";
   useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, open]);
 
   // Separators split the list into groups, as UIKit draws them.
   const groups: ActionSheetItem[][] = [[]];
@@ -46,6 +51,7 @@ export function ActionSheet({
 
   return createPortal(
     <div
+      {...presence}
       className="action-sheet-scrim"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();

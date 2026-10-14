@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useModalDialog } from "../ui/useModalDialog";
+import { usePresenceProps } from "../ui/usePresence";
 import "./ImageNameDialog.css";
 
 export interface ImageNameRequest {
@@ -26,6 +27,7 @@ export function ImageNameDialog({
   onClose: (stem: string | null) => void;
 }) {
   const modal = useModalDialog(() => onClose(null));
+  const presence = usePresenceProps<HTMLDivElement>();
   const [stem, setStem] = useState(request.stem);
   const valid = !!stem.trim() && !/[\\/]/.test(stem);
 
@@ -34,7 +36,11 @@ export function ImageNameDialog({
   }
 
   return (
-    <div className="image-name-overlay" onClick={() => onClose(null)}>
+    <div
+      {...presence}
+      className="image-name-overlay"
+      onClick={() => onClose(null)}
+    >
       <div
         {...modal}
         className="image-name-dialog"

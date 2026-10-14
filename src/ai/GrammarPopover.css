@@ -4,6 +4,12 @@
   max-width: 320px;
   padding: 10px 12px;
   font-size: var(--text-md);
+  transform-origin: var(--transform-origin, top left);
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.grammar-popover[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .grammar-popover-issue {

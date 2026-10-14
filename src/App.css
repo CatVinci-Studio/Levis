@@ -166,8 +166,12 @@
 .ai-notice {
   position: fixed;
   bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Centred by its margins rather than a transform, which its entrance
+     (design-system.css) needs for itself. */
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto;
   z-index: 220;
   max-width: 60ch;
   padding: 8px 14px;
@@ -1138,7 +1142,8 @@ body {
   color: var(--editor-muted);
   font-size: var(--text-sm);
   pointer-events: none;
-  animation: zen-hint-fade 3.5s ease forwards;
+  /* Held long enough to read (a pause, not a movement), then let go. */
+  animation: motion-fade-out var(--dur-sheet) var(--ease-in) 3s forwards;
 }
 
 .zen-hint-button {
@@ -1150,21 +1155,7 @@ body {
 }
 
 @keyframes zen-hint-dim {
-  0%,
-  70% {
-    opacity: 1;
-  }
-  100% {
+  to {
     opacity: 0.45;
-  }
-}
-
-@keyframes zen-hint-fade {
-  0%,
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
   }
 }

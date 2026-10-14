@@ -3,6 +3,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { ContextMenu, type ContextMenuItem } from "../editor/ContextMenu";
 import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
 import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
+import { Presence } from "../ui/usePresence";
 import { fs } from "../ipc";
 import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
@@ -326,18 +327,20 @@ function DocumentItem({
           <MoreIcon />
         </button>
       )}
-      {at && (
-        <ContextMenu
-          x={at.x}
-          y={at.y}
-          title={name}
-          items={actions()}
-          onClose={() => {
-            setMenuAt(null);
-            press.close();
-          }}
-        />
-      )}
+      <Presence show={!!at} exitMs={250}>
+        {at && (
+          <ContextMenu
+            x={at.x}
+            y={at.y}
+            title={name}
+            items={actions()}
+            onClose={() => {
+              setMenuAt(null);
+              press.close();
+            }}
+          />
+        )}
+      </Presence>
     </div>
   );
 }

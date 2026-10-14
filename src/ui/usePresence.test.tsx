@@ -31,6 +31,7 @@ function Host({ open, label = "Panel" }: { open: boolean; label?: string }) {
  *  (jsdom computes no CSS animations of its own). */
 function withExit(finished: Promise<unknown>) {
   const animation = {
+    playState: "running",
     effect: { getComputedTiming: () => ({ endTime: 120 }) },
     finished,
   } as unknown as Animation;

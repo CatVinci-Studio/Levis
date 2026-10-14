@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ComponentProps,
   type ReactNode,
   type Ref,
 } from "react";
@@ -33,12 +34,14 @@ export interface PresenceHandle {
   ref: (el: Element | null) => void;
 }
 
-/** The finite animations running on the element itself (not its subtree):
- *  the exit its closing style just started. Null without the Web
- *  Animations API. */
+/** The finite animations running in the element and its subtree: the exit
+ *  its closing style just started - a scrim fading while its sheet goes
+ *  down counts as one. Loops (a spinner, the thinking dots) are left out.
+ *  Null without the Web Animations API. */
 function runningExit(el: Element): Animation[] | null {
   if (typeof el.getAnimations !== "function") return null;
-  return el.getAnimations().filter((animation) => {
+  return el.getAnimations({ subtree: true }).filter((animation) => {
+    if (animation.playState !== "running") return false;
     const end = animation.effect?.getComputedTiming().endTime;
     return typeof end === "number" && Number.isFinite(end);
   });
@@ -60,10 +63,10 @@ function hasExit(el: Element): boolean {
 /**
  * `open` as it should be on screen: true at once when it opens, and on
  * close still mounted - state "closing" - until the element's exit has
- * played. It leaves at the first of: its exit animation ending, `exitMs`
- * (plus a margin) passing, or straight away when no exit runs at all -
- * reduced motion without one, or a stylesheet that turned animation off
- * (the e2e helpers), so nothing ever waits on an event that won't come.
+ * played. It leaves at the first of: the exit animations in it ending,
+ * `exitMs` (plus a margin) passing, or straight away when no exit runs at
+ * all - reduced motion without one, or a stylesheet that turned animation
+ * off (the e2e helpers), so nothing ever waits on an event that won't come.
  */
 export function usePresence(
   open: boolean,
@@ -175,6 +178,13 @@ export function usePresenceProps<T extends Element>(ownRef?: Ref<T>) {
     "data-state": state,
     inert: state === "closing" ? true : undefined,
   };
+}
+
+/** A plain <div> that takes its Presence's exit wiring - for a surface too
+ *  small to be a component of its own (a toast, a two-item menu). */
+export function PresenceDiv({ ref, ...props }: ComponentProps<"div">) {
+  const presence = usePresenceProps<HTMLDivElement>(ref);
+  return createElement("div", { ...props, ...presence });
 }
 
 /** One stable ref callback that feeds several refs. */

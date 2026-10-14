@@ -67,10 +67,13 @@
   color: var(--editor-text);
   font: inherit;
   font-size: 17px;
+  /* iOS's highlight: on at the touch, fading out after it. */
+  transition: background-color var(--dur-base) var(--ease-standard);
 }
 
 .keyboard-toolbar-button:active {
   background: color-mix(in srgb, var(--editor-text) 12%, transparent);
+  transition-duration: 0s;
 }
 
 /* A block toggle that is on where the caret is. */

@@ -6,6 +6,8 @@
   --radius-control: 6px;
   --radius-surface: 10px;
   --radius-dialog: 14px;
+  /* The phone's sheets: a dialog's corners. */
+  --radius-sheet: var(--radius-dialog);
   /* Chips, badges and one-line notices. */
   --radius-pill: 999px;
   --control-height: 32px;
@@ -82,6 +84,34 @@
 :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--chrome-accent);
   outline-offset: 3px;
+}
+
+/* A dialog opened by a click or a shortcut starts on its button without a
+   ring; the first key pressed brings it back (useModalDialog). Important:
+   several surfaces draw their own ring, and this outranks them all. */
+[data-quiet-focus]:focus-visible {
+  outline: none !important;
+}
+
+/* High contrast: a thicker ring (important, over the surfaces that draw
+   their own), and hairlines in the muted text colour. Tripled :root to
+   outrank the light and dark palettes in App.css. */
+@media (prefers-contrast: more) {
+  :where(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    summary,
+    [tabindex]
+  ):focus-visible {
+    outline-width: 3px !important;
+  }
+
+  :root:root:root {
+    --border-color: var(--chrome-muted);
+  }
 }
 
 /* Text fields draw the ring on their own edge: 3px out, it ran over the
@@ -171,6 +201,7 @@
   font-size: var(--text-sm);
 }
 
+/* The hover arrives in 80ms and leaves at the 120ms of the base rule. */
 :is(
     .close-prompt-buttons button,
     .image-name-buttons button,
@@ -183,6 +214,7 @@
     .project-bar-naming button
   ):not(:disabled):hover {
   background: color-mix(in srgb, currentColor 8%, transparent);
+  transition-duration: var(--dur-instant);
 }
 
 :is(
@@ -230,6 +262,48 @@
   ):not(:disabled):hover {
   border-color: color-mix(in srgb, var(--chrome-primary) 86%, #000);
   background: color-mix(in srgb, var(--chrome-primary) 86%, #000);
+  transition-duration: var(--dur-instant);
+}
+
+/* Pressed: a shade darker, at once - and no scale (macOS buttons don't
+   shrink). Let go, it eases back with the base rule's 120ms. */
+:is(
+    .close-prompt-buttons button,
+    .image-name-buttons button,
+    .insert-table-buttons button,
+    .tutorial-btn,
+    .text-button,
+    .inline-chat-action,
+    .update-toast button,
+    .draft-restored-toast button,
+    .project-bar-naming button
+  ):not(:disabled):active {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  transition-duration: 0s;
+}
+
+:is(
+    .close-prompt-buttons button,
+    .image-name-buttons button,
+    .insert-table-buttons button,
+    .tutorial-btn,
+    .language-welcome-continue,
+    .inline-chat-action,
+    .update-toast button,
+    .inline-chat-send
+  ):is(
+    .close-prompt-primary,
+    .image-name-primary,
+    .insert-table-primary,
+    .tutorial-btn-primary,
+    .language-welcome-continue,
+    .inline-chat-action-primary,
+    .update-toast-primary,
+    .inline-chat-send
+  ):not(:disabled):active {
+  border-color: color-mix(in srgb, var(--chrome-primary) 80%, #000);
+  background: color-mix(in srgb, var(--chrome-primary) 80%, #000);
+  transition-duration: 0s;
 }
 
 /* Icon buttons: no frame, a muted glyph that darkens on hover. Compact
@@ -284,6 +358,45 @@
   ):not(:disabled):hover {
   background: color-mix(in srgb, currentColor 10%, transparent);
   color: var(--editor-text);
+  transition-duration: var(--dur-instant);
+}
+
+:is(
+    .inline-chat-header-button,
+    .quick-ask-pending-nav-button,
+    .tree-tool,
+    .icon-button,
+    .inline-chat-attach,
+    .inline-chat-web-search
+  ):not(:disabled):active {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  transition-duration: 0s;
+}
+
+/* A touch screen has no hover to give way to: the pressed button also
+   dims, as an iOS button does while a finger is on it. */
+@media (hover: none) {
+  :is(
+      .close-prompt-buttons button,
+      .image-name-buttons button,
+      .insert-table-buttons button,
+      .tutorial-btn,
+      .text-button,
+      .inline-chat-action,
+      .update-toast button,
+      .draft-restored-toast button,
+      .project-bar-naming button,
+      .inline-chat-header-button,
+      .quick-ask-pending-nav-button,
+      .tree-tool,
+      .icon-button,
+      .inline-chat-attach,
+      .inline-chat-web-search,
+      .inline-chat-send,
+      .language-welcome-continue
+    ):not(:disabled):active {
+    opacity: 0.6;
+  }
 }
 
 /* Selects: one look - a drawn chevron in place of the native arrow - in
@@ -319,6 +432,79 @@
     var(--editor-muted) 45%,
     var(--editor-border, var(--border-color))
   );
+}
+
+/* Dialogs: the dimming fades in while the card grows out of the middle;
+   closing, the two go together, a little faster. Settings (a larger card)
+   and the phone's alert move their own way. */
+:is(.close-prompt-overlay, .image-name-overlay, .insert-table-overlay) {
+  animation: motion-fade-in var(--dur-base) var(--ease-standard);
+}
+
+:is(.close-prompt, .image-name-dialog, .insert-table-dialog) {
+  animation: motion-dialog-in var(--dur-base) var(--ease-out);
+}
+
+:is(
+  .close-prompt-overlay,
+  .image-name-overlay,
+  .insert-table-overlay
+)[data-state="closing"] {
+  animation: motion-fade-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+:is(
+    .close-prompt-overlay,
+    .image-name-overlay,
+    .insert-table-overlay
+  )[data-state="closing"]
+  > * {
+  animation: motion-shrink-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* Toasts rise from the bottom edge they live on and sink back into it. */
+:is(.ai-notice, .update-toast, .draft-restored-toast) {
+  animation: motion-rise-in var(--dur-base) var(--ease-out);
+}
+
+:is(.ai-notice, .update-toast, .draft-restored-toast)[data-state="closing"] {
+  animation: motion-sink-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* Rows in menus and lists: the highlight arrives in 80ms and leaves at
+   once, so a pointer running down a list leaves no trail behind it. */
+:is(
+  .app-menu-item,
+  .context-menu-item,
+  .project-bar-menu button,
+  .quick-ask-split-menu-item,
+  .ui-select-option,
+  .combobox-option,
+  .inline-chat-skill-item,
+  .tree-row,
+  .clipboard-entry,
+  .chat-history-entry,
+  .sidebar-tab,
+  .settings-nav-item
+) {
+  transition: background-color 0s;
+}
+
+:is(
+  .app-menu-item,
+  .context-menu-item,
+  .project-bar-menu button,
+  .quick-ask-split-menu-item,
+  .ui-select-option,
+  .combobox-option,
+  .inline-chat-skill-item,
+  .tree-row,
+  .clipboard-entry,
+  .chat-history-entry,
+  .sidebar-tab,
+  .settings-nav-item
+):is(:hover, :focus-visible, .is-active, .inline-chat-skill-item-active) {
+  transition: background-color var(--dur-instant) var(--ease-standard);
 }
 
 /* Menus: the app menu, the context menu, the project bar's and Quick

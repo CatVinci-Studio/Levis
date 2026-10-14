@@ -44,8 +44,16 @@
     padding: 0;
     overflow: hidden;
     border: none;
-    border-radius: 14px;
+    border-radius: var(--radius-dialog);
     text-align: center;
+    animation: motion-alert-in var(--dur-medium) var(--ease-out);
+  }
+
+  /* Dismissed, it only fades - with the dimming behind it. */
+  :root[data-window-chrome="mobile"]
+    .close-prompt-overlay[data-state="closing"]
+    > .app-dialog {
+    animation: none;
   }
 
   /* The title is the alert's question, not a coloured label: iOS never
@@ -112,6 +120,9 @@
     color: var(--editor-accent);
     font-size: 17px;
     font-weight: 400;
+    opacity: 1;
+    /* iOS's highlight: on at the touch, fading out after it. */
+    transition: background-color var(--dur-base) var(--ease-standard);
   }
 
   :root[data-window-chrome="mobile"]
@@ -119,6 +130,7 @@
     .close-prompt-buttons
     button:active {
     background: color-mix(in srgb, var(--editor-text) 8%, transparent);
+    transition-duration: 0s;
   }
 
   :root[data-window-chrome="mobile"]
@@ -160,7 +172,13 @@
     min-width: 0;
     max-width: calc(100vw - 16px);
     padding: 0;
-    border-radius: 14px;
+    border-radius: var(--radius-dialog);
+  }
+
+  /* Out of the menu button on a spring, as UIMenu opens. */
+  :root[data-window-chrome="mobile"] .app-menu > .app-menu-list {
+    animation-duration: var(--dur-medium);
+    animation-timing-function: var(--ease-spring);
   }
 
   :root[data-window-chrome="mobile"] .app-menu-item {
@@ -205,8 +223,14 @@
     background: none;
   }
 
+  /* iOS's highlight: on at the touch, fading out after it. */
+  :root[data-window-chrome="mobile"] .app-menu-item {
+    transition: background-color var(--dur-base) var(--ease-standard);
+  }
+
   :root[data-window-chrome="mobile"] .app-menu-item:not(:disabled):active {
     background: color-mix(in srgb, var(--editor-text) 8%, transparent);
+    transition-duration: 0s;
   }
 
   /* ---- Find and replace (editor/FindReplaceBar.tsx): a bar across the

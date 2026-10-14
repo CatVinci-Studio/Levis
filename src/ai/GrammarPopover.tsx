@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import { useViewportClamp } from "../utils/useViewportClamp";
+import { usePresenceProps } from "../ui/usePresence";
 import "./GrammarPopover.css";
 
 export interface GrammarPopoverInfo {
@@ -37,11 +38,17 @@ export function GrammarPopover({
 }: GrammarPopoverProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(rootRef, info.x, info.y);
+  const presence = usePresenceProps(rootRef);
+  // It grows out of the underline it explains: from its top edge, or its
+  // bottom one when the window's edge pushed it up over the line.
+  const origin = {
+    "--transform-origin": `${Math.max(0, info.x - pos.left)}px ${pos.top < info.y - 0.5 ? "100%" : "0"}`,
+  } as CSSProperties;
   return (
     <div
-      ref={rootRef}
+      {...presence}
       className="grammar-popover floating-surface"
-      style={pos}
+      style={{ ...pos, ...origin }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >

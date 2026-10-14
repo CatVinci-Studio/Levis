@@ -219,6 +219,9 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* Fades in once, when "/" opens it; narrowing it as the name is typed
+     changes nothing about it but its rows. */
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
 }
 
 .inline-chat-skill-item {
@@ -669,6 +672,12 @@
   right: 0;
   z-index: 10;
   white-space: nowrap;
+  transform-origin: top right;
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.quick-ask-split-menu[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .quick-ask-split-menu-item {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useModalDialog } from "../ui/useModalDialog";
+import { usePresenceProps } from "../ui/usePresence";
 import "./InsertTableDialog.css";
 
 interface InsertTableDialogProps {
@@ -25,6 +26,7 @@ export function InsertTableDialog({
   const [cols, setCols] = useState("3");
 
   const modal = useModalDialog(onClose);
+  const presence = usePresenceProps<HTMLDivElement>();
   const rowCount = Number(rows);
   const columnCount = Number(cols);
   const validRows =
@@ -40,7 +42,7 @@ export function InsertTableDialog({
   }
 
   return (
-    <div className="insert-table-overlay" onClick={onClose}>
+    <div {...presence} className="insert-table-overlay" onClick={onClose}>
       <div
         {...modal}
         role="dialog"
