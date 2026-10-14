@@ -719,7 +719,6 @@ function App() {
     newDocumentMode: settings.newDocumentMode,
     language: settings.language,
     onboardingShown: settings.onboardingShown,
-    updateTab,
     setTabs,
     setDraftsRestoredCount,
     markOnboardingShown: () => setSettings({ onboardingShown: true }),
