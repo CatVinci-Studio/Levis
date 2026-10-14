@@ -15,7 +15,7 @@ uses the names of [AI-CONCEPTS.md](AI-CONCEPTS.md) (PR #42): the UI and the
 in-app guide in en, zh and ja, and the agent's prompt, which is told the
 same names, the project menu's items and the Settings rows, and what each
 thing is (`agent.rs`'s `workspace_section`; unit tests check every label it
-quotes against `src/i18n/strings.ts`). The eval's case ids keep their
+quotes against `src/i18n/locales/`). The eval's case ids keep their
 round-2 groups so runs stay comparable: `workspace/` is the project folder,
 `agentmd/` the writing instructions, `style/` the style profile and "Learn
 my style".

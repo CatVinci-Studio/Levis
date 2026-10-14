@@ -608,7 +608,7 @@ pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
 /// "Learn my style": the prompt that drafts the style profile from samples.
 /// The profile is written in the samples' language, headings included:
 /// the author reviews and edits it in a tab right afterwards, and the
-/// app's own templates (projectStyleTemplate in src/i18n/strings.ts) use
+/// app's own templates (projectStyleTemplate in src/i18n/locales/) use
 /// the same headings in each UI language. The round-2 eval found
 /// Chinese samples profiled in English bullets - the earlier prompt fixed
 /// English headings, gave only English examples and mentioned the language

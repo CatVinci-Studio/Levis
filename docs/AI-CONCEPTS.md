@@ -7,7 +7,7 @@ bar, the help guides (`src/help/agent-guide.*.md`), the READMEs, the prompts
 the model sees and the code comments - uses these names and definitions.
 Change a concept here first, then everywhere else.
 
-The AI itself is `AI_NAME` in `src/i18n/strings.ts` ("Levis AI" until the
+The AI itself is `AI_NAME` in `src/i18n/names.ts` ("Levis AI" until the
 Textus rename); the help guides spell the name out.
 
 "Conversation" below means the AI panel and Quick Ask, which run the same
@@ -208,13 +208,15 @@ part of the project.
   says which project folder is in use and why, describes each concept in
   English with the project menu's items, the **Style** chip and the
   Settings rows that make and open it (and what reaches completion), and
-  hands over the Chinese and Japanese names as a table (`UI_NAMES`), to be
-  used only in the user's language, so its answers point at labels that
-  exist. Without a project folder it names only the Settings row: the
-  project bar isn't shown then. Unit tests check every name in the table
-  against `src/i18n/strings.ts` (or, for "project menu", the help guides),
-  and the "Learn my style" headings against the templates; the live eval's
-  `concept/` cases check the replies.
+  hands over the same names in the user's UI language as a table
+  (`src-tauri/src/ai/ui-names/<code>.txt`, only that one language), to be
+  used when replying in it, so its answers point at labels that exist.
+  Without a project folder it names only the Settings row: the project bar
+  isn't shown then. Unit tests check every name in each table against that
+  language's strings (`src/i18n/locales/<code>.ts`) or, for "project menu",
+  its help guide, and the "Learn my style" headings
+  (`src-tauri/src/ai/style-headings/<code>.txt`) against the starter
+  profiles; the live eval's `concept/` cases check the replies.
 
 ## Names in code
 

@@ -4,8 +4,8 @@ import { openApp, PHONE, openPhone } from "./helpers";
 // The Settings panel: the AI page's layout and the focus/state bugs fixed
 // with it.
 
-// The English labels these tests look for, as in src/i18n/strings.ts (the
-// e2e project can't import it). AI_NAME is the one name that changes at
+// The English labels these tests look for, as in src/i18n/locales/en.ts
+// (the e2e project can't import it). AI_NAME is the one name that changes at
 // the Textus rename.
 const AI_NAME = "Levis AI";
 const t = {
