@@ -127,8 +127,9 @@ describe("file-backed settings", () => {
     expect(loadSettings().theme).toBe("dark");
   });
 
-  it("debounces keystroke-heavy fields", () => {
-    vi.useFakeTimers();
+  it("sends every keystroke at once, so a quick quit can't lose it", () => {
+    // Rust coalesces the disk writes and flushes on exit; a debounce here
+    // lost whatever was typed in the last moments before Cmd+Q.
     boot({ languageChosen: true });
     render(
       <SettingsProvider>
@@ -138,14 +139,11 @@ describe("file-backed settings", () => {
     act(() => lastSet({ customCss: "/* a */" }));
     act(() => lastSet({ customCss: "/* ab */" }));
     act(() => lastSet({ customCss: "/* abc */" }));
-    expect(storage.settingsPatch).not.toHaveBeenCalled();
-    // ...but the rest of the app sees the change at once.
-    expect(loadSettings().customCss).toBe("/* abc */");
-    act(() => vi.advanceTimersByTime(500));
-    expect(storage.settingsPatch).toHaveBeenCalledTimes(1);
-    expect(storage.settingsPatch).toHaveBeenCalledWith({
+    expect(storage.settingsPatch).toHaveBeenCalledTimes(3);
+    expect(storage.settingsPatch).toHaveBeenLastCalledWith({
       customCss: "/* abc */",
     });
+    expect(loadSettings().customCss).toBe("/* abc */");
   });
 
   it("applies other windows' changes, except zoom and its own echo", () => {

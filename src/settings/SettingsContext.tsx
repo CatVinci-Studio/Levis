@@ -409,18 +409,6 @@ function writeLocalSettings(patch: Raw) {
 // wins when). Without it, localStorage, as before the move.
 // ---------------------------------------------------------------------------
 
-/** Fields edited keystroke by keystroke: their writes to Rust wait for a
- *  pause in the typing. Every other change goes out at once. */
-const DEBOUNCED_FIELDS = new Set<string>([
-  "customCss",
-  "proxyHost",
-  "proxyPort",
-  "imageUploadEndpoint",
-  "imageUploadUrlField",
-  "agentWorkspaceRoot",
-]);
-const DEBOUNCE_MS = 400;
-
 /** Mirrors SettingsChanged in src-tauri/src/settings.rs. */
 interface SettingsChanged {
   rev: number;
@@ -431,8 +419,6 @@ interface SettingsChanged {
 let sync: SettingsSync | null = null;
 let normalised: { raw: Raw; settings: Settings } | null = null;
 const remoteListeners = new Set<() => void>();
-let delayed = new Map<string, number>();
-let delayTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** The file-backed store, set up on first use; null without Rust. */
 function fileStore(): SettingsSync | null {
@@ -475,8 +461,6 @@ function fileStore(): SettingsSync | null {
     delete shared.zoom;
     if (sync.remote(shared, rev)) notifyRemote();
   });
-  // Typing that hasn't paused yet when the window goes away.
-  window.addEventListener("pagehide", flushDelayed);
   return sync;
 }
 
@@ -508,15 +492,14 @@ function send(ticket: Map<string, number>) {
   );
 }
 
-function flushDelayed() {
-  clearTimeout(delayTimer);
-  if (delayed.size === 0) return;
-  const ticket = delayed;
-  delayed = new Map();
-  send(ticket);
-}
-
-/** Saves the fields in `patch` that differ from what's stored. */
+/** Saves the fields in `patch` that differ from what's stored.
+ *
+ *  Every change goes to Rust at once, keystrokes in Custom CSS included:
+ *  Rust holds it in memory, coalesces the disk writes (FLUSH_DELAY in
+ *  settings.rs) and writes whatever is pending when the app exits. A
+ *  debounce here lost the last keystrokes of a quick Cmd+Q, window close or
+ *  Dock Quit on macOS: the window was gone before the timer fired, and a
+ *  flush from pagehide didn't reach Rust either. */
 function persist(patch: Partial<Settings>) {
   const store = fileStore();
   if (!store) {
@@ -532,16 +515,7 @@ function persist(patch: Partial<Settings>) {
       changed[key] = value;
   }
   if (Object.keys(changed).length === 0) return;
-  const now = new Map<string, number>();
-  for (const [key, seq] of store.local(changed)) {
-    if (DEBOUNCED_FIELDS.has(key)) delayed.set(key, seq);
-    else now.set(key, seq);
-  }
-  if (now.size > 0) send(now);
-  if (delayed.size > 0) {
-    clearTimeout(delayTimer);
-    delayTimer = setTimeout(flushDelayed, DEBOUNCE_MS);
-  }
+  send(store.local(changed));
 }
 
 /** Calls `fn` whenever another window (or a re-read) changes the settings.
@@ -577,8 +551,6 @@ export function resetSettingsStoreForTests(): void {
   sync = null;
   normalised = null;
   remoteListeners.clear();
-  clearTimeout(delayTimer);
-  delayed = new Map();
 }
 
 /// Optional-called: an environment without matchMedia (jsdom, an odd
