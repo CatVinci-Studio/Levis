@@ -105,6 +105,7 @@ import {
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
+import { isRefusal } from "../ai/proposal-status";
 import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
@@ -514,6 +515,11 @@ export function MilkdownEditor({
   // ProposalStream machine (proposal-stream.ts); this component only wires
   // its effects to the editor. Gated on the animation setting: off means
   // previews appear complete, at once.
+  // propose_edit call ids awaiting their tool result, and what a refused
+  // one does: the preview goes (reject is stable per editor; the model
+  // never hears this status - annotateProposalStatuses skips refusals).
+  const proposalCallIds = useRef(new Set<string>());
+  const discardRefused = pendingEdits.reject;
   const proposalStream = useMemo(
     () =>
       new ProposalStream({
@@ -533,6 +539,25 @@ export function MilkdownEditor({
   );
   const handleStreamEvent = useCallback(
     (event: StreamEvent) => {
+      // A propose_edit the backend refused (tools.rs: a cut-off `text`)
+      // may already be on screen - streamed, or placed from its call turn
+      // a moment before this result arrived. The model resends it; this
+      // copy must go, with or without animation.
+      if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolCall" &&
+        event.turn.name === "propose_edit"
+      )
+        proposalCallIds.current.add(event.turn.call_id);
+      if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolResult" &&
+        proposalCallIds.current.has(event.turn.call_id)
+      ) {
+        proposalCallIds.current.delete(event.turn.call_id);
+        if (isRefusal(event.turn.output)) discardRefused(event.turn.call_id);
+        return;
+      }
       // Reduced motion renders widgets instantly, so streamed drafts would
       // create animation entries nothing ever reveals (or settles).
       if (!settingsRef.current.enableEditAnimation || prefersReducedMotion())
@@ -550,7 +575,7 @@ export function MilkdownEditor({
     },
     // settingsRef is a stable ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [proposalStream],
+    [proposalStream, discardRefused],
   );
   // Owned here rather than by the popup so a completed exchange can be saved
   // to history when the popup closes. Every ordinary NEW open resets it;

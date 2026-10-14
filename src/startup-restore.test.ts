@@ -190,6 +190,49 @@ describe("startup restore into the initial tab", () => {
     ]);
   });
 
+  // After a crash the session reopens the files that were open, and the
+  // drafts hold their unsaved edits: each document must open once, edits
+  // and all, not as a saved tab beside a recovered copy.
+  it("opens a reopened session file once, with its recovered edits", async () => {
+    ipc.takePendingOpenPaths.mockResolvedValue([
+      "/docs/a.md",
+      "/docs/b.md",
+      "/docs/c.md",
+    ]);
+    ipc.takeDraftSnapshots.mockResolvedValue([
+      { tabId: "old-a", path: "/docs/a.md", content: "a, unsaved" },
+      { tabId: "old-b", path: "/docs/b.md", content: "b, unsaved" },
+    ]);
+    const { tabs, openPathInTab } = await restore("tab");
+    await waitFor(() =>
+      expect(openPathInTab).toHaveBeenCalledWith("/docs/c.md"),
+    );
+    expect(openPathInTab).toHaveBeenCalledTimes(1);
+    expect(tabs()).toEqual([
+      expect.objectContaining({
+        id: "initial",
+        path: "/docs/a.md",
+        content: "a, unsaved",
+        savedContent: "# /docs/a.md\n",
+        reloadKey: 1,
+      }),
+      expect.objectContaining({ path: "/docs/b.md", content: "b, unsaved" }),
+    ]);
+  });
+
+  it("and so does a window opened for one file", async () => {
+    ipc.takePendingOpenPath.mockResolvedValue("/docs/a.md");
+    ipc.takeDraftSnapshots.mockResolvedValue([
+      { tabId: "old-a", path: "/docs/a.md", content: "a, unsaved" },
+    ]);
+    const { tabs, openFile } = await restore("window");
+    await waitFor(() => expect(tabs()[0].path).toBe("/docs/a.md"));
+    expect(openFile).not.toHaveBeenCalled();
+    expect(tabs()).toEqual([
+      expect.objectContaining({ id: "initial", content: "a, unsaved" }),
+    ]);
+  });
+
   it("leaves the initial tab alone when nothing claims it", async () => {
     const { tabs, openFile } = await restore("window");
     await waitFor(() => expect(ipc.takePendingOpenPath).toHaveBeenCalled());

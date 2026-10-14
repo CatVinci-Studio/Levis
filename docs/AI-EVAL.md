@@ -436,6 +436,199 @@ one-hour lifetime doubles the write price).
 
 ## Results
 
+### Round 4: built-in skills and the rules engine, judged and fixed (run4, run4-fix)
+
+**What round 4 added.** The 18 built-in writing skills with their reference
+packs (`src-tauri/src/ai/skills/`, the `agent-builtin` suite above: 76
+skill and routing cases), and the deterministic writing-rules engine
+(`src-tauri/src/ai/rules/`), which now runs in the grammar check, in the
+agent's read-only `check_conventions` and `measure_text` tools, in
+completion and proposal post-processing (`rules::postfix`), and in the
+eval as the `conventions_clean` check. The `agent` matrix grew to 158 cases
+(the style, library, skill and concept cases of round 3).
+
+**The run.** Every suite once, with the subagent judge reading every row:
+the `agent` matrix twice on Sonnet 5.5 (passes A and B, same prompts, to
+see the run-to-run spread) and once on Haiku 5.5, `agent-builtin` split
+into the skill cases and the routing cases, completion and grammar on
+Haiku 5.5. Run4 cost $9.43 at list prices.
+
+| Suite           | Rows | Good | Acceptable | Bad | Automatic checks all passed |
+| --------------- | ---: | ---: | ---------: | --: | --------------------------: |
+| agent, Sonnet A |  158 |  122 |         34 |   2 |                         156 |
+| agent, Sonnet B |  158 |  130 |         24 |   4 |                         156 |
+| agent, Haiku    |  158 |  118 |         34 |   6 |                         147 |
+| builtin         |   54 |   38 |         15 |   1 |                     44 / 76 |
+| builtin-route   |   22 |   15 |          6 |   1 |                          19 |
+| completion      |  105 |   62 |         32 |  11 |                          99 |
+| grammar         |   61 |   56 |          2 |   3 |                          59 |
+
+(builtin: 54 rows judged; the other 22 skill rows had stopped at the
+budget guard, `budget` check, and say nothing about the prompts.)
+
+**Sonnet A against B.** The same prompts gave 122 and 130 good rows: about
+eight rows move between good and acceptable from one pass to the next, so
+a difference of that size between two runs is noise. What both passes got
+wrong is the signal: the two cross-language cases (an English question
+about a Chinese or Japanese document answered in the document's language)
+were not good in both, and so were the "make it vivid, don't invent"
+essay, product copy turned into bullets, the summarised dialogue in the
+library case, the profile that turned a first-person account into "you",
+and a Chinese shortening that only swapped words of the same length.
+
+**Haiku against Sonnet.** Haiku scored only a little lower (118 good, 6
+bad) at about a fifteenth of the price ($0.18 against $2.46-3.09 per pass).
+Its failures cluster where Sonnet's don't: the reply language (English
+replies to Chinese requests whenever a style profile was in the context -
+five cases), claims about its own work that weren't true (comments it
+never left, an eight-word title of nine words, "no new facts" over an
+invented scene), refusing to reason one step past the text (task/expand),
+and translation inserted beside the original instead of replacing it.
+
+**Root causes and fixes (fix/creative-eval).** Grouped by the layer each
+lives in; every deterministic change has a unit test.
+
+- **Reply language (prompt, per turn).** The system prompt's rule lost to
+  the document's language when a short request came with a CJK document.
+  `agent::request_user_text` now heads the user's message with the
+  language they typed it in, detected by `rules::detect` on what they
+  typed - not the selection, the cursor's text, attached files or an
+  expanded skill: `---the user's message (written in English: reply in
+English, unless the user instructions set a reply language)---`.
+  Simplified and Traditional Chinese are named apart (a Simplified request
+  to convert a report got a Traditional reply).
+- **Broken proposals (tool + frontend).** `propose_edit` refuses a
+  replace whose `text` is one short Latin token for a CJK clause (Sonnet
+  sent `"due"` for a 26-character apology, then could only ask the user to
+  reject it), and a second proposal for a passage the same reply already
+  changes (Sonnet sent the same French proofreading twice). A refused call
+  never reaches the editor: `proposal-status.ts`'s `refusedProposalIds`
+  keeps it out of the previews and the chat cards, `MilkdownEditor`
+  removes a preview already streamed when its result refuses it, and
+  `annotateProposalStatuses` never stamps a status on a refusal (a
+  Playwright test streams one refused and one valid call).
+- **Counts the user can't check (tool).** The proposal's size note counted
+  ideographs only while `measure_text` counted punctuation too, and a
+  reply told the user the two disagreed and to count again. The note now
+  counts as `measure_text` does and says it is not for the user; the
+  prompt allows a count only from a tool.
+- **French no-break spaces (rules engine + post-processing).** Told the
+  exact character, the model still typed ordinary spaces and told the user
+  it had put in no-break ones. When the user chose a French profile
+  (Settings or the style profile's `conventions:`), proposal
+  post-processing now applies `fr.space.high-punct` and
+  `fr.num.symbol-space` - only the kind of space changes; `85 %` with an
+  ordinary space is now a `fr.num.symbol-space` finding; `check_conventions`
+  judges a draft as it will be proposed (after post-processing), and says
+  how to write the two spaces in JSON.
+- **Agent prompt (`AGENT_ROLE`).** Replies check what they say against the
+  proposed text, give counts only from a tool, never claim comments, edits
+  or checks that didn't happen, and never describe how many proposals there
+  are ("apply both"); the first words answer the question (the old
+  instruction quoted the very preamble it banned, "这是个问题…", and the
+  model kept writing it). Editing: an already tight or natural passage gets
+  at most a light change and a word saying so; "cut the clichés" replaces
+  them; bullets and selling points are rewritten as short parallel items;
+  a summary condenses; a length the user gives is the length; a
+  translation replaces the passage. Facts: with "don't invent" or in a true
+  account (essay, memoir, report), "implied" detail means no new action,
+  object, sound or smell; the plain consequence of what is stated is not
+  invention; your own idea is never the author's plan; in fiction, a
+  conversation asked for is written as dialogue, and library facts shape
+  what characters do instead of being recited as backstory.
+- **The app's own names (prompt).** The skill index gives each built-in
+  skill its name in the user's UI (`continuity [/检查前后一致 in their
+UI]`: the agent had invented "the 连续性 skill"); the project section
+  says where completion is switched on and its tone set (new ui-names
+  lines in all ten languages: Writing Assistance, Enable AI completion,
+  Completion tone), how library aliases are written, and that a request
+  for a skill starts from a built-in one and Customize….
+- **Style profile.** "Learn my style" checks each bullet against every
+  sample, writes content habits ("the pieces speak to 'you'") as habits,
+  not rules, keeps the Never list to what no sample does, and doesn't wrap
+  quoted examples in a second pair of quotes. The profile's header in the
+  request says a habit of "you" never turns the author's own account into
+  the reader's, and `imitate-style` keeps a first-person account first
+  person.
+- **Skills.** `minutes`: a Discussion section for feedback that is neither
+  decided nor assigned, and the header and owners even when the notes are
+  already sectioned. `social-post`: the source document is kept and the
+  post inserted after it unless the document is a draft of the post; no
+  platform named means a general version counted in characters.
+  `translate`: a Simplified/Traditional conversion changes script and
+  regional vocabulary only. `summarize`: "in N lines" is N sentences.
+- **Completion (post-processing + prompt).** A suggestion with a figure
+  the surrounding text doesn't have is dropped (Haiku wrote "返回 200" and
+  a library's opening hours); a reply wrapped whole in ASCII quotes around
+  CJK text loses them; a reply that reasons and then restates its first
+  line keeps that line (the `率` table cell). The prompt says the word at
+  the cursor may already be complete, a cut-off word is finished as the
+  sentence needs, a letter is written from the writer's side, and verse
+  keeps its line length. The casual and concise tone directives say
+  concretely what changes (`completion-style.ts`).
+- **Grammar (prompt).** Terms in another script don't exempt the grammar
+  around them, and each corrected sentence is reread whole so a fix
+  doesn't trade one error for another.
+- **Checker.** `task/summary-into-doc` failed a correct summary that began
+  with the intro's own words; `ja/typo/standard` accepted
+  「面白かったでした」 (now it wants 「面白かったです」 or 「面白かった」);
+  `process_talk` flags replies that describe how proposals fit together.
+
+**Re-run (run4-fix, automatic checks only).** Only the affected cases,
+`LEVIS_EVAL_JUDGE=0`, outputs read by hand:
+
+| Run                                  | Cases |               All checks passed | Before (same cases) |
+| ------------------------------------ | ----: | ------------------------------: | ------------------: |
+| agent, Sonnet (31 affected cases)    |    31 |                              31 |      29 (A), 29 (B) |
+| agent, Haiku (the same 31)           |    31 |                              28 |                  20 |
+| agent-builtin (11 affected)          |    11 | 8; 10 after two follow-up fixes |                   2 |
+| completion (whole suite, last run)   |   105 |                              97 |                  99 |
+| grammar (whole suite, last of three) |    61 |                              59 |                  59 |
+
+Read by hand: both cross-language cases now reply in English; the formal
+Chinese email has a real apology where "due" was; the 100-character post's
+reply no longer mentions the tool's count; the library case writes the
+exchange as dialogue; the vivid essay adds nothing the text doesn't have;
+bullets have short parallel leads; "/检查前后一致" and the completion
+setting are named correctly; the French proofreading lands with U+202F
+and U+00A0 and the reply's claim is true; Haiku's Chinese style cases reply
+in Chinese. Completion's lower count is the figure guard at work: four
+suggestions that invented a figure are now empty instead (`non-empty`
+fails where `no new figures` failed before); the echo-only headings
+(`es/heading`, `ru/heading`), the cut-off "co" and the table cell are
+fixed in most runs. Grammar is unchanged on the checks; its two persistent
+misses are Haiku's (below).
+
+**Spend.** Run4 $9.43; the fixes' re-runs $2.00 (agent Sonnet $0.97,
+agent Haiku $0.05, agent-builtin $0.91, completion and grammar $0.07 over
+six runs). Ledger total after round 4: $28.80 of the $29 cap
+(`levis-shots/ai-eval/spend.json`).
+
+**Still weak after round 4.**
+
+- Haiku drops a reply language that comes from the writing instructions
+  (global agent.md "always reply in English" with a Chinese request) - the
+  per-turn header names the message's language and Haiku follows it over
+  the instructions; Sonnet doesn't. Haiku also still declines to reason one
+  step past the text (task/expand asks for the staffing fact instead of
+  writing the inference).
+- Completion still invents causes and findings that carry no figure ("the
+  main driver was the faster first-response time", "这一担忧在不同年龄段
+  的居民中都较为普遍"); the figure guard can't see those. Echo-only replies
+  for a whole word at the cursor (`ru/heading`, "to" in a list item) still
+  happen on some runs and show nothing.
+- Grammar on Haiku misses "find it" for plural notes next to a Chinese
+  term, Russian о → об before a vowel, and the でした after an
+  i-adjective's past form - each needs the explicit rule in the prompt,
+  which in turn pulled explanations into the example's language, so it was
+  left out.
+- `imitate-style` with a second-person profile still keeps a third-person
+  methods paragraph in the third person ("you" would say the reader did
+  it); the rubric wants "you". Whether that is right is a product call.
+- Replies still sometimes list what was kept ("日期、时间、地点都没动")
+  against the prompt, and still mention their own carefulness ("I added no
+  new details").
+
 ### Round 2 integration, judged and fixed (run3-fix)
 
 Subagent judges graded run3 with round 1's rubric - a verdict (good /
@@ -896,6 +1089,10 @@ the after-run still shows the scope and particle misses.
 
 ## Changes made
 
+### Round 4
+
+Listed with the results they came from: Results > Round 4 (root causes and fixes).
+
 ### Round 2
 
 Grouped by root cause, each fixed at the layer where it lives. Every
@@ -1098,6 +1295,8 @@ never hit, and latency was acceptable (agent median ~5 s per request,
 completion ~1.1 s).
 
 ## Remaining weaknesses
+
+Round 4's are listed at the end of Results > Round 4; those below are from rounds 1-2 and still apply where not noted otherwise.
 
 - **Completion, cut-off words**: when the model goes on mid-word without
   writing the word out ("docu" + "ument"), the join shows nothing rather

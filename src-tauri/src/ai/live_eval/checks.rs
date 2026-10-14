@@ -1133,6 +1133,21 @@ pub fn process_talk(reply: &str) -> Option<String> {
     if let Some(t) = tools.iter().find(|t| lower.contains(*t)) {
         return Some(t.to_string());
     }
+    // How the proposals fit together is the app's business: "two edits:
+    // one inserts..., apply both so the list doesn't end up with a
+    // duplicate" (round 4, tech/en/add-step) worried the user for nothing.
+    let mechanics = [
+        "apply both",
+        "accept both",
+        "both edits",
+        "both proposals",
+        "两处都",
+        "两条都",
+        "两处修改都",
+    ];
+    if let Some(m) = mechanics.iter().find(|m| lower.contains(*m)) {
+        return Some(m.to_string());
+    }
     let chars: Vec<char> = lower.chars().collect();
     for i in 0..chars.len() {
         let digits = |from: usize| -> String {
@@ -1372,6 +1387,10 @@ more"
         assert_eq!(
             process_talk("I'll call propose_edit").as_deref(),
             Some("propose_edit")
+        );
+        assert_eq!(
+            process_talk("This is done as two edits. Apply both so nothing doubles.").as_deref(),
+            Some("apply both")
         );
         assert_eq!(process_talk("The deadline moved online 3 times."), None);
         assert_eq!(process_talk("Streamline 2024 plans."), None);

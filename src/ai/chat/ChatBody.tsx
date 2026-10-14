@@ -24,6 +24,7 @@ import {
   type QuickAskPendingBarLabels,
 } from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
+import { refusedProposalIds } from "../proposal-status";
 import { toolActivityText } from "../AgentTurnView";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
@@ -150,8 +151,10 @@ interface QuickReview {
  *  expect. Shared by the settled afterSend path and the live streamed-turn
  *  path so the two can't drift. */
 function proposalsFromTurns(turns: AgentTurn[]) {
+  const refused = refusedProposalIds(turns);
   return turns.flatMap((turn) => {
     if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
+    if (refused.has(turn.call_id)) return [];
     const proposal = parseProposal(turn.arguments);
     return proposal ? [{ callId: turn.call_id, proposal }] : [];
   });

@@ -29,7 +29,7 @@ metadata:
 # Social post
 
 ## Scope
-- The draft, notes or article in the selection, named passage or document, and the platform the user names. If no platform is named, ask once, or write one general version under 280 characters.
+- The draft, notes or article in the selection, named passage or document, and the platform the user names. If no platform is named, ask once, or write one general version under 280 characters (measured with `chars`; don't name a platform the user didn't).
 
 ## Do
 - Hook first: the point in the first line (LinkedIn folds at about 140–210 characters, 微博 at 140). One idea per post. Concrete over hype.
@@ -45,6 +45,6 @@ metadata:
 - Refuse because of an unverified limit (小红书, 微博); warn instead.
 
 ## Deliver
-- Edit mode: replace the draft with the post, or append one version per platform under a short heading when several are asked for.
+- Edit mode: replace the draft with the post when the document is a draft of it; when it is source material (a report, an article, product notes), keep it and insert the post after it under a short heading. Append one version per platform under a short heading when several are asked for.
 - Ask mode: the post in the reply.
 - Reply with the count for each version ("X: 247/280") and any compliance flag in one line each.
