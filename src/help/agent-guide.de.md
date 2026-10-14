@@ -48,7 +48,7 @@ Die vollständige Unterhaltung findet in einem Bereich rechts neben dem Editor s
 Mit <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (oder Rechtsklick > KI fragen…) öffnest du direkt unter dem aktuellen Absatz eine kleine Chatleiste. Sie sitzt im Dokument und schiebt den Text darunter nach unten, statt ihn zu verdecken. War beim Öffnen Text ausgewählt, wird die Auswahl mitgeschickt. Die Schnellfrage öffnet sich im Modus **Bearbeiten**, weil man sie meist an einer Textstelle öffnet, die sich ändern soll („kürze das“); **Fragen** ist in der Modusauswahl nur einen Klick entfernt.
 
 - **Das Tastenkürzel noch einmal**: Drückst du <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> bei geöffneter Leiste, springt der Cursor in ihr Eingabefeld; drückst du es dort noch einmal, schließt sie sich. Auch <kbd>Esc</kbd> schließt sie von überall in der Leiste, und der Cursor kehrt ins Dokument zurück. Sind noch Änderungen offen, wird vor dem Schließen (oder vor einer neuen Unterhaltung) nachgefragt.
-- Die Schnellfrage führt ihre eigene kurze Unterhaltung, getrennt von der des KI-Bereichs und ohne Eintrag im Verlauf. Sie öffnet sich auch, wenn der KI-Bereich offen ist. **In der vollständigen Unterhaltung fortsetzen** (die Schaltfläche in ihrer Ecke) übergibt den Austausch an den KI-Bereich, wo er weitergeht und gespeichert wird. Schalte **Einstellungen > Levis AI > Erweitert > Vollständige Unterhaltungen in eigenem Fenster öffnen** ein, um ihn stattdessen in ein eigenes Fenster zu schicken.
+- Die Schnellfrage führt ihre eigene kurze Unterhaltung, getrennt von der des KI-Bereichs und ohne Eintrag im Verlauf. Sie öffnet sich auch, wenn der KI-Bereich offen ist. **In der vollständigen Unterhaltung fortsetzen** (die Schaltfläche in ihrer Ecke) übergibt den Austausch an den KI-Bereich, wo er weitergeht und gespeichert wird. Schalte **Einstellungen > Levis AI > Erweitert > Vollständige Unterhaltungen in einem eigenen Fenster öffnen** ein, um ihn stattdessen in ein eigenes Fenster zu schicken.
 
 ### 5. Änderungen im Dokument
 
@@ -58,7 +58,7 @@ Der Chat schreibt nie direkt in dein Dokument. Bittest du einen Anbieter, der To
 - **Begründungen**: Jede Vorschlagskarte sagt, warum Levis AI die Änderung vorgenommen hat.
 - **Nur einzelne Sätze**: Schreibt ein Vorschlag mehrere Sätze um, bietet seine Karte **Sätze auswählen (N)** an – hake die gewünschten an und klicke auf **K von N annehmen**.
 - **Am Cursor**: Wenn nichts ausgewählt ist, weiß Levis AI, wo dein Cursor steht – „schreib hier einen Übergang“ fügt also genau dort ein.
-- **Kommentare statt Änderungen**: Bitte um eine Durchsicht („Was ist hier schwach?“), und Levis AI heftet Kommentare an Textstellen, ohne sie zu ändern. Jede Kommentarkarte hat **Im Dokument zeigen**, das die betreffende Stelle auswählt.
+- **Kommentare statt Änderungen**: Bitte um eine Durchsicht („Was ist hier schwach?“), und Levis AI heftet Kommentare an Textstellen, ohne sie zu ändern. Jede Kommentarkarte hat **Im Dokument anzeigen**, das die betreffende Stelle auswählt.
 
 ## Levis AI an dich anpassen
 
