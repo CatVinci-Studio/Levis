@@ -121,8 +121,10 @@ description.**
   a file into the global skills; or by hand in either folder.
 - **Levis AI uses it:** every skill's name and description are listed in
   the system prompt (`---available skills---`) for tool-calling providers;
-  the body arrives through `use_skill`, or at the top of the message when
-  the user types `/name`. Conversations only.
+  the body arrives through `use_skill`, or - when the user types `/name` -
+  already expanded in a `<skill name="...">` block at the top of the
+  message, which the agent follows without loading it again.
+  Conversations only.
 
 ### Global config folder
 
@@ -202,6 +204,12 @@ part of the project.
 - **The files themselves**: the style profile, a new library entry and both
   `agent.md` starters explain themselves in comments, which never reach the
   model.
+- **Levis AI itself**: the agent's prompt (`agent.rs`'s `workspace_section`)
+  says which project folder is in use and why, and names each concept, the
+  project menu's items and the Settings rows as the UI shows them in en, zh
+  and ja, so its answers point at labels that exist. Unit tests check every
+  label it quotes, and the "Learn my style" headings, against
+  `src/i18n/strings.ts`; the live eval's `concept/` cases check the replies.
 
 ## Names in code
 

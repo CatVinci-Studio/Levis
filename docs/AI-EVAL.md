@@ -10,23 +10,28 @@ what is still weak. The suite lives in `src-tauri/src/ai/live_eval.rs` and
 One folder used to go by three names - "project folder" in the AI panel and
 the tools, "Workspace Folder" in Settings, "the document's folder" in the
 prompt - and agent.md by three more, so the agent made up its own ("I'm in
-read-only mode", "I have no tool to open files"). The names below follow the
-concept model of PR #42 (`docs/AI-CONCEPTS.md` there), which brings the UI
-and the in-app guide in line in en, zh and ja; since round 2 the agent is
-told the same names and what each thing is (`agent.rs`'s
-`workspace_section`).
+read-only mode", "I have no tool to open files"). Since 0.9.7 every place
+uses the names of [AI-CONCEPTS.md](AI-CONCEPTS.md) (PR #42): the UI and the
+in-app guide in en, zh and ja, and the agent's prompt, which is told the
+same names, the project menu's items and the Settings rows, and what each
+thing is (`agent.rs`'s `workspace_section`; unit tests check every label it
+quotes against `src/i18n/strings.ts`). The eval's case ids keep their
+round-2 groups so runs stay comparable: `workspace/` is the project folder,
+`agentmd/` the writing instructions, `style/` the style profile and "Learn
+my style".
 
-| Concept                                                      | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                              | Where it lives                                                                                                                 |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Project folder** (项目文件夹; in code, the workspace root) | The one folder Levis AI may read (`list_files`, `read_file`, `search_files`, @-mentions), and whose `.levis/` folder configures the documents in it. The open document's own folder by default (`RootSource::DocumentFolder`), or one the user chose (`Chosen`). An unsaved draft with no chosen folder has none (`None`): no file tools are offered, and the agent says why and how to fix it. A home folder or drive root is never used (`TooBroad`). | The folder row at the top of the AI panel (Choose project folder…), or Settings > Levis AI; resolved by `workspace::load_from` |
-| **Writing instructions** (写作要求, agent.md)                | Standing instructions sent with every conversation: the global ones, then the project's.                                                                                                                                                                                                                                                                                                                                                                | App config `agent/agent.md`; `.levis/agent.md`                                                                                 |
-| **Skills** (技能)                                            | Reusable instructions: the index (name + description) is in the prompt, the body loads with `use_skill` - or arrives already expanded in a `<skill name="...">` block when the user types `/name`. A project skill shadows a global one of the same name.                                                                                                                                                                                               | `agent/skills/*.md`; `.levis/skills/*.md`                                                                                      |
-| **Library** (资料库)                                         | Facts about characters, places and terms. An entry is sent when the request, selection or text around the cursor mentions its name or an alias (`include: detected`), always, or never. It is a constraint on what is written, not text to recite.                                                                                                                                                                                                      | `.levis/library/*.md`                                                                                                          |
-| **Style profile** (文风档案)                                 | How the author writes - voice, sentence rhythm, word choice, punctuation, what they never do - which both the agent and inline completion follow for every document in the project folder. Its concrete limits (sentence length, banned words or punctuation) are rules; its habits apply where they read naturally and never override the request (an expansion still gets longer) or the sense of the text.                                           | `.levis/style.md`                                                                                                              |
-| **Writing-style learning** ("Learn my style", 学习我的文风)  | Drafts the style profile from samples of the author's own writing (`project::learn_style`, `STYLE_INSTRUCTIONS`), in the samples' language, headings included; the author reviews and edits it in a tab. The previous profile is kept as `style.previous.md`.                                                                                                                                                                                           | The folder row's menu in the AI panel                                                                                          |
-| **Completion tone**                                          | A preset register for inline completion only (formal, casual, academic, concise), the same in every document. It sets the register; the style profile is the author's own voice.                                                                                                                                                                                                                                                                        | Settings > Levis AI > Writing Assistance (`completion-style.ts`)                                                               |
-| **Ask / Edit / Plan mode** (询问 / 编辑 / 计划)              | The panel's modes: Ask reads, answers and comments, with no edit tool; Edit can propose edits; Plan writes a plan without editing. An edit asked for in Ask mode gets the text in the reply and a pointer to Edit mode.                                                                                                                                                                                                                                 | The composer's mode picker                                                                                                     |
-| **Quick Ask**                                                | The chat bar under the current paragraph: the same agent and prompt, opened in Edit mode on the selection it captured; each follow-up is sent against that range as mapped through accepted edits.                                                                                                                                                                                                                                                      | Cmd+Shift+K                                                                                                                    |
+| Concept                                                                               | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                            | Where it lives                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Project folder** (项目文件夹 / プロジェクトフォルダー; in code, the workspace root) | The one folder Levis AI may read (`list_files`, `read_file`, `search_files`, @-mentions), and whose `.levis/` folder holds the project's settings. The open document's own folder by default (`RootSource::DocumentFolder`), or one the user chose (`Chosen`). An unsaved draft with no chosen folder has none (`None`): no file tools are offered, and the agent says why and how to fix it. A home folder or drive root is never used (`TooBroad`). | The project menu (the folder name in the bar under the AI panel's header: Choose project folder…), or Settings > Levis AI > Project Folder; resolved by `workspace::load_from` |
+| **Writing instructions** (写作要求 / 執筆の指示, agent.md)                            | Standing rules sent with every conversation: the global ones, then the project's, which win where they conflict (their section says so when both exist).                                                                                                                                                                                                                                                                                              | The global config folder's `agent.md`; `.levis/agent.md` (Edit project writing instructions)                                                                                   |
+| **Skills** (技能 / スキル)                                                            | Reusable instructions: the index (name + description) is in the prompt, the body loads with `use_skill` - or arrives already expanded in a `<skill name="...">` block when the user types `/name`. A project skill shadows a global one of the same name.                                                                                                                                                                                             | `agent/skills/*.md`; `.levis/skills/*.md`                                                                                                                                      |
+| **Library** (资料库 / ライブラリ)                                                     | Facts about characters, places and terms. An entry is sent when the request, selection or text around the cursor mentions its name or an alias (`include: detected`), always, or never. It is a constraint on what is written, not text to recite.                                                                                                                                                                                                    | `.levis/library/*.md` (New library entry…)                                                                                                                                     |
+| **Style profile** (文风档案 / 文体プロファイル)                                       | How the author writes - voice, sentence rhythm, word choice, punctuation, what they never do - which both the agent and inline completion follow for every document in the project folder. Its concrete limits (sentence length, banned words or punctuation) are rules; its habits apply where they read naturally and never override the request (an expansion still gets longer) or the sense of the text.                                         | `.levis/style.md`                                                                                                                                                              |
+| **Learn my style** (学习我的文风 / 文体を学習)                                        | Drafts the style profile from samples of the author's own writing (`project::learn_style`, `STYLE_INSTRUCTIONS`), in the samples' language, with the headings of the app's own template in en, zh and ja; the author reviews and edits it in a tab. The previous profile is kept as `style.previous.md`.                                                                                                                                              | The project menu: Learn my style from samples…                                                                                                                                 |
+| **Global config folder** (全局配置文件夹 / グローバル設定フォルダー)                  | The app's folder for the writing instructions and skills that apply to every document. No style profile or library: those belong to a project.                                                                                                                                                                                                                                                                                                        | `agent/` in the app config dir; Settings > Levis AI > Global Config Folder                                                                                                     |
+| **Completion tone**                                                                   | A preset register for inline completion only (formal, casual, academic, concise), the same in every document. It sets the register; the style profile is the author's own voice.                                                                                                                                                                                                                                                                      | Settings > Levis AI > Writing Assistance (`completion-style.ts`)                                                                                                               |
+| **Ask / Edit / Plan mode** (询问 / 编辑 / 计划; 質問 / 編集 / 計画)                   | The panel's modes: Ask reads, answers and comments, with no edit tool; Edit can propose edits; Plan writes a plan without editing. An edit asked for in Ask mode gets the text in the reply and a pointer to Edit mode.                                                                                                                                                                                                                               | The composer's mode picker                                                                                                                                                     |
+| **Quick Ask**                                                                         | The chat bar under the current paragraph: the same agent and prompt, opened in Edit mode on the selection it captured; each follow-up is sent against that range as mapped through accepted edits.                                                                                                                                                                                                                                                    | Cmd+Shift+K                                                                                                                                                                    |
 
 ## What is evaluated
 
@@ -44,7 +49,7 @@ disabled for completions as in the app).
 
 | Suite        | Cases | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------ | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent`      |   150 | Round 1 (75 cases): **Languages**: one report in en, zh-Hans, zh-Hant, ja, ko, es, fr, de, ru, pt and mixed Chinese/English, each asked a question and asked to tighten a paragraph; requests in a different language from the document; translation (whole paragraph, and a selection). **Markdown**: edit a table cell, add a table row, fix a bug in fenced Python and JS, check off a task (en, ja), add a nested list item, fix display math, add a footnote, shorten a GitHub alert, change a link, edit YAML front matter, raw HTML, a Mermaid diagram, rename a heading, rewrite a paragraph that carries a link, inline math and a footnote ref, change an image's alt text, answer a question about the document. **Agent behaviour**: summarise (in chat, and into the document), expand, rewrite formally, delete a sentence, continue, replace a selection, insert at the cursor (en, zh) and inside a sentence, review with comments (edit mode and ask mode), questions that must not become edits, plan mode, two ambiguous requests, three multi-turn follow-ups (accept then "same again", reject then retry, question then act), agent.md (reply language + spelling; Chinese conventions), the style profile, the library (a fact by alias; character consistency), a `/skill` and a skill matched by description, facts from a project file, one section of a 60k-character document. |
+| `agent`      |   158 | Round 1 (75 cases): **Languages**: one report in en, zh-Hans, zh-Hant, ja, ko, es, fr, de, ru, pt and mixed Chinese/English, each asked a question and asked to tighten a paragraph; requests in a different language from the document; translation (whole paragraph, and a selection). **Markdown**: edit a table cell, add a table row, fix a bug in fenced Python and JS, check off a task (en, ja), add a nested list item, fix display math, add a footnote, shorten a GitHub alert, change a link, edit YAML front matter, raw HTML, a Mermaid diagram, rename a heading, rewrite a paragraph that carries a link, inline math and a footnote ref, change an image's alt text, answer a question about the document. **Agent behaviour**: summarise (in chat, and into the document), expand, rewrite formally, delete a sentence, continue, replace a selection, insert at the cursor (en, zh) and inside a sentence, review with comments (edit mode and ask mode), questions that must not become edits, plan mode, two ambiguous requests, three multi-turn follow-ups (accept then "same again", reject then retry, question then act), agent.md (reply language + spelling; Chinese conventions), the style profile, the library (a fact by alias; character consistency), a `/skill` and a skill matched by description, facts from a project file, one section of a 60k-character document. |
 | `completion` |   105 | Round 1 (43 cases): Every tone preset (default, formal, casual, academic, concise) on English mid-sentence, English long continuation and Chinese after-sentence text; mid-sentence in every matrix language; list item (en, zh), table cell, heading (en, zh), blockquote; a Python code block with the `code block` hint the editor sends (round 2 dropped the old `paragraph`-hint variant); after-text (manual trigger mid-document); three candidates (en, zh); the cursor inside a word (en, fr, de); a nearly empty document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `grammar`    |    61 | Round 1 (26 cases): Each strictness level on real mistakes and on correct text (where any report is a false positive); typos (en, zh, zh-Hant wrong script, ja, ko), grammar (en, zh 的/地, fr, de, es, ru, pt), code tokens / URLs / math / names / dialogue that must be left alone, "typos" mode on a paragraph that also has a grammar mistake, strict mode on wordy text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | model runs   |       | `agent-models`: 17 agent cases (one of each kind) on Haiku 5.5, Sonnet 5.5 and Opus 5.5. `completion-models` / `grammar-models`: both suites on Haiku 5.5 and Sonnet 5.5.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -90,6 +95,10 @@ workspace and writing-style features explicit.
   layers), library facts by alias and a character-consistency check, a
   `/skill` and a skill matched by description, a project skill shadowing a
   global one.
+- **Concepts (added in the 0.9.7 integration, 8 cases)**: questions about
+  the style profile, the library, global and project writing instructions,
+  skills and the project folder, in en, zh and ja; the reply must use the
+  UI's names in the user's language (`concept/`, see Round 2 integration).
 - **Writing-style learning**: "Learn my style" (`learn_style`) run on three
   samples each in zh and en; the profile is checked for the seven sections,
   the samples' language, examples quoted verbatim from the samples (so none
@@ -249,6 +258,84 @@ step with `completion-style.ts`) is unit-tested and runs in CI with
 
 ## Results
 
+### Round 2 integration (run3)
+
+Branch `integrate/ai-0.9.7`: `dev` (with #48) plus #42 (the concept model:
+UI, guides, `.levis/agent.md` as its own layer) and #47 (the round-2
+fixes), merged so that every place uses #42's names. Agent Sonnet 5.5,
+writing Haiku 5.5, `LEVIS_EVAL_JUDGE=0`, output in
+`levis-shots/ai-eval/run3` (its `cases-index.json` has all 250 rows).
+
+What the merge changed for the model:
+
+- **One set of names in the prompt.** `workspace_section` now gives each
+  concept in en, zh and ja (project folder / 项目文件夹 / プロジェクトフォルダー,
+  writing instructions, global config folder, skills, library, style
+  profile, "Learn my style"), the project menu's items, the Settings rows
+  (Project Folder, Writing Instructions (agent.md) > Edit agent.md, Skills
+  > Import Skill…), how a skill is made, the Japanese mode names, and says
+  > to use each name only in the user's language. `AI_NAME` has a Rust twin;
+  > unit tests check every label the prompt quotes, and the "Learn my style"
+  > headings (now with a Japanese set), against `src/i18n/strings.ts`.
+- **#42's layering**: with a global and a project agent.md, the project's
+  section is headed as the one that wins a conflict
+  (`agentmd/global-plus-workspace`); `<!-- -->` comments are stripped from
+  style.md and library entries.
+- **UI**: errors and tutorial cards that sent the user to "Settings → AI"
+  now name the Levis AI page (from `AI_NAME`), with a test over every
+  Settings path in the UI copy.
+- **Cases**: a new `concept/` group (8 cases: en, zh, ja) asks how to make
+  the agent write like the user, remember characters, follow rules
+  everywhere or in one project, save a reusable instruction, and read
+  another folder; the reply must use the UI's names, none of the retired
+  ones ("workspace", 工作区, ワークスペース...) and none of another UI
+  language's labels. Case texts say project folder, writing instructions
+  and global config folder; ids keep their groups. `novel/en/beats` now
+  checks the spoken words instead of counting quote marks (removing a tag
+  that split one line of speech joins the two quotes - correct, but two
+  marks fewer).
+
+| Suite                                                        | run2 (same cases) |    run3 | p50 / p90 ms |   Cost |
+| ------------------------------------------------------------ | ----------------: | ------: | -----------: | -----: |
+| completion (whole suite)                                     |            98/105 | 102/105 |  1177 / 1911 | $0.014 |
+| grammar (whole suite)                                        |             59/61 |   59/61 |  1313 / 2060 | $0.009 |
+| agent: workspace, style, library, agentmd, skill, files (33) |                 - |   31/33 |              |        |
+| agent: concept (8, new)                                      |                 - |     8/8 |              |        |
+| agent: everyday regression guard (21 zh, 22 en)              |                 - |   43/43 |              |        |
+| agent total (84)                                             |   40/43 in common |   82/84 | 7327 / 14364 |  $2.27 |
+
+The agent cases ran three times as the prompt settled: pass 1 (the merge
+and the en/zh/ja names) 83/84, failing only `novel/en/beats` on the quote
+count; pass 2 (with the checker fix and how skills are made, after
+`concept/zh/skill` sent the user to "create a skill in Settings") 84/84;
+the final pass (each name only in the user's language, after one English
+reply said "the style profile (文风档案)" and one Chinese reply "Edit 模式")
+82/84. Its two failures are intermittent: `style/zh/rules` wrote one
+26-character sentence under a 20-character profile, and
+`style/cross/zh-profile-en-doc` answered an English message in the
+language of its Chinese style profile. Both passed in every other pass and
+3/3 in `run3/followup2`-`followup4`; the second is listed under Remaining
+weaknesses. Pass 1 and 2 rows are in `run3/pass1` and `run3/pass2` (the
+ledger lists them under `run3`). Completion's three failures are the empty
+suggestions of round 2 (two cut-off words the join won't guess, the
+one-word Russian heading); grammar misses the same two as run2. On the 43
+agent cases run2 also ran, run3 passes 41 and replies are a little shorter
+(mean 200 -> 192 characters).
+
+Read from the rows: the concept answers name the menu item and the
+Settings row in the user's language ("在项目菜单里选“新建资料库条目…”",
+"設定 > Levis AI > プロジェクトフォルダー", "Settings > Levis AI > Writing
+Instructions (agent.md) > Edit agent.md"), keep the style profile and the
+writing instructions apart ("文风档案管你怎么写，写作要求管我该怎么做"), and
+say what the project folder holds now. The unsaved-draft replies point to
+the project menu and Settings > Levis AI > Project Folder in the UI's
+words.
+
+Spend: run3 cost $6.97 at list prices - completion and grammar $0.02, the
+three agent passes $6.73, follow-ups $0.22 - and the ledger stands at
+$15.23 of the $19 cap (`levis-shots/ai-eval/spend.json`). Judging:
+reading the rows, no API cost.
+
 ### Round 2 after the fixes (run2)
 
 Branch `fix/ai-eval-round2`, agent Sonnet 5.5, writing Haiku 5.5,
@@ -319,8 +406,8 @@ What changed, read from the rows:
   longer reloads the skill (one round trip less), the library is used as a
   constraint instead of recited, and the unsaved-draft cases say why
   ("这份文档还没保存，也没有选择项目文件夹") and what to do (paste it, save
-  the document next to the notes, or choose a project folder in the AI
-  panel's folder row). Ask mode names Edit
+  the document next to the notes, or choose a project folder in the
+  project menu). Ask mode names Edit
   mode as the way to apply a change. The p90 rose because learning a style
   in Chinese writes about twice the tokens (CJK text, longer bullets) and
   two cases hit slow API responses; the median fell.
@@ -602,7 +689,9 @@ deterministic change has unit tests (`client.rs`, `checks.rs`, `agent.rs`,
    UI and the guide is left to that PR. (A first version here called the
    folder "workspace folder" in the tools and the UI, opposite to #42; it
    was reverted before the PR and the project-folder cases were re-run,
-   `run2/followup2` and `followup3`, 14/14.)
+   `run2/followup2` and `followup3`, 14/14.) The 0.9.7 integration then
+   gave the prompt the Japanese names, the project menu's items and the
+   Settings rows - see Round 2 integration.
 10. **Style learning and the style profile** (`project.rs`). The profile is
     written in the samples' language, headings included (with the Chinese
     heading set given), and its bullets must hold for the samples ("count
@@ -726,6 +815,13 @@ completion ~1.1 s).
   proposals overlap and only one can be applied. The tool result now says
   it is the proposal for that passage, which held in the follow-up run;
   the frontend still shows both if it happens.
+- **Agent, reply language under a profile in another language**: once in
+  seven runs of `style/cross/zh-profile-en-doc`, an English request under a
+  Chinese style profile got a Chinese reply (run3). The rule says the
+  user's message decides; the profile's language still pulls now and then.
+- **Agent, style limits**: under a 20-character sentence limit the agent
+  occasionally writes one longer sentence and still says every sentence is
+  within it (`style/zh/rules`, once in run3).
 - **Platform rules**: a tweet length is counted in raw characters, while X
   counts a link as 23 (`social/en/tweet`).
 - **The `<cursor>` block** is cut at 160 characters without snapping to a
@@ -737,8 +833,9 @@ completion ~1.1 s).
   as `> \[!NOTE]` both in the saved file and in the text the AI sees - so a
   saved alert no longer renders as one on GitHub. Found by the fixture test;
   not fixed here (editor code).
-- The evaluation is one sample per case, and the round-2 agent re-run
-  covers 77 of 150 cases. Before trusting a small difference, run twice.
+- The evaluation is one sample per case, and the round-2 agent re-runs
+  cover 118 of the 158 cases between them (77 in run2, 84 in run3).
+  Before trusting a small difference, run twice.
 - Not covered: web search, image attachments, providers other than
   Anthropic, and the tool-less fallback path.
 - (Fixed in round 2.) Round 1's "repeat the last word" completion rule, the
@@ -754,10 +851,12 @@ completion ~1.1 s).
 
 ## Recommendations
 
-- Have the subagent judges grade run2 (`levis-shots/ai-eval/run2`) with
-  the same rubric as run1 and record the verdict counts here; then run
-  the other 73 agent cases once, to confirm nothing outside the re-run set
-  moved.
+- Have the subagent judges grade run2 and run3 (`levis-shots/ai-eval/`)
+  with the same rubric as run1 and record the verdict counts here; then
+  run the 40 agent cases neither re-run covered (mostly round 1's
+  language and Markdown cases) once on the final prompt, to confirm
+  nothing outside the re-run sets moved. Every agent prompt changed in the
+  integration (the project section is in all of them).
 - Completion: if the empty suggestions after a cut-off word matter in
   use, a second request for those cases only (a few per hundred) would
   recover them; a stop sequence on "\n\n" would also end leaked reasoning
