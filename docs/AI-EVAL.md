@@ -281,7 +281,10 @@ That only pays if the history is byte-identical on every request.
 `compact_history` cuts an old tool result to the same stub every time and,
 over its budget, drops exchanges in 50k-character blocks whose boundaries
 are fixed from the start of the conversation (it used to drop just enough
-for each send, which moved the first message every turn). `run_agent_loop`
+for each send, which moved the first message every turn). Where the next
+block end is more than two blocks past what has to go - an exchange with a
+long attachment inlined - it still drops just what has to go, rather than
+the attachment with it. `run_agent_loop`
 records a step's calls before their results, so each step's calls are one
 assistant message the next step doesn't rewrite (they used to be merged,
 which re-sent a read result uncached on the step after it). OpenAI

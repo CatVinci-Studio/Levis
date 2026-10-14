@@ -443,7 +443,8 @@ const HISTORY_BUDGET: usize = 150_000;
 /// moved the history's first message every turn once over budget, and with
 /// it every byte of the prompt cache; a block boundary depends only on the
 /// exchanges before it, so the start now stays put until the conversation
-/// has grown by another block.
+/// has grown by another block. Never more than two blocks beyond what the
+/// budget needs, though (see compact_history).
 const HISTORY_DROP_STEP: usize = HISTORY_BUDGET / 3;
 
 fn turn_chars(turn: &AgentTurn) -> usize {
@@ -496,29 +497,43 @@ pub(crate) fn compact_history(history: Vec<AgentTurn>) -> Vec<AgentTurn> {
     if total <= HISTORY_BUDGET {
         return turns;
     }
-    // Cut only where an exchange starts (at a user turn) - dropping whole
-    // exchanges keeps every tool call paired with its result - and only at
-    // the end of a block: the first boundary that brings the rest within
-    // budget.
-    let is_user = |turn: &AgentTurn| matches!(turn, AgentTurn::User { .. });
-    let (mut cut, mut before, mut block) = (0, 0, 0);
+    // Cut only where an exchange starts (at a user turn): dropping whole
+    // exchanges keeps every tool call paired with its result. Each start
+    // with the characters before it.
+    let mut starts = Vec::new();
+    let mut before = 0;
     for (i, turn) in turns.iter().enumerate() {
-        if i > 0 && is_user(turn) && block >= HISTORY_DROP_STEP {
-            cut = i;
-            block = 0;
-            if total - before <= HISTORY_BUDGET {
-                break;
-            }
+        if i > 0 && matches!(turn, AgentTurn::User { .. }) {
+            starts.push((i, before));
         }
-        block += turn_chars(turn);
         before += turn_chars(turn);
     }
-    let kept: usize = turns[cut..].iter().map(turn_chars).sum();
-    if kept > HISTORY_BUDGET {
-        // The exchanges since the last boundary are over budget on their
-        // own: keep just the newest one, as large as it is.
-        if let Some(last) = turns.iter().rposition(is_user).filter(|&i| i > cut) {
-            cut = last;
+    // The fewest exchanges that must go: up to the first start that leaves
+    // the rest within budget, else all but the newest, as large as it is.
+    let Some(&(needed, needed_before)) = starts
+        .iter()
+        .find(|&&(_, before)| total - before <= HISTORY_BUDGET)
+        .or(starts.last())
+    else {
+        return turns;
+    };
+    // Rounded up to the end of its block, which drops under two blocks more
+    // than must go while exchanges are small next to a block. One carrying
+    // a long attachment (inlined into its message) can be bigger than a
+    // block, and rounding past it would leave a fraction of the budget:
+    // then just what must go, the way it was before blocks.
+    let mut cut = needed;
+    let mut block_start = 0;
+    for &(i, before) in &starts {
+        if before - block_start < HISTORY_DROP_STEP {
+            continue;
+        }
+        block_start = before;
+        if i >= needed {
+            if before - needed_before <= 2 * HISTORY_DROP_STEP {
+                cut = i;
+            }
+            break;
         }
     }
     turns.drain(..cut);
@@ -1194,6 +1209,33 @@ mod tests {
         // Each exchange is ~9.4k characters; a block is 50k.
         assert!(moves * 4 < sends, "{moves} moves in {sends} sends");
         assert!(moves > 0);
+    }
+
+    /// An attached file inlined into a message can make one exchange bigger
+    /// than a block. Rounding the cut up to the next block end would then
+    /// drop it with everything before it, though the budget only needs the
+    /// oldest two exchanges gone - so it isn't rounded that far.
+    #[test]
+    fn over_budget_a_long_attachment_is_not_dropped_early() {
+        let mut history = Vec::new();
+        for n in 0..3 {
+            history.extend(exchange(n, 10_000));
+        }
+        history.extend([
+            AgentTurn::User {
+                text: format!("<attached-file>{}</attached-file>", "p".repeat(130_000)),
+                images: Vec::new(),
+            },
+            AgentTurn::Assistant {
+                text: "summary".into(),
+            },
+        ]);
+        history.extend(exchange(5, 5_000));
+        let out = compact_history(history);
+        let kept: usize = out.iter().map(turn_chars).sum();
+        assert!(kept <= HISTORY_BUDGET, "{kept} chars kept");
+        assert!(matches!(&out[0], AgentTurn::User { text, .. } if text == "question 2"));
+        assert!(debug(&out).contains("attached-file"));
     }
 
     #[test]
