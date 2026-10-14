@@ -89,15 +89,18 @@ describe("Presence", () => {
     }
   });
 
-  it("reopening during the exit keeps the same element, open again", () => {
+  it("reopening during the exit mounts a fresh copy, open", () => {
     const restore = withExit(new Promise(() => {}));
     try {
       const { rerender } = render(<Host open />);
       const first = screen.getByRole("dialog");
       rerender(<Host open={false} />);
       rerender(<Host open />);
+      // As it mounted before exits existed: autoFocus and mount effects
+      // run again, and the copy going out is gone at once.
       const again = screen.getByRole("dialog");
-      expect(again).toBe(first);
+      expect(again).not.toBe(first);
+      expect(first.isConnected).toBe(false);
       expect(again).toHaveAttribute("data-state", "open");
       expect(again).not.toHaveAttribute("inert");
     } finally {

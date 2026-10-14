@@ -1,4 +1,5 @@
 import {
+  Fragment,
   createContext,
   createElement,
   useCallback,
@@ -149,11 +150,22 @@ export function Presence({
   const presence = usePresence(show, { exitMs });
   const last = useRef<ReactNode>(null);
   if (show) last.current = children;
+  // Opened again while its exit plays: a fresh copy, not the one going
+  // out - it mounts as it always did (autoFocus, mount effects, its own
+  // state reset), and its entrance starts over anyway.
+  const generation = useRef(0);
+  const wasLeaving = useRef(false);
+  if (show && wasLeaving.current) generation.current += 1;
+  wasLeaving.current = !show && presence.mounted;
   if (!presence.mounted) return null;
   return createElement(
     PresenceContext.Provider,
     { value: presence },
-    show ? children : last.current,
+    createElement(
+      Fragment,
+      { key: generation.current },
+      show ? children : last.current,
+    ),
   );
 }
 

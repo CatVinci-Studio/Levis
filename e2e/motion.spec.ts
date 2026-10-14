@@ -176,6 +176,39 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
   });
 }
 
+test("reopened during its exit, the find bar takes the focus again", async ({
+  page,
+}) => {
+  await openApp(page, { animations: true });
+  await emit(page, "menu-find-replace");
+  const input = page.locator(".find-replace-bar input").first();
+  await expect(input).toBeFocused();
+  // Closed, and opened again two frames later - well inside the 120ms
+  // exit, with the closing bar on screen: a fresh bar comes, not the one
+  // going out (which no longer takes the focus).
+  const reopened = await page.evaluate(async () => {
+    const emit = (
+      window as unknown as { __devEmitTauriEvent: (name: string) => void }
+    ).__devEmitTauriEvent;
+    const frame = () => new Promise(requestAnimationFrame);
+    emit("menu-find-replace");
+    await frame();
+    await frame();
+    const closing = !!document.querySelector(
+      '.find-replace-bar[data-state="closing"]',
+    );
+    emit("menu-find-replace");
+    return closing;
+  });
+  expect(reopened).toBe(true);
+  await expect(page.locator(".find-replace-bar")).toHaveCount(1, GONE);
+  await expect(page.locator(".find-replace-bar")).toHaveAttribute(
+    "data-state",
+    "open",
+  );
+  await expect(input).toBeFocused();
+});
+
 test.describe("reduced motion", () => {
   test("turns travel and scale into fades", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
