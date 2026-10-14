@@ -146,4 +146,4 @@ Notas de rodapé ficam assim[^1], e logo abaixo há uma linha horizontal:
 
 [^1]: O conteúdo das notas de rodapé fica reunido no fim do documento.
 
-Boa escrita.
+Boa escrita!
