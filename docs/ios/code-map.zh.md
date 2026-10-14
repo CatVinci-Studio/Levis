@@ -48,7 +48,7 @@
 
 - **文件：** 在应用容器的 `Library/Application Support/com.chengaoshen.levis/` 下。`settings.json` 存设置里的所有项；`ui-state.json` 存界面停在哪里，iOS 上最近打开的文档（`iosRecentDocuments`）和文档列表的显示方式（`documentListView`）都在这里，另外还有教程进度、AI 面板的开合与宽度、导入主题的界面配色缓存（`themeChrome`）；另有 `chat-history.json` 和 `clipboard-history.json`。Debug 构建写 `*.dev.json`。前端的读写入口是 `src/storage/ui-state.ts` 和 `settings/SettingsContext.tsx`。
 - **启动脚本：** webview 加载页面之前，Rust 先注入一段初始化脚本（`src-tauri/src/boot.js`，由 `settings::boot_script` 拼上快照）：它设置 `window.__BOOT__`（设置和界面状态的快照，前端在 `src/storage/boot.ts` 里同步读取，代替原来的 localStorage），并在第一帧之前把外观、内容宽度、`lang`、导入主题的 CSS 和界面配色、自定义 CSS 放到页面上，所以启动时不会先闪一下默认主题。快照是窗口创建时拍的，页面重新加载后前端会再向 Rust 读一次实时的值。
-- **写入：** 前端只发改动过的字段（`settings_patch`、`ui_state_patch`；历史一次一条），Rust 去抖 250 ms 后原子写盘，退出时补写。打字频繁的几个字段（自定义 CSS、代理等）在前端先等打字停顿 400 ms；窗口关闭前所有关闭路径都会先等这些写入送到 Rust（`src/storage/pending-writes.ts`）。iOS 没有关闭窗口这回事，App 切到后台时（`visibilitychange`）前端立刻把还在等的写入发出去。
+- **写入：** 前端只发改动过的字段（`settings_patch`、`ui_state_patch`；历史一次一条），Rust 去抖 250 ms 后原子写盘，退出时补写。设置的每次改动都立刻发出（自定义 CSS 也是每个按键一发），只有缩放会等捏合/滚轮停下 400 ms 再存；窗口关闭前所有关闭路径都会先等还在路上的写入送到 Rust（`src/storage/pending-writes.ts`）。iOS 没有关闭窗口这回事，App 切到后台时（`visibilitychange`）前端立刻把还在等的写入（缩放）发出去。
 - **从 0.9.6 升级后的第一次启动：** 还没有 `settings.json` 时，窗口带着 `legacyImport` 启动，把 localStorage 里的旧数据（包括 iOS 的 `levis-ios-recent-documents` 和 `levis.documentListView`）一次性交给 Rust（`settings_import_legacy`），localStorage 原样保留。
 
 ## 文件访问（iOS）

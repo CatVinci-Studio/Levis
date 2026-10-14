@@ -4,12 +4,12 @@
  *
  * localStorage was synchronous: whatever had been set was kept, however
  * soon the window closed. The files Rust owns (docs/STORAGE.md) are
- * reached through IPC, which is not - and the settings store also holds
- * keystroke-heavy fields back for a pause in the typing (useZoom, the zoom
- * until it comes to rest). A window destroyed in that gap lost the change
- * (type Custom CSS, quit within 400 ms, and it was empty on the next
- * launch). `pagehide` doesn't help: a Tauri window closes without firing
- * it.
+ * reached through IPC, which is not. Every settings, UI-state and history
+ * change is sent as it is made (SettingsContext's persist), but a window
+ * destroyed before Rust has taken it can still drop it - and one value is
+ * held back on purpose: useZoom saves the zoom only once a pinch or wheel
+ * burst has rested. `pagehide` doesn't help: a Tauri window closes without
+ * firing it.
  *
  * So every close the frontend handles - the window's close request (its
  * close button, File > Close Window, Quit / Cmd+Q, which closes each window
@@ -87,6 +87,25 @@ export async function flushPendingWrites(
     clearTimeout(timer);
     if (timedOut) return;
   }
+}
+
+let flushOnHideInstalled = false;
+
+/**
+ * Also sends the held-back writes whenever the page is hidden or unloads,
+ * where nothing can be awaited: iOS sends an app to the background (where
+ * it may be ended without notice) with only a visibility change, and a
+ * reload fires `pagehide` rather than a close request. Anything already in
+ * flight lands on its own while the app still runs. Called once at startup
+ * (main.tsx); calling it again does nothing.
+ */
+export function flushWhenHidden(): void {
+  if (flushOnHideInstalled) return;
+  flushOnHideInstalled = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") void flushPendingWrites();
+  });
+  window.addEventListener("pagehide", () => void flushPendingWrites());
 }
 
 /** Forgets everything, for tests. */

@@ -9,10 +9,14 @@ import { WindowEdges } from "./ui/WindowEdges";
 import { installWebviewGuards } from "./ui/webview-guards";
 import { restoreFolderAccess } from "./platform/ios-files";
 import { installMobileViewport } from "./platform/mobile-viewport";
+import { flushWhenHidden } from "./storage/pending-writes";
 import "./mobile/styles/index.css";
 
 installDevTauriShim();
 installWebviewGuards();
+// Held-back storage writes go out when iOS sends the app to the background
+// (a closing window waits for them instead - storage/pending-writes.ts).
+flushWhenHidden();
 // iOS: reopen the folders picked in earlier sessions (a no-op elsewhere).
 void restoreFolderAccess().catch(() => {});
 

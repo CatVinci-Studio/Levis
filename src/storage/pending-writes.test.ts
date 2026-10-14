@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   flushPendingWrites,
+  flushWhenHidden,
   onFlush,
   resetPendingWritesForTests,
   trackWrite,
@@ -87,5 +89,34 @@ describe("flushPendingWrites", () => {
     void flushPendingWrites(10_000).then(() => (done = true));
     await vi.advanceTimersByTimeAsync(0);
     expect(done).toBe(true);
+  });
+});
+
+describe("flushWhenHidden", () => {
+  function hide(state: DocumentVisibilityState) {
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue(state);
+    document.dispatchEvent(new Event("visibilitychange"));
+    visibility.mockRestore();
+  }
+
+  it("sends held-back writes when iOS sends the app to the background", () => {
+    flushWhenHidden();
+    flushWhenHidden(); // a second call adds no second listener
+    const send = vi.fn();
+    onFlush(send);
+    hide("visible");
+    expect(send).not.toHaveBeenCalled();
+    hide("hidden");
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends them when the page unloads, too", () => {
+    flushWhenHidden();
+    const send = vi.fn();
+    onFlush(send);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });

@@ -755,8 +755,8 @@ function App() {
   // Close Window, Quit (Cmd+Q closes each window in turn), Alt+F4 - and the
   // Tauri API destroys the window once this handler resolves, unless it
   // prevented the close. So with nothing to ask, it first waits for the
-  // storage writes still held back or on their way to Rust (a setting typed
-  // a moment ago); the prompt's Save / Don't Save do the same before they
+  // storage writes still on their way to Rust (a setting typed a moment
+  // ago) or held back (the resting zoom); the prompt's Save / Don't Save do the same before they
   // destroy the window themselves.
   useEffect(() => {
     const unlisten = getCurrentWindow().onCloseRequested(async (event) => {

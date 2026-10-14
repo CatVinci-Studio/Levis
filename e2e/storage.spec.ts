@@ -288,9 +288,8 @@ test("a setting typed just before the window closes still reaches Rust", async (
   await openApp(page);
   const css = await customCssField(page);
   await css.fill("p { color: red; }");
-  // Closed at once - the field holds its writes back until the typing has
-  // paused for 400 ms - the way the close button, Close Window and Quit
-  // all reach a window.
+  // Closed at once, with the patch still on its way to Rust - the way the
+  // close button, Close Window and Quit all reach a window.
   await emit(page, "tauri://close-requested", null);
   await expect
     .poll(async () => (await devStorage(page)).log)
