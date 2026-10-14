@@ -240,6 +240,12 @@ type /name in a conversation to use one.
   agentSkillsResetConfirm:
     "Delete your copy of “{name}” and use the built-in skill again?",
   agentSkillsShadows: "Replaces a built-in skill",
+  agentSkillsBuiltinUpdated: "Built-in updated",
+  agentSkillsBuiltinUpdatedHint:
+    "The built-in skill has changed since you customized it. Reset to use the new version; your copy is deleted.",
+  agentSkillsNotACopy:
+    "This skill is your own, not a copy of the built-in, so there's nothing to reset.",
+  agentSkillsUnknownBuiltin: `This version of ${APP_NAME} has no built-in skill by that name.`,
   writingConventionsLabel: "Writing conventions",
   writingConventionsAuto: "Automatic",
   conventionsStandard: "Standard",

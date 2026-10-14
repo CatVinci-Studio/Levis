@@ -235,6 +235,12 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   agentSkillsReset: "초기화",
   agentSkillsResetConfirm: "‘{name}’ 사본을 삭제하고 내장 스킬로 되돌릴까요?",
   agentSkillsShadows: "내장 스킬을 대체합니다",
+  agentSkillsBuiltinUpdated: "내장 스킬 업데이트됨",
+  agentSkillsBuiltinUpdatedHint:
+    "사용자 지정한 뒤 내장 스킬이 업데이트되었습니다. 초기화하면 새 버전을 쓰며, 사본은 삭제됩니다.",
+  agentSkillsNotACopy:
+    "이 스킬은 내장 스킬의 사본이 아니라 직접 만든 스킬이라 초기화할 것이 없습니다.",
+  agentSkillsUnknownBuiltin: `이 버전의 ${APP_NAME}에는 그 이름의 내장 스킬이 없습니다.`,
   writingConventionsLabel: "표기 규칙",
   writingConventionsAuto: "자동",
   conventionsStandard: "표준",

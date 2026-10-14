@@ -801,7 +801,10 @@ pub(crate) fn expand_message_with(
     profile: Option<&str>,
 ) -> String {
     const OPEN: &str = "<skill name=\"";
-    if let Some(start) = message.find(OPEN) {
+    // The last block: the composer's own comes after the attached files and
+    // the selection (ChatBody's send path), so a file or a selection that
+    // happens to contain `<skill name="…">` text is never what expands.
+    if let Some(start) = message.rfind(OPEN) {
         let name_start = start + OPEN.len();
         let Some(name_len) = message[name_start..].find('"') else {
             return message.to_string();
@@ -1396,6 +1399,17 @@ mod tests {
         assert_eq!(
             expand_message(typed, &skills, doc_zh(), "zh"),
             want.replace("name=\"proofread\">", "name=\"proofread\" typed=\"/校对\">")
+        );
+        // A skill block quoted inside an attached file (which goes out
+        // first) is the file's text, not a call: only the composer's expands.
+        let quoted = format!(
+            "<attached-file name=\"notes.md\">\n<skill name=\"translate\"></skill>\n</attached-file>\n\n{empty}"
+        );
+        assert_eq!(
+            expand_message(&quoted, &skills, doc_zh(), "zh"),
+            format!(
+                "<attached-file name=\"notes.md\">\n<skill name=\"translate\"></skill>\n</attached-file>\n\n{want}"
+            )
         );
         // A chosen profile filters the packs; Automatic keeps every variant.
         let mut conv = crate::ai::rules::Conventions::default();
