@@ -20,14 +20,25 @@ vi.mock("./ipc", () => ({
   },
   drafts: { takeDraftSnapshots: ipc.takeDraftSnapshots },
 }));
-vi.mock("./platform/capabilities", () => ({
+// Desktop unless a test says otherwise.
+const platform = vi.hoisted(() => ({
   canUseWindows: true,
   hasAppMenu: true,
   isIOSApp: false,
 }));
-vi.mock("./platform/ios-files", () => ({
-  lastIOSDocument: vi.fn().mockResolvedValue(null),
+const lastIOSDocument = vi.hoisted(() => vi.fn());
+vi.mock("./platform/capabilities", () => ({
+  get canUseWindows() {
+    return platform.canUseWindows;
+  },
+  get hasAppMenu() {
+    return platform.hasAppMenu;
+  },
+  get isIOSApp() {
+    return platform.isIOSApp;
+  },
 }));
+vi.mock("./platform/ios-files", () => ({ lastIOSDocument }));
 vi.mock("./doc-tabs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./doc-tabs")>()),
   readDocFromDisk: vi.fn(async (path: string) => ({
@@ -77,6 +88,12 @@ async function restore(newDocumentMode: "tab" | "window" = "tab") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  Object.assign(platform, {
+    canUseWindows: true,
+    hasAppMenu: true,
+    isIOSApp: false,
+  });
+  lastIOSDocument.mockResolvedValue(null);
   ipc.takeDetachedTab.mockResolvedValue(null);
   ipc.takePendingShowHelp.mockResolvedValue(null);
   ipc.takePendingOpenPaths.mockResolvedValue([]);
@@ -129,6 +146,48 @@ describe("startup restore into the initial tab", () => {
     await waitFor(() => expect(tabs()[0].helpDoc).toBe("markdown"));
     expect(tabs()[0].content).not.toBe("");
     expect(tabs()[0].reloadKey).toBe(1);
+  });
+
+  it("and for the document an iPhone had open last time", async () => {
+    Object.assign(platform, {
+      canUseWindows: false,
+      hasAppMenu: false,
+      isIOSApp: true,
+    });
+    lastIOSDocument.mockResolvedValue("/docs/last.md");
+    const { tabs } = await restore();
+    await waitFor(() => expect(tabs()[0].path).toBe("/docs/last.md"));
+    expect(tabs()).toEqual([
+      expect.objectContaining({
+        id: "initial",
+        content: "# /docs/last.md\n",
+        savedContent: "# /docs/last.md\n",
+        reloadKey: 1,
+      }),
+    ]);
+  });
+
+  it("and for that document's recovered edits, which take the initial tab's place", async () => {
+    Object.assign(platform, {
+      canUseWindows: false,
+      hasAppMenu: false,
+      isIOSApp: true,
+    });
+    lastIOSDocument.mockResolvedValue("/docs/last.md");
+    ipc.takeDraftSnapshots.mockResolvedValue([
+      { tabId: "old", path: "/docs/last.md", content: "unsaved edits" },
+    ]);
+    const { tabs } = await restore();
+    await waitFor(() => expect(tabs()[0].path).toBe("/docs/last.md"));
+    // One tab, not the saved document beside its recovered copy.
+    expect(tabs()).toEqual([
+      expect.objectContaining({
+        id: "initial",
+        content: "unsaved edits",
+        savedContent: "# /docs/last.md\n",
+        reloadKey: 1,
+      }),
+    ]);
   });
 
   it("leaves the initial tab alone when nothing claims it", async () => {

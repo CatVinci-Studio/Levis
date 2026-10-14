@@ -9,8 +9,9 @@
          An appearance pinned in Settings wins: Rust's boot script
          (src-tauri/src/boot.js) has set data-theme before this is parsed.
          On Linux the window itself is built in the pinned colour too, for
-         the frames before this paints - keep pinned_background in
-         src-tauri/src/settings.rs in step with these two colours. -->
+         the frames before this paints: pinned_background in
+         src-tauri/src/settings.rs, whose test checks it against these two
+         colours and App.css's --bg. -->
     <style>
       html {
         background: #ffffff;

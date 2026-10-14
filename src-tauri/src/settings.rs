@@ -666,8 +666,9 @@ fn user_theme_css(app: &AppHandle, settings: &Value) -> Value {
 }
 
 /// Adds the boot script to a webview that shows the app (editor windows,
-/// the detached chat, the iOS webview). The PDF-export and tab-drag windows
-/// load other pages and go without.
+/// the detached chat, the iOS webview), and on Linux builds the window in a
+/// pinned appearance's background (`pinned_background`). The PDF-export and
+/// tab-drag windows load other pages and go without either.
 pub fn with_boot<'a, R: tauri::Runtime, M: Manager<R>>(
     builder: tauri::WebviewWindowBuilder<'a, R, M>,
     app: &AppHandle,
@@ -1171,20 +1172,54 @@ mod tests {
 
     #[test]
     fn a_pinned_appearance_gives_windows_the_page_background() {
-        use tauri::window::Color;
-        // The same colours as index.html's pre-paint and App.css's --bg.
-        assert_eq!(
-            pinned_background(&json!({ "theme": "dark" })),
-            Some(Color(0x1b, 0x1e, 0x24, 0xff))
-        );
-        assert_eq!(
-            pinned_background(&json!({ "theme": "light" })),
-            Some(Color(0xff, 0xff, 0xff, 0xff))
-        );
+        // Checked against the page itself, not restated here: a window must
+        // open in exactly the colour index.html paints first and App.css's
+        // --bg keeps, or the change is a flash of its own. A failure here
+        // means one of the three moved without the others.
+        let index = include_str!("../../index.html");
+        let app_css = include_str!("../../src/App.css");
+        for (theme, app_css_rule) in [
+            ("dark", ":root[data-theme=\"dark\"] {"),
+            ("light", ":root {"),
+        ] {
+            let Some(tauri::window::Color(r, g, b, a)) =
+                pinned_background(&json!({ "theme": theme }))
+            else {
+                panic!("no window background for a pinned {theme}");
+            };
+            let hex = format!("#{r:02x}{g:02x}{b:02x}");
+            assert_eq!(a, 0xff, "{theme}: an opaque window");
+            let index_rule = format!("html[data-theme=\"{theme}\"] {{");
+            assert_eq!(
+                css_value(index, &index_rule, "background:"),
+                hex,
+                "index.html, {theme}"
+            );
+            assert_eq!(
+                css_value(app_css, app_css_rule, "--bg:"),
+                hex,
+                "App.css, {theme}"
+            );
+        }
         // "system", missing or unreadable: the toolkit's own default.
         assert_eq!(pinned_background(&json!({ "theme": "system" })), None);
         assert_eq!(pinned_background(&json!({})), None);
         assert_eq!(pinned_background(&json!({ "theme": 1 })), None);
+    }
+
+    /// The value `property` has in the first rule that starts with `rule`.
+    fn css_value<'a>(css: &'a str, rule: &str, property: &str) -> &'a str {
+        let start = css.find(rule).unwrap_or_else(|| panic!("no `{rule}` rule"));
+        let body = &css[start + rule.len()..];
+        let body = &body[..body.find('}').expect("an unclosed rule")];
+        let at = body
+            .find(property)
+            .unwrap_or_else(|| panic!("no `{property}` in `{rule}`"));
+        body[at + property.len()..]
+            .split(';')
+            .next()
+            .unwrap_or_default()
+            .trim()
     }
 
     #[test]
