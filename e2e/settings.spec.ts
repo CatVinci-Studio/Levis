@@ -14,13 +14,12 @@ const t = {
   windowClose: "Close",
   navGeneral: "General",
   navEditor: "Editor & Appearance",
-  navAi: "AI",
+  navAi: AI_NAME,
   navShortcuts: "Shortcuts",
   navPrivacy: "Privacy",
   aiAccountLabel: "Connection",
   writingFeaturesLabel: "Writing Assistance",
-  writingModelLabel: "Writing Model",
-  writingModelHint: "Used by completion and grammar check",
+  writingModelLabel: "Assist Model",
   aiAskLabel: `${AI_NAME} Chat`,
   aiAskToggleLabel: `Enable ${AI_NAME} chat`,
   agentModelLabel: "Chat Model",
@@ -78,9 +77,10 @@ test.describe("desktop", () => {
     await expect(
       group(t.writingFeaturesLabel).getByText(t.writingModelLabel),
     ).toBeVisible();
+    // The assist model comes first in its group, with no hint under it.
     await expect(
-      group(t.writingFeaturesLabel).getByText(t.writingModelHint),
-    ).toBeVisible();
+      group(t.writingFeaturesLabel).locator(".settings-row").first(),
+    ).toContainText(t.writingModelLabel);
     await expect(
       group(t.aiAskLabel).getByText(t.agentModelLabel),
     ).toBeVisible();
