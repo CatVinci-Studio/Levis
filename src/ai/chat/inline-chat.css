@@ -582,7 +582,13 @@
   padding: 5px 8px;
   font-size: var(--text-sm);
   color: var(--editor-text);
-  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+  /* Over the panel's own colour rather than see-through: on the phone the
+     sheet's composer area passes over the message list while it moves. */
+  background: color-mix(
+    in srgb,
+    var(--editor-accent) 10%,
+    var(--editor-bg, var(--bg))
+  );
 }
 
 /* The buttons drop to a second line before the label gets squeezed into

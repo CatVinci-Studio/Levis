@@ -17,17 +17,52 @@
     z-index: 40;
     width: auto !important;
     max-width: none;
+    /* The half stop - SHEET_HALF in agent-panel.tsx is the same share. */
     height: 55%;
     padding-top: 0;
     border-left: none;
     border-top: 1px solid var(--border-color);
-    border-radius: 14px 14px 0 0;
-    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: var(--shadow-sheet);
     flex-direction: column;
     /* Whatever the conversation's length, the composer stays on screen:
        the message list scrolls inside the sheet instead. */
     overflow: hidden;
-    transition: height 0.2s ease;
+    /* Up from the bottom edge on a spring; closed, back down. */
+    animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel[data-state="closing"] {
+    animation: motion-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
+  }
+
+  /* Let go below its lowest stop, it has already gone down off the screen
+     under the finger. */
+  :root[data-window-chrome="mobile"] .agent-panel[data-dismissed] {
+    animation: none;
+  }
+
+  /* Carried - under a finger, or settling where it was let go - the sheet
+     is laid out at full height and moved by its transform alone, never
+     by its height (AgentPanelSheetGrip). The composer and the bars over
+     it are lifted by as much as the sheet is lowered, so they stay on the
+     screen's bottom edge, and are opaque, as the message list now runs on
+     under them. A shadow the sheet's colour fills in below its edge while
+     it is pulled past the top stop. */
+  :root[data-window-chrome="mobile"] .agent-panel[data-carried] {
+    animation: none;
+    box-shadow:
+      var(--shadow-sheet),
+      0 200px 0 var(--editor-bg, var(--bg));
+    will-change: transform;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .agent-panel[data-carried]
+    .agent-panel-body
+    > :not(.agent-panel-empty, .inline-chat-messages) {
+    transform: translateY(var(--sheet-lift, 0px));
+    background-color: var(--editor-bg, var(--bg));
   }
 
   :root[data-window-chrome="mobile"] .agent-panel .inline-chat-messages {
@@ -106,6 +141,6 @@
 :root[data-window-chrome="mobile"] .agent-panel-grip span {
   width: 36px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--editor-text) 25%, transparent);
 }

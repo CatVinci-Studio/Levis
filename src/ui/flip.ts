@@ -1,3 +1,4 @@
+import { Component, type ReactNode } from "react";
 import {
   animate,
   motionAllowed,
@@ -68,4 +69,39 @@ export function flip(
   const before = measure(elements);
   mutate();
   play(before, options);
+}
+
+/**
+ * The same, for a change whose cause has no event handler of its own to
+ * measure in - a panel opened from a menu, a shortcut, a tour step: every
+ * commit in which `watch` changes is measured just before React applies it
+ * and played just after, before the frame is painted. Renders nothing.
+ *
+ * A class because getSnapshotBeforeUpdate is the one hook React runs
+ * before it touches the DOM; layout effects all run after.
+ */
+export class FlipOnChange extends Component<{
+  watch: unknown;
+  /** The elements to slide, looked up at measuring time. */
+  targets: () => Iterable<Element>;
+  duration?: DurationToken | number;
+  easing?: EasingToken;
+}> {
+  getSnapshotBeforeUpdate(previous: { watch: unknown }): Snapshot | null {
+    if (Object.is(previous.watch, this.props.watch) || !motionAllowed())
+      return null;
+    return measure(this.props.targets());
+  }
+
+  componentDidUpdate(_: unknown, __: unknown, before: Snapshot | null) {
+    if (before)
+      play(before, {
+        duration: this.props.duration,
+        easing: this.props.easing,
+      });
+  }
+
+  render(): ReactNode {
+    return null;
+  }
 }

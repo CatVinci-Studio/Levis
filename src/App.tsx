@@ -81,7 +81,8 @@ import { drafts, fs, session } from "./ipc";
 import { flushPendingWrites } from "./storage/pending-writes";
 import { defaultMarkdownFilename } from "./save-default-name";
 import { useModalDialog } from "./ui/useModalDialog";
-import { Presence, PresenceDiv } from "./ui/usePresence";
+import { Presence, PresenceDiv, usePresence } from "./ui/usePresence";
+import { FlipOnChange } from "./ui/flip";
 import { SplitView } from "./editor/SplitView";
 import { SourceTextarea } from "./editor/SourceTextarea";
 import { useWindowEvent } from "./utils/useWindowEvent";
@@ -137,6 +138,14 @@ function App() {
     }
     agentPanel.toggle();
   }, [agentPanel]);
+  // Both side panels play their way out before their contents go: the
+  // sidebar slides back over the editor, the AI panel fades off its edge.
+  // The editor makes its room (or takes it back) at once, gliding there
+  // (FlipOnChange below) rather than reflowing on every frame.
+  const sidebarPresence = usePresence(panelOpen, { exitMs: 250 });
+  const sidebarClosing = sidebarPresence.state === "closing";
+  const agentPresence = usePresence(agentPanel.open, { exitMs: 250 });
+  const agentClosing = agentPresence.state === "closing";
   // iPhone: whether the AI bottom sheet is pulled up to full height.
   const [sheetFull, setSheetFull] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
@@ -932,10 +941,21 @@ function App() {
 
   return (
     <AgentPanelProvider
-      open={agentPanel.open}
+      // The conversation stays in the panel while it plays its exit.
+      open={agentPresence.mounted}
       setOpen={agentPanel.setOpen}
       container={agentPanelEl}
     >
+      <FlipOnChange
+        watch={`${panelOpen} ${agentPresence.mounted} ${zenMode}`}
+        targets={() =>
+          document.querySelectorAll(
+            '[data-active-tab="true"] > .editor-scroll > .editor-content, [data-active-tab="true"] > .source-view, .tab-bar > [data-flip-id]',
+          )
+        }
+        duration="--dur-slow"
+        easing="--ease-spring"
+      />
       <div className="app-shell">
         {/* The window's one top strip: traffic-light room, which document this
           is, and its status. A real row in the layout, not an overlay - the
@@ -990,19 +1010,26 @@ function App() {
         </header>
         {/* iPhone: the sidebar is a drawer over the page (mobile/styles),
           and a tap beside it closes it. */}
-        {isIOSApp && panelOpen && (
-          <div className="sidebar-scrim" onClick={toggleSidebar} />
-        )}
+        <Presence show={isIOSApp && panelOpen} exitMs={250}>
+          {isIOSApp && panelOpen && (
+            <PresenceDiv className="sidebar-scrim" onClick={toggleSidebar} />
+          )}
+        </Presence>
         <aside
+          ref={sidebarPresence.ref}
           className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"} ${sidebarLesson ? "tutorial-spotlight" : ""}`}
         >
-          {/* Contents only render while open - a collapsed sidebar is just
-            shifted out of view via margin, not unmounted, so without this
-            its buttons/tree would stay in the tab order and Tab could land
-            focus on them from the editor. */}
-          {panelOpen && (
+          {/* Contents only render while open (and inert while the sidebar
+            slides away) - a collapsed sidebar is just moved out of view,
+            not unmounted, so without this its buttons/tree would stay in
+            the tab order and Tab could land focus on them from the
+            editor. */}
+          {sidebarPresence.mounted && (
             <>
-              <div className="sidebar-header">
+              <div
+                className="sidebar-header"
+                inert={sidebarClosing || undefined}
+              >
                 <div className="sidebar-tabs">
                   <button
                     className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
@@ -1038,7 +1065,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div className="sidebar-body">
+              <div className="sidebar-body" inert={sidebarClosing || undefined}>
                 {panelMode === "tree" &&
                   (rootPath ? (
                     <FileTree
@@ -1131,8 +1158,11 @@ function App() {
           ))}
         </div>
 
-        {agentPanel.open && (
+        {agentPresence.mounted && (
           <aside
+            ref={agentPresence.ref}
+            data-state={agentPresence.state}
+            inert={agentClosing || undefined}
             className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
             style={{ width: agentPanel.width }}
           >

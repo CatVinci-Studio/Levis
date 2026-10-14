@@ -191,23 +191,49 @@ body {
 }
 
 .app-shell {
+  position: relative;
   display: flex;
   height: 100vh;
   overflow: hidden;
 }
 
+/* The sidebar slides in from the window's left edge and back out, on its
+   transform alone: it lies over the layout rather than in it, and the
+   main pane below makes room for it at once - the editor's column glides
+   to its new place (App.tsx's FlipOnChange) instead of reflowing on every
+   frame, as a margin transition did. Transitions, not keyframes, so a
+   second toggle mid-slide turns it around from where it is. Under reduced
+   motion it doesn't travel; it fades where it rests. */
 .sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  /* Over the editor while it slides away across it. */
+  z-index: 1;
   width: 240px;
-  flex-shrink: 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.15s ease;
+  transition:
+    transform var(--dur-slow) var(--ease-spring),
+    opacity var(--dur-slow) var(--ease-out),
+    visibility 0s;
 }
 
 .sidebar-collapsed {
-  margin-left: -240px;
+  transform: translateX(calc(-100% * var(--motion-travel)));
+  opacity: var(--motion-travel-fade);
+  visibility: hidden;
+  transition:
+    transform var(--dur-base) var(--ease-in),
+    opacity var(--dur-base) var(--ease-in),
+    visibility 0s linear var(--dur-base);
+}
+
+:root:not(.zen) .sidebar:not(.sidebar-collapsed) ~ .main-pane {
+  margin-left: 240px;
 }
 
 /* The window's title strip, drawn by the app because the native title bar is
@@ -966,6 +992,11 @@ body {
   .update-toast,
   .pdf-export-overlay {
     display: none !important;
+  }
+
+  /* The room the sidebar had on screen. */
+  .main-pane {
+    margin-left: 0 !important;
   }
 
   /* Editing affordances, not content - keep in step with

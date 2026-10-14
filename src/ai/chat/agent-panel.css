@@ -13,6 +13,17 @@
   background: var(--editor-bg, var(--bg));
   border-left: 1px solid var(--border-color);
   color: var(--editor-text);
+  /* It takes its full width at once - the editor glides aside (App.tsx's
+     FlipOnChange) - and slides into it from just beside it. Never a width
+     animation: that reflowed the whole document on every frame. */
+  animation: motion-nudge-in-end var(--dur-slow) var(--ease-out);
+}
+
+/* It leaves the way it came, in its own place; the editor takes the room
+   back once it has gone, rather than sliding in under it while it still
+   shows. */
+.agent-panel[data-state="closing"] {
+  animation: motion-nudge-out-end var(--dur-base) var(--ease-in) forwards;
 }
 
 .agent-panel-mount {
@@ -26,6 +37,8 @@
   flex-direction: column;
 }
 
+/* Under a drag the width follows the pointer with no transition - the
+   panel is in the hand; only the handle's own colour fades. */
 .agent-panel-resizer {
   position: absolute;
   top: 28px;
@@ -34,6 +47,7 @@
   width: 6px;
   cursor: col-resize;
   z-index: 5;
+  transition: background-color var(--dur-fast) var(--ease-standard);
 }
 
 .agent-panel-resizer:hover,
@@ -103,7 +117,8 @@
 }
 
 /* Narrow windows: the editor keeps priority; the panel overlays it instead
-   of squeezing the text column to nothing. */
+   of squeezing the text column to nothing - in from the window's edge on
+   a spring, and back out. */
 @media (max-width: 760px) {
   .agent-panel {
     position: absolute;
@@ -113,6 +128,11 @@
     z-index: 40;
     max-width: 92vw;
     box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+    animation: motion-edge-in-end var(--dur-slow) var(--ease-spring);
+  }
+
+  .agent-panel[data-state="closing"] {
+    animation: motion-edge-out-end var(--dur-base) var(--ease-in) forwards;
   }
 }
 

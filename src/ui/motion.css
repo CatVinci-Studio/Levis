@@ -205,6 +205,37 @@
   }
 }
 
+/* A panel arriving beside the editor from just off its place (the docked
+   AI panel), and leaving the same way. */
+@keyframes motion-nudge-in-end {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--motion-distance-md) * 2));
+  }
+}
+
+@keyframes motion-nudge-out-end {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--motion-distance-md) * 2));
+  }
+}
+
+/* A panel over the page from the window's right edge, and back. */
+@keyframes motion-edge-in-end {
+  from {
+    opacity: var(--motion-travel-fade);
+    transform: translateX(calc(100% * var(--motion-travel)));
+  }
+}
+
+@keyframes motion-edge-out-end {
+  to {
+    opacity: var(--motion-travel-fade);
+    transform: translateX(calc(100% * var(--motion-travel)));
+  }
+}
+
 /* A sheet from the bottom edge, and back down. */
 @keyframes motion-sheet-in {
   from {
