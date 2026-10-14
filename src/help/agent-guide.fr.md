@@ -52,13 +52,13 @@ Appuyez sur <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (ou faites un clic droi
 
 ### 5. Modifications dans le document
 
-La discussion n'écrit jamais directement dans votre document. Quand vous demandez à un fournisseur compatible avec les appels d'outils de modifier le document, chaque changement devient une proposition, affichée à l'endroit même où il s'appliquerait : le texte supprimé est barré, le nouveau texte apparaît en vert. Rien ne touche le document tant que vous n'avez pas accepté, et <kbd>Cmd</kbd>+<kbd>Z</kbd> annule une modification acceptée en une seule fois.
+La discussion n'écrit jamais directement dans votre document. Quand vous demandez à un fournisseur compatible avec les appels d'outils de modifier le document, chaque changement devient une proposition, affichée à l'endroit même où il s'appliquerait : le texte supprimé est barré, le nouveau texte apparaît en vert. Rien n'est appliqué au document tant que vous n'avez pas accepté, et <kbd>Cmd</kbd>+<kbd>Z</kbd> annule une modification acceptée en une seule fois.
 
-- **Accepter / Refuser** : depuis la barre flottante à côté de la modification, la carte de la proposition dans le panneau, ou au clavier : <kbd>Cmd</kbd>+<kbd>Return</kbd> accepte, <kbd>Cmd</kbd>+<kbd>Delete</kbd> avec le curseur sur la modification refuse. Les propositions d'une même réponse s'affichent toutes en aperçu ; passez de l'une à l'autre avec ‹› et utilisez Tout accepter / Tout refuser.
+- **Accepter / Refuser** : depuis la barre flottante à côté de la modification, la carte de la proposition dans le panneau, ou au clavier (<kbd>Cmd</kbd>+<kbd>Return</kbd> accepte ; avec le curseur sur la modification, <kbd>Cmd</kbd>+<kbd>Delete</kbd> refuse). Les propositions d'une même réponse s'affichent toutes en aperçu ; passez de l'une à l'autre avec ‹› et utilisez Tout accepter / Tout refuser.
 - **Raisons** : chaque carte de proposition indique pourquoi Levis AI a fait ce changement.
-- **Seulement certaines phrases** : quand une proposition réécrit plusieurs phrases, sa carte propose « Choisir les phrases (N) » : cochez celles que vous voulez garder, puis appuyez sur **Accepter K sur N**.
+- **Seulement certaines phrases** : quand une proposition réécrit plusieurs phrases, sa carte propose « Choisir les phrases (N) » ; cochez celles que vous voulez garder, puis appuyez sur **Accepter K sur N**.
 - **Au curseur** : si rien n'est sélectionné, Levis AI sait où se trouve votre curseur ; « écris une transition ici » l'insère exactement à cet endroit.
-- **Des commentaires plutôt que des modifications** : demandez une relecture (« qu'est-ce qui est faible ici ? ») et Levis AI épingle des commentaires à des passages sans les modifier. Chaque carte de commentaire propose **Afficher dans le document**, qui sélectionne le passage concerné.
+- **Des commentaires plutôt que des modifications** : demandez une relecture (« quels sont les points faibles ? ») et Levis AI épingle des commentaires à des passages sans les modifier. Chaque carte de commentaire propose **Afficher dans le document**, qui sélectionne le passage concerné.
 
 ## Personnaliser Levis AI
 
@@ -155,7 +155,7 @@ Vous n'avez pas à joindre les fiches vous-même. Une fiche avec `include: detec
 - **Global**, pour tous les documents : **Réglages > Levis AI > Instructions d'écriture (agent.md) > Modifier agent.md**.
 - **Projet**, pour les documents d'un projet : `.levis/agent.md`, que l'on ouvre avec **Modifier les instructions d'écriture du projet** dans le menu du projet.
 
-Les deux s'ouvrent dans un onglet et commencent par un court mode d'emploi en commentaires. Quand les deux existent, Levis AI reçoit les deux (d'abord les instructions globales, puis celles du projet) et, en cas de désaccord, celles du projet l'emportent.
+Les deux s'ouvrent dans un onglet et commencent par un court mode d'emploi en commentaires. Quand les deux existent, Levis AI reçoit les deux (d'abord les instructions globales, puis celles du projet) et, en cas de contradiction, celles du projet l'emportent.
 
 ```markdown
 Le livre est un roman policier situé dans le Shanghai des années 1930, raconté par Lin Wan à la première personne.
@@ -182,7 +182,7 @@ Ne renvoie que le texte peaufiné.
 
 Il y a deux façons d'utiliser une compétence :
 
-1. **L'appeler** : tapez `/` dans la zone de saisie de la discussion et choisissez-la dans le menu, ou tapez son nom suivi de votre demande : `/peaufiner reprends ce passage`.
+1. **L'appeler** : tapez `/` dans la zone de saisie de la discussion et choisissez-la dans le menu, ou tapez son nom suivi de votre demande, par exemple `/peaufiner reprends ce passage`.
 2. **Demander simplement** (fournisseurs compatibles avec les appels d'outils uniquement) : Levis AI connaît le nom et la description de chaque compétence ; quand votre demande correspond à l'une d'elles, il charge ses instructions complètes et les suit de lui-même.
 
 Les compétences existent aux deux mêmes niveaux que les instructions d'écriture : les compétences globales dans le dossier `skills/` du dossier de configuration globale (**Réglages > Levis AI > Compétences > Importer une compétence…** y copie un fichier de compétence), les compétences du projet dans `.levis/skills/` (un dossier caché : dans le Finder de macOS, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> l'affiche). Une compétence du projet qui porte le même nom qu'une compétence globale la remplace.
@@ -217,7 +217,7 @@ Il n'existe ni profil de style ni bibliothèque globaux : ils décrivent un ens
 
 ### Quel fichier pour quoi ?
 
-- La façon dont votre texte doit sonner → le **profil de style**.
+- Le ton et le style de votre texte → le **profil de style**.
 - Qui est qui, et ce que désigne chaque terme → la **bibliothèque**.
 - Ce que Levis AI doit savoir ou toujours faire dans une conversation → les **instructions d'écriture**.
 - Une tâche que vous demandez encore et encore → une **compétence**.

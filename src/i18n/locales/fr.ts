@@ -32,7 +32,7 @@ export default {
     "Le paragraphe a changé pendant la vérification. Réessayez.",
   noticeGrammarNoIssues: "Aucun problème détecté.",
   projectTooBroad:
-    "Ce dossier est trop vaste pour devenir le dossier du projet (votre dossier personnel ou un disque entier). Choisissez un dossier plus précis.",
+    "Ce dossier est trop vaste pour servir de dossier du projet (votre dossier personnel ou un disque entier). Choisissez un dossier plus précis.",
   projectNoSamples: "Aucun des fichiers choisis n'a pu être lu comme du texte.",
   projectNeedsSave:
     "Enregistrez d'abord ce document\u00a0: son dossier devient le dossier du projet.",
@@ -49,8 +49,8 @@ Instructions d'écriture pour ce projet.
 Tout ce qui se trouve hors des commentaires comme celui-ci est envoyé
 à ${AI_NAME} avec chaque conversation sur un document de ce projet,
 après vos instructions d'écriture globales (Réglages > ${AI_NAME}).
-En cas de désaccord, ce fichier l'emporte. Les commentaires ne sont
-jamais envoyés.
+En cas de contradiction, ce fichier l'emporte. Les commentaires ne
+sont jamais envoyés.
 
 Ce qu'il est utile d'écrire ici, par exemple\u00a0:
 
@@ -81,7 +81,7 @@ Ce qu'il est utile d'écrire ici, par exemple\u00a0:
 Les instructions propres à un seul projet vont dans le fichier
 .levis/agent.md de ce projet (dans le panneau IA, menu du projet >
 Modifier les instructions d'écriture du projet). Les deux sont
-envoyées\u202f; en cas de désaccord, celles du projet l'emportent.
+envoyées\u202f; en cas de contradiction, celles du projet l'emportent.
 
 Les compétences vont dans le dossier skills/ à côté de ce fichier, un
 fichier .md par compétence\u202f; tapez /nom dans une conversation pour en
@@ -136,7 +136,7 @@ utiliser une.
   modelTagTools: "outils",
   modelTagDeprecated: "obsolète",
   modelMissingHint:
-    "Ce modèle ne figure plus dans la liste actuelle du fournisseur\u00a0: il a peut-être été retiré. Choisissez-en un autre, ou celui par défaut.",
+    "Ce modèle ne figure pas dans la liste actuelle du fournisseur\u00a0: il a peut-être été retiré. Choisissez-en un autre, ou celui par défaut.",
   modelFetchedAt: "Récupérée le {date}",
   aiErrorNotConfigured: `Ce service d'IA n'est pas encore connecté. Configurez-le dans Réglages > ${AI_NAME}.`,
   aiErrorAuth: `Le service a refusé les identifiants. Vérifiez la clé API (ou reconnectez-vous) dans Réglages > ${AI_NAME}.`,
@@ -342,7 +342,7 @@ utiliser une.
   grammarStrictnessLabel: "Niveau de vérification",
   grammarStrictnessTypos: "Fautes de frappe uniquement",
   grammarStrictnessStandard: "Standard (fautes de frappe + grammaire)",
-  grammarStrictnessStrict: "Strict (avec style et clarté)",
+  grammarStrictnessStrict: "Strict (style et clarté inclus)",
   emptyDocPlaceholder: "Commencez à écrire en Markdown…",
   shortcutTriggerCompletion: "Suggérer une complétion",
   shortcutTriggerGrammarCheck: "Vérifier la grammaire",

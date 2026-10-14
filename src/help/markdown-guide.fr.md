@@ -13,7 +13,7 @@ Une citation :
 
 > Le texte cité peut contenir d'autres mises en forme, comme du **gras** et du `code`.
 
-Les encadrés à la GitHub :
+Les encadrés de style GitHub :
 
 > [!NOTE]
 > Une note, pour donner du contexte.
