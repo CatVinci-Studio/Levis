@@ -5,6 +5,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Strings } from "../../i18n/strings";
 import { cli } from "../../ipc";
+import { flushPendingWrites } from "../../storage/pending-writes";
 import { selfUpdateAllowed } from "../../utils/distribution";
 import { canAutoUpdate } from "../../platform/capabilities";
 import { SettingRow } from "./controls";
@@ -63,6 +64,8 @@ export function UpdateSection({ t }: { t: Strings }) {
     setMessage(t.updateDownloading);
     try {
       await update.downloadAndInstall();
+      // The relaunch skips every window's close request.
+      await flushPendingWrites();
       await relaunch();
     } catch (err) {
       setPhase("error");

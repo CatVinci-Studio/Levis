@@ -1,5 +1,6 @@
 import { storage } from "../ipc";
 import { legacyImportSettled, readBoot } from "./boot";
+import { trackWrite } from "./pending-writes";
 
 /**
  * Small bits of UI remembered between launches - not settings the user
@@ -21,14 +22,35 @@ export interface UiState {
   iosRecentDocuments: unknown;
   /** iOS: the document list's layout (mobile/DocumentList.tsx). */
   documentListView: string;
+  /** The chrome colours last derived from the selected imported theme
+   *  (utils/theme-chrome.ts), so the boot script (src-tauri/src/boot.js)
+   *  can paint the next window's first frame with them - deriving them
+   *  takes a CSS engine, which Rust doesn't have. A cache: the frontend
+   *  derives them again on every load and replaces both copies. */
+  themeChrome: ThemeChromeCache;
+}
+
+export interface ThemeChromeCache {
+  /** The imported theme (`Settings.themeId`) they were derived from. */
+  id: string;
+  /** For its dark appearance, or its light one. */
+  dark: boolean;
+  /** The length of the theme stylesheet they were derived from: the UI
+   *  never rewrites an imported theme, but a hand-edited file shouldn't
+   *  get the old colours painted over its first frame either. */
+  sourceLength: number;
+  /** The stylesheet applyThemeChrome applied. */
+  css: string;
 }
 
 export type UiStateKey = keyof UiState;
 
 /** Each field's localStorage key before the move, and how it was encoded
- *  there - for the fallback and for the one-time import. */
+ *  there - for the fallback and for the one-time import. A field without
+ *  one is kept in the file only (themeChrome: only Rust's boot script reads
+ *  it). */
 const LEGACY: {
-  [K in UiStateKey]: {
+  [K in UiStateKey]?: {
     key: string;
     decode: (raw: string) => unknown;
     encode: (value: UiState[K]) => string;
@@ -62,9 +84,11 @@ const LEGACY: {
 };
 
 function readLegacy(key: UiStateKey): unknown {
+  const legacy = LEGACY[key];
+  if (!legacy) return undefined;
   try {
-    const raw = localStorage.getItem(LEGACY[key].key);
-    return raw === null ? undefined : LEGACY[key].decode(raw);
+    const raw = localStorage.getItem(legacy.key);
+    return raw === null ? undefined : legacy.decode(raw);
   } catch {
     return undefined;
   }
@@ -117,11 +141,13 @@ export function setUiState<K extends UiStateKey>(
   if (file) {
     file[key] = value;
     written.add(key);
-    storage.uiStatePatch({ [key]: value }).catch(() => {});
+    trackWrite(storage.uiStatePatch({ [key]: value })).catch(() => {});
     return;
   }
+  const legacy = LEGACY[key];
+  if (!legacy) return;
   try {
-    localStorage.setItem(LEGACY[key].key, LEGACY[key].encode(value));
+    localStorage.setItem(legacy.key, legacy.encode(value));
   } catch {
     // Storage unavailable: it just won't be remembered.
   }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { selfUpdateAllowed } from "./distribution";
+import { flushPendingWrites } from "../storage/pending-writes";
 import { canAutoUpdate } from "../platform/capabilities";
 
 export type UpdateStatus = "idle" | "available" | "downloading" | "error";
@@ -62,6 +63,8 @@ export function useAppUpdate() {
     setStatus("downloading");
     try {
       await update.downloadAndInstall();
+      // The relaunch skips every window's close request.
+      await flushPendingWrites();
       await relaunch();
     } catch (err) {
       setError(errorText(err));

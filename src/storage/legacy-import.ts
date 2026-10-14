@@ -1,5 +1,6 @@
 import { storage, type StoredSnapshot } from "../ipc";
 import { markLegacyImportSettled, readLocalJson } from "./boot";
+import { trackWrite } from "./pending-writes";
 import { readLegacyUiState } from "./ui-state";
 
 /**
@@ -30,12 +31,14 @@ export async function importLegacyStorage(
   settings: Record<string, unknown>,
 ): Promise<StoredSnapshot | null> {
   try {
-    return await storage.settingsImportLegacy({
-      settings,
-      uiState: readLegacyUiState(),
-      chatHistory: localArray(CHAT_HISTORY_KEY),
-      clipboardHistory: localArray(CLIPBOARD_HISTORY_KEY),
-    });
+    return await trackWrite(
+      storage.settingsImportLegacy({
+        settings,
+        uiState: readLegacyUiState(),
+        chatHistory: localArray(CHAT_HISTORY_KEY),
+        clipboardHistory: localArray(CLIPBOARD_HISTORY_KEY),
+      }),
+    );
   } catch {
     return null;
   } finally {

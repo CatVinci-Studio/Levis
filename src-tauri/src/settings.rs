@@ -70,6 +70,11 @@ pub struct Store {
     /// Whether the file was absent when loaded - what decides that this is
     /// the first launch since the move and localStorage should be imported.
     missing_at_load: bool,
+    /// The file exists but couldn't be read (permissions, an I/O error): it
+    /// probably still holds the user's real data, which the first write
+    /// would replace with this session's defaults. So nothing is written
+    /// for the rest of the session - changes live in memory only.
+    unreadable: bool,
 }
 
 struct Inner {
@@ -87,21 +92,36 @@ impl Store {
     /// than overwritten, so whatever is in it can still be recovered by
     /// hand, and the app starts from defaults instead of refusing to start.
     pub fn load(path: PathBuf, key: &'static str, empty: Value, pretty: bool) -> Self {
-        let (payload, schema, missing) = match std::fs::read_to_string(&path) {
+        let mut missing = false;
+        let mut unreadable = false;
+        let (payload, schema) = match std::fs::read_to_string(&path) {
             Ok(raw) => match parse(&raw, key, &empty) {
-                Some((payload, schema)) => (payload, schema, false),
+                Some(parsed) => parsed,
                 None => {
                     move_aside(&path);
-                    (empty, SCHEMA_VERSION, false)
+                    (empty, SCHEMA_VERSION)
                 }
             },
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (empty, SCHEMA_VERSION, true),
-            // Unreadable for another reason (permissions): start empty but
-            // don't treat it as a first launch - importing would then
-            // replace a file that probably still holds the real data.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                missing = true;
+                (empty, SCHEMA_VERSION)
+            }
+            // Not UTF-8: as corrupt as a file that doesn't parse.
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+                move_aside(&path);
+                (empty, SCHEMA_VERSION)
+            }
+            // Unreadable for another reason (permissions, an I/O error):
+            // start empty, but neither treat it as a first launch -
+            // importing would then replace a file that probably still holds
+            // the real data - nor write it at all (see `unreadable`).
             Err(e) => {
-                eprintln!("levis: cannot read {}: {e}", path.display());
-                (empty, SCHEMA_VERSION, false)
+                eprintln!(
+                    "levis: cannot read {}: {e}; using defaults for this session and leaving the file alone",
+                    path.display()
+                );
+                unreadable = true;
+                (empty, SCHEMA_VERSION)
             }
         };
         Self {
@@ -116,6 +136,7 @@ impl Store {
             }),
             flush_scheduled: AtomicBool::new(false),
             missing_at_load: missing,
+            unreadable,
         }
     }
 
@@ -143,7 +164,7 @@ impl Store {
     }
 
     fn schedule_flush(self: &Arc<Self>) {
-        if self.flush_scheduled.swap(true, Ordering::AcqRel) {
+        if self.unreadable || self.flush_scheduled.swap(true, Ordering::AcqRel) {
             return;
         }
         let store = Arc::clone(self);
@@ -158,10 +179,11 @@ impl Store {
         });
     }
 
-    /// Writes the file now if anything changed since the last write.
+    /// Writes the file now if anything changed since the last write - never
+    /// over a file that was there but couldn't be read (`unreadable`).
     pub fn flush(&self) -> std::io::Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        if !inner.dirty {
+        if !inner.dirty || self.unreadable {
             return Ok(());
         }
         let mut file = Map::new();
@@ -190,6 +212,34 @@ impl Store {
     /// once without one undoing the other.
     pub fn patch(self: &Arc<Self>, patch: &Map<String, Value>) -> u64 {
         self.update(|payload| merge_top_level(payload, patch)).1
+    }
+
+    /// Sets the fields of `defaults` that are absent, leaving every present
+    /// one alone. Returns what was added and the new revision, or `None`
+    /// (no new revision, nothing to write) when nothing was missing.
+    pub fn fill_missing(
+        self: &Arc<Self>,
+        defaults: &Map<String, Value>,
+    ) -> Option<(Map<String, Value>, u64)> {
+        let (added, rev) = {
+            let mut inner = self.inner.lock().unwrap();
+            let missing: Map<String, Value> = defaults
+                .iter()
+                .filter(|(key, value)| {
+                    !value.is_null() && inner.payload.get(key.as_str()).is_none()
+                })
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect();
+            if missing.is_empty() {
+                return None;
+            }
+            merge_top_level(&mut inner.payload, &missing);
+            inner.rev += 1;
+            inner.dirty = true;
+            (missing, inner.rev)
+        };
+        self.schedule_flush();
+        Some((added, rev))
     }
 
     // -- array payloads -----------------------------------------------------
@@ -454,6 +504,28 @@ impl Stores {
             legacy.touched.extend(patch.keys().cloned());
         }
         self.settings.patch(patch)
+    }
+
+    /// Adds the fields of `defaults` the settings don't have yet, and
+    /// nothing else - checked and changed under one lock, so it can never
+    /// overwrite a value, whoever set it and whenever. A window whose boot
+    /// snapshot had no settings at all (a corrupt settings.json was moved
+    /// aside at launch, or an unreadable one is being left alone) writes
+    /// the fresh defaults out through this;
+    /// reloaded later, it replays that same empty snapshot, and a plain
+    /// patch would then put every default back over what the user has
+    /// changed since. Returns the fields added and the new revision, or
+    /// `None` when nothing was missing.
+    pub fn fill_missing_settings(
+        &self,
+        defaults: &Map<String, Value>,
+    ) -> Option<(Map<String, Value>, u64)> {
+        let mut legacy = self.legacy.lock().unwrap();
+        let (added, rev) = self.settings.fill_missing(defaults)?;
+        if legacy.pending {
+            legacy.touched.extend(added.keys().cloned());
+        }
+        Some((added, rev))
     }
 
     /// Takes the localStorage contents one window read at its first launch
@@ -727,6 +799,33 @@ pub fn settings_patch(
         },
     );
     rev
+}
+
+/// Writes out the frontend's defaults for whatever settings fields are
+/// missing - never over a field that's set (`Stores::fill_missing_settings`)
+/// - and answers with the live settings either way, which the window then
+/// adopts in place of its (empty, possibly stale) boot snapshot. Fields it
+/// added are broadcast like any other change.
+#[tauri::command]
+pub fn settings_fill_defaults(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    stores: tauri::State<Stores>,
+    defaults: Map<String, Value>,
+) -> Snapshot {
+    if let Some((patch, rev)) = stores.fill_missing_settings(&defaults) {
+        emit_to_all(
+            &app,
+            "settings-changed",
+            SettingsChanged {
+                rev,
+                patch,
+                from: window.label().to_string(),
+            },
+        );
+    }
+    let (value, rev) = stores.settings.snapshot();
+    Snapshot { value, rev }
 }
 
 /// The first window's copy of what localStorage held (see
@@ -1088,6 +1187,94 @@ mod tests {
         let dir = temp_dir();
         std::fs::write(settings_path(&dir), r#"{"settings":[1,2]}"#).unwrap();
         assert_eq!(Stores::load(&dir, &dir).settings.snapshot().0, json!({}));
+    }
+
+    #[test]
+    fn a_settings_file_that_is_not_utf8_counts_as_corrupt() {
+        let dir = temp_dir();
+        std::fs::write(settings_path(&dir), [0xff, 0xfe, b'{']).unwrap();
+        let stores = Stores::load(&dir, &dir);
+        assert_eq!(stores.settings.snapshot().0, json!({}));
+        assert!(!settings_path(&dir).exists());
+        stores.patch_settings(&obj(json!({ "theme": "dark" })));
+        stores.flush_all();
+        assert_eq!(
+            read_file(&settings_path(&dir))["settings"],
+            json!({ "theme": "dark" })
+        );
+    }
+
+    /// A settings.json that's there but can't be read (here: no read
+    /// permission) is left exactly as it is - never replaced by this
+    /// session's defaults - while the app runs on in-memory settings.
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_settings_file_is_never_overwritten() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir();
+        let path = settings_path(&dir);
+        let original = r#"{"schemaVersion":1,"settings":{"theme":"dark"}}"#;
+        std::fs::write(&path, original).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        if std::fs::read_to_string(&path).is_ok() {
+            // Running as root: permissions don't stop reads, nothing to test.
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            return;
+        }
+        let stores = Stores::load(&dir, &dir);
+        assert_eq!(stores.settings.snapshot().0, json!({}));
+        // Not a first launch either: no import over the real data.
+        assert!(!stores.legacy_import_pending());
+        // The frontend writes its defaults, the user changes something...
+        stores.fill_missing_settings(&obj(json!({ "theme": "system", "zoom": 1 })));
+        stores.patch_settings(&obj(json!({ "zoom": 1.5 })));
+        // ...and it all works, in memory,
+        assert_eq!(
+            stores.settings.snapshot().0,
+            json!({ "theme": "system", "zoom": 1.5 })
+        );
+        // without a write, debounced or on exit.
+        std::thread::sleep(FLUSH_DELAY * 3);
+        stores.flush_all();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, [file_name("settings")], "nothing moved aside");
+    }
+
+    #[test]
+    fn filling_defaults_never_overwrites_a_set_field() {
+        let dir = temp_dir();
+        std::fs::write(settings_path(&dir), "{ not json").unwrap();
+        // Launch after the corrupt file was moved aside: nothing stored.
+        let stores = Stores::load(&dir, &dir);
+        let defaults = obj(json!({ "theme": "system", "zoom": 1, "language": "en" }));
+        let (added, rev) = stores.fill_missing_settings(&defaults).unwrap();
+        assert_eq!(added, defaults);
+        // The user changes things...
+        let changed = stores.patch_settings(&obj(json!({ "theme": "dark", "zoom": null })));
+        assert!(changed > rev);
+        // ...and a reloaded window, replaying its empty boot snapshot, offers
+        // the same defaults again: only the field that's missing comes back.
+        let (added, _) = stores.fill_missing_settings(&defaults).unwrap();
+        assert_eq!(added, obj(json!({ "zoom": 1 })));
+        assert_eq!(
+            stores.settings.snapshot().0,
+            json!({ "theme": "dark", "zoom": 1, "language": "en" })
+        );
+        // Nothing missing: no change, no new revision.
+        let rev = stores.settings.snapshot().1;
+        assert!(stores.fill_missing_settings(&defaults).is_none());
+        assert_eq!(stores.settings.snapshot().1, rev);
+        stores.flush_all();
+        assert_eq!(
+            read_file(&settings_path(&dir))["settings"]["theme"],
+            json!("dark")
+        );
     }
 
     #[test]

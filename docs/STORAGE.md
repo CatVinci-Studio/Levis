@@ -69,13 +69,34 @@ missing.
   land. Every settings and history change is broadcast to all windows.
 - Writes are debounced by 250 ms and flushed when the app exits, through a
   write-then-rename, so a crash never leaves a half-written file.
-- A file that can't be parsed is renamed to `<name>.corrupt-<unix time>` and
-  the app starts from defaults rather than refusing to start.
+- A window never closes with a change still on its way to Rust. The
+  frontend holds keystroke-heavy settings fields (Custom CSS, the proxy,
+  ...) back for 400 ms of quiet, and IPC is asynchronous, so every close
+  path the app owns - the window's close request (close button, Close
+  Window, Quit and Cmd+Q, Alt+F4), the unsaved-changes prompt, closing the
+  last tab, the detached chat - first sends what's held back and waits for
+  Rust to answer every settings, UI-state and history write
+  (`src/storage/pending-writes.ts`, at most 2 s). On iOS, going to the
+  background sends it.
+- A file that can't be parsed (or isn't UTF-8) is renamed to
+  `<name>.corrupt-<unix time>` and the app starts from defaults rather than
+  refusing to start. A window that boots with no settings at all writes the
+  defaults out with `settings_fill_defaults`, which only adds fields that
+  are missing: a reload replays that same empty snapshot, and must not put
+  the defaults back over what was changed since.
+- A file that is there but can't be read for another reason (permissions,
+  an I/O error) is left exactly as it is: the app logs it, runs on defaults
+  held in memory for that session, and writes nothing over it.
 - `schemaVersion` changes only for a change an older reader would misread.
   Adding a field never needs it: readers fill in defaults for missing fields.
 - Before a window loads, Rust injects the current settings and UI state as
   `window.__BOOT__` and applies the theme, so the first frame is already
-  right (`src-tauri/src/boot.js`, `src/storage/boot.ts`).
+  right (`src-tauri/src/boot.js`, `src/storage/boot.ts`). For an imported
+  theme that includes the app's chrome colours derived from it: working
+  them out takes a CSS engine (`applyThemeChrome` in
+  `src/utils/theme-chrome.ts`), so the frontend remembers the result in
+  `ui-state.json` (`themeChrome`, per theme and appearance) and the boot
+  script applies it when it matches.
 
 ## The move out of localStorage (0.9.6 to 0.9.7)
 

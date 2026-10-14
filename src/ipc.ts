@@ -188,6 +188,10 @@ export const storage = {
   /** Top-level fields only; resolves to the new revision. */
   settingsPatch: (patch: Record<string, unknown>) =>
     call<number>("settings_patch", { patch }),
+  /** Stores the fields of `defaults` that aren't set yet - never over one
+   *  that is - and resolves to the live settings. */
+  settingsFillDefaults: (defaults: Record<string, unknown>) =>
+    call<StoredSnapshot>("settings_fill_defaults", { defaults }),
   settingsImportLegacy: (payload: LegacyStorage) =>
     call<StoredSnapshot & { accepted: boolean }>("settings_import_legacy", {
       payload,
@@ -334,9 +338,15 @@ export interface OauthStatus {
   configured: boolean;
 }
 
+/** What custom_endpoint_status reports (src-tauri/src/auth/custom_endpoint.rs
+ *  CustomEndpointStatus). The key itself never comes back to the webview -
+ *  `api_key` is always null - only whether one is stored. */
 export interface CustomEndpointConfig {
   base_url: string;
   api_key: string | null;
+  /** A key is saved for `base_url`: saving or testing with the key field
+   *  left empty uses it (for that URL only), and Clear removes it. */
+  has_api_key: boolean;
   model: string;
 }
 
@@ -497,7 +507,7 @@ export const ai = {
     provider: string;
     document: string;
     docPath: string | null;
-    /** Settings > Agent's explicit workspace root; null keeps the default
+    /** Settings > Levis AI's explicit workspace root; null keeps the default
      *  (the document's own folder). Decides where .levis/ is read from and
      *  how far list_files/read_file may reach. */
     workspaceRoot: string | null;
@@ -559,7 +569,7 @@ export const ai = {
     workspaceRoot: string | null;
     files: string[];
   }) => call<string>("learn_style", args),
-  /** Folder picker behind Settings > Agent's "switch workspace" button. */
+  /** Folder picker behind Settings > Levis AI's "switch workspace" button. */
   pickWorkspaceRoot: (): Promise<string | null> =>
     isIOSApp
       ? iosFiles.pickProjectFolder()

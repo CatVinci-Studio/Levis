@@ -1,11 +1,22 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { strings } from "../../i18n/strings";
 import type { ProviderCatalogEntry } from "../../ai/provider-catalog";
-import { ProviderAuthPanel, ProviderListPanel } from "./providers";
+import { auth, type CustomEndpointConfig } from "../../ipc";
+import {
+  CustomProviderPanel,
+  ProviderAuthPanel,
+  ProviderListPanel,
+} from "./providers";
 
 const settingsMocks = vi.hoisted(() => ({ setSettings: vi.fn() }));
 const providerMocks = vi.hoisted(() => ({
@@ -47,6 +58,11 @@ vi.mock("../../ipc", () => ({
     oauthStatus: vi.fn().mockResolvedValue({ configured: false }),
     oauthLogin: vi.fn(),
     oauthLogout: vi.fn(),
+    customEndpointStatus: vi.fn().mockResolvedValue(null),
+    setCustomEndpoint: vi.fn().mockResolvedValue(undefined),
+    clearCustomEndpoint: vi.fn().mockResolvedValue(undefined),
+    fetchCustomModels: vi.fn().mockResolvedValue([]),
+    testCustomEndpoint: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -105,5 +121,80 @@ describe("ProviderAuthPanel", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveFocus();
     expect(parentKey).not.toHaveBeenCalled();
+  });
+});
+
+describe("CustomProviderPanel", () => {
+  const saved: CustomEndpointConfig = {
+    base_url: "https://api.example/v1",
+    api_key: null,
+    has_api_key: true,
+    model: "m1",
+  };
+
+  async function renderPanel(status: CustomEndpointConfig | null) {
+    vi.mocked(auth.customEndpointStatus).mockResolvedValue(status);
+    render(<CustomProviderPanel t={strings.en} />);
+    await waitFor(() =>
+      expect(
+        screen.getByPlaceholderText(strings.en.customBaseUrlPlaceholder),
+      ).toHaveValue(status?.base_url ?? ""),
+    );
+    return screen.getByLabelText(strings.en.customApiKeyLabel);
+  }
+
+  it("says a saved key is there instead of showing an empty field", async () => {
+    const key = await renderPanel(saved);
+    expect(key).toHaveValue("");
+    expect(key).toHaveAttribute("placeholder", strings.en.customApiKeySaved);
+  });
+
+  it("stops claiming the saved key once the URL names another host", async () => {
+    const key = await renderPanel(saved);
+    const url = screen.getByPlaceholderText(
+      strings.en.customBaseUrlPlaceholder,
+    );
+    // A trailing slash is the same endpoint (the backend's rule)...
+    fireEvent.change(url, { target: { value: "https://api.example/v1/" } });
+    expect(key).toHaveAttribute("placeholder", strings.en.customApiKeySaved);
+    // ...another host is not, and won't be sent the old key.
+    fireEvent.change(url, { target: { value: "https://other.example/v1" } });
+    expect(key).toHaveAttribute("placeholder", strings.en.apiKeyPlaceholder);
+  });
+
+  it("shows no saved key for an endpoint saved without one", async () => {
+    const key = await renderPanel({ ...saved, has_api_key: false });
+    expect(key).toHaveAttribute("placeholder", strings.en.apiKeyPlaceholder);
+  });
+
+  it("empties the field after saving a key, and Remove forgets it", async () => {
+    const key = await renderPanel(null);
+    fireEvent.change(
+      screen.getByPlaceholderText(strings.en.customBaseUrlPlaceholder),
+      { target: { value: "https://api.example/v1" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(strings.en.customModelPlaceholder),
+      { target: { value: "m1" } },
+    );
+    fireEvent.change(key, { target: { value: "sk-new" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: strings.en.customSave }),
+    );
+    await waitFor(() => expect(key).toHaveValue(""));
+    expect(auth.setCustomEndpoint).toHaveBeenCalledWith(
+      "https://api.example/v1",
+      "sk-new",
+      "m1",
+    );
+    expect(key).toHaveAttribute("placeholder", strings.en.customApiKeySaved);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: strings.en.apiKeyClear }),
+    );
+    await waitFor(() =>
+      expect(key).toHaveAttribute("placeholder", strings.en.apiKeyPlaceholder),
+    );
+    expect(auth.clearCustomEndpoint).toHaveBeenCalled();
   });
 });

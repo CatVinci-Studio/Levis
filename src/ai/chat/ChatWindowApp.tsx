@@ -15,6 +15,7 @@ import {
   type ChatContext,
 } from "./chat-bridge";
 import { windowIpc } from "../../ipc";
+import { flushPendingWrites } from "../../storage/pending-writes";
 import { PinIcon, PlusIcon } from "../../ui/icons";
 import { WindowCaptionButtons } from "../../ui/WindowControls";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
@@ -168,10 +169,13 @@ export function ChatWindowApp() {
   }, [applyContext]);
 
   // Closing the window hands the conversation back so the editor can re-embed
-  // the panel instead of silently losing the exchange.
+  // the panel instead of silently losing the exchange. The window is
+  // destroyed once this resolves, so it first waits for the storage writes
+  // this window still has on their way (the conversation's history entry,
+  // the pin setting) - see storage/pending-writes.ts.
   useEffect(() => {
     const win = getCurrentWindow();
-    const unlisten = win.onCloseRequested(() => {
+    const unlisten = win.onCloseRequested(async () => {
       if (editorLabel.current)
         sendToWindow(editorLabel.current, CHAT_TO_EDITOR.reembed, {
           conversationId: conversation.conversationId,
@@ -179,6 +183,7 @@ export function ChatWindowApp() {
           docPath:
             requestDocPath.current ?? contextRef.current?.docPath ?? null,
         });
+      await flushPendingWrites();
     });
     return unlistenAll(unlisten);
   }, [conversation.conversationId, conversation.history]);

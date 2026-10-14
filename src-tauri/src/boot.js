@@ -42,6 +42,16 @@ window.__levisBoot = function (boot, themeCss) {
     document.head.appendChild(style);
   }
 
+  // isEffectiveDark() in SettingsContext.tsx.
+  function effectiveDark() {
+    return (
+      settings.theme === "dark" ||
+      (settings.theme !== "light" &&
+        !!window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches)
+    );
+  }
+
   // Stylesheets go at the END of <head>, after the app's own CSS, where
   // React keeps them too: custom CSS has to win ties with the theme, and
   // both with App.css. So they wait for <body> to start, which means <head>
@@ -49,18 +59,30 @@ window.__levisBoot = function (boot, themeCss) {
   // before there's a body to paint.
   function addStyles() {
     if (themeCss) {
-      var dark =
-        themeCss.dark &&
-        (settings.theme === "dark" ||
-          (settings.theme !== "light" &&
-            window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches));
+      var dark = effectiveDark();
+      var source = dark && themeCss.dark ? themeCss.dark : themeCss.light;
       // adaptTyporaCss() in src/settings/typora-compat.ts.
-      var css = (dark ? themeCss.dark : themeCss.light).replace(
+      var css = source.replace(
         /\bthead\b(?:\s*>?\s*tr\b)?/g,
         "tr[data-is-header]",
       );
       addStyle("levis-custom-theme", css);
+      // The app's own colours (sidebar, background, accents) as the
+      // frontend last derived them from this stylesheet in this appearance
+      // - applyThemeChrome() in src/utils/theme-chrome.ts, which needs a
+      // CSS engine to work them out, so they're remembered in ui-state.json
+      // (ThemeChromeCache in src/storage/ui-state.ts) rather than computed
+      // here. Anything else: none, and the frontend applies them a moment
+      // later as before.
+      var chrome = (boot.uiState || {}).themeChrome;
+      if (
+        chrome &&
+        chrome.id === settings.themeId &&
+        chrome.dark === dark &&
+        chrome.sourceLength === source.length &&
+        typeof chrome.css === "string"
+      )
+        addStyle("levis-imported-chrome", chrome.css);
     }
     if (settings.customCss && String(settings.customCss).trim())
       addStyle("levis-user-css", String(settings.customCss));

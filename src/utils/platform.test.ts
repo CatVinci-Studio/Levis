@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isDesktop, isIOSPlatform } from "./platform";
+import { isDesktop, isIOSPlatform, modIsMeta } from "./platform";
 
 // jsdom's navigator has no maxTouchPoints to spy on - swap in a plain one.
 function stub(platform: string, userAgent: string, maxTouchPoints = 0) {
@@ -45,5 +45,17 @@ describe("isIOSPlatform / isDesktop", () => {
     stub("Linux armv8l", "Mozilla/5.0 (Linux; Android 14; Pixel 8)", 5);
     expect(isIOSPlatform()).toBe(false);
     expect(isDesktop()).toBe(false);
+  });
+});
+
+describe("modIsMeta", () => {
+  it("treats Macs and iOS devices as Cmd, as ProseMirror does", () => {
+    for (const platform of ["MacIntel", "iPhone", "iPad", "iPod touch"])
+      expect(modIsMeta(platform)).toBe(true);
+  });
+
+  it("treats everything else as Ctrl", () => {
+    for (const platform of ["Win32", "Linux x86_64", ""])
+      expect(modIsMeta(platform)).toBe(false);
   });
 });

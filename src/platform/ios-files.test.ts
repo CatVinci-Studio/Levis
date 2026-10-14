@@ -1,0 +1,88 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The recent-documents list in ui-state.json, as iOS keeps it. The store
+// answers asynchronously, like the real one: every reader waits on the
+// same live re-read (uiStateReady), which at launch is still on its way -
+// so two documents opening then both read the list when it lands, before
+// either has written.
+const stored = vi.hoisted(() => ({
+  list: [] as unknown,
+  ready: Promise.resolve() as Promise<void>,
+}));
+
+vi.mock("./capabilities", () => ({ isIOSApp: true }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/path", () => ({
+  documentDir: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    return "/app/Documents";
+  },
+  join: async (...parts: string[]) => parts.join("/"),
+}));
+vi.mock("../storage/ui-state", () => ({
+  uiStateReady: () => stored.ready,
+  getUiState: () => stored.list,
+  setUiState: (_key: string, value: unknown) => {
+    stored.list = value;
+  },
+}));
+
+const {
+  forgetIOSDocument,
+  recentIOSDocuments,
+  rememberIOSDocument,
+  renameIOSDocument,
+} = await import("./ios-files");
+const { invoke } = await import("@tauri-apps/api/core");
+
+beforeEach(() => {
+  stored.list = [];
+  // The live re-read lands a little after everything below has started.
+  stored.ready = new Promise((resolve) => setTimeout(resolve, 20));
+});
+
+describe("iOS recent documents", () => {
+  it("keeps both of two documents opened at the same moment", async () => {
+    await Promise.all([
+      rememberIOSDocument("/app/Documents/a.md"),
+      rememberIOSDocument("file:///private/iCloud/b.md"),
+    ]);
+    expect(stored.list).toEqual([
+      "file:///private/iCloud/b.md",
+      "documents:a.md",
+    ]);
+    expect(await recentIOSDocuments()).toEqual([
+      "file:///private/iCloud/b.md",
+      "/app/Documents/a.md",
+    ]);
+  });
+
+  it("orders a forget after a remember started before it", async () => {
+    stored.list = ["documents:old.md"];
+    await Promise.all([
+      rememberIOSDocument("/app/Documents/new.md"),
+      forgetIOSDocument("/app/Documents/old.md"),
+    ]);
+    expect(stored.list).toEqual(["documents:new.md"]);
+  });
+
+  it("keeps an entry remembered while a rename is on its way", async () => {
+    stored.list = ["documents:draft.md"];
+    vi.mocked(invoke).mockResolvedValue("/app/Documents/final.md");
+    await Promise.all([
+      renameIOSDocument("/app/Documents/draft.md", "final"),
+      rememberIOSDocument("/app/Documents/other.md"),
+    ]);
+    expect(stored.list).toEqual(["documents:other.md", "documents:final.md"]);
+  });
+
+  it("carries on after a change that failed", async () => {
+    stored.list = ["documents:a.md"];
+    vi.mocked(invoke).mockRejectedValue(new Error("gone"));
+    await expect(
+      renameIOSDocument("/app/Documents/a.md", "b"),
+    ).rejects.toThrow();
+    await rememberIOSDocument("/app/Documents/c.md");
+    expect(stored.list).toEqual(["documents:c.md", "documents:a.md"]);
+  });
+});

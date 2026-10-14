@@ -17,6 +17,7 @@ import {
   type DocTab,
 } from "./doc-tabs";
 import { windowIpc, type WindowBounds } from "./ipc";
+import { flushPendingWrites } from "./storage/pending-writes";
 import { canUseWindows } from "./platform/capabilities";
 
 // Everything about moving tabs BETWEEN windows lives here, both directions:
@@ -163,6 +164,10 @@ export function useTabDragMerge(opts: {
       const tab = liveTabs()[0];
       if (!tab) return;
       windowDragRef.current = "handed-off";
+      // Rust destroys this window at once (destroySource), mid-drag, with
+      // no time to wait for anything - but whatever storage writes it still
+      // holds back are sent first, and land before the drag command does.
+      void flushPendingWrites();
       void windowIpc.startFloatingTabDrag(floatingDragArgs(tab, t, true));
     }
 
