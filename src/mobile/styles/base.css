@@ -129,14 +129,37 @@
   --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 52%, black);
 }
 
-/* Settings fills the phone's screen (settings.css). */
+/* Settings fills the phone's screen (settings.css) with iOS's grouped
+   page colour - #f2f2f7, black in dark - which the strips take too; they
+   were left the document's white (or its dark grey). On an iPad it is a
+   dialog over the dimmed page. */
 @media (max-width: 760px) {
   :root[data-window-chrome="mobile"]:has(
       .settings-backdrop:not([data-state="closing"])
     )
     body {
-    background: var(--bg);
+    background: var(--grouped-page);
   }
+}
+
+@media (min-width: 761px) {
+  :root[data-window-chrome="mobile"]:has(
+      .settings-backdrop:not([data-state="closing"])
+    )
+    body {
+    background: var(--phone-dim-overlay);
+  }
+}
+
+/* The first-launch language card and the tutorial dim the whole screen,
+   strips included. */
+:root[data-window-chrome="mobile"]:has(
+    :is(.language-welcome-backdrop, .tutorial-backdrop):not(
+      [data-state="closing"]
+    )
+  )
+  body {
+  background: var(--phone-dim-overlay);
 }
 
 /* The drawer's scrim is drawn at phone width only (sidebar.css). */

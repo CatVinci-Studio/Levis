@@ -25,7 +25,10 @@
     .image-name-overlay,
     .close-prompt-overlay
   ) {
-  top: var(--mobile-bar);
+  /* The whole screen: on iOS the title row has no window to drag or
+     close (App.css keeps the desktop's clear), and an iPad's Settings
+     left it bright and live above the dimming. */
+  top: 0;
 }
 
 @media (max-width: 760px) {

@@ -173,3 +173,132 @@ test("a tap on the suggestion accepts it", async ({ page }) => {
     "The plan works and this ghost text is a canned dev-shim suggestion.",
   );
 });
+
+test("a dragged AI sheet settles without replaying its entrance", async ({
+  page,
+}) => {
+  await openPhone(page, { animations: true });
+  await page.locator(".window-bar-toggle").tap();
+  const sheet = page.locator(".agent-panel");
+  await expect(sheet).toBeVisible();
+  // Up to full height with the handle, and let it land.
+  await page.locator(".agent-panel-grip").tap();
+  await expect
+    .poll(async () => (await sheet.boundingBox())!.height)
+    .toBeGreaterThan(932 * 0.9);
+  await expect(sheet).toHaveAttribute("data-settled", "");
+  // Back at its stop, no animation starts over: the slide up from the
+  // bottom edge (a flash under reduced motion) played again before.
+  expect(
+    await sheet.evaluate((el) => ({
+      name: getComputedStyle(el).animationName,
+      running: el.getAnimations().length,
+    })),
+  ).toEqual({ name: "none", running: 0 });
+  // Closing still plays its way out.
+  await page.locator(".window-bar-toggle").tap();
+  await expect(sheet).toHaveAttribute("data-state", "closing");
+  expect(
+    await sheet.evaluate((el) => getComputedStyle(el).animationName),
+  ).not.toBe("none");
+});
+
+test("the line being typed stays above the keyboard toolbar", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await pasteMarkdown(
+    page,
+    Array.from({ length: 60 }, (_, i) => `Paragraph ${i} with words.`).join(
+      "\n\n",
+    ),
+  );
+  const scroller = page.locator('[data-active-tab="true"] .editor-scroll');
+  await scroller.evaluate((el) => (el.scrollTop = 0));
+  // A tap low on the screen, then the keyboard comes up: the web view
+  // shortens (KeyboardFit.swift), which a smaller viewport stands in for.
+  await page.touchscreen.tap(100, 800);
+  const toolbar = page.getByRole("toolbar", { name: "Formatting" });
+  await expect(toolbar).toBeVisible();
+  await page.setViewportSize({ width: 430, height: 560 });
+  const caretAndBars = () =>
+    page.evaluate(() => ({
+      caret: getSelection()!.getRangeAt(0).getBoundingClientRect().bottom,
+      scroller: document
+        .querySelector('[data-active-tab="true"] .editor-scroll')!
+        .getBoundingClientRect().bottom,
+      toolbar: document
+        .querySelector(".keyboard-toolbar")!
+        .getBoundingClientRect().top,
+    }));
+  // The scroller ends at the strip, and the caret is brought up into it.
+  await expect
+    .poll(async () => {
+      const m = await caretAndBars();
+      return m.caret <= m.toolbar && m.scroller <= m.toolbar + 1;
+    })
+    .toBe(true);
+  // Return keeps the new line above the strip as well.
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Enter");
+  const m = await caretAndBars();
+  expect(m.caret).toBeLessThanOrEqual(m.toolbar);
+});
+
+test("with the keyboard up, the AI sheet rises once it has gone", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await page.locator('[data-active-tab="true"] .milkdown p').first().click();
+  await page.setViewportSize({ width: 430, height: 560 });
+  await page.waitForTimeout(100);
+  await page.locator(".window-bar-toggle").tap();
+  // Not yet: the web view is still short.
+  await page.waitForTimeout(100);
+  await expect(page.locator(".agent-panel")).toHaveCount(0);
+  // The keyboard goes; the sheet comes, laid out at the full height.
+  await page.setViewportSize({ width: 430, height: 932 });
+  await expect(page.locator(".agent-panel")).toBeVisible();
+  const box = (await page.locator(".agent-panel").boundingBox())!;
+  expect(Math.round(box.y + box.height)).toBe(932);
+});
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`the screen's edge strips take Settings' colour (${scheme})`, async ({
+    page,
+  }) => {
+    await openPhone(page);
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.locator(".window-menu-button").tap();
+    await page.getByRole("menuitem", { name: "Settings…" }).tap();
+    const panel = page.locator(".settings-panel");
+    await expect(panel).toBeVisible();
+    const [body, sheet] = await page.evaluate(() => [
+      getComputedStyle(document.body).backgroundColor,
+      getComputedStyle(document.querySelector(".settings-panel")!)
+        .backgroundColor,
+    ]);
+    expect(body).toBe(sheet);
+    expect(body).toBe(
+      scheme === "dark" ? "rgb(0, 0, 0)" : "rgb(242, 242, 247)",
+    );
+  });
+}
+
+test("document thumbnails are the page's colour in dark mode", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await page.emulateMedia({ colorScheme: "dark" });
+  const [sheet, text] = await page.evaluate(() => {
+    const el = document.createElement("div");
+    el.className = "document-page";
+    el.innerHTML = '<div class="document-page-text">Text</div>';
+    document.body.appendChild(el);
+    return [
+      getComputedStyle(el).backgroundColor,
+      getComputedStyle(el.firstElementChild!).color,
+    ];
+  });
+  expect(sheet).not.toBe("rgb(255, 255, 255)");
+  expect(text).not.toBe(sheet);
+});

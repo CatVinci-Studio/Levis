@@ -222,8 +222,12 @@ function carrySheet(carry: SheetCarry, offset: number) {
   sheet.style.setProperty("--sheet-lift", `${liftAt(carry, offset)}px`);
 }
 
-/** Back to the stop its class lays it out at. */
+/** Back to the stop its class lays it out at. Marked settled first: with
+ *  data-carried gone the entrance animation was the sheet's animation again
+ *  - a new one, which replayed the slide up from the bottom (a flash, under
+ *  reduced motion) after every drag (ai-sheet.css). */
 function setSheetDown(sheet: HTMLElement) {
+  sheet.dataset.settled = "";
   delete sheet.dataset.carried;
   sheet.style.removeProperty("height");
   sheet.style.removeProperty("transform");
@@ -412,11 +416,19 @@ export function AgentPanelSheetGrip({
           settle(d.carry, d.startOffset, toggled(), 0);
           return;
         }
-        const place = sheetRestingPlace(
+        let place = sheetRestingPlace(
           d.carry.max - Math.max(0, d.offset),
           d.carry.max,
           d.velocity,
         );
+        // A fast fling down from full height goes one stop, to half - it
+        // closed the sheet when the fling had carried it below 70%.
+        if (
+          place === "closed" &&
+          d.velocity > FLICK &&
+          d.startOffset < d.carry.half / 2
+        )
+          place = "half";
         settle(d.carry, d.offset, place, d.velocity);
       }}
       onPointerCancel={() => {

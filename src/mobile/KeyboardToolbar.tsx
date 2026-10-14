@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useSettings } from "../settings/SettingsContext";
 import type { TableAction } from "../editor/editor-menu";
 import {
@@ -141,6 +147,37 @@ export function KeyboardToolbar() {
     document.documentElement.classList.toggle("has-keyboard-toolbar", editing);
   }, [editing]);
 
+  // An iPad with the AI panel docked beside the text: the strip spans the
+  // text's column, not the screen - full width it covered the panel's
+  // composer (mode picker, +, search and Send). The phone's AI sheet
+  // (position: fixed) covers the strip itself, so it is not measured.
+  const [panelInset, setPanelInset] = useState(0);
+  useLayoutEffect(() => {
+    if (!editing) return;
+    let observed: HTMLElement | null = null;
+    const resize = new ResizeObserver(() => measure());
+    function measure() {
+      const panel = document.querySelector<HTMLElement>(
+        '.agent-panel:not([data-state="closing"])',
+      );
+      if (panel !== observed) {
+        if (observed) resize.unobserve(observed);
+        if (panel) resize.observe(panel);
+        observed = panel;
+      }
+      const docked = !!panel && getComputedStyle(panel).position !== "fixed";
+      // Its laid-out width, not where it shows: it may still be sliding
+      // in from beside the screen. It always stands at the right edge.
+      setPanelInset(docked ? panel.offsetWidth : 0);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      resize.disconnect();
+    };
+  }, [editing]);
+
   if (!editing) return null;
 
   type Button = {
@@ -272,6 +309,7 @@ export function KeyboardToolbar() {
       className="keyboard-toolbar"
       role="toolbar"
       aria-label={t.toolbarLabel}
+      style={panelInset ? { right: panelInset } : undefined}
     >
       <div className="keyboard-toolbar-format">
         {groups.map((group, g) => (

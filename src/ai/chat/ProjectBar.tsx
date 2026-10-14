@@ -11,6 +11,8 @@ import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { errorText } from "../../utils/error-text";
 import { OPEN_FILE_IN_TAB_EVENT } from "../../utils/events";
 import { basename } from "../../utils/path";
+import { knownDocumentsDir } from "../../platform/documents-path";
+import { APP_NAME } from "../../i18n/names";
 import { ChevronIcon, FolderIcon } from "../../ui/icons";
 import { ActionSheet, type ActionSheetItem } from "../../mobile/ActionSheet";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
@@ -230,7 +232,12 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
     },
     { label: t.projectEditInstructions, onSelect: openInstructions },
   ];
-  const folderName = basename(root.replace(/[\\/]+$/, "")) || root;
+  // iOS: the app's own Documents folder is "Levis" in the Files app, and
+  // "Documents" was English in every language.
+  const trimmed = root.replace(/[\\/]+$/, "");
+  const documents = knownDocumentsDir()?.replace(/[\\/]+$/, "");
+  const folderName =
+    documents && trimmed === documents ? APP_NAME : basename(trimmed) || root;
 
   return (
     <div className="project-bar">

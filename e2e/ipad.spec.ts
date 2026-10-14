@@ -96,3 +96,24 @@ test("a review step on an iPad raises no keyboard unless the user was typing", a
   await expect(chat.locator(".quick-ask-pending-position")).toHaveText("1 / 2");
   await expect(editor(page)).toBeFocused();
 });
+
+test("the keyboard toolbar spans the text, not the docked AI panel", async ({
+  page,
+}) => {
+  await openIPad(page);
+  await page.locator(".window-bar-toggle").tap();
+  const panel = page.locator(".agent-panel");
+  await expect(panel).toBeVisible();
+  await page.locator('[data-active-tab="true"] .milkdown p').first().click();
+  const toolbar = page.getByRole("toolbar", { name: "Formatting" });
+  await expect(toolbar).toBeVisible();
+  const side = (await panel.boundingBox())!;
+  // Its right edge stops where the panel begins: the composer's mode
+  // picker, + and Send stay uncovered.
+  await expect
+    .poll(async () => {
+      const bar = (await toolbar.boundingBox())!;
+      return bar.x + bar.width;
+    })
+    .toBeLessThanOrEqual(side.x + 1);
+});

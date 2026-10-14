@@ -66,7 +66,9 @@
     max-height: none;
     border: none;
     border-radius: 0;
-    box-shadow: none;
+    /* The spring overshoots a few points past the top: the page's colour
+       fills in below its edge, where the document showed. */
+    box-shadow: 0 48px 0 var(--grouped-page);
   }
 
   /* A navigation bar: the title centred, Done at the right. */
@@ -129,6 +131,11 @@
      with a long value stays on the row instead of dropping under it. */
   :root[data-window-chrome="mobile"] .settings-row > *:first-child {
     flex-basis: 88px;
+    /* A long single word ("Erscheinungsbild") breaks inside its own room
+       instead of running on under the control beside it. */
+    overflow-wrap: anywhere;
+    -webkit-hyphens: auto;
+    hyphens: auto;
   }
 
   :root[data-window-chrome="mobile"]
@@ -166,13 +173,18 @@
   /* iOS's inset grouped style: white cards on a grey page (black page,
      dark grey cards in dark mode) - not near-white cards on white, which
      reads inverted - with hairlines a device pixel thin. */
-  :root[data-window-chrome="mobile"] .settings-panel {
+  /* On the root, so the strips under the status bar and the home
+     indicator can take the page colour while Settings is up (base.css). */
+  :root[data-window-chrome="mobile"] {
     --grouped-page: #f2f2f7;
     --grouped-card: #fff;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-panel {
     background: var(--grouped-page);
   }
 
-  :root[data-window-chrome="mobile"][data-theme="dark"] .settings-panel {
+  :root[data-window-chrome="mobile"][data-theme="dark"] {
     --grouped-page: #000;
     --grouped-card: #1c1c1e;
   }
@@ -195,7 +207,7 @@
 }
 
 @media (max-width: 760px) and (prefers-color-scheme: dark) {
-  :root[data-window-chrome="mobile"]:not([data-theme="light"]) .settings-panel {
+  :root[data-window-chrome="mobile"]:not([data-theme="light"]) {
     --grouped-page: #000;
     --grouped-card: #1c1c1e;
   }

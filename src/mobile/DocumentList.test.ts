@@ -28,4 +28,8 @@ describe("previewText", () => {
     const md = Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n");
     expect(previewText(md).split("\n")).toHaveLength(24);
   });
+
+  it("drops a task's box", () => {
+    expect(previewText("- [ ] Milk\n- [x] Eggs")).toBe("Milk\nEggs");
+  });
 });

@@ -56,6 +56,8 @@ export function previewText(markdown: string): string {
     .map((line) =>
       line
         .replace(/^\s{0,3}((#{1,6}|>|[-*+]|\d+[.)])(\s+|$))+/, "")
+        // A task's box: "[ ] Milk" read as raw syntax in the thumbnail.
+        .replace(/^\[[ xX]\]\s+/, "")
         .replace(/(^|[^\\])[*_`~]+/g, "$1")
         .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
         .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1"),

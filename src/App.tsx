@@ -41,6 +41,7 @@ import { DocumentList } from "./mobile/DocumentList";
 import { KeyboardToolbar } from "./mobile/KeyboardToolbar";
 import { ActionSheet } from "./mobile/ActionSheet";
 import { usePhoneLayout } from "./mobile/usePhoneLayout";
+import { keyboardUp, whenKeyboardDown } from "./mobile/keyboard";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
@@ -154,10 +155,27 @@ function App() {
   // the document gives up focus here and the sheet's input doesn't take it
   // (ChatComposer's focusOnOpen), where handing focus from one to the other
   // dropped the keyboard and raised it again.
+  // And with the keyboard up, the sheet rises once it has gone: laid out
+  // in a web view still growing back to full height under it, the sheet's
+  // top jumped and its composer arrived late from below.
+  const pendingAgentOpen = useRef<(() => void) | null>(null);
   const toggleAgentPanel = useCallback(() => {
+    if (pendingAgentOpen.current) {
+      // A second tap while it waits: it stays closed.
+      pendingAgentOpen.current();
+      pendingAgentOpen.current = null;
+      return;
+    }
     if (isIOSApp && !agentPanel.open) {
       const active = document.activeElement;
       if (active instanceof HTMLElement) active.blur();
+      if (keyboardUp()) {
+        pendingAgentOpen.current = whenKeyboardDown(() => {
+          pendingAgentOpen.current = null;
+          agentPanel.setOpen(true);
+        });
+        return;
+      }
     }
     agentPanel.toggle();
   }, [agentPanel]);
@@ -169,6 +187,23 @@ function App() {
   const sidebarClosing = sidebarPresence.state === "closing";
   const agentPresence = usePresence(agentPanel.open, { exitMs: 250 });
   const agentClosing = agentPresence.state === "closing";
+  // The phone's AI sheet leaves where it stood: closing with the keyboard
+  // up, the web view grew back under it as the keyboard went and its
+  // height (a share of the view) jumped the top up ~170pt in one frame.
+  useLayoutEffect(() => {
+    const sheet = document.querySelector<HTMLElement>("aside.agent-panel");
+    if (!isIOSApp || !sheet) return;
+    if (!agentClosing) {
+      for (const prop of ["top", "bottom", "height"])
+        sheet.style.removeProperty(prop);
+      return;
+    }
+    if (getComputedStyle(sheet).position !== "fixed") return;
+    const box = sheet.getBoundingClientRect();
+    sheet.style.top = `${box.top}px`;
+    sheet.style.bottom = "auto";
+    sheet.style.height = `${box.height}px`;
+  }, [agentClosing]);
   // iPhone: whether the AI bottom sheet is pulled up to full height.
   const [sheetFull, setSheetFull] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");

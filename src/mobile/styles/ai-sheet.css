@@ -32,6 +32,13 @@
     animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
   }
 
+  /* Once it has been carried, it has entered: the entrance must not
+     start over when the drag hands it back to its stop (agent-panel.tsx,
+     setSheetDown). Closing, below, still animates. */
+  :root[data-window-chrome="mobile"] .agent-panel[data-settled] {
+    animation: none;
+  }
+
   :root[data-window-chrome="mobile"] .agent-panel[data-state="closing"] {
     animation: motion-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
   }

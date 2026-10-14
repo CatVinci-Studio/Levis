@@ -51,6 +51,7 @@ import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
 import { createImagePlugin } from "./image-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
 import { zenFocusPlugin } from "./zen-focus-plugin";
+import { keyboardRevealPlugin } from "./keyboard-reveal-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
 import { buildCompletionStyle } from "../ai/completion-style";
@@ -201,6 +202,7 @@ export function withEditorExtensions(
       .use(codeBlockIndentPlugin)
       .use(findReplacePlugin)
       .use(zenFocusPlugin)
+      .use(keyboardRevealPlugin)
       .use(
         createTypewriterPlugin({
           enabled: () => settings.current.typewriterMode,

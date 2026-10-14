@@ -15,6 +15,9 @@
   /* A modal sheet, like Settings on the phone: up from the bottom edge,
      and back down when it closes. */
   animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
+  /* The spring overshoots a few points past the top: its own colour
+     fills in below its edge, where document text showed. */
+  box-shadow: 0 48px 0 var(--page-bg, var(--bg));
 }
 
 .document-list[data-state="closing"] {
@@ -156,7 +159,9 @@
   overflow: hidden;
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-small);
-  background: var(--editor-bg, #fff);
+  /* The page's colour where the list's own surface doesn't name one: a
+     white fallback put near-white dark-mode text on white sheets. */
+  background: var(--editor-bg, var(--bg));
   box-shadow:
     0 0 0 0.5px color-mix(in srgb, var(--chrome-text, #000) 18%, transparent),
     0 1px 4px rgb(0 0 0 / 0.08);
