@@ -1,0 +1,13 @@
+# Meldungen der gemeinsamen Schreibregeln (src-tauri/src/ai/rules/messages.rs).
+shared.nfc.invisible = Unsichtbares Zeichen: bitte entfernen.
+shared.nfc.compose = Zerlegter Akzent: das zusammengesetzte Zeichen verwenden.
+shared.space-before-punct = Kein Leerzeichen vor diesem Satzzeichen.
+shared.double-space = Zwei Leerzeichen zwischen Wörtern: eines genügt.
+shared.doubled-word = Doppeltes Wort: „{0}“ steht zweimal hintereinander.
+shared.residue = Chatbot-Floskel oder Platzhalter im Text.
+shared.library-name = Möglicher Tippfehler im Bibliotheksnamen „{0}“.
+shared.heading-structure.skip = Überschriftenebene übersprungen: Ebene {0} folgt auf Ebene {1}.
+shared.heading-structure.depth = Mehr als drei Überschriftenebenen: die Gliederung eventuell vereinfachen.
+shared.image-alt.empty = Bild ohne Alternativtext: beschreiben Sie es, sofern es nicht nur dekorativ ist.
+shared.image-alt.long = Alternativtext über 155 Zeichen: kürzer fassen, Details gehören in den Text.
+shared.image-alt.redundant = Der Alternativtext muss nicht mit „Bild von“ oder „Foto von“ beginnen.

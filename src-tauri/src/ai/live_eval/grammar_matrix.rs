@@ -160,7 +160,13 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
             Ok(reply) => {
                 usage.add(&reply.model, &reply.usage);
                 latency += reply.ms;
-                parsed = finish_grammar(&reply.text, &paragraph, Some(case.strictness));
+                parsed = finish_grammar(
+                    &reply.text,
+                    &paragraph,
+                    Some(case.strictness),
+                    &crate::ai::rules::Conventions::default(),
+                    &[],
+                );
                 raw = reply.text;
             }
             Err(e) => {

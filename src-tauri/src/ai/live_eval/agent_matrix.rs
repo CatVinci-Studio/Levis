@@ -1333,6 +1333,7 @@ fn turn_json(o: &TurnOutcome, model: &str) -> Value {
         "proposals": o.proposals.iter().map(|p| json!({"action": p.action, "anchor": p.anchor, "text": p.text, "context": p.context})).collect::<Vec<_>>(),
         "invalid_proposals": o.invalid_proposals,
         "invalid_proposal_errors": o.invalid_errors,
+        "postfix": o.postfix,
         "comments": o.comments,
         "apply_error": o.apply_error,
         "document_changed": o.doc_after != o.doc_before,

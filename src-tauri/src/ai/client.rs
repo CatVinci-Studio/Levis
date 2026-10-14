@@ -525,8 +525,16 @@ pub(crate) fn finish_completion(before: &str, after: &str, raw: &str, in_code: b
             let body = clean_reply(before, after, body, in_code);
             if body.trim().is_empty() {
                 format!("{lead}{tail}")
-            } else {
+            } else if in_code {
                 format!("{lead}{}{tail}", fit_to_cursor(before, &body))
+            } else {
+                // The conventions the text before the cursor already
+                // follows (rules::postfix, CATALOGUE.md §3.12).
+                let fitted = fit_to_cursor(before, &body);
+                format!(
+                    "{lead}{}{tail}",
+                    crate::ai::rules::postfix::completion(before, &fitted)
+                )
             }
         })
         .collect::<Vec<_>>()
@@ -658,6 +666,10 @@ pub struct GrammarIssue {
     /// still used to pick the occurrence when `original` repeats.
     #[serde(default, skip_serializing)]
     context: Option<String>,
+    /// The writing-rules engine's rule id (`zh.punct.halfwidth`) for an
+    /// issue the engine found rather than the model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rule: Option<String>,
 }
 
 /// Every JSON array of issues in the reply, in order - the model sometimes
@@ -924,13 +936,23 @@ fn validate_issues(issues: Vec<GrammarIssue>, paragraph: &str) -> Vec<GrammarIss
 }
 
 #[tauri::command]
+// Six optional inputs at the IPC boundary, like ai_complete's.
+#[allow(clippy::too_many_arguments)]
 pub async fn ai_grammar_check(
     app: AppHandle,
     provider: String,
     paragraph: String,
     strictness: Option<String>,
     model: Option<String>,
+    // The document and the chosen project folder, for the writing
+    // conventions profile (.levis/style.md) and the library names the rules
+    // check; both optional, so an older caller gets Automatic.
+    doc_path: Option<String>,
+    workspace_root: Option<String>,
 ) -> Result<Vec<GrammarIssue>, String> {
+    let workspace = cached_workspace(&app, doc_path, workspace_root);
+    let conventions = crate::ai::conventions::for_workspace(&app, &workspace);
+    let library = crate::ai::conventions::library_names(&workspace);
     let ask = || {
         call(
             &app,
@@ -944,9 +966,10 @@ pub async fn ai_grammar_check(
     // returns something that isn't the issue array (the live eval caught a
     // bare `[10, ...]`), and a second sample almost always parses.
     let strictness = strictness.as_deref();
-    match finish_grammar(&ask().await?, &paragraph, strictness) {
+    let finish = |raw: &str| finish_grammar(raw, &paragraph, strictness, &conventions, &library);
+    match finish(&ask().await?) {
         Ok(issues) => Ok(issues),
-        Err(_) => finish_grammar(&ask().await?, &paragraph, strictness),
+        Err(_) => finish(&ask().await?),
     }
 }
 
@@ -958,73 +981,45 @@ pub(crate) fn grammar_user_text(paragraph: &str) -> String {
     format!("<paragraph>{paragraph}</paragraph>")
 }
 
-/// The model's reply as the editor gets it (parse_grammar_reply), plus the
-/// half-width punctuation in Chinese and Japanese sentences that the model
-/// keeps missing (punctuation_issues) - except at the "typos" level, and
-/// where the model already covered that spot.
+/// The model's reply as the editor gets it (parse_grammar_reply), merged
+/// with the writing-rules engine's findings for the paragraph (rules::check:
+/// the mechanical conventions the model keeps missing - half-width
+/// punctuation in Chinese, which the live eval saw it fix in one place and
+/// keep in the next, run after run). The engine's findings come in only
+/// where the model has none, and only those with a fix; at the "typos"
+/// level only its spelling rules run.
 pub(crate) fn finish_grammar(
     raw: &str,
     paragraph: &str,
     strictness: Option<&str>,
+    conventions: &crate::ai::rules::Conventions,
+    library: &[String],
 ) -> Result<Vec<GrammarIssue>, String> {
+    use crate::ai::rules;
     let mut issues = parse_grammar_reply(raw, paragraph)?;
-    if strictness != Some("typos") {
-        for extra in punctuation_issues(paragraph) {
-            if !issues
-                .iter()
-                .any(|i| i.start < extra.end && extra.start < i.end)
-            {
-                issues.push(extra);
-            }
-        }
-        issues.sort_by_key(|i| i.start);
-    }
-    Ok(issues)
-}
-
-/// Half-width punctuation inside Chinese or Japanese sentences - a comma
-/// or full stop typed with an English input method between two CJK
-/// characters (or a full stop at the end, after one): "开会,大家" ->
-/// "开会，大家". A mechanical rule, so it is applied here rather than left
-/// to the model, which in the live eval fixed the full stop and kept the
-/// comma in the same sentence, run after run. Japanese gets 、and 。.
-fn punctuation_issues(paragraph: &str) -> Vec<GrammarIssue> {
-    let cjk = |c: char| matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}');
-    let japanese = paragraph
-        .chars()
-        .any(|c| matches!(c, '\u{3040}'..='\u{30ff}'));
-    let chars: Vec<char> = paragraph.chars().collect();
-    let mut issues = Vec::new();
-    for (i, &c) in chars.iter().enumerate() {
-        let prev = i.checked_sub(1).map(|j| chars[j]);
-        let next = chars.get(i + 1).copied();
-        let full = match (c, japanese) {
-            (',', true) => '、',
-            (',', false) => '，',
-            ('.', _) => '。',
-            (';', false) => '；',
-            (':', false) => '：',
-            ('!', _) => '！',
-            ('?', _) => '？',
-            _ => continue,
+    let level = rules::Level::from_setting(strictness);
+    for found in rules::check(paragraph, conventions, level, library) {
+        let Some(suggestion) = found.suggestion else {
+            continue;
         };
-        let ends_sentence = matches!(c, '.' | '!' | '?') && next.is_none_or(char::is_whitespace);
-        if prev.is_some_and(cjk) && (next.is_some_and(cjk) || ends_sentence) {
-            issues.push(GrammarIssue {
-                start: i,
-                end: i + 1,
-                issue: if japanese {
-                    "日本語の文では全角の句読点を使います。".to_string()
-                } else {
-                    "中文句子里应使用全角标点。".to_string()
-                },
-                suggestion: full.to_string(),
-                original: Some(c.to_string()),
-                context: None,
-            });
+        if issues
+            .iter()
+            .any(|i| i.start < found.end && found.start < i.end)
+        {
+            continue;
         }
+        issues.push(GrammarIssue {
+            start: found.start,
+            end: found.end,
+            issue: found.message,
+            suggestion,
+            original: Some(found.original),
+            context: None,
+            rule: Some(found.rule.to_string()),
+        });
     }
-    issues
+    issues.sort_by_key(|i| i.start);
+    Ok(issues)
 }
 
 /// The grammar check's system prompt for a strictness level - shared with
@@ -1286,6 +1281,7 @@ mod tests {
 
     fn fix(original: &str, suggestion: &str) -> GrammarIssue {
         GrammarIssue {
+            rule: None,
             start: 0,
             end: 0,
             issue: "test".to_string(),
@@ -1506,23 +1502,45 @@ mod tests {
     }
 
     #[test]
-    fn half_width_punctuation_in_cjk_sentences_is_flagged_without_the_model() {
+    fn the_rules_engine_adds_what_the_model_missed() {
+        use crate::ai::rules::Conventions;
+        let conv = Conventions::default();
+        let finish = |model: &str, p: &str, level: &str| {
+            finish_grammar(model, p, Some(level), &conv, &[]).unwrap()
+        };
         let p = "今天下午开会,大家讨论了三个问题.第一个是明年的预算。";
         let model = "{\"corrected\": \"\", \"issues\": [{\"original\": \"问题.第一个\", \"suggestion\": \"问题。第一个\", \"issue\": \"句号\"}]}";
-        let out = finish_grammar(model, p, Some("standard")).unwrap();
+        let out = finish(model, p, "standard");
         let fixes: Vec<(&str, &str)> = out
             .iter()
             .map(|i| (i.original.as_deref().unwrap(), i.suggestion.as_str()))
             .collect();
-        // The model's fix for the full stop, and the comma it missed.
+        // The model's fix for the full stop, and the comma it missed - once.
         assert_eq!(fixes, [(",", "，"), (".", "。")]);
         assert_eq!(out[1].issue, "句号");
-        // Japanese gets 、; numbers, Latin text and "typos" are left alone.
-        let ja = punctuation_issues("今日は雨,明日は晴れ.");
+        assert_eq!(out[0].rule.as_deref(), Some("zh.punct.halfwidth"));
+        assert_eq!(out[1].rule, None);
+        // Japanese gets 、; numbers and Latin text are left alone.
+        let ja = finish("[]", "今日は雨,明日は晴れ.", "standard");
         assert_eq!(ja[0].suggestion, "、");
         assert_eq!(ja[1].suggestion, "。");
-        assert!(punctuation_issues("备份 MySQL 8.0, 保留 30 天。Done, ok.").is_empty());
-        assert!(finish_grammar("[]", p, Some("typos")).unwrap().is_empty());
+        assert!(finish("[]", "备份 MySQL 8.0, 保留 30 天。Done, ok.", "standard").is_empty());
+        // "typos": punctuation is not a typo, a wrong character is.
+        assert!(finish("[]", p, "typos").is_empty());
+        let typo = finish("[]", "我们要再接再励。", "typos");
+        assert_eq!(typo[0].suggestion, "再接再厉");
+        // A finding without a fix (es.punct.inverted) never reaches the
+        // editor, which would apply its empty suggestion.
+        assert!(finish(
+            "[]",
+            "Vienes mañana conmigo al cine esta noche?",
+            "standard"
+        )
+        .is_empty());
+        // The rule id is serialized; the model's issues carry none.
+        let json = serde_json::to_string(&out).unwrap();
+        assert!(json.contains("\"rule\":\"zh.punct.halfwidth\""));
+        assert_eq!(json.matches("\"rule\"").count(), 1);
     }
 
     #[test]

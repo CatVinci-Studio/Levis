@@ -1,15 +1,18 @@
 use crate::ai::cancel;
 use crate::ai::catalog;
 use crate::ai::route::{self, OpenaiAuth, NOT_CONFIGURED};
+use crate::ai::rules::Conventions;
 use crate::ai::tools::{self, ToolContext};
 use crate::ai::ui_language::{UiLanguage, UiNames};
 use crate::ai::workspace::{self, AgentWorkspace};
-use aicompat::agent::{run_agent_loop, AgentTurn, ImageAttachment, ProviderEvent};
+use aicompat::agent::{run_agent_loop, AgentTurn, ImageAttachment, ProviderEvent, StepResult};
 use aicompat::providers::{
     anthropic, custom, openai_api_key, openai_codex, openai_responses_compatible,
 };
 use serde::Serialize;
+use std::future::Future;
 use std::path::Path;
+use std::pin::Pin;
 use tauri::ipc::Channel;
 use tauri::AppHandle;
 
@@ -54,6 +57,72 @@ fn forward(channel: &Channel<StreamEvent>, event: ProviderEvent<'_>) {
         },
     };
     let _ = channel.send(event);
+}
+
+/// Proposal post-processing (rules::postfix, CATALOGUE.md §3.13): the
+/// `text` of each propose_edit call in a step, made to follow the P0
+/// conventions the document already follows (full-width punctuation in a
+/// Chinese document that uses it, attached Korean particles...). Done here,
+/// before the call reaches the tool, the history and the frontend - whose
+/// proposal card takes the completed call's arguments as authoritative -
+/// so the user sees the fixed text. Returns the rules applied (the live
+/// eval records them, so prompt regressions stay visible).
+pub(crate) fn postfix_step(
+    result: StepResult,
+    document: &str,
+    conventions: &Conventions,
+) -> (StepResult, Vec<&'static str>) {
+    let StepResult::ToolCalls(calls) = result else {
+        return (result, Vec::new());
+    };
+    let mut applied = Vec::new();
+    let calls = calls
+        .into_iter()
+        .map(|call| match call {
+            AgentTurn::ToolCall {
+                call_id,
+                name,
+                arguments,
+            } if name == tools::PROPOSE_EDIT_TOOL_NAME => {
+                let arguments = match crate::ai::rules::postfix::proposal_arguments(
+                    &arguments,
+                    document,
+                    conventions,
+                ) {
+                    Some((fixed, rules)) => {
+                        applied.extend(rules);
+                        fixed
+                    }
+                    None => arguments,
+                };
+                AgentTurn::ToolCall {
+                    call_id,
+                    name,
+                    arguments,
+                }
+            }
+            other => other,
+        })
+        .collect();
+    (StepResult::ToolCalls(calls), applied)
+}
+
+type StepFuture<'a> = Pin<Box<dyn Future<Output = Result<StepResult, String>> + Send + 'a>>;
+
+/// A provider step with [`postfix_step`] applied to what it returns.
+fn with_postfix<'a, S, F>(
+    mut step: S,
+    document: &'a str,
+    conventions: &'a Conventions,
+) -> impl FnMut(Vec<AgentTurn>) -> StepFuture<'a> + 'a
+where
+    S: FnMut(Vec<AgentTurn>) -> F + 'a,
+    F: Future<Output = Result<StepResult, String>> + Send + 'a,
+{
+    move |turns| {
+        let fut = step(turns);
+        Box::pin(async move { fut.await.map(|r| postfix_step(r, document, conventions).0) })
+    }
 }
 
 /// Skill loads, file reads, and web searches all consume steps, so a
@@ -574,6 +643,8 @@ async fn ai_agent_message_inner(
 ) -> Result<Vec<AgentTurn>, String> {
     let history = compact_history(history);
     let workspace = workspace::load(&app, doc_path.as_deref(), workspace_root.as_deref());
+    let conventions = crate::ai::conventions::for_workspace(&app, &workspace);
+    let library = crate::ai::conventions::library_names(&workspace);
     let entry = catalog::find(&provider).ok_or_else(|| format!("unknown provider: {provider}"))?;
 
     // Refuse rather than drop. Sending the images to a provider that can't
@@ -617,6 +688,8 @@ async fn ai_agent_message_inner(
                 document: &document,
                 skills: &workspace.skills,
                 root: workspace.root.as_deref().map(Path::new),
+                conventions: &conventions,
+                library: &library,
             };
 
             match route::resolve_openai_auth(&app).await? {
@@ -656,6 +729,7 @@ async fn ai_agent_message_inner(
                             .await
                         }
                     };
+                    let step = with_postfix(step, &document, &conventions);
                     run_agent_loop(
                         history,
                         user_turn,
@@ -695,6 +769,7 @@ async fn ai_agent_message_inner(
                             .await
                         }
                     };
+                    let step = with_postfix(step, &document, &conventions);
                     run_agent_loop(
                         history,
                         user_turn,
@@ -723,6 +798,8 @@ async fn ai_agent_message_inner(
                 document: &document,
                 skills: &workspace.skills,
                 root: workspace.root.as_deref().map(Path::new),
+                conventions: &conventions,
+                library: &library,
             };
 
             let agent_model = model.unwrap_or_else(|| {
@@ -752,6 +829,7 @@ async fn ai_agent_message_inner(
                 }
             };
 
+            let step = with_postfix(step, &document, &conventions);
             run_agent_loop(
                 history,
                 user_turn,
@@ -781,6 +859,8 @@ async fn ai_agent_message_inner(
                 document: &document,
                 skills: &workspace.skills,
                 root: workspace.root.as_deref().map(Path::new),
+                conventions: &conventions,
+                library: &library,
             };
             let instructions_with_tools =
                 build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
@@ -867,6 +947,7 @@ async fn ai_agent_message_inner(
             // single tool-less completion instead of failing the request
             // outright. `history`/`message` are cloned so the fallback still
             // has them; `run_agent_loop` would otherwise have consumed them.
+            let step = with_postfix(step, &document, &conventions);
             match run_agent_loop(
                 history.clone(),
                 user_turn,
@@ -984,10 +1065,13 @@ mod tests {
 
         let document = "# Notes\n\n## Methods\n\nWe sampled ten sites.\n\n## Results\n\nAll good.";
         let tools = tools::builtin_tools(false, false, true);
+        let conventions = crate::ai::rules::Conventions::default();
         let ctx = ToolContext {
             document,
             skills: &[],
             root: None,
+            conventions: &conventions,
+            library: &[],
         };
         let call = |id: &str, name: &str, args: &str| AgentTurn::ToolCall {
             call_id: id.into(),
