@@ -11,14 +11,14 @@ import {
   type ProxyType,
 } from "./SettingsContext";
 import type { Lang, Strings } from "../i18n/strings";
-import { ToggleRow, ShortcutRow } from "./sections/controls";
-import { CloseIcon } from "../ui/icons";
+import { SettingRow, ToggleRow, ShortcutRow } from "./sections/controls";
+import { ChevronIcon, CloseIcon } from "../ui/icons";
 import { UpdateSection, CliCommandSection } from "./sections/general";
 import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
   AgentModelSection,
-  AgentCapabilitySection,
+  ModelListRow,
   WritingModelSection,
   AgentWorkspaceRootSection,
   AgentWorkspaceSection,
@@ -28,10 +28,10 @@ import {
 import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
-import { PhoneSettings } from "./PhoneSettings";
-import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { useModalDialog } from "../ui/useModalDialog";
 import { Select } from "../ui/Select";
+import { emitMenuEvent } from "../ui/app-menu-actions";
+import type { MenuChecks } from "../ui/app-menu-model";
 import {
   canDetachChat,
   canInstallCliCommand,
@@ -43,13 +43,20 @@ import {
 
 // The settings dialog shell: category nav + the per-category rows. Anything
 // with its own state or backend round-trips lives in sections/ - this file
-// only composes them and renders the plain settings.* rows inline. On an
-// iPhone the same rows sit in PhoneSettings' pushed pages instead.
+// only composes them and renders the plain settings.* rows inline.
+//
+// One panel for every platform. Each row is a name and a control
+// (SettingRow); explanations are kept to the few rows that need one. On a
+// phone the same panel fills the screen with the categories as a row of
+// tabs along the top (mobile/styles/settings.css) - layout only, no second
+// set of pages to keep in step.
 
 interface SettingsPanelProps {
   onClose: () => void;
   /** Opens a document in the editor - the agent.md "edit" button uses it. */
   onOpenFile: (path: string) => void;
+  /** Which of the window's view modes are on, for Editor > View. */
+  viewChecks?: Pick<MenuChecks, "sourceMode" | "zen">;
 }
 
 export type Category =
@@ -70,13 +77,34 @@ function SettingsGroup({
   );
 }
 
-export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
+/** A guide, opened as a document: the whole row is the button. */
+function HelpRow({ label, onOpen }: { label: string; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      className="settings-row settings-link-row"
+      onClick={onOpen}
+    >
+      <span className="settings-row-label">{label}</span>
+      <ChevronIcon className="settings-link-chevron" />
+    </button>
+  );
+}
+
+export function SettingsPanel({
+  onClose,
+  onOpenFile,
+  viewChecks = {},
+}: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
+  const modal = useModalDialog(onClose);
 
-  const phone = usePhoneLayout();
-  // The phone page runs its own focus and Escape handling (PhoneSettings).
-  const modal = useModalDialog(onClose, !phone);
+  // The guides open as documents, behind this panel - so it gives way.
+  const openHelp = (doc: "markdown" | "agent") => {
+    onClose();
+    emitMenuEvent(`help-doc:${doc}`);
+  };
 
   const categories: { id: Category; label: string }[] = [
     { id: "general", label: t.navGeneral },
@@ -88,14 +116,12 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
     { id: "privacy", label: t.navPrivacy },
   ];
 
-  // One category's rows, shared by the desktop dialog and the phone page.
   const renderCategory = (c: Category) => (
     <>
       {c === "general" && (
         <>
           <SettingsGroup title={t.generalBasicsLabel}>
-            <div className="settings-row">
-              <span className="settings-row-label">{t.languageLabel}</span>
+            <SettingRow label={t.languageLabel}>
               <Select
                 className="settings-select"
                 aria-label={t.languageLabel}
@@ -108,13 +134,10 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                 <option value="zh">中文</option>
                 <option value="ja">日本語</option>
               </Select>
-            </div>
+            </SettingRow>
             {canUseWindows && (
               <>
-                <div className="settings-row">
-                  <div className="settings-row-label">
-                    {t.newDocumentModeLabel}
-                  </div>
+                <SettingRow label={t.newDocumentModeLabel}>
                   <Select
                     className="settings-select"
                     aria-label={t.newDocumentModeLabel}
@@ -128,7 +151,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     <option value="window">{t.newDocumentModeWindow}</option>
                     <option value="tab">{t.newDocumentModeTab}</option>
                   </Select>
-                </div>
+                </SettingRow>
                 <ToggleRow
                   label={t.restoreSessionLabel}
                   checked={settings.restoreSessionOnStartup}
@@ -143,6 +166,14 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
             />
           </SettingsGroup>
 
+          <SettingsGroup title={t.settingsHelpGroup}>
+            <HelpRow
+              label={t.menuHelpMarkdown}
+              onOpen={() => openHelp("markdown")}
+            />
+            <HelpRow label={t.menuHelpAgent} onOpen={() => openHelp("agent")} />
+          </SettingsGroup>
+
           <SettingsGroup title={t.generalSystemLabel}>
             {canInstallCliCommand && <CliCommandSection t={t} />}
             <UpdateSection t={t} />
@@ -152,27 +183,9 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
 
       {c === "editor" && (
         <>
-          <SettingsGroup title={t.navMarkdown}>
-            <ToggleRow
-              label={t.enableMathLabel}
-              hint={t.enableMathHint}
-              checked={settings.enableMath}
-              onChange={(v) => setSettings({ enableMath: v })}
-            />
-            <ToggleRow
-              label={t.enableMermaidLabel}
-              hint={t.enableMermaidHint}
-              checked={settings.enableMermaid}
-              onChange={(v) => setSettings({ enableMermaid: v })}
-            />
-          </SettingsGroup>
           <SettingsGroup title={t.navTheme}>
             <ThemeSection t={t} />
-            <div className="settings-row">
-              <div>
-                <div className="settings-row-label">{t.contentWidthLabel}</div>
-                <div className="settings-row-hint">{t.contentWidthHint}</div>
-              </div>
+            <SettingRow label={t.contentWidthLabel}>
               <Select
                 className="settings-select"
                 aria-label={t.contentWidthLabel}
@@ -187,12 +200,39 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                 <option value="standard">{t.contentWidthStandard}</option>
                 <option value="full">{t.contentWidthFull}</option>
               </Select>
-            </div>
+            </SettingRow>
+          </SettingsGroup>
+          {/* The window's view modes, beside the one that is a setting
+              (typewriter): on a phone, whose menu is kept short, this is
+              where they are switched. Each goes through the same event as
+              its menu item, so the two never disagree. */}
+          <SettingsGroup title={t.settingsViewGroup}>
             <ToggleRow
-              label={t.typewriterLabel}
-              hint={t.typewriterHint}
+              label={t.menuViewSource}
+              checked={!!viewChecks.sourceMode}
+              onChange={() => emitMenuEvent("toggle-source-mode")}
+            />
+            <ToggleRow
+              label={t.menuViewTypewriter}
               checked={settings.typewriterMode}
               onChange={(v) => setSettings({ typewriterMode: v })}
+            />
+            <ToggleRow
+              label={t.menuToggleZenMode}
+              checked={!!viewChecks.zen}
+              onChange={() => emitMenuEvent("toggle-zen-mode")}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t.navMarkdown}>
+            <ToggleRow
+              label={t.enableMathLabel}
+              checked={settings.enableMath}
+              onChange={(v) => setSettings({ enableMath: v })}
+            />
+            <ToggleRow
+              label={t.enableMermaidLabel}
+              checked={settings.enableMermaid}
+              onChange={(v) => setSettings({ enableMermaid: v })}
             />
           </SettingsGroup>
           <SettingsGroup title={t.imageStorageGroupLabel}>
@@ -205,90 +245,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
         <>
           <SettingsGroup title={t.aiAccountLabel}>
             <ProviderListPanel t={t} />
-          </SettingsGroup>
-          <SettingsGroup title={t.writingFeaturesLabel}>
-            <WritingModelSection t={t} />
-            <div className="settings-feature-grid">
-              <div className="settings-feature-block">
-                <ToggleRow
-                  label={t.aiCompletionLabel}
-                  hint={isIOSApp ? t.aiCompletionHintTouch : t.aiCompletionHint}
-                  checked={settings.enableCompletion}
-                  onChange={(v) => setSettings({ enableCompletion: v })}
-                />
-                {settings.enableCompletion && (
-                  <div className="settings-feature-option">
-                    <div>
-                      <div className="settings-row-label">
-                        {t.completionToneLabel}
-                      </div>
-                      <div className="settings-row-hint">
-                        {t.completionToneHint}
-                      </div>
-                    </div>
-                    <Select
-                      className="settings-select"
-                      aria-label={t.completionToneLabel}
-                      value={settings.completionTone}
-                      onChange={(e) =>
-                        setSettings({
-                          completionTone: e.target.value as CompletionTone,
-                        })
-                      }
-                    >
-                      {COMPLETION_TONES.map((tone) => (
-                        <option key={tone} value={tone}>
-                          {t[`completionTone_${tone}` as keyof Strings]}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                )}
-              </div>
-              <div className="settings-feature-block">
-                <ToggleRow
-                  label={t.aiGrammarLabel}
-                  hint={t.aiGrammarHint}
-                  checked={settings.enableGrammarCheck}
-                  onChange={(v) => setSettings({ enableGrammarCheck: v })}
-                />
-                {settings.enableGrammarCheck && (
-                  <div className="settings-feature-option">
-                    <div>
-                      <div className="settings-row-label">
-                        {t.grammarStrictnessLabel}
-                      </div>
-                      <div className="settings-row-hint">
-                        {t.grammarStrictnessHint}
-                      </div>
-                    </div>
-                    <Select
-                      className="settings-select"
-                      aria-label={t.grammarStrictnessLabel}
-                      value={settings.grammarStrictness}
-                      onChange={(e) =>
-                        setSettings({
-                          grammarStrictness: e.target
-                            .value as GrammarStrictness,
-                        })
-                      }
-                    >
-                      <option value="typos">{t.grammarStrictnessTypos}</option>
-                      <option value="standard">
-                        {t.grammarStrictnessStandard}
-                      </option>
-                      <option value="strict">
-                        {t.grammarStrictnessStrict}
-                      </option>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            </div>
-          </SettingsGroup>
-
-          <SettingsGroup title={t.proxyLabel}>
-            <div className="settings-proxy-row">
+            <SettingRow label={t.proxyLabel}>
               <Select
                 className="settings-select"
                 aria-label={t.proxyLabel}
@@ -302,27 +259,87 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                 <option value="https">HTTPS</option>
                 <option value="socks5">SOCKS5</option>
               </Select>
-              {settings.proxyType !== "none" && (
-                <>
-                  <input
-                    type="text"
-                    className="settings-text-input settings-proxy-host"
-                    placeholder={t.proxyHostPlaceholder}
-                    aria-label={t.proxyHostPlaceholder}
-                    value={settings.proxyHost}
-                    onChange={(e) => setSettings({ proxyHost: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    className="settings-text-input settings-proxy-port"
-                    placeholder={t.proxyPortPlaceholder}
-                    aria-label={t.proxyPortPlaceholder}
-                    value={settings.proxyPort}
-                    onChange={(e) => setSettings({ proxyPort: e.target.value })}
-                  />
-                </>
-              )}
-            </div>
+            </SettingRow>
+            {settings.proxyType !== "none" && (
+              <div className="settings-proxy-row">
+                <input
+                  type="text"
+                  className="settings-text-input settings-proxy-host"
+                  placeholder={t.proxyHostPlaceholder}
+                  aria-label={t.proxyHostPlaceholder}
+                  value={settings.proxyHost}
+                  onChange={(e) => setSettings({ proxyHost: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="settings-text-input settings-proxy-port"
+                  placeholder={t.proxyPortPlaceholder}
+                  aria-label={t.proxyPortPlaceholder}
+                  value={settings.proxyPort}
+                  onChange={(e) => setSettings({ proxyPort: e.target.value })}
+                />
+              </div>
+            )}
+          </SettingsGroup>
+          {/* Both pickers together, under one fetch of the provider's
+              list - they used to sit on two pages, each with its own. */}
+          <SettingsGroup title={t.settingsModelsGroup}>
+            <WritingModelSection t={t} />
+            <AgentModelSection t={t} />
+            <ModelListRow t={t} />
+          </SettingsGroup>
+          <SettingsGroup title={t.writingFeaturesLabel}>
+            <ToggleRow
+              label={t.aiCompletionLabel}
+              hint={isIOSApp ? t.aiCompletionHintTouch : t.aiCompletionHint}
+              checked={settings.enableCompletion}
+              onChange={(v) => setSettings({ enableCompletion: v })}
+            />
+            {settings.enableCompletion && (
+              <SettingRow label={t.completionToneLabel}>
+                <Select
+                  className="settings-select"
+                  aria-label={t.completionToneLabel}
+                  value={settings.completionTone}
+                  onChange={(e) =>
+                    setSettings({
+                      completionTone: e.target.value as CompletionTone,
+                    })
+                  }
+                >
+                  {COMPLETION_TONES.map((tone) => (
+                    <option key={tone} value={tone}>
+                      {t[`completionTone_${tone}` as keyof Strings]}
+                    </option>
+                  ))}
+                </Select>
+              </SettingRow>
+            )}
+            <ToggleRow
+              label={t.aiGrammarLabel}
+              checked={settings.enableGrammarCheck}
+              onChange={(v) => setSettings({ enableGrammarCheck: v })}
+            />
+            {settings.enableGrammarCheck && (
+              <SettingRow label={t.grammarStrictnessLabel}>
+                <Select
+                  className="settings-select"
+                  aria-label={t.grammarStrictnessLabel}
+                  value={settings.grammarStrictness}
+                  onChange={(e) =>
+                    setSettings({
+                      grammarStrictness: e.target.value as GrammarStrictness,
+                    })
+                  }
+                >
+                  <option value="typos">{t.grammarStrictnessTypos}</option>
+                  <option value="standard">
+                    {t.grammarStrictnessStandard}
+                  </option>
+                  <option value="strict">{t.grammarStrictnessStrict}</option>
+                </Select>
+              </SettingRow>
+            )}
           </SettingsGroup>
         </>
       )}
@@ -332,23 +349,12 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
           <SettingsGroup title={t.navAgent}>
             <ToggleRow
               label={t.aiAskLabel}
-              hint={t.aiAskHint}
               checked={settings.enableAskAi}
               onChange={(v) => setSettings({ enableAskAi: v })}
             />
             {settings.enableAskAi && (
               <>
-                <AgentModelSection t={t} />
-                <AgentCapabilitySection t={t} />
-                <div className="settings-row">
-                  <div>
-                    <div className="settings-row-label">
-                      {t.agentDefaultModeLabel}
-                    </div>
-                    <div className="settings-row-hint">
-                      {t.agentDefaultModeHint}
-                    </div>
-                  </div>
+                <SettingRow label={t.agentDefaultModeLabel}>
                   <Select
                     className="settings-select"
                     aria-label={t.agentDefaultModeLabel}
@@ -363,31 +369,27 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                     <option value="edit">{t.agentModeEdit}</option>
                     <option value="plan">{t.agentModePlan}</option>
                   </Select>
-                </div>
+                </SettingRow>
+                <ToggleRow
+                  label={t.webSearchLabel}
+                  checked={settings.enableWebSearch}
+                  onChange={(v) => setSettings({ enableWebSearch: v })}
+                />
               </>
             )}
           </SettingsGroup>
 
           {settings.enableAskAi && (
             <>
-              <SettingsGroup title={t.agentToolsGroupLabel}>
-                <ToggleRow
-                  label={t.webSearchLabel}
-                  hint={t.webSearchHint}
-                  checked={settings.enableWebSearch}
-                  onChange={(v) => setSettings({ enableWebSearch: v })}
-                />
-                {canPickFolder && <AgentWorkspaceRootSection t={t} />}
-              </SettingsGroup>
-
               <SettingsGroup title={t.agentPersonalizationGroupLabel}>
-                {canRevealInFileManager && <AgentWorkspaceSection t={t} />}
+                {canPickFolder && <AgentWorkspaceRootSection t={t} />}
                 <AgentSystemPromptSection
                   t={t}
                   onOpenFile={onOpenFile}
                   onClose={onClose}
                 />
                 <AgentSkillsSection t={t} />
+                {canRevealInFileManager && <AgentWorkspaceSection t={t} />}
               </SettingsGroup>
 
               <details className="settings-advanced">
@@ -395,14 +397,12 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
                 <div className="settings-advanced-body">
                   <ToggleRow
                     label={t.editAnimationLabel}
-                    hint={t.editAnimationHint}
                     checked={settings.enableEditAnimation}
                     onChange={(v) => setSettings({ enableEditAnimation: v })}
                   />
                   {canDetachChat && (
                     <ToggleRow
                       label={t.agentExpandWindowLabel}
-                      hint={t.agentExpandWindowHint}
                       checked={settings.agentExpandToWindow}
                       onChange={(v) => setSettings({ agentExpandToWindow: v })}
                     />
@@ -497,16 +497,6 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
     </>
   );
 
-  if (phone) {
-    return (
-      <PhoneSettings
-        categories={categories}
-        renderCategory={renderCategory}
-        onClose={onClose}
-      />
-    );
-  }
-
   return (
     <div className="settings-backdrop" onClick={onClose}>
       <div
@@ -519,13 +509,23 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
       >
         <div className="settings-header">
           <span>{t.settingsTitle}</span>
-          <button
-            className="icon-button settings-close-button"
-            aria-label={t.windowClose}
-            onClick={onClose}
-          >
-            <CloseIcon />
-          </button>
+          {isIOSApp ? (
+            // iOS closes a sheet like this with a word, not a cross.
+            <button
+              className="text-button settings-done-button"
+              onClick={onClose}
+            >
+              {t.settingsDone}
+            </button>
+          ) : (
+            <button
+              className="icon-button settings-close-button"
+              aria-label={t.windowClose}
+              onClick={onClose}
+            >
+              <CloseIcon />
+            </button>
+          )}
         </div>
 
         <div className="settings-layout">

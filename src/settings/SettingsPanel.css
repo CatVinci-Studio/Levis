@@ -129,46 +129,17 @@
   padding: 0 16px;
 }
 
-.settings-capabilities {
-  padding: 12px 0;
-}
-
-.settings-capability-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.settings-capability-list span {
-  padding: 3px 8px;
-  border: 1px solid
-    color-mix(in srgb, var(--editor-accent) 45%, var(--border-color));
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--editor-accent) 9%, transparent);
-  color: var(--editor-text);
-  font-size: var(--text-xs);
-}
-
-.settings-capability-list span.is-muted {
-  border-color: var(--border-color);
-  background: transparent;
-  color: var(--editor-muted);
-}
-
 .settings-advanced-body > * + * {
   border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
 }
 
 .settings-group-title {
-  margin: 0 0 7px;
+  margin: 0 0 8px;
   padding-left: 4px;
   color: var(--editor-muted);
-  font-size: var(--text-xs);
-  font-weight: 650;
+  font-size: var(--text-sm);
+  font-weight: 600;
   line-height: 1.4;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 .settings-group-body {
@@ -182,23 +153,72 @@
    a card (fragments flatten sections into direct children, so this covers
    every settings.* row and section root alike). */
 .settings-group-body > * + *,
-.provider-picker > * + *,
-.settings-feature-block + .settings-feature-block {
+.provider-picker > * + * {
   border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
 }
 
+/* Every row: the setting's name on the left, its control on the right
+   (sections/controls.tsx's SettingRow), one height throughout. */
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 12px 0;
-  font-size: var(--text-md);
+  min-height: 48px;
+  padding: 8px 0;
+  box-sizing: border-box;
+  font-size: var(--text-lg);
 }
 
 .settings-row > *:first-child {
   flex: 1;
   min-width: 0;
+}
+
+.settings-row-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 62%;
+}
+
+/* A read-out beside a control (installed / not installed). */
+.settings-row-value {
+  color: var(--editor-muted);
+  font-size: var(--text-md);
+}
+
+/* A row that is itself the button (Help's guides). */
+button.settings-link-row {
+  width: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-lg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-link-chevron {
+  flex: none;
+  color: var(--editor-muted);
+}
+
+button.settings-danger-button {
+  color: var(--danger);
+}
+
+/* Model ids carry their capabilities ("· vision · tools · 400K"), so the
+   picker may be wide - but not wider than the row can give it. */
+.settings-model-select {
+  max-width: 100%;
 }
 
 .settings-toggle-row {
@@ -207,16 +227,18 @@
 
 .settings-row-label {
   color: var(--editor-text);
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
 }
 
+/* Only the few rows that need one have a hint - a value (the folder in
+   use, a fetched-on date) or a line that prevents a mistake. */
 .settings-row-hint {
   color: var(--editor-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   line-height: 1.45;
-  margin-top: 3px;
-  max-width: 380px;
-  overflow-wrap: break-word;
+  margin-top: 2px;
+  max-width: 420px;
+  overflow-wrap: anywhere;
 }
 
 /* Toggles render as switches, not native checkboxes - the single clearest
@@ -412,13 +434,14 @@ button.settings-inline-button {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 12px 4px;
+  min-height: 48px;
+  padding: 8px 0;
   border: none;
-  border-radius: var(--radius-control);
+  border-radius: 0;
   background: none;
   color: inherit;
   font: inherit;
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   cursor: pointer;
   text-align: left;
 }
@@ -428,16 +451,17 @@ button.settings-inline-button {
   background: var(--sidebar-hover);
 }
 
+/* Read like any other row: the name in the text colour, the current value
+   (provider, sign-in state) quieter at the right. */
 .combobox-trigger-label {
-  font-weight: 550;
-  color: var(--editor-text);
+  color: var(--editor-muted);
 }
 
 .provider-disclosure-label {
   flex: 1;
   min-width: 0;
-  color: var(--editor-muted);
-  font-size: var(--text-md);
+  color: var(--editor-text);
+  font-size: var(--text-lg);
 }
 
 .combobox-caret {
@@ -632,8 +656,8 @@ button.settings-inline-button {
 .settings-proxy-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 12px 0;
+  gap: 8px;
+  padding: 0 0 12px;
 }
 
 .settings-proxy-host {
@@ -645,39 +669,14 @@ button.settings-inline-button {
   flex: 0 0 72px;
 }
 
-/* Completion and grammar are parallel rows; each one's dependent control
-   indents behind the same accent rail used everywhere else - no extra
-   borders. */
-.settings-feature-grid {
-  display: grid;
-  gap: 0;
-}
-
-.settings-feature-block .settings-row {
-  padding: 12px 0;
-}
-
-.settings-feature-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0 0 12px 8px;
-  padding: 4px 0 4px 14px;
-  border-left: 2px solid
-    color-mix(in srgb, var(--editor-accent) 35%, var(--border-color));
-}
-
 /* Global skills as read-only rows: /name + description. Managed as files -
    this list is a mirror, plus the import button above it. */
 .settings-skill-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0 0 12px 8px;
-  padding: 2px 0 2px 14px;
-  border-left: 2px solid
-    color-mix(in srgb, var(--editor-accent) 35%, var(--border-color));
+  margin: 0 0 10px;
+  padding: 0;
   border-top: none;
 }
 
@@ -788,8 +787,11 @@ button.settings-inline-button {
     flex-basis: 140px;
   }
 
+  .settings-row-control {
+    max-width: 100%;
+  }
+
   .settings-field,
-  .settings-feature-option,
   .custom-model-row {
     flex-wrap: wrap;
     min-width: 0;
@@ -804,13 +806,8 @@ button.settings-inline-button {
     overflow-wrap: anywhere;
   }
 
-  .settings-feature-option > *,
   .image-settings-input {
     max-width: 100%;
-  }
-
-  .settings-feature-option > .settings-select,
-  .image-settings-input {
     width: 100%;
     flex-basis: 100%;
   }
@@ -822,6 +819,10 @@ button.settings-inline-button {
   .settings-panel .api-key-input-row {
     flex-basis: 100%;
   }
+}
+
+.settings-done-button {
+  font-weight: 600;
 }
 
 .settings-category-title {

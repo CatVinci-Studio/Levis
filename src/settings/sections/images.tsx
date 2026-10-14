@@ -50,7 +50,6 @@ export function ImageStorageSection({ t }: { t: Strings }) {
       <div className="settings-row">
         <div>
           <div className="settings-row-label">{t.imageStorageLabel}</div>
-          <div className="settings-row-hint">{t.imageStorageHint}</div>
         </div>
         <Select
           className="settings-select"

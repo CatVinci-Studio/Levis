@@ -25,6 +25,7 @@ import {
 } from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
 import { toolActivityText } from "../AgentTurnView";
+import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 import {
   attachedFileBlock,
   selectedTextBlock,
@@ -212,6 +213,7 @@ export function ChatBody({
   quickReview,
   dockActions,
 }: ChatBodyProps) {
+  const phone = usePhoneLayout();
   const {
     history,
     streaming,
@@ -601,6 +603,7 @@ export function ChatBody({
         defaultMode={defaultMode}
         allowPlan={variant !== "quick"}
         compact={variant === "quick"}
+        focusOnOpen={variant === "quick" || !phone}
         dockActions={dockActions}
         defaultWebSearch={defaultWebSearch}
         onSend={handleSend}

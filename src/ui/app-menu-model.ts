@@ -339,37 +339,23 @@ export function buildMobileMenu(
   t: Strings,
   checks: MenuChecks = {},
 ): MenuNode[] {
+  // Kept short: the file actions, then what is reached for while writing.
+  // The view modes and the guides live in Settings (General > Help,
+  // Editor > View), where a phone has room to say what each one does.
   return [
     { label: t.menuDocuments, action: { native: "documents" } },
     { label: t.menuNewFile, action: { native: "new-file" } },
     { label: t.menuOpenFile, action: { native: "open-file" } },
     { label: t.menuSave, action: { native: "save-file" } },
     { label: t.menuShare, action: { native: "share" } },
-    { label: t.menuFindReplace, action: { native: "find-replace" } },
     "separator",
+    { label: t.menuFindReplace, action: { native: "find-replace" } },
     {
       label: t.menuViewSidebar,
       action: { native: "toggle-sidebar" },
       checked: !!checks.sidebar,
     },
-    {
-      label: t.menuViewSource,
-      action: { native: "toggle-source-mode" },
-      checked: !!checks.sourceMode,
-    },
-    {
-      label: t.menuViewTypewriter,
-      action: { native: "toggle-typewriter-mode" },
-      checked: !!checks.typewriter,
-    },
-    {
-      label: t.menuToggleZenMode,
-      action: { native: "toggle-zen-mode" },
-      checked: !!checks.zen,
-    },
     "separator",
-    { label: t.menuHelpMarkdown, action: { native: "help-doc:markdown" } },
-    { label: t.menuHelpAgent, action: { native: "help-doc:agent" } },
     { label: t.menuSettings, action: { native: "settings" } },
   ];
 }

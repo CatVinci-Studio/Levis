@@ -6,9 +6,12 @@
    and the chat popovers use, so opening the menu doesn't drop a grey system
    panel into an otherwise themed window. */
 
+/* Above the find bar (300): the menu opens from the title row over
+   whatever bar is showing - level with it, the find bar covered its first
+   rows and had to be closed to reach them. */
 .app-menu {
   position: fixed;
-  z-index: 300;
+  z-index: 310;
 }
 
 .app-menu-list {
@@ -79,5 +82,5 @@
 
 .app-menu-flyout {
   position: fixed;
-  z-index: 301;
+  z-index: 311;
 }

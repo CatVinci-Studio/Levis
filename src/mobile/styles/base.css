@@ -120,8 +120,11 @@
   --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 52%, black);
 }
 
-:root[data-window-chrome="mobile"]:has(.settings-phone) body {
-  background: var(--sidebar-bg);
+/* Settings fills the phone's screen (settings.css). */
+@media (max-width: 760px) {
+  :root[data-window-chrome="mobile"]:has(.settings-backdrop) body {
+    background: var(--bg);
+  }
 }
 
 /* The drawer's scrim is drawn at phone width only (sidebar.css). */

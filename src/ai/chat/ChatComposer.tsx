@@ -66,6 +66,11 @@ interface ChatComposerProps {
   /** Quick Ask: no attach or web-search buttons - those stay in the panel
    *  (an @-mention still attaches a project file). */
   compact?: boolean;
+  /** Focus the input as the composer appears (default). Off for the
+   *  phone's AI sheet: focusing it raised the keyboard straight after the
+   *  document's went down - a flash - so the sheet opens with the keyboard
+   *  away and a tap on the input brings it up. */
+  focusOnOpen?: boolean;
   defaultWebSearch: boolean;
   /** The docked Quick Ask on a phone (InlineChat's `docked`): its top row
    *  quotes what the request is about - the selection, or "at the cursor" -
@@ -100,6 +105,7 @@ export function ChatComposer({
   defaultMode,
   allowPlan = true,
   compact = false,
+  focusOnOpen = true,
   defaultWebSearch,
   dockActions,
   onSend,
@@ -448,7 +454,7 @@ export function ChatComposer({
             setSkillIndex(0);
           }}
           onKeyDown={onKeyDown}
-          autoFocus
+          autoFocus={focusOnOpen}
         />
         <div className="inline-chat-toolbar">
           {phone ? (
