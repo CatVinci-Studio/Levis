@@ -97,7 +97,9 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
-  const modal = useModalDialog(onClose);
+  // Closing Settings on a phone leaves the keyboard down: the user is
+  // going back to the page, not necessarily to typing.
+  const modal = useModalDialog(onClose, true, undefined, false);
 
   // The guides open as documents, behind this panel - so it gives way.
   const openHelp = (doc: "markdown" | "agent") => {

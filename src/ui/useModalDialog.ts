@@ -6,11 +6,14 @@ import { usePhoneLayout } from "../mobile/usePhoneLayout";
 const FOCUSABLE =
   ':is(button, input, select, textarea, summary, a[href], [tabindex]):not(:disabled):not([tabindex="-1"]):not([type="hidden"])';
 
-/** Shared focus lifecycle for modal dialogs; callers provide role and label. */
+/** Shared focus lifecycle for modal dialogs; callers provide role and label.
+ *  `refocusEditorOnPhone: false` leaves the keyboard down on a phone when
+ *  the dialog closes, instead of handing the focus back to the editor. */
 export function useModalDialog(
   onClose: () => void,
   enabled = true,
   initialFocusSelector?: string,
+  refocusEditorOnPhone = true,
 ) {
   const ref = useRef<HTMLDivElement>(null);
   const phone = usePhoneLayout();
@@ -31,12 +34,14 @@ export function useModalDialog(
     (first ?? dialog).focus();
     return () => {
       if (!(previous instanceof HTMLElement) || !previous.isConnected) return;
-      // On a phone, focusing the editor again brings the keyboard back up
-      // over a page the user only meant to return to.
-      if (phone && previous.isContentEditable) return;
+      // On a phone, focusing the editor again brings the keyboard back up.
+      // After Settings that covers a page the user only meant to return to;
+      // after inserting a table it is where they go on typing, so only the
+      // caller can say.
+      if (phone && !refocusEditorOnPhone && previous.isContentEditable) return;
       previous.focus();
     };
-  }, [enabled, initialFocusSelector, phone]);
+  }, [enabled, initialFocusSelector, phone, refocusEditorOnPhone]);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!enabled) return;
