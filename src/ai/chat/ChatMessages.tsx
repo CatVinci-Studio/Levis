@@ -15,6 +15,13 @@ import { diffLines } from "./line-diff";
 import { composeSentences, diffSentences } from "./sentence-diff";
 import { FlipOnChange } from "../../ui/flip";
 
+/** The statuses a card reaches by being decided, which collapse it. */
+const DECIDED: ReadonlySet<PendingStatus> = new Set([
+  "accepted",
+  "rejected",
+  "invalid",
+]);
+
 /** An add_comment call's arguments (src-tauri ai/tools.rs). */
 function parseComment(
   argumentsJson: string,
@@ -187,13 +194,16 @@ export function ChatMessages({
   }, [shown]);
 
   // A decided card shrinks to its status line; whatever is under it moves
-  // up to meet it rather than jumping (FlipOnChange).
+  // up to meet it rather than jumping (FlipOnChange). Only decisions count:
+  // a card ARRIVING (streaming -> pending) must not set it off, or the
+  // "Thinking…" row below slides down through the new cards, drawn over
+  // their text and buttons while they fade in.
   const decisions = shown
-    .map((turn) =>
-      turn.kind === "ToolCall" && turn.name === "propose_edit"
-        ? proposalStatus(turn.call_id)
-        : "",
-    )
+    .flatMap((turn) => {
+      if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
+      const status = proposalStatus(turn.call_id);
+      return DECIDED.has(status) ? [`${turn.call_id}:${status}`] : [];
+    })
     .join(" ");
 
   return (
