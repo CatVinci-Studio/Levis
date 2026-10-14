@@ -58,6 +58,58 @@ pub fn quotes_kept(o: &TurnOutcome, marks: &[char]) -> Result<(), String> {
         .ok_or_else(|| format!("{before} quote marks -> {after}"))
 }
 
+/// The dialogue survives a rewrite of its tags: the same words are spoken,
+/// in the same order, in the same kind of quote marks. Counting marks
+/// (`quotes_kept`) fails a correct edit when a tag that split one line of
+/// speech goes - `"The bus broke down," he replied. "I ran the last mile."`
+/// becomes a single quote (round-2 integration, `novel/en/beats`).
+pub fn spoken_words_kept(o: &TurnOutcome, open: char, close: char) -> Result<(), String> {
+    let spoken = |doc: &str| -> Vec<String> {
+        let mut words = Vec::new();
+        let mut inside = false;
+        let mut current = String::new();
+        for c in doc.chars() {
+            if inside && c == close {
+                inside = false;
+                words.extend(
+                    current
+                        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+                        .filter(|w| !w.is_empty())
+                        .map(str::to_lowercase),
+                );
+                current.clear();
+            } else if !inside && c == open {
+                inside = true;
+            } else if inside {
+                current.push(c);
+            }
+        }
+        words
+    };
+    let marks = |doc: &str| -> Vec<char> {
+        let mut m: Vec<char> = doc
+            .chars()
+            .filter(|c| ['"', '“', '”', '「', '」', '\u{2018}', '\u{2019}'].contains(c))
+            .filter(|c| *c != '\u{2019}' || open == '\u{2018}')
+            .collect();
+        m.sort_unstable();
+        m.dedup();
+        m
+    };
+    let (before, after) = (spoken(&o.doc_before), spoken(&o.doc_after));
+    if before != after {
+        return Err(format!(
+            "spoken words changed: {} -> {}",
+            before.join(" "),
+            after.join(" ")
+        ));
+    }
+    let (kinds_before, kinds_after) = (marks(&o.doc_before), marks(&o.doc_after));
+    (kinds_before == kinds_after)
+        .then_some(())
+        .ok_or_else(|| format!("quote marks {kinds_before:?} -> {kinds_after:?}"))
+}
+
 /// Digits the edit wrote that the document didn't have - an invented
 /// figure (a reformatted one, "1,056" -> "1056", is allowed).
 pub fn no_new_numbers(o: &TurnOutcome) -> Result<(), String> {
@@ -311,7 +363,7 @@ fn en_cases() -> Vec<AgentCase> {
 
     // Fiction with dialogue.
     let dialogue = &NOVEL_EN[NOVEL_EN.find("\"You're late").unwrap()..];
-    c.push(AgentCase::new("novel/en/beats", Lang::En, Lang::En, NOVEL_EN, "Replace the adverb dialogue tags with action beats.", edit_in(dialogue, StructureExpect::Same).check("quote marks kept", |o| quotes_kept(o, &['"', '“', '”'])).lacks(&["said angrily", "replied apologetically", "said coldly", "said sheepishly"]), "Expect each 'said angrily/replied apologetically/said coldly/said sheepishly' replaced by a short action beat that shows the emotion, the spoken words unchanged, no new plot."));
+    c.push(AgentCase::new("novel/en/beats", Lang::En, Lang::En, NOVEL_EN, "Replace the adverb dialogue tags with action beats.", edit_in(dialogue, StructureExpect::Same).check("dialogue kept", |o| spoken_words_kept(o, '"', '"')).lacks(&["said angrily", "replied apologetically", "said coldly", "said sheepishly"]), "Expect each 'said angrily/replied apologetically/said coldly/said sheepishly' replaced by a short action beat that shows the emotion, the spoken words unchanged, no new plot."));
     let end = Expect {
         edit: super::agent_matrix::EditExpect::Required,
         ..Expect::default()
@@ -416,6 +468,24 @@ mod tests {
         assert!(bullet_matches(&next_to_item("- one")).is_err());
         // A list replacing a paragraph: the editor re-bullets it anyway.
         assert!(bullet_matches(&outcome(before, before, "- one")).is_ok());
+    }
+
+    #[test]
+    fn dialogue_survives_a_tag_that_split_a_line_going() {
+        let before = "\"You're late,\" she said angrily.\n\n\"The bus broke down,\" he replied apologetically. \"I ran the last mile.\"";
+        // run3: the tag between the two halves went, so the halves joined.
+        let joined = "Elena folded her arms. \"You're late.\"\n\nTom winced. \"The bus broke down. I ran the last mile.\"";
+        assert!(spoken_words_kept(&outcome(before, joined, ""), '"', '"').is_ok());
+        assert!(quotes_kept(&outcome(before, joined, ""), &['"']).is_err());
+        let reworded = joined.replace("ran the last mile", "walked");
+        let err = spoken_words_kept(&outcome(before, &reworded, ""), '"', '"').unwrap_err();
+        assert!(err.contains("spoken words changed"), "{err}");
+        // The same words in other quote marks: the house style changed.
+        let curly = format!("{joined}\n\nShe sighed. “Fine.”");
+        let mut o = outcome(&format!("{before}\n\nShe sighed. \"Fine.\""), &curly, "");
+        o.doc_before = o.doc_before.replace("\"Fine.\"", "Fine.");
+        let err = spoken_words_kept(&o, '"', '"').unwrap_err();
+        assert!(err.contains("quote marks"), "{err}");
     }
 
     #[test]
