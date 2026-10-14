@@ -1,0 +1,6 @@
+# The headings of a style profile written in Traditional Chinese, on one line and
+# separated by " / ": the title, then the seven sections in this order.
+# "Learn my style" is told to head a Traditional Chinese profile with them (project.rs's
+# style_instructions); the starter profile's headings (projectStyleTemplate
+# in src/i18n/locales/) must be among them.
+# Not translated yet: "Learn my style" picks Traditional Chinese headings itself.

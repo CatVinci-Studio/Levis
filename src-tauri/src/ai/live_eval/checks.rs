@@ -44,6 +44,15 @@ impl Lang {
         }
     }
 
+    /// The app's UI language for a user who writes in this one: the code
+    /// src/i18n/langs.ts gives it ("zh" is Simplified Chinese there).
+    pub fn ui_code(self) -> &'static str {
+        match self {
+            Lang::ZhHans | Lang::Mixed => "zh",
+            other => other.code(),
+        }
+    }
+
     /// What a reply or an edit in this language is detected as - mixed
     /// Chinese/English text is Chinese text.
     fn detected_as(self) -> Lang {

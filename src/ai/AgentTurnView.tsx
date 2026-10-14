@@ -6,8 +6,8 @@ import { ChevronIcon, PaperclipIcon, SearchIcon } from "../ui/icons";
 import "./AgentTurnView.css";
 
 export interface AgentTurnLabels {
-  /** Selection chip; "{n}" is replaced with the character count. */
-  selectionChip: string;
+  /** Selection chip, for a selection of `n` characters. */
+  selectionChip: (n: number) => string;
   /** What each tool call is doing, by tool name; "{arg}" is its main
    *  argument (query, heading, path, skill). */
   toolActivity: Record<string, string>;
@@ -122,10 +122,7 @@ function UserMessage({
                   expanded ? "agent-context-chip-caret-open" : ""
                 }`}
               />
-              {labels.selectionChip.replace(
-                "{n}",
-                String([...selection].length),
-              )}
+              {labels.selectionChip([...selection].length)}
             </button>
           )}
           {attachmentNames.map((name, i) => (

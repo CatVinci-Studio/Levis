@@ -2,6 +2,7 @@ use crate::ai::cancel;
 use crate::ai::catalog;
 use crate::ai::route::{self, OpenaiAuth, NOT_CONFIGURED};
 use crate::ai::tools::{self, ToolContext};
+use crate::ai::ui_language::{UiLanguage, UiNames};
 use crate::ai::workspace::{self, AgentWorkspace};
 use aicompat::agent::{run_agent_loop, AgentTurn, ImageAttachment, ProviderEvent};
 use aicompat::providers::{
@@ -99,87 +100,9 @@ const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something s
 const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
 
 /// What the assistant is called in the UI and what its Settings page is
-/// called: `AI_NAME` in src/i18n/strings.ts ("Levis AI" until the Textus
+/// called: `AI_NAME` in src/i18n/names.ts ("Levis AI" until the Textus
 /// rename). A test keeps the two in step.
 pub(crate) const AI_NAME: &str = "Levis AI";
-
-/// The names the agent may use for the app's concepts and controls, as the
-/// English, Chinese and Japanese UI shows them (src/i18n/strings.ts and the
-/// help guides; a test checks every cell). The prompt describes the app in
-/// English and hands the other two languages over as this table: given
-/// inline as "style profile (文风档案 / 文体プロファイル)", the names came
-/// back as glosses - "资料库（library）", "style profile (文风档案)" -
-/// in the round-2 integration.
-const UI_NAMES: &[[&str; 3]] = &[
-    ["project folder", "项目文件夹", "プロジェクトフォルダー"],
-    ["project menu", "项目菜单", "プロジェクトメニュー"],
-    ["writing instructions", "写作要求", "執筆の指示"],
-    [
-        "global config folder",
-        "全局配置文件夹",
-        "グローバル設定フォルダー",
-    ],
-    ["skills", "技能", "スキル"],
-    ["library", "资料库", "ライブラリ"],
-    ["style profile", "文风档案", "文体プロファイル"],
-    ["Learn my style", "学习我的文风", "文体を学習"],
-    ["completion", "续写", "補完"],
-    [
-        "Choose project folder…",
-        "选择项目文件夹…",
-        "プロジェクトフォルダーを選択…",
-    ],
-    [
-        "Use the document's folder",
-        "改用文档所在文件夹",
-        "文書のフォルダーを使う",
-    ],
-    [
-        "Learn my style from samples…",
-        "从样本学习我的文风…",
-        "サンプルから文体を学習…",
-    ],
-    [
-        "Create style profile",
-        "新建文风档案",
-        "文体プロファイルを作成",
-    ],
-    [
-        "Open style profile",
-        "打开文风档案",
-        "文体プロファイルを開く",
-    ],
-    ["Style (the chip)", "文风", "文体"],
-    [
-        "New library entry…",
-        "新建资料库条目…",
-        "ライブラリに項目を追加…",
-    ],
-    [
-        "Edit project writing instructions",
-        "编辑本项目的写作要求",
-        "このプロジェクトの執筆の指示を編集",
-    ],
-    ["Settings", "设置", "設定"],
-    [
-        "Project Folder (Settings row)",
-        "项目文件夹",
-        "プロジェクトフォルダー",
-    ],
-    [
-        "Writing Instructions (agent.md)",
-        "写作要求（agent.md）",
-        "執筆の指示（agent.md）",
-    ],
-    ["Edit agent.md", "编辑 agent.md", "agent.mdを編集"],
-    ["Skills (Settings row)", "技能", "スキル"],
-    ["Import Skill…", "导入技能…", "スキルをインポート…"],
-    ["Ask", "询问", "質問"],
-    ["Edit", "编辑", "編集"],
-    ["Plan", "计划", "計画"],
-    ["Accept", "采纳", "承認"],
-    ["Reject", "拒绝", "却下"],
-];
 
 /// Where the user changes the project folder. The project menu exists only
 /// while there is a project folder - ProjectBar shows nothing for an
@@ -201,14 +124,14 @@ fn where_to_choose_the_project_folder(has_menu: bool) -> String {
 /// `.levis/` folder, writing instructions, global config folder, skills,
 /// library, style profile, "Learn my style"), with the menu items, chips
 /// and Settings rows that make and open them, what reaches completion too,
-/// and the same names in the Chinese and Japanese UI (UI_NAMES). Without
+/// and the same names in the user's UI language (UiNames). Without
 /// it, the model made up its own names ("read-only mode"), told a user with
 /// an unsaved draft "I have no tool to open files" without saying why or
 /// what to do, and was told the document's folder held reference material
 /// even when no file tool was offered (docs/AI-EVAL.md, round 2). Labels it
 /// wasn't given never came up: users were told to write a hidden
 /// .levis/style.md by hand, and had no way back after choosing a folder.
-fn workspace_section(workspace: &AgentWorkspace) -> String {
+fn workspace_section(workspace: &AgentWorkspace, ui_language: &str) -> String {
     use crate::ai::workspace::RootSource;
     let one_folder = "There is one project folder at a time: for material in two places, the user chooses a folder that contains both.";
     let folder = match (&workspace.root, workspace.root_source) {
@@ -223,13 +146,27 @@ fn workspace_section(workspace: &AgentWorkspace) -> String {
         (None, RootSource::TooBroad) => format!("Project folder: none - the document's folder is the user's home folder or a whole drive, which is too broad to open to you, so you can't read any files, and there is no project menu. If the user refers to a file, say so, ask them to paste what you need, and tell them they can choose a narrower project folder in {}.", where_to_choose_the_project_folder(false)),
         (None, _) => format!("Project folder: none - the document isn't saved yet and no folder has been chosen, so you can't read any files, and the project bar and its menu don't appear until there is a project folder. If the user refers to a file, say that this is why, ask them to paste what you need, and tell them that saving the document next to their files, or choosing a project folder in {}, lets you read them.", where_to_choose_the_project_folder(false)),
     };
-    let names = UI_NAMES
-        .iter()
-        .map(|[en, zh, ja]| format!("{en} | {zh} | {ja}"))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let names = match UiNames::of(ui_language) {
+        Some(ui) => {
+            let rows = ui
+                .names
+                .iter()
+                .map(|(en, name)| format!("{en} | {name}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let UiLanguage {
+                english, native, ..
+            } = ui.language;
+            format!(
+                "\nThe same names in the {english} UI the user sees - use these when you reply in {english}, and never add a name from another language, in parentheses or otherwise (not \"style profile ({})\", not \"{} (library)\"); Settings paths keep their \" > \" and {AI_NAME}:\nEnglish | {native}\n{rows}",
+                ui.of_english("style profile"),
+                ui.of_english("library"),
+            )
+        }
+        None => String::new(),
+    };
     format!(
-        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, each one Markdown file - a name and a one-line description at the top, then the instructions - that the user puts in .levis/skills/ or in the global config folder's skills/; nothing in the app writes one, but Settings > {AI_NAME} > Skills > Import Skill… copies a file into the global ones. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document; New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. The style profile and the library also shape completion, the grey suggestions as the user types. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.\nThe same names in the English, Chinese and Japanese UI - use only those of the language you reply in, and never add a name from another language, in parentheses or otherwise (not \"style profile (文风档案)\", not \"资料库（library）\"); Settings paths keep their \" > \" and {AI_NAME}:\nEnglish | 中文 | 日本語\n{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
+        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, each one Markdown file - a name and a one-line description at the top, then the instructions - that the user puts in .levis/skills/ or in the global config folder's skills/; nothing in the app writes one, but Settings > {AI_NAME} > Skills > Import Skill… copies a file into the global ones. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document; New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. The style profile and the library also shape completion, the grey suggestions as the user types. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
     )
 }
 
@@ -328,15 +265,28 @@ pub(crate) fn build_instructions(
     // What the request is about (the user's message) - library entries are
     // picked by what it and the document mention.
     focus: &str,
+    // The language the app's UI is in (a code of src/i18n/langs.ts), whose
+    // names for things the agent is given beside the English ones.
+    ui_language: &str,
 ) -> String {
     let mut sections = vec![AGENT_ROLE.to_string()];
+    let ui = UiNames::of(ui_language);
 
     sections.push(match mode {
         "edit" => "---interaction mode: edit---\nCarry out the user's request. When document changes are needed, submit them through propose_edit so the user can review them before applying.".to_string(),
         "plan" => "---interaction mode: plan---\nProduce a concrete, structured writing plan only - an outline, a revision plan, or the steps to get the document where the user wants it. You may research and inspect context, but do not call propose_edit and do not modify the document. Wait for the user to approve the plan in a later request.".to_string(),
         // The UI's names for the modes: told "read-only mode", the model
         // called it that and never said how to get the edit made.
-        _ => "---interaction mode: ask---\nThe user is in Ask mode (询问 in Chinese, 質問 in Japanese): answer, explain, discuss or research, and pin feedback to passages with add_comment; you can't change the document here. When they ask for a change anyway, give the new text in your reply and say that in Edit mode (编辑 / 編集) you can propose it for them to apply with one click.".to_string(),
+        _ => {
+            let (ask, edit) = match &ui {
+                Some(ui) => (
+                    format!(" ({} in their {} UI)", ui.of_english("Ask"), ui.language.english),
+                    format!(" ({})", ui.of_english("Edit")),
+                ),
+                None => (String::new(), String::new()),
+            };
+            format!("---interaction mode: ask---\nThe user is in Ask mode{ask}: answer, explain, discuss or research, and pin feedback to passages with add_comment; you can't change the document here. When they ask for a change anyway, give the new text in your reply and say that in Edit mode{edit} you can propose it for them to apply with one click.")
+        }
     });
 
     if with_tools {
@@ -348,7 +298,7 @@ pub(crate) fn build_instructions(
             }
             .to_string(),
         );
-        sections.push(workspace_section(workspace));
+        sections.push(workspace_section(workspace, ui_language));
     }
 
     // The writing instructions (agent.md): global, then the project's - the
@@ -588,11 +538,15 @@ pub async fn ai_agent_message(
     request_id: String,
     // Heading of the section the user is working in (see request_context).
     focus_heading: Option<String>,
+    // The UI language (src/i18n/langs.ts), for the names the agent is told
+    // the app uses (UiNames). None - an older frontend - is English.
+    ui_language: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let cancel_rx = cancel::register(request_id.clone());
+    let ui_language = ui_language.unwrap_or_else(|| "en".to_string());
     let result = tokio::select! {
-        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, mode, model, focus_heading, on_event) => result,
+        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, mode, model, focus_heading, ui_language, on_event) => result,
         _ = cancel_rx => Err(cancel::CANCELLED.to_string()),
     };
     cancel::unregister(&request_id);
@@ -615,6 +569,7 @@ async fn ai_agent_message_inner(
     mode: String,
     model: Option<String>,
     focus_heading: Option<String>,
+    ui_language: String,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let history = compact_history(history);
@@ -650,7 +605,8 @@ async fn ai_agent_message_inner(
 
     let result = match entry.dialect {
         "openai-responses" => {
-            let instructions = build_instructions(&workspace, &document, true, &mode, &message);
+            let instructions =
+                build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
             let tools = tools::builtin_tools(
                 !workspace.skills.is_empty(),
                 workspace.root.is_some(),
@@ -754,7 +710,8 @@ async fn ai_agent_message_inner(
             }
         }
         "anthropic-messages" => {
-            let instructions = build_instructions(&workspace, &document, true, &mode, &message);
+            let instructions =
+                build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
             let auth = route::resolve_anthropic_auth(&app).await?;
             let tools = tools::builtin_tools(
                 !workspace.skills.is_empty(),
@@ -826,7 +783,7 @@ async fn ai_agent_message_inner(
                 root: workspace.root.as_deref().map(Path::new),
             };
             let instructions_with_tools =
-                build_instructions(&workspace, &document, true, &mode, &message);
+                build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
 
             // These providers expose server-side search through their
             // current Chat Completions compatibility layer. Other providers
@@ -924,8 +881,14 @@ async fn ai_agent_message_inner(
             {
                 Ok(turns) => Ok(turns),
                 Err(_) => {
-                    let instructions =
-                        build_instructions(&workspace, &document, false, &mode, &message);
+                    let instructions = build_instructions(
+                        &workspace,
+                        &document,
+                        false,
+                        &mode,
+                        &message,
+                        &ui_language,
+                    );
                     flattened_chat_turn(
                         &app,
                         &provider,
@@ -939,7 +902,8 @@ async fn ai_agent_message_inner(
             }
         }
         _ => {
-            let instructions = build_instructions(&workspace, &document, false, &mode, &message);
+            let instructions =
+                build_instructions(&workspace, &document, false, &mode, &message, &ui_language);
             flattened_chat_turn(
                 &app,
                 &provider,
@@ -1007,6 +971,7 @@ async fn flattened_chat_turn(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ai::ui_language::{entries, UI_LANGUAGES};
 
     /// The whole tool path a writing request takes, with a scripted model:
     /// read the section it was asked about, propose an edit quoting it,
@@ -1338,80 +1303,142 @@ mod tests {
         use crate::ai::workspace::{load_from, RootSource};
         let doc_folder = load_from(None, Some("/tmp/novel/chapter-1.md"), None);
         assert_eq!(doc_folder.root_source, RootSource::DocumentFolder);
-        let text = workspace_section(&doc_folder);
+        let text = workspace_section(&doc_folder, "en");
         assert!(text.contains("/tmp/novel") && text.contains("own folder"));
         let tmp = std::env::temp_dir();
         let chosen = load_from(None, Some("/tmp/novel/chapter-1.md"), tmp.to_str());
         assert_eq!(chosen.root_source, RootSource::Chosen);
-        assert!(workspace_section(&chosen).contains("chosen by the user"));
+        assert!(workspace_section(&chosen, "en").contains("chosen by the user"));
         // An unsaved draft: no files, the reason, and the way out.
         let unsaved = load_from(None, None, None);
         assert_eq!(unsaved.root_source, RootSource::None);
-        let text = workspace_section(&unsaved);
+        let text = workspace_section(&unsaved, "en");
         assert!(text.contains("isn't saved") && text.contains("Settings > Levis AI"));
         assert!(!text.contains("list_files"));
         // No project, no project bar: only the Settings row is offered.
         assert!(!text.contains("click the folder name"));
-        assert!(workspace_section(&doc_folder).contains("click the folder name"));
-        assert!(workspace_section(&chosen).contains("Use the document's folder"));
+        assert!(workspace_section(&doc_folder, "en").contains("click the folder name"));
+        assert!(workspace_section(&chosen, "en").contains("Use the document's folder"));
         let too_broad = AgentWorkspace {
             root_source: RootSource::TooBroad,
             ..AgentWorkspace::default()
         };
-        let text = workspace_section(&too_broad);
+        let text = workspace_section(&too_broad, "en");
         assert!(text.contains("too broad") && !text.contains("click the folder name"));
-        // The app's names, for every case.
-        assert!(
-            text.contains("project folder | 项目文件夹 | プロジェクトフォルダー")
-                && text.contains("Learn my style")
-        );
+        // The app's names, for every case: the English ones, and those of
+        // the user's UI language - only that one.
+        assert!(text.contains("Learn my style") && !text.contains("English |"));
+        let chinese = workspace_section(&too_broad, "zh");
+        assert!(chinese.contains("English | 中文\nproject folder | 项目文件夹\n"));
+        assert!(chinese.contains("not \"style profile (文风档案)\", not \"资料库 (library)\""));
+        assert!(!chinese.contains("日本語"));
+        // A language whose names aren't translated yet gets the English
+        // ones alone, and one the backend doesn't know of the same.
+        assert_eq!(workspace_section(&too_broad, "xx"), text);
         // The tool-less fallback doesn't hear about file tools.
-        let prompt = build_instructions(&unsaved, "draft", false, "edit", "");
+        let prompt = build_instructions(&unsaved, "draft", false, "edit", "", "en");
         assert!(!prompt.contains("---project---"));
-        let ask = build_instructions(&doc_folder, "draft", true, "ask", "");
-        assert!(ask.contains("Ask mode") && ask.contains("Edit mode"));
+        let ask = build_instructions(&doc_folder, "draft", true, "ask", "", "en");
+        assert!(ask.contains("Ask mode:") && ask.contains("Edit mode you"));
+        let ask = build_instructions(&doc_folder, "draft", true, "ask", "", "ja");
+        assert!(
+            ask.contains("Ask mode (質問 in their Japanese UI)")
+                && ask.contains("Edit mode (編集)")
+        );
     }
 
     #[test]
     fn the_prompt_names_things_exactly_as_the_ui_does() {
         // Every UI label the agent is told about must be the one the user
-        // sees (src/i18n/strings.ts), in each language, or the agent sends
-        // people to menu items that don't exist.
-        const STRINGS_TS: &str = include_str!("../../../src/i18n/strings.ts");
+        // sees, in each language, or the agent sends people to menu items
+        // that don't exist. Read from the frontend's files, so a language
+        // still to be translated - no help guide of its own yet - is simply
+        // not there.
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let read = |path: &str| std::fs::read_to_string(repo.join(path)).unwrap_or_default();
+        let names_ts = read("src/i18n/names.ts");
         assert!(
-            STRINGS_TS.contains(&format!("export const AI_NAME = \"{AI_NAME}\";")),
-            "AI_NAME differs from strings.ts"
+            names_ts.contains(&format!("export const AI_NAME = \"{AI_NAME}\";")),
+            "AI_NAME differs from src/i18n/names.ts"
         );
+        assert!(
+            names_ts.contains(&format!(
+                "export const APP_NAME = \"{}\";",
+                crate::app_identity::APP_NAME
+            )),
+            "APP_NAME differs from src/i18n/names.ts"
+        );
+        // The same languages as the UI offers, in the same order.
+        let langs_ts = read("src/i18n/langs.ts");
+        let list = langs_ts
+            .split("export const LANGS = [")
+            .nth(1)
+            .and_then(|rest| rest.split("] as const").next())
+            .expect("LANGS in src/i18n/langs.ts");
+        let codes: Vec<&str> = list.split('"').skip(1).step_by(2).collect();
+        assert_eq!(
+            codes,
+            UI_LANGUAGES.iter().map(|l| l.code).collect::<Vec<_>>()
+        );
+
         // A chosen project folder: the case that names every label.
         let chosen = AgentWorkspace {
             root: Some("/tmp/novel".into()),
             root_source: crate::ai::workspace::RootSource::Chosen,
             ..AgentWorkspace::default()
         };
-        let prompt = build_instructions(&chosen, "draft", true, "ask", "");
-        // Every name in the table, in every language, is the UI's (or, for
-        // the few that are no label - "project menu" - the help guide's).
-        let guides = [
-            include_str!("../../../src/help/agent-guide.en.md"),
-            include_str!("../../../src/help/agent-guide.zh.md"),
-            include_str!("../../../src/help/agent-guide.ja.md"),
-        ];
-        for row in UI_NAMES {
-            assert!(
-                prompt.contains(&row.join(" | ")),
-                "the prompt lacks {row:?}"
-            );
-            for (lang, name) in row.iter().enumerate() {
-                // "Style (the chip)": the label is what precedes the note.
+        let english: Vec<&str> = entries(UI_LANGUAGES[0].names).collect();
+        for language in UI_LANGUAGES {
+            let code = language.code;
+            let strings = read(&format!("src/i18n/locales/{code}.ts"));
+            let guide = read(&format!("src/help/agent-guide.{code}.md"));
+            // A name is the UI's, or, for the few that are no label -
+            // "project menu" - the help guide's. "Style (the chip)": the
+            // label is what precedes the note.
+            let known = |name: &str| {
                 let name = name.split(" (").next().unwrap();
-                let known = STRINGS_TS.contains(name)
-                    || guides[lang].contains(name)
-                    || guides[lang].to_lowercase().contains(&name.to_lowercase());
-                assert!(known, "neither the UI nor the guide says {name}");
+                strings.contains(name) || guide.to_lowercase().contains(&name.to_lowercase())
+            };
+            if code == "en" {
+                for name in &english {
+                    assert!(known(name), "neither the UI nor the guide says {name}");
+                }
+                continue;
+            }
+            let lines: Vec<&str> = entries(language.names).collect();
+            if lines.is_empty() {
+                continue;
+            }
+            let pairs: Vec<(&str, &str)> = lines
+                .iter()
+                .map(|line| {
+                    line.split_once(" = ")
+                        .unwrap_or_else(|| panic!("ui-names/{code}.txt: no \" = \" in {line}"))
+                })
+                .collect();
+            assert_eq!(
+                pairs.iter().map(|(en, _)| *en).collect::<Vec<_>>(),
+                english,
+                "ui-names/{code}.txt names every line of en.txt, in its order"
+            );
+            let prompt = build_instructions(&chosen, "draft", true, "ask", "", code);
+            assert!(prompt.contains(&format!("\nEnglish | {}\n", language.native)));
+            for (en, name) in &pairs {
+                assert!(
+                    prompt.contains(&format!("{en} | {name}")),
+                    "the prompt lacks {name}"
+                );
+                assert!(
+                    known(name),
+                    "{code}: neither the UI nor the guide says {name}"
+                );
             }
         }
+
         // The labels the English description quotes, and those too short
-        // to look up on their own, are exactly the strings.ts entries.
+        // to look up on their own, are exactly the strings' entries.
+        let prompt = build_instructions(&chosen, "draft", true, "ask", "", "en");
+        let en_ts = read("src/i18n/locales/en.ts");
         for label in [
             "Choose project folder…",
             "Use the document's folder",
@@ -1426,29 +1453,36 @@ mod tests {
         ] {
             assert!(prompt.contains(label), "the prompt lacks {label}");
             assert!(
-                STRINGS_TS.contains(&format!("\"{label}\"")),
+                en_ts.contains(&format!("\"{label}\"")),
                 "the UI has no {label}"
             );
         }
-        for entry in [
-            "projectStyleChip: \"Style\"",
-            "projectStyleChip: \"文风\"",
-            "projectStyleChip: \"文体\"",
-            "agentWorkspaceRootLabel: \"Project Folder\"",
-            "agentWorkspaceRootLabel: \"项目文件夹\"",
-            "agentWorkspaceRootLabel: \"プロジェクトフォルダー\"",
-            "agentSkillsLabel: \"技能\"",
-            "agentSkillsLabel: \"スキル\"",
-            "settingsTitle: \"设置\"",
-            "settingsTitle: \"設定\"",
-            "tutorialCompletionTitle: \"续写\"",
-            "completionToneLabel: \"補完のトーン\"",
-            "proposalAccept: \"采纳\"",
-            "proposalAccept: \"承認\"",
-            "proposalReject: \"拒绝\"",
-            "proposalReject: \"却下\"",
+        let (zh_ts, ja_ts) = (
+            read("src/i18n/locales/zh.ts"),
+            read("src/i18n/locales/ja.ts"),
+        );
+        for (strings, entry) in [
+            (&en_ts, "projectStyleChip: \"Style\""),
+            (&zh_ts, "projectStyleChip: \"文风\""),
+            (&ja_ts, "projectStyleChip: \"文体\""),
+            (&en_ts, "agentWorkspaceRootLabel: \"Project Folder\""),
+            (&zh_ts, "agentWorkspaceRootLabel: \"项目文件夹\""),
+            (
+                &ja_ts,
+                "agentWorkspaceRootLabel: \"プロジェクトフォルダー\"",
+            ),
+            (&zh_ts, "agentSkillsLabel: \"技能\""),
+            (&ja_ts, "agentSkillsLabel: \"スキル\""),
+            (&zh_ts, "settingsTitle: \"设置\""),
+            (&ja_ts, "settingsTitle: \"設定\""),
+            (&zh_ts, "tutorialCompletionTitle: \"续写\""),
+            (&ja_ts, "completionToneLabel: \"補完のトーン\""),
+            (&zh_ts, "proposalAccept: \"采纳\""),
+            (&ja_ts, "proposalAccept: \"承認\""),
+            (&zh_ts, "proposalReject: \"拒绝\""),
+            (&ja_ts, "proposalReject: \"却下\""),
         ] {
-            assert!(STRINGS_TS.contains(entry), "the UI has no {entry}");
+            assert!(strings.contains(entry), "the UI has no {entry}");
         }
         assert!(prompt.contains(&format!("Settings > {AI_NAME} > Project Folder")));
         // The backend's own pointer to Settings names the same page.
@@ -1458,11 +1492,11 @@ mod tests {
     #[test]
     fn interaction_mode_is_explicit_in_the_system_instructions() {
         let workspace = AgentWorkspace::default();
-        let plan = build_instructions(&workspace, "draft", true, "plan", "");
+        let plan = build_instructions(&workspace, "draft", true, "plan", "", "en");
         assert!(plan.contains("interaction mode: plan"));
         assert!(plan.contains("do not call propose_edit"));
 
-        let edit = build_instructions(&workspace, "draft", true, "edit", "");
+        let edit = build_instructions(&workspace, "draft", true, "edit", "", "en");
         assert!(edit.contains("interaction mode: edit"));
     }
 
@@ -1475,7 +1509,7 @@ mod tests {
             project_instructions: Some(project.into()),
             ..AgentWorkspace::default()
         };
-        let prompt = build_instructions(&both, "draft", true, "edit", "");
+        let prompt = build_instructions(&both, "draft", true, "edit", "", "en");
         let global_at = prompt.find(global).unwrap();
         let project_at = prompt.find(project).unwrap();
         assert!(global_at < project_at, "global first, project after");
@@ -1494,7 +1528,7 @@ mod tests {
                 ..AgentWorkspace::default()
             },
         ] {
-            let prompt = build_instructions(&alone, "draft", true, "edit", "");
+            let prompt = build_instructions(&alone, "draft", true, "edit", "", "en");
             assert!(prompt.contains("---user instructions---\nAlways reply in English."));
             assert!(!prompt.contains("---user instructions for this project"));
         }

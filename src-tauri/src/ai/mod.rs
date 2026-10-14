@@ -7,4 +7,5 @@ mod live_eval;
 pub mod project;
 pub mod route;
 pub mod tools;
+mod ui_language;
 pub mod workspace;

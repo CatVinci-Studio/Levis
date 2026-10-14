@@ -177,6 +177,7 @@ fn live_agent_caches_across_steps() {
         mode: "edit",
         workspace: &ws,
         focus_heading: None,
+        ui_language: "en",
     };
     let conv = harness::run_conversation(
         &auth,

@@ -35,8 +35,8 @@ export interface ChatComposerLabels {
   stop: string;
   /** Tooltip of the "+" attach-file button. */
   attachFile: string;
-  /** The selection chip's text; "{n}" is replaced with the char count. */
-  selectedChars: string;
+  /** The selection chip's text for a selection of `n` characters. */
+  selectedChars: (n: number) => string;
   /** Suffix on an attachment chip whose text was cut at the extraction cap. */
   attachmentTruncated: string;
   /** Shown when an image is attached but the active provider has no vision. */
@@ -519,10 +519,7 @@ export function ChatComposer({
           )}
           {selectedText && !selectionDropped && dockActions === undefined && (
             <span className="inline-chat-selection-chip">
-              {labels.selectedChars.replace(
-                "{n}",
-                String([...selectedText].length),
-              )}
+              {labels.selectedChars([...selectedText].length)}
               {dropSelectionButton}
             </span>
           )}

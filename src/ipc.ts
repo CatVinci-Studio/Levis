@@ -535,6 +535,9 @@ export const ai = {
     /** Heading of the section the cursor/selection is in - embedded in full
      *  when the document is too long to send whole (agent.rs). */
     focusHeading?: string | null;
+    /** The UI language: the agent is given that UI's names for the app's
+     *  concepts and controls (agent.rs, UiNames). */
+    uiLanguage?: string;
     /** Live fragments while the request runs - see StreamEvent. */
     onEvent?: (event: StreamEvent) => void;
   }) => {

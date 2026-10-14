@@ -1,0 +1,6 @@
+# The headings of a style profile written in Chinese, on one line and
+# separated by " / ": the title, then the seven sections in this order.
+# "Learn my style" is told to head a Chinese profile with them (project.rs's
+# style_instructions); the starter profile's headings (projectStyleTemplate
+# in src/i18n/locales/) must be among them.
+文风档案 / 语气 / 句子与节奏 / 用词 / 标点与格式 / 结构 / 从不 / 示例

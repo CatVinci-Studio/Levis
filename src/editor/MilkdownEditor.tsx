@@ -1572,7 +1572,7 @@ export function MilkdownEditor({
               defaultMode={settings.agentDefaultMode}
               defaultWebSearch={settings.enableWebSearch}
               tutorialMock={tutorialMock}
-              labels={chatLabels(t)}
+              labels={chatLabels(t, settings.language)}
               proposalStatus={pendingEdits.status}
               pendingCount={pendingEdits.decidable.length}
               fillHeight
@@ -1588,7 +1588,7 @@ export function MilkdownEditor({
               footer={
                 panelGuard && (
                   <CloseConfirmBar
-                    labels={chatLabels(t)}
+                    labels={chatLabels(t, settings.language)}
                     pendingCount={pendingEdits.decidable.length}
                     onAcceptAll={pendingEdits.acceptAll}
                     onRejectAll={pendingEdits.rejectAll}
@@ -1627,7 +1627,7 @@ export function MilkdownEditor({
             defaultMode="edit"
             defaultWebSearch={settings.enableWebSearch}
             tutorialMock={tutorialMock}
-            labels={chatLabels(t)}
+            labels={chatLabels(t, settings.language)}
             onProposals={showProposals}
             proposalStatus={pendingEdits.status}
             onAcceptProposal={pendingEdits.accept}

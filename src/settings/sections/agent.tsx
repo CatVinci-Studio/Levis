@@ -8,7 +8,7 @@ import {
 } from "../../ai/model-info";
 import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../SettingsContext";
-import type { Strings } from "../../i18n/strings";
+import { localeOf, type Strings } from "../../i18n/strings";
 import type { AgentSkill } from "../../ai/types";
 import {
   OPENAI_OAUTH_AGENT_MODEL_PRESETS,
@@ -267,7 +267,7 @@ export function ModelListRow({ t }: { t: Strings }) {
         at
           ? t.modelFetchedAt.replace(
               "{date}",
-              new Date(at).toLocaleDateString(),
+              new Date(at).toLocaleDateString(localeOf(settings.language)),
             )
           : undefined
       }

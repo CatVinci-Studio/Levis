@@ -62,7 +62,7 @@ import {
 import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
 import { createQuickAskWidgetPlugin } from "../ai/quick-ask-widget-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
-import { strings } from "../i18n/strings";
+import { resolveStrings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
 
 export interface PendingEditCallbacks {
@@ -208,7 +208,7 @@ export function withEditorExtensions(
       )
       .use(
         createPlaceholderPlugin(
-          () => strings[settings.current.language].emptyDocPlaceholder,
+          () => resolveStrings(settings.current.language).emptyDocPlaceholder,
         ),
       )
 

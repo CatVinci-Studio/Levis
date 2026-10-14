@@ -381,21 +381,42 @@ mod tests {
     fn learned_profiles_use_the_template_headings() {
         // "Create style profile" writes projectStyleTemplate; "Learn my
         // style" must head its profile the same way in each UI language.
-        const STRINGS_TS: &str = include_str!("../../../src/i18n/strings.ts");
-        let mut headings = 0;
-        for line in STRINGS_TS
-            .lines()
-            .filter(|l| l.trim_start().starts_with("projectStyleTemplate:"))
-        {
-            for part in line.split("\\n") {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let instructions = style_instructions();
+        let mut checked = 0;
+        for language in crate::ai::ui_language::UI_LANGUAGES {
+            let code = language.code;
+            let strings =
+                std::fs::read_to_string(repo.join(format!("src/i18n/locales/{code}.ts"))).unwrap();
+            let Some(template) = strings
+                .lines()
+                .find(|l| l.trim_start().starts_with("projectStyleTemplate:"))
+            else {
+                // Not translated yet: the English starter, English headings.
+                continue;
+            };
+            let headings = language
+                .style_headings()
+                .unwrap_or_else(|| panic!("style-headings/{code}.txt is empty"));
+            assert_eq!(
+                headings.split(" / ").count(),
+                8,
+                "{code}: a title and seven sections"
+            );
+            assert!(instructions.contains(&format!("{}: {headings}\n", language.english)));
+            for part in template.split("\\n") {
                 let part = part.trim_start_matches(|c| c != '#');
                 if part.starts_with("# ") || part.starts_with("## ") {
-                    headings += 1;
-                    assert!(STYLE_INSTRUCTIONS.contains(part), "{part}");
+                    checked += 1;
+                    let heading = part.trim_end_matches(['`', ',']);
+                    assert!(
+                        headings.split(" / ").any(|h| h == heading),
+                        "{code}: {heading} is not in style-headings/{code}.txt"
+                    );
                 }
             }
         }
-        assert!(headings >= 15, "found {headings} headings");
+        assert!(checked >= 15, "found {checked} headings");
     }
 
     #[test]
@@ -593,16 +614,18 @@ pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
 /// English headings, gave only English examples and mentioned the language
 /// once, mid-sentence - and bullets that didn't hold for the samples
 /// ("about 6-8 paragraphs" for pieces of five and six, "no metaphors" next
-/// to a metaphor).
-pub(crate) const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write their style profile in Markdown.
+/// to a metaphor). The headings come from ui_language.rs, one line for
+/// each language that has its own (style-headings/<code>.txt).
+pub(crate) fn style_instructions() -> String {
+    let headings = crate::ai::ui_language::style_heading_lines();
+    format!("You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write their style profile in Markdown.
 
 Write the whole profile in the language the samples are written in - headings, bullets and all: Chinese samples get a Chinese profile, Japanese samples a Japanese one, English samples an English one. The author reads and edits this file, and the assistant follows it. Use exactly these seven sections, in this order, with the headings in that language:
 
-English: # Style profile / ## Voice and tone / ## Sentences and rhythm / ## Word choice / ## Punctuation and formatting / ## Structure / ## Never / ## Examples
-Chinese: # 文风档案 / ## 语气 / ## 句子与节奏 / ## 用词 / ## 标点与格式 / ## 结构 / ## 从不 / ## 示例
-Japanese: # 文体プロファイル / ## 語調 / ## 文とリズム / ## 語彙 / ## 句読点と書式 / ## 構成 / ## 使わない / ## 例
+{headings}
 
-Under each heading give 3-6 short, concrete, checkable bullet points drawn from the samples - \"opens paragraphs with a concrete scene, then the claim\", \"句子很短，多数不超过十五个字\", \"uses full-width Chinese punctuation, no em dashes\" - not generic praise or advice. Every bullet must hold for the samples as given: count instead of estimating, and call something absent (metaphors, exclamation marks) only if no sample uses it. The Never section lists what this author clearly avoids. The Examples section quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile, in the samples' language.";
+Under each heading give 3-6 short, concrete, checkable bullet points drawn from the samples - \"opens paragraphs with a concrete scene, then the claim\", \"句子很短，多数不超过十五个字\", \"uses full-width Chinese punctuation, no em dashes\" - not generic praise or advice. Every bullet must hold for the samples as given: count instead of estimating, and call something absent (metaphors, exclamation marks) only if no sample uses it. The Never section lists what this author clearly avoids. The Examples section quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile, in the samples' language.")
+}
 
 /// "Learn my style": analyses the picked samples and writes the project's
 /// `.levis/style.md` (keeping the previous one as style.previous.md), which
@@ -629,7 +652,7 @@ pub async fn learn_style(
     let profile = crate::ai::client::call(
         &app,
         &provider,
-        STYLE_INSTRUCTIONS.to_string(),
+        style_instructions(),
         samples,
         model.as_deref(),
     )

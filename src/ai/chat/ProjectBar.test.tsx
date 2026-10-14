@@ -3,10 +3,10 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { strings } from "../../i18n/strings";
+import { resolveStrings } from "../../i18n/strings";
 import type { AgentWorkspaceInfo } from "../../ipc";
 
-const t = strings.en;
+const t = resolveStrings("en");
 let answer: (info: AgentWorkspaceInfo | null) => void = () => {};
 
 vi.mock("../../settings/SettingsContext", () => ({

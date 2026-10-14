@@ -1,0 +1,2 @@
+# Traditional Chinese: the names of en.txt as this UI shows them. Not translated yet,
+# so the AI names everything in English for a Traditional Chinese UI.

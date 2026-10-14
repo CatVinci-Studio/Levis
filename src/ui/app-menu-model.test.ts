@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { Shortcuts } from "../settings/SettingsContext";
 import type { Strings } from "../i18n/strings";
-import { strings } from "../i18n/strings";
+import { resolveStrings } from "../i18n/strings";
 import { formatCombo } from "../utils/shortcuts";
 import { buildAppMenu, type MenuNode } from "./app-menu-model";
 
@@ -23,7 +23,7 @@ import { buildAppMenu, type MenuNode } from "./app-menu-model";
  * so the expectations don't depend on which platform runs the suite.
  */
 
-const t = strings.en as Strings;
+const t = resolveStrings("en") as Strings;
 
 const shortcuts: Shortcuts = {
   triggerCompletion: "mod+shift+space",

@@ -7,7 +7,7 @@ import type { AgentTurn, ImageAttachment } from "./types";
 import type { PendingStatus } from "./usePendingEdits";
 import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
 import { useLatest } from "../utils/useLatest";
-import type { AgentMode } from "../settings/SettingsContext";
+import { useSettings, type AgentMode } from "../settings/SettingsContext";
 
 export interface AgentRequestOptions {
   mode: AgentMode;
@@ -96,6 +96,8 @@ export function useAgentConversation(
   };
   const [busy, setBusy] = useState(false);
   const onStreamEventRef = useLatest(onStreamEvent);
+  // The agent is told the UI's names for things in this language.
+  const uiLanguage = useLatest(useSettings().settings.language);
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState<RetryableSend | null>(null);
   const [lastMode, setLastMode] = useState<AgentMode | null>(null);
@@ -179,6 +181,7 @@ export function useAgentConversation(
             webSearch: options.webSearch,
             mode: options.mode,
             focusHeading: options.focusHeading ?? null,
+            uiLanguage: uiLanguage.current,
             model: model || null,
             requestId,
             onEvent: (event) => {

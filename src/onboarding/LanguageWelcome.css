@@ -48,49 +48,10 @@
   font-size: var(--text-md);
 }
 
-.language-welcome-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
-}
-
-.language-welcome-option {
-  min-width: 0;
-  padding: 14px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-surface);
-  background: color-mix(in srgb, var(--sidebar-bg) 55%, var(--bg));
-  color: var(--editor-text);
-  cursor: pointer;
-  text-align: left;
-}
-
-.language-welcome-option:hover {
-  background: var(--sidebar-hover);
-}
-
-.language-welcome-option.is-selected {
-  border-color: var(--editor-accent);
-  background: var(--sidebar-active);
-}
-
-.language-welcome-option span,
-.language-welcome-option small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.language-welcome-option span {
-  font-size: var(--text-lg);
-  font-weight: 600;
-}
-
-.language-welcome-option small {
-  margin-top: 3px;
-  color: var(--editor-muted);
-  font-size: var(--text-xs);
+/* The dropdown takes the whole width, at the height of the Continue button
+   below it, so the two read as one column. */
+.language-welcome-select {
+  width: 100%;
 }
 
 .language-welcome-continue {
@@ -104,10 +65,6 @@
 @media (max-width: 520px) {
   .language-welcome {
     padding: 26px 20px;
-  }
-
-  .language-welcome-options {
-    grid-template-columns: 1fr;
   }
 }
 

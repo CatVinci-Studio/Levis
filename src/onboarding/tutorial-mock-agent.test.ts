@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { strings, type Strings } from "../i18n/strings";
+import { LANGS, resolveStrings, type Strings } from "../i18n/strings";
 import { createTutorialMockAgent } from "./tutorial-mock-agent";
 
 // Only the keys the mock agent reads - the zh prompt is the interesting one
@@ -38,18 +38,15 @@ describe("createTutorialMockAgent", () => {
     const wrapped = `<selected-text>\n这是一段普通的文字。\n</selected-text>\n\n把 这是一段普通的文字 改简洁`;
     expect(isProposal(agent(wrapped))).toBe(true);
   });
-  it.each(["zh", "en", "ja"] as const)(
-    "uses the displayed editing example in %s",
-    (lang) => {
-      const copy = strings[lang];
-      const reply = createTutorialMockAgent(copy)(copy.tutorialAgentEditPrompt);
-      expect(Array.isArray(reply)).toBe(true);
-      if (!Array.isArray(reply) || reply[0]?.kind !== "ToolCall")
-        throw new Error("Missing edit preview");
-      const args = JSON.parse(reply[0].arguments);
-      expect(args.anchor).toBe(copy.tutorialAgentEditTarget);
-      expect(args.text).toBe(copy.tutorialAgentEditSuggestion);
-      expect(args.text.length).toBeLessThan(args.anchor.length);
-    },
-  );
+  it.each(LANGS)("uses the displayed editing example in %s", (lang) => {
+    const copy = resolveStrings(lang);
+    const reply = createTutorialMockAgent(copy)(copy.tutorialAgentEditPrompt);
+    expect(Array.isArray(reply)).toBe(true);
+    if (!Array.isArray(reply) || reply[0]?.kind !== "ToolCall")
+      throw new Error("Missing edit preview");
+    const args = JSON.parse(reply[0].arguments);
+    expect(args.anchor).toBe(copy.tutorialAgentEditTarget);
+    expect(args.text).toBe(copy.tutorialAgentEditSuggestion);
+    expect(args.text.length).toBeLessThan(args.anchor.length);
+  });
 });

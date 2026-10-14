@@ -1,38 +1,9 @@
 import { useModalDialog } from "../ui/useModalDialog";
+import { Select } from "../ui/Select";
 // The app icon itself, so the welcome shows the real mark.
 import appIcon from "../../src-tauri/icons/128x128@2x.png";
-import type { Lang } from "../i18n/strings";
+import { LANGS, LANG_NAMES, resolveStrings, type Lang } from "../i18n/strings";
 import "./LanguageWelcome.css";
-
-const COPY: Record<
-  Lang,
-  { eyebrow: string; title: string; body: string; continue: string }
-> = {
-  en: {
-    eyebrow: "Welcome to Levis",
-    title: "Choose your language",
-    body: "You can change this later in Settings.",
-    continue: "Continue",
-  },
-  zh: {
-    eyebrow: "欢迎使用 Levis",
-    title: "选择你的语言",
-    body: "之后仍可在设置中随时更改。",
-    continue: "继续",
-  },
-  ja: {
-    eyebrow: "Levisへようこそ",
-    title: "言語を選択",
-    body: "後から設定でいつでも変更できます。",
-    continue: "続ける",
-  },
-};
-
-const LANGUAGES: { id: Lang; label: string; detail: string }[] = [
-  { id: "zh", label: "中文", detail: "简体中文" },
-  { id: "en", label: "English", detail: "English" },
-  { id: "ja", label: "日本語", detail: "日本語" },
-];
 
 export function LanguageWelcome({
   language,
@@ -43,7 +14,8 @@ export function LanguageWelcome({
   onLanguage: (language: Lang) => void;
   onContinue: () => void;
 }) {
-  const copy = COPY[language];
+  // In the language being picked, so the choice reads back at once.
+  const t = resolveStrings(language);
   const modal = useModalDialog(() => {}, true, ".language-welcome-continue");
   return (
     <div className="language-welcome-backdrop">
@@ -55,29 +27,29 @@ export function LanguageWelcome({
         aria-labelledby="language-welcome-title"
       >
         <img className="language-welcome-mark" src={appIcon} alt="" />
-        <div className="language-welcome-eyebrow">{copy.eyebrow}</div>
-        <h1 id="language-welcome-title">{copy.title}</h1>
-        <p>{copy.body}</p>
-        <div className="language-welcome-options">
-          {LANGUAGES.map((option) => (
-            <button
-              type="button"
-              key={option.id}
-              className={`language-welcome-option${language === option.id ? " is-selected" : ""}`}
-              aria-pressed={language === option.id}
-              onClick={() => onLanguage(option.id)}
-            >
-              <span>{option.label}</span>
-              <small>{option.detail}</small>
-            </button>
+        <div className="language-welcome-eyebrow">{t.tutorialWelcomeTitle}</div>
+        <h1 id="language-welcome-title">{t.languageWelcomeTitle}</h1>
+        <p>{t.languageWelcomeBody}</p>
+        {/* A dropdown, not a row of buttons: ten languages don't fit a
+            phone's width side by side. Each is named in itself. */}
+        <Select
+          className="settings-select language-welcome-select"
+          aria-label={t.languageLabel}
+          value={language}
+          onChange={(e) => onLanguage(e.target.value as Lang)}
+        >
+          {LANGS.map((lang) => (
+            <option key={lang} value={lang}>
+              {LANG_NAMES[lang]}
+            </option>
           ))}
-        </div>
+        </Select>
         <button
           type="button"
           className="language-welcome-continue"
           onClick={onContinue}
         >
-          {copy.continue}
+          {t.tutorialNext}
           <span aria-hidden>→</span>
         </button>
       </div>

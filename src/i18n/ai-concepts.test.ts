@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AI_NAME, strings } from "./strings";
+import { AI_NAME, LANGS, resolveStrings } from "./strings";
 
 // The copy for the concepts in docs/AI-CONCEPTS.md: the starter files and
 // the names the user meets in Settings and the project bar.
@@ -10,8 +10,8 @@ function sentToModel(text: string): string {
   return text.replace(/<!--[\s\S]*?(-->|$)/g, "").trim();
 }
 
-describe.each(["en", "zh", "ja"] as const)("AI concept copy in %s", (lang) => {
-  const t = strings[lang];
+describe.each(LANGS)("AI concept copy in %s", (lang) => {
+  const t = resolveStrings(lang);
 
   it("the agent.md starters teach in comments and send nothing", () => {
     expect(sentToModel(t.agentInstructionsTemplate)).toBe("");
@@ -37,7 +37,7 @@ describe.each(["en", "zh", "ja"] as const)("AI concept copy in %s", (lang) => {
   it("every Settings path names a page that exists", () => {
     // The AI page is AI_NAME ("Levis AI"); messages that sent the user to
     // "Settings → AI" pointed at a page that was renamed in 0.9.7.
-    const settings = { en: "Settings", zh: "设置", ja: "設定" }[lang];
+    const settings = t.settingsTitle;
     const pages = [
       t.navGeneral,
       t.navEditor,

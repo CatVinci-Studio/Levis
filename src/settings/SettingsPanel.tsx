@@ -10,7 +10,7 @@ import {
   type ContentWidth,
   type ProxyType,
 } from "./SettingsContext";
-import type { Lang, Strings } from "../i18n/strings";
+import { LANGS, LANG_NAMES, type Lang, type TextKey } from "../i18n/strings";
 import {
   SettingRow,
   ToggleRow,
@@ -135,9 +135,13 @@ export function SettingsPanel({
                   setSettings({ language: e.target.value as Lang })
                 }
               >
-                <option value="en">English</option>
-                <option value="zh">中文</option>
-                <option value="ja">日本語</option>
+                {/* Each in its own language, so a user who can't read the
+                    current one still finds theirs. */}
+                {LANGS.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {LANG_NAMES[lang]}
+                  </option>
+                ))}
               </Select>
             </SettingRow>
             {canUseWindows && (
@@ -316,7 +320,7 @@ export function SettingsPanel({
                 >
                   {COMPLETION_TONES.map((tone) => (
                     <option key={tone} value={tone}>
-                      {t[`completionTone_${tone}` as keyof Strings]}
+                      {t[`completionTone_${tone}` as TextKey]}
                     </option>
                   ))}
                 </Select>

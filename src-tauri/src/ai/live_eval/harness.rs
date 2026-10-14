@@ -426,6 +426,8 @@ pub struct AgentSetup<'a> {
     /// None: each turn sends the heading above its selection or cursor, as
     /// the editor does (headingAt); Some overrides it.
     pub focus_heading: Option<&'a str>,
+    /// The app's UI language (src/i18n/langs.ts), as the frontend sends it.
+    pub ui_language: &'a str,
 }
 
 /// Mirrors src/ai/proposal-status.ts's notes for the two decided states.
@@ -486,7 +488,8 @@ pub fn run_conversation(
                 .or(caret.cursor)
                 .and_then(|at| heading_at(&doc, at))
         });
-        let instructions = build_instructions(ws, &doc, true, setup.mode, &message_sent);
+        let instructions =
+            build_instructions(ws, &doc, true, setup.mode, &message_sent, setup.ui_language);
         let ctx = ToolContext {
             document: &doc,
             skills: &ws.skills,

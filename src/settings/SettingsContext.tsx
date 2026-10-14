@@ -8,10 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import {
-  strings,
+  detectLang,
+  isLang,
+  localeOf,
+  resolveStrings,
   type Lang,
   type Strings,
-  type StringKey,
+  type TextKey,
 } from "../i18n/strings";
 import { ai, storage, themes } from "../ipc";
 import { readBoot, readLocalJson } from "../storage/boot";
@@ -92,7 +95,7 @@ export type BuiltinContentThemeId =
 export const BUILTIN_CONTENT_THEMES: {
   id: BuiltinContentThemeId;
   name: string;
-  nameKey: StringKey;
+  nameKey: TextKey;
 }[] = [
   { id: "default", name: "Default", nameKey: "themeNameDefault" },
   { id: "paper", name: "Paper", nameKey: "themeNamePaper" },
@@ -314,19 +317,17 @@ function migrateAgentModels(
   return models;
 }
 
-const LANGS = Object.keys(strings) as Lang[];
-
 /** The `lang` attribute for the UI language, which the CSS `:lang()` font
- *  stacks key off (Chinese needs its region to pick Simplified glyphs).
- *  Kept in step with the boot script (src-tauri/src/boot.js). */
+ *  stacks key off (Chinese needs its region to pick Simplified or
+ *  Traditional glyphs). Kept in step with the boot script
+ *  (src-tauri/src/boot.js). */
 export function htmlLang(language: Lang): string {
-  return language === "zh" ? "zh-CN" : language;
+  return localeOf(language);
 }
 
+/** A new installation starts in the OS's language, when the app has it. */
 function guessLanguage(): Lang {
-  const locale =
-    typeof navigator === "undefined" ? "" : navigator.language.toLowerCase();
-  return locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : "en";
+  return detectLang(typeof navigator === "undefined" ? "" : navigator.language);
 }
 
 function isRecord(value: unknown): value is Raw {
@@ -375,11 +376,9 @@ export function normaliseSettings(parsed: Raw | null): Settings {
         ...DEFAULT_SETTINGS.shortcuts,
         ...((parsed.shortcuts as Partial<Shortcuts> | undefined) ?? {}),
       },
-      // An unknown language (a newer build's, a hand edit) would leave
-      // `strings[language]` undefined and take the whole UI down with it.
-      language: LANGS.includes(parsed.language as Lang)
-        ? (parsed.language as Lang)
-        : "en",
+      // An unknown language (a newer build's, a hand edit) is English, not
+      // a string table that isn't there.
+      language: isLang(parsed.language) ? parsed.language : "en",
       theme: THEME_MODES.includes(parsed.theme as ThemeMode)
         ? (parsed.theme as ThemeMode)
         : DEFAULT_SETTINGS.theme,
@@ -787,7 +786,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     persist(patch);
   }
 
-  const t = strings[settings.language] ?? strings.en;
+  const t = resolveStrings(settings.language);
 
   const value = useMemo(() => ({ settings, setSettings, t }), [settings, t]);
 

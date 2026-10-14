@@ -1,12 +1,15 @@
 import type { Strings } from "./i18n/strings";
 import { basename } from "./utils/path";
 import { fs } from "./ipc";
-import markdownGuideEn from "./help/markdown-guide.en.md?raw";
-import markdownGuideZh from "./help/markdown-guide.zh.md?raw";
-import markdownGuideJa from "./help/markdown-guide.ja.md?raw";
-import agentGuideEn from "./help/agent-guide.en.md?raw";
-import agentGuideZh from "./help/agent-guide.zh.md?raw";
-import agentGuideJa from "./help/agent-guide.ja.md?raw";
+
+// Every bundled guide, by file name: "src/help/<doc>-guide.<lang>.md". A
+// language without its own copy of a guide gets the English one, so a
+// translated guide is a new file there and no change here.
+const HELP_GUIDES = import.meta.glob<string>("./help/*-guide.*.md", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
 
 // The document-tab data model shared by App.tsx (tab state) and
 // useTabDragMerge.ts (tabs in flight between windows).
@@ -55,14 +58,10 @@ export interface DetachedTabDoc {
 }
 
 export function helpDocContent(doc: HelpDoc, lang: string): string {
-  if (doc === "agent") {
-    if (lang === "zh") return agentGuideZh;
-    if (lang === "ja") return agentGuideJa;
-    return agentGuideEn;
-  }
-  if (lang === "zh") return markdownGuideZh;
-  if (lang === "ja") return markdownGuideJa;
-  return markdownGuideEn;
+  return (
+    HELP_GUIDES[`./help/${doc}-guide.${lang}.md`] ??
+    HELP_GUIDES[`./help/${doc}-guide.en.md`]
+  );
 }
 
 // A tab's display name everywhere one is shown (tab pill, title strip,

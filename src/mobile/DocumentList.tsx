@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../settings/SettingsContext";
+import { localeOf, plural } from "../i18n/strings";
 import { ContextMenu, type ContextMenuItem } from "../editor/ContextMenu";
 import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
 import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
@@ -104,10 +105,10 @@ export function DocumentList({
     setUiState("documentListView", next);
   }
 
-  const dateFormat = new Intl.DateTimeFormat(settings.language, {
+  const dateFormat = new Intl.DateTimeFormat(localeOf(settings.language), {
     dateStyle: "medium",
   });
-  const timeFormat = new Intl.DateTimeFormat(settings.language, {
+  const timeFormat = new Intl.DateTimeFormat(localeOf(settings.language), {
     timeStyle: "short",
   });
   const when = (mtime: number | null) => {
@@ -210,9 +211,7 @@ export function DocumentList({
       <div className="document-list-toolbar">
         <span className="document-list-count">
           {entries && entries.length > 0
-            ? entries.length === 1
-              ? t.docCountOne
-              : t.docCount.replace("{n}", String(entries.length))
+            ? plural(t.docCount, entries.length, settings.language)
             : ""}
         </span>
         <div className="document-list-views" role="radiogroup">
