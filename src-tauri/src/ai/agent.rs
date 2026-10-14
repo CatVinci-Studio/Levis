@@ -238,7 +238,7 @@ fn workspace_section(workspace: &AgentWorkspace, ui_language: &str) -> String {
         None => String::new(),
     };
     format!(
-        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, each one Markdown file - a name and a one-line description at the top, then the instructions - that the user puts in .levis/skills/ or in the global config folder's skills/; nothing in the app writes one, but Settings > {AI_NAME} > Skills > Import Skill… copies a file into the global ones. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document; New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. The style profile and the library also shape completion, the grey suggestions as the user types. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
+        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, or that you load when a request matches one, each one Markdown file - a name and a one-line description at the top, then the instructions. The app ships built-in skills, listed in Settings > {AI_NAME} > Skills, where each can be turned off or customized (customizing copies it into the global config folder's skills/ to edit); the user's own skills go in .levis/skills/ or in the global config folder's skills/ (Settings > {AI_NAME} > Skills > Import Skill… copies a file there), and one with a built-in skill's name replaces it. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document; New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. The style profile and the library also shape completion, the grey suggestions as the user types. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
     )
 }
 
@@ -392,18 +392,15 @@ pub(crate) fn build_instructions(
 
     // The skill index: names + descriptions only. Bodies load on demand via
     // use_skill, so a large skill library costs almost nothing per request.
-    if with_tools && !workspace.skills.is_empty() {
-        let index: Vec<String> = workspace
-            .skills
-            .iter()
-            .map(|s| format!("- {}: {}", s.name, s.description))
-            .collect();
+    // /name-only skills (and turned-off built-ins) aren't offered.
+    let index = skill_index(workspace);
+    if with_tools && !index.is_empty() {
         // A /name the user typed arrives already expanded in a <skill> block
-        // (proposal.ts's resolveSkillMessage); loading it again cost a round
-        // trip of 12-16 s in the live eval.
+        // (builtin::expand_message); loading it again cost a round trip of
+        // 12-16 s in the live eval.
         sections.push(format!(
-            "---available skills---\n{}\nWhen a request matches a skill's description, load it with use_skill and follow it. A <skill name=\"...\"> block in the user's message is that skill already loaded - follow it without calling use_skill for it; its own rules for the result (length, form, what to say) override the general ones above.",
-            index.join("\n")
+            "---available skills---\n{index}\nWhen a request matches a skill's description, load it with use_skill and follow it. When a skill marked (project) or (yours) and an unmarked built-in skill both match a request, use the marked one. A <skill name=\"...\"> block in the user's message is that skill already loaded - follow it without calling use_skill for it; its own rules for the result (length, form, what to say) override the general ones above.\nReference packs, loaded only when a skill asks for them: {}. Add #section to load one section, e.g. standards-fr#dialogue.",
+            crate::ai::builtin::reference_pack_names().join(", ")
         ));
     }
 
@@ -416,6 +413,74 @@ pub(crate) fn build_instructions(
         sections.push(request_context(workspace, document, false, focus, None));
     }
     sections.join("\n\n")
+}
+
+/// Longest description the skill index shows; a longer one (a user's
+/// skill) is cut with "…".
+const INDEX_DESCRIPTION_CHARS: usize = 500;
+
+/// The skill index the model sees: the skills it may load by description,
+/// the user's own first (marked "(project)" or "(yours)"), then the
+/// built-ins by menu category and name. Depends only on the workspace, so
+/// the system prompt stays byte-identical across a conversation.
+pub(crate) fn skill_index(workspace: &AgentWorkspace) -> String {
+    use crate::ai::workspace::SkillSource;
+    let mut offered: Vec<&crate::ai::workspace::AgentSkill> = workspace
+        .skills
+        .iter()
+        .filter(|s| s.offered_to_model())
+        .collect();
+    let rank = |s: &crate::ai::workspace::AgentSkill| {
+        let layer = match s.source {
+            SkillSource::Project => 0,
+            SkillSource::Global => 1,
+            SkillSource::Builtin => 2,
+        };
+        let category = s
+            .category
+            .as_deref()
+            .and_then(|c| {
+                crate::ai::builtin::CATEGORY_ORDER
+                    .iter()
+                    .position(|o| *o == c)
+            })
+            .unwrap_or(crate::ai::builtin::CATEGORY_ORDER.len());
+        (layer, category)
+    };
+    // Stable: the user's skills keep their file order.
+    offered.sort_by(|a, b| {
+        let (ra, rb) = (rank(a), rank(b));
+        ra.cmp(&rb).then_with(|| {
+            if ra.0 == 2 {
+                a.name.cmp(&b.name)
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+    });
+    offered
+        .iter()
+        .map(|s| {
+            let mark = match s.source {
+                SkillSource::Project => " (project)",
+                SkillSource::Global => " (yours)",
+                SkillSource::Builtin => "",
+            };
+            let description = if s.description.chars().count() > INDEX_DESCRIPTION_CHARS {
+                format!(
+                    "{}…",
+                    s.description
+                        .chars()
+                        .take(INDEX_DESCRIPTION_CHARS - 1)
+                        .collect::<String>()
+                )
+            } else {
+                s.description.clone()
+            };
+            format!("- {}{mark}: {description}", s.name)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// The per-request context: the project's style profile and the library
@@ -649,6 +714,13 @@ async fn ai_agent_message_inner(
     let workspace = workspace::load(&app, doc_path.as_deref(), workspace_root.as_deref());
     let conventions = crate::ai::conventions::for_workspace(&app, &workspace);
     let library = crate::ai::conventions::library_names(&workspace);
+    // What the request is about, for picking library entries: the message
+    // as the user's side sent it, before the reference packs go in.
+    let focus = message.clone();
+    // A /name call gets the skill's instructions and reference packs filled
+    // in here, and history keeps the expanded message (see expand_message).
+    let message =
+        crate::ai::builtin::expand_message(&message, &workspace.skills, &document, &ui_language);
     let entry = catalog::find(&provider).ok_or_else(|| format!("unknown provider: {provider}"))?;
 
     // Refuse rather than drop. Sending the images to a provider that can't
@@ -669,7 +741,7 @@ async fn ai_agent_message_inner(
                 &workspace,
                 &document,
                 true,
-                &message,
+                &focus,
                 focus_heading.as_deref(),
             ),
             &message,
@@ -681,9 +753,9 @@ async fn ai_agent_message_inner(
     let result = match entry.dialect {
         "openai-responses" => {
             let instructions =
-                build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
+                build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
             let tools = tools::builtin_tools(
-                !workspace.skills.is_empty(),
+                workspace.has_usable_skills(),
                 workspace.root.is_some(),
                 mode == "edit",
             );
@@ -691,6 +763,7 @@ async fn ai_agent_message_inner(
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
+                ui_language: &ui_language,
                 root: workspace.root.as_deref().map(Path::new),
                 conventions: &conventions,
                 library: &library,
@@ -790,10 +863,10 @@ async fn ai_agent_message_inner(
         }
         "anthropic-messages" => {
             let instructions =
-                build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
+                build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
             let auth = route::resolve_anthropic_auth(&app).await?;
             let tools = tools::builtin_tools(
-                !workspace.skills.is_empty(),
+                workspace.has_usable_skills(),
                 workspace.root.is_some(),
                 mode == "edit",
             );
@@ -801,6 +874,7 @@ async fn ai_agent_message_inner(
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
+                ui_language: &ui_language,
                 root: workspace.root.as_deref().map(Path::new),
                 conventions: &conventions,
                 library: &library,
@@ -854,7 +928,7 @@ async fn ai_agent_message_inner(
                 .or(default_model)
                 .ok_or_else(|| NOT_CONFIGURED.to_string())?;
             let tools = tools::builtin_tools(
-                !workspace.skills.is_empty(),
+                workspace.has_usable_skills(),
                 workspace.root.is_some(),
                 mode == "edit",
             );
@@ -862,12 +936,13 @@ async fn ai_agent_message_inner(
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
+                ui_language: &ui_language,
                 root: workspace.root.as_deref().map(Path::new),
                 conventions: &conventions,
                 library: &library,
             };
             let instructions_with_tools =
-                build_instructions(&workspace, &document, true, &mode, &message, &ui_language);
+                build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
 
             // These providers expose server-side search through their
             // current Chat Completions compatibility layer. Other providers
@@ -971,7 +1046,7 @@ async fn ai_agent_message_inner(
                         &document,
                         false,
                         &mode,
-                        &message,
+                        &focus,
                         &ui_language,
                     );
                     flattened_chat_turn(
@@ -988,7 +1063,7 @@ async fn ai_agent_message_inner(
         }
         _ => {
             let instructions =
-                build_instructions(&workspace, &document, false, &mode, &message, &ui_language);
+                build_instructions(&workspace, &document, false, &mode, &focus, &ui_language);
             flattened_chat_turn(
                 &app,
                 &provider,
@@ -1073,6 +1148,7 @@ mod tests {
         let ctx = ToolContext {
             document,
             skills: &[],
+            ui_language: "en",
             root: None,
             conventions: &conventions,
             library: &[],
@@ -1384,6 +1460,64 @@ mod tests {
             "mentioned via alias in the document"
         );
         assert!(!prompt.contains("海边城市"), "not mentioned anywhere");
+    }
+
+    #[test]
+    fn the_skill_index_offers_model_skills_and_prefers_the_users() {
+        use crate::ai::workspace::{AgentSkill, SkillSource};
+        let mut ws = crate::ai::workspace::load_layers(None, None, None, &["describe".to_string()]);
+        ws.skills.push(AgentSkill {
+            name: "house-headline".into(),
+            description: "Titles in the house style".into(),
+            prompt: "x".into(),
+            source: SkillSource::Project,
+            ..AgentSkill::default()
+        });
+        ws.skills.push(AgentSkill {
+            name: "my-tone".into(),
+            description: "d".repeat(700),
+            prompt: "x".into(),
+            source: SkillSource::Global,
+            ..AgentSkill::default()
+        });
+        let index = skill_index(&ws);
+        let lines: Vec<&str> = index.lines().collect();
+        assert!(lines[0].starts_with("- house-headline (project): "));
+        assert!(lines[1].starts_with("- my-tone (yours): ") && lines[1].ends_with('…'));
+        assert!(lines[1].chars().count() < 540, "a long description is cut");
+        assert_eq!(
+            lines[2],
+            format!(
+                "- continue-story: {}",
+                crate::ai::builtin::find("continue-story")
+                    .unwrap()
+                    .description
+            )
+        );
+        // /name-only skills and turned-off ones aren't offered.
+        for absent in ["tighten", "expand", "change-tone", "summarize", "describe"] {
+            assert!(!index.contains(&format!("- {absent}:")), "{absent}");
+        }
+        // Built-ins by menu category: write before revise before check
+        // before format.
+        let at = |name: &str| index.find(&format!("- {name}:")).unwrap();
+        assert!(
+            at("dialogue") < at("de-ai")
+                && at("de-ai") < at("proofread")
+                && at("proofread") < at("email")
+        );
+        // The system prompt carries it, the preference rule and the packs,
+        // the same whatever the document.
+        let a = build_instructions(&ws, "# One", true, "edit", "hi", "en");
+        let b = build_instructions(&ws, "# Two\n\nOther text.", true, "edit", "other", "en");
+        assert_eq!(a, b);
+        assert!(a.contains("When a skill marked (project) or (yours) and an unmarked built-in skill both match a request, use the marked one."));
+        assert!(a.contains("standards-zh-hant") && !a.contains("contract,"));
+        // Nothing to offer, no index.
+        let mut none = ws.clone();
+        none.skills.iter_mut().for_each(|s| s.enabled = false);
+        assert!(!build_instructions(&none, "", true, "edit", "", "en")
+            .contains("---available skills---"));
     }
 
     #[test]

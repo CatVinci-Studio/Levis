@@ -114,17 +114,34 @@ reply language, spellings and terms, things to always or never do.**
 calls with `/name` or Levis AI loads by itself when a request matches its
 description.**
 
-- **On disk:** global: `skills/*.md` in the global config folder; project:
-  `.levis/skills/*.md`. Frontmatter `name` and `description`, then the
-  instructions.
+- **On disk:** built-in: 18 skills bundled with the app
+  (`src-tauri/src/ai/skills/*.md`, read-only); global: `skills/*.md` in the
+  global config folder; project: `.levis/skills/*.md`. Frontmatter `name`
+  and `description` (block scalars allowed), Levis-only keys under
+  `metadata:` (`levis-invocation`, `levis-category`, `levis-packs`,
+  `levis-aliases-<lang>`, `levis-version`, `levis-based-on`), then the
+  instructions. `<!-- -->` comments in the instructions are never sent.
 - **Create / edit:** **Settings > Levis AI > Skills > Import Skill…** copies
-  a file into the global skills; or by hand in either folder.
-- **Levis AI uses it:** every skill's name and description are listed in
-  the system prompt (`---available skills---`) for tool-calling providers;
-  the body arrives through `use_skill`, or - when the user types `/name` -
-  already expanded in a `<skill name="...">` block at the top of the
-  message, which the agent follows without loading it again.
-  Conversations only.
+  a file into the global skills; **Customize…** on a built-in copies it
+  there with `levis-based-on` (so **Reset to built-in** may delete it); or
+  by hand in either folder. A built-in can be turned off
+  (`settings.disabledBuiltinSkills`).
+- **Reference packs:** `contract`, `craft` and `standards-<lang>` for ten
+  languages (`src-tauri/src/ai/skills/packs/`), never listed or called with
+  `/`. A skill's `levis-packs` sections (`standards#dialogue` = the
+  document language's pack) are appended to its instructions whenever it is
+  used, and the model can load any section with
+  `use_skill("standards-fr#dialogue")`. Attribution:
+  `src-tauri/src/ai/skills/ATTRIBUTION.md`.
+- **Levis AI uses it:** the name and description of every skill it may
+  start (`levis-invocation: both`; not `user-only` ones like `/tighten`, not
+  turned-off built-ins) are listed in the system prompt
+  (`---available skills---`) for tool-calling providers, the user's own
+  marked "(project)" or "(yours)" and preferred over a built-in when both
+  match; the body arrives through `use_skill`, or - when the user types
+  `/name` or an alias (`/校对`) - already expanded by Rust
+  (`builtin::expand_message`) in a `<skill name="...">` block, which the
+  agent follows without loading it again. Conversations only.
 
 ### Global config folder
 
@@ -212,7 +229,8 @@ part of the project.
   ```
 
 - **Skills merge by name.** A project skill replaces a global skill with the
-  same `name`; all other skills from both levels are available.
+  same `name`, and either replaces a built-in one; all other skills from
+  the three levels are available.
 - **The style profile and library are per project only.** There is no
   global version of either.
 - **Completion tone and style profile both reach completion.** The tone is
@@ -256,12 +274,12 @@ part of the project.
 Some identifiers predate these names. They stay; their comments use the
 names above.
 
-| User-facing name     | In code                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Project folder       | workspace root: `settings.agentWorkspaceRoot` (`""` = the document's folder), `workspace::project_root`, `AgentWorkspace.root` |
-| `.levis/` folder     | `WORKSPACE_DIR_NAME`                                                                                                           |
-| Style profile        | `AgentWorkspace.style`, `project::read_style`, `learn_style`                                                                   |
-| Library              | `AgentWorkspace.library`, `project::read_library`, `project::relevant_library`                                                 |
-| Writing instructions | `AgentWorkspace.instructions` (global) and `AgentWorkspace.project_instructions`; `agentSystemPrompt*` strings                 |
-| Skills               | `AgentWorkspace.skills`, the `use_skill` tool, `import_agent_skill`                                                            |
-| Global config folder | `global_agent_dir`, `agentWorkspaceLabel`                                                                                      |
+| User-facing name     | In code                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project folder       | workspace root: `settings.agentWorkspaceRoot` (`""` = the document's folder), `workspace::project_root`, `AgentWorkspace.root`                                    |
+| `.levis/` folder     | `WORKSPACE_DIR_NAME`                                                                                                                                              |
+| Style profile        | `AgentWorkspace.style`, `project::read_style`, `learn_style`                                                                                                      |
+| Library              | `AgentWorkspace.library`, `project::read_library`, `project::relevant_library`                                                                                    |
+| Writing instructions | `AgentWorkspace.instructions` (global) and `AgentWorkspace.project_instructions`; `agentSystemPrompt*` strings                                                    |
+| Skills               | `AgentWorkspace.skills`, the `use_skill` tool, `import_agent_skill`, `ai::builtin`, `customize_builtin_skill`, `reset_builtin_skill`, `set_builtin_skill_enabled` |
+| Global config folder | `global_agent_dir`, `agentWorkspaceLabel`                                                                                                                         |

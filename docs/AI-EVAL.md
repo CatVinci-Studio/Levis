@@ -94,7 +94,10 @@ workspace and writing-style features explicit.
   (reply language, house style, comments stripped, global + project
   layers), library facts by alias and a character-consistency check, a
   `/skill` and a skill matched by description, a project skill shadowing a
-  global one.
+  global one. Since the built-in skills, these disk workspaces also carry
+  the 18 built-ins (the loader adds them, as in the app), and a `/name`
+  message is expanded by the production `builtin::expand_message`, packs
+  included; the in-memory workspaces of the matrix cases don't.
 - **Concepts (added in the 0.9.7 integration, 8 cases)**: questions about
   the style profile, the library, global and project writing instructions,
   skills and the project folder, in en, zh and ja; the reply must use the

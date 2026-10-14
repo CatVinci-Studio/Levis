@@ -1,4 +1,5 @@
-use crate::ai::workspace::AgentSkill;
+use crate::ai::builtin;
+use crate::ai::workspace::{AgentSkill, Invocation};
 use aicompat::agent::ToolSpec;
 use serde_json::json;
 use std::path::Path;
@@ -8,8 +9,11 @@ use std::path::Path;
 /// each tool's call signature.
 pub struct ToolContext<'a> {
     pub document: &'a str,
-    /// Skills from the global config folder and the project's .levis/.
+    /// The merged skills: built-in, global config folder, project .levis/.
     pub skills: &'a [AgentSkill],
+    /// The UI language (src/i18n/langs.ts) - which language's writing
+    /// conventions a skill gets when the document is too short to tell.
+    pub ui_language: &'a str,
     /// The project folder (workspace root) - the sandbox boundary for the
     /// file tools. The document's own folder by default, or the chosen
     /// project folder (see workspace::resolve_root). None for an unsaved
@@ -383,29 +387,45 @@ fn add_comment(ctx: &ToolContext, arguments: &str) -> String {
 const USE_SKILL_TOOL_NAME: &str = "use_skill";
 
 /// Dynamic skill loading: the system prompt only carries each skill's name
-/// and description; this returns the full instructions on demand.
+/// and description; this returns the full instructions on demand, with the
+/// reference-pack sections the skill declares appended (builtin::
+/// expand_skill). A reference pack loads by name too, whole or one section
+/// (`standards-fr#dialogue`).
 fn use_skill(ctx: &ToolContext, arguments: &str) -> String {
     let name = serde_json::from_str::<serde_json::Value>(arguments)
         .ok()
         .and_then(|v| {
             v.get("name")
                 .and_then(|n| n.as_str())
-                .map(|s| s.to_string())
+                .map(|s| s.trim().to_string())
         })
         .unwrap_or_default();
 
-    match ctx.skills.iter().find(|s| s.name == name) {
+    let skill = ctx.skills.iter().find(|s| s.name == name && s.enabled);
+    match skill {
+        Some(skill) if skill.invocation == Invocation::UserOnly => format!(
+            "The skill `{name}` runs only when the user types /{name}. Handle this request without it."
+        ),
         Some(skill) => format!(
             "Instructions for skill `{name}` - follow them for this request:\n\n{}",
-            skill.prompt
+            builtin::expand_skill(skill, ctx.document, ctx.ui_language, "", None)
         ),
-        None => {
-            let available: Vec<&str> = ctx.skills.iter().map(|s| s.name.as_str()).collect();
-            format!(
-                "No skill named `{name}`. Available skills: {}.",
-                available.join(", ")
-            )
-        }
+        None => match builtin::load_reference(&name, ctx.document, ctx.ui_language) {
+            Some(text) => format!("Reference `{name}` - apply it to this request:\n\n{text}"),
+            None => {
+                let available: Vec<&str> = ctx
+                    .skills
+                    .iter()
+                    .filter(|s| s.offered_to_model())
+                    .map(|s| s.name.as_str())
+                    .collect();
+                format!(
+                    "No skill named `{name}`. Available skills: {}. Reference packs: {} (add #section for one section).",
+                    available.join(", "),
+                    builtin::reference_pack_names().join(", ")
+                )
+            }
+        },
     }
 }
 
@@ -818,13 +838,13 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
         tools.push(Tool {
             spec: ToolSpec {
                 name: USE_SKILL_TOOL_NAME,
-                description: "Load the full instructions of one of the available skills (listed in the system prompt). Call this before following a skill whenever the user's request matches its description, or when the user invokes it by name.",
+                description: "Load the full instructions of one of the available skills (listed in the system prompt), or a reference pack a skill names. Call this before following a skill whenever the user's request matches its description, or when the user invokes it by name.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "name": {
                             "type": "string",
-                            "description": "The skill's name, exactly as listed"
+                            "description": "The skill's name, exactly as listed, or a reference pack such as standards-fr or standards-fr#dialogue"
                         }
                     },
                     "required": ["name"],
@@ -933,11 +953,44 @@ mod tests {
 
     static NO_CONVENTIONS: std::sync::LazyLock<crate::ai::rules::Conventions> =
         std::sync::LazyLock::new(crate::ai::rules::Conventions::default);
+    #[test]
+    fn use_skill_expands_skills_and_loads_packs() {
+        let ws = crate::ai::workspace::load_layers(None, None, None, &["describe".to_string()]);
+        let doc = "雨はまだ降っていた。美咲は改札の前で、何度も時計を見た。";
+        let ctx = ToolContext {
+            document: doc,
+            skills: &ws.skills,
+            ui_language: "en",
+            root: None,
+            conventions: &NO_CONVENTIONS,
+            library: &[],
+        };
+        let call = |name: &str| use_skill(&ctx, &json!({ "name": name }).to_string());
+        let dialogue = call("dialogue");
+        assert!(dialogue.starts_with("Instructions for skill `dialogue`"));
+        assert!(
+            dialogue.contains("### contract") && dialogue.contains("### standards-ja#dialogue")
+        );
+        assert!(call("tighten").contains("only when the user types /tighten"));
+        assert!(
+            call("describe").starts_with("No skill named `describe`"),
+            "turned off"
+        );
+        let fr = call("standards-fr#dialogue");
+        assert!(fr.starts_with("Reference `standards-fr#dialogue`") && fr.contains("guillemets"));
+        let missing = call("nope");
+        assert!(missing.contains("Reference packs: craft, standards-en"));
+        assert!(
+            !missing.contains("tighten"),
+            "a /name-only skill isn't offered"
+        );
+    }
 
     fn ctx(document: &str) -> ToolContext<'_> {
         ToolContext {
             document,
             skills: &[],
+            ui_language: "en",
             root: None,
             conventions: &NO_CONVENTIONS,
             library: &[],
