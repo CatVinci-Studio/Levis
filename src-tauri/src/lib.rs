@@ -102,6 +102,18 @@ fn take_pending_show_help() -> Option<String> {
     PENDING_SHOW_HELP.lock().unwrap().take()
 }
 
+/// Settings… chosen while no window could show it (macOS, after the last
+/// window closed): the fresh window opened for it shows Settings once it has
+/// mounted. Same queue-then-drain as PENDING_SHOW_HELP.
+#[cfg(desktop)]
+pub(crate) static PENDING_OPEN_SETTINGS: AtomicBool = AtomicBool::new(false);
+
+#[cfg(desktop)]
+#[tauri::command]
+fn take_pending_open_settings() -> bool {
+    PENDING_OPEN_SETTINGS.swap(false, Ordering::Relaxed)
+}
+
 #[tauri::command]
 fn take_pending_open_path(pending: State<PendingOpenPaths>) -> Option<String> {
     UI_READY.store(true, Ordering::Relaxed);
@@ -373,22 +385,18 @@ fn desktop_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri:
                     .keys()
                     .all(|label| label == window.label());
                 if let Some(state) = app.try_state::<SessionTabsState>() {
-                    // Windows/Linux exit when their final application window
-                    // is destroyed. Preserve that last editor's snapshot, but
-                    // not when another window (for example detached chat)
-                    // keeps the process alive. macOS deliberately supports a
-                    // windowless running state, so an ordinary final-window
-                    // close there persists an empty session instead.
-                    let preserve_last = cfg!(not(target_os = "macos")) && no_other_windows;
-                    commands::session::forget_window(app, window.label(), &state, preserve_last);
+                    // The last editor window keeps its documents in the
+                    // session file for the next launch (commands/session.rs).
+                    commands::session::forget_window(app, window.label(), &state);
                 }
                 if let Some(state) = app.try_state::<commands::chat_window::OpenChatWindows>() {
                     commands::chat_window::forget_chat_window(app, window.label(), &state);
                 }
                 // File > Quit is implemented as close() on every window so
                 // dirty editors can still cancel. macOS otherwise stays alive
-                // with no windows, so finish the successful quit explicitly
-                // only after the final window has actually been destroyed.
+                // with no windows (see the run loop's ExitRequested), so
+                // finish the successful quit explicitly only after the final
+                // window has actually been destroyed.
                 if no_other_windows && commands::session::app_quitting() {
                     app.exit(0);
                 }
@@ -444,6 +452,36 @@ fn desktop_setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     }
 
     Ok(())
+}
+
+/// The Dock icon clicked while the app shows no window: a minimised editor
+/// window comes back (AppKit leaves that to the app when no window is
+/// visible), or else the app opens as a launch would - with the documents
+/// the last window had open, when Settings restores the session, and with a
+/// blank window otherwise. So closing the last window and clicking the Dock
+/// icon gives the same documents as quitting and launching again.
+#[cfg(target_os = "macos")]
+fn reopen_without_windows(app: &tauri::AppHandle) {
+    let existing = app
+        .webview_windows()
+        .into_iter()
+        .find(|(label, _)| commands::chat_window::is_editor_window(label))
+        .map(|(_, window)| window);
+    if let Some(window) = existing {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        return;
+    }
+    let paths = if commands::prefs::read_restore_session_on_startup(app) {
+        commands::session::read_session_paths(app)
+    } else {
+        Vec::new()
+    };
+    if paths.is_empty() {
+        let _ = open_new_window(app);
+    } else {
+        queue_paths_to_open(app, paths);
+    }
 }
 
 /// Builds the window tauri.conf.json declares. It is declared with
@@ -594,6 +632,8 @@ pub fn run() {
             #[cfg(desktop)]
             take_pending_show_help,
             #[cfg(desktop)]
+            take_pending_open_settings,
+            #[cfg(desktop)]
             menu::trigger_menu_item,
             #[cfg(desktop)]
             menu::list_recent_files,
@@ -644,6 +684,30 @@ pub fn run() {
             // Whatever is still waiting on its debounce (settings.rs).
             if let tauri::RunEvent::Exit = event {
                 settings::flush_all(app_handle);
+            }
+            // macOS: closing the last window leaves the app running, as Mac
+            // apps do - in the Dock and the menu bar, reopened from either.
+            // Tauri asks to exit when its last window is destroyed (`code`
+            // None); a programmatic exit (File > Quit's app.exit, a restart
+            // for an update) has a code and goes ahead, and so do Cmd+Q from
+            // the menu bar, the Dock's Quit and logging out, which end the
+            // app without this request.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::ExitRequested {
+                code: None, api, ..
+            } = &event
+            {
+                api.prevent_exit();
+            }
+            // macOS: the Dock icon clicked (or the app opened again from
+            // Finder) while it shows no window.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } = event
+            {
+                reopen_without_windows(app_handle);
             }
             // Finder "Open With"/double-click on an associated .md lands
             // here as an Apple open-documents event (macOS never passes

@@ -244,6 +244,10 @@ export const windowIpc = {
     desktopQuery<boolean>("start_window_drag_tracking", false),
   takePendingShowHelp: () =>
     desktopQuery<string | null>("take_pending_show_help", null),
+  /** Whether this window was opened to show Settings (chosen from the
+   *  macOS menu bar with no window open); asks once - the answer is taken. */
+  takePendingOpenSettings: () =>
+    desktopQuery<boolean>("take_pending_open_settings", false),
   takePendingOpenPath: () => call<string | null>("take_pending_open_path"),
   takePendingOpenPaths: () => call<string[]>("take_pending_open_paths"),
   /** Pops the chat panel out into its own OS window; resolves to its label,

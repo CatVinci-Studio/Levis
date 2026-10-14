@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { windowIpc } from "./ipc";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
@@ -123,5 +124,17 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
           h().openHelpTab(event.payload);
       }),
     );
+  }, []);
+
+  // Settings… chosen from the macOS menu bar while no window was open: Rust
+  // opened this window to show it (menu.rs's dispatch). Asked once, on
+  // mount - the answer is taken, so no later window shows it again.
+  useEffect(() => {
+    windowIpc
+      .takePendingOpenSettings()
+      .then((pending) => {
+        if (pending) latest.current.onOpenSettings();
+      })
+      .catch(() => {});
   }, []);
 }
