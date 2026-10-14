@@ -1,4 +1,4 @@
-import type { MouseEvent, TouchEvent } from "react";
+import type { MouseEvent, PointerEvent, TouchEvent } from "react";
 
 /** How far a finger may travel and still be tapping rather than scrolling
  *  the list under it (UIKit's own slop is about this). */
@@ -8,6 +8,24 @@ const TAP_SLOP = 10;
  *  re-render between touchstart and touchend (results arriving while the
  *  finger is down) doesn't forget it. */
 const touchStarts = new WeakMap<Element, { x: number; y: number }>();
+
+function rememberTouchStart(e: TouchEvent) {
+  const touch = e.touches[0];
+  if (touch)
+    touchStarts.set(e.currentTarget, { x: touch.clientX, y: touch.clientY });
+}
+
+/** Whether the touch ending now stayed within the slop of where it began -
+ *  a tap, not a swipe that scrolled whatever is under the finger. */
+function endedAsTap(e: TouchEvent): boolean {
+  const start = touchStarts.get(e.currentTarget);
+  touchStarts.delete(e.currentTarget);
+  const touch = e.changedTouches[0];
+  if (!start || !touch) return false;
+  return (
+    Math.hypot(touch.clientX - start.x, touch.clientY - start.y) <= TAP_SLOP
+  );
+}
 
 /**
  * Props that run `action` on a press without taking focus from the text
@@ -26,26 +44,35 @@ export function tapKeepingFocus(action: () => void) {
       e.preventDefault();
       action();
     },
-    onTouchStart: (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (touch)
-        touchStarts.set(e.currentTarget, {
-          x: touch.clientX,
-          y: touch.clientY,
-        });
-    },
+    onTouchStart: rememberTouchStart,
     onTouchEnd: (e: TouchEvent) => {
-      const start = touchStarts.get(e.currentTarget);
-      touchStarts.delete(e.currentTarget);
-      const touch = e.changedTouches[0];
-      if (!start || !touch) return;
-      const moved = Math.hypot(
-        touch.clientX - start.x,
-        touch.clientY - start.y,
-      );
-      if (moved > TAP_SLOP) return;
+      if (!endedAsTap(e)) return;
       e.preventDefault();
       action();
     },
+  };
+}
+
+/**
+ * Props for a button in a strip that keeps the editor's focus (the bar
+ * above the iPhone keyboard): the same tap-or-scroll rule as
+ * `tapKeepingFocus`, but a mouse or keyboard runs it on click, and a
+ * finger's touchend is cancelled even when it moved. The strip scrolls
+ * sideways under buttons like "Delete table", so a swipe that starts on
+ * one must not press it - nor leave WebKit a click to synthesise.
+ */
+export function pressKeepingFocus(action: () => void) {
+  return {
+    // The default of pointerdown is what moves focus to the button.
+    onPointerDown: (e: PointerEvent) => e.preventDefault(),
+    onTouchStart: rememberTouchStart,
+    onTouchEnd: (e: TouchEvent) => {
+      const tap = endedAsTap(e);
+      // Once the strip is scrolling the event can't be cancelled (and
+      // WebKit synthesises no click after a scroll anyway).
+      if (e.cancelable) e.preventDefault();
+      if (tap) action();
+    },
+    onClick: action,
   };
 }

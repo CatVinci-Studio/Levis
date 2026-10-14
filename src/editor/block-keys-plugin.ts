@@ -14,7 +14,6 @@ import {
 } from "@milkdown/kit/prose/tables";
 import { $prose } from "@milkdown/kit/utils";
 import { isImeKeyEvent, stateWithLiveSelection } from "./enclosure";
-import { isMacPlatform } from "../utils/platform";
 
 /**
  * Enter and Mod+Enter across Levis's container blocks, decided in one
@@ -219,6 +218,18 @@ const onEnter: Command[] = [
 ];
 const onModEnter: Command[] = [leaveBlockquote];
 
+/**
+ * Whether Mod is Cmd on `platform` - decided exactly as ProseMirror's
+ * keymap decides it, so Mod+Enter here and Mod-bindings there agree. An
+ * iPad with a hardware keyboard reports "iPad", not "Mac": isMacPlatform()
+ * says no, yet ProseMirror (and the user) expect Cmd.
+ */
+export function modIsMeta(
+  platform = typeof navigator === "undefined" ? "" : navigator.platform,
+): boolean {
+  return /Mac|iP(hone|[oa]d)/.test(platform);
+}
+
 export const blockKeysPlugin = $prose(
   () =>
     new Plugin({
@@ -226,8 +237,9 @@ export const blockKeysPlugin = $prose(
         handleKeyDown(view, event) {
           if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
           if (event.shiftKey || event.altKey) return false;
-          const mod = isMacPlatform() ? event.metaKey : event.ctrlKey;
-          const other = isMacPlatform() ? event.ctrlKey : event.metaKey;
+          const mac = modIsMeta();
+          const mod = mac ? event.metaKey : event.ctrlKey;
+          const other = mac ? event.ctrlKey : event.metaKey;
           if (other) return false;
           const commands = mod ? onModEnter : onEnter;
           const state = stateWithLiveSelection(view);
