@@ -548,7 +548,16 @@ export function SettingsPanel({
                 key={c.id}
                 aria-current={category === c.id ? "page" : undefined}
                 className={`settings-nav-item ${category === c.id ? "settings-nav-item-active" : ""}`}
-                onClick={() => setCategory(c.id)}
+                onClick={(e) => {
+                  setCategory(c.id);
+                  // On a phone the tabs are one row that scrolls sideways;
+                  // in a long language the chosen one can be half out of
+                  // view.
+                  e.currentTarget.scrollIntoView?.({
+                    block: "nearest",
+                    inline: "nearest",
+                  });
+                }}
               >
                 {c.label}
               </button>
