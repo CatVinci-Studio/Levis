@@ -7,6 +7,15 @@ use tauri::{AppHandle, Manager};
 
 const LOGIN_TIMEOUT_SECS: u64 = 5 * 60;
 
+/// Held while a token refresh is in flight (see get_valid_credential).
+static REFRESH_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Whether a token expiring at `expires` (ms since the epoch) is due for a
+/// refresh: a minute's margin, so it doesn't lapse mid-request.
+fn expires_soon(expires: i64) -> bool {
+    expires - aicompat::pkce::now_ms() < 60_000
+}
+
 #[derive(Serialize)]
 pub struct ClaudeAuthStatus {
     configured: bool,
@@ -82,8 +91,18 @@ pub fn claude_logout(app: AppHandle) -> Result<(), String> {
 pub async fn get_valid_credential(app: &AppHandle) -> Result<String, String> {
     let cred = load_credential(app)?.ok_or_else(|| "not logged in".to_string())?;
 
-    let expires_soon = cred.expires - aicompat::pkce::now_ms() < 60_000;
-    if !expires_soon {
+    if !expires_soon(cred.expires) {
+        return Ok(cred.access);
+    }
+
+    // One refresh at a time. The refresh token rotates: two requests racing
+    // with the same one (a completion and a grammar check starting
+    // together) leave the loser with invalid_grant - and, if it saved
+    // anything, the user logged out. Whoever waited here re-reads the file,
+    // since the winner has usually just stored a fresh token.
+    let _refreshing = REFRESH_LOCK.lock().await;
+    let cred = load_credential(app)?.ok_or_else(|| "not logged in".to_string())?;
+    if !expires_soon(cred.expires) {
         return Ok(cred.access);
     }
 

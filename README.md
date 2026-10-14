@@ -124,7 +124,7 @@ npm run tauri build   # bundle .dmg / -setup.exe (NSIS) / .AppImage / .deb / .rp
 npm run build         # frontend only: type-check (tsc) + vite build
 ```
 
-Requires [Node.js](https://nodejs.org) 20+, [Rust](https://rustup.rs) (stable), and platform build tools (Xcode CLT on macOS; `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf` on Linux; MSVC Build Tools on Windows).
+Requires [Node.js](https://nodejs.org) 22+, [Rust](https://rustup.rs) (stable), and platform build tools (Xcode CLT on macOS; `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf` on Linux; MSVC Build Tools on Windows).
 
 ## Contributing
 

@@ -10,6 +10,7 @@ import {
   enterInTable,
   leaveBlockquote,
   leaveTextBlockOnEmptyLastLine,
+  modIsMeta,
   parsePipeRow,
   pipeRowToTable,
 } from "./block-keys-plugin";
@@ -240,5 +241,17 @@ describe("leaveBlockquote", () => {
 
   it("does nothing outside a quote", () => {
     expect(run(leaveBlockquote, stateAt(docOf(p("x")), "x"))).toBeNull();
+  });
+});
+
+describe("modIsMeta", () => {
+  it("treats Macs and iOS devices as Cmd, as ProseMirror does", () => {
+    for (const platform of ["MacIntel", "iPhone", "iPad", "iPod touch"])
+      expect(modIsMeta(platform)).toBe(true);
+  });
+
+  it("treats everything else as Ctrl", () => {
+    for (const platform of ["Win32", "Linux x86_64", ""])
+      expect(modIsMeta(platform)).toBe(false);
   });
 });

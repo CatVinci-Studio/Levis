@@ -123,7 +123,7 @@ npm run tauri build   # .dmg / -setup.exe（NSIS）/ .AppImage / .deb / .rpm を
 npm run build         # フロントエンドのみ：型チェック（tsc）+ vite build
 ```
 
-[Node.js](https://nodejs.org) 20 以上、[Rust](https://rustup.rs)（stable）、各プラットフォームのビルドツール（macOS は Xcode コマンドラインツール、Linux は `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`、Windows は MSVC Build Tools）が必要です。
+[Node.js](https://nodejs.org) 22 以上、[Rust](https://rustup.rs)（stable）、各プラットフォームのビルドツール（macOS は Xcode コマンドラインツール、Linux は `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`、Windows は MSVC Build Tools）が必要です。
 
 ## コントリビュート
 

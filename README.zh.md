@@ -123,7 +123,7 @@ npm run tauri build   # 打包 .dmg / -setup.exe（NSIS）/ .AppImage / .deb / .
 npm run build         # 仅前端：类型检查（tsc）+ vite build
 ```
 
-需要 [Node.js](https://nodejs.org) 20+、[Rust](https://rustup.rs)（stable），以及各平台的构建工具（macOS 上是 Xcode 命令行工具；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
+需要 [Node.js](https://nodejs.org) 22+、[Rust](https://rustup.rs)（stable），以及各平台的构建工具（macOS 上是 Xcode 命令行工具；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
 
 ## 参与贡献
 

@@ -54,11 +54,14 @@ pub fn install() -> Result<(), String> {
     // a temp file and have an admin-privileged shell command copy it into
     // place, so the AppleScript string only ever has to quote plain paths
     // rather than the script body itself.
-    let tmp = std::env::temp_dir().join("levis-cli-install");
-    std::fs::write(&tmp, script_content()).map_err(|e| e.to_string())?;
+    // A fresh, owner-only file (atomic::TempFile): the admin shell copies
+    // whatever is at this path into /usr/local/bin, so it must be ours and
+    // stay ours. Removed when `tmp` drops.
+    let tmp = crate::atomic::TempFile::create("levis-cli-install-", "", script_content())
+        .map_err(|e| e.to_string())?;
     let shell_cmd = format!(
         "mkdir -p /usr/local/bin && cp '{}' '{CLI_BIN_PATH}' && chmod 755 '{CLI_BIN_PATH}'",
-        tmp.display()
+        tmp.path().display()
     );
     let escaped = shell_cmd.replace('\\', "\\\\").replace('"', "\\\"");
     let apple_script = format!(
@@ -69,7 +72,7 @@ pub fn install() -> Result<(), String> {
         .arg("-e")
         .arg(apple_script)
         .output();
-    let _ = std::fs::remove_file(&tmp);
+    drop(tmp);
     let output = result.map_err(|e| e.to_string())?;
     if output.status.success() {
         Ok(())

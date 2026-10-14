@@ -5,11 +5,20 @@
      install (Arch's noto-fonts-cjk, adobe-source-han-sans); "Noto Sans SC"
      is only the Google Fonts name. Without a CJK family named here, Chinese
      falls through to fontconfig's per-glyph fallback, which can land on a
-     face with no bold. */
+     face with no bold.
+     The CJK faces are their own variables because Han characters are drawn
+     differently in each language: the :lang() rules below swap in the
+     Japanese, Traditional Chinese or Korean faces when <html lang> says so,
+     instead of showing Japanese text in Simplified Chinese glyph shapes.
+     The content themes (content-themes.css) build on them too. */
+  --font-cjk-sans:
+    "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Source Han Sans SC",
+    "Microsoft YaHei", "WenQuanYi Micro Hei";
+  --font-cjk-serif:
+    "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", SimSun;
   --font-sans:
-    -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC",
-    "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", Inter,
-    system-ui, sans-serif;
+    -apple-system, "SF Pro Text", var(--font-cjk-sans), Inter, system-ui,
+    sans-serif;
   --font-mono: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
 
   color-scheme: light;
@@ -46,6 +55,33 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Per-language CJK faces (see --font-cjk-sans above): macOS, then Linux
+   (Noto / Source Han), then Windows. */
+:root:lang(ja) {
+  --font-cjk-sans:
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP",
+    "Noto Sans JP", "Source Han Sans JP", "Yu Gothic UI", "Yu Gothic", Meiryo;
+  --font-cjk-serif:
+    "Hiragino Mincho ProN", "Noto Serif CJK JP", "Source Han Serif JP",
+    "Yu Mincho", "MS Mincho";
+}
+
+:root:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK), :lang(zh-MO)) {
+  --font-cjk-sans:
+    "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Source Han Sans TC",
+    "Microsoft JhengHei";
+  --font-cjk-serif:
+    "Songti TC", "Noto Serif CJK TC", "Source Han Serif TC", PMingLiU;
+}
+
+:root:lang(ko) {
+  --font-cjk-sans:
+    "Apple SD Gothic Neo", "Noto Sans CJK KR", "Noto Sans KR",
+    "Source Han Sans KR", "Malgun Gothic";
+  --font-cjk-serif:
+    "AppleMyungjo", "Noto Serif CJK KR", "Source Han Serif KR", Batang;
 }
 
 /* Dark palette applies when the system prefers dark (and the user hasn't

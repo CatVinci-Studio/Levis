@@ -21,6 +21,7 @@ import {
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_MARK_EVENT,
 } from "../utils/events";
+import { pressKeepingFocus } from "./tap";
 import "./KeyboardToolbar.css";
 
 /**
@@ -34,25 +35,14 @@ import "./KeyboardToolbar.css";
  * what the desktop keeps in menus and hover controls.
  *
  * The buttons keep the editor's focus, so the keyboard stays up and the
- * caret where it was: a touch runs the button on touchend and cancels the
+ * caret where it was: a tap runs the button on touchend and cancels the
  * default there, which is what would move focus to the button (and the
- * click that would follow). They reach the editor the
+ * click that would follow); a swipe along the row presses nothing
+ * (pressKeepingFocus in tap.ts). They reach the editor the
  * way the menus do, through window events (utils/events.ts).
  */
 const send = (event: string, detail?: string) =>
   window.dispatchEvent(new CustomEvent(event, { detail }));
-
-/** Props that run `action` without taking focus from the editor. */
-function keepFocus(action: () => void) {
-  return {
-    onPointerDown: (e: React.PointerEvent) => e.preventDefault(),
-    onTouchEnd: (e: React.TouchEvent) => {
-      e.preventDefault();
-      action();
-    },
-    onClick: action,
-  };
-}
 
 /** What the caret sits in, read off the editor's DOM: the heading level
  *  the H button shows, which block buttons are on, and whether the table
@@ -295,7 +285,7 @@ export function KeyboardToolbar() {
                 aria-pressed={b.on}
                 // Some edits leave the selection where it was (an image's
                 // new width), so no selectionchange re-reads the caret.
-                {...keepFocus(() => {
+                {...pressKeepingFocus(() => {
                   b.run();
                   update();
                 })}
@@ -311,7 +301,7 @@ export function KeyboardToolbar() {
         type="button"
         className="keyboard-toolbar-button"
         aria-label={t.toolbarMore}
-        {...keepFocus(() => send(EDITOR_MORE_EVENT))}
+        {...pressKeepingFocus(() => send(EDITOR_MORE_EVENT))}
       >
         <MoreIcon />
       </button>
@@ -320,7 +310,7 @@ export function KeyboardToolbar() {
           type="button"
           className="keyboard-toolbar-button keyboard-toolbar-ai"
           aria-label={t.askAi}
-          {...keepFocus(() => send(TOGGLE_FLOATING_CHAT_EVENT))}
+          {...pressKeepingFocus(() => send(TOGGLE_FLOATING_CHAT_EVENT))}
         >
           ✦ AI
         </button>
