@@ -3,6 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { documentDir, join } from "@tauri-apps/api/path";
 import type { DirEntryInfo } from "../sidebar/types";
 import { isIOSApp } from "./capabilities";
+// Entries in Documents are stored relative to it: the app's container moves
+// on every reinstall and App Store update (see documents-path.ts).
+import { IN_DOCUMENTS } from "./documents-path";
 import { getUiState, setUiState, uiStateReady } from "../storage/ui-state";
 
 /**
@@ -158,10 +161,6 @@ export async function newDocumentPath(
 
 /** The document list keeps this many; the phone menu shows the first few. */
 const RECENT_LIMIT = 30;
-/** Prefix for a path stored relative to Documents: the app's container
- *  moves on every reinstall and App Store update, so an absolute path into
- *  it would be stale by the next version. */
-const IN_DOCUMENTS = "documents:";
 
 /** The stored list (ui-state.json; see storage/ui-state.ts). Waits for the
  *  live copy: a reload replays the boot snapshot, and a read-modify-write

@@ -53,6 +53,13 @@ marked †, so a development build never rewrites an installed app's settings
 | `drafts/`                  | Crash recovery for unsaved documents.                                                                                    |
 | `assets/`                  | Images pasted into a document that has not been saved yet (referenced by absolute path until it is).                     |
 
+On iOS a document path inside the app's Documents folder is stored as
+`documents:<path inside Documents>` - a chat history entry's `docPath`, like
+the recent documents in `ui-state.json` - because the app's container, and
+every absolute path into it, moves with each reinstall and update
+(`src/platform/documents-path.ts`). An absolute container path stored by an
+earlier version is rewritten that way when the history loads.
+
 The webview's own storage also lives here (`localstorage/`, `WebKitCache/`
 and so on; `EBWebView\` under `%LOCALAPPDATA%` on Windows). Since 0.9.7 the
 only key the app still uses there is `levis-fetched-models:<provider>`, a

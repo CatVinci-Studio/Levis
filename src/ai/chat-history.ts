@@ -1,8 +1,16 @@
+import { useEffect, useMemo, useState } from "react";
 import type { AgentTurn } from "./types";
 import { userMessageBody } from "./chat/user-message";
 import { loadSettings } from "../settings/SettingsContext";
 import { createPersistedList } from "../utils/persisted-list";
 import { CHAT_HISTORY_KEY } from "../storage/legacy-import";
+import { isIOSApp } from "../platform/capabilities";
+import {
+  documentsDir,
+  knownDocumentsDir,
+  resolvedDocumentPath,
+  storedDocumentPath,
+} from "../platform/documents-path";
 
 /**
  * Persisted agent conversations, so past chats can be reopened and continued
@@ -13,7 +21,11 @@ import { CHAT_HISTORY_KEY } from "../storage/legacy-import";
  */
 export interface ChatHistoryEntry {
   id: string;
-  /** The document the conversation happened in, for the list's context line. */
+  /** The document the conversation happened in, for the list's context line
+   *  and its project group. On iOS one in the app's Documents folder is
+   *  stored relative to it ("documents:...", platform/documents-path.ts) -
+   *  the folder moves with every reinstall and update - and handed out
+   *  resolved again by useChatHistory. */
   docPath: string | null;
   /** First user message, cleaned and truncated - the list's display name. */
   title: string;
@@ -37,11 +49,63 @@ const history = createPersistedList<ChatHistoryEntry>(CHAT_HISTORY_KEY, {
     );
   },
   sort: (a, b) => b.updatedAt - a.updatedAt,
+  // iOS: the document path relative to Documents, on every save - and for
+  // what an earlier version stored absolute, rewritten once when the list
+  // loads, so its conversations join their documents' group again.
+  normalise: isIOSApp ? storedEntry : undefined,
 });
 
-/** Reactive view of the saved conversations, most recently active first. */
+/** `entry` with its document path in the stored form (see docPath). */
+export function storedEntry(entry: ChatHistoryEntry): ChatHistoryEntry {
+  if (!entry.docPath) return entry;
+  const docPath = storedDocumentPath(entry.docPath, knownDocumentsDir());
+  return docPath === entry.docPath ? entry : { ...entry, docPath };
+}
+
+/** `entry` with a stored document path resolved against Documents `docs`. */
+export function resolvedEntry(
+  entry: ChatHistoryEntry,
+  docs: string,
+): ChatHistoryEntry {
+  if (!entry.docPath) return entry;
+  const docPath = resolvedDocumentPath(entry.docPath, docs);
+  return docPath === entry.docPath ? entry : { ...entry, docPath };
+}
+
+// Asked early, so a save can tell the Documents folder from a path that
+// merely looks like one, and the list rarely renders before it is known.
+if (isIOSApp) void documentsDir().catch(() => {});
+
+/** iOS: the Documents folder, once known; always null elsewhere. */
+function useDocumentsDir(): string | null {
+  const [docs, setDocs] = useState(knownDocumentsDir);
+  useEffect(() => {
+    if (!isIOSApp || docs) return;
+    let live = true;
+    documentsDir()
+      .then((dir) => {
+        if (live) setDocs(dir);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [docs]);
+  return docs;
+}
+
+/** Reactive view of the saved conversations, most recently active first,
+ *  with their document paths as the rest of the app knows them. */
 export function useChatHistory(): ChatHistoryEntry[] {
-  return history.useEntries();
+  const entries = history.useEntries();
+  const docs = useDocumentsDir();
+  return useMemo(
+    () =>
+      isIOSApp && docs
+        ? entries.map((entry) => resolvedEntry(entry, docs))
+        : entries,
+    [entries, docs],
+  );
 }
 
 /** Inserts or updates one conversation, dropping the stalest beyond the cap.

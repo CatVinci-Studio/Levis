@@ -168,4 +168,80 @@ describe("with Rust (file-backed)", () => {
     await flush();
     expect(list.get().map((e) => e.id)).toEqual(["imported"]);
   });
+
+  describe("normalise", () => {
+    interface Doc {
+      id: string;
+      at: number;
+      path: string;
+    }
+    // Stand-in for chat-history's: "old:" is the form an earlier build stored.
+    const normalise = (e: Doc) =>
+      e.path.startsWith("old:") ? { ...e, path: `new:${e.path.slice(4)}` } : e;
+    const makeDocs = () =>
+      createPersistedList<Doc>("test-docs", {
+        kind: "chat",
+        max: 10,
+        keyOf: (e) => e.id,
+        isEntry: (e): e is Doc => typeof (e as Doc)?.id === "string",
+        sort: (a, b) => b.at - a.at,
+        normalise,
+      });
+
+    it("stores every entry written in the normal form", () => {
+      vi.mocked(storage.historyList).mockReturnValue(new Promise(() => {}));
+      const list = makeDocs();
+      list.upsert({ id: "a", at: 1, path: "old:x" });
+      expect(storage.historyUpsert).toHaveBeenCalledWith("chat", {
+        id: "a",
+        at: 1,
+        path: "new:x",
+      });
+      expect(list.get()[0].path).toBe("new:x");
+    });
+
+    it("rewrites what an older build stored once the list loads", async () => {
+      vi.mocked(storage.historyList).mockResolvedValue([
+        { id: "a", at: 3, path: "old:x" },
+        { id: "b", at: 2, path: "new:y" },
+        { id: "c", at: 1, path: "old:z" },
+      ]);
+      const list = makeDocs();
+      list.get();
+      await flush();
+      expect(list.get()).toEqual([
+        { id: "a", at: 3, path: "new:x" },
+        { id: "b", at: 2, path: "new:y" },
+        { id: "c", at: 1, path: "new:z" },
+      ]);
+      // Only the outdated ones, as they were (same time, same place).
+      expect(vi.mocked(storage.historyUpsert).mock.calls).toEqual([
+        ["chat", { id: "a", at: 3, path: "new:x" }],
+        ["chat", { id: "c", at: 1, path: "new:z" }],
+      ]);
+      // Loaded again (a reload), there is nothing left to rewrite.
+      vi.mocked(storage.historyUpsert).mockClear();
+      vi.mocked(storage.historyList).mockResolvedValue(list.get());
+      handlers["history-changed"]({
+        payload: { kind: "chat", op: { type: "reload" }, from: "" },
+      });
+      await flush();
+      expect(storage.historyUpsert).not.toHaveBeenCalled();
+    });
+
+    it("never brings back an entry removed while the list was loading", async () => {
+      let answer!: (list: unknown[]) => void;
+      vi.mocked(storage.historyList).mockReturnValue(
+        new Promise((resolve) => (answer = resolve)),
+      );
+      const list = makeDocs();
+      list.get();
+      await flush();
+      list.remove("a");
+      answer([{ id: "a", at: 1, path: "old:x" }]);
+      await flush();
+      expect(list.get()).toEqual([]);
+      expect(storage.historyUpsert).not.toHaveBeenCalled();
+    });
+  });
 });
