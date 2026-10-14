@@ -71,11 +71,12 @@ missing.
   write-then-rename, so a crash never leaves a half-written file.
 - A window never closes with a change still on its way to Rust. The
   frontend holds keystroke-heavy settings fields (Custom CSS, the proxy,
-  ...) back for 400 ms of quiet, and IPC is asynchronous, so every close
-  path the app owns - the window's close request (close button, Close
-  Window, Quit and Cmd+Q, Alt+F4), the unsaved-changes prompt, closing the
-  last tab, the detached chat - first sends what's held back and waits for
-  Rust to answer every settings, UI-state and history write
+  ...) back for 400 ms of quiet, and the zoom until it has rested as long,
+  and IPC is asynchronous, so every close path the app owns - the window's
+  close request (close button, Close Window, Quit and Cmd+Q, Alt+F4), the
+  unsaved-changes prompt, closing the last tab, the detached chat, an
+  update's install - first sends what's held back and waits for Rust to
+  answer every settings, UI-state and history write
   (`src/storage/pending-writes.ts`, at most 2 s). On iOS, going to the
   background sends it.
 - A file that can't be parsed (or isn't UTF-8) is renamed to

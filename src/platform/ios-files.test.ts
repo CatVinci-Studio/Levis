@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const stored = vi.hoisted(() => ({
   list: [] as unknown,
   ready: Promise.resolve() as Promise<void>,
+  /** The next documentDir() call fails (Documents unavailable). */
+  docsFail: false,
 }));
 
 vi.mock("./capabilities", () => ({ isIOSApp: true }));
@@ -15,6 +17,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/path", () => ({
   documentDir: async () => {
     await new Promise((resolve) => setTimeout(resolve, 1));
+    if (stored.docsFail) {
+      stored.docsFail = false;
+      throw new Error("no Documents");
+    }
     return "/app/Documents";
   },
   join: async (...parts: string[]) => parts.join("/"),
@@ -37,6 +43,7 @@ const { invoke } = await import("@tauri-apps/api/core");
 
 beforeEach(() => {
   stored.list = [];
+  stored.docsFail = false;
   // The live re-read lands a little after everything below has started.
   stored.ready = new Promise((resolve) => setTimeout(resolve, 20));
 });
@@ -74,6 +81,20 @@ describe("iOS recent documents", () => {
       rememberIOSDocument("/app/Documents/other.md"),
     ]);
     expect(stored.list).toEqual(["documents:other.md", "documents:final.md"]);
+  });
+
+  it("doesn't stall the queue on a change that failed inside it", async () => {
+    stored.list = ["documents:a.md"];
+    stored.docsFail = true;
+    const failed = rememberIOSDocument("/app/Documents/b.md");
+    const next = rememberIOSDocument("/app/Documents/c.md");
+    await expect(failed).rejects.toThrow("no Documents");
+    await next;
+    expect(stored.list).toEqual(["documents:c.md", "documents:a.md"]);
+    expect(await recentIOSDocuments()).toEqual([
+      "/app/Documents/c.md",
+      "/app/Documents/a.md",
+    ]);
   });
 
   it("carries on after a change that failed", async () => {

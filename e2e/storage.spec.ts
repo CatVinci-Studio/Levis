@@ -325,6 +325,25 @@ test("Don't Save on the unsaved-changes prompt also waits for the settings", asy
   expect(answered).toBeLessThan(stored.log.indexOf("plugin:window|destroy"));
 });
 
+test("a zoom step just before the window closes is kept for the next window", async ({
+  page,
+}) => {
+  await shimOptions(page, { latency: 150 });
+  await bootLikeRust(page, { settings: TYPING });
+  await openApp(page);
+  // View > Zoom In, then closed at once: the zoom is saved only once it
+  // has rested for 400 ms (a pinch moves it every frame).
+  await emit(page, "menu-zoom-in");
+  await emit(page, "tauri://close-requested", null);
+  await expect
+    .poll(async () => (await devStorage(page)).log)
+    .toContain("plugin:window|destroy");
+  const stored = await devStorage(page);
+  expect(stored.settings.zoom).toBeCloseTo(1.1);
+  const destroyed = stored.log.indexOf("plugin:window|destroy");
+  expect(stored.log.slice(0, destroyed)).toContain("settings_patch:done");
+});
+
 test("the detached chat window also waits for its writes before it closes", async ({
   page,
 }) => {
@@ -404,6 +423,20 @@ test("the imported theme's chrome colours are on the first frame too", async ({
   const first = await firstPaint(page);
   expect(first.chrome).toBe(CHROME);
   expect(first.lastInHead).toBe("levis-user-css");
+  // The frontend derives them afresh and keeps that order: the user's CSS
+  // after them, so the first frame and the next agree on who wins.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const ids = Array.from(document.head.children, (el) => el.id);
+        const chrome = document.getElementById("levis-imported-chrome");
+        return (
+          !!chrome?.textContent?.includes("--editor-bg") &&
+          ids.indexOf("levis-imported-chrome") < ids.indexOf("levis-user-css")
+        );
+      }),
+    )
+    .toBe(true);
 });
 
 for (const [name, theme, cache] of [

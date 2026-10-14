@@ -62,8 +62,15 @@ export function useAppUpdate() {
     if (!canAutoUpdate || !update || !(await selfUpdateAllowed())) return;
     setStatus("downloading");
     try {
+      // Neither way out of here asks a window to close first. On Windows
+      // downloadAndInstall never returns: it starts the installer and ends
+      // the process (tauri-plugin-updater calls std::process::exit, which
+      // also skips Rust's exit-time flush) - so what's held back goes now,
+      // and Rust's own 250 ms write lands while the download runs.
+      await flushPendingWrites();
       await update.downloadAndInstall();
-      // The relaunch skips every window's close request.
+      // macOS and Linux: anything changed during the download, then the
+      // relaunch (which does flush Rust's files on its way out).
       await flushPendingWrites();
       await relaunch();
     } catch (err) {

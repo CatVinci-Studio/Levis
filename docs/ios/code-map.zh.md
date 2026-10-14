@@ -40,7 +40,7 @@
   - 其他：`useTabDragMerge`（拖动整个窗口合并）、`startup-restore`、`useAppUpdate`、`useDetachedChat`、MilkdownEditor 和 AgentPanelView 的弹出按钮、设置面板（新文档模式、会话恢复、CLI、更新按钮、工作区文件夹、在文件管理器中打开、展开为窗口）、ProjectBar、`export-doc`、`app-menu-actions` 的全屏、`window-chrome`（iOS 上 `data-window-chrome="mobile"`）
 - `src/ipc.ts`：桌面命令一律通过 `desktopQuery`（iOS 上直接返回空值）或 `desktopAction`（iOS 上直接 reject）调用，作为最后一道防线，防止漏网的调用点打到 Rust。
 - 桌面上的行为没有任何变化：所有标志在桌面上都和原来的判断等价，`canDragTabsBetweenWindows` 就是原来的 `isMacPlatform()`。
-- 快捷键里的 Mod：`src/utils/platform.ts` 的 `modIsMeta()` 和 ProseMirror 用同一条规则，Mac、iPhone、iPad 都算 Cmd。iPad 接硬件键盘时 `navigator.platform` 是 `iPad`，`isMacPlatform()` 判断为否，所以应用快捷键（`utils/shortcuts.ts`）和编辑器的 Mod+Enter（`block-keys-plugin.ts`）都改用 `modIsMeta()`。
+- 快捷键里的 Mod：`src/utils/platform.ts` 的 `modIsMeta()` 和 ProseMirror 用同一条规则，Mac、iPhone、iPad 都算 Cmd。iPhone 的 `navigator.platform` 是 `iPhone`；iPad 在 WebKit 的桌面级模式下报 `MacIntel`，在移动模式下报 `iPad`（见 `isIOSPlatform`）。报 `iPhone` 或 `iPad` 时 `isMacPlatform()` 判断为否，接硬件键盘时 Cmd 就不起作用，所以应用快捷键（`utils/shortcuts.ts`）和编辑器的 Mod+Enter（`block-keys-plugin.ts`）都改用 `modIsMeta()`。
 
 ## 设置与界面状态
 

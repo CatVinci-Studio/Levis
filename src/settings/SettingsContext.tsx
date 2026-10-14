@@ -780,11 +780,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
         styleEl.textContent = adaptTyporaCss(css ?? "");
         document.head.appendChild(styleEl);
-        // The user's own CSS stays after the theme, whenever it loads.
-        const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
-        if (custom) document.head.appendChild(custom);
         const dark = isEffectiveDark(settings.theme);
-        const chrome = applyThemeChrome(css ?? "", dark);
+        let chrome: string | null;
+        try {
+          chrome = applyThemeChrome(css ?? "", dark);
+        } finally {
+          // The user's own CSS stays after the theme and the chrome derived
+          // from it, whenever they load - the order the boot script gives
+          // the first frame, and the one an edit to it leaves.
+          const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
+          if (custom) document.head.appendChild(custom);
+        }
         if (typeof chrome === "string")
           rememberThemeChrome({
             id: theme.id,
