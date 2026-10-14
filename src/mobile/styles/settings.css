@@ -24,16 +24,33 @@
   :root[data-window-chrome="mobile"] .settings-backdrop {
     top: 0;
     z-index: var(--z-phone-page);
+    /* The dimming is a layer of its own (below), so it fades while the
+       sheet in front of it stays opaque - faded together, the page showed
+       through the rising sheet. */
+    background: none;
+    animation: none;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-backdrop::before {
+    content: "";
+    position: absolute;
+    inset: 0;
     background: var(--overlay-bg);
-    animation-duration: var(--dur-sheet);
+    animation: motion-fade-in var(--dur-sheet) var(--ease-standard);
   }
 
   :root[data-window-chrome="mobile"] .settings-panel {
+    position: relative;
     animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
   }
 
   :root[data-window-chrome="mobile"] .settings-backdrop[data-state="closing"] {
-    animation-duration: var(--dur-sheet-exit);
+    animation: none;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-backdrop[data-state="closing"]::before {
+    animation: motion-fade-out var(--dur-sheet-exit) var(--ease-in) forwards;
   }
 
   :root[data-window-chrome="mobile"]

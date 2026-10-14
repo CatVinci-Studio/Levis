@@ -2,6 +2,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -573,8 +574,12 @@ function App() {
   // the one being written dims (editor/zen-focus-plugin.ts). Esc leaves.
   const [zenMode, setZenMode] = useState(false);
   const toggleZenMode = useCallback(() => setZenMode((on) => !on), []);
-  useEffect(() => {
+  // In the commit itself, before paint: the text column's glide
+  // (FlipOnChange) measures the layout this class makes.
+  useLayoutEffect(() => {
     document.documentElement.classList.toggle("zen", zenMode);
+  }, [zenMode]);
+  useEffect(() => {
     window.dispatchEvent(new CustomEvent(ZEN_MODE_EVENT, { detail: zenMode }));
     if (!zenMode || !canToggleFullscreen) return;
     const win = getCurrentWindow();

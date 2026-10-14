@@ -173,11 +173,12 @@ export class FlipOnChange extends Component<{
   }
 
   componentDidUpdate(_: unknown, __: unknown, before: Snapshot | null) {
-    if (before)
-      play(before, {
-        duration: this.props.duration,
-        easing: this.props.easing,
-      });
+    if (!before) return;
+    // After the rest of the commit's layout effects - a parent's runs after
+    // this, and one may be what moves the layout (zen's class on <html>) -
+    // but still before the frame is painted.
+    const { duration, easing } = this.props;
+    queueMicrotask(() => play(before, { duration, easing }));
   }
 
   render(): ReactNode {
