@@ -334,7 +334,7 @@ pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -
     let mut parts = Vec::new();
     if let Some(style) = style {
         parts.push(format!(
-            "---the author's style profile (.levis/style.md: how this author writes, drafted from their own writing with \"Learn my style\" or written by them; follow it in everything you write for this project, in any language. Its concrete limits - sentence length, words and punctuation to avoid - are rules; its habits apply where they read naturally and never override the request or the sense of the text: a habit of the present tense doesn't turn a plan into a fact, a length limit doesn't let a sentence drop what it covered, and an expansion still comes out longer)---\n{style}"
+            "---the author's style profile (.levis/style.md: how this author writes, drafted from their own writing with \"Learn my style\" or written by them; follow it in all the text you write for this project's documents, whatever their language - it shapes that text, never the language you reply in. Its concrete limits - sentence length, words and punctuation to avoid - are rules; its habits apply where they read naturally and never override the request or the sense of the text: a habit of the present tense doesn't turn a plan into a fact, a length limit doesn't let a sentence drop what it covered, and an expansion still comes out longer)---\n{style}"
         ));
     }
     if !entries.is_empty() {

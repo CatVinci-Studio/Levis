@@ -262,7 +262,11 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
             format!(" It adds {n} {unit}.")
         }
     };
-    format!("Edit proposed - the user now sees it with an Apply button.{size} This is your proposal for that passage in this reply - don't send another one for it. In your reply, say in a sentence or two what you proposed and why; don't repeat the text or list what you kept.")
+    // "Even if it falls short": told the size, the model sent a second,
+    // shorter proposal for the same passage to meet a skill's 70% - two
+    // overlapping previews, of which only one can be applied (round-2
+    // integration, skill/zh/slash).
+    format!("Edit proposed - the user now sees it with an Apply button.{size} This is your proposal for that passage in this reply - don't send another one for it, even if it falls short of a target: say so in your reply instead. In your reply, say in a sentence or two what you proposed and why; don't repeat the text or list what you kept.")
 }
 
 /// How long a stretch of text is, in the unit its language counts in:
