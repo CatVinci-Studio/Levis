@@ -36,6 +36,56 @@ test("the interface font follows the UI language's CJK faces", async ({
   expect(await firstCjkFace(page, "ko", "body")).toBe("Apple SD Gothic Neo");
 });
 
+/** Every face in the font-family of `selector`, under `lang`. */
+async function faces(page: Page, lang: string, selector: string) {
+  return page.evaluate(
+    ([lang, selector]) => {
+      document.documentElement.lang = lang;
+      return getComputedStyle(document.querySelector(selector)!)
+        .fontFamily.split(",")
+        .map((f) => f.trim().replace(/"/g, ""));
+    },
+    [lang, selector],
+  );
+}
+
+test("every language falls back to the Simplified Chinese faces last", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { themeId: "paper" } });
+  // A Linux machine with only WenQuanYi (or only Noto CJK SC) installed
+  // must still find a CJK face named in the stack, in every language - and
+  // after that language's own faces, never before them.
+  for (const [lang, last] of [
+    ["ja", "Meiryo"],
+    ["zh-Hant", "Microsoft JhengHei"],
+    ["ko", "Malgun Gothic"],
+  ]) {
+    const stack = await faces(page, lang, "body");
+    expect(stack).toContain("WenQuanYi Micro Hei");
+    expect(stack.indexOf(last)).toBeGreaterThan(0);
+    expect(stack.indexOf("Noto Sans CJK SC")).toBeGreaterThan(
+      stack.indexOf(last),
+    );
+  }
+  const editor = '[data-active-tab="true"] .ProseMirror';
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-content-theme",
+    "paper",
+  );
+  for (const [lang, last] of [
+    ["ja", "MS Mincho"],
+    ["zh-Hant", "PMingLiU"],
+    ["ko", "Batang"],
+  ]) {
+    const stack = await faces(page, lang, editor);
+    expect(stack.indexOf(last)).toBeGreaterThan(0);
+    expect(stack.indexOf("Noto Serif CJK SC")).toBeGreaterThan(
+      stack.indexOf(last),
+    );
+  }
+});
+
 test("the Paper theme's serif follows the language too", async ({ page }) => {
   await openApp(page, { settings: { themeId: "paper" } });
   const editor = '[data-active-tab="true"] .ProseMirror';

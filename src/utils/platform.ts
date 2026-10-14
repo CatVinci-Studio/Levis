@@ -6,6 +6,22 @@ export function isMacPlatform(): boolean {
   );
 }
 
+/**
+ * Whether the Mod key of a shortcut ("mod+f", ProseMirror's "Mod-Enter") is
+ * Cmd rather than Ctrl: on a Mac, and on an iPhone, iPad or iPod with a
+ * hardware keyboard. An iPhone's platform string says "iPhone", and an
+ * iPad's says "iPad" whenever WebKit gives it the mobile content mode (in
+ * the desktop-class one it says "MacIntel", see isIOSPlatform) - not "Mac",
+ * so isMacPlatform() says no there, yet the keyboard has a Cmd key and the
+ * user expects it. Decided exactly as ProseMirror's keymap decides it, so
+ * the app's own shortcuts and the editor's Mod-bindings always agree.
+ */
+export function modIsMeta(
+  platform = typeof navigator === "undefined" ? "" : navigator.platform,
+): boolean {
+  return /Mac|iP(hone|[oa]d)/.test(platform ?? "");
+}
+
 /** Windows. `navigator.platform` is "Win32" even on 64-bit Windows; the UA
  *  check is the fallback for runtimes that stopped reporting platform. */
 export function isWindowsPlatform(): boolean {

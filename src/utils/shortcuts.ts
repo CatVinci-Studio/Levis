@@ -1,7 +1,8 @@
 /// Shared key-combo helpers. Combos are stored/compared as normalized
-/// strings like "mod+shift+g" - "mod" stands for Cmd on macOS and Ctrl
-/// everywhere else, so the same stored string works cross-platform.
-import { isMacPlatform } from "./platform";
+/// strings like "mod+shift+g" - "mod" stands for Cmd on macOS (and on an
+/// iPhone/iPad keyboard, see modIsMeta) and Ctrl everywhere else, so the
+/// same stored string works cross-platform.
+import { modIsMeta } from "./platform";
 const MODIFIER_KEYS = new Set(["control", "meta", "alt", "shift", "altgraph"]);
 
 /// Builds a normalized combo string from a KeyboardEvent. Returns null while
@@ -13,7 +14,7 @@ export function comboFromEvent(e: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(key)) return null;
 
   const parts: string[] = [];
-  const mac = isMacPlatform();
+  const mac = modIsMeta();
   if (mac ? e.metaKey : e.ctrlKey) parts.push("mod");
   if (mac && e.ctrlKey) parts.push("ctrl");
   if (!mac && e.metaKey) parts.push("meta");
@@ -45,7 +46,7 @@ const KEY_LABELS: Record<string, string> = {
 /// Renders a stored combo string for display, e.g. "mod+shift+g" -> "⌘⇧G" on
 /// macOS or "Ctrl+Shift+G" elsewhere.
 export function formatCombo(combo: string): string {
-  const mac = isMacPlatform();
+  const mac = modIsMeta();
   return combo
     .split("+")
     .map((part) => {
@@ -102,7 +103,7 @@ const RESERVED_COMBOS = new Set([
 export function isReservedCombo(combo: string): boolean {
   return (
     RESERVED_COMBOS.has(combo) ||
-    (isMacPlatform()
+    (modIsMeta()
       ? combo === "mod+t"
       : combo === "mod+shift+n" || combo === "alt+f4")
   );

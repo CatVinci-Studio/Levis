@@ -16,6 +16,12 @@ import {
 import { ai, storage, themes } from "../ipc";
 import { readBoot, readLocalJson } from "../storage/boot";
 import { importLegacyStorage } from "../storage/legacy-import";
+import { onFlush, trackWrite } from "../storage/pending-writes";
+import {
+  getUiState,
+  setUiState,
+  type ThemeChromeCache,
+} from "../storage/ui-state";
 import { listenToThisWindow } from "../utils/tauri-events";
 import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
 import { SettingsSync, type Raw } from "./settings-sync";
@@ -451,19 +457,25 @@ function fileStore(): SettingsSync | null {
     });
   } else {
     sync = new SettingsSync(boot.settings, boot.rev);
-    if (Object.keys(boot.settings).length === 0) {
-      // Nothing stored (an unreadable settings.json was moved aside):
-      // write the fresh defaults out now, as a first launch always has, so
-      // the next launch doesn't read a half-written file as an old install.
-      send(sync.local(normaliseSettings(null) as unknown as Raw));
-    }
     // The snapshot is from when the window was built - a reload replays an
     // old one, and a change made meanwhile by another window was sent
-    // before this page could hear it.
-    storage
-      .settingsGet()
-      .then((live) => adopt(live.value, live.rev))
-      .catch(() => {});
+    // before this page could hear it - so the live values replace it.
+    const live =
+      Object.keys(boot.settings).length === 0
+        ? // Nothing stored (a corrupt settings.json was moved aside, or
+          // one Rust can't read is being left alone): write the fresh
+          // defaults out now, as a first launch always has, so the next
+          // launch doesn't read a half-written file as an old install.
+          // Only into fields still missing, though: reloaded later, this
+          // window replays the same empty snapshot, and must not put the
+          // defaults back over everything changed since.
+          trackWrite(
+            storage.settingsFillDefaults(
+              normaliseSettings(null) as unknown as Raw,
+            ),
+          )
+        : storage.settingsGet();
+    live.then((s) => adopt(s.value, s.rev)).catch(() => {});
   }
 
   void listenToThisWindow<SettingsChanged>("settings-changed", (event) => {
@@ -475,9 +487,19 @@ function fileStore(): SettingsSync | null {
     delete shared.zoom;
     if (sync.remote(shared, rev)) notifyRemote();
   });
-  // Typing that hasn't paused yet when the window goes away.
+  // Typing that hasn't paused yet when the window goes away: every close
+  // path the app owns awaits flushPendingWrites (storage/pending-writes.ts),
+  // which sends it. A reload fires pagehide instead; iOS sends an app to
+  // the background (where it may be ended without notice) with only a
+  // visibility change.
+  onFlush(flushDelayed);
   window.addEventListener("pagehide", flushDelayed);
+  document.addEventListener("visibilitychange", flushWhenHidden);
   return sync;
+}
+
+function flushWhenHidden() {
+  if (document.visibilityState === "hidden") flushDelayed();
 }
 
 /** Adopts a full snapshot from Rust, keeping this window's zoom. */
@@ -502,7 +524,7 @@ function send(ticket: Map<string, number>) {
   if (!store) return;
   const patch: Raw = {};
   for (const key of ticket.keys()) patch[key] = store.raw[key];
-  storage.settingsPatch(patch).then(
+  trackWrite(storage.settingsPatch(patch)).then(
     (rev) => store.confirm(ticket, rev),
     () => store.confirm(ticket),
   );
@@ -579,6 +601,24 @@ export function resetSettingsStoreForTests(): void {
   remoteListeners.clear();
   clearTimeout(delayTimer);
   delayed = new Map();
+}
+
+/** Keeps an imported theme's chrome colours for the boot script, which
+ *  paints the next window's first frame with them (ui-state.ts's
+ *  themeChrome) - written only when they changed, so opening a window
+ *  doesn't rewrite ui-state.json. Without Rust there is no boot script. */
+function rememberThemeChrome(chrome: ThemeChromeCache) {
+  if (!readBoot()) return;
+  const cached = getUiState("themeChrome") as
+    Partial<ThemeChromeCache> | undefined;
+  if (
+    cached?.id === chrome.id &&
+    cached.dark === chrome.dark &&
+    cached.sourceLength === chrome.sourceLength &&
+    cached.css === chrome.css
+  )
+    return;
+  setUiState("themeChrome", chrome);
 }
 
 /// Optional-called: an environment without matchMedia (jsdom, an odd
@@ -740,10 +780,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
         styleEl.textContent = adaptTyporaCss(css ?? "");
         document.head.appendChild(styleEl);
-        // The user's own CSS stays after the theme, whenever it loads.
-        const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
-        if (custom) document.head.appendChild(custom);
-        applyThemeChrome(css ?? "", isEffectiveDark(settings.theme));
+        const dark = isEffectiveDark(settings.theme);
+        let chrome: string | null;
+        try {
+          chrome = applyThemeChrome(css ?? "", dark);
+        } finally {
+          // The user's own CSS stays after the theme and the chrome derived
+          // from it, whenever they load - the order the boot script gives
+          // the first frame, and the one an edit to it leaves.
+          const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
+          if (custom) document.head.appendChild(custom);
+        }
+        if (typeof chrome === "string")
+          rememberThemeChrome({
+            id: theme.id,
+            dark,
+            sourceLength: (css ?? "").length,
+            css: chrome,
+          });
       } catch {
         // Theme file missing/unreadable - leave whatever was there before.
       }

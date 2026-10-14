@@ -21,6 +21,10 @@ import {
 } from "./SettingsContext";
 import { storage } from "../ipc";
 import { resetBootForTests } from "../storage/boot";
+import {
+  flushPendingWrites,
+  resetPendingWritesForTests,
+} from "../storage/pending-writes";
 import { resetUiStateForTests } from "../storage/ui-state";
 import { installTestLocalStorage } from "../test-local-storage";
 
@@ -36,6 +40,7 @@ vi.mock("../ipc", () => ({
   storage: {
     settingsGet: vi.fn(),
     settingsPatch: vi.fn(),
+    settingsFillDefaults: vi.fn(),
     settingsImportLegacy: vi.fn(),
     uiStateGet: vi.fn().mockResolvedValue({}),
     uiStatePatch: vi.fn().mockResolvedValue(null),
@@ -89,7 +94,11 @@ beforeEach(() => {
   resetBootForTests();
   resetSettingsStoreForTests();
   resetUiStateForTests();
+  resetPendingWritesForTests();
   vi.mocked(storage.settingsGet).mockReturnValue(new Promise(() => {}));
+  vi.mocked(storage.settingsFillDefaults).mockReturnValue(
+    new Promise(() => {}),
+  );
   let rev = 3;
   vi.mocked(storage.settingsPatch).mockImplementation(async () => ++rev);
 });
@@ -235,12 +244,91 @@ describe("file-backed settings", () => {
     expect(localStorage.getItem("catvinci-settings")).toContain("codex");
   });
 
-  it("writes fresh defaults out when Rust has nothing stored", () => {
+  it("writes fresh defaults out when Rust has nothing stored", async () => {
+    vi.mocked(storage.settingsFillDefaults).mockImplementation(
+      async (defaults) => ({ value: defaults, rev: 4 }),
+    );
     boot({});
     expect(loadSettings().languageChosen).toBe(false);
-    const sent = vi.mocked(storage.settingsPatch).mock.calls[0][0];
+    // Only ever as defaults for the fields still missing - never a patch.
+    expect(storage.settingsPatch).not.toHaveBeenCalled();
+    const sent = vi.mocked(storage.settingsFillDefaults).mock.calls[0][0];
     expect(sent.languageChosen).toBe(false);
     expect(sent.onboardingShown).toBe(false);
+    await act(async () => {});
+    expect(loadSettings().languageChosen).toBe(false);
+  });
+
+  it("doesn't put the defaults back over changes when it reloads with an empty snapshot", async () => {
+    // A window that booted after a corrupt settings.json was moved aside
+    // replays the same empty snapshot on every reload; meanwhile the user
+    // has changed things. Rust keeps those (it only fills missing fields)
+    // and answers with the live settings, which the window takes.
+    vi.mocked(storage.settingsFillDefaults).mockResolvedValue({
+      value: { theme: "dark", languageChosen: true, onboardingShown: true },
+      rev: 9,
+    });
+    boot({});
+    render(
+      <SettingsProvider>
+        <Probe />
+      </SettingsProvider>,
+    );
+    await act(async () => {});
+    expect(screen.getByTestId("probe").textContent).toContain("dark|");
+    expect(loadSettings().languageChosen).toBe(true);
+    expect(storage.settingsPatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("closing the window", () => {
+  it("sends a debounced field at once and waits for Rust to take it", async () => {
+    vi.useFakeTimers();
+    let answer!: (rev: number) => void;
+    vi.mocked(storage.settingsPatch).mockReturnValue(
+      new Promise((resolve) => (answer = resolve)),
+    );
+    boot({ languageChosen: true });
+    render(
+      <SettingsProvider>
+        <Probe />
+      </SettingsProvider>,
+    );
+    act(() => lastSet({ customCss: "p { color: red }" }));
+    expect(storage.settingsPatch).not.toHaveBeenCalled();
+    // The window is closing, well inside the typing debounce.
+    let flushed = false;
+    void flushPendingWrites().then(() => (flushed = true));
+    expect(storage.settingsPatch).toHaveBeenCalledWith({
+      customCss: "p { color: red }",
+    });
+    await act(async () => {});
+    // Not until Rust has answered: destroying the window now could drop it.
+    expect(flushed).toBe(false);
+    await act(async () => answer(5));
+    expect(flushed).toBe(true);
+    // Nothing left for the debounce timer to send.
+    act(() => vi.advanceTimersByTime(1000));
+    expect(storage.settingsPatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("also sends held-back typing when the app goes to the background", () => {
+    vi.useFakeTimers();
+    boot({ languageChosen: true });
+    render(
+      <SettingsProvider>
+        <Probe />
+      </SettingsProvider>,
+    );
+    act(() => lastSet({ proxyHost: "127.0.0.1" }));
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    visibility.mockRestore();
+    expect(storage.settingsPatch).toHaveBeenCalledWith({
+      proxyHost: "127.0.0.1",
+    });
   });
 });
 

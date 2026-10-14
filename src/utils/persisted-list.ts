@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { storage, type HistoryKind } from "../ipc";
 import { legacyImportSettled, readBoot, readLocalJson } from "../storage/boot";
+import { trackWrite } from "../storage/pending-writes";
 import { listenToThisWindow } from "./tauri-events";
 
 /**
@@ -132,8 +133,9 @@ export function createPersistedList<T>(
             ? storage.historyRemove(options.kind, op.key)
             : storage.historyClear(options.kind);
       // A history is a convenience: a failed write just won't survive
-      // the session.
-      sent.catch(() => {});
+      // the session. A window closing waits for it, though
+      // (storage/pending-writes.ts).
+      trackWrite(sent).catch(() => {});
     } else {
       try {
         localStorage.setItem(key, JSON.stringify(entries));

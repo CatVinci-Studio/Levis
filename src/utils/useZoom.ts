@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { onFlush } from "../storage/pending-writes";
 import { listenToThisWindow, unlistenAll } from "./tauri-events";
 
 /// Document zoom, scoped to the editor CONTENT - the window chrome (tab
@@ -17,6 +18,7 @@ const MAX_ZOOM = 3;
 const MENU_STEP = 1.1;
 /// Trailing delay before a zoom level is persisted to Settings - a pinch or
 /// wheel burst updates the ref every frame; only the resting value is saved.
+/// A window closing inside it saves at once (storage/pending-writes.ts).
 const PERSIST_DELAY_MS = 400;
 
 /// WebKit's proprietary pinch events (gesturestart/change/end) - not in
@@ -98,6 +100,16 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       apply();
     };
 
+    // Saves the zoom if a save is still waiting for it to come to rest -
+    // from the timer, or at once when the window is about to close.
+    const persistNow = () => {
+      if (persistTimer === undefined) return;
+      clearTimeout(persistTimer);
+      persistTimer = undefined;
+      persistRef.current(zoomRef.current);
+    };
+    const unregisterFlush = onFlush(persistNow);
+
     // `snapped: false` while a pinch is mid-flight, so the 100% snap zone
     // doesn't make the gesture feel sticky; the resting snap happens on
     // gestureend.
@@ -110,10 +122,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       zoomRef.current = snapped ? snap(zoom) : clamp(zoom);
       if (!raf) raf = requestAnimationFrame(applyFrame);
       clearTimeout(persistTimer);
-      persistTimer = setTimeout(
-        () => persistRef.current(zoomRef.current),
-        PERSIST_DELAY_MS,
-      );
+      persistTimer = setTimeout(persistNow, PERSIST_DELAY_MS);
     };
 
     // The restored zoom is the starting state, not a step to anchor.
@@ -174,6 +183,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
       window.removeEventListener("wheel", onWheel);
       if (raf) cancelAnimationFrame(raf);
       clearTimeout(persistTimer);
+      unregisterFlush();
       unlistenMenu();
     };
     // Mount-only: everything reactive comes in through the refs above.

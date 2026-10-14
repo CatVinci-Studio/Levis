@@ -20,8 +20,24 @@ interface DevStorage {
   settings: Record<string, unknown>;
   imports: number;
   patches: Record<string, unknown>[];
+  fills: Record<string, unknown>[];
+  /** Every command in order, plus "<command>:done" for each storage write
+   *  answered (src/dev-tauri-shim.ts). */
+  log: string[];
   uiState: Record<string, unknown>;
   histories: Record<string, { text?: string }[]>;
+}
+
+/** Set before the app loads (the dev shim reads them as it installs). */
+async function shimOptions(
+  page: Page,
+  options: { latency?: number; liveSettings?: Record<string, unknown> },
+) {
+  await page.addInitScript((o) => {
+    const w = window as unknown as Record<string, unknown>;
+    if (o.latency !== undefined) w.__devStorageLatency = o.latency;
+    if (o.liveSettings) w.__devLiveSettings = o.liveSettings;
+  }, options);
 }
 
 async function bootLikeRust(
@@ -63,6 +79,9 @@ async function bootLikeRust(
           lang: root.getAttribute("lang"),
           themeCss:
             document.getElementById("levis-custom-theme")?.textContent ?? null,
+          chrome:
+            document.getElementById("levis-imported-chrome")?.textContent ??
+            null,
           customCss:
             document.getElementById("levis-user-css")?.textContent ?? null,
           // The user's CSS goes last, after the page's own styles.
@@ -115,6 +134,7 @@ test("the boot script puts the appearance on the document before the app runs", 
     userTheme: null,
     lang: "ja",
     themeCss: null,
+    chrome: null,
     customCss: SETTINGS.customCss,
     lastInHead: "levis-user-css",
   });
@@ -246,3 +266,206 @@ test("clipboard history is recorded entry by entry in the store", async ({
     await page.evaluate(() => localStorage.getItem("levis-clipboard-history")),
   ).toBeNull();
 });
+
+/** In English, with Custom CSS empty (so its box starts folded). */
+const TYPING = { ...SETTINGS, language: "en", customCss: "" };
+
+/** Settings > Editor & Appearance > Custom CSS, unfolded. */
+async function customCssField(page: Page) {
+  await emit(page, "menu-open-settings");
+  const panel = page.getByRole("dialog", { name: "Settings" });
+  await panel.getByRole("button", { name: "Editor & Appearance" }).click();
+  await panel.getByText("Custom CSS", { exact: true }).click();
+  return panel.getByRole("textbox", { name: "Custom CSS" });
+}
+
+test("a setting typed just before the window closes still reaches Rust", async ({
+  page,
+}) => {
+  // Rust answers slowly here, so a close that didn't wait would show.
+  await shimOptions(page, { latency: 150 });
+  await bootLikeRust(page, { settings: TYPING });
+  await openApp(page);
+  const css = await customCssField(page);
+  await css.fill("p { color: red; }");
+  // Closed at once - the field holds its writes back until the typing has
+  // paused for 400 ms - the way the close button, Close Window and Quit
+  // all reach a window.
+  await emit(page, "tauri://close-requested", null);
+  await expect
+    .poll(async () => (await devStorage(page)).log)
+    .toContain("plugin:window|destroy");
+  // What Rust had at the moment the window was destroyed:
+  const stored = await devStorage(page);
+  expect(stored.settings.customCss).toBe("p { color: red; }");
+  const answered = stored.log.indexOf("settings_patch:done");
+  expect(answered).toBeGreaterThan(-1);
+  expect(answered).toBeLessThan(stored.log.indexOf("plugin:window|destroy"));
+});
+
+test("Don't Save on the unsaved-changes prompt also waits for the settings", async ({
+  page,
+}) => {
+  await shimOptions(page, { latency: 150 });
+  await bootLikeRust(page, { settings: TYPING });
+  await openApp(page);
+  await pasteMarkdown(page, "unsaved words");
+  const css = await customCssField(page);
+  await css.fill("h1 { color: blue; }");
+  await emit(page, "tauri://close-requested", null);
+  // The document is dirty: the prompt, not a close.
+  await page.locator(".close-prompt-discard").click();
+  await expect
+    .poll(async () => (await devStorage(page)).log)
+    .toContain("plugin:window|destroy");
+  const stored = await devStorage(page);
+  expect(stored.settings.customCss).toBe("h1 { color: blue; }");
+  const answered = stored.log.indexOf("settings_patch:done");
+  expect(answered).toBeGreaterThan(-1);
+  expect(answered).toBeLessThan(stored.log.indexOf("plugin:window|destroy"));
+});
+
+test("a zoom step just before the window closes is kept for the next window", async ({
+  page,
+}) => {
+  await shimOptions(page, { latency: 150 });
+  await bootLikeRust(page, { settings: TYPING });
+  await openApp(page);
+  // View > Zoom In, then closed at once: the zoom is saved only once it
+  // has rested for 400 ms (a pinch moves it every frame).
+  await emit(page, "menu-zoom-in");
+  await emit(page, "tauri://close-requested", null);
+  await expect
+    .poll(async () => (await devStorage(page)).log)
+    .toContain("plugin:window|destroy");
+  const stored = await devStorage(page);
+  expect(stored.settings.zoom).toBeCloseTo(1.1);
+  const destroyed = stored.log.indexOf("plugin:window|destroy");
+  expect(stored.log.slice(0, destroyed)).toContain("settings_patch:done");
+});
+
+test("the detached chat window also waits for its writes before it closes", async ({
+  page,
+}) => {
+  await shimOptions(page, { latency: 150 });
+  await bootLikeRust(page, { settings: TYPING });
+  await page.goto("/?view=chat");
+  await page.getByRole("button", { name: "Keep on top" }).click();
+  await emit(page, "tauri://close-requested", null);
+  await expect
+    .poll(async () => (await devStorage(page)).log)
+    .toContain("plugin:window|destroy");
+  const stored = await devStorage(page);
+  expect(stored.settings.pinAgentWindow).toBe(true);
+  const answered = stored.log.indexOf("settings_patch:done");
+  expect(answered).toBeGreaterThan(-1);
+  expect(answered).toBeLessThan(stored.log.indexOf("plugin:window|destroy"));
+});
+
+test("a window booted with no settings fills in defaults, never over newer values", async ({
+  page,
+}) => {
+  // After a corrupt settings.json was moved aside, the window booted with
+  // an empty snapshot - and a reload replays that same snapshot, while Rust
+  // holds everything the user has changed since.
+  await shimOptions(page, { liveSettings: SETTINGS });
+  await bootLikeRust(page, { settings: {} });
+  await openApp(page);
+  const html = page.locator("html");
+  // The live values, not the defaults the empty snapshot stands for.
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(html).toHaveAttribute("data-content-width", "full");
+  await expect(html).toHaveAttribute("lang", "ja");
+  const stored = await devStorage(page);
+  expect(stored.settings).toMatchObject(SETTINGS);
+  // Defaults went only into the fields that were missing.
+  expect(stored.fills).toHaveLength(1);
+  expect(stored.fills[0]).not.toHaveProperty("theme");
+  expect(stored.fills[0]).toHaveProperty("enableCompletion", true);
+  expect(stored.patches.filter((p) => "theme" in p)).toEqual([]);
+});
+
+/** An imported theme, and the app chrome colours the frontend last derived
+ *  from it (utils/theme-chrome.ts), as ui-state.json remembers them. */
+const THEME_CSS = "#write { color: rgb(1, 2, 3); }";
+const CHROME = ":root { --sidebar-bg: rgb(10, 20, 30) !important; }";
+const themed = (theme: string) => ({
+  ...SETTINGS,
+  theme,
+  themeId: "mine",
+  userThemes: [{ id: "mine", name: "Mine", hasDark: false }],
+});
+const remembered = (overrides: object = {}) => ({
+  themeChrome: {
+    id: "mine",
+    dark: false,
+    sourceLength: THEME_CSS.length,
+    css: CHROME,
+    ...overrides,
+  },
+});
+const firstPaint = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window as unknown as { __firstPaint: Record<string, unknown> })
+        .__firstPaint,
+  );
+
+test("the imported theme's chrome colours are on the first frame too", async ({
+  page,
+}) => {
+  await bootLikeRust(
+    page,
+    { settings: themed("light"), uiState: remembered() },
+    { light: THEME_CSS, dark: null },
+  );
+  await openApp(page);
+  const first = await firstPaint(page);
+  expect(first.chrome).toBe(CHROME);
+  expect(first.lastInHead).toBe("levis-user-css");
+  // The frontend derives them afresh and keeps that order: the user's CSS
+  // after them, so the first frame and the next agree on who wins.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const ids = Array.from(document.head.children, (el) => el.id);
+        const chrome = document.getElementById("levis-imported-chrome");
+        return (
+          !!chrome?.textContent?.includes("--editor-bg") &&
+          ids.indexOf("levis-imported-chrome") < ids.indexOf("levis-user-css")
+        );
+      }),
+    )
+    .toBe(true);
+});
+
+for (const [name, theme, cache] of [
+  // Derived for the light appearance; the window opens dark.
+  ["another appearance", "dark", remembered()],
+  // A hand-edited theme file.
+  ["a theme file that changed", "light", remembered({ sourceLength: 3 })],
+  ["another theme", "light", remembered({ id: "other" })],
+] as const) {
+  test(`chrome colours remembered for ${name} stay off the first frame`, async ({
+    page,
+  }) => {
+    await bootLikeRust(
+      page,
+      { settings: themed(theme), uiState: cache },
+      { light: THEME_CSS, dark: null },
+    );
+    await openApp(page);
+    expect((await firstPaint(page)).chrome).toBeNull();
+    // The frontend derives them afresh and remembers them for next time.
+    await expect
+      .poll(
+        async () =>
+          (await devStorage(page)).uiState.themeChrome as
+            { id: string; dark: boolean; css: string } | undefined,
+      )
+      .toMatchObject({ id: "mine", dark: theme === "dark" });
+    expect(
+      ((await devStorage(page)).uiState.themeChrome as { css: string }).css,
+    ).toContain("--sidebar-bg");
+  });
+}

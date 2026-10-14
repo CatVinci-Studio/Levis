@@ -524,6 +524,7 @@ pub fn run() {
             take_pending_open_paths,
             settings::settings_get,
             settings::settings_patch,
+            settings::settings_fill_defaults,
             settings::settings_import_legacy,
             settings::ui_state_get,
             settings::ui_state_patch,
