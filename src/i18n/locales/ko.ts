@@ -35,7 +35,7 @@ export default {
   projectStyleLearned:
     "문체 프로필을 저장했습니다. 새 탭에서 검토하고 편집하세요.",
   projectOpening: "여는 중…",
-  projectStyleTemplate: `# 문체 프로필\n\n<!-- 이 프로젝트의 모든 문서에서 ${AI_NAME}와 이어 쓰기가 이 프로필을 따릅니다. 어조, 문장 리듬, 어휘, 문장 부호, 절대 하지 않는 것 등 글 쓰는 방식을 형용사가 아니라 구체적인 항목으로 적으세요("문장은 짧게, 40자를 넘는 일은 드물게"). 프로젝트 메뉴의 ‘샘플로 내 문체 학습…’을 쓰면 직접 쓴 글로 초안을 만들 수 있습니다. 이런 주석은 전송되지 않습니다. -->\n\n## 어조\n\n- \n\n## 문장과 리듬\n\n- \n\n## 어휘\n\n- \n\n## 금지 사항\n\n- \n`,
+  projectStyleTemplate: `# 문체 프로필\n\n<!-- 이 프로젝트의 모든 문서에서 ${AI_NAME}와 이어 쓰기가 이 프로필을 따릅니다. 어조, 문장 리듬, 어휘, 문장 부호, 절대 하지 않는 것 등 글 쓰는 방식을 형용사가 아니라 구체적인 항목으로 적으세요(‘문장은 짧게, 40자를 넘는 일은 드물게’). 프로젝트 메뉴의 ‘샘플로 내 문체 학습…’을 쓰면 직접 쓴 글로 초안을 만들 수 있습니다. 이런 주석은 전송되지 않습니다. -->\n\n## 어조\n\n- \n\n## 문장과 리듬\n\n- \n\n## 어휘\n\n- \n\n## 금지 사항\n\n- \n`,
   projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- {name} 또는 그 별칭이 나올 때마다 ${AI_NAME}가 일관되게 지켜야 할 사실을 적으세요. include: detected(언급될 때만, 기본값) | always(항상) | never(보내지 않음). 이런 주석은 전송되지 않습니다. -->\n\n`,
   projectInstructionsTemplate: `<!--
 이 프로젝트의 글쓰기 지침입니다.
@@ -360,7 +360,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   menuExit: "끝내기",
   menuNewFile: "새 파일",
   menuOpenFile: "열기…",
-  menuOpenRecent: "최근 항목 열기",
+  menuOpenRecent: "최근 사용 항목 열기",
   menuRecentNone: "최근 파일 없음",
   menuRecentClear: "메뉴 지우기",
   menuSave: "저장",
@@ -496,7 +496,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   tutorialNext: "계속",
   tutorialStart: "튜토리얼 시작",
   tutorialFinish: "글쓰기 시작",
-  tutorialSkip: "가이드 종료",
+  tutorialSkip: "튜토리얼 종료",
   tutorialSkipStep: "이 단계 건너뛰기",
   tutorialPractice: "연습",
   tutorialShortcut: "단축키: {shortcut}",
@@ -512,8 +512,8 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   tutorialMarkdownPracticeTitle: "Markdown 써 보기",
   tutorialMarkdownPracticeBody:
     "아래 예시를 편집기에 입력하세요. 순서는 상관없습니다. 항목 번호를 클릭하면 건너뛸 수 있습니다. 설명이 글을 가리면 최소화하세요.",
-  tutorialMarkdownStepHeading: "# 1단계 제목 입력",
-  tutorialMarkdownStepSubheading: "다음 줄에 ## 2단계 제목 입력",
+  tutorialMarkdownStepHeading: "# 제목 1 입력",
+  tutorialMarkdownStepSubheading: "다음 줄에 ## 제목 2 입력",
   tutorialMarkdownStepBold: "**중요한 아이디어 하나** 입력",
   tutorialMarkdownStepItalic: "*기울임꼴 텍스트* 입력",
   tutorialMarkdownStepHighlight: "==중요한 부분== 입력",
@@ -547,7 +547,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   tutorialAgentChatWaiting: "대화를 열고 아래 질문을 보내세요.",
   tutorialAgentChatReplied: "메시지를 보냈습니다.",
   tutorialAgentChatMockReply:
-    "간단한 Markdown 팁 세 가지를 소개합니다.\n\n1. 중요한 텍스트 양쪽에 별표를 두 개씩 붙이면 **굵게** 표시됩니다.\n2. 줄 맨 앞에 `-`와 공백을 입력하면 목록이 됩니다.\n3. `#`, `##`, `###` 제목으로 문서의 구조를 잡으세요.",
+    "간단한 Markdown 팁 세 가지를 소개합니다.\n\n1. 중요한 텍스트 양쪽에 별표를 두 개씩 붙이면 **굵게** 표시됩니다.\n2. 줄 맨 앞에 `-` 기호와 공백을 입력하면 목록이 됩니다.\n3. `#`, `##`, `###` 제목으로 문서의 구조를 잡으세요.",
   tutorialAgentEditTitle: "문서 수정",
   tutorialAgentEditBody:
     "수정 내용은 미리 보기로 표시됩니다. 변경을 수락하면 문서에 적용되고, 거부할 수도 있습니다.",
@@ -578,7 +578,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   unsavedIndicator: "저장하지 않은 변경 사항",
   largeDocBadge: "큰 문서",
   largeDocHint:
-    "문서가 커서 입력이 느려지지 않도록 이어 쓰기, 문법 검사, Mermaid 실시간 미리 보기를 일시 중지했습니다.",
+    "큰 문서여서 입력이 느려지지 않도록 이어 쓰기, 문법 검사, Mermaid 실시간 미리 보기를 일시 중지했습니다.",
   imageMigrationFailedTitle: "일부 이미지를 옮기지 못함",
   imageMigrationFailedMessage:
     "붙여넣은 이미지 중 다음 이미지는 저장한 문서 옆으로 옮기지 못해 원래 위치에 그대로 있습니다:",
