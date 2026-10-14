@@ -138,3 +138,20 @@ test("the menu is a pull-down menu and a tap beside it closes it", async ({
   await page.tap(".main-pane", { position: { x: 380, y: 600 } });
   await expect(list).toHaveCount(0);
 });
+
+test("the menu opens over the find bar", async ({ page }) => {
+  await openPhone(page);
+  await menuItem(page, "Find & Replace…");
+  await expect(page.locator(".find-replace-bar")).toBeVisible();
+  await page.locator(".window-menu-button").tap();
+  const first = page.getByRole("menuitem", { name: "Documents" });
+  const box = (await first.boundingBox())!;
+  // What a tap on the first row would land on: the row, not the find bar.
+  const hit = await page.evaluate(
+    ({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest("[role=menuitem]")
+        ?.textContent ?? null,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  );
+  expect(hit).toBe("Documents");
+});

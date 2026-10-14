@@ -30,9 +30,12 @@ export function useCloseOnOutsideClick<T extends HTMLElement>(
       )
         return;
       const target = e.target as Node;
-      // A Select's open list is portalled to <body>; picking from it is
-      // still a click inside whatever holds the Select.
-      if (target instanceof Element && target.closest("[data-floating-select]"))
+      // A Select's open list and the app menu are portalled to <body>;
+      // picking from them is still a click inside whatever opened them.
+      if (
+        target instanceof Element &&
+        target.closest("[data-floating-select], [data-floating-menu]")
+      )
         return;
       if (ref.current && !ref.current.contains(target)) {
         closed = true;
