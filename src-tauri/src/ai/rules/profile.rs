@@ -439,6 +439,33 @@ mod tests {
     }
 
     #[test]
+    fn the_frontend_list_mirrors_this_one() {
+        let ipc = include_str!("../../../../src/ipc.ts");
+        let start = ipc.find("export const WRITING_CONVENTIONS:").unwrap();
+        let block = &ipc[start..start + ipc[start..].find("\n};").unwrap()];
+        for (lang, auto, profiles) in LANGUAGE_PROFILES {
+            let key = format!("\"{}\"", lang.code());
+            let bare = format!("\n  {}:", lang.code());
+            let at = block
+                .find(&format!("{key}:"))
+                .or_else(|| block.find(&bare))
+                .unwrap_or_else(|| panic!("{} missing in src/ipc.ts", lang.code()));
+            let entry = &block[at..];
+            let entry = &entry[..entry.find("},").map_or(entry.len(), |e| e + 2)];
+            match auto {
+                Some(a) => assert!(entry.contains(&format!("automatic: \"{a}\"")), "{entry}"),
+                None => assert!(entry.contains("automatic: null"), "{entry}"),
+            }
+            let list = &entry[entry.find("profiles: [").unwrap()..];
+            let list = &list[..list.find(']').unwrap()];
+            let listed: Vec<&str> = list.split('"').skip(1).step_by(2).collect();
+            assert_eq!(listed, *profiles, "{}", lang.code());
+        }
+        assert!(ipc.contains(&format!("WRITING_CONVENTIONS_KEY = \"{SETTING_KEY}\"")));
+        assert!(ipc.contains(&format!("WRITING_CONVENTIONS_AUTOMATIC = \"{AUTOMATIC}\"")));
+    }
+
+    #[test]
     fn style_front_matter_sets_profiles_and_options() {
         let style = "---\nconventions: zh-Hans-CN/fiction, en-GB/oxford\ncjk-latin-space: on\nunknown: x\n  quotes: corner\n---\n# Voice\nShort sentences.";
         let pc = ProjectConventions::from_style(style);

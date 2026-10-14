@@ -82,6 +82,33 @@ pub fn detect(text: &str) -> Option<Lang> {
     })
 }
 
+/// The live eval's `conventions_clean` check (CATALOGUE.md §5.10): no P0
+/// or P1 finding of the writing-rules engine in `text` (Markdown), under
+/// `conv`. Err lists what it found, one finding per line. Consistency info
+/// and P2 hints don't count.
+pub fn conventions_clean(text: &str, conv: &crate::ai::rules::Conventions) -> Result<(), String> {
+    use crate::ai::rules::{check_document, Level, Priority};
+    let found: Vec<String> = check_document(text, conv, Level::Standard, &[])
+        .findings
+        .into_iter()
+        .filter(|f| f.priority != Priority::P2)
+        .map(|f| match f.suggestion {
+            Some(s) => format!(
+                "{} L{}: {:?} -> {s:?}",
+                f.rule,
+                f.line.unwrap_or(0),
+                f.original
+            ),
+            None => format!("{} L{}: {:?}", f.rule, f.line.unwrap_or(0), f.original),
+        })
+        .collect();
+    if found.is_empty() {
+        Ok(())
+    } else {
+        Err(found.join("\n"))
+    }
+}
+
 /// Ok when `text` reads as `expected`; texts too short to tell pass.
 pub fn check_lang(text: &str, expected: Lang) -> Result<(), String> {
     match detect(text) {
@@ -1360,6 +1387,16 @@ Wait—the instructions say"
             ["她说：“走吧。”", "我们就走了。", "天黑了！"]
         );
         assert_eq!(sentence_lengths("我们就走了。天黑了！"), [5, 3]);
+    }
+
+    #[test]
+    fn conventions_clean_reports_p0_and_p1_findings() {
+        let conv = crate::ai::rules::Conventions::default();
+        assert!(conventions_clean("本周完成了三项工作，进展顺利。", &conv).is_ok());
+        let err = conventions_clean("本周完成了三项工作,进展顺利。", &conv).unwrap_err();
+        assert!(err.starts_with("zh.punct.halfwidth L1"), "{err}");
+        // Code is never checked.
+        assert!(conventions_clean("```\n开会,大家\n```\n", &conv).is_ok());
     }
 
     #[test]

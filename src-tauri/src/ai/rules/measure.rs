@@ -60,7 +60,7 @@ pub struct Measure {
 }
 
 static URL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b(?:https?://[^\s<>\x22]+|(?:[a-z0-9-]+\.)+(?:com|org|net|io|app|dev|ai|co|cn|jp|kr|de|fr|es|ru|br|pt|uk|us|me|info|edu|gov|tv|ly|xyz|tw|hk|so|gg|eu|ca|au|in)\b(?:/[^\s<>\x22]*)?)").unwrap()
+    Regex::new(r"(?i)(?-u:\b)(?:https?://[^\s<>\x22]+|(?:[a-z0-9-]+\.)+(?:com|org|net|io|app|dev|ai|co|cn|jp|kr|de|fr|es|ru|br|pt|uk|us|me|info|edu|gov|tv|ly|xyz|tw|hk|so|gg|eu|ca|au|in)(?-u:\b)(?:/[^\s<>\x22]*)?)").unwrap()
 });
 static MENTION: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(@[A-Za-z0-9_]+)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}").unwrap());
@@ -246,6 +246,10 @@ mod tests {
             4 + 23
         );
         assert_eq!(x_weighted("levis.app"), 23);
+        // In Chinese text too, with no space around the address.
+        assert_eq!(x_weighted("访问levis.app了解"), 4 + 23 + 4);
+        // Abbreviations are not domains.
+        assert_eq!(x_weighted("e.g. ok"), 7);
         // An emoji is 2, ZWJ family and flags included; curly quotes are 1.
         assert_eq!(x_weighted("👍"), 2);
         assert_eq!(x_weighted("👩\u{200D}👩\u{200D}👧"), 2);
