@@ -1,2 +1,29 @@
-# French: the names of en.txt as this UI shows them. Not translated yet,
-# so the AI names everything in English for a French UI.
+# French: the names of en.txt as this UI shows them.
+project folder = dossier du projet
+project menu = menu du projet
+writing instructions = instructions d'écriture
+global config folder = dossier de configuration globale
+skills = compétences
+library = bibliothèque
+style profile = profil de style
+Learn my style = Apprendre mon style
+completion = complétion
+Choose project folder… = Choisir le dossier du projet…
+Use the document's folder = Utiliser le dossier du document
+Learn my style from samples… = Apprendre mon style à partir d'exemples…
+Create style profile = Créer un profil de style
+Open style profile = Ouvrir le profil de style
+Style (the chip) = Style
+New library entry… = Nouvelle fiche de bibliothèque…
+Edit project writing instructions = Modifier les instructions d'écriture du projet
+Settings = Réglages
+Project Folder (Settings row) = Dossier du projet
+Writing Instructions (agent.md) = Instructions d'écriture (agent.md)
+Edit agent.md = Modifier agent.md
+Skills (Settings row) = Compétences
+Import Skill… = Importer une compétence…
+Ask = Question
+Edit = Édition
+Plan = Plan
+Accept = Accepter
+Reject = Refuser
