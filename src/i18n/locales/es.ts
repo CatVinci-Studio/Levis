@@ -508,7 +508,7 @@ para usar una.
   tutorialSidebarBody:
     "Aquí tienes abierto el panel de la izquierda; muéstralo u ocúltalo cuando quieras con {shortcut} o desde el menú Visualización. Haz clic en cada una de sus cuatro pestañas para ver qué contiene.",
   tutorialSidebarTree:
-    "Archivos: la carpeta del documento abierto. Haz clic en un archivo para abrirlo o en ↑ para subir un nivel, y doble clic en una carpeta para entrar en ella.",
+    "Archivos: la carpeta del documento abierto. Haz clic en un archivo para abrirlo o en ↑ para subir un nivel; haz doble clic en una carpeta para entrar en ella.",
   tutorialSidebarOutline:
     "Esquema: los encabezados del documento. Haz clic en uno para ir hasta él; las flechas contraen una sección.",
   tutorialSidebarClipboard:
