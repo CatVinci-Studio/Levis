@@ -59,17 +59,18 @@ pinned rather than trusted.
 
 ### 3. Backend rules (app crate)
 
-| Module                  | Catches                                                                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ai::agent`             | The scripted agent loop end to end, history compaction, where the document rides (current turn only), focus-section selection on long docs. |
-| `ai::tools`             | `propose_edit`/`add_comment` anchor validation, including near-miss matching.                                                               |
-| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.levis/style.md` and `.levis/library/` parsing and relevance.         |
-| `ai::workspace`         | Skill parsing, root resolution and the too-broad-folder guard.                                                                              |
-| `ai::client`            | Completion prompt assembly, candidate splitting, grammar-issue relocation (CJK offsets).                                                    |
-| `ai::catalog`           | Every pinned default model exists in the models.dev snapshot.                                                                               |
-| `commands::chat_window` | Which chat serves which editor, what a closed window frees.                                                                                 |
-| `commands::attachment`  | OOXML text extraction and truncation marking.                                                                                               |
-| `atomic`, `session`     | Secret files written 0600 and atomically, what a closing window leaves in the session.                                                      |
+| Module                  | Catches                                                                                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai::agent`             | The scripted agent loop end to end, history compaction, where the document rides (current turn only), focus-section selection on long docs.                                                                                                                             |
+| `ai::tools`             | `propose_edit`/`add_comment` anchor validation, including near-miss matching.                                                                                                                                                                                           |
+| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.levis/style.md` and `.levis/library/` parsing and relevance.                                                                                                                                     |
+| `ai::workspace`         | Skill parsing, root resolution and the too-broad-folder guard.                                                                                                                                                                                                          |
+| `ai::client`            | Completion prompt assembly, candidate splitting, grammar-issue relocation (CJK offsets), merging the rules engine's findings.                                                                                                                                           |
+| `ai::rules`             | The writing-rules engine: every rule per language with its guards and never-flag cases, profiles and settings, Markdown blocks, majority, fix idempotency, post-processing, platform counts, timing. `sweep` (ignored) runs it over the help guides and eval documents. |
+| `ai::catalog`           | Every pinned default model exists in the models.dev snapshot.                                                                                                                                                                                                           |
+| `commands::chat_window` | Which chat serves which editor, what a closed window frees.                                                                                                                                                                                                             |
+| `commands::attachment`  | OOXML text extraction and truncation marking.                                                                                                                                                                                                                           |
+| `atomic`, `session`     | Secret files written 0600 and atomically, what a closing window leaves in the session.                                                                                                                                                                                  |
 
 ### 4. Frontend state and rendering (vitest)
 

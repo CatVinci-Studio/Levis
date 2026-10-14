@@ -28,16 +28,17 @@ language looks.
 
 For a language `{code}`:
 
-| File                                         | What it holds                                                                                                                                                             |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/i18n/locales/{code}.ts`                 | The UI's strings: any of `en.ts`'s keys, translated. Exists already, empty. Set `complete = true` once every key is there.                                                |
-| `src/help/markdown-guide.{code}.md`          | The Markdown guide (Help > Markdown Guide, Settings > General). New file: translate `markdown-guide.en.md`.                                                               |
-| `src/help/agent-guide.{code}.md`             | The AI features guide (Help > AI Features Guide). New file: translate `agent-guide.en.md`.                                                                                |
-| `src-tauri/src/ai/ui-names/{code}.txt`       | What the AI is told your UI calls things, so its answers point at labels that exist. Exists already, comment only. One line per line of `en.txt`: `English name = yours`. |
-| `src-tauri/src/ai/style-headings/{code}.txt` | The headings "Learn my style" gives a style profile written in your language. Exists already, comment only. One line: title and seven sections, separated by `/`.         |
+| File                                         | What it holds                                                                                                                                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/i18n/locales/{code}.ts`                 | The UI's strings: any of `en.ts`'s keys, translated. Exists already, empty. Set `complete = true` once every key is there.                                                                  |
+| `src/help/markdown-guide.{code}.md`          | The Markdown guide (Help > Markdown Guide, Settings > General). New file: translate `markdown-guide.en.md`.                                                                                 |
+| `src/help/agent-guide.{code}.md`             | The AI features guide (Help > AI Features Guide). New file: translate `agent-guide.en.md`.                                                                                                  |
+| `src-tauri/src/ai/ui-names/{code}.txt`       | What the AI is told your UI calls things, so its answers point at labels that exist. Exists already, comment only. One line per line of `en.txt`: `English name = yours`.                   |
+| `src-tauri/src/ai/style-headings/{code}.txt` | The headings "Learn my style" gives a style profile written in your language. Exists already, comment only. One line: title and seven sections, separated by `/`.                           |
+| `src-tauri/src/ai/rules/messages/{code}.txt` | What the grammar check and the conventions check say when a rule for every language fires on text in your language (a space before a comma, a doubled word). One line per line of `en.txt`. |
 
 Anything a file leaves out falls back to English, so a half-done language
-still works - but only a language whose five files are all filled in is
+still works - but only a language whose six files are all filled in is
 done. The app finds the guides by their file names; nothing has to be
 registered.
 
@@ -138,6 +139,17 @@ the Markdown samples (`#`, `**`, `$...$`, the Mermaid diagrams) and the
 links. The product's and the AI's names are written out here, as in the
 English guide. Name every control exactly as your `locales/{code}.ts` does;
 the AI is told to send users to these names.
+
+### `rules/messages/`
+
+`messages/{code}.txt`: every `key = message` line of `en.txt`, translated,
+keeping each `{0}`, `{1}` (a word or a number the code fills in). They are
+shown in the editor next to the text they are about, so write them as your
+language's style guides would: short, in your punctuation (full-width in
+Chinese and Japanese, « » with spaces in French). A test checks that every
+file has every key and the same placeholders. Rules for one language only
+carry their messages in that language, in the code; they are not
+translated.
 
 ### `ui-names/` and `style-headings/`
 

@@ -40,7 +40,7 @@ fn inverted(t: &Text, ctx: &Ctx, out: &mut Out) {
     let mut start = 0;
     for i in 0..t.len() {
         let c = t.chars[i];
-        if matches!(c, '.' | '…' | '\n') || (matches!(c, ';')) {
+        if matches!(c, '.' | '…' | '\n' | ';') {
             start = i + 1;
             continue;
         }

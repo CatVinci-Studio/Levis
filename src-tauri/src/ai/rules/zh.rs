@@ -6,7 +6,7 @@
 use super::stats::minority;
 use super::text::*;
 use super::zhdata;
-use super::{Block, Ctx, Lang, Out};
+use super::{Ctx, Lang, Out};
 use regex::Regex;
 use std::sync::LazyLock;
 use unicode_normalization::UnicodeNormalization;
@@ -105,9 +105,6 @@ fn halfwidth(t: &Text, ctx: &Ctx, out: &mut Out) {
         let next = t.at(i + 1);
         if c == '.' && matches!(next, Some('.')) {
             continue; // an ellipsis: zh.punct.ellipsis
-        }
-        if matches!(c, '!' | '?') && matches!(next, Some('!' | '?' | '！' | '？')) {
-            // "好!!" - fix the first; the rest follow as their own hits.
         }
         let (after, j) = next_non_space(t, i + 1);
         let ends = after.is_none();
@@ -554,7 +551,7 @@ static JI: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"几(\d+)").unwrap());
 
 /// zh.num.approx (mainland): 3、4个 -> 三四个, 几1000 -> 几千. Only adjacent
 /// numbers before a measure word, never after 第 or in a list.
-fn approx(t: &Text, ctx: &Ctx, out: &mut Out) {
+fn approx(t: &Text, _ctx: &Ctx, out: &mut Out) {
     const DIGITS: [&str; 10] = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
     for caps in t.captures(&APPROX) {
         let (Some((a, b)), Some((x, _)), Some((y, _))) = (caps[0], caps[1], caps[2]) else {
@@ -596,7 +593,6 @@ fn approx(t: &Text, ctx: &Ctx, out: &mut Out) {
             None => out.flag("zh.num.approx", a, b, msg),
         }
     }
-    let _ = ctx;
 }
 
 /// zh.title.dunhao (mainland): 《A》、《B》 -> 《A》《B》.
@@ -997,7 +993,7 @@ fn gongwen(t: &Text, ctx: &Ctx, out: &mut Out) {
             }
         }
     }
-    if ctx.block.is_heading() || matches!(ctx.block, Block::Heading(1)) {
+    if ctx.block.is_heading() {
         for word in ["请示报告", "报告请示"] {
             for (a, b) in find_str(t, word) {
                 out.flag(
@@ -1046,8 +1042,8 @@ static AD_DATA: LazyLock<Regex> = LazyLock::new(|| {
 
 /// The newmedia profile: 广告法 absolute terms (warnings, with the
 /// exemptions in the message), treatment claims and unsourced data.
-fn ad(t: &Text, _ctx: &Ctx, out: &mut Out) {
-    if !_ctx.profile.is("newmedia") {
+fn ad(t: &Text, ctx: &Ctx, out: &mut Out) {
+    if !ctx.profile.is("newmedia") {
         return;
     }
     let msg = "广告法禁用绝对化用语；商标、官方奖项或有时间地点限定的真实数据可除外。";

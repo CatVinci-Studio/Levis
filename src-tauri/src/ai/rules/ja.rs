@@ -495,7 +495,7 @@ fn redundant(t: &Text, _ctx: &Ctx, out: &mut Out) {
             "意味が重なっています（「約」と「くらい」、「各」と「ごとに」）。どちらかで十分です。",
         );
     }
-    for (a, b) in t.find(&NTH) {
+    for (_, b) in t.find(&NTH) {
         out.fix(
             "ja.word.redundant",
             b - 1,
@@ -503,7 +503,6 @@ fn redundant(t: &Text, _ctx: &Ctx, out: &mut Out) {
             "",
             "「第…目」は意味が重なっています。「目」を取ります。",
         );
-        let _ = a;
     }
 }
 

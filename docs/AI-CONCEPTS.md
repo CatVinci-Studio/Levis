@@ -12,7 +12,7 @@ Textus rename); the help guides spell the name out.
 
 "Conversation" below means the AI panel and Quick Ask, which run the same
 agent (`src-tauri/src/ai/agent.rs`). "Completion" is the grey continuation.
-Grammar check uses none of these concepts.
+Grammar check uses only the writing conventions and the library's names.
 
 ## Glossary
 
@@ -142,6 +142,38 @@ writing instructions and the global skills.**
   conversation request. It has no style profile or library: those describe
   one body of work, so they belong to a project.
 
+### Writing conventions
+
+**Which national norm or house style a document's mechanical conventions
+follow - punctuation, spacing, quotes, numbers, spelling lists - per
+document language: a profile such as `zh-Hans-CN/fiction`, `en-GB/govuk` or
+`fr-CA`, or Automatic.**
+
+- **On disk:** global: the `writingConventions` setting in `settings.json`
+  (`"automatic"`, or an object from language to profile, with an optional
+  `options` object); project: the `conventions:` key (one profile, or
+  several separated by commas, one per language) and option keys such as
+  `cjk-latin-space: on` in the front matter of `.levis/style.md`. The
+  profiles and option keys are listed in
+  `src-tauri/src/ai/rules/profile.rs` (`LANGUAGE_PROFILES`, `OPTIONS`) and
+  mirrored in `src/ipc.ts` (`WRITING_CONVENTIONS`).
+- **Create / edit:** **Settings > Levis AI > Writing Assistance > Writing
+  conventions** (default Automatic) for the global choice; the style
+  profile's front matter for a project, which wins for the languages it
+  names.
+- **Automatic:** the national norm where there is one (GB/T for Simplified
+  Chinese, the MOE handbook for Traditional, JTF for Japanese, the national
+  rules for Korean and Russian, Brazilian Portuguese), none for English,
+  Spanish, French and German. Wherever sources disagree (CJK-Latin spacing,
+  French spacing, quote systems, serial comma, -ize/-ise...), Automatic
+  follows the document's own majority and flags only the minority.
+- **Levis AI uses it:** through the deterministic rules engine
+  (`src-tauri/src/ai/rules/`): the grammar check adds the engine's findings
+  to the model's; conversations get the read-only tools
+  `check_conventions` and `measure_text`, and each proposal's text is made
+  to follow the P0 conventions the document already follows before the
+  user sees it; completions are made to match the text before the cursor.
+
 ### Not a file: completion tone
 
 The **completion tone** (Settings > Levis AI > Writing Assistance) is a
@@ -158,6 +190,7 @@ part of the project.
 | Writing instructions (global and project) |       ✓       |            |               |
 | Skills (global and project)               |       ✓       |            |               |
 | Completion tone                           |               |     ✓      |               |
+| Writing conventions                       |       ✓       |     ✓      |       ✓       |
 
 - **One project folder at a time.** A chosen folder is a single setting
   and applies to every document, unsaved drafts included, until **Use the

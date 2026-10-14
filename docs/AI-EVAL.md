@@ -173,6 +173,14 @@ characters of plain text either side, blocks separated by a newline.
   language. A fix inside inline code is dropped first, as the editor drops
   it (`touchesCode`).
 
+- Writing conventions (round 3): the grammar matrix goes through the same
+  `finish_grammar` as the app, so the rules engine's findings are merged
+  in (with Automatic conventions); `checks::conventions_clean` asserts no
+  P0 or P1 finding of the engine in a text, for cases that need it; agent
+  rows carry `postfix`, the rules the proposal post-processing applied to
+  that turn's `propose_edit` texts (`agent::postfix_step`), so a prompt
+  regression shows instead of being silently repaired.
+
 **Judging** (reported, not asserted). Round 1 had Opus 5.5 grade
 faithfulness, helpfulness, minimality, tone and correctness from 1 to 5
 against each case's rubric, through the API. Since round 2 the runs use
