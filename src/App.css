@@ -107,13 +107,19 @@
    would otherwise put syllable breaks back. A word too long for its line
    still wraps: overflow-wrap is inherited from the root, and break-word
    (not anywhere) leaves min-content widths alone, so a label in a flex
-   row isn't squeezed into mid-word breaks. */
+   row isn't squeezed into mid-word breaks. The document itself is left
+   out: its language isn't the UI's, and keep-all stops Chinese or
+   Japanese text breaking anywhere but at punctuation. */
 :root:lang(ko) {
   overflow-wrap: break-word;
 }
 
-:root:lang(ko) * {
+:root:lang(ko) *:not(.editor-content *, .source-view *) {
   word-break: keep-all;
+}
+
+:root:lang(ko) :is(.editor-content, .source-view) {
+  word-break: normal;
 }
 
 :root:is(:lang(zh), :lang(ja), :lang(ko)) {

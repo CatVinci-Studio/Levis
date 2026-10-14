@@ -121,3 +121,19 @@ test("the Paper theme's serif follows the language too", async ({ page }) => {
   expect(await firstCjkFace(page, "zh-HK", editor)).toBe("Songti TC");
   expect(await firstCjkFace(page, "ko", editor)).toBe("AppleMyungjo");
 });
+
+test("Korean UI text breaks at spaces, the document breaks as usual", async ({
+  page,
+}) => {
+  // keep-all is for the chrome's Korean; on the document it stopped Chinese
+  // paragraphs and table cells breaking anywhere but at punctuation.
+  await openApp(page, { settings: { language: "ko" } });
+  const wordBreak = (selector: string) =>
+    page.evaluate(
+      (selector) =>
+        getComputedStyle(document.querySelector(selector)!).wordBreak,
+      selector,
+    );
+  expect(await wordBreak(".window-bar-title")).toBe("keep-all");
+  expect(await wordBreak(".milkdown .ProseMirror p")).toBe("normal");
+});
