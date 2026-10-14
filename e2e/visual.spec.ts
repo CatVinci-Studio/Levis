@@ -146,6 +146,69 @@ test("an agent reply shows a reasoned edit, a sentence picker and a comment", as
   );
 });
 
+test("an accepted new table row and nested item land inside the table and list", async ({
+  page,
+}) => {
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  await pasteMarkdown(
+    page,
+    "| Component | Owner |\n| --- | --- |\n| Search | Tom |\n\n- Transport\n  - WebSocket\n\nThe end.",
+  );
+  // What the model sends for "add a row" / "add a sub-item": insert_after
+  // the last row / item line, quoted from the serialized markdown (which
+  // writes bullets as `*`). These used to land after a blank line - the
+  // row as a stray paragraph of pipes, the item un-nested.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "Add a row and a sub-item" },
+      {
+        kind: "ToolCall",
+        call_id: "r1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "insert_after",
+          anchor: "| Search | Tom |",
+          text: "| Export | Li |",
+        }),
+      },
+      { kind: "ToolResult", call_id: "r1", output: "Edit proposed" },
+      {
+        kind: "ToolCall",
+        call_id: "r2",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "insert_after",
+          anchor: "  * WebSocket",
+          text: "  * Long polling",
+        }),
+      },
+      { kind: "ToolResult", call_id: "r2", output: "Edit proposed" },
+      { kind: "Assistant", text: "Added both." },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Add a row and a sub-item");
+  await composer.press("Enter");
+  const accept = page.locator(
+    ".agent-proposal-actions .inline-chat-action-primary",
+  );
+  await expect(accept).toHaveCount(2);
+  // Bottom-up: accepting the earlier of two block proposals first currently
+  // shifts the later preview off its block - a separate bug, recorded in
+  // docs/AI-EVAL.md.
+  await accept.nth(1).click();
+  await expect(accept).toHaveCount(1);
+  await accept.first().click();
+  await expect(accept).toHaveCount(0);
+  await expect(page.locator(".milkdown table tr")).toHaveCount(3);
+  await expect(page.locator(".milkdown table")).toContainText("Export");
+  await expect(page.locator(".milkdown li li")).toHaveCount(2);
+  await expect(page.locator(".milkdown li li").nth(1)).toHaveText(
+    "Long polling",
+  );
+  await expect(page.locator(".milkdown p", { hasText: "|" })).toHaveCount(0);
+});
+
 test("Quick Ask opens on a selection in edit mode", async ({ page }) => {
   await openApp(page);
   await pasteMarkdown(page, SAMPLE_DOC);

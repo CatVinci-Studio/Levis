@@ -335,6 +335,32 @@ function joinInline(left: string, right: string): string {
   return `${left} ${right}`;
 }
 
+const TABLE_ROW = /^\s*\|/;
+const LIST_ITEM = /^\s*([-*+]|\d+[.)])\s/;
+
+/** Whether two lines are rows of one table or items of one list - where a
+ *  new line joins with a single newline. A blank line would end the table
+ *  (the new row turns into a stray paragraph of pipes), and trimming a
+ *  nested item's indent would pull it out of its parent. */
+function sameLineKind(a: string, b: string): boolean {
+  return (
+    (TABLE_ROW.test(a) && TABLE_ROW.test(b)) ||
+    (LIST_ITEM.test(a) && LIST_ITEM.test(b))
+  );
+}
+
+/** Whether the match covers its blocks entirely - nothing before or after
+ *  it inside them. */
+function wholeBlock(match: MarkdownMatch): boolean {
+  return match.prefix.trim() === "" && match.suffix.trim() === "";
+}
+
+/** `text` without blank lines around it, but with its first line's
+ *  indentation - a nested list item's indent is part of its meaning. */
+function trimLines(text: string): string {
+  return text.replace(/^\s*\n/, "").replace(/\s+$/, "");
+}
+
 /**
  * The markdown those blocks should become - composed in markdown space, so
  * whatever formatting the prefix/suffix carried is preserved verbatim rather
@@ -359,23 +385,35 @@ export function composeMarkdownEdit(
     case "delete":
       middle = "";
       break;
-    // A new block only where one belongs: the text is block content, or
-    // the anchor sits at the edge of its block (a whole paragraph, a
-    // heading). Otherwise the insertion is part of the sentence - always
+    // A new row or list item next to a whole row or item joins its table
+    // or list line by line. Otherwise a new block only where one belongs:
+    // the text is block content, or the anchor is the whole block (a
+    // paragraph, a heading). Anything else is part of the sentence - always
     // breaking out a paragraph turned "add 'in 2024' after 'the study'"
-    // into three paragraphs.
-    case "insert_before":
-      middle =
-        isBlockText(text) || match.prefix.trim() === ""
-          ? `${text.trim()}${BLOCK_SEPARATOR}${matched}`
-          : joinInline(text, matched);
+    // into three paragraphs, and a sentence added after a paragraph's last
+    // sentence into a paragraph of its own.
+    case "insert_before": {
+      const line = (matched + match.suffix).split("\n")[0];
+      const lines = trimLines(text);
+      const atLineStart = match.prefix === "" || match.prefix.endsWith("\n");
+      if (atLineStart && sameLineKind(lines.split("\n").pop() ?? "", line))
+        middle = `${lines}\n${matched}`;
+      else if (isBlockText(text) || wholeBlock(match))
+        middle = `${text.trim()}${BLOCK_SEPARATOR}${matched}`;
+      else middle = joinInline(text, matched);
       break;
-    case "insert_after":
-      middle =
-        isBlockText(text) || match.suffix.trim() === ""
-          ? `${matched}${BLOCK_SEPARATOR}${text.trim()}`
-          : joinInline(matched, text);
+    }
+    case "insert_after": {
+      const line = (match.prefix + matched).split("\n").pop() ?? "";
+      const lines = trimLines(text);
+      const atLineEnd = match.suffix === "" || match.suffix.startsWith("\n");
+      if (atLineEnd && sameLineKind(line, lines.split("\n")[0]))
+        middle = `${matched}\n${lines}`;
+      else if (isBlockText(text) || wholeBlock(match))
+        middle = `${matched}${BLOCK_SEPARATOR}${text.trim()}`;
+      else middle = joinInline(matched, text);
       break;
+    }
     default:
       middle = text;
       break;

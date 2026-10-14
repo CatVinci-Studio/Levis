@@ -54,6 +54,10 @@ const BLOCK_NAMES: Record<string, string> = {
   blockquote: "blockquote",
   table_cell: "table cell",
   table_header: "table cell",
+  // Without it a code block went out as a "paragraph" and the model had to
+  // guess it was continuing code (the live eval scored the hinted case
+  // higher - docs/AI-EVAL.md).
+  code_block: "code block",
 };
 
 /**

@@ -127,3 +127,10 @@ gtk = "0.18"
 [target.'cfg(any(windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
 
+
+# The live AI evaluation (src/ai/live_eval.rs) checks that an accepted edit
+# leaves the document's Markdown structure intact - that needs a real
+# CommonMark/GFM parser rather than line heuristics. Test-only: nothing in
+# the shipped app parses Markdown in Rust.
+[dev-dependencies]
+pulldown-cmark = { version = "0.13", default-features = false }

@@ -146,6 +146,55 @@ describe("composeMarkdownEdit", () => {
     );
   });
 
+  it("continues the paragraph after its last sentence", () => {
+    // Only the whole paragraph as anchor means "a new paragraph after it";
+    // its last sentence means "carry the paragraph on".
+    const para = findMarkdownMatch(
+      blocks("Attendance grew. The Sunday session is cut short."),
+      "The Sunday session is cut short.",
+    )!;
+    expect(
+      composeMarkdownEdit(para, "insert_after", " That needs more staff."),
+    ).toBe(
+      "Attendance grew. The Sunday session is cut short. That needs more staff.",
+    );
+    expect(
+      composeMarkdownEdit(para, "insert_after", "That needs more staff."),
+    ).toBe(
+      "Attendance grew. The Sunday session is cut short. That needs more staff.",
+    );
+  });
+
+  it("adds a table row inside the table, not after a blank line", () => {
+    const table = "| a | b |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |";
+    const doc = blocks("Intro", table, "Outro");
+    const last = findMarkdownMatch(doc, "| 3 | 4 |")!;
+    expect(composeMarkdownEdit(last, "insert_after", "| 5 | 6 |")).toBe(
+      `${table}\n| 5 | 6 |`,
+    );
+    const middle = findMarkdownMatch(doc, "| 1 | 2 |")!;
+    expect(composeMarkdownEdit(middle, "insert_after", "| 5 | 6 |\n")).toBe(
+      "| a | b |\n| --- | --- |\n| 1 | 2 |\n| 5 | 6 |\n| 3 | 4 |",
+    );
+    expect(composeMarkdownEdit(last, "insert_before", "| 5 | 6 |")).toBe(
+      "| a | b |\n| --- | --- |\n| 1 | 2 |\n| 5 | 6 |\n| 3 | 4 |",
+    );
+  });
+
+  it("adds a nested list item at its parent's depth", () => {
+    const list = "- Storage\n  - Snapshots\n- Transport\n  - WebSocket";
+    const doc = blocks(list, "After");
+    const m = findMarkdownMatch(doc, "  - WebSocket")!;
+    expect(composeMarkdownEdit(m, "insert_after", "  - Long polling")).toBe(
+      `${list}\n  - Long polling`,
+    );
+    // Anchored on the item's text alone, the whole line still decides.
+    const text = findMarkdownMatch(doc, "WebSocket")!;
+    expect(composeMarkdownEdit(text, "insert_after", "  - Long polling")).toBe(
+      `${list}\n  - Long polling`,
+    );
+  });
+
   it("round-trips a heading without losing its level", () => {
     const headings = blocks("## Project Background", "Body");
     const m = findMarkdownMatch(headings, "## Project Background")!;
