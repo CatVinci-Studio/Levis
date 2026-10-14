@@ -159,8 +159,10 @@ rest of the documentation.
    `packaging/arch/README.md`).
 
 **Pre-releases**: a tag carrying a semver pre-release suffix (`v0.9.0-rc.1`)
-is published as a GitHub pre-release. It skips the Homebrew cask and the
-`[catvinci]` pacman repository, so it reaches nobody who did not
+is published as a GitHub pre-release. The version files carry the same
+suffix (`0.9.0-rc.1`): the tag check compares the whole version, and
+release notes are only required for stable tags. It skips the Homebrew
+cask and the `[catvinci]` pacman repository, so it reaches nobody who did not
 go looking for it - the in-app updater reads `releases/latest`, which
 excludes pre-releases.
 
