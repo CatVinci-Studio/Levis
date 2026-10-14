@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -487,7 +488,12 @@ function adopt(value: Raw, rev: number) {
   if (sync.snapshot(next, rev)) notifyRemote();
 }
 
+/** Counts the changes notifyRemote has announced, so a provider can tell
+ *  whether one came between its first render and its subscription. */
+let remoteVersion = 0;
+
 function notifyRemote() {
+  remoteVersion += 1;
   for (const fn of remoteListeners) fn();
 }
 
@@ -591,6 +597,8 @@ function isEffectiveDark(themeMode: ThemeMode): boolean {
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(loadSettings);
+  // Read in the same render as the state above.
+  const renderedVersion = useRef(remoteVersion);
 
   useEffect(() => {
     // Without Rust, a first launch writes the whole set of defaults out at
@@ -602,10 +610,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     // Cross-window sync: another window changed something. `zoom` stays
     // this window's own (see its field comment) - everything else adopts
     // the incoming value.
-    return subscribeRemote(() => {
+    const adoptStore = () => {
       const incoming = loadSettings();
       setSettingsState((prev) => ({ ...incoming, zoom: prev.zoom }));
-    });
+    };
+    const unsubscribe = subscribeRemote(adoptStore);
+    // React runs this effect in a later task than the first render, and the
+    // live re-read, the legacy import's answer or another window's change
+    // can land in between - reaching the store while nobody is subscribed.
+    // Catch up on those now.
+    if (remoteVersion !== renderedVersion.current) adoptStore();
+    return unsubscribe;
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import {
   afterEach,
   beforeAll,
@@ -184,6 +184,29 @@ describe("file-backed settings", () => {
     );
     // The window keeps its own zoom.
     expect(screen.getByTestId("probe").textContent).toContain("dark|1.25|");
+  });
+
+  it("keeps a change that lands before the provider has subscribed", () => {
+    boot({ theme: "light", languageChosen: true });
+    // A child's layout effect runs after the provider's first render but
+    // before its own (passive) effect subscribes - the same gap the live
+    // re-read or another window's event can fall into while React yields.
+    function EarlyEvent() {
+      useLayoutEffect(() => {
+        // Straight to the handler: render() is already inside act().
+        handlers["settings-changed"]({
+          payload: { rev: 10, patch: { theme: "dark" }, from: "w2" },
+        });
+      }, []);
+      return null;
+    }
+    render(
+      <SettingsProvider>
+        <EarlyEvent />
+        <Probe />
+      </SettingsProvider>,
+    );
+    expect(screen.getByTestId("probe").textContent).toContain("dark|");
   });
 
   it("hands localStorage to Rust on the first launch after the move", async () => {
