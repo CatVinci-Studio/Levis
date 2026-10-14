@@ -653,10 +653,17 @@ fn behaviour_cases() -> Vec<AgentCase> {
         edit: EditExpect::Required,
         ..Expect::default()
     };
+    // Judged on the text, not the changed span: a summary that starts
+    // with "The " shares that prefix with the intro, which pushed the
+    // minimal diff's start past it (a false failure in round 2's run1).
     e.custom = Some(|o| {
-        let (s, _, _) = checks::changed_span(&o.doc_before, &o.doc_after);
-        let intro = o.doc_before.find("The city library").unwrap();
-        (s <= intro && s >= o.doc_before.find('\n').unwrap())
+        let title = o.doc_before.lines().next().unwrap_or("");
+        let head = o
+            .doc_after
+            .split("The city library started")
+            .next()
+            .unwrap_or("");
+        (head.starts_with(title) && head[title.len()..].trim().len() > 40)
             .then_some(())
             .ok_or_else(|| {
                 "summary not placed between the title and the first paragraph".to_string()
@@ -1111,7 +1118,9 @@ fn check_turn(case: &AgentCase, expect: &Expect, o: &TurnOutcome, checks: &mut C
         let (s, e, e2) = checks::changed_span(&o.doc_before, &o.doc_after);
         let inserted = &o.doc_after[s..e2];
         let removed = &o.doc_before[s..e];
-        if checks::word_count(inserted) >= 4 {
+        // Six words: shorter text says too little about its language
+        // ("Do teams need SSO?" reads as Portuguese).
+        if checks::word_count(inserted) >= 6 {
             checks.add(
                 "edit language",
                 checks::check_lang(inserted, expect.edit_lang.unwrap_or(case.doc_lang)),

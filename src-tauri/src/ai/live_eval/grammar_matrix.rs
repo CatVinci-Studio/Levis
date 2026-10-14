@@ -169,6 +169,9 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
             break;
         }
     }
+    if let Some(m) = checks::meta_commentary(&raw) {
+        checks.add("no meta-commentary", Err(format!("reply contains {m:?}")));
+    }
     let issues = match parsed {
         Ok(issues) => issues,
         Err(e) => {

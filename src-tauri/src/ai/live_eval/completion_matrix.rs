@@ -389,6 +389,14 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
         !(probe.chars().count() >= 6 && raw.trim_start().starts_with(&probe)),
         || format!("repeats {probe:?}"),
     );
+    let doubled = checks::doubled_at_join(&case.before, text);
+    checks.expect("no doubled text at the cursor", doubled.is_none(), || {
+        format!("reads {:?} twice", doubled.unwrap_or_default())
+    });
+    let meta = checks::meta_commentary(text);
+    checks.expect("no meta-commentary", meta.is_none(), || {
+        format!("contains {:?}", meta.unwrap_or_default())
+    });
     if case.block != "paragraph" || !case.long {
         checks.expect(
             "no line break",

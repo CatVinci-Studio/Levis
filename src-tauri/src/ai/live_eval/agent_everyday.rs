@@ -93,8 +93,13 @@ pub fn list_items(text: &str) -> usize {
 /// A list the edit adds uses the editor's own bullet (`*`), so it reads
 /// back as the document's list rather than a second one.
 pub fn bullet_matches(o: &TurnOutcome) -> Result<(), String> {
-    let dashes = proposed_text(o)
-        .lines()
+    // Only next to an existing `*` item, where a `-` item starts a second
+    // list; a list that replaces a paragraph is re-bulleted by the editor.
+    let dashes = o
+        .proposals
+        .iter()
+        .filter(|p| p.anchor.trim_start().starts_with("* "))
+        .flat_map(|p| p.text.lines())
         .filter(|l| l.trim_start().starts_with("- "))
         .count();
     (dashes == 0)
@@ -290,8 +295,9 @@ fn en_cases() -> Vec<AgentCase> {
     c.push(AgentCase::new("tech/en/fix-await", Lang::En, Lang::En, TECH_EN, "uploadAll returns before the uploads are done. Fix it.", edit_in(&code, StructureExpect::Same).has(&["await client.upload"]), "The bug: client.upload(...) is not awaited inside the loop. Expect a minimal fix (await client.upload(...), or Promise.all) inside the js block, nothing else changed; the reply names the cause in a sentence."));
     let steps = checks::lines_between(TECH_EN, "1. Create", "target folder.");
     c.push(AgentCase::new("tech/en/add-step", Lang::En, Lang::En, TECH_EN, "Add a step between 2 and 3: set the LEVIS_TOKEN environment variable to your token.", edit_in(&steps, StructureExpect::Delta(&[("item", 1), ("/", 1)])).has(&["LEVIS_TOKEN"]), "Expect a new ordered item between steps 2 and 3 (renumbered 3/4 or left for Markdown to number), with `LEVIS_TOKEN` in code formatting, nothing else changed."));
-    let retries = para(TECH_EN, 3);
-    c.push(AgentCase::new("tech/en/rewrite-keep-code", Lang::En, Lang::En, TECH_EN, "Rewrite the Retries paragraph so it's easier to scan.", edit_in(retries, StructureExpect::Any).keep_inline().has(&["`retries`", "`backoffMs`"]), "Expect the Retries paragraph made scannable (shorter sentences or a short list), keeping the inline code `retries`, `3` and `backoffMs` and every fact (automatic retry on network errors, default 3, delay doubles)."));
+    // para() splits on blank lines, which the code block above has.
+    let retries = checks::lines_between(TECH_EN, "Uploads that fail", "after each attempt.");
+    c.push(AgentCase::new("tech/en/rewrite-keep-code", Lang::En, Lang::En, TECH_EN, "Rewrite the Retries paragraph so it's easier to scan.", edit_in(&retries, StructureExpect::Any).keep_inline().has(&["`retries`", "`backoffMs`"]), "Expect the Retries paragraph made scannable (shorter sentences or a short list), keeping the inline code `retries`, `3` and `backoffMs` and every fact (automatic retry on network errors, default 3, delay doubles)."));
 
     // Meeting notes.
     let actions = checks::lines_between(MEETING_EN, "* Jonas to write", "next week");
@@ -411,8 +417,15 @@ mod tests {
         assert!(in_selection(&q).is_ok());
         q.caret.selection = Some((before.find("End").unwrap(), before.len()));
         assert!(in_selection(&q).is_err());
-        assert!(bullet_matches(&outcome(before, before, "* one\n* two")).is_ok());
-        assert!(bullet_matches(&outcome(before, before, "- one")).is_err());
+        let next_to_item = |text: &str| {
+            let mut o = outcome(before, before, text);
+            o.proposals[0].anchor = "* an existing item".into();
+            o
+        };
+        assert!(bullet_matches(&next_to_item("* one\n* two")).is_ok());
+        assert!(bullet_matches(&next_to_item("- one")).is_err());
+        // A list replacing a paragraph: the editor re-bullets it anyway.
+        assert!(bullet_matches(&outcome(before, before, "- one")).is_ok());
     }
 
     #[test]

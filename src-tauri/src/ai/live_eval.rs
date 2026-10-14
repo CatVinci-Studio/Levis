@@ -19,6 +19,8 @@
 //!   LEVIS_EVAL_JOBS           concurrent cases (default 6)
 //!   LEVIS_EVAL_OUT            where the per-suite .jsonl/.md results go
 //!                             (default: a fresh folder under the temp dir)
+//!   LEVIS_EVAL_BUDGET_USD     stop starting cases once the run has spent this
+//!   LEVIS_EVAL_SPEND_FILE     a {"spent_usd", "runs"} ledger each suite adds to
 //!
 //! Without a key, every test prints a notice and passes vacuously.
 

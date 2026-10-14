@@ -144,7 +144,8 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         Lang::Es,
         &[
             "el", "los", "las", "y", "del", "una", "es", "con", "se", "más", "pero", "muy", "pues",
-            "aquí", "también", "está", "están", "sus", "hay", "fue", "este",
+            "aquí", "también", "está", "están", "sus", "hay", "fue", "este", "la", "lo", "por",
+            "su", "al",
         ],
     ),
     (
@@ -166,7 +167,7 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         &[
             "os", "do", "da", "em", "um", "uma", "não", "é", "com", "dos", "das", "mais", "mas",
             "como", "também", "são", "está", "foi", "pelo", "pela", "nos", "ao", "seu", "e", "ali",
-            "depois", "isso", "muito", "ainda",
+            "depois", "isso", "muito", "ainda", "o", "na", "você", "pra", "seus", "suas",
         ],
     ),
 ];
@@ -1167,6 +1168,48 @@ pub fn row_cells_are(doc: &str, first: &str, want: &[&str]) -> Result<(), String
     }
 }
 
+// --------------------------------------------------------------- completion
+
+/// Text the suggestion repeats from just before the cursor, as the user
+/// would read it once accepted: "常備" + "常備薬" reads 常備常備薬, "Lessons
+/// from" + " Lessons from a..." reads the heading twice. Two or more
+/// characters of an unspaced script, or four or more otherwise.
+pub fn doubled_at_join(before: &str, shown: &str) -> Option<String> {
+    let start = shown.trim_start();
+    let chars: Vec<char> = before.trim_end().chars().collect();
+    (2..=chars.len().min(40)).rev().find_map(|k| {
+        let tail: String = chars[chars.len() - k..].iter().collect();
+        let cjk = tail.chars().any(is_cjk);
+        let enough = if cjk { k >= 2 } else { k >= 4 };
+        // Mid-word tails ("ssons from") don't count - only whole words.
+        let whole = !cjk
+            && (chars.len() - k)
+                .checked_sub(1)
+                .and_then(|i| chars.get(i))
+                .is_some_and(|c| c.is_alphanumeric());
+        (enough && !whole && tail.chars().any(char::is_alphanumeric) && start.starts_with(&tail))
+            .then_some(tail)
+    })
+}
+
+/// Reasoning that leaked into a completion or grammar reply - the model
+/// talking about its instructions instead of writing the text.
+pub fn meta_commentary(text: &str) -> Option<&'static str> {
+    let lower = text.to_lowercase();
+    [
+        "</reasoning",
+        "<reasoning",
+        "the instructions",
+        "per instructions",
+        "text-before-cursor",
+        "the last word",
+        "wait—",
+        "wait -",
+    ]
+    .into_iter()
+    .find(|m| lower.contains(m))
+}
+
 // ----------------------------------------------------------------- sentences
 
 /// Sentences of prose (Markdown markers and code removed): split after
@@ -1268,6 +1311,41 @@ mod tests {
     }
 
     #[test]
+    fn completion_join_problems_are_caught() {
+        assert_eq!(doubled_at_join("常备", "常备药").as_deref(), Some("常备"));
+        assert_eq!(
+            doubled_at_join(
+                "Lessons from",
+                " Lessons from
+more"
+            )
+            .as_deref(),
+            Some("Lessons from")
+        );
+        assert_eq!(
+            doubled_at_join("Lecciones de", " Lecciones de un año").as_deref(),
+            Some("Lecciones de")
+        );
+        assert_eq!(doubled_at_join("in the", " the end"), None);
+        assert_eq!(doubled_at_join("崩溃", "率"), None);
+        assert_eq!(doubled_at_join("the docu", "ment is"), None);
+        assert_eq!(
+            meta_commentary("约</reasoning_effort>"),
+            Some("</reasoning")
+        );
+        assert!(meta_commentary(
+            "率
+
+Wait—the instructions say"
+        )
+        .is_some());
+        assert_eq!(
+            meta_commentary(" every box seems heavier than the last."),
+            None
+        );
+    }
+
+    #[test]
     fn sentences_split_in_both_scripts() {
         assert_eq!(
             sentences("He left. \"Why?\" she asked. It was 3.5 km away!"),
@@ -1299,6 +1377,17 @@ mod tests {
             Lang::Pt,
             "passam por ali antes de voltar para casa e levam livros emprestados para ler no trem.",
         )]);
+        // Two short completions the first round-2 run misread (as pt, en).
+        let samples = samples.chain([
+            (
+                Lang::Es,
+                " que salen tarde la usan como lugar para estudiar antes de volver a casa.",
+            ),
+            (
+                Lang::Pt,
+                " usam o espaço para estudar antes de pegar o trem para casa.",
+            ),
+        ]);
         for (lang, text) in samples {
             assert_eq!(detect(text), Some(lang), "{text}");
         }

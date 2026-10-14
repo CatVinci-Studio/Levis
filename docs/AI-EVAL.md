@@ -19,12 +19,86 @@ disabled for completions as in the app).
 
 ### The matrix
 
-| Suite        | Cases | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------ | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `agent`      |    75 | **Languages**: one report in en, zh-Hans, zh-Hant, ja, ko, es, fr, de, ru, pt and mixed Chinese/English, each asked a question and asked to tighten a paragraph; requests in a different language from the document; translation (whole paragraph, and a selection). **Markdown**: edit a table cell, add a table row, fix a bug in fenced Python and JS, check off a task (en, ja), add a nested list item, fix display math, add a footnote, shorten a GitHub alert, change a link, edit YAML front matter, raw HTML, a Mermaid diagram, rename a heading, rewrite a paragraph that carries a link, inline math and a footnote ref, change an image's alt text, answer a question about the document. **Agent behaviour**: summarise (in chat, and into the document), expand, rewrite formally, delete a sentence, continue, replace a selection, insert at the cursor (en, zh) and inside a sentence, review with comments (edit mode and ask mode), questions that must not become edits, plan mode, two ambiguous requests, three multi-turn follow-ups (accept then "same again", reject then retry, question then act), agent.md (reply language + spelling; Chinese conventions), the style profile, the library (a fact by alias; character consistency), a `/skill` and a skill matched by description, facts from a project file, one section of a 60k-character document. |
-| `completion` |    43 | Every tone preset (default, formal, casual, academic, concise) on English mid-sentence, English long continuation and Chinese after-sentence text; mid-sentence in every matrix language; list item (en, zh), table cell, heading (en, zh), blockquote; a Python code block with the hint the editor sends today and with the new `code block` hint; after-text (manual trigger mid-document); three candidates (en, zh); the cursor inside a word (en, fr, de); a nearly empty document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `grammar`    |    26 | Each strictness level on real mistakes and on correct text (where any report is a false positive); typos (en, zh, zh-Hant wrong script, ja, ko), grammar (en, zh 的/地, fr, de, es, ru, pt), code tokens / URLs / math / names / dialogue that must be left alone, "typos" mode on a paragraph that also has a grammar mistake, strict mode on wordy text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| model runs   |       | `agent-models`: 17 agent cases (one of each kind) on Haiku 5.5, Sonnet 5.5 and Opus 5.5. `completion-models` / `grammar-models`: both suites on Haiku 5.5 and Sonnet 5.5.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Suite        | Cases | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------ | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`      |   150 | Round 1 (75 cases): **Languages**: one report in en, zh-Hans, zh-Hant, ja, ko, es, fr, de, ru, pt and mixed Chinese/English, each asked a question and asked to tighten a paragraph; requests in a different language from the document; translation (whole paragraph, and a selection). **Markdown**: edit a table cell, add a table row, fix a bug in fenced Python and JS, check off a task (en, ja), add a nested list item, fix display math, add a footnote, shorten a GitHub alert, change a link, edit YAML front matter, raw HTML, a Mermaid diagram, rename a heading, rewrite a paragraph that carries a link, inline math and a footnote ref, change an image's alt text, answer a question about the document. **Agent behaviour**: summarise (in chat, and into the document), expand, rewrite formally, delete a sentence, continue, replace a selection, insert at the cursor (en, zh) and inside a sentence, review with comments (edit mode and ask mode), questions that must not become edits, plan mode, two ambiguous requests, three multi-turn follow-ups (accept then "same again", reject then retry, question then act), agent.md (reply language + spelling; Chinese conventions), the style profile, the library (a fact by alias; character consistency), a `/skill` and a skill matched by description, facts from a project file, one section of a 60k-character document. |
+| `completion` |   106 | Round 1 (43 cases): Every tone preset (default, formal, casual, academic, concise) on English mid-sentence, English long continuation and Chinese after-sentence text; mid-sentence in every matrix language; list item (en, zh), table cell, heading (en, zh), blockquote; a Python code block with the hint the editor sends today and with the new `code block` hint; after-text (manual trigger mid-document); three candidates (en, zh); the cursor inside a word (en, fr, de); a nearly empty document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `grammar`    |    61 | Round 1 (26 cases): Each strictness level on real mistakes and on correct text (where any report is a false positive); typos (en, zh, zh-Hant wrong script, ja, ko), grammar (en, zh 的/地, fr, de, es, ru, pt), code tokens / URLs / math / names / dialogue that must be left alone, "typos" mode on a paragraph that also has a grammar mistake, strict mode on wordy text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| model runs   |       | `agent-models`: 17 agent cases (one of each kind) on Haiku 5.5, Sonnet 5.5 and Opus 5.5. `completion-models` / `grammar-models`: both suites on Haiku 5.5 and Sonnet 5.5.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+### Round 2 additions
+
+Round 2 (`agent_everyday.rs`, `agent_workspace.rs`, `completion_cases.rs`,
+`grammar_cases.rs`) added many more Chinese and English cases and made the
+workspace and writing-style features explicit.
+
+- **Agent, everyday writing (25 zh + 25 en)**: emails, a weekly report and
+  a support review with tables, academic paragraphs with citations,
+  technical docs with code (a JS bug, Python comments to translate, a
+  numbered step to add, inline code to keep), meeting notes (check off a
+  task, turn items into a checklist, add a deadline), essays (vivid without
+  inventing, cut clichés, continue), fiction with dialogue (action beats,
+  quote marks kept, insert at the cursor, continue the scene), social posts
+  under a length limit, product copy into a list; casual ("can u make the
+  first para shorter") and formal phrasing; a 42k-character Chinese report
+  edited and quoted in the middle (outline only, must read chapter 7).
+- **Quick Ask vs the panel**: both send the same `ai_agent_message`; the
+  differences are that Quick Ask opens in edit mode on the selection it
+  captured and sends every follow-up against that range as mapped through
+  the accepted edits (`useInlineChat`'s `sendContext`, chat-selection-plugin),
+  while the panel defaults to Ask mode and sends the live selection or
+  cursor. Cases: a single Quick Ask edit (zh, en), a five-turn Quick Ask
+  conversation on one paragraph (zh) and a five-turn panel conversation
+  (en), and an edit request sent in the panel's default Ask mode (zh, en),
+  where no edit tool exists.
+- **Workspace**: the folder the AI may read - the open document's own
+  folder by default, or the folder picked in the panel - with project files
+  (`list_files`/`read_file`/`search_files`), the library
+  (`.levis/library/*.md`, entries sent when their name or an alias is
+  mentioned), `.levis/agent.md`, `.levis/skills/*.md`, plus the global
+  config folder (`agent/` in the app config dir) whose agent.md and skills
+  apply everywhere and are shadowed by the project's. Each case builds the
+  folders on disk and loads them through `workspace::load_from` (the app's
+  loader): facts from notes next to the document, other chapters searched,
+  a path outside the folder (relative and absolute; nothing may leak), an
+  unsaved draft with no folder at all, the override pointing elsewhere (the
+  document folder's agent.md must then not apply), agent.md in zh and en
+  (reply language, house style, comments stripped, global + project
+  layers), library facts by alias and a character-consistency check, a
+  `/skill` and a skill matched by description, a project skill shadowing a
+  global one.
+- **Writing-style learning**: "Learn my style" (`learn_style`) run on three
+  samples each in zh and en; the profile is checked for the seven sections,
+  the samples' language, examples quoted verbatim from the samples (so none
+  are invented) and the habits the samples share (「」 quotes, no
+  exclamation marks, short sentences; British spelling, second person, no
+  semicolons). Then an edit and a completion under the learned profile,
+  edits and completions under hand-written profiles with hard rules (a
+  sentence-length limit, banned words, a punctuation habit), a profile in
+  English applied to Chinese text and the reverse, and Quick Ask under a
+  profile.
+- **Completion (21 zh + 23 en + 16 other + 3 style)**: the same everyday
+  genres; inside an open Chinese and English quote; poetry as one line per
+  paragraph and as hard breaks; an empty paragraph after a heading and after
+  a long section; list items, numbered steps and table cells; JS code; a
+  list item and another block in every other matrix language (a Japanese
+  list item among them).
+- **Grammar (13 zh + 14 en + 8 other)**: 的/地/得, half-width punctuation in
+  Chinese, homophone typos, measure words, mixed Chinese/English text,
+  articles, agreement, tense, run-ons, correct dialect, British spelling and
+  long sentences that must stay clean, and paragraphs with inline
+  formatting (`**bold**`, `` `code` ``, links): the check gets the block's
+  textContent, and every fix must not cut across bold or a link or touch
+  code, and must write back into the Markdown with every marker intact.
+  Long multi-mistake paragraphs in Korean and German.
+
+**The documents are what the app shows.** The agent's documents are
+Markdown fixtures in `live_eval/docs/` that `src/editor/eval-docs.test.ts`
+round-trips through the real editor and `doc-markdown.ts`'s serializer in
+CI: `*` bullets, padded tables, escaped `\$`, no trailing newline. (It also
+showed that the editor writes a GitHub alert marker as `> \[!NOTE]` - see
+Remaining weaknesses.) The `<cursor>` block mirrors `caretContext`: 160
+characters of plain text either side, blocks separated by a newline.
 
 ### How a case is judged
 
@@ -74,31 +148,56 @@ LEVIS_ANTHROPIC_KEY_FILE=/path/to/key cargo test --lib live_eval -- --ignored --
 `--test-threads=1` runs the suites one after another; each suite runs six
 cases at a time itself. Useful variables:
 
-| Variable                   | Effect                                                               |
-| -------------------------- | -------------------------------------------------------------------- |
-| `LEVIS_EVAL_FILTER`        | Only cases whose id contains one of these comma-separated substrings |
-| `LEVIS_EVAL_AGENT_MODEL`   | Run the agent matrix on another model                                |
-| `LEVIS_EVAL_WRITING_MODEL` | Run completion and grammar on another model                          |
-| `LEVIS_EVAL_JUDGE=0`       | Automatic checks only (much cheaper, about a third of the requests)  |
-| `LEVIS_EVAL_JOBS`          | Concurrent cases (default 6)                                         |
-| `LEVIS_EVAL_OUT`           | Output folder (default: a new folder under the system temp dir)      |
+| Variable                   | Effect                                                                |
+| -------------------------- | --------------------------------------------------------------------- |
+| `LEVIS_EVAL_FILTER`        | Only cases whose id contains one of these comma-separated substrings  |
+| `LEVIS_EVAL_AGENT_MODEL`   | Run the agent matrix on another model                                 |
+| `LEVIS_EVAL_WRITING_MODEL` | Run completion and grammar on another model                           |
+| `LEVIS_EVAL_JUDGE=0`       | Automatic checks only (much cheaper, about a third of the requests)   |
+| `LEVIS_EVAL_JOBS`          | Concurrent cases (default 6)                                          |
+| `LEVIS_EVAL_OUT`           | Output folder (default: a new folder under the system temp dir)       |
+| `LEVIS_EVAL_BUDGET_USD`    | Stop starting cases once this run has spent this much (list prices)   |
+| `LEVIS_EVAL_SPEND_FILE`    | A `{"spent_usd", "runs"}` ledger each finished suite adds its cost to |
 
 Single suites: `cargo test --lib live_eval::live_agent_matrix -- --ignored --nocapture`
 (also `live_completion_matrix`, `live_grammar_matrix`,
 `live_agent_model_comparison`, `live_writing_model_comparison`,
 `live_agent_caches_across_steps`, `live_lists_every_model`).
+`live_eval::list_eval_cases` is free and needs no key: it prints every case
+id per suite after `LEVIS_EVAL_FILTER`, for sizing a run before paying for it.
 
-Every suite writes `<suite>.jsonl` (each case's full output: replies, tool
-calls, proposals, diffs, raw completions, issues, checks and judge reasons)
-and `<suite>.md` (the summary table) to the output folder, and prints the
-summary. A case that never reached the API (rate limit, spending limit) is
-marked with a failed `request` check and counted in a warning - those rows
-say nothing about the prompts.
+Every suite writes to the output folder:
 
-Budget: a full run of everything is several hundred model requests plus a judge
-call per case. Two and a half full runs exhausted a workspace limit during this
-work, so prefer `LEVIS_EVAL_FILTER` and `LEVIS_EVAL_JUDGE=0` while
-iterating, and run the whole matrix before and after a change.
+- `<suite>.jsonl`, one row per case with everything needed to judge it
+  without re-running: `input` (the document, the script of messages with
+  cursor or selection and whether proposals were accepted, the mode, the
+  workspace as built on disk and as loaded, style samples, the completion's
+  before/after text, hints, tone and profile, the grammar paragraph and its
+  Markdown) and `output` (per turn: the message as sent, the focus heading,
+  every tool call with its arguments and result, proposals, rejected
+  proposals and why, comments, the composed document diff and the document
+  after; the learned profile; raw, returned and shown completions with how
+  each reads in place; grammar issues, the corrected text and the corrected
+  Markdown), the automatic checks, latency, and token usage with its cost.
+- `<suite>.md`, the summary table, and `<suite>.usage.json`, the suite's
+  token and dollar totals.
+- `cases-index.json`, one row per case of every suite run into the folder:
+  `{suite, id, group, model, lang, passed_checks, failed_checks}`.
+
+A case that never reached the API (rate limit, spending limit) is marked
+with a failed `request` check, and one the budget guard skipped with a
+failed `budget` check; both are counted in a warning - those rows say
+nothing about the prompts.
+
+Budget: every request's usage is recorded and priced (Sonnet 5.5 $2 / $10
+per million input / output tokens, cache writes $2.50 and reads $0.20;
+Haiku 5.5 $0.10 / $0.50). With `LEVIS_EVAL_JUDGE=0` the round-2 baseline
+cost about $0.01 for completion, $0.01 for grammar and a few dollars for
+the 150 agent cases (see Results). Prefer `LEVIS_EVAL_FILTER` while
+iterating, set `LEVIS_EVAL_BUDGET_USD`, and run the whole matrix before and
+after a change. The test binary's artifact name doesn't depend on the
+checkout, so with a target dir shared between worktrees, copy the built
+binary somewhere private before a long run.
 
 The checking code itself (language detection, the Markdown skeleton, edit
 composition, region and similarity checks, the tone directives staying in
@@ -107,11 +206,64 @@ step with `completion-style.ts`) is unit-tested and runs in CI with
 
 ## Results
 
+### Round 2 baseline (run1, automatic checks only)
+
+Current `dev` with every 0.9.7 change, including round 1's prompt edits
+(never verified live until now); agent Sonnet 5.5, writing Haiku 5.5,
+`LEVIS_EVAL_JUDGE=0` (the scoring is done by reading the recorded rows).
+Run at commit `8450f44`; the checker fixes listed below came after it.
+
+| Suite      |    Pass | p50 / p90 ms | Requests |   Cost |
+| ---------- | ------: | -----------: | -------: | -----: |
+| completion |  88/106 |  1114 / 1932 |      106 | $0.012 |
+| grammar    |   44/61 |  1192 / 2052 |       63 | $0.009 |
+| agent      | 140/150 | 5774 / 12348 |      309 |  $3.03 |
+
+What the checks caught:
+
+- **Completion: round 1's "repeat the last word" instruction backfires on
+  Haiku.** With thinking disabled, Haiku reasons in the visible reply:
+  `zh/table-cell`, `en/social`, `style/en/rules`, `pt/list-item` and
+  `ko/list-item` came back with "Wait - the instructions say...", '"and" is
+  the last word, so I repeat it' or a stray `</reasoning_effort>`. Cut-off
+  words are not repeated, so the fallback splits them: "docu ment", "cl
+  early", "sala riés", "co sts" (all four `midword` cases). Whole headings
+  are repeated ("Lessons from\nLessons from a ...", "Lecciones de Lecciones
+  de ..."), and in Japanese the repeated word isn't cut ("常備常備薬"). A
+  continuation that opens with inline code gets no space ("set
+  the`max_retries`").
+- **Grammar**: wrong spans that corrupt the sentence when applied ("has a
+  an opinion", "what changed change"), no-op issues whose suggestion equals
+  the span, partial recall on two-mistake paragraphs (的/得, articles,
+  agreement, tense, the half-width comma), a reply with trailing reasoning
+  that didn't parse twice (`ja/typo`), "the the" and an inline-code typo
+  missed.
+- **Agent**: scope creep (`cross/zh-asks-en-doc/formal` also rewrote the
+  last line; `panel/en/five-turn` warmed and shortened the whole email when
+  asked about "it"); "Learn my style" wrote the Chinese samples' profile in
+  English (`style/zh/learn`, `style/zh/learned-applied`); asked to expand
+  under a strict profile, the agent shortened (`style/zh/rules`). Workspace
+  cases all passed - outside paths were refused and said so, the override,
+  agent.md layers (comments stripped), library aliases and skills behaved.
+
+Checker false positives in run1, fixed after it: `task/summary-into-doc`
+(a summary starting with "The " moved the minimal diff's start past the
+intro), `tech/en/rewrite-keep-code` (the region came from `para()`, which
+splits the code block), `meeting/en/cursor-insert` and `lang/es|pt/mid`
+(short text misread as Portuguese / English), `product/*/bullets` (a list
+replacing a paragraph is re-bulleted by the editor), `ja/particles` (本が
+見つかりました is a correct alternative), and the zh profile's habit
+keywords (the profile was in English). Added after run1: completion checks
+for doubled text at the cursor and for leaked meta-commentary (also on
+grammar replies).
+
+### Round 1
+
 Defaults at the time: agent Sonnet 5.5, writing (completion and grammar)
 Haiku 5.5. One run per configuration; judge means move by about ±0.1
 between identical runs, so small differences are noise.
 
-### Agent (Sonnet 5.5, 75 cases)
+#### Agent (Sonnet 5.5, 75 cases)
 
 |                                    |       Before |       After |
 | ---------------------------------- | -----------: | ----------: |
@@ -159,7 +311,7 @@ What moved:
   says a reply language set in agent.md overrides the rule - not yet
   re-run (see Remaining weaknesses).
 
-### Agent model comparison (17 cases)
+#### Agent model comparison (17 cases)
 
 |            | Before: pass | judge | p50 ms | output tokens | After: pass | judge | p50 ms |
 | ---------- | -----------: | ----: | -----: | ------------: | ----------: | ----: | -----: |
@@ -182,7 +334,7 @@ cases are too few to move the default to a model a tenth the price on.
 Re-run the comparison with the full matrix
 (`LEVIS_EVAL_AGENT_MODEL=claude-haiku-5-5`) before reconsidering.
 
-### Completion (Haiku 5.5, before only)
+#### Completion (Haiku 5.5, before only)
 
 | Model      | Pass  | Judge | ≤ 2 | Correctness | p50 ms | p90 ms |
 | ---------- | ----- | ----: | --: | ----------: | -----: | -----: |
@@ -203,7 +355,7 @@ hint variants continued the code; the explicit `code block` hint scored
 4.8 against 4.2. The after-run for this suite could not be made - the
 workspace hit its spending limit (see Remaining weaknesses).
 
-### Grammar (before only)
+#### Grammar (before only)
 
 | Model      | Pass  | Judge | ≤ 2 | p50 ms | p90 ms |
 | ---------- | ----- | ----: | --: | -----: | -----: |
@@ -295,19 +447,16 @@ completion ~1.1 s).
 
 ## Remaining weaknesses
 
-- **Completion and grammar changes are not yet verified live.** The
-  workspace's spending limit was reached before their after-run (it resets
-  on 2026-11-01). The spacing fix is deterministic and unit tested, but
-  the "repeat the last word" instruction is new to the model: run
-  `LEVIS_EVAL_FILTER=midword,tone,lang,candidates cargo test --lib live_eval::live_completion_matrix -- --ignored --nocapture`
-  and `live_grammar_matrix` first. If the model doesn't follow the
-  instruction, the fallback still adds the space at word boundaries but
-  would split a word the writer stopped in the middle of.
-- **Two agent prompt edits made after the last run** (agent.md's reply
-  language overriding the default rule; the translation example) are also
-  unverified. `agentmd/reply-language-and-spelling` and
-  `translate/en-to-es-paragraph` are the cases to watch; the translation
-  reply was still in Spanish in the after run.
+- **Round 1's completion prompt change is now verified live, and it
+  misfires** (round 2 baseline above): Haiku, with thinking disabled,
+  doesn't repeat a cut-off word (so the fallback splits it), repeats whole
+  headings, repeats words in Japanese where nothing cuts them, and in five
+  cases wrote its reasoning about the instruction into the suggestion.
+- The two agent prompt edits made after round 1's last run (agent.md's
+  reply language overriding the default rule; the translation example)
+  passed their automatic checks in the round 2 baseline
+  (`agentmd/reply-language-and-spelling`, `translate/en-to-es-paragraph`);
+  their judge scores are pending.
 - Faithfulness is still the lowest agent criterion (4.63): the judge keeps
   finding small inventions in "make it vivid", "continue" and style-bound
   expansions, and replies that overstate what was kept. `style/profile-followed`
@@ -324,15 +473,20 @@ completion ~1.1 s).
   other previews through it. It does now; the e2e test accepts top-down,
   and a second one checks that a pending replace's strike also follows
   typing above it (the strike range was never mapped either).
-- The eval documents use `-` bullets, while the editor serializes lists
-  with `*` - the model sees `*` in the app. The composition rules treat both
-  the same, but the cases are not a byte-exact replica of what the app
-  shows.
+- (Fixed in round 2.) The eval documents used `-` bullets and minimal table
+  rules while the editor shows `*` and padded tables; they are now fixtures
+  checked byte-exact against the editor. The prompt still tells the model to
+  write `-` list items, so a new item in a `*` list can start a second list
+  (`report/zh/add-risk`, `product/*/bullets` and `md/nested-list-add` check
+  for it).
+- The editor writes a GitHub alert's marker escaped - `> [!NOTE]` comes back
+  as `> \[!NOTE]` both in the saved file and in the text the AI sees - so a
+  saved alert no longer renders as one on GitHub. Found by the fixture test;
+  not fixed here (editor code).
 - The evaluation is one sample per case. Before trusting a difference of
   less than ~0.2 in a judge mean, run twice.
-- Not covered: the "Learn my style" profile generation (`learn_style`), web
-  search, image attachments, providers other than Anthropic, and the
-  tool-less fallback path.
+- Not covered: web search, image attachments, providers other than
+  Anthropic, and the tool-less fallback path.
 
 ## Recommendations
 

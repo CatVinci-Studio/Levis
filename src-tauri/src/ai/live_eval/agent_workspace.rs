@@ -300,10 +300,20 @@ const EN_SAMPLES: [(&str, &str); 3] = [
 
 const ZH_HABITS: &[(&str, &[&str])] = &[
     ("profile: 「」 quotes", &["「"]),
-    ("profile: no exclamation marks", &["感叹号", "！"]),
+    (
+        "profile: no exclamation marks",
+        &["感叹号", "！", "exclamation"],
+    ),
     (
         "profile: short sentences",
-        &["短句", "字以内", "字左右", "个字"],
+        &[
+            "短句",
+            "字以内",
+            "字左右",
+            "个字",
+            "short sentences",
+            "characters",
+        ],
     ),
 ];
 const EN_HABITS: &[(&str, &[&str])] = &[
