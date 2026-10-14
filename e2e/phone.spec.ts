@@ -124,6 +124,34 @@ test("Levis AI is a bottom sheet that leaves the document in view", async ({
   await expect(page.locator(".agent-panel")).toHaveCount(0);
 });
 
+test("with the keyboard up the AI sheet keeps its handle, and drops what no longer fits whole", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await page.locator(".window-bar-toggle").tap();
+  await expect(page.locator(".agent-panel-empty-mark")).toBeVisible();
+  // The keyboard shortens the web view (KeyboardFit.swift) - on a small
+  // phone, to about this.
+  await page.setViewportSize({ width: 430, height: 440 });
+  const sheet = await page.locator(".agent-panel").boundingBox();
+  expect(Math.round(sheet!.y)).toBe(Math.round(440 * 0.45));
+  // The hint stays whole; the spark gave its room up for it.
+  await expect(page.locator(".agent-panel-empty-mark")).toBeHidden();
+  const empty = (await page.locator(".agent-panel-empty").boundingBox())!;
+  const hint = (await page.locator(".agent-panel-empty-text").boundingBox())!;
+  expect(hint.y).toBeGreaterThanOrEqual(empty.y);
+  expect(hint.y + hint.height).toBeLessThanOrEqual(empty.y + empty.height);
+
+  // The / list fits under the handle instead of running up over it.
+  await page.locator(".agent-panel .inline-chat-input").fill("/");
+  const picker = page.locator(".agent-panel .composer-picker");
+  await expect(picker).toBeVisible();
+  const grip = (await page.locator(".agent-panel-grip").boundingBox())!;
+  const list = (await picker.boundingBox())!;
+  expect(list.y).toBeGreaterThanOrEqual(grip.y + grip.height);
+  await expect(page.locator(".agent-panel-empty-text")).toBeHidden();
+});
+
 test("Documents opens as its own page and closes again", async ({ page }) => {
   await openPhone(page);
   await page.locator(".window-menu-button").tap();
@@ -220,7 +248,7 @@ test("the line being typed stays above the keyboard toolbar", async ({
   await page.touchscreen.tap(100, 800);
   const toolbar = page.getByRole("toolbar", { name: "Formatting" });
   await expect(toolbar).toBeVisible();
-  await page.setViewportSize({ width: 430, height: 560 });
+  await page.setViewportSize({ width: 430, height: 440 });
   const caretAndBars = () =>
     page.evaluate(() => ({
       caret: getSelection()!.getRangeAt(0).getBoundingClientRect().bottom,
@@ -249,7 +277,7 @@ test("with the keyboard up, the AI sheet rises once it has gone", async ({
 }) => {
   await openPhone(page);
   await page.locator('[data-active-tab="true"] .milkdown p').first().click();
-  await page.setViewportSize({ width: 430, height: 560 });
+  await page.setViewportSize({ width: 430, height: 440 });
   await page.waitForTimeout(100);
   await page.locator(".window-bar-toggle").tap();
   // Not yet: the web view is still short.

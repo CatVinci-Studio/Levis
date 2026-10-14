@@ -109,9 +109,16 @@
 /* The composer is a box of its own on the panel's foot (inline-chat.css's
    .inline-chat-field), so no rule across the panel above it; the / and @
    lists, which open in the flow above it, keep theirs. */
-.agent-panel-body .inline-chat-bar,
-.agent-panel-body .inline-chat-skill-menu {
+.agent-panel-body .inline-chat-bar {
   flex: 0 0 auto;
+}
+
+/* Short of room - the keyboard up under a phone's half sheet - the list
+   gives way and scrolls inside, after the empty state below has gone: it
+   ran up over the sheet's handle, its close button and its first row. */
+.agent-panel-body .inline-chat-skill-menu {
+  flex: 0 1 auto;
+  min-height: 0;
 }
 
 .agent-panel-body .inline-chat-skill-menu {
@@ -125,7 +132,8 @@
 /* Nothing said yet: the spark and what to do, in the middle of the
    panel's empty height rather than as a line in its top corner. */
 .agent-panel-empty {
-  flex: 1 1 auto;
+  /* Of everything over the composer, it gives up its room first. */
+  flex: 1 100 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -133,15 +141,21 @@
   gap: 12px;
   min-height: 0;
   margin: 0;
-  padding: 24px 28px 40px;
-  /* Short of room (the / list open on a phone) it is cut, never squashed. */
+  /* No padding top or bottom: padding is the one part of a box that never
+     gives way, and with the keyboard up it held 64px the / list needed. */
+  padding: 0 28px;
+  /* Short of room (the / list or the keyboard up on a phone) it is cut,
+     never squashed - and it drops what no longer fits whole (below), so
+     the cut never runs through the hint's line. */
   overflow: hidden;
+  container: agent-empty / size;
   text-align: center;
   animation: motion-fade-in var(--dur-slow) var(--ease-out);
 }
 
-/* The (empty) message list after it gives it the room. */
-.agent-panel-empty + .inline-chat-messages {
+/* The (empty) message list after it gives it the room - its padding too,
+   over the panel's (inline-chat.css), which held 30px of nothing there. */
+.agent-panel-body .agent-panel-empty + .inline-chat-messages {
   flex: 0 0 auto;
   padding-top: 0;
   padding-bottom: 0;
@@ -171,6 +185,20 @@
   line-height: 1.55;
   color: var(--editor-muted);
   text-wrap: pretty;
+}
+
+/* Short of room the spark goes first, then the hint once even its line
+   has none (spark, gap and line take about 82px; some air around them). */
+@container agent-empty (height < 110px) {
+  .agent-panel-empty-mark {
+    display: none;
+  }
+}
+
+@container agent-empty (height < 28px) {
+  .agent-panel-empty-text {
+    display: none;
+  }
 }
 
 /* Narrow windows - or a small one with the sidebar open too (App.tsx's

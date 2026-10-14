@@ -10,15 +10,20 @@
      nothing here, hence the !important over the inline style. */
   :root[data-window-chrome="mobile"] .agent-panel {
     position: fixed;
-    top: auto;
+    /* The half stop - 55% of the screen, SHEET_HALF in agent-panel.tsx -
+       set by where its top sits, not by a height. Raising the keyboard
+       moved the sheet's bottom up with it a frame or two before the web
+       view had shrunk (KeyboardFit.swift): a height then kept its old
+       value and shot the top ~150pt up the screen and back. A top keeps
+       its place until the new size lands. */
+    top: 45%;
     right: 0;
     bottom: 0;
     left: 0;
     z-index: 40;
     width: auto !important;
     max-width: none;
-    /* The half stop - SHEET_HALF in agent-panel.tsx is the same share. */
-    height: 55%;
+    height: auto;
     padding-top: 0;
     border-left: none;
     border-top: 1px solid var(--border-color);
@@ -57,6 +62,8 @@
      under them. A shadow the sheet's colour fills in below its edge while
      it is pulled past the top stop. */
   :root[data-window-chrome="mobile"] .agent-panel[data-carried] {
+    /* Its inline height lays it out from the bottom edge up. */
+    top: auto;
     animation: none;
     box-shadow:
       var(--shadow-sheet),
@@ -77,7 +84,7 @@
   }
 
   :root[data-window-chrome="mobile"] .agent-panel-sheet-full {
-    height: calc(100% - var(--mobile-bar));
+    top: var(--mobile-bar);
   }
 
   :root[data-window-chrome="mobile"] .agent-panel-resizer {
