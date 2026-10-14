@@ -68,14 +68,20 @@ missing.
   whole object or list back, so two windows changing different things both
   land. Every settings and history change is broadcast to all windows.
 - Writes are debounced by 250 ms and flushed when the app exits, through a
-  write-then-rename, so a crash never leaves a half-written file.
+  write-then-rename, so a crash never leaves a half-written file. That
+  debounce is the only one: windows send every change as it is made,
+  keystrokes in Custom CSS included, so quitting right after typing loses
+  nothing.
 - A file that can't be parsed is renamed to `<name>.corrupt-<unix time>` and
   the app starts from defaults rather than refusing to start.
 - `schemaVersion` changes only for a change an older reader would misread.
   Adding a field never needs it: readers fill in defaults for missing fields.
 - Before a window loads, Rust injects the current settings and UI state as
   `window.__BOOT__` and applies the theme, so the first frame is already
-  right (`src-tauri/src/boot.js`, `src/storage/boot.ts`).
+  right (`src-tauri/src/boot.js`, `src/storage/boot.ts`). On macOS a
+  window shows a background in the app's appearance until its page first
+  paints, so Rust also sets the app's appearance from a pinned Light or
+  Dark (`apply_app_theme` in `settings.rs`).
 
 ## The move out of localStorage (0.9.6 to 0.9.7)
 
