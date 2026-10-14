@@ -78,7 +78,7 @@
 
 /* Wider than a phone (iPad) the panel is a column, not a sheet. */
 @media (min-width: 761px) {
-  .agent-panel-grip {
+  :root[data-window-chrome="mobile"] .agent-panel-grip {
     display: none;
   }
 
@@ -94,7 +94,7 @@
 
 /* The sheet's handle: a short bar across the top, the whole strip
    draggable. */
-.agent-panel-grip {
+:root[data-window-chrome="mobile"] .agent-panel-grip {
   display: flex;
   flex: 0 0 44px;
   align-items: center;
@@ -103,7 +103,7 @@
   cursor: grab;
 }
 
-.agent-panel-grip span {
+:root[data-window-chrome="mobile"] .agent-panel-grip span {
   width: 36px;
   height: 5px;
   border-radius: 3px;

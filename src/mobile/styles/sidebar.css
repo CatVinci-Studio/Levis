@@ -8,13 +8,15 @@
 
 @media (max-width: 760px) {
   /* The sidebar slides over the page instead of narrowing it; the scrim
-     behind it closes it on a tap. */
+     behind it closes it on a tap. Both cover the title row (45) too, as a
+     drawer covers the whole screen: the dimming then reaches the status
+     bar strip (base.css) in one piece. */
   :root[data-window-chrome="mobile"] .sidebar {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
-    z-index: 44;
+    z-index: 47;
     width: min(320px, 85vw);
     margin-left: 0;
     box-shadow: 8px 0 24px rgb(0 0 0 / 0.16);
@@ -26,10 +28,10 @@
     box-shadow: none;
   }
 
-  .sidebar-scrim {
+  :root[data-window-chrome="mobile"] .sidebar-scrim {
     position: fixed;
     inset: 0;
-    z-index: 43;
+    z-index: 46;
     background: rgb(0 0 0 / 0.25);
   }
 }
@@ -37,7 +39,7 @@
 /* Wider than a phone the sidebar is docked, so there is nothing to tap
    beside it. */
 @media (min-width: 761px) {
-  .sidebar-scrim {
+  :root[data-window-chrome="mobile"] .sidebar-scrim {
     display: none;
   }
 }

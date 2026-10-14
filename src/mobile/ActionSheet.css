@@ -68,7 +68,10 @@
   color: var(--danger);
 }
 
-.action-sheet-cancel {
+/* Doubled class: .action-sheet-item's "background: none" comes later and
+   left Cancel floating on the scrim with no card under it. */
+.action-sheet-item.action-sheet-cancel {
+  background: var(--editor-bg, var(--bg));
   font-weight: 600;
 }
 

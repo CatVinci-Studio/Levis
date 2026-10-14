@@ -27,7 +27,7 @@
   scrollbar-width: none;
   /* Fades the last button out at the edge on narrower iPhones, where the
      row scrolls - a hint there is more. */
-  mask-image: linear-gradient(to left, transparent, #000 12px);
+  mask-image: linear-gradient(to left, transparent, #000 28px);
   padding-right: 10px;
 }
 

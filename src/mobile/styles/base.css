@@ -97,3 +97,44 @@
   width: 20px;
   height: 20px;
 }
+
+/* The web view stops at the safe area, so the strips under the status bar
+   and the home indicator show the body's background, not the page. While
+   something covers the page they take its colour, as a native sheet or
+   dimming view reaches the screen's edges: a full-screen page's own
+   background, or the page darkened by the scrim over it. WebKit paints
+   those strips from the background COLOUR alone, so each scrim's
+   translucent colour is pre-mixed over the page here (--overlay-bg is
+   30% navy in light themes, 48% black in dark - design-system.css). */
+:root[data-window-chrome="mobile"] {
+  --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 70%, rgb(20 27 40));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-window-chrome="mobile"]:not([data-theme="light"]) {
+    --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 52%, black);
+  }
+}
+
+:root[data-window-chrome="mobile"][data-theme="dark"] {
+  --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 52%, black);
+}
+
+:root[data-window-chrome="mobile"]:has(.settings-phone) body {
+  background: var(--sidebar-bg);
+}
+
+/* The drawer's scrim is drawn at phone width only (sidebar.css). */
+@media (max-width: 760px) {
+  :root[data-window-chrome="mobile"]:has(.sidebar-scrim) body {
+    background: color-mix(in srgb, var(--page-bg) 75%, black);
+  }
+}
+
+:root[data-window-chrome="mobile"]:has(.close-prompt-overlay) body {
+  background: var(--phone-dim-overlay);
+}
+
+:root[data-window-chrome="mobile"]:has(.action-sheet-scrim) body {
+  background: color-mix(in srgb, var(--page-bg) 70%, black);
+}
