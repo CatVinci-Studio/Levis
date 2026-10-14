@@ -7,7 +7,10 @@
     <!-- Painted before any script or stylesheet loads, so a new window opens
          in the system's colours instead of flashing white (App.css's --bg).
          An appearance pinned in Settings wins: Rust's boot script
-         (src-tauri/src/boot.js) has set data-theme before this is parsed. -->
+         (src-tauri/src/boot.js) has set data-theme before this is parsed.
+         On Linux the window itself is built in the pinned colour too, for
+         the frames before this paints - keep pinned_background in
+         src-tauri/src/settings.rs in step with these two colours. -->
     <style>
       html {
         background: #ffffff;
