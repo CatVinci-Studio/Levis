@@ -1,46 +1,55 @@
 import { useState } from "react";
 import { useSettings } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
-import { ToggleRow } from "./controls";
+import { SettingRow, ToggleRow } from "./controls";
+import { showConfirm } from "../../ui/app-dialog";
 import { CheckIcon } from "../../ui/icons";
 import { clearAllConversations } from "../../ai/chat-history";
 import { clearClipboardHistory } from "../../utils/clipboard-history";
 import { drafts } from "../../ipc";
 
 // Settings > Privacy: each kind of locally-stored history/recovery data gets
-// its own on/off switch plus an explicit "Clear" for what's already there -
+// its own on/off switch plus an explicit clear for what's already there -
 // turning a switch off only stops new writes, it never retroactively
-// deletes (see each Settings field's comment in SettingsContext.tsx).
+// deletes (see each Settings field's comment in SettingsContext.tsx). A
+// clear can't be undone, so it asks first: the warning is in the question
+// rather than in grey text under every row.
 
 function ClearRow({
   label,
-  hint,
-  buttonLabel,
+  warning,
+  t,
   onClear,
 }: {
   label: string;
-  hint: string;
-  buttonLabel: string;
+  warning: string;
+  t: Strings;
   onClear: () => void;
 }) {
   const [cleared, setCleared] = useState(false);
 
+  async function clear() {
+    const ok = await showConfirm(warning, {
+      title: label,
+      okLabel: t.privacyClearButton,
+      cancelLabel: t.cancel,
+      danger: true,
+    });
+    if (!ok) return;
+    onClear();
+    setCleared(true);
+  }
+
   return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{label}</div>
-        <div className="settings-row-hint">{hint}</div>
-      </div>
+    <SettingRow label={label}>
       <button
-        className="text-button settings-inline-button"
-        onClick={() => {
-          onClear();
-          setCleared(true);
-        }}
+        className="text-button settings-inline-button settings-danger-button"
+        onClick={() => void clear()}
+        disabled={cleared}
       >
-        {cleared ? <CheckIcon /> : buttonLabel}
+        {cleared ? <CheckIcon /> : t.privacyClearButton}
       </button>
-    </div>
+    </SettingRow>
   );
 }
 
@@ -54,14 +63,13 @@ export function PrivacySection({ t }: { t: Strings }) {
         <div className="settings-group-body">
           <ToggleRow
             label={t.privacyChatHistoryToggle}
-            hint={t.privacyChatHistoryHint}
             checked={settings.enableChatHistory}
             onChange={(v) => setSettings({ enableChatHistory: v })}
           />
           <ClearRow
-            label={t.privacyClearLabel}
-            hint={t.privacyChatHistoryClearHint}
-            buttonLabel={t.privacyClearButton}
+            label={t.privacyClearChatHistory}
+            warning={t.privacyChatHistoryClearHint}
+            t={t}
             onClear={clearAllConversations}
           />
         </div>
@@ -74,14 +82,13 @@ export function PrivacySection({ t }: { t: Strings }) {
         <div className="settings-group-body">
           <ToggleRow
             label={t.privacyClipboardHistoryToggle}
-            hint={t.privacyClipboardHistoryHint}
             checked={settings.enableClipboardHistory}
             onChange={(v) => setSettings({ enableClipboardHistory: v })}
           />
           <ClearRow
-            label={t.privacyClearLabel}
-            hint={t.privacyClipboardHistoryClearHint}
-            buttonLabel={t.privacyClearButton}
+            label={t.privacyClearClipboard}
+            warning={t.privacyClipboardHistoryClearHint}
+            t={t}
             onClear={clearClipboardHistory}
           />
         </div>
@@ -92,14 +99,13 @@ export function PrivacySection({ t }: { t: Strings }) {
         <div className="settings-group-body">
           <ToggleRow
             label={t.privacyDraftRecoveryToggle}
-            hint={t.privacyDraftRecoveryHint}
             checked={settings.enableDraftRecovery}
             onChange={(v) => setSettings({ enableDraftRecovery: v })}
           />
           <ClearRow
-            label={t.privacyClearLabel}
-            hint={t.privacyDraftRecoveryClearHint}
-            buttonLabel={t.privacyClearButton}
+            label={t.privacyClearDrafts}
+            warning={t.privacyDraftRecoveryClearHint}
+            t={t}
             onClear={() => void drafts.clearAllDrafts()}
           />
         </div>

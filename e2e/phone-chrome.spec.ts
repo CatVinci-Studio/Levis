@@ -138,3 +138,50 @@ test("the menu is a pull-down menu and a tap beside it closes it", async ({
   await page.tap(".main-pane", { position: { x: 380, y: 600 } });
   await expect(list).toHaveCount(0);
 });
+
+test("the menu opens over the find bar", async ({ page }) => {
+  await openPhone(page);
+  await menuItem(page, "Find & Replace…");
+  await expect(page.locator(".find-replace-bar")).toBeVisible();
+  await page.locator(".window-menu-button").tap();
+  const first = page.getByRole("menuitem", { name: "Documents" });
+  const box = (await first.boundingBox())!;
+  // What a tap on the first row would land on: the row, not the find bar.
+  const hit = await page.evaluate(
+    ({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest("[role=menuitem]")
+        ?.textContent ?? null,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  );
+  expect(hit).toBe("Documents");
+});
+
+test("a full-screen page covers the find bar but not its own alerts", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await menuItem(page, "Find & Replace…");
+  await menuItem(page, "Settings…");
+  const hitAt = (x: number, y: number) =>
+    page.evaluate(
+      ({ x, y }) =>
+        document
+          .elementFromPoint(x, y)
+          ?.closest(".settings-panel, .find-replace-bar")?.className ?? null,
+      { x, y },
+    );
+  // Where the find bar sits, under the title row: Settings is on top.
+  expect(await hitAt(215, 66)).toContain("settings-panel");
+  // A clear asks first, and the question is over Settings, not behind it.
+  await page.getByRole("button", { name: "Privacy" }).tap();
+  await page.getByRole("button", { name: "Clear" }).first().tap();
+  const alert = page.getByRole("dialog", { name: "Clear Chat History" });
+  await expect(alert).toBeVisible();
+  const box = (await alert.boundingBox())!;
+  expect(
+    await page.evaluate(
+      ({ x, y }) => !!document.elementFromPoint(x, y)?.closest(".app-dialog"),
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    ),
+  ).toBe(true);
+});

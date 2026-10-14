@@ -14,6 +14,7 @@ import { showMessage } from "../../ui/app-dialog";
 import { exportDoc, fs, themes } from "../../ipc";
 import { useLatest } from "../../utils/useLatest";
 import { Select } from "../../ui/Select";
+import { SettingRow } from "./controls";
 
 const CUSTOM_CSS_PLACEHOLDER = `#write p {
   text-indent: 2em;
@@ -171,48 +172,72 @@ export function ThemeSection({ t }: { t: Strings }) {
           {error}
         </div>
       )}
-      <div className="settings-row">
-        <div>
-          <div className="settings-row-label">{t.contentThemeLabel}</div>
-          <div className="settings-row-hint">{t.contentThemeHint}</div>
-        </div>
-        <div className="shortcut-row-controls">
-          <Select
-            className="settings-select"
-            aria-label={t.contentThemeLabel}
-            disabled={busy}
-            value={settings.themeId}
-            onChange={(e) => setSettings({ themeId: e.target.value })}
-          >
-            {BUILTIN_CONTENT_THEMES.map((theme) => (
-              <option key={theme.id} value={theme.id}>
-                {t[theme.nameKey]}
-              </option>
-            ))}
-            {settings.userThemes.map((theme) => (
-              <option key={theme.id} value={theme.id}>
-                {theme.name}
-              </option>
-            ))}
-          </Select>
-          {isUserThemeSelected && (
-            <button
-              className="text-button settings-inline-button"
-              disabled={busy}
-              onClick={deleteCurrentTheme}
+      {/* Independent of the theme below: that picks the palette, this picks
+          which of its two forms is shown. Every theme defines both. */}
+      <SettingRow label={t.appearanceLabel}>
+        <div
+          className="appearance-options"
+          role="radiogroup"
+          aria-label={t.appearanceLabel}
+        >
+          {THEME_MODES.map((mode) => (
+            <label
+              key={mode}
+              className={`appearance-option${settings.theme === mode ? " is-selected" : ""}`}
             >
-              {t.themeDeleteButton}
-            </button>
-          )}
+              <input
+                type="radio"
+                name={appearanceId}
+                value={mode}
+                checked={settings.theme === mode}
+                onChange={() => setSettings({ theme: mode })}
+              />
+              {mode === "system"
+                ? t.appearanceSystem
+                : mode === "light"
+                  ? t.appearanceLight
+                  : t.appearanceDark}
+            </label>
+          ))}
+        </div>
+      </SettingRow>
+
+      <SettingRow label={t.contentThemeLabel}>
+        <Select
+          className="settings-select"
+          aria-label={t.contentThemeLabel}
+          disabled={busy}
+          value={settings.themeId}
+          onChange={(e) => setSettings({ themeId: e.target.value })}
+        >
+          {BUILTIN_CONTENT_THEMES.map((theme) => (
+            <option key={theme.id} value={theme.id}>
+              {t[theme.nameKey]}
+            </option>
+          ))}
+          {settings.userThemes.map((theme) => (
+            <option key={theme.id} value={theme.id}>
+              {theme.name}
+            </option>
+          ))}
+        </Select>
+        {isUserThemeSelected && (
           <button
             className="text-button settings-inline-button"
-            onClick={importTheme}
             disabled={busy}
+            onClick={deleteCurrentTheme}
           >
-            {t.themeImportButton}
+            {t.themeDeleteButton}
           </button>
-        </div>
-      </div>
+        )}
+        <button
+          className="text-button settings-inline-button"
+          onClick={importTheme}
+          disabled={busy}
+        >
+          {t.themeImportButton}
+        </button>
+      </SettingRow>
 
       {/* A tweak on top of the theme, folded away until wanted. */}
       <details
@@ -243,40 +268,6 @@ export function ThemeSection({ t }: { t: Strings }) {
           </div>
         </div>
       </details>
-
-      {/* Independent of the theme above: that picks the palette, this picks
-          which of its two forms is shown. Every theme defines both. */}
-      <div className="settings-row">
-        <div>
-          <div className="settings-row-label">{t.appearanceLabel}</div>
-          <div className="settings-row-hint">{t.appearanceHint}</div>
-        </div>
-        <div
-          className="appearance-options"
-          role="radiogroup"
-          aria-label={t.appearanceLabel}
-        >
-          {THEME_MODES.map((mode) => (
-            <label
-              key={mode}
-              className={`appearance-option${settings.theme === mode ? " is-selected" : ""}`}
-            >
-              <input
-                type="radio"
-                name={appearanceId}
-                value={mode}
-                checked={settings.theme === mode}
-                onChange={() => setSettings({ theme: mode })}
-              />
-              {mode === "system"
-                ? t.appearanceSystem
-                : mode === "light"
-                  ? t.appearanceLight
-                  : t.appearanceDark}
-            </label>
-          ))}
-        </div>
-      </div>
     </>
   );
 }

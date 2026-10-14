@@ -28,20 +28,70 @@ test("the phone menu opens the sidebar as a drawer over the page", async ({
   await expect(sidebar).toHaveClass(/sidebar-collapsed/);
 });
 
-test("view modes in the phone menu show whether they are on", async ({
+test("the phone menu is short; the view modes are switched in Settings", async ({
   page,
 }) => {
   await openPhone(page);
   await page.locator(".window-menu-button").tap();
-  const typewriter = page.getByRole("menuitemcheckbox", {
-    name: "Typewriter Mode",
-  });
-  await expect(typewriter).toHaveAttribute("aria-checked", "false");
-  await expect(typewriter.locator(".app-menu-check")).toHaveCount(0);
-  await typewriter.tap();
+  await expect(page.locator(".app-menu-item")).toHaveText([
+    "Documents",
+    "New File",
+    "Open…",
+    "Save",
+    "Share…",
+    "Find & Replace…",
+    "Sidebar",
+    "Settings…",
+  ]);
+  await page.getByRole("menuitem", { name: "Settings…" }).tap();
+  await page.getByRole("button", { name: "Editor & Appearance" }).tap();
+  // Source mode is the window's, not a setting: the switch follows it.
+  const source = page.getByRole("checkbox", { name: "Source Mode" });
+  await expect(source).not.toBeChecked();
+  await source.tap();
+  await expect(source).toBeChecked();
+  await expect(
+    page.locator(".source-textarea, .cm-editor, textarea").first(),
+  ).toBeAttached();
+});
+
+test("Settings fills the phone's screen and Done closes it", async ({
+  page,
+}) => {
+  await openPhone(page);
   await page.locator(".window-menu-button").tap();
-  await expect(typewriter).toHaveAttribute("aria-checked", "true");
-  await expect(typewriter.locator(".app-menu-check")).toHaveCount(1);
+  await page.getByRole("menuitem", { name: "Settings…" }).tap();
+  const panel = page.getByRole("dialog", { name: "Settings" });
+  expect(await panel.boundingBox()).toMatchObject({
+    x: 0,
+    y: 0,
+    width: 430,
+    height: 932,
+  });
+  // The categories are tabs along the top; a phone has no Shortcuts.
+  await expect(page.getByRole("button", { name: "General" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Shortcuts" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Done" }).tap();
+  await expect(panel).toHaveCount(0);
+});
+
+test("opening Levis AI while typing puts the keyboard away", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await page.locator('[data-active-tab="true"] .milkdown p').first().click();
+  await page.locator(".window-bar-toggle").tap();
+  await expect(page.locator(".agent-panel .inline-chat-input")).toBeVisible();
+  // Neither the document nor the sheet's input holds the focus, so the
+  // keyboard goes down once rather than down and up again.
+  expect(
+    await page.evaluate(() => {
+      const el = document.activeElement;
+      return !el || el === document.body
+        ? "none"
+        : (el as HTMLElement).className;
+    }),
+  ).toBe("none");
 });
 
 test("Levis AI is a bottom sheet that leaves the document in view", async ({
@@ -105,14 +155,6 @@ test("the keyboard toolbar formats without leaving the document", async ({
   await expect(para.locator("em")).toHaveText("plain words");
   // Still editing: the toolbar didn't take the focus.
   await expect(toolbar).toBeVisible();
-});
-
-test("phone settings have no Shortcuts page", async ({ page }) => {
-  await openPhone(page);
-  await page.locator(".window-menu-button").tap();
-  await page.getByRole("menuitem", { name: "Settings…" }).tap();
-  await expect(page.getByRole("button", { name: "General" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Shortcuts" })).toHaveCount(0);
 });
 
 test("a tap on the suggestion accepts it", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ShortcutAction, Shortcuts } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
 import {
@@ -9,6 +9,36 @@ import {
 } from "../../utils/shortcuts";
 
 // Generic row controls shared by the settings categories.
+
+/**
+ * One setting: its name on the left, its control on the right - the shape
+ * every row in Settings takes, on the desktop and the phone alike. `hint`
+ * is for the few rows whose label can't say enough on its own (a value
+ * such as the folder in use, a fetched-on date); most rows have none, so
+ * the page reads as a list of names rather than paragraphs of grey text.
+ */
+export function SettingRow({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string | null;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="settings-row">
+      <div className="settings-row-text">
+        <div className="settings-row-label">{label}</div>
+        {hint && <div className="settings-row-hint">{hint}</div>}
+        {error && <div className="settings-error">{error}</div>}
+      </div>
+      {children && <div className="settings-row-control">{children}</div>}
+    </div>
+  );
+}
 
 export function ToggleRow({
   label,
@@ -23,7 +53,7 @@ export function ToggleRow({
 }) {
   return (
     <label className="settings-row settings-toggle-row">
-      <div>
+      <div className="settings-row-text">
         <div className="settings-row-label">{label}</div>
         {hint && <div className="settings-row-hint">{hint}</div>}
       </div>

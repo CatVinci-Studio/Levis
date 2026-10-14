@@ -5,7 +5,8 @@
 .document-list {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Over the find bar, under the alerts it opens (mobile/styles/base.css). */
+  z-index: var(--z-phone-page, 350);
   display: flex;
   flex-direction: column;
   background: var(--page-bg, var(--bg));

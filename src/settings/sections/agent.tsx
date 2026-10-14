@@ -17,22 +17,63 @@ import {
 import { useActiveProvider } from "../../ai/provider-catalog";
 import { ai, auth } from "../../ipc";
 import { Select } from "../../ui/Select";
+import { SettingRow } from "./controls";
 
 // The Agent category's sections. The agent workspace itself is file-managed
 // (the .levis/ convention) - these sections mostly open folders/files rather
 // than embedding editors; the full write-up lives in Help > AI Agent Guide.
 
-/// Model picker for the agent chat, for whichever provider is active in the
-/// AI tab. Seeded from the catalog's `knownModels` (a small pre-supplied
-/// list, same idea as pi.dev's models.json) so the dropdown is never empty;
-/// "Fetch Models" adds any live-fetched extras on top, except where the
-/// catalog marks listing unsupported or where "sign in with ChatGPT" is
-/// active (that OAuth token can't list models - see the OAuth presets in
-/// agent-models.ts, which
-/// replaces the catalog presets while it's the active OpenAI auth method).
-/// Custom endpoints keep their configured model as the fallback, while these
-/// two fields can optionally override it for writing and Agent independently.
-function ProviderModelSection({
+/** Fired after a model list is fetched, so both pickers (writing and
+ *  Agent) pick up the new list from the cache at once. */
+const MODELS_FETCHED_EVENT = "levis-models-fetched";
+
+/** Whether "sign in with ChatGPT" is the active OpenAI login - that OAuth
+ *  token can't list models, and only accepts its own preset family. */
+function useCodexOauthActive(provider: string): boolean {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (provider !== "openai") {
+      setActive(false);
+      return;
+    }
+    auth
+      .oauthStatus("openai")
+      .then((s) => {
+        if (!cancelled) setActive(s.configured);
+      })
+      .catch(() => {
+        if (!cancelled) setActive(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [provider]);
+  return active;
+}
+
+/** The last list fetched for `provider`, remembered across restarts and
+ *  refreshed whenever ModelListRow fetches a new one. */
+function useFetchedModels(provider: string) {
+  const [cached, setCached] = useState(() => readFetchedModels(provider));
+  useEffect(() => {
+    const reload = () => setCached(readFetchedModels(provider));
+    reload();
+    window.addEventListener(MODELS_FETCHED_EVENT, reload);
+    return () => window.removeEventListener(MODELS_FETCHED_EVENT, reload);
+  }, [provider]);
+  return { models: cached?.models ?? [], at: cached?.at ?? null };
+}
+
+/// Model picker for writing (completion and grammar) or the Agent chat, for
+/// whichever provider is active. Seeded from the catalog's `knownModels` (a
+/// small pre-supplied list, same idea as pi.dev's models.json) so the
+/// dropdown is never empty; ModelListRow adds any live-fetched extras on
+/// top. Where "sign in with ChatGPT" is active its presets (agent-models.ts)
+/// replace the catalog's. Custom endpoints keep their configured model as
+/// the fallback, while these two fields can optionally override it for
+/// writing and Agent independently.
+function ProviderModelRow({
   t,
   kind,
 }: {
@@ -41,40 +82,8 @@ function ProviderModelSection({
 }) {
   const { settings, setSettings } = useSettings();
   const provider = settings.aiProvider;
-  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
-  const [fetched, setFetched] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  // Only relevant for "openai", which has two auth methods - the OAuth one
-  // can't list models, so its preset list applies only while that's active.
-  const [codexOauthActive, setCodexOauthActive] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (provider !== "openai") {
-      setCodexOauthActive(false);
-      return;
-    }
-    auth
-      .oauthStatus("openai")
-      .then((s) => {
-        if (!cancelled) setCodexOauthActive(s.configured);
-      })
-      .catch(() => {
-        if (!cancelled) setCodexOauthActive(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [provider]);
-
-  // The last fetched list for this provider, remembered across restarts.
-  useEffect(() => {
-    const cached = readFetchedModels(provider);
-    setFetched(cached?.models ?? []);
-    setFetchedAt(cached?.at ?? null);
-    setError(null);
-  }, [provider, kind]);
+  const codexOauthActive = useCodexOauthActive(provider);
+  const { models: fetched } = useFetchedModels(provider);
 
   const modelMap =
     kind === "agent" ? settings.agentModels : settings.writingModels;
@@ -110,26 +119,7 @@ function ProviderModelSection({
     }
   }, [codexOauthActive, current, kind, provider, setCurrent]);
 
-  async function fetchModels() {
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await ai.fetchAgentModels(provider);
-      setFetched(list);
-      setFetchedAt(Date.now());
-      writeFetchedModels(provider, list);
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const useCodexPresets = provider === "openai" && codexOauthActive;
-  const canFetch =
-    provider !== "custom" &&
-    !useCodexPresets &&
-    (entry?.modelsListable ?? true);
   const knownAndFetched = [
     ...(entry?.knownModels ?? []),
     ...orderForPicker(
@@ -145,7 +135,8 @@ function ProviderModelSection({
     knownAndFetched.push(current);
   }
   // "gpt-6-luna · vision · tools · 400K", "(deprecated)" - from the bundled
-  // models.dev snapshot, so a long fetched list can be chosen from.
+  // models.dev snapshot, so a long fetched list can be chosen from. This is
+  // also where what a model can do is shown: vision, tools, context.
   const describe = (id: string) => {
     const info = modelInfo(provider, id);
     if (!info) return id;
@@ -184,99 +175,102 @@ function ProviderModelSection({
           .filter((m) => m !== defaultModel)
           .map((m) => ({ value: m, label: describe(m) })),
       ];
+  const label = kind === "agent" ? t.agentModelLabel : t.writingModelLabel;
 
   return (
-    <div className="settings-field settings-field-stacked">
-      <div>
-        <div className="settings-row-label">
-          {kind === "agent" ? t.agentModelLabel : t.writingModelLabel}
-        </div>
-        <div className="settings-row-hint">
-          {kind === "agent" ? t.agentModelHint : t.writingModelHint}
-        </div>
-      </div>
-      {error && <div className="settings-error">{error}</div>}
-      {currentMissing && (
-        <div className="settings-error">{t.modelMissingHint}</div>
+    <SettingRow
+      label={label}
+      error={currentMissing ? t.modelMissingHint : null}
+    >
+      {presetOptions.length > 0 ? (
+        <Select
+          className="settings-select settings-model-select"
+          aria-label={label}
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+        >
+          {presetOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <input
+          type="text"
+          className="settings-text-input"
+          aria-label={label}
+          placeholder={t.customModelPlaceholder}
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+        />
       )}
-      <div className="custom-model-row">
-        {presetOptions.length > 0 ? (
-          <Select
-            className="settings-select"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-          >
-            {presetOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <input
-            type="text"
-            className="settings-text-input"
-            placeholder={t.customModelPlaceholder}
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-          />
-        )}
-        {canFetch && (
-          <button
-            className="text-button settings-inline-button"
-            onClick={fetchModels}
-            disabled={loading}
-          >
-            {t.customFetchModels}
-          </button>
-        )}
-      </div>
-      {canFetch && (
-        <div className="settings-row-hint">
-          {fetchedAt
-            ? t.modelFetchedAt.replace(
-                "{date}",
-                new Date(fetchedAt).toLocaleDateString(),
-              )
-            : t.modelFetchHint}
-        </div>
-      )}
-    </div>
+    </SettingRow>
   );
 }
 
 export function WritingModelSection({ t }: { t: Strings }) {
-  return <ProviderModelSection t={t} kind="writing" />;
+  return <ProviderModelRow t={t} kind="writing" />;
 }
 
 export function AgentModelSection({ t }: { t: Strings }) {
-  return <ProviderModelSection t={t} kind="agent" />;
+  return <ProviderModelRow t={t} kind="agent" />;
 }
 
-export function AgentCapabilitySection({ t }: { t: Strings }) {
+/// One fetch for both pickers: the provider's live model list, added on
+/// top of the catalog's known models. Absent where listing can't work - a
+/// custom endpoint, the ChatGPT login, or a provider the catalog marks
+/// unlistable.
+export function ModelListRow({ t }: { t: Strings }) {
   const { settings } = useSettings();
-  const provider = useActiveProvider();
+  const provider = settings.aiProvider;
+  const codexOauthActive = useCodexOauthActive(provider);
+  const entry = useActiveProvider();
+  const { at } = useFetchedModels(provider);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const canFetch =
+    provider !== "custom" &&
+    !(provider === "openai" && codexOauthActive) &&
+    (entry?.modelsListable ?? true);
+  if (!canFetch) return null;
+
+  async function fetchModels() {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await ai.fetchAgentModels(provider);
+      writeFetchedModels(provider, list);
+      window.dispatchEvent(new Event(MODELS_FETCHED_EVENT));
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div
-      className="settings-capabilities"
-      aria-label={t.agentCapabilitiesLabel}
+    <SettingRow
+      label={t.modelListLabel}
+      hint={
+        at
+          ? t.modelFetchedAt.replace(
+              "{date}",
+              new Date(at).toLocaleDateString(),
+            )
+          : undefined
+      }
+      error={error}
     >
-      <div className="settings-row-label">{t.agentCapabilitiesLabel}</div>
-      <div className="settings-capability-list">
-        <span>{t.agentCapabilityConversation}</span>
-        <span>{t.agentCapabilityDocumentTools}</span>
-        <span className={provider?.supportsVision === false ? "is-muted" : ""}>
-          {provider?.supportsVision === false
-            ? t.agentCapabilityImagesUnavailable
-            : t.agentCapabilityImages}
-        </span>
-        <span className={!settings.enableWebSearch ? "is-muted" : ""}>
-          {settings.enableWebSearch
-            ? t.agentCapabilityWebOn
-            : t.agentCapabilityWebOff}
-        </span>
-      </div>
-    </div>
+      <button
+        className="text-button settings-inline-button"
+        onClick={fetchModels}
+        disabled={loading}
+      >
+        {t.customFetchModels}
+      </button>
+    </SettingRow>
   );
 }
 
@@ -297,21 +291,14 @@ export function AgentWorkspaceSection({ t }: { t: Strings }) {
   }
 
   return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{t.agentWorkspaceLabel}</div>
-        <div className="settings-row-hint settings-workspace-hint">
-          {t.agentWorkspaceHint}
-        </div>
-        {error && <div className="settings-error">{error}</div>}
-      </div>
+    <SettingRow label={t.agentWorkspaceLabel} error={error}>
       <button
         className="text-button settings-inline-button"
         onClick={openFolder}
       >
         {t.agentWorkspaceOpenButton}
       </button>
-    </div>
+    </SettingRow>
   );
 }
 
@@ -338,25 +325,15 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
     }
   }
 
+  // The one row here that keeps a line of explanation: which folder the
+  // agent can read is not something the label alone can say.
   return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{t.agentWorkspaceRootLabel}</div>
-        <div className="settings-row-hint settings-workspace-hint">
-          {t.agentWorkspaceRootHint}
-        </div>
-        <div className="settings-workspace-root" title={root || undefined}>
-          {root || t.agentWorkspaceRootDefault}
-        </div>
-        {error && <div className="settings-error">{error}</div>}
-      </div>
+    <SettingRow
+      label={t.agentWorkspaceRootLabel}
+      hint={root || t.agentWorkspaceRootDefault}
+      error={error}
+    >
       <div className="settings-inline-buttons">
-        <button
-          className="text-button settings-inline-button"
-          onClick={pickRoot}
-        >
-          {t.agentWorkspaceRootPick}
-        </button>
         {root && (
           <button
             className="text-button settings-inline-button"
@@ -365,8 +342,14 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
             {t.agentWorkspaceRootReset}
           </button>
         )}
+        <button
+          className="text-button settings-inline-button"
+          onClick={pickRoot}
+        >
+          {t.agentWorkspaceRootPick}
+        </button>
       </div>
-    </div>
+    </SettingRow>
   );
 }
 
@@ -399,21 +382,14 @@ export function AgentSystemPromptSection({
   }
 
   return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{t.agentSystemPromptLabel}</div>
-        <div className="settings-row-hint settings-workspace-hint">
-          {t.agentSystemPromptHint}
-        </div>
-        {error && <div className="settings-error">{error}</div>}
-      </div>
+    <SettingRow label={t.agentSystemPromptLabel} error={error}>
       <button
         className="text-button settings-inline-button"
         onClick={editAgentMd}
       >
         {t.agentSystemPromptEdit}
       </button>
-    </div>
+    </SettingRow>
   );
 }
 
@@ -443,24 +419,19 @@ export function AgentSkillsSection({ t }: { t: Strings }) {
 
   return (
     <>
-      <div className="settings-row">
-        <div>
-          <div className="settings-row-label">{t.agentSkillsLabel}</div>
-          <div className="settings-row-hint settings-workspace-hint">
-            {t.agentSkillsHint}
-          </div>
-          {error && <div className="settings-error">{error}</div>}
-        </div>
+      <SettingRow
+        label={t.agentSkillsLabel}
+        hint={skills.length === 0 ? t.agentSkillsEmpty : undefined}
+        error={error}
+      >
         <button
           className="text-button settings-inline-button"
           onClick={importSkill}
         >
           {t.agentSkillsImport}
         </button>
-      </div>
-      {skills.length === 0 ? (
-        <div className="settings-row-hint">{t.agentSkillsEmpty}</div>
-      ) : (
+      </SettingRow>
+      {skills.length > 0 && (
         <div className="settings-skill-list">
           {skills.map((skill) => (
             <div key={skill.name} className="settings-skill-item">

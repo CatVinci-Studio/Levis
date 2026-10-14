@@ -81,7 +81,7 @@ CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，�
 - **手机形态的开关：** `mobile/usePhoneLayout.ts`（iOS 且宽度 ≤ 760px）。iPad 宽屏保持桌面的弹出菜单和对话框。
 - **选择框：** `ui/Select.tsx` 在 iOS 上是原生 `<select>`（透明地盖在同样外观的按钮上），点开就是系统的选择器。
 - **操作表：** `mobile/ActionSheet.tsx`，UIKit 式的底部操作列表，"取消"单独一块。`ContextMenu` 在手机宽度下自动渲染成它，所以文件长按、文档"⋯"、项目文件夹菜单、"保存更改？"都是操作表。
-- **菜单：** 标题栏左侧的按钮打开 `buildMobileMenu`（`ui/app-menu-model.ts`）：一列平铺，没有子菜单。iOS 没有 `menu.rs`，所以 `emitMenuEvent`（`ui/app-menu-actions.ts`）把菜单 id 转成 `useMenuBridge` 监听的同名事件发给本窗口。目标必须写成 `WebviewWindow`：只写标签会变成 `AnyLabel`，而 iOS 上窗口和 webview 都叫 main，事件会到两次，开关类操作互相抵消。
+- **菜单：** 标题栏左侧的按钮打开 `buildMobileMenu`（`ui/app-menu-model.ts`）：一列平铺，只有文档操作、查找替换、侧边栏和设置；源码、打字机、禅模式和两个帮助在设置里（编辑与外观 › 视图、通用 › 帮助），通过和菜单项相同的事件切换。iOS 没有 `menu.rs`，所以 `emitMenuEvent`（`ui/app-menu-actions.ts`）把菜单 id 转成 `useMenuBridge` 监听的同名事件发给本窗口。目标必须写成 `WebviewWindow`：只写标签会变成 `AnyLabel`，而 iOS 上窗口和 webview 都叫 main，事件会到两次，开关类操作互相抵消。
 - **键盘：** `KeyboardFit.swift`（同在 levis-files 插件里，由插件的 `load(webview:)` 启动）在键盘弹出时把 webview 缩短到键盘上方，并关闭 webview 自身的滚动和回弹；否则 WebKit 会把整页往上推，标题栏被顶出屏幕。页面的静止位置不是 0，而是负的顶部安全区高度（`pinToTop`）；从别的 App 切回来时也会重新校正，否则标题栏和正文会落到状态栏下面。`platform/mobile-viewport.ts` 只设置 `maximum-scale=1`，防止聚焦输入框时页面被放大。
 - **存与开：** 新文档"保存"直接写进 Documents，文件名用建议名，重名时加序号（`newDocumentPath`）。文件树没有打开文档时显示 Documents，不提供"上一级"。"新建文件"在 iOS 上新增一个标签（没有窗口可开）。上次打开的文档记在 localStorage，Documents 内的按相对路径记，因为重装和 App Store 更新都会改变容器路径。
 - **文档列表：** 菜单最上面的"文档"打开 `mobile/DocumentList.tsx`：打开过的文档按时间列出（`recentIOSDocuments`，最多 30 个，存在 localStorage，Documents 内按相对路径记；第一个就是启动时重新打开的那个）。点一下打开；"⋯"或长按弹出操作：打开、分享、重命名、删除。Levis 文件夹里的文档由 Rust 的 `rename_entry` / `delete_entry`（`commands/documents.rs`，只在 iOS 注册，路径必须在 Documents 之内）处理；从"文件"里单独选的文档只授权了文件本身、没有授权所在文件夹，所以只能打开、分享、从列表移除。重命名后已打开的标签跟着换路径；删除后标签保留内容、变成未保存。
@@ -92,7 +92,7 @@ CI 里的 `ios` job（`.github/workflows/ci.yml`）跑在 `macos-latest` 上，�
 - **AI 底部面板：** 手机宽度下 Levis AI 是底部面板，默认占约 55% 高度，文档仍在上方可见；顶部的拖动条（`AgentPanelSheetGrip`）点一下在半屏和全屏之间切换，往上拖展开，往下拖收起或关闭。iPad 宽屏仍是右侧一栏。
 - **快速提问：** 手机宽度下不放进文档（文档里的那块会被键盘挡住，web view 又不能滚），而是停靠在屏幕底部、键盘正上方（`InlineChat` 的 `docked`，样式在 `mobile/styles/quick-ask-dock.css`）：最上面一行引用选中的文字（没有选中时显示"在光标处"），旁边是新对话、转到大对话、关闭（都是 44pt）；中间是回复和采纳/拒绝，最高约 40% 屏幕，可以滚动；最下面是输入框。修改预览仍画在文档里，`mobile/quick-ask-dock.ts` 让文档滚到面板上方。面板打开时键盘工具栏隐藏，由面板占据键盘上方的位置。
 - **AI 输入框：** 快速提问和底部面板共用 `ChatComposer`：手机上"询问/编辑/计划"是分段控件，按钮都是 44pt，`/` 技能和 `@` 文件的候选行在 touchend 选中（`mobile/tap.ts`，不抢输入框焦点），点按后不留 :hover（`mobile/styles/composer.css`）。
-- **设置：** 手机宽度下是仿照系统"设置"App 的全屏页面（`settings/PhoneSettings.tsx`），不是居中的对话框：顶部是自己的导航栏（`mobile/PhoneNavBar.tsx`，标题居中，右侧"完成"关闭）；首页是分组列表，点一项推入该分类的页面，左上角"‹ 设置"返回，Escape 也是先返回再关闭。各分类页里的设置行和桌面共用（`SettingsPanel` 的 `renderCategory`），只由 `mobile/styles/settings.css` 改成 iOS 分组列表的样子：44pt 行、51×31 的开关、选择框显示为右侧的灰色值，整行都能点开系统选择器。"服务商"列表在手机上是推入的整页（`providers.tsx` 的 `combobox-page`），搜索框不自动聚焦。手机上不显示"快捷键"设置页。iPad 宽屏仍是桌面的对话框。
+- **设置：** 和桌面是同一个面板（`settings/SettingsPanel.tsx`），没有单独的手机版页面。每一行都是"名称 + 控件"（`sections/controls.tsx` 的 `SettingRow`），说明文字只留给少数确实需要的行。手机宽度下面板铺满屏幕，分类变成顶部可横向滑动的标签，右上角是"完成"；只改尺寸和布局的样式在 `mobile/styles/settings.css`。手机上不显示"快捷键"分类。
 - **AI 补全：** 手机没有 Tab 键，点灰色建议即可采纳（`ghost-text-plugin.ts` 的 `touchend`），设置里的说明文字随之改为"轻点采纳"。
 - **首次启动：** 选完语言后不自动进入教程（教程靠键盘快捷键讲解）。
 - **测试：** `e2e/phone.spec.ts` 用 Chromium 的手机视口和触摸模拟检查抽屉、全屏 AI 面板和点按采纳；真正的 iOS WebKit 行为（键盘、字体、选文件）在模拟器里用 idb 手动检查过。

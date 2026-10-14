@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSettings } from "../settings/SettingsContext";
 import { menuIpc } from "../ipc";
 import { formatCombo } from "../utils/shortcuts";
@@ -71,8 +72,12 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
     };
   }, []);
 
-  return (
-    <div ref={ref} className="app-menu" style={pos}>
+  // On <body>, not inside the title row that opens it: the row is a fixed
+  // layer of its own (z-index 45), so a menu inside it could never rise
+  // above the find bar (300) however high its own z-index was set - the
+  // find bar covered its first rows on the phone and on Windows.
+  return createPortal(
+    <div ref={ref} className="app-menu" style={pos} data-floating-menu="">
       <MenuList
         items={
           hasAppMenu
@@ -84,7 +89,8 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
         // a phone the first row would only sit there looking selected.
         autoFocus={!phone}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }
 

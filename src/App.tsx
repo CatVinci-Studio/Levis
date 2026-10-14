@@ -124,7 +124,17 @@ function App() {
   // the frame; the active tab's editor renders its conversation into it.
   const agentPanel = useAgentPanelState();
   const [agentPanelEl, setAgentPanelEl] = useState<HTMLElement | null>(null);
-  const toggleAgentPanel = agentPanel.toggle;
+  // On a phone, opening the sheet puts the keyboard away in one movement:
+  // the document gives up focus here and the sheet's input doesn't take it
+  // (ChatComposer's focusOnOpen), where handing focus from one to the other
+  // dropped the keyboard and raised it again.
+  const toggleAgentPanel = useCallback(() => {
+    if (isIOSApp && !agentPanel.open) {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    agentPanel.toggle();
+  }, [agentPanel]);
   // iPhone: whether the AI bottom sheet is pulled up to full height.
   const [sheetFull, setSheetFull] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
@@ -1136,6 +1146,10 @@ function App() {
           <SettingsPanel
             onClose={() => setSettingsOpen(false)}
             onOpenFile={(path) => void openFile(path)}
+            viewChecks={{
+              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+              zen: zenMode,
+            }}
           />
         )}
 

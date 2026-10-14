@@ -11,13 +11,10 @@ import {
 import { ChevronIcon } from "../../ui/icons";
 import { auth, type CustomEndpointConfig } from "../../ipc";
 import { Select } from "../../ui/Select";
-import { usePhoneLayout } from "../../mobile/usePhoneLayout";
-import { PhoneNavBar } from "../../mobile/PhoneNavBar";
+import { isIOSApp } from "../../platform/capabilities";
 
 // General > AI Login Settings: two compact disclosure rows (provider, then
-// credentials) plus the per-provider account/API-key/custom panels. On an
-// iPhone the provider list is a page pushed over Settings rather than a
-// popover under its row (mobile/styles/settings.css).
+// credentials) plus the per-provider account/API-key/custom panels.
 
 function localizedLabel(entry: ProviderCatalogEntry, t: Strings): string {
   return entry.id === "custom" ? t.providerCustom : entry.label;
@@ -60,7 +57,6 @@ export function ProviderListPanel({ t }: { t: Strings }) {
   const popoverId = useId();
   const [authOpen, setAuthOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const phone = usePhoneLayout();
   const popoverRef = useCloseOnOutsideClick<HTMLDivElement>(
     () => setOpen(false),
     true,
@@ -102,13 +98,6 @@ export function ProviderListPanel({ t }: { t: Strings }) {
           ? t.accountNotConnected
           : t.providerNotConfigured;
 
-  function closeList() {
-    setOpen(false);
-    popoverRef.current
-      ?.querySelector<HTMLButtonElement>(".combobox-trigger")
-      ?.focus();
-  }
-
   function selectProvider(id: AiProvider) {
     setSettings({ aiProvider: id });
     setOpen(false);
@@ -133,7 +122,10 @@ export function ProviderListPanel({ t }: { t: Strings }) {
           ) {
             event.preventDefault();
             event.stopPropagation();
-            closeList();
+            setOpen(false);
+            popoverRef.current
+              ?.querySelector<HTMLButtonElement>(".combobox-trigger")
+              ?.focus();
           }
         }}
       >
@@ -154,16 +146,7 @@ export function ProviderListPanel({ t }: { t: Strings }) {
           <ChevronIcon className="combobox-caret" />
         </button>
         {open && (
-          <div
-            className={`combobox-popover${phone ? " combobox-page" : ""}`}
-            id={popoverId}
-          >
-            {phone && (
-              <PhoneNavBar
-                title={t.providerDropdownLabel}
-                back={{ label: t.navAi, onTap: closeList }}
-              />
-            )}
+          <div className="combobox-popover" id={popoverId}>
             <input
               type="text"
               className="combobox-search"
@@ -173,7 +156,7 @@ export function ProviderListPanel({ t }: { t: Strings }) {
               onChange={(e) => setQuery(e.target.value)}
               // On a phone the keyboard would rise over half the list the
               // moment it opened; the field is there for when it's wanted.
-              autoFocus={!phone}
+              autoFocus={!isIOSApp}
             />
             <div className="combobox-list">
               {filtered.length === 0 && (

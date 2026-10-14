@@ -7,6 +7,7 @@ import type { Strings } from "../../i18n/strings";
 import { cli } from "../../ipc";
 import { selfUpdateAllowed } from "../../utils/distribution";
 import { canAutoUpdate } from "../../platform/capabilities";
+import { SettingRow } from "./controls";
 
 // The General category's sections beyond plain settings rows.
 
@@ -70,44 +71,33 @@ export function UpdateSection({ t }: { t: Strings }) {
   }
 
   return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">
-          {t.updateVersionLabel} {version && `v${version}`}
-        </div>
-        {message && (
-          <div
-            className={
-              phase === "error" ? "settings-error" : "settings-row-hint"
-            }
-          >
-            {message}
-          </div>
-        )}
-      </div>
+    <SettingRow
+      label={
+        version ? `${t.updateVersionLabel} v${version}` : t.updateVersionLabel
+      }
+      hint={phase === "error" ? undefined : message || undefined}
+      error={phase === "error" ? message : null}
+    >
       {/* No updater on iOS (App Store updates): the version alone. */}
-      {canAutoUpdate && (
-        <div className="shortcut-row-controls">
-          {selfUpdate && (phase === "available" || phase === "downloading") ? (
-            <button
-              className="text-button settings-inline-button"
-              onClick={install}
-              disabled={phase === "downloading"}
-            >
-              {t.updateInstall}
-            </button>
-          ) : (
-            <button
-              className="text-button settings-inline-button"
-              onClick={checkNow}
-              disabled={phase === "checking"}
-            >
-              {phase === "checking" ? t.updateChecking : t.updateCheckButton}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+      {canAutoUpdate &&
+        (selfUpdate && (phase === "available" || phase === "downloading") ? (
+          <button
+            className="text-button settings-inline-button"
+            onClick={install}
+            disabled={phase === "downloading"}
+          >
+            {t.updateInstall}
+          </button>
+        ) : (
+          <button
+            className="text-button settings-inline-button"
+            onClick={checkNow}
+            disabled={phase === "checking"}
+          >
+            {phase === "checking" ? t.updateChecking : t.updateCheckButton}
+          </button>
+        ))}
+    </SettingRow>
   );
 }
 
@@ -140,34 +130,27 @@ export function CliCommandSection({ t }: { t: Strings }) {
   }
 
   return (
-    <div className="settings-row">
-      <div>
-        <div className="settings-row-label">{t.cliCommandLabel}</div>
-        <div className="settings-row-hint">{t.cliCommandHint}</div>
-        {error && (
-          <div className="settings-error">
-            {t.cliCommandFailed} {error}
-          </div>
-        )}
-      </div>
-      <div className="shortcut-row-controls">
-        {!error && (
-          <span className="settings-row-hint">
-            {installed ? t.cliCommandInstalled : t.cliCommandNotInstalled}
-          </span>
-        )}
-        <button
-          className="text-button settings-inline-button"
-          onClick={install}
-          disabled={phase === "installing"}
-        >
-          {phase === "installing"
-            ? t.cliCommandInstalling
-            : installed
-              ? t.cliCommandReinstallButton
-              : t.cliCommandInstallButton}
-        </button>
-      </div>
-    </div>
+    <SettingRow
+      label={t.cliCommandLabel}
+      hint={t.cliCommandHint}
+      error={error && `${t.cliCommandFailed} ${error}`}
+    >
+      {!error && (
+        <span className="settings-row-value">
+          {installed ? t.cliCommandInstalled : t.cliCommandNotInstalled}
+        </span>
+      )}
+      <button
+        className="text-button settings-inline-button"
+        onClick={install}
+        disabled={phase === "installing"}
+      >
+        {phase === "installing"
+          ? t.cliCommandInstalling
+          : installed
+            ? t.cliCommandReinstallButton
+            : t.cliCommandInstallButton}
+      </button>
+    </SettingRow>
   );
 }
