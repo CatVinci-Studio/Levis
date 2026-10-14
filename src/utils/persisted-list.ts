@@ -37,10 +37,13 @@ export function createPersistedList<T>(
   const listeners = new Set<() => void>();
   let entries: T[] = [];
   let started = false;
-  /** File mode: operations since the last list request went out, replayed
-   *  onto its answer - which may predate them. All three are idempotent, so
-   *  one that IS already in the answer comes out the same. */
-  let sinceRequest: Op<T>[] | null = null;
+  /** File mode: the latest list request, with the operations made since it
+   *  went out, replayed onto its answer - which may predate them. All three
+   *  are idempotent, so one that IS already in the answer comes out the
+   *  same. A newer request (a "reload" while the first load is still on its
+   *  way) supersedes an older one, whose answer is then dropped: replaying
+   *  onto it would use up operations the newer answer may still lack. */
+  let request: { ops: Op<T>[] } | null = null;
 
   function tidy(list: unknown[]): T[] {
     const valid = list.filter(options.isEntry);
@@ -71,18 +74,20 @@ export function createPersistedList<T>(
   }
 
   function fetchList() {
-    sinceRequest = [];
+    const mine: { ops: Op<T>[] } = { ops: [] };
+    request = mine;
     void legacyImportSettled()
       .then(() => storage.historyList(options.kind))
       .then((list) => {
+        if (request !== mine) return;
         let next = tidy(Array.isArray(list) ? list : []);
-        for (const op of sinceRequest ?? []) next = apply(next, op);
-        sinceRequest = null;
+        for (const op of mine.ops) next = apply(next, op);
+        request = null;
         entries = next;
         notify();
       })
       .catch(() => {
-        sinceRequest = null;
+        if (request === mine) request = null;
       });
   }
 
@@ -107,7 +112,7 @@ export function createPersistedList<T>(
       if (op.type === "reload") return fetchList();
       // This window's own change, already applied when it was made.
       if (from === boot.label) return;
-      sinceRequest?.push(op);
+      request?.ops.push(op);
       entries = apply(entries, op);
       notify();
     });
@@ -119,7 +124,7 @@ export function createPersistedList<T>(
     start();
     entries = apply(entries, op);
     if (readBoot()) {
-      sinceRequest?.push(op);
+      request?.ops.push(op);
       const sent =
         op.type === "upsert"
           ? storage.historyUpsert(options.kind, op.entry)

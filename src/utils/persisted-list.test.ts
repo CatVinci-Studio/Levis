@@ -120,6 +120,28 @@ describe("with Rust (file-backed)", () => {
     expect(list.get().map((e) => e.id)).toEqual(["new", "old"]);
   });
 
+  it("lets a reload that overtakes the first load win, keeping later changes", async () => {
+    const answers: ((list: unknown[]) => void)[] = [];
+    vi.mocked(storage.historyList).mockImplementation(
+      () => new Promise((resolve) => answers.push(resolve)),
+    );
+    const list = makeList();
+    list.get();
+    await flush();
+    // The import landed while the first load was on its way.
+    handlers["history-changed"]({
+      payload: { kind: "chat", op: { type: "reload" }, from: "" },
+    });
+    await flush();
+    list.upsert({ id: "new", at: 5 });
+    // The first answer is out of date; the second predates the upsert.
+    answers[0]([{ id: "stale", at: 1 }]);
+    await flush();
+    answers[1]([{ id: "imported", at: 1 }]);
+    await flush();
+    expect(list.get().map((e) => e.id)).toEqual(["new", "imported"]);
+  });
+
   it("applies other windows' changes and skips its own", async () => {
     vi.mocked(storage.historyList).mockResolvedValue([]);
     const list = makeList();
