@@ -13,23 +13,14 @@
    Margins still collapse between siblings, so two boxed blocks in a row
    are --md-gap-box apart, not double.
 
-   The type size follows the column: the classic 16.5px at the 760px
-   standard measure, growing to 18px as the adaptive column widens
-   (App.css --content-width), so a wide column doesn't read as small
-   print. cqi is the column's zoomed width, hence the divide. */
+   The document's face, size, leading and colour are look, not function:
+   they live in content-base.css's layer, where a theme or the user's CSS
+   can set them. */
 .milkdown {
   --md-gap: 0.8em;
   --md-gap-box: 1.1em;
   --md-radius: 8px;
   --md-radius-sm: 4px;
-  font-family: var(--editor-font, var(--font-sans));
-  font-size: clamp(
-    16.5px,
-    calc(12.94px + 0.46875cqi / var(--content-zoom, 1)),
-    18px
-  );
-  line-height: 1.8;
-  color: var(--editor-text);
 }
 
 .milkdown .ProseMirror {
@@ -480,32 +471,10 @@
 }
 
 /* md_span covers bold/italic/bold+italic/strikethrough/highlight - all real,
-   always-editable nodes (see md-span-schema.ts). The styling here always
-   applies regardless of cursor position; only the delimiter reveal below is
+   always-editable nodes (see md-span-schema.ts). How they look (weight,
+   slant, strike, highlight) is in content-base.css's layer, so a theme's
+   or the user's plain `strong {}` wins; only the delimiter reveal below is
    cursor-dependent. */
-.md-span[data-delim="*"][data-rung="1"] {
-  font-style: italic;
-}
-
-.md-span[data-delim="*"][data-rung="2"] {
-  font-weight: 600;
-}
-
-.md-span[data-delim="*"][data-rung="3"] {
-  font-weight: 600;
-  font-style: italic;
-}
-
-.md-span[data-delim="~"] {
-  text-decoration: line-through;
-  opacity: 0.75;
-}
-
-.md-span[data-delim="="] {
-  background: var(--editor-highlight-bg);
-  border-radius: var(--md-radius-sm);
-  padding: 0 0.15em;
-}
 
 /* No border/box here on purpose - at rest a formula should read as part of
    the document, not as a distinct UI card. The panel look only appears
@@ -701,6 +670,25 @@
   --md-alert-important: #ab7df8;
   --md-alert-warning: #d29922;
   --md-alert-caution: #f85149;
+}
+
+/* A one-design imported theme keeps its light page in the dark appearance
+   (SettingsContext sets data-light-page): the dark tokens above would be
+   pale on that white page. */
+:root[data-light-page] {
+  --token-string: #5f8b4c;
+  --token-number: #b0742d;
+  --token-keyword: #a15bbf;
+  --token-function: #3a6bd6;
+  --token-tag: #c1495a;
+}
+
+:root[data-light-page] .milkdown {
+  --md-alert-note: #0969da;
+  --md-alert-tip: #1a7f37;
+  --md-alert-important: #8250df;
+  --md-alert-warning: #9a6700;
+  --md-alert-caution: #cf222e;
 }
 
 /* List markers are drawn as an out-of-flow ::before instead of the native
@@ -939,11 +927,10 @@
 
 /* Zen mode's focus (zen-focus-plugin.ts): everything but the block being
    written recedes. It changes only when the caret changes block, never per
-   keystroke. */
-.zen .milkdown .ProseMirror > * {
-  transition: opacity var(--dur-base) var(--ease-standard);
-}
-
-.zen .milkdown .ProseMirror > :not(.zen-current) {
+   keystroke. Only once there is a current block: with the caret outside
+   the text, every paragraph at a third read as broken. The fade itself is
+   in content-base.css's layer, outside .zen so leaving zen fades back too,
+   and below a theme's own transitions. */
+.zen .milkdown .ProseMirror:has(> .zen-current) > :not(.zen-current) {
   opacity: 0.32;
 }

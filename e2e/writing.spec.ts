@@ -184,8 +184,9 @@ test("a broken diagram leaves no mermaid node in the page", async ({
   expect(
     await page.evaluate(
       () =>
-        [...document.body.children].filter((el) => /mermaid/.test(el.id || ""))
-          .length,
+        Array.from(document.body.children).filter((el) =>
+          /mermaid/.test(el.id || ""),
+        ).length,
     ),
   ).toBe(0);
 });

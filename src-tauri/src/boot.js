@@ -47,6 +47,20 @@ window.__levisBoot = function (boot, themeCss) {
     else if (themeCss) root.setAttribute("data-user-theme", "");
   }
 
+  function promote(rules) {
+    for (var i = 0; i < rules.length; i++) {
+      var rule = rules[i];
+      var style = rule.style;
+      if (style)
+        for (var j = 0; j < style.length; j++) {
+          var name = style[j];
+          if (name.indexOf("--") === 0 && !style.getPropertyPriority(name))
+            style.setProperty(name, style.getPropertyValue(name), "important");
+        }
+      if (rule.cssRules) promote(rule.cssRules);
+    }
+  }
+
   function addStyle(id, css) {
     var style = document.createElement("style");
     style.id = id;
@@ -73,6 +87,10 @@ window.__levisBoot = function (boot, themeCss) {
     if (themeCss) {
       var dark = effectiveDark();
       var source = dark && themeCss.dark ? themeCss.dark : themeCss.light;
+      // A one-design theme keeps its light page in the dark appearance
+      // (applyUserTheme() in SettingsContext.tsx).
+      if (dark && !themeCss.dark)
+        document.documentElement.setAttribute("data-light-page", "");
       // adaptTyporaCss() in src/settings/typora-compat.ts.
       var css = source.replace(
         /\bthead\b(?:\s*>?\s*tr\b)?/g,
@@ -96,8 +114,13 @@ window.__levisBoot = function (boot, themeCss) {
       )
         addStyle("levis-imported-chrome", chrome.css);
     }
-    if (settings.customCss && String(settings.customCss).trim())
+    if (settings.customCss && String(settings.customCss).trim()) {
       addStyle("levis-user-css", String(settings.customCss));
+      // promoteCustomProperties() in SettingsContext.tsx: the user's `--*`
+      // beat the imported chrome's !important ones.
+      var userSheet = document.getElementById("levis-user-css").sheet;
+      if (userSheet) promote(userSheet.cssRules);
+    }
   }
 
   try {

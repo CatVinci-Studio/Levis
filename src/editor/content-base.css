@@ -19,6 +19,62 @@
    data-user-theme while an imported theme is active. */
 
 @layer levis-content {
+  /* The document's type. The size follows the column: the classic 16.5px
+     at the 760px standard measure, growing to 18px as the adaptive column
+     widens (App.css --content-width), so a wide column doesn't read as
+     small print. cqi is the column's zoomed width, hence the divide; rem,
+     so an `html { font-size }` scales it. The face is the one the page
+     inherits (:root's --font-sans) unless a theme names --editor-font, so
+     a `body { font-family }` in Custom CSS reaches the document too. */
+  .milkdown {
+    font-family: var(--editor-font, inherit);
+    font-size: clamp(
+      1.03125rem,
+      calc(0.80875rem + 0.46875cqi / var(--content-zoom, 1)),
+      1.125rem
+    );
+    line-height: 1.8;
+    color: var(--editor-text);
+  }
+
+  /* An imported Typora theme sets the type on body or html; let it reach
+     the document instead of Levis's own. */
+  :root[data-user-theme] .milkdown {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  /* Zen's focus fade (milkdown-theme.css), both ways. Layered, so a
+     theme's own `p { transition }` is left as the theme wrote it. */
+  .milkdown .ProseMirror > * {
+    transition: opacity var(--dur-base) var(--ease-standard);
+  }
+
+  .md-span[data-delim="*"][data-rung="1"] {
+    font-style: italic;
+  }
+
+  .md-span[data-delim="*"][data-rung="2"] {
+    font-weight: 600;
+  }
+
+  .md-span[data-delim="*"][data-rung="3"] {
+    font-weight: 600;
+    font-style: italic;
+  }
+
+  .md-span[data-delim="~"] {
+    text-decoration: line-through;
+    opacity: 0.75;
+  }
+
+  .md-span[data-delim="="] {
+    background: var(--editor-highlight-bg);
+    border-radius: var(--md-radius-sm);
+    padding: 0 0.15em;
+  }
+
   .milkdown h1,
   .milkdown h2,
   .milkdown h3,
@@ -71,7 +127,6 @@
     margin: var(--md-gap-box) 0;
     padding: 0 1em;
     border-left: 4px solid var(--editor-border);
-    color: var(--editor-muted);
   }
 
   .milkdown a {
@@ -224,19 +279,27 @@
   }
 
   :root:not([data-user-theme]) .milkdown blockquote {
+    color: var(--editor-muted);
     padding: 0.55em 1em;
     border-left: 3px solid var(--editor-quote-border);
     border-radius: 0 var(--md-radius) var(--md-radius) 0;
     background: var(--editor-code-bg);
   }
 
+  /* A quiet underline, not bold: a bold link read as bold text. */
   :root:not([data-user-theme]) .milkdown a {
-    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--editor-accent) 45%,
+      transparent
+    );
+    text-underline-offset: 0.2em;
   }
 
-  :root:not([data-user-theme]) .milkdown hr {
-    border-top: 2px solid var(--editor-accent);
-    opacity: 0.6;
+  :root:not([data-user-theme]) .milkdown a:hover {
+    text-decoration-color: currentColor;
   }
 
   :root:not([data-user-theme]) .milkdown table {

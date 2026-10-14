@@ -41,6 +41,10 @@ export async function openApp(
   await page.emulateMedia({ colorScheme: options.colorScheme ?? "light" });
   await page.addInitScript(
     ({ settings, storage }) => {
+      // Not in the iframe applyThemeChrome samples an imported theme in:
+      // rewriting the settings there fires a storage event in the page,
+      // and the theme it just imported reverted.
+      if (window.top !== window) return;
       localStorage.setItem(
         "catvinci-settings",
         JSON.stringify({

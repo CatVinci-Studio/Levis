@@ -587,6 +587,28 @@ function rememberThemeChrome(chrome: ThemeChromeCache) {
   setUiState("themeChrome", chrome);
 }
 
+/**
+ * Marks every custom property the user's own CSS sets `!important`. An
+ * imported theme's chrome (theme-chrome.ts) pins the `--editor-*` colours
+ * with !important to beat App.css's dark block, which made a plain
+ * `:root { --editor-bg: ... }` in Custom CSS lose. Custom CSS comes after
+ * the chrome, so at equal weight it now wins again. Only custom
+ * properties: everything else keeps the cascade the user wrote it for.
+ */
+function promoteCustomProperties(rules: CSSRuleList) {
+  for (const rule of Array.from(rules)) {
+    if (rule instanceof CSSStyleRule) {
+      const { style } = rule;
+      for (const name of Array.from(style)) {
+        if (name.startsWith("--") && !style.getPropertyPriority(name))
+          style.setProperty(name, style.getPropertyValue(name), "important");
+      }
+    }
+    if ("cssRules" in rule && rule.cssRules)
+      promoteCustomProperties(rule.cssRules as CSSRuleList);
+  }
+}
+
 /// Optional-called: an environment without matchMedia (jsdom, an odd
 /// webview) must not throw here - `isEffectiveDark` is reachable from
 /// render, and inside `loadSettings` a throw would discard the ENTIRE
@@ -679,6 +701,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     styleEl.textContent = settings.customCss;
     document.head.appendChild(styleEl);
+    if (styleEl.sheet) promoteCustomProperties(styleEl.sheet.cssRules);
   }, [settings.customCss]);
 
   // Resolves the selected theme (built-in content theme, user-imported
@@ -695,6 +718,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     function clearInjectedStyle() {
       document.getElementById(STYLE_ID)?.remove();
       root.removeAttribute("data-user-theme");
+      root.removeAttribute("data-light-page");
       clearThemeChrome();
     }
 
@@ -749,13 +773,30 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const dark = isEffectiveDark(settings.theme);
         let chrome: string | null;
         try {
-          chrome = applyThemeChrome(css ?? "", dark);
+          // A one-design theme is that design's page in both appearances:
+          // its chrome is derived as the light page it was written for.
+          // Derived as dark, a theme that pins its text dark (most light
+          // themes) got a dark page behind it - Pixyll read at 1.3:1 - and
+          // one that styles only some boxes kept their light fills under
+          // the greyed text.
+          chrome = applyThemeChrome(css ?? "", dark && theme.hasDark);
+          // ...and the document's own dark-only colours (syntax tokens,
+          // alert accents, mermaid) stand down on that light page.
+          if (dark && !theme.hasDark) root.setAttribute("data-light-page", "");
+          else root.removeAttribute("data-light-page");
         } finally {
           // The user's own CSS stays after the theme and the chrome derived
           // from it, whenever they load - the order the boot script gives
           // the first frame, and the one an edit to it leaves.
-          const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
-          if (custom) document.head.appendChild(custom);
+          const custom = document.getElementById(
+            CUSTOM_CSS_STYLE_ID,
+          ) as HTMLStyleElement | null;
+          if (custom) {
+            // Moved, a <style> is parsed again from its text: the
+            // promotion has to be redone on the new sheet.
+            document.head.appendChild(custom);
+            if (custom.sheet) promoteCustomProperties(custom.sheet.cssRules);
+          }
         }
         if (typeof chrome === "string")
           rememberThemeChrome({

@@ -59,6 +59,8 @@ export function configureMermaid(
 /** Whether the app is showing its dark appearance: the explicit choice
  *  (data-theme on <html>, set by SettingsContext), else the system's. */
 export function appearanceIsDark(): boolean {
+  // A one-design imported theme shows its light page in either appearance.
+  if (document.documentElement.hasAttribute("data-light-page")) return false;
   const chosen = document.documentElement.getAttribute("data-theme");
   if (chosen === "dark") return true;
   if (chosen === "light") return false;
@@ -309,7 +311,11 @@ export function createMermaidPreviewPlugin(options: {
         const appearance = new MutationObserver(restyle);
         appearance.observe(document.documentElement, {
           attributes: true,
-          attributeFilter: ["data-theme", "data-content-theme"],
+          attributeFilter: [
+            "data-theme",
+            "data-content-theme",
+            "data-light-page",
+          ],
         });
         const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)");
         systemDark?.addEventListener("change", restyle);

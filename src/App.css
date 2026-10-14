@@ -185,6 +185,9 @@
    (context menu, grammar popover, inline chat bar) - kept in one place so
    they don't drift out of visual sync with each other. */
 .floating-surface {
+  /* The app's face, not an imported theme's body font (Newsprint set the
+     context menu in PT Serif). */
+  font-family: var(--font-sans);
   background: var(--bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-surface);

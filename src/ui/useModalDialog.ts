@@ -7,6 +7,10 @@ import { usePresenceState } from "./usePresence";
 const FOCUSABLE =
   ':is(button, input, select, textarea, summary, a[href], [tabindex]):not(:disabled):not([tabindex="-1"]):not([type="hidden"])';
 
+/** The open modal dialogs, innermost last - the one a key that lost its
+ *  target belongs to. */
+const openDialogs: HTMLElement[] = [];
+
 /** Shared focus lifecycle for modal dialogs; callers provide role and label.
  *  `refocusEditorOnPhone: false` leaves the keyboard down on a phone when
  *  the dialog closes, instead of handing the focus back to the editor.
@@ -20,6 +24,10 @@ export function useModalDialog(
   refocusEditorOnPhone = true,
 ) {
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   const phone = usePhoneLayout();
   const presence = usePresenceState();
   const active = enabled && presence === "open";
@@ -50,7 +58,29 @@ export function useModalDialog(
       window.addEventListener("keydown", speak, { capture: true, once: true });
       target.addEventListener("blur", speak, { once: true });
     }
+    // A control that goes away under the focus - Import CSS… disabled
+    // while it reads the file, Delete Theme removed with its theme - drops
+    // the focus to <body>, outside the dialog, where its own Escape and Tab
+    // handling never hear a key again. A key that arrives there belongs to
+    // the innermost open dialog: it takes the focus back, and Escape still
+    // closes it.
+    openDialogs.push(dialog);
+    const strayKey = (event: globalThis.KeyboardEvent) => {
+      if (openDialogs[openDialogs.length - 1] !== dialog) return;
+      const focused = document.activeElement;
+      if (focused && focused !== document.body) return;
+      if (event.isComposing) return;
+      dialog.focus();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener("keydown", strayKey, { capture: true });
     return () => {
+      window.removeEventListener("keydown", strayKey, { capture: true });
+      openDialogs.splice(openDialogs.indexOf(dialog), 1);
       window.removeEventListener("keydown", speak, { capture: true });
       target.removeEventListener("blur", speak);
       speak();
