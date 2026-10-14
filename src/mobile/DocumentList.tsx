@@ -5,6 +5,7 @@ import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
 import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
 import { Presence, usePresenceProps } from "../ui/usePresence";
 import { animate } from "../ui/motion";
+import { ListMotion } from "../ui/flip";
 import { fs } from "../ipc";
 import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
@@ -106,6 +107,12 @@ export function DocumentList({
   // Switching between rows and tiles crossfades the body rather than
   // moving each document from its row to its tile - too much at once.
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Which documents the list already showed: one that turns up later (a
+  // rename's new name) appears by itself; the first load just shows.
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (entries) seen.current = new Set(entries.map((entry) => entry.path));
+  }, [entries]);
   function switchView(next: View) {
     if (next === view) return;
     setView(next);
@@ -255,6 +262,15 @@ export function DocumentList({
         </div>
       </div>
       <div ref={bodyRef} className={`document-list-body document-list-${view}`}>
+        {/* A deleted document fades out where it was while the rest move
+            up into its place. */}
+        <ListMotion
+          ids={entries?.map((entry) => entry.path) ?? []}
+          container={bodyRef}
+          ghostClass="document-item-ghost"
+          exitMs={150}
+          ghostsUnder={false}
+        />
         {entries !== null && entries.length === 0 && (
           <p className="document-list-empty">{t.docListEmpty}</p>
         )}
@@ -264,6 +280,7 @@ export function DocumentList({
             view={view}
             entry={entry}
             active={entry.path === activePath}
+            fresh={seen.current !== null && !seen.current.has(entry.path)}
             detail={[
               when(entry.mtime),
               entry.local ? "Levis" : basename(dirname(entry.path)),
@@ -285,6 +302,7 @@ function DocumentItem({
   view,
   entry,
   active,
+  fresh,
   detail,
   date,
   onOpen,
@@ -294,6 +312,8 @@ function DocumentItem({
   view: View;
   entry: Entry;
   active: boolean;
+  /** New since the list first loaded. */
+  fresh: boolean;
   /** Date and location, for a row. */
   detail: string;
   /** Date alone, under a thumbnail. */
@@ -313,7 +333,8 @@ function DocumentItem({
   );
   return (
     <div
-      className={`document-item document-item-${view}${active ? " document-item-active" : ""}`}
+      data-flip-id={entry.path}
+      className={`document-item document-item-${view}${active ? " document-item-active" : ""}${fresh ? " document-item-new" : ""}`}
     >
       <button
         type="button"

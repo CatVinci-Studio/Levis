@@ -63,7 +63,7 @@ button.agent-context-chip:hover {
   /* One chevron, rotated - a separate "down" glyph is a second thing to keep
      in sync, and the rotation animates for free. */
   flex-shrink: 0;
-  transition: transform 120ms ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .agent-context-chip-caret-open {

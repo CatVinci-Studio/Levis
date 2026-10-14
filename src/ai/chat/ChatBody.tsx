@@ -26,6 +26,7 @@ import {
 import { parseProposal } from "./proposal";
 import { toolActivityText } from "../AgentTurnView";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { Presence, PresenceDiv } from "../../ui/usePresence";
 import {
   attachedFileBlock,
   selectedTextBlock,
@@ -536,22 +537,26 @@ export function ChatBody({
               />
             </div>
           )}
-      {variant === "quick"
-        ? quickReview && (
-            <QuickAskPendingBar
-              total={pendingCount}
-              focusIndex={quickReview.focusIndex}
-              onFocusNext={quickReview.onFocusNext}
-              onFocusPrevious={quickReview.onFocusPrevious}
-              onAcceptFocused={quickReview.onAcceptFocused}
-              onRejectFocused={quickReview.onRejectFocused}
-              onAcceptAll={onAcceptAll}
-              onRejectAll={onRejectAll}
-              labels={labels}
-            />
-          )
-        : pendingCount > 0 && (
-            <div className="inline-chat-pending-bar">
+      {variant === "quick" ? (
+        quickReview && (
+          <QuickAskPendingBar
+            total={pendingCount}
+            focusIndex={quickReview.focusIndex}
+            onFocusNext={quickReview.onFocusNext}
+            onFocusPrevious={quickReview.onFocusPrevious}
+            onAcceptFocused={quickReview.onAcceptFocused}
+            onRejectFocused={quickReview.onRejectFocused}
+            onAcceptAll={onAcceptAll}
+            onRejectAll={onRejectAll}
+            labels={labels}
+          />
+        )
+      ) : (
+        // Rises from the composer's edge with the first undecided edit
+        // and goes back down after the last.
+        <Presence show={pendingCount > 0} exitMs={150}>
+          {pendingCount > 0 && (
+            <PresenceDiv className="inline-chat-pending-bar">
               <span className="inline-chat-pending-count">
                 {labels.pendingSummary.replace("{n}", String(pendingCount))}
               </span>
@@ -582,8 +587,10 @@ export function ChatBody({
                   </>
                 )}
               </div>
-            </div>
+            </PresenceDiv>
           )}
+        </Presence>
+      )}
       {lastMode === "plan" && !busy && history.length > 0 && (
         <div className="agent-plan-actions">
           <button

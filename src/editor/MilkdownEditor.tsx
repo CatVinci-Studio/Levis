@@ -76,6 +76,7 @@ import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
 import { Presence, PresenceDiv } from "../ui/usePresence";
+import { revealPosition } from "./reveal-position";
 import {
   applyEditorCaret,
   readEditorCaret,
@@ -1401,13 +1402,12 @@ export function MilkdownEditor({
         return;
       }
       view.dispatch(
-        view.state.tr
-          .setSelection(
-            TextSelection.create(view.state.doc, range.from, range.to),
-          )
-          .scrollIntoView(),
+        view.state.tr.setSelection(
+          TextSelection.create(view.state.doc, range.from, range.to),
+        ),
       );
       view.focus();
+      revealPosition(view, range.from);
     });
   }
 

@@ -190,7 +190,17 @@
   }
 }
 
-/* A small drop from above: the find bar, a disclosed list. */
+/* Something disclosed under the row that opened it (a diff, a list of
+   choices, a transcript): it settles down into place, its height arriving
+   at once. */
+@keyframes motion-disclose-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--motion-distance-sm) * -1));
+  }
+}
+
+/* A small drop from above: the find bar. */
 @keyframes motion-drop-in {
   from {
     opacity: 0;

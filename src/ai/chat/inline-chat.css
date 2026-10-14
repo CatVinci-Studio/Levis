@@ -363,20 +363,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 2px 0;
-  animation: quick-ask-expand-in 0.18s ease-out;
-}
-
-@keyframes quick-ask-expand-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .quick-ask-transcript {
-    animation: none;
-  }
+  animation: motion-disclose-in var(--dur-base) var(--ease-out);
 }
 
 .quick-ask-more {
@@ -408,6 +395,17 @@
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+
+/* Decided: the card keeps its diff and says what became of it - the edge
+   takes the outcome's colour as the status line fades in. */
+.agent-proposal[data-status="accepted"] {
+  border-color: color-mix(
+    in srgb,
+    var(--success-color) 40%,
+    var(--editor-border)
+  );
 }
 
 /* Kind of edit on the left, its "+X −Y" size (the diff toggle) on the
@@ -433,6 +431,7 @@
   flex-direction: column;
   border-radius: var(--radius-control);
   overflow: hidden;
+  animation: motion-disclose-in var(--dur-fast) var(--ease-out);
   font-family: var(--editor-mono-font, var(--font-mono));
   font-size: var(--text-sm);
   line-height: 1.5;
@@ -501,7 +500,7 @@
   border-left: 4px solid currentColor;
   border-top: 3.5px solid transparent;
   border-bottom: 3.5px solid transparent;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .agent-diff-summary[aria-expanded="true"] .agent-diff-caret {
@@ -522,6 +521,7 @@
 .agent-proposal-status {
   font-size: var(--text-sm);
   color: var(--editor-muted);
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
 }
 
 /* Not decidable yet - arguments still streaming or the typewriter still
@@ -573,8 +573,11 @@
 /* Pinned above the composer whenever anything is undecided. The cards
    themselves scroll away in a long conversation, and edits sitting
    unresolved in the document with nothing on screen saying so is how they
-   get forgotten. */
+   get forgotten. It rises out from behind the composer with the first
+   edit and goes back behind it after the last; its count changes in
+   place. */
 .inline-chat-pending-bar {
+  animation: pending-bar-in var(--dur-base) var(--ease-out);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -589,6 +592,31 @@
     var(--editor-accent) 10%,
     var(--editor-bg, var(--bg))
   );
+}
+
+.inline-chat-pending-bar[data-state="closing"] {
+  animation: pending-bar-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* What follows the bar paints over it while it moves. */
+.inline-chat-pending-bar
+  ~ :is(.inline-chat-bar, .inline-chat-skill-menu, .agent-plan-actions) {
+  position: relative;
+  background: var(--editor-bg, var(--bg));
+}
+
+@keyframes pending-bar-in {
+  from {
+    opacity: var(--motion-travel-fade);
+    transform: translateY(calc(100% * var(--motion-travel)));
+  }
+}
+
+@keyframes pending-bar-out {
+  to {
+    opacity: var(--motion-travel-fade);
+    transform: translateY(calc(100% * var(--motion-travel)));
+  }
 }
 
 /* The buttons drop to a second line before the label gets squeezed into
@@ -736,27 +764,32 @@
 
 /* A reply lands all at once, not token by token - this staggers each new
    turn's entrance instead of the whole batch appearing as one flat block.
-   --reveal-delay is set per-turn inline (see ChatMessages.tsx). */
+   --reveal-delay is set per-turn inline (see ChatMessages.tsx). Streamed
+   text itself never animates: each token appearing on its own would make
+   the reply unreadable while it arrives. */
 .turn-reveal {
-  animation: turn-reveal-in 220ms ease-out both;
+  animation: turn-reveal-in var(--dur-base) var(--ease-out) both;
   animation-delay: var(--reveal-delay, 0ms);
 }
 
 @keyframes turn-reveal-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(var(--motion-distance-sm));
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .agent-thinking-dots span,
-  .turn-reveal {
-    animation: none;
+/* A proposed edit arrives as a card: it also grows out of its top edge. */
+.agent-proposal.turn-reveal {
+  transform-origin: top center;
+  animation-name: proposal-reveal-in;
+}
+
+@keyframes proposal-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-sm))
+      scale(var(--scale-enter-dialog));
   }
 }
 
@@ -888,6 +921,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  animation: motion-disclose-in var(--dur-fast) var(--ease-out);
 }
 
 .agent-proposal-picker-list label {

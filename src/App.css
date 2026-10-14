@@ -440,6 +440,8 @@ body {
    top strip must stay below that or its clicks would be swallowed by the
    drag region instead of reaching the tabs. */
 .tab-bar {
+  /* The offset parent a closed tab's last look is left in (TabBar.tsx). */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -453,15 +455,15 @@ body {
   -webkit-user-select: none;
 }
 
-/* A pill arriving in the bar (a merge landing, the incoming preview
-   appearing, a new tab) grows into its slot, pushing its neighbors aside
-   smoothly, instead of popping in at full width. */
-@keyframes tab-pill-enter {
-  from {
-    max-width: 0;
-    padding-left: 0;
-    padding-right: 0;
+/* A pill arriving in the bar (a new tab, a merge landing) takes its full
+   width at once and appears there, while its neighbours slide aside to
+   make room (TabBar.tsx) - growing its width instead reflowed the whole
+   bar on every frame. A closed one shrinks away in its old place while
+   the others close the gap. */
+@keyframes tab-pill-leave {
+  to {
     opacity: 0;
+    transform: scale(var(--scale-enter));
   }
 }
 
@@ -484,11 +486,18 @@ body {
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  animation: tab-pill-enter 160ms ease;
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
 }
 
 .tab-pill:hover {
   background: var(--sidebar-hover);
+}
+
+.tab-pill-ghost {
+  animation: tab-pill-leave var(--dur-fast) var(--ease-in) forwards;
 }
 
 .tab-pill-active {
@@ -497,9 +506,9 @@ body {
 }
 
 /* An incoming tab riding this bar mid-drag (TabBar.tsx's previewTab):
-   looks like the real, active tab it's about to become. No grow-in - it
-   appears 1:1 in place of the floating pill it replaces, and a mid-growth
-   width would skew the clamp/slot math that positions it (visible as
+   looks like the real, active tab it's about to become. No pop-in - it
+   appears 1:1 in place of the floating pill it replaces, and a pill still
+   scaling up would skew the clamp/slot math that positions it (visible as
    wobble when hugging the bar's edges). */
 .tab-pill-preview {
   pointer-events: none;

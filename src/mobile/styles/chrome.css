@@ -334,9 +334,7 @@
   }
 
   /* Tabs keep their own width and the row scrolls, rather than all of
-     them squeezing down to unreadable stubs. No grow-in either: the bar
-     scrolls a new tab into view (TabBar.tsx), and measuring it mid-growth
-     would stop short of it. */
+     them squeezing down to unreadable stubs. */
   :root[data-window-chrome="mobile"] .tab-pill {
     flex-shrink: 0;
     min-width: 0;
@@ -347,7 +345,6 @@
     /* The close button's 44pt reaches past the pill's 36. */
     overflow: visible;
     font-size: 14px;
-    animation: none;
   }
 
   :root[data-window-chrome="mobile"] .tab-pill-dirty-dot {
