@@ -9,7 +9,6 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../SettingsContext";
 import { localeOf, type Strings } from "../../i18n/strings";
-import type { AgentSkill } from "../../ai/types";
 import {
   OPENAI_OAUTH_AGENT_MODEL_PRESETS,
   OPENAI_OAUTH_WRITING_MODEL_PRESETS,
@@ -407,60 +406,5 @@ export function AgentSystemPromptSection({
         {t.agentSystemPromptEdit}
       </button>
     </SettingRow>
-  );
-}
-
-/// The GLOBAL skill list, plus an import button that copies a .md skill
-/// file into the global config folder's skills/. A project's .levis/skills
-/// are added in conversations (replacing a global skill of the same name) -
-/// this section only manages the global set.
-export function AgentSkillsSection({ t }: { t: Strings }) {
-  const [skills, setSkills] = useState<AgentSkill[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Both null = the global layer only, which is exactly what's editable here.
-  useEffect(() => {
-    ai.loadAgentWorkspace(null, null)
-      .then((ws) => setSkills(ws?.skills ?? []))
-      .catch(() => {});
-  }, []);
-
-  async function importSkill() {
-    try {
-      const updated = await ai.importAgentSkill();
-      if (updated) setSkills(updated);
-      setError(null);
-    } catch (err) {
-      setError(errorText(err));
-    }
-  }
-
-  return (
-    <>
-      <SettingRow
-        label={t.agentSkillsLabel}
-        hint={t.agentSkillsHint}
-        error={error}
-      >
-        <button
-          className="text-button settings-inline-button"
-          onClick={importSkill}
-        >
-          {t.agentSkillsImport}
-        </button>
-      </SettingRow>
-      {skills.length > 0 && (
-        <div className="settings-skill-list">
-          {skills.map((skill) => (
-            <div key={skill.name} className="settings-skill-item">
-              <span className="settings-skill-name">/{skill.name}</span>
-              <span className="settings-skill-desc">
-                {skill.description || skill.prompt}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
   );
 }

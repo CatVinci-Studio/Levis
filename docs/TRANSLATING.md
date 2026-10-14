@@ -36,9 +36,10 @@ For a language `{code}`:
 | `src-tauri/src/ai/ui-names/{code}.txt`       | What the AI is told your UI calls things, so its answers point at labels that exist. Exists already, comment only. One line per line of `en.txt`: `English name = yours`.                   |
 | `src-tauri/src/ai/style-headings/{code}.txt` | The headings "Learn my style" gives a style profile written in your language. Exists already, comment only. One line: title and seven sections, separated by `/`.                           |
 | `src-tauri/src/ai/rules/messages/{code}.txt` | What the grammar check and the conventions check say when a rule for every language fires on text in your language (a space before a comma, a doubled word). One line per line of `en.txt`. |
+| `src/i18n/skills/{code}.ts`                  | The built-in skills' names in the `/` menu and Settings: a label, a one-line hint and the aliases people type after `/`, for each of the eighteen. Every skill is required.                 |
 
 Anything a file leaves out falls back to English, so a half-done language
-still works - but only a language whose six files are all filled in is
+still works - but only a language whose seven files are all filled in is
 done. The app finds the guides by their file names; nothing has to be
 registered.
 
@@ -83,7 +84,8 @@ export default {
   de documents"); it is usually the same as `other`.
 
 - **Placeholders** - `{n}`, `{name}`, `{path}`, `{arg}`, `{shortcut}`,
-  `{action}`, `{date}`, `{i}`, `{k}` - stay exactly as they are, each one
+  `{action}`, `{date}`, `{i}`, `{k}`, `{query}`, `{total}` - stay exactly
+  as they are, each one
   kept and none added; move them wherever the sentence needs them.
 - **The starter files** (`agentInstructionsTemplate`,
   `projectInstructionsTemplate`, `projectStyleTemplate`,
@@ -106,6 +108,27 @@ export default {
   where the app's name goes in the macOS menu.
 - Name controls the way your own translation names them: a string that says
   "click Accept" says your `proposalAccept`.
+
+### `skills/{code}.ts`
+
+The built-in skills keep English names (`/proofread`, `/continue-story`),
+which never change; this file is what your users see and type instead.
+Start from `zh.ts` or `ja.ts`:
+
+- `label`: what the skill does, as a short command or noun phrase, about
+  24 characters at most - it is the `/` menu's row and the Settings row.
+- `hint`: one line on what it does, without a final full stop, in the
+  same register as your other Settings text (the `de` hints say `du`).
+- `aliases`: the words people would type after `/` for it, besides the
+  label - a shorter form, a synonym, the everyday name of the genre
+  (`/公文`, `/校正`, `/요약`). No spaces where a typed word can't have
+  one; each alias names one skill only, in every language
+  (`skills.test.ts` checks).
+- Never use your UI's word for inline completion as a label (续写,
+  續寫, 補完, 이어 쓰기, autocompletado, complétion, Vervollständigung,
+  автодополнение, autocompletar): that word already names the editor
+  feature. It may be an alias.
+- Name concepts as your strings do (the library, the style profile).
 
 ### The tutorial's exercises
 
@@ -203,7 +226,8 @@ npm run check       # the same plus types, lint and formatting
 cd src-tauri && cargo test   # ai-names and style-headings against your strings and guide
 ```
 
-`src/i18n/strings.test.ts` fails on a key English doesn't have, a value of
+`src/i18n/skills/skills.test.ts` checks the skill labels, hints and
+aliases. `src/i18n/strings.test.ts` fails on a key English doesn't have, a value of
 the wrong kind, an empty string, a placeholder kept or added wrongly, a
 missing or unknown plural form, or - once `complete = true` - any key not
 translated; its tutorial section checks the exercises above. The tests in

@@ -15,6 +15,7 @@ vi.mock("../ai/provider-catalog", () => ({
 vi.mock("../ipc", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ai: {
+    listSkills: vi.fn().mockResolvedValue(null),
     loadAgentWorkspace: vi.fn().mockResolvedValue({
       skills: [{ name: "polish", description: "Tighten", prompt: "Polish" }],
     }),

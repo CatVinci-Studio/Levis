@@ -10,6 +10,109 @@
  * payload)` fires them, so menu-driven features (Settings, Help docs, ...)
  * can be driven from the console / browser automation.
  */
+/** The built-in skills as `list_skills` reports them: name, `/` menu group,
+ *  invocation and the description written for the model (abridged). */
+const DEV_BUILTIN_SKILLS: [string, string, string, string][] = [
+  [
+    "continue-story",
+    "write",
+    "both",
+    "Writes the next scene or section of a story, picking up exactly where the text stops.",
+  ],
+  [
+    "describe",
+    "write",
+    "both",
+    "Adds concrete, sensory description of a person, place or scene.",
+  ],
+  [
+    "dialogue",
+    "write",
+    "both",
+    "Fixes dialogue punctuation, tags and rhythm for the document's language.",
+  ],
+  [
+    "imitate-style",
+    "write",
+    "both",
+    "Rewrites text in the style of a sample or the style profile.",
+  ],
+  [
+    "expand",
+    "revise",
+    "user-only",
+    "Makes a passage fuller without adding facts.",
+  ],
+  ["tighten", "revise", "user-only", "Cuts wordiness and keeps every fact."],
+  [
+    "change-tone",
+    "revise",
+    "user-only",
+    "Makes text more formal, plain, warm or firm.",
+  ],
+  [
+    "de-ai",
+    "revise",
+    "both",
+    "Removes stock AI phrasing and formula, or flags it.",
+  ],
+  [
+    "translate",
+    "revise",
+    "both",
+    "Translates so the result reads as native writing.",
+  ],
+  [
+    "proofread",
+    "check",
+    "both",
+    "Checks spelling, punctuation and numbers against the language's standards.",
+  ],
+  [
+    "continuity",
+    "check",
+    "both",
+    "Finds contradictions with the library and other chapters.",
+  ],
+  ["email", "format", "both", "Drafts or restructures an email or letter."],
+  [
+    "notice",
+    "format",
+    "both",
+    "Drafts or fixes a notice or official document.",
+  ],
+  [
+    "minutes",
+    "format",
+    "both",
+    "Turns meeting notes into decisions and action items.",
+  ],
+  [
+    "academic-polish",
+    "format",
+    "both",
+    "Formal, calibrated academic wording; citations untouched.",
+  ],
+  [
+    "social-post",
+    "format",
+    "both",
+    "Writes a post that fits the platform's limits and rules.",
+  ],
+  [
+    "headline",
+    "format",
+    "both",
+    "Writes an accurate title or headline of the right length.",
+  ],
+  [
+    "summarize",
+    "format",
+    "user-only",
+    "Summarizes faithfully at the length asked for.",
+  ],
+];
+
 export function installDevTauriShim(): void {
   if (!import.meta.env.DEV) return;
   const w = window as unknown as Record<string, unknown>;
@@ -195,6 +298,89 @@ export function installDevTauriShim(): void {
     return null;
   }
 
+  // The skill list of ai::workspace and Settings' commands for the
+  // built-ins, in memory: the 18 built-ins, one skill of the user's own,
+  // and what Customize…/Reset/the switches did. `window.__devSkills`
+  // exposes the state for assertions.
+  const skills = {
+    disabled: new Set<string>(),
+    customized: new Set<string>(),
+    files: new Map<string, string>(),
+    log: [] as string[],
+  };
+  w.__devSkills = skills;
+  const skillCopyPath = (name: string) =>
+    `/home/dev/.config/levis/agent/skills/${name}.md`;
+  function skillCommand(
+    cmd: string,
+    args: Record<string, unknown> = {},
+  ): Promise<unknown> | null {
+    const name = String(args.name ?? "");
+    switch (cmd) {
+      case "list_skills": {
+        const builtins = DEV_BUILTIN_SKILLS.map(
+          ([skill, category, invocation, description]) => ({
+            name: skill,
+            description,
+            category,
+            invocation,
+            source: "builtin",
+            overridesBuiltin: false,
+            enabled: !skills.disabled.has(skill),
+            aliases: {},
+          }),
+        );
+        const copies = [...skills.customized].map((skill) => {
+          const builtin = builtins.find((b) => b.name === skill)!;
+          return {
+            ...builtin,
+            source: "global",
+            overridesBuiltin: true,
+            enabled: true,
+          };
+        });
+        const own = {
+          name: "house-style",
+          description: "Apply our house style guide to the selection",
+          category: "revise",
+          invocation: "both",
+          source: "global",
+          overridesBuiltin: false,
+          enabled: true,
+          aliases: {},
+        };
+        return Promise.resolve([...builtins, ...copies, own]);
+      }
+      case "set_builtin_skill_enabled":
+        skills.log.push(`${cmd}:${name}:${args.enabled}`);
+        if (args.enabled) skills.disabled.delete(name);
+        else skills.disabled.add(name);
+        return Promise.resolve(null);
+      case "customize_builtin_skill": {
+        skills.log.push(`${cmd}:${name}`);
+        const path = skillCopyPath(name);
+        if (!skills.customized.has(name)) {
+          skills.customized.add(name);
+          skills.files.set(
+            path,
+            `---\nname: ${name}\ndescription: The built-in ${name} skill, to change as you like.\nmetadata:\n  levis-based-on: "${name}@1"\n---\n\n# ${name}\n`,
+          );
+        }
+        return Promise.resolve(path);
+      }
+      case "reset_builtin_skill":
+        skills.log.push(`${cmd}:${name}`);
+        skills.customized.delete(name);
+        skills.files.delete(skillCopyPath(name));
+        return Promise.resolve(null);
+      case "read_text_file": {
+        const text = skills.files.get(String(args.path ?? ""));
+        return text === undefined ? null : Promise.resolve(text);
+      }
+    }
+    return null;
+  }
+
   w.__TAURI_INTERNALS__ = {
     metadata: {
       currentWindow: { label: "main" },
@@ -242,6 +428,8 @@ export function installDevTauriShim(): void {
       }
       const stored = storageCommand(cmd, args as Record<string, unknown>);
       if (stored) return stored;
+      const skill = skillCommand(cmd, args as Record<string, unknown>);
+      if (skill) return skill;
       // A canned suggestion instead of null: lets ghost-text rendering (and
       // the tutorial's completion step) be smoke-tested in the browser -
       // null would make the manual trigger path throw an error dialog.

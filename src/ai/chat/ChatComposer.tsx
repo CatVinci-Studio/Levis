@@ -1,13 +1,36 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
-import { ai } from "../../ipc";
+import { ai, type SkillListItem } from "../../ipc";
+import { resolveStrings } from "../../i18n/strings";
+import {
+  ComposerPicker,
+  pickerLabels,
+  type PickerLabels,
+  type PickerRow,
+  type PickerSection,
+} from "./ComposerPicker";
+import {
+  MENTION_TOKEN,
+  MENTION_TRIGGER,
+  SKILL_COMMAND,
+  SKILL_TRIGGER,
+  groupSkills,
+  listFromWorkspace,
+  matchSkills,
+  pickerSkills,
+  recentSkills,
+  rememberSkill,
+  resolveSkillName,
+  type PickerSkill,
+} from "./skill-picker";
 import { errorText } from "../../utils/error-text";
 import { basename } from "../../utils/path";
 import { useActiveProvider } from "../provider-catalog";
@@ -21,7 +44,6 @@ import {
 } from "../../ui/icons";
 import { Select } from "../../ui/Select";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
-import { tapKeepingFocus } from "../../mobile/tap";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */
@@ -47,7 +69,18 @@ export interface ChatComposerLabels {
   /** Accessible name of the phone's segmented mode control. */
   modeLabel: string;
   webSearch: string;
+  /** The `/` and `@` pickers' words; English when left out. */
+  picker?: PickerLabels;
 }
+
+let englishPicker: PickerLabels | null = null;
+function defaultPickerLabels(): PickerLabels {
+  englishPicker ??= pickerLabels(resolveStrings("en"), "en");
+  return englishPicker;
+}
+
+/** How many matching project files the `@` picker lists. */
+const FILE_LIMIT = 30;
 
 interface ChatComposerProps {
   /** Resolves the agent workspace (skills) - re-loaded whenever it changes. */
@@ -118,9 +151,14 @@ export function ChatComposer({
   // forget - which is exactly what happened when it was a prop, leaving Quick
   // Ask happy to attach an image to a provider that can't read one.
   const supportsVision = useActiveProvider()?.supportsVision ?? true;
+  const picker = labels.picker ?? defaultPickerLabels();
   const [input, setInput] = useState("");
-  const [skillIndex, setSkillIndex] = useState(0);
+  const [pickerIndex, setPickerIndex] = useState(0);
+  // Escape closes a picker for the input as it stands; typing reopens it.
+  const [dismissedInput, setDismissedInput] = useState<string | null>(null);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
+  const [skillList, setSkillList] = useState<SkillListItem[] | null>(null);
+  const [recent, setRecent] = useState<string[]>(recentSkills);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [mode, setMode] = useState<AgentMode>(defaultMode);
   const [webSearch, setWebSearch] = useState(defaultWebSearch);
@@ -158,6 +196,35 @@ export function ChatComposer({
       cancelled = true;
     };
   }, [docPath, workspaceRoot]);
+
+  // The `/` menu's list - built-ins included, with their groups and which
+  // are on - fetched again each time the menu opens, so a skill turned off
+  // in Settings a moment ago is already gone from it.
+  const skillTrigger = SKILL_TRIGGER.exec(input);
+  const skillMenuOpen = !!skillTrigger && dismissedInput !== input;
+  useEffect(() => {
+    if (!skillMenuOpen) return;
+    let cancelled = false;
+    ai.listSkills(docPath, workspaceRoot)
+      .then((list) => {
+        if (!cancelled) setSkillList(Array.isArray(list) ? list : null);
+      })
+      .catch(() => {
+        if (!cancelled) setSkillList(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [skillMenuOpen, docPath, workspaceRoot]);
+
+  // The list, plus any workspace skill it lacks (an older backend lists
+  // none): what the menu offers and what a typed /word resolves against.
+  const available: PickerSkill[] = useMemo(() => {
+    const listed = skillList ?? [];
+    const names = new Set(listed.map((s) => s.name));
+    const extra = listFromWorkspace(skills.filter((s) => !names.has(s.name)));
+    return pickerSkills([...listed, ...extra], picker.lang);
+  }, [skillList, skills, picker.lang]);
 
   // The input grows with its content (Shift+Enter newlines) up to the CSS
   // max-height, then scrolls - a fixed single row just scrolled horizontally
@@ -199,17 +266,19 @@ export function ChatComposer({
     }
   }
 
-  // @-mention picker: "@" plus a partial path at the end of the input lists
-  // matching project files (ai::project); picking one attaches its text as a
-  // chip and removes the "@query" from the message. The list is fetched on
-  // the first "@", not on mount - most messages never mention a file.
-  const mentionQuery = /(?:^|\s)@([^\s@]*)$/.exec(input);
+  // @-mention picker: "@" (or the full-width "＠" a CJK IME types) plus a
+  // partial path at the end of the input lists matching project files
+  // (ai::project); picking one attaches its text as a chip and removes the
+  // "@query" from the message. The list is fetched on the first "@", not on
+  // mount - most messages never mention a file.
+  const mentionQuery = skillTrigger ? null : MENTION_TRIGGER.exec(input);
+  const mentionMenuOpen = !!mentionQuery && dismissedInput !== input;
   const [projectFiles, setProjectFiles] = useState<string[] | null>(null);
   useEffect(() => {
     setProjectFiles(null);
   }, [docPath, workspaceRoot]);
   useEffect(() => {
-    if (!mentionQuery || projectFiles !== null) return;
+    if (!mentionMenuOpen || projectFiles !== null) return;
     let cancelled = false;
     ai.listProjectFiles(docPath, workspaceRoot)
       .then((files) => !cancelled && setProjectFiles(files ?? []))
@@ -217,23 +286,18 @@ export function ChatComposer({
     return () => {
       cancelled = true;
     };
-  }, [mentionQuery, projectFiles, docPath, workspaceRoot]);
+  }, [mentionMenuOpen, projectFiles, docPath, workspaceRoot]);
   const matchingFiles = mentionQuery
     ? (projectFiles ?? [])
         .filter((path) =>
           path.toLowerCase().includes(mentionQuery[1].toLowerCase()),
         )
-        .slice(0, 8)
+        .slice(0, FILE_LIMIT)
     : [];
-  const [fileIndex, setFileIndex] = useState(0);
-  const activeFileIndex = Math.min(
-    fileIndex,
-    Math.max(0, matchingFiles.length - 1),
-  );
 
   async function pickFile(path: string) {
-    setInput((prev) => prev.replace(/(^|\s)@[^\s@]*$/, "$1"));
-    setFileIndex(0);
+    setInput((prev) => prev.replace(MENTION_TOKEN, "$1"));
+    setPickerIndex(0);
     setAttachError(null);
     try {
       const content = await ai.readProjectFile(docPath, workspaceRoot, path);
@@ -251,25 +315,89 @@ export function ChatComposer({
   // Skill picker: open while the input is a single /token still being typed
   // (no space yet), filtered by that prefix. Purely derived from the input,
   // so it closes itself once the name is completed or the slash is deleted.
-  const skillQuery = /^\/(\S*)$/.exec(input);
-  const matchingSkills = skillQuery
-    ? skills.filter((s) =>
-        s.name.toLowerCase().startsWith(skillQuery[1].toLowerCase()),
-      )
-    : [];
-  const activeSkillIndex = Math.min(
-    skillIndex,
-    Math.max(0, matchingSkills.length - 1),
-  );
-
-  function pickSkill(skill: AgentSkill) {
+  function pickSkill(skill: PickerSkill) {
     setInput(`/${skill.name} `);
-    setSkillIndex(0);
+    setPickerIndex(0);
   }
 
+  // What the open picker shows: its sections of rows, or the lines that
+  // explain an empty one. Never nothing - an empty menu that rendered
+  // nothing looked like a dead key.
+  let pickerSections: PickerSection[] = [];
+  let pickerEmpty: string[] = [];
+  if (skillMenuOpen && skillTrigger) {
+    const query = skillTrigger[1];
+    const row = (skill: PickerSkill): PickerRow => ({
+      key: skill.name,
+      primary: skill.label ?? `/${skill.name}`,
+      secondary: skill.label ? `/${skill.name}` : undefined,
+      detail: skill.hint || undefined,
+      pick: () => pickSkill(skill),
+    });
+    pickerSections = query
+      ? [{ rows: matchSkills(available, query, recent).map(row) }]
+      : groupSkills(available, recent).map((group) => ({
+          title: picker.groups[group.id],
+          rows: group.skills.map(row),
+        }));
+    pickerEmpty =
+      available.length === 0
+        ? [picker.skillAbout, picker.skillHowTo]
+        : [picker.skillNoMatch.replace("{query}", query), picker.skillHowTo];
+  } else if (mentionMenuOpen && mentionQuery) {
+    pickerSections = [
+      {
+        rows: matchingFiles.map((path) => ({
+          key: path,
+          primary: `@${basename(path)}`,
+          // The folder, when there is one - for a file at the project root
+          // the name already says it all.
+          detail:
+            path !== basename(path)
+              ? path.slice(0, path.length - basename(path).length)
+              : undefined,
+          pick: () => void pickFile(path),
+        })),
+      },
+    ];
+    pickerEmpty =
+      projectFiles === null
+        ? [picker.mentionAbout]
+        : projectFiles.length > 0
+          ? [picker.mentionNoMatch.replace("{query}", mentionQuery[1])]
+          : [
+              picker.mentionAbout,
+              !docPath && !workspaceRoot
+                ? picker.mentionNoProject
+                : picker.mentionNoFiles,
+            ];
+  }
+  const pickerRows = pickerSections.flatMap((s) => s.rows);
+  const pickerOpen = skillMenuOpen || mentionMenuOpen;
+  const activePickerIndex = Math.min(
+    pickerIndex,
+    Math.max(0, pickerRows.length - 1),
+  );
+
+  /** The skill a typed /word names, by its name or any alias. */
+  const resolveName = (token: string) => resolveSkillName(token, available);
+
   function submit() {
-    const message = resolveSkillMessage(input.trim(), skills);
+    const typed = input.trim();
+    const message = resolveSkillMessage(typed, skills, resolveName);
     if (!message || busy) return;
+    if (message !== typed) {
+      const token = SKILL_COMMAND.exec(typed)?.[1];
+      const name = token
+        ? skills.some((s) => s.name === token)
+          ? token
+          : resolveName(token)
+        : null;
+      if (name) {
+        rememberSkill(name);
+        setRecent(recentSkills());
+      }
+    }
     setInput("");
     const staged = attachments;
     setAttachments([]);
@@ -283,37 +411,33 @@ export function ChatComposer({
     // the confirming keydown just after compositionend with isComposing
     // already false but the legacy keyCode still 229, so check both.
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-    if (matchingFiles.length > 0) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    // While a picker is open, the navigation keys drive it instead of the
+    // chat (Enter completes the name rather than sending), and Escape
+    // closes it rather than the chat.
+    if (pickerOpen) {
+      if (e.key === "Escape") {
         e.preventDefault();
-        const delta = e.key === "ArrowDown" ? 1 : -1;
-        setFileIndex(
-          (activeFileIndex + delta + matchingFiles.length) %
-            matchingFiles.length,
-        );
+        e.stopPropagation();
+        setDismissedInput(input);
         return;
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      if (pickerRows.length > 0) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          const delta = e.key === "ArrowDown" ? 1 : -1;
+          setPickerIndex(
+            (activePickerIndex + delta + pickerRows.length) % pickerRows.length,
+          );
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          pickerRows[activePickerIndex].pick();
+          return;
+        }
+      } else if (e.key === "Enter" && skillMenuOpen && !skillTrigger?.[1]) {
+        // A lone "/" is a question to the menu, not a message.
         e.preventDefault();
-        void pickFile(matchingFiles[activeFileIndex]);
-        return;
-      }
-    }
-    // While the skill picker is open, the navigation keys drive it instead
-    // of the chat (Enter completes the skill name rather than sending).
-    if (matchingSkills.length > 0) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const delta = e.key === "ArrowDown" ? 1 : -1;
-        setSkillIndex(
-          (activeSkillIndex + delta + matchingSkills.length) %
-            matchingSkills.length,
-        );
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        pickSkill(matchingSkills[activeSkillIndex]);
         return;
       }
     }
@@ -354,45 +478,15 @@ export function ChatComposer({
 
   return (
     <>
-      {matchingFiles.length > 0 && (
-        <div className="inline-chat-skill-menu" role="listbox">
-          {matchingFiles.map((path, i) => (
-            <button
-              key={path}
-              role="option"
-              aria-selected={i === activeFileIndex}
-              className={`inline-chat-skill-item ${i === activeFileIndex ? "inline-chat-skill-item-active" : ""}`}
-              {...tapKeepingFocus(() => void pickFile(path))}
-            >
-              <span className="inline-chat-skill-name">@{basename(path)}</span>
-              {/* The folder, when there is one - for a file at the project
-                  root the name above already says it all. */}
-              {path !== basename(path) && (
-                <span className="inline-chat-skill-preview">
-                  {path.slice(0, path.length - basename(path).length)}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-      {matchingSkills.length > 0 && (
-        <div className="inline-chat-skill-menu">
-          {matchingSkills.map((skill, i) => (
-            <button
-              key={skill.name}
-              className={`inline-chat-skill-item ${i === activeSkillIndex ? "inline-chat-skill-item-active" : ""}`}
-              // On press, not click: keeps focus (and on a phone the
-              // keyboard) in the textarea.
-              {...tapKeepingFocus(() => pickSkill(skill))}
-            >
-              <span className="inline-chat-skill-name">/{skill.name}</span>
-              <span className="inline-chat-skill-preview">
-                {skill.description || skill.prompt}
-              </span>
-            </button>
-          ))}
-        </div>
+      {pickerOpen && (
+        <ComposerPicker
+          kind={skillMenuOpen ? "skill" : "mention"}
+          label={labels.placeholder}
+          sections={pickerSections}
+          empty={pickerEmpty}
+          active={activePickerIndex}
+          keys={phone ? null : picker.keys}
+        />
       )}
       {dockActions !== undefined && (
         <div className="quick-ask-dock-head">
@@ -451,7 +545,7 @@ export function ChatComposer({
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
-            setSkillIndex(0);
+            setPickerIndex(0);
           }}
           onKeyDown={onKeyDown}
           autoFocus={focusOnOpen}
