@@ -315,14 +315,15 @@ completion ~1.1 s).
   reply claimed compliance.
 - `ask/why-question-zh` (3.2-3.8): answers to "why did I write this" pad
   with speculation about the author's intent.
-- **A frontend bug found while writing the e2e test, not fixed here**: with
-  two pending block-level proposals (two paragraph `replace`s, or a list
-  edit and a paragraph edit), accepting the earlier one first moves the
-  later preview onto the next block and its Accept then refuses; accepting
-  from the bottom up works. The likely cause is how
-  `pending-edit-plugin.ts` maps a preview's range through the
-  `replaceRange` that `applyEditRange` makes for the first block. The new
-  e2e test accepts bottom-up to stay on its own subject.
+- (Fixed.) A frontend bug found while writing the e2e test: with two
+  pending proposals, accepting the earlier one first left the later
+  preview at its old position whenever the first edit changed the
+  document's length - its widget drifted off its text and its Accept
+  refused. Accepting applies the edit and removes its preview in one
+  transaction, and `pending-edit-plugin.ts`'s remove branch didn't map the
+  other previews through it. It does now; the e2e test accepts top-down,
+  and a second one checks that a pending replace's strike also follows
+  typing above it (the strike range was never mapped either).
 - The eval documents use `-` bullets, while the editor serializes lists
   with `*` - the model sees `*` in the app. The composition rules treat both
   the same, but the cases are not a byte-exact replica of what the app

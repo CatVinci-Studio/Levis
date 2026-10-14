@@ -193,10 +193,10 @@ test("an accepted new table row and nested item land inside the table and list",
     ".agent-proposal-actions .inline-chat-action-primary",
   );
   await expect(accept).toHaveCount(2);
-  // Bottom-up: accepting the earlier of two block proposals first currently
-  // shifts the later preview off its block - a separate bug, recorded in
-  // docs/AI-EVAL.md.
-  await accept.nth(1).click();
+  // Top-down: the table grows by a row, and the list's preview below it
+  // must follow - it used to keep its old position, drift off the list and
+  // refuse its Accept.
+  await accept.first().click();
   await expect(accept).toHaveCount(1);
   await accept.first().click();
   await expect(accept).toHaveCount(0);
@@ -207,6 +207,45 @@ test("an accepted new table row and nested item land inside the table and list",
     "Long polling",
   );
   await expect(page.locator(".milkdown p", { hasText: "|" })).toHaveCount(0);
+});
+
+test("a pending replace keeps its strike on its text while the user types above it", async ({
+  page,
+}) => {
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  await pasteMarkdown(page, "Alpha one.\n\nBravo two words here.");
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "Use a digit" },
+      {
+        kind: "ToolCall",
+        call_id: "r1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace",
+          anchor: "two words",
+          text: "2 words",
+        }),
+      },
+      { kind: "ToolResult", call_id: "r1", output: "Edit proposed" },
+      { kind: "Assistant", text: "Done." },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Use a digit");
+  await composer.press("Enter");
+  const strike = page.locator(".pending-delete");
+  await expect(strike).toHaveText("two words");
+  await page.locator(".milkdown p", { hasText: "Alpha" }).click();
+  await page.keyboard.press("End");
+  await page.keyboard.type("XYZ");
+  // The strike range is mapped with the preview, not left three characters
+  // behind ("vo two wo").
+  await expect(strike).toHaveText("two words");
+  await page
+    .locator(".agent-proposal-actions .inline-chat-action-primary")
+    .click();
+  await expect(page.locator(".milkdown")).toContainText("Bravo 2 words here.");
 });
 
 test("Quick Ask opens on a selection in edit mode", async ({ page }) => {
