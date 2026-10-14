@@ -107,6 +107,14 @@ pub type EventSink<'a> = &'a (dyn Fn(ProviderEvent<'_>) + Send + Sync);
 /// letting a UI show tool activity live. The final Assistant turn is NOT
 /// reported: its text already streamed out as ProviderEvent::Text, and the
 /// returned turn list is the authoritative ending either way.
+///
+/// A step's turns are recorded as all of its calls, then all of their
+/// results (Call1, Call2, Result1, Result2), so a ToolCall right after a
+/// ToolResult always starts a new step. The providers group a step's calls
+/// into one assistant message by that rule; with the calls and results
+/// interleaved they couldn't tell parallel calls from sequential steps, and
+/// merging every step into one message rewrote the earlier steps' messages
+/// - and their prompt cache - on each new step.
 pub async fn run_agent_loop<Step, StepFut, ExecuteTool, OnTurn>(
     history: Vec<AgentTurn>,
     // `user_turn` is a whole AgentTurn rather than the bare message string it
@@ -137,19 +145,24 @@ where
                 return Ok(new_turns);
             }
             StepResult::ToolCalls(calls) => {
-                for call in calls {
+                let calls: Vec<AgentTurn> = calls
+                    .into_iter()
+                    .filter(|call| matches!(call, AgentTurn::ToolCall { .. }))
+                    .collect();
+                for call in &calls {
+                    on_turn(call);
+                    turns.push(call.clone());
+                    new_turns.push(call.clone());
+                }
+                for call in &calls {
                     let AgentTurn::ToolCall {
                         call_id,
                         name,
                         arguments,
-                    } = &call
+                    } = call
                     else {
                         continue;
                     };
-                    on_turn(&call);
-                    turns.push(call.clone());
-                    new_turns.push(call.clone());
-
                     let output = execute_tool(name, arguments);
                     let result_turn = AgentTurn::ToolResult {
                         call_id: call_id.clone(),
@@ -239,11 +252,15 @@ mod tests {
         assert_eq!(seen[1].len(), 3);
     }
 
+    /// A step's calls come first, then their results in the same order, so
+    /// a call after a result marks the next step - what the providers group
+    /// assistant messages by.
     #[test]
-    fn parallel_calls_each_get_a_result_in_order() {
-        let (turns, _) = run_scripted(
+    fn each_step_records_its_calls_then_their_results() {
+        let (turns, seen) = run_scripted(
             vec![
                 StepResult::ToolCalls(vec![call("a", "t1", "{}"), call("b", "t2", "{}")]),
+                StepResult::ToolCalls(vec![call("c", "t3", "{}")]),
                 StepResult::Done(String::new()),
             ],
             12,
@@ -257,7 +274,17 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(ids, ["call:a", "result:a", "call:b", "result:b"]);
+        assert_eq!(
+            ids,
+            ["call:a", "call:b", "result:a", "result:b", "call:c", "result:c"]
+        );
+        // Each step is shown the one before it plus what it added - the
+        // earlier turns never change, which is what keeps the prefix cached.
+        assert_eq!(seen[2].len(), seen[1].len() + 2);
+        assert_eq!(
+            format!("{:?}", &seen[2][..seen[1].len()]),
+            format!("{:?}", seen[1])
+        );
     }
 
     #[test]

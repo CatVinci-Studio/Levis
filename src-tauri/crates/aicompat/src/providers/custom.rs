@@ -192,11 +192,15 @@ fn agent_request_body(
 }
 
 /// Groups the flat `AgentTurn` history into Chat Completions messages.
-/// Like the Anthropic dialect, every `ToolCall` in a run must land in ONE
+/// Like the Anthropic dialect, every `ToolCall` of a step must land in ONE
 /// assistant message's `tool_calls` array - but each `ToolResult` becomes
 /// its OWN `role: "tool"` message afterward (not grouped into one, unlike
 /// Anthropic's `tool_result` content blocks), matching what
-/// api.openai.com/v1/chat/completions and compatible servers expect.
+/// api.openai.com/v1/chat/completions and compatible servers expect. A call
+/// after a result starts the next step's message (`run_agent_loop` records
+/// each step's calls before their results), so a new step only appends to
+/// the messages and the servers that cache prompt prefixes on their own
+/// (DeepSeek, Qwen, Kimi, ...) keep the earlier steps cached.
 fn turns_to_messages(instructions: &str, history: &[AgentTurn]) -> Vec<Value> {
     let mut messages = vec![json!({"role": "system", "content": instructions})];
     let mut i = 0;
@@ -233,6 +237,8 @@ fn turns_to_messages(instructions: &str, history: &[AgentTurn]) -> Vec<Value> {
                 let mut tool_results = Vec::new();
                 while let Some(turn) = history.get(i) {
                     match turn {
+                        // The next step's calls.
+                        AgentTurn::ToolCall { .. } if !tool_results.is_empty() => break,
                         AgentTurn::ToolCall {
                             call_id,
                             name,
@@ -539,31 +545,34 @@ mod tests {
         assert_eq!(text_only[1]["content"], "hi");
     }
 
+    fn call(id: &str, query: &str) -> AgentTurn {
+        AgentTurn::ToolCall {
+            call_id: id.to_string(),
+            name: "search_document".to_string(),
+            arguments: format!("{{\"query\":\"{query}\"}}"),
+        }
+    }
+
+    fn result(id: &str, output: &str) -> AgentTurn {
+        AgentTurn::ToolResult {
+            call_id: id.to_string(),
+            output: output.to_string(),
+        }
+    }
+
     #[test]
     fn turns_to_messages_starts_with_system_and_groups_tool_turns() {
+        // One step that called two tools (calls first, as run_agent_loop
+        // records them).
         let history = vec![
             AgentTurn::User {
                 text: "do it".to_string(),
                 images: Vec::new(),
             },
-            AgentTurn::ToolCall {
-                call_id: "1".to_string(),
-                name: "search_document".to_string(),
-                arguments: "{\"query\":\"a\"}".to_string(),
-            },
-            AgentTurn::ToolResult {
-                call_id: "1".to_string(),
-                output: "found a".to_string(),
-            },
-            AgentTurn::ToolCall {
-                call_id: "2".to_string(),
-                name: "search_document".to_string(),
-                arguments: "{\"query\":\"b\"}".to_string(),
-            },
-            AgentTurn::ToolResult {
-                call_id: "2".to_string(),
-                output: "found b".to_string(),
-            },
+            call("1", "a"),
+            call("2", "b"),
+            result("1", "found a"),
+            result("2", "found b"),
             AgentTurn::Assistant {
                 text: "done".to_string(),
             },
@@ -591,6 +600,35 @@ mod tests {
 
         assert_eq!(messages[5]["role"], "assistant");
         assert_eq!(messages[5]["content"], "done");
+    }
+
+    /// Servers that cache prompt prefixes automatically (DeepSeek and most
+    /// Chinese providers) only help if a new step leaves the messages before
+    /// it alone: the next step's call starts a message of its own.
+    #[test]
+    fn a_new_step_only_appends_messages() {
+        let mut turns = vec![AgentTurn::User {
+            text: "doc + q".to_string(),
+            images: Vec::new(),
+        }];
+        let mut before = turns_to_messages("rules", &turns);
+        for step in [
+            vec![call("r", "a"), result("r", "x")],
+            vec![
+                call("e1", "b"),
+                call("e2", "c"),
+                result("e1", "y"),
+                result("e2", "z"),
+            ],
+        ] {
+            turns.extend(step);
+            let after = turns_to_messages("rules", &turns);
+            assert_eq!(after[..before.len()], before[..]);
+            before = after;
+        }
+        // system, user, then [assistant, tool] and [assistant, tool, tool].
+        assert_eq!(before.len(), 7);
+        assert_eq!(before[4]["tool_calls"].as_array().unwrap().len(), 2);
     }
 
     #[test]

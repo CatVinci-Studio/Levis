@@ -162,8 +162,10 @@ fn live_writing_model_comparison() {
     finish("grammar-models", records);
 }
 
-/// Prompt caching: every tool step after the first re-reads the shared
-/// prefix (system prompt, document, history) instead of paying for it again.
+/// Prompt caching (docs/AI-EVAL.md, "Prompt caching"): every tool step reads
+/// everything the step before it sent, and every message after the first
+/// reads the system prompt and the history the previous message wrote,
+/// instead of paying for them again.
 #[test]
 #[ignore = "live API - see module docs"]
 fn live_agent_caches_across_steps() {
@@ -180,15 +182,61 @@ fn live_agent_caches_across_steps() {
         &auth,
         &setup,
         &long_doc(),
-        &[harness::UserTurn::new(
-            "Tighten the first paragraph of the 'Coding' section: same facts, fewer words.",
-        )],
+        &[
+            harness::UserTurn::new(
+                "Tighten the first paragraph of the 'Coding' section: same facts, fewer words.",
+            ),
+            harness::UserTurn::new("Now do the same for the second paragraph of that section."),
+            harness::UserTurn::new(
+                "Which site numbers does the first paragraph of 'Ethics' name? Just list them.",
+            ),
+        ],
     );
     assert!(conv.error.is_none(), "{:?}", conv.error);
-    let usage = &conv.last().usage;
-    assert!(usage.len() > 1, "expected a read step before the edit");
-    let reads: u64 = usage[1..].iter().map(|u| u.cache_read_input_tokens).sum();
-    assert!(reads > 0, "no cache reads across {} steps", usage.len());
+    for (t, outcome) in conv.outcomes.iter().enumerate() {
+        for (s, u) in outcome.usage.iter().enumerate() {
+            println!(
+                "[cache] turn {} step {}: read {}, write {}, input {}, output {}",
+                t + 1,
+                s + 1,
+                u.cache_read_input_tokens,
+                u.cache_creation_input_tokens,
+                u.input_tokens,
+                u.output_tokens
+            );
+        }
+    }
+    let first = &conv.outcomes[0].usage;
+    assert!(first.len() > 1, "expected a read step before the edit");
+    // Within a message: a step's prompt is the previous step's plus what
+    // that step added, so it reads all of the previous one from cache.
+    for (t, outcome) in conv.outcomes.iter().enumerate() {
+        for (s, pair) in outcome.usage.windows(2).enumerate() {
+            let sent = pair[0].cache_read_input_tokens + pair[0].cache_creation_input_tokens;
+            assert!(
+                pair[1].cache_read_input_tokens >= sent,
+                "turn {} step {} read {} of the {} cached tokens before it",
+                t + 1,
+                s + 2,
+                pair[1].cache_read_input_tokens,
+                sent
+            );
+        }
+    }
+    // Across messages: the second reads the system prompt (the first
+    // message's history-free prefix); the third also reads the history up
+    // to the end of the first exchange, which the second one wrote.
+    let opening = |t: usize| conv.outcomes[t].usage[0];
+    assert!(
+        opening(1).cache_read_input_tokens > 0,
+        "message 2 read nothing"
+    );
+    assert!(
+        opening(2).cache_read_input_tokens > opening(1).cache_read_input_tokens,
+        "message 3 read {} tokens, no more than message 2's {} - the history wasn't cached",
+        opening(2).cache_read_input_tokens,
+        opening(1).cache_read_input_tokens
+    );
 }
 
 /// Free, no key needed: prints every case id per suite (after

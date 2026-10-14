@@ -256,6 +256,76 @@ composition, region and similarity checks, the tone directives staying in
 step with `completion-style.ts`) is unit-tested and runs in CI with
 `cargo test`.
 
+## Prompt caching
+
+The agent's cache used to last one message. Requests had a single
+automatic breakpoint at the end, and the message being sent carries
+the document (`request_context`) while history keeps it without, so nothing
+a message cached was a prefix of the next message's requests: the first
+request of every message read 0 tokens from cache and wrote the whole
+prompt again (run1/run3 rows, five-turn cases).
+
+What each Anthropic request marks now (`anthropic.rs`'s
+`agent_request_body`; three explicit breakpoints plus the automatic one,
+the API's limit):
+
+- The last system block - tools and system prompt, the same for every
+  message and every conversation in a project and mode.
+- The end of the replayed history, and the end of the history before its
+  newest exchange. The second is where the previous message put the first,
+  so the entry it wrote is read back at a breakpoint of its own rather than
+  through the 20-block lookback, however many tool steps that exchange took.
+- The automatic one at the end, so each tool step reads the one before it.
+
+That only pays if the history is byte-identical on every request.
+`compact_history` cuts an old tool result to the same stub every time and,
+over its budget, drops exchanges in 50k-character blocks whose boundaries
+are fixed from the start of the conversation (it used to drop just enough
+for each send, which moved the first message every turn). `run_agent_loop`
+records a step's calls before their results, so each step's calls are one
+assistant message the next step doesn't rewrite (they used to be merged,
+which re-sent a read result uncached on the step after it). OpenAI
+(Responses API) and chat-completions servers (DeepSeek, Qwen, Kimi, ...)
+cache prefixes on their own and get the same stable history; nothing is
+sent for them. No `prompt_cache_key`: OpenAI routes requests by their first
+tokens, which every Levis request shares, and the key only matters past
+about 15 requests a minute on one prefix.
+
+Measured with `LEVIS_EVAL_FILTER=five-turn LEVIS_EVAL_JUDGE=0` (Sonnet 5.5;
+before = run3, after = `ai-eval/cache`), tokens read / written per message,
+both of its requests together:
+
+| panel/en/five-turn | before        | after          |
+| ------------------ | ------------- | -------------- |
+| message 1          | 5,991 / 6,423 | 6,658 / 7,100  |
+| message 2          | 6,534 / 6,964 | 13,534 / 1,322 |
+| message 3          | 7,159 / 7,424 | 14,808 / 1,152 |
+| message 4          | 7,575 / 8,038 | 15,823 / 1,153 |
+| message 5 (1 req.) | 0 / 8,137     | 7,975 / 859    |
+
+The first request of messages 2-5 now reads 6.3k-8.1k tokens (the system
+prompt plus the history) and writes 0.7k-1.0k (the previous exchange and the
+new message with its document), where it used to read nothing and write
+6.5k-8.4k. Per case, cache writes fell from 37.0k to 11.6k tokens
+(panel/en) and from 37.4k to 11.8k (quick/zh); the input side of the bill
+(writes $2.50, reads $0.20 per million) from $0.098 to $0.041 and $0.099 to
+$0.042, -58%; the whole case from $0.125 to $0.072 and $0.118 to $0.061
+(output varies run to run). Both cases pass every check, as before.
+
+`live_agent_caches_across_steps` now runs three messages on the 60k
+document and asserts both kinds of read: message 1's steps read 6,329,
+7,936 and 8,439 tokens - each everything the step before it sent - message
+2's first request reads the 6,329-token system prompt and message 3's
+7,863, the first exchange too. Message 1 also read the system prompt the
+five-turn run had cached minutes earlier: it is shared across
+conversations.
+
+What still writes again: the message being sent, every time (it carries
+the document); a proposal's status note that changes after it was first
+sent (sent while undecided, accepted later), from that tool result on; and
+anything after five minutes without a request - the cache's lifetime (the
+one-hour lifetime doubles the write price).
+
 ## Results
 
 ### Round 2 integration, judged and fixed (run3-fix)

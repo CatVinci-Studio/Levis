@@ -407,9 +407,6 @@ pub struct Conversation {
 }
 
 impl Conversation {
-    pub fn last(&self) -> &TurnOutcome {
-        self.outcomes.last().expect("at least one turn")
-    }
     pub fn latency_ms(&self) -> u128 {
         self.outcomes.iter().map(|o| o.latency_ms).sum()
     }
@@ -566,7 +563,7 @@ pub fn run_conversation(
             ..TurnOutcome::default()
         };
         let mut proposal_ids = Vec::new();
-        for (i, turn) in turns.iter().enumerate() {
+        for turn in &turns {
             match turn {
                 AgentTurn::ToolCall {
                     call_id,
@@ -574,10 +571,17 @@ pub fn run_conversation(
                     arguments,
                 } => {
                     outcome.tools.push(name.clone());
-                    let result = match turns.get(i + 1) {
-                        Some(AgentTurn::ToolResult { output, .. }) => output.as_str(),
-                        _ => "",
-                    };
+                    // A step's results follow all of its calls.
+                    let result = turns
+                        .iter()
+                        .find_map(|t| match t {
+                            AgentTurn::ToolResult {
+                                call_id: id,
+                                output,
+                            } if id == call_id => Some(output.as_str()),
+                            _ => None,
+                        })
+                        .unwrap_or("");
                     let args: Value = serde_json::from_str(arguments).unwrap_or_default();
                     outcome.calls.push(json!({
                         "name": name,
