@@ -197,6 +197,8 @@ test.describe("phone", () => {
   test.use(PHONE);
 
   test("four categories fit across the screen", async ({ page }) => {
+    // The narrowest current iPhone width, in English, the longest labels.
+    await page.setViewportSize({ width: 375, height: 812 });
     await openPhone(page);
     const panel = await openSettings(page);
     const items = panel.locator(".settings-nav-item");
@@ -206,9 +208,13 @@ test.describe("phone", () => {
       t.navAi,
       t.navPrivacy,
     ]);
-    const nav = await panel.locator(".settings-nav").boundingBox();
-    const last = await items.last().boundingBox();
-    expect(last!.x + last!.width).toBeLessThanOrEqual(nav!.x + nav!.width);
+    // Nothing to scroll sideways to.
+    const nav = panel.locator(".settings-nav");
+    const { scroll, client } = await nav.evaluate((el) => ({
+      scroll: el.scrollWidth,
+      client: el.clientWidth,
+    }));
+    expect(scroll).toBeLessThanOrEqual(client);
   });
 
   test("closing Settings doesn't put the keyboard back up", async ({
@@ -224,5 +230,24 @@ test.describe("phone", () => {
         () => (document.activeElement as HTMLElement | null)?.isContentEditable,
       ),
     ).toBeFalsy();
+  });
+
+  test("other dialogs still hand the focus back to the editor", async ({
+    page,
+  }) => {
+    // Inserting a table is a step in typing, not a detour like Settings:
+    // the keyboard should be there for the table's first cell.
+    await openPhone(page);
+    const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+    await editor.focus();
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("levis:insert-block", { detail: "table" }),
+      ),
+    );
+    const dialog = page.getByRole("dialog", { name: "Insert Table" });
+    await dialog.getByRole("button", { name: "Insert", exact: true }).tap();
+    await expect(dialog).toHaveCount(0);
+    await expect(editor).toBeFocused();
   });
 });
