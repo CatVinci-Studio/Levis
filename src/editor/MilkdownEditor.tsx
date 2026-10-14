@@ -1347,10 +1347,10 @@ export function MilkdownEditor({
 
   // Quick Ask's "continue in the panel": its exchange becomes the full
   // conversation - in the docked panel, or the detached window when the
-  // user prefers it there (Settings > Levis AI) - and from then on is saved
-  // to History like any other. The panel's previous conversation is already
-  // in History. Not while either side is mid-reply: the turns would be
-  // incomplete.
+  // user prefers it there (Settings > Levis AI > Advanced) - and from then
+  // on is saved to History like any other. The panel's previous
+  // conversation is already in History. Not while either side is
+  // mid-reply: the turns would be incomplete.
   function expandQuickAsk() {
     if (quickConversation.busy || conversation.busy) return;
     if (quickConversation.history.length > 0) {

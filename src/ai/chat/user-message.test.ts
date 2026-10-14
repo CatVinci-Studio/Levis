@@ -3,6 +3,7 @@ import {
   attachedFileBlock,
   parseUserMessage,
   selectedTextBlock,
+  skillBlock,
   userMessageBody,
 } from "./user-message";
 
@@ -65,6 +66,18 @@ describe("the wire format's writer and reader agree", () => {
     expect(parsed.attachments).toEqual(["notes.md"]);
     expect(parsed.selection).toBe("the **selected** passage");
     expect(parsed.body).toBe("tighten this");
+  });
+
+  it("shows a skill the user called as the /name they typed", () => {
+    const text = `${selectedTextBlock("y")}\n\n${skillBlock("tighten", "Cut filler.\nKeep every claim.")}\n\nthe Method paragraph`;
+    expect(parseUserMessage(text)).toEqual({
+      body: "/tighten the Method paragraph",
+      selection: "y",
+      attachments: [],
+    });
+    expect(userMessageBody(skillBlock("tighten", "Cut filler."))).toBe(
+      "/tighten",
+    );
   });
 
   it("strips every block for a display-only body", () => {

@@ -1,0 +1,3 @@
+# Notes on moving house
+
+Moving house is one of those things that sounds very simple until you actually do it; there are really a lot of small tasks, and you have to leverage every free evening to get through them. Last month we moved across town, and it took us 2 full weeks to pack, cancel the old contracts and get the internet working at the new flat. We tried to utilize a checklist, but it was incredibly hard to keep it up to date!

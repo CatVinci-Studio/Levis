@@ -3,8 +3,21 @@ import {
   composeMarkdownEdit,
   documentMarkdown,
   findMarkdownMatch,
+  joinInline,
   type MarkdownBlock,
 } from "./doc-markdown";
+
+describe("joinInline", () => {
+  it("adds a space between Latin words, none before punctuation, CJK or a footnote ref", () => {
+    expect(joinInline("the study", "in 2024")).toBe("the study in 2024");
+    expect(joinInline("the study", ", which")).toBe("the study, which");
+    expect(joinInline("研究", "表明")).toBe("研究表明");
+    expect(joinInline("its last snapshot", "[^2]")).toBe(
+      "its last snapshot[^2]",
+    );
+    expect(joinInline("see", "[the notes](x)")).toBe("see [the notes](x)");
+  });
+});
 
 /** Builds blocks the way serializeBlocks would, with fake ProseMirror
  *  positions - the matching logic only cares that they're monotonic. */

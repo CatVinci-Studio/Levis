@@ -2,24 +2,30 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-/// The agent workspace: per-folder AI configuration for the document being
-/// edited, layered over a global one.
+/// Everything that shapes Levis AI for the document being edited: the
+/// project folder, its `.levis/` folder and the global config folder. The
+/// user-facing names and rules are in docs/AI-CONCEPTS.md; in code the
+/// project folder is still called the workspace root.
 ///
-/// A workspace is the folder containing the current document, configured by
-/// a `.levis/` directory inside it:
+/// The project folder is the document's own folder unless the user chose
+/// another one, and its `.levis/` directory holds the project's settings:
 ///
 /// ```text
-/// my-novel/
+/// my-novel/                 <- the project folder
 /// ├── chapter-1.md          <- the open document
 /// └── .levis/
-///     ├── agent.md          <- workspace instructions (always in the system prompt)
+///     ├── agent.md          <- the project's writing instructions (system prompt)
+///     ├── style.md          <- the style profile (ai::project)
+///     ├── library/          <- the library (ai::project)
 ///     └── skills/
 ///         └── polish.md     <- one skill per file: YAML frontmatter + prompt body
 /// ```
 ///
-/// The global layer lives in the app config dir under `agent/` with the same
-/// shape and applies to every document; a workspace skill with the same name
-/// shadows the global one. Skill files are markdown with a frontmatter block:
+/// The global config folder lives in the app config dir under `agent/` with
+/// the agent.md + skills/ half of that shape and applies to every document:
+/// its writing instructions come first and the project's after them, and a
+/// project skill with the same name shadows the global one. Skill files are
+/// markdown with a frontmatter block:
 ///
 /// ```text
 /// ---
@@ -42,9 +48,13 @@ pub struct AgentSkill {
 
 #[derive(Serialize, Clone, Default)]
 pub struct AgentWorkspace {
-    /// Global then workspace agent.md contents, in prompt order.
+    /// The global writing instructions (the global config folder's
+    /// agent.md, comments stripped), in prompt order.
     pub instructions: Vec<String>,
-    /// Merged skills, workspace shadowing global on name collisions.
+    /// The project's writing instructions (`.levis/agent.md`), sent after
+    /// the global ones and winning where the two conflict.
+    pub project_instructions: Option<String>,
+    /// Merged skills, project shadowing global on name collisions.
     pub skills: Vec<AgentSkill>,
     /// The project folder - the document's own by default, or the one
     /// picked in the panel - when there is one: the sandbox root for the
@@ -55,6 +65,26 @@ pub struct AgentWorkspace {
     pub style: Option<String>,
     /// `.levis/library/*.md` - the project's people, places and terms.
     pub library: Vec<crate::ai::project::LibraryEntry>,
+    /// Where `root` came from - or why there is none - so the agent can
+    /// tell the user which folder it reads and how to change that.
+    pub root_source: RootSource,
+}
+
+/// Why the workspace root (the project folder, to the user) is the one it
+/// is, or why there is none.
+#[derive(Serialize, Clone, Copy, Default, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum RootSource {
+    /// An unsaved document and no folder chosen.
+    #[default]
+    None,
+    /// The open document's own folder - the default.
+    DocumentFolder,
+    /// The folder the user chose (the project menu, or Settings > Levis AI).
+    Chosen,
+    /// The folder would be the home folder or a drive root, which is never
+    /// opened to the agent (project::is_too_broad).
+    TooBroad,
 }
 
 fn global_agent_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -102,11 +132,13 @@ fn parse_skill_file(file_stem: &str, content: &str) -> AgentSkill {
     }
 }
 
-/// Strips `<!-- -->` comments from agent.md content before it goes anywhere
-/// near a prompt: the starter template is written entirely in comments, and
-/// users get a natural way to annotate their instructions. An unterminated
-/// comment swallows the rest of the file, matching how HTML would parse it.
-fn strip_html_comments(text: &str) -> String {
+/// Strips `<!-- -->` comments from a `.levis/` file or the global agent.md
+/// before it goes anywhere near a prompt: the starter templates explain
+/// themselves in comments, and users get a natural way to annotate their
+/// files ("comments are never sent" holds for every one of them). An
+/// unterminated comment swallows the rest of the file, matching how HTML
+/// would parse it.
+pub(crate) fn strip_html_comments(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(start) = rest.find("<!--") {
@@ -120,9 +152,9 @@ fn strip_html_comments(text: &str) -> String {
     out
 }
 
-/// Reads one layer (global dir or a workspace's .levis dir): its agent.md
-/// and every skill under skills/. Missing files/dirs are just empty layers,
-/// never errors - most folders won't have any configuration.
+/// Reads one layer (the global config folder or a project's .levis dir):
+/// its agent.md and every skill under skills/. Missing files/dirs are just
+/// empty layers, never errors - most folders won't have any configuration.
 fn read_layer(dir: &Path) -> (Option<String>, Vec<AgentSkill>) {
     let instructions = std::fs::read_to_string(dir.join("agent.md"))
         .ok()
@@ -154,15 +186,18 @@ fn read_layer(dir: &Path) -> (Option<String>, Vec<AgentSkill>) {
     (instructions, skills)
 }
 
-/// Resolves the workspace root: the folder `.levis/` is read from and the
-/// sandbox boundary the `list_files`/`read_file` tools may not escape.
+/// Resolves the workspace root - the project folder: the folder `.levis/`
+/// is read from and the sandbox boundary the `list_files`/`read_file` tools
+/// may not escape.
 ///
 /// The document's own folder is the default and covers the common case (a
 /// folder of chapters, notes next to the draft). `root_override` is the
-/// Settings > Levis AI "workspace" picker: without it, reference material one
-/// folder over is simply unreachable, and so is any attachment the user
-/// picked from elsewhere on disk - which is exactly the wall a user hits the
-/// first time their sources and their draft don't live together.
+/// chosen project folder ("Choose project folder…" in the project bar, or
+/// Settings > Levis AI > Project Folder) - one setting for every document,
+/// unsaved drafts included. Without it, reference material one folder over
+/// is simply unreachable, and so is any attachment the user picked from
+/// elsewhere on disk - which is exactly the wall a user hits the first time
+/// their sources and their draft don't live together.
 ///
 /// An override that no longer exists (a moved or unmounted folder) falls
 /// back to the document's folder rather than leaving the agent with no
@@ -188,29 +223,54 @@ pub(crate) fn project_root(doc_path: Option<&str>, root_override: Option<&str>) 
     resolve_root(doc_path, root_override).filter(|root| !crate::ai::project::is_too_broad(root))
 }
 
-/// Loads the merged agent workspace for a document: global layer first,
-/// then the workspace root's `.levis/` layer on top.
+/// Loads the merged agent workspace for a document: the global config
+/// folder first, then the project folder's `.levis/` layer on top.
 pub fn load(
     app: &AppHandle,
     doc_path: Option<&str>,
     root_override: Option<&str>,
 ) -> AgentWorkspace {
+    load_from(
+        global_agent_dir(app).ok().as_deref(),
+        doc_path,
+        root_override,
+    )
+}
+
+/// [`load`] with the global layer's folder given directly - the app config
+/// dir's `agent/` in the app, a scratch folder in the live eval, which
+/// builds real workspaces on disk to exercise exactly this path.
+pub(crate) fn load_from(
+    global_dir: Option<&Path>,
+    doc_path: Option<&str>,
+    root_override: Option<&str>,
+) -> AgentWorkspace {
     let mut ws = AgentWorkspace::default();
 
-    if let Ok(global_dir) = global_agent_dir(app) {
-        let (instructions, skills) = read_layer(&global_dir);
+    if let Some(global_dir) = global_dir {
+        let (instructions, skills) = read_layer(global_dir);
         ws.instructions.extend(instructions);
         ws.skills.extend(skills);
     }
 
-    if let Some(root) = project_root(doc_path, root_override) {
+    let resolved = resolve_root(doc_path, root_override);
+    let chosen = root_override
+        .map(str::trim)
+        .is_some_and(|p| !p.is_empty() && Path::new(p).is_dir());
+    ws.root_source = match &resolved {
+        None => RootSource::None,
+        Some(root) if crate::ai::project::is_too_broad(root) => RootSource::TooBroad,
+        Some(_) if chosen => RootSource::Chosen,
+        Some(_) => RootSource::DocumentFolder,
+    };
+    if let Some(root) = resolved.filter(|_| ws.root_source != RootSource::TooBroad) {
         let root = root.as_path();
         ws.root = Some(root.to_string_lossy().to_string());
         ws.style = crate::ai::project::read_style(root);
         ws.library = crate::ai::project::read_library(root);
         let (instructions, skills) = read_layer(&root.join(WORKSPACE_DIR_NAME));
-        ws.instructions.extend(instructions);
-        // Workspace skills shadow same-named global ones.
+        ws.project_instructions = instructions;
+        // Project skills shadow same-named global ones.
         for skill in skills {
             ws.skills.retain(|s| s.name != skill.name);
             ws.skills.push(skill);
@@ -221,9 +281,9 @@ pub fn load(
 }
 
 /// The workspace as the frontend needs it: the skill list for the `/name`
-/// picker in the chat input, plus the resolved `root` the Settings row
-/// displays. Loaded fresh each time the chat opens so file edits are picked
-/// up without restarting.
+/// picker in the chat input, plus the resolved project folder (`root`),
+/// style profile and library the project bar shows. Loaded fresh each time
+/// the chat opens so file edits are picked up without restarting.
 #[tauri::command]
 pub async fn load_agent_workspace(
     app: AppHandle,
@@ -237,8 +297,9 @@ pub async fn load_agent_workspace(
     .unwrap_or_default()
 }
 
-/// Folder picker behind Settings > Levis AI's "switch workspace" button.
-/// Desktop only: the dialog plugin has no folder picker on iOS.
+/// Folder picker behind "Choose project folder…" (the project bar's menu
+/// and Settings > Levis AI > Project Folder). Desktop only: the dialog
+/// plugin has no folder picker on iOS.
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn pick_workspace_root(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
@@ -260,118 +321,45 @@ pub async fn pick_workspace_root(window: tauri::WebviewWindow) -> Result<Option<
     Ok(picked)
 }
 
-/// Creates the global agent directory (with a starter agent.md and skills/
-/// folder on first use) and reveals it in the file manager - the Settings
-/// "open folder" button. Desktop only: iOS has no file manager to reveal a
-/// folder in (the opener plugin only opens URLs there).
+/// Creates the global config folder (with a starter agent.md and skills/
+/// folder on first use) and reveals it in the file manager - Settings >
+/// Levis AI > Global Config Folder. Desktop only: iOS has no file manager to
+/// reveal a folder in (the opener plugin only opens URLs there).
 #[cfg(desktop)]
 #[tauri::command]
-pub async fn open_global_agent_dir(app: AppHandle, lang: Option<String>) -> Result<(), String> {
+pub async fn open_global_agent_dir(app: AppHandle, template: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
 
-    let dir = ensure_global_layer(&app, lang.as_deref())?;
+    let dir = ensure_global_layer(&app, &template)?;
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|e| e.to_string())
 }
 
-/// Creates the global agent dir if needed (skills/ folder plus a starter
-/// agent.md, same shape `open_global_agent_dir` guarantees) and returns the
-/// agent.md path. Backs the Settings "edit system prompt" button, which
-/// opens that file in the editor itself - Levis IS a markdown editor, so
-/// there's no bespoke textarea for it.
+/// Creates the global config folder if needed (skills/ folder plus a
+/// starter agent.md, same shape `open_global_agent_dir` guarantees) and
+/// returns the agent.md path. Backs Settings > Levis AI > Writing
+/// Instructions > Edit agent.md, which opens that file in the editor itself
+/// - Levis IS a markdown editor, so there's no bespoke textarea for it.
 #[tauri::command]
-pub fn ensure_global_agent_md(app: AppHandle, lang: Option<String>) -> Result<String, String> {
-    Ok(ensure_global_layer(&app, lang.as_deref())?
+pub fn ensure_global_agent_md(app: AppHandle, template: String) -> Result<String, String> {
+    Ok(ensure_global_layer(&app, &template)?
         .join("agent.md")
         .to_string_lossy()
         .to_string())
 }
 
-/// The starter agent.md: a how-to written entirely in HTML comments, which
-/// `read_layer` strips before anything reaches the model - so the template
-/// teaches without polluting the system prompt, and users can keep using
-/// comments to annotate their own instructions. One per UI language; the
-/// frontend passes its language setting along (Rust can't read it itself).
-const AGENT_MD_TEMPLATE_EN: &str = "\
-<!--
-This file customizes Levis AI Chat (Settings > Levis AI).
-
-Everything OUTSIDE comment blocks like this one is added to every
-conversation's system prompt, for all documents. Comments are stripped
-and never sent to the model, so this guide is safe to keep.
-
-Things worth writing here:
-
-  Style        e.g.  Prefer short sentences. Avoid business jargon.
-  Language     e.g.  Always reply in Chinese.
-  Terminology  e.g.  The product is spelled \"Levis\", never \"levis\".
-  Background   e.g.  I am writing a sci-fi novel; the narrator is Mira.
-
-Per-project instructions: put a .levis/agent.md next to your documents -
-it is layered on top of this global file for those documents only.
-Reusable skills go in skills/*.md (invoked with /name in the chat).
--->
-";
-
-const AGENT_MD_TEMPLATE_ZH: &str = "\
-<!--
-这个文件用于定制 Levis AI 对话（设置 > Levis AI）。
-
-写在注释块（比如这一段）之外的所有内容，都会加入每次对话的系统
-提示词，对所有文档生效。注释会被剥离、永远不会发给模型，所以这
-份说明可以一直留着。
-
-适合写在这里的内容：
-
-  文风    例如：多用短句，避免商业行话。
-  语言    例如：始终用中文回复。
-  术语    例如：产品名写作 “Levis”，不要写成 “levis”。
-  背景    例如：我在写一部科幻小说，叙述者叫 Mira。
-
-按项目定制：在文档旁边放一个 .levis/agent.md——它会叠加在这份
-全局文件之上，只对那个文件夹里的文档生效。
-可复用的 skill 放在 skills/*.md（在对话里用 /名字 调用）。
--->
-";
-
-const AGENT_MD_TEMPLATE_JA: &str = "\
-<!--
-このファイルはLevis AI チャット（設定 > Levis AI）をカスタマイズします。
-
-このようなコメントブロックの外に書かれた内容は、すべての文書に
-ついて、すべての会話のシステムプロンプトに追加されます。コメン
-トは取り除かれ、モデルに送信されることはないので、この説明はそ
-のまま残しておいて構いません。
-
-ここに書くとよい内容：
-
-  文体    例：短い文を好む。ビジネス用語を避ける。
-  言語    例：常に日本語で返信する。
-  用語    例：製品名は「Levis」と表記し、「levis」とは書かない。
-  背景    例：SF小説を書いている。語り手はMira。
-
-プロジェクトごとの指示：文書のそばに .levis/agent.md を置くと、
-そのフォルダの文書にのみ、このグローバルファイルの上に重ねて適
-用されます。
-再利用可能なskillは skills/*.md に置きます（チャットで /名前 と
-入力して呼び出します）。
--->
-";
-
-/// Guarantees the global agent dir exists with its starter files; returns
-/// it. `lang` is the frontend's UI language ("zh", "ja", or anything else =
-/// en), and only matters the one time the starter template is written.
-fn ensure_global_layer(app: &AppHandle, lang: Option<&str>) -> Result<PathBuf, String> {
+/// Guarantees the global config folder exists with its starter files;
+/// returns it. `template` is the starter agent.md in the UI language
+/// (`agentInstructionsTemplate` in src/i18n/strings.ts): a how-to written
+/// entirely in HTML comments, which `read_layer` strips before anything
+/// reaches the model - so it teaches without polluting the system prompt.
+/// It is only written when there is no agent.md yet.
+fn ensure_global_layer(app: &AppHandle, template: &str) -> Result<PathBuf, String> {
     let dir = global_agent_dir(app)?;
     std::fs::create_dir_all(dir.join("skills")).map_err(|e| e.to_string())?;
     let agent_md = dir.join("agent.md");
     if !agent_md.exists() {
-        let template = match lang {
-            Some("zh") => AGENT_MD_TEMPLATE_ZH,
-            Some("ja") => AGENT_MD_TEMPLATE_JA,
-            _ => AGENT_MD_TEMPLATE_EN,
-        };
         crate::atomic::write_sync(&agent_md, template).map_err(|e| e.to_string())?;
     }
     Ok(dir)
@@ -479,28 +467,6 @@ mod tests {
     fn strips_comments_leaving_instructions() {
         let text = "<!-- how-to guide -->\nReply in Chinese.\n<!-- note to self -->";
         assert_eq!(strip_html_comments(text).trim(), "Reply in Chinese.");
-    }
-
-    #[test]
-    fn comment_only_templates_yield_nothing() {
-        // The starter templates must contribute zero prompt content.
-        assert!(strip_html_comments(AGENT_MD_TEMPLATE_EN).trim().is_empty());
-        assert!(strip_html_comments(AGENT_MD_TEMPLATE_ZH).trim().is_empty());
-        assert!(strip_html_comments(AGENT_MD_TEMPLATE_JA).trim().is_empty());
-    }
-
-    #[test]
-    fn templates_name_the_settings_page_that_exists() {
-        // The Settings page is "Levis AI" (src/i18n/strings.ts, navAi);
-        // there has been no "Agent" page since 0.9.7.
-        for (template, settings) in [
-            (AGENT_MD_TEMPLATE_EN, "Settings > Levis AI"),
-            (AGENT_MD_TEMPLATE_ZH, "设置 > Levis AI"),
-            (AGENT_MD_TEMPLATE_JA, "設定 > Levis AI"),
-        ] {
-            assert!(template.contains(settings), "{template}");
-            assert!(!template.contains("> Agent"), "{template}");
-        }
     }
 
     #[test]

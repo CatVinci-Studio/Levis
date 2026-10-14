@@ -30,17 +30,57 @@ export const strings = {
     noticeGrammarChanged: "The paragraph changed while checking - try again.",
     noticeGrammarNoIssues: "No issues found.",
     projectTooBroad:
-      "This folder is too broad to use as a project (your home folder or a drive). Pick a project folder instead.",
+      "This folder is too broad to be a project folder (your home folder or a whole drive). Choose a more specific folder.",
     projectNoSamples: "None of the picked files could be read as text.",
-    projectNeedsSave: "Save this document to use its folder as the project.",
+    projectNeedsSave:
+      "Save this document first - its folder becomes the project folder.",
     projectPicking: "Choosing a folder…",
     projectLearningStyle: "Learning your style from the samples…",
     projectStyleLearned:
       "Style profile saved - review and edit it in the new tab.",
     projectOpening: "Opening…",
-    projectStyleTemplate: `# Style profile\n\n<!-- ${AI_NAME} and inline completion follow this file for this project. Describe how you write: voice, sentence rhythm, word choice, punctuation, things you never do. Or use “Learn my style” to draft it from your own writing. -->\n\n## Voice and tone\n\n- \n\n## Sentences and rhythm\n\n- \n\n## Word choice\n\n- \n\n## Never\n\n- \n`,
-    projectLibraryTemplate:
-      "---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- Facts the AI should keep consistent whenever {name} (or an alias) comes up. include: always | detected | never -->\n\n",
+    projectStyleTemplate: `# Style profile\n\n<!-- ${AI_NAME} and completion follow this profile in every document of this project. Describe how you write - voice, sentence rhythm, word choice, punctuation, things you never do - in concrete points ("short sentences, rarely over 15 words") rather than adjectives. “Learn my style from samples…” in the project menu drafts it from your own writing. Comments like this one are never sent. -->\n\n## Voice and tone\n\n- \n\n## Sentences and rhythm\n\n- \n\n## Word choice\n\n- \n\n## Never\n\n- \n`,
+    projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- Facts ${AI_NAME} should keep consistent whenever {name} or an alias comes up. include: detected (when mentioned, the default) | always | never. Comments like this one are never sent. -->\n\n`,
+    projectInstructionsTemplate: `<!--
+Writing instructions for this project.
+
+Everything outside comments like this one is sent to ${AI_NAME} with
+every conversation about a document in this project, after your
+global writing instructions (Settings > ${AI_NAME}). Where the two
+disagree, this file wins. Comments are never sent.
+
+Worth writing here, for example:
+
+  Background   A mystery novel set in 1930s Shanghai, told by Lin Wan.
+  Language     Reply in English; the novel itself is in Chinese.
+  Terms        "Harbour City", never "Harbor City".
+
+How the text should sound belongs in the style profile (style.md);
+facts about characters, places and terms in the library (library/).
+-->
+`,
+    agentInstructionsTemplate: `<!--
+Your writing instructions for ${AI_NAME}, for all documents.
+
+Everything outside comments like this one is sent with every
+conversation (the AI panel and Quick Ask). Comments are never sent,
+so this guide can stay.
+
+Worth writing here, for example:
+
+  Language     Always reply in English.
+  Spelling     Use British spelling.
+  Terms        Write "e-mail", never "email".
+  Background   I write long-form science journalism for a general audience.
+
+Instructions for one project only go in that project's .levis/agent.md
+(the AI panel's project menu > Edit project writing instructions).
+Both are sent; where they disagree, the project's win.
+
+Skills go in the skills/ folder next to this file, one .md file each;
+type /name in a conversation to use one.
+-->
+`,
     projectOpenStyle: "Open style profile",
     projectStyleChip: "Style",
     projectLibraryChip: "Library {n}",
@@ -50,6 +90,8 @@ export const strings = {
     projectLearnStyle: "Learn my style from samples…",
     projectCreateStyle: "Create style profile",
     projectNewEntry: "New library entry…",
+    projectEditInstructions: "Edit project writing instructions",
+    projectFolderTitle: "Project folder: {path}",
     projectEntryPlaceholder: "Name of a character, place or term",
     projectEntryCreate: "Create",
     chatHistoryUnsaved: "Unsaved documents",
@@ -88,10 +130,8 @@ export const strings = {
     modelMissingHint:
       "This model isn't in the provider's current list - it may have been retired. Pick another, or the default.",
     modelFetchedAt: "Fetched {date}",
-    aiErrorNotConfigured:
-      "This AI service isn't connected yet. Set it up in Settings → AI.",
-    aiErrorAuth:
-      "The service rejected the credentials. Check the API key (or sign in again) in Settings → AI.",
+    aiErrorNotConfigured: `This AI service isn't connected yet. Set it up in Settings > ${AI_NAME}.`,
+    aiErrorAuth: `The service rejected the credentials. Check the API key (or sign in again) in Settings > ${AI_NAME}.`,
     aiErrorWorkspaceKey:
       "This Anthropic key isn't tied to a workspace. Create a key inside a workspace in the Anthropic Console and use that one.",
     aiErrorRateLimit:
@@ -102,8 +142,7 @@ export const strings = {
       "The request took too long. Check your connection, then retry.",
     aiErrorNetwork:
       "Couldn't reach the service. Check your internet connection or proxy settings.",
-    aiErrorModel:
-      "This model isn't available for your account. Pick another in Settings → AI.",
+    aiErrorModel: `This model isn't available for your account. Pick another in Settings > ${AI_NAME}.`,
     grammarIgnore: "Ignore",
     treeTab: "Files",
     outlineTab: "Outline",
@@ -165,13 +204,12 @@ export const strings = {
     editAnimationLabel: "Animate edit previews",
     agentWorkspaceLabel: "Global Config Folder",
     agentWorkspaceOpenButton: "Open Folder",
-    agentWorkspaceRootLabel: "Workspace Folder",
+    agentWorkspaceRootLabel: "Project Folder",
     agentWorkspaceRootHint: `${AI_NAME} can only read this folder: {path}`,
     agentWorkspaceRootDefault: "the current document's folder",
-    agentWorkspaceRootPick: "Switch…",
-    agentWorkspaceRootReset: "Use document folder",
-    agentSystemPromptLabel: "Chat Instructions (agent.md)",
-    agentSystemPromptHint: "Writing instructions sent with every conversation",
+    agentWorkspaceRootPick: "Choose…",
+    agentSystemPromptLabel: "Writing Instructions (agent.md)",
+    agentSystemPromptHint: "Sent with every conversation, for all documents",
     agentSystemPromptEdit: "Edit agent.md",
     agentSkillsLabel: "Skills",
     agentSkillsHint: "Type /name in a conversation to use one",
@@ -179,8 +217,7 @@ export const strings = {
     agentAttachFile:
       "Attach a file: PDF, Word, PowerPoint, spreadsheet, image or plain text",
     chatAttachmentTruncated: "(shortened)",
-    chatAttachmentNoVision:
-      "This provider can't read images. Switch provider in Settings, or attach a document instead.",
+    chatAttachmentNoVision: `This provider can't read images. Switch provider in Settings > ${AI_NAME}, or attach a document instead.`,
     aiGrammarLabel: "Enable grammar check",
     aiAskLabel: `${AI_NAME} Chat`,
     aiAskToggleLabel: `Enable ${AI_NAME} chat`,
@@ -497,8 +534,7 @@ export const strings = {
     tutorialMarkdownStepFormula: "Type $E=mc^2$",
     tutorialMarkdownDone: "These exercises are complete or skipped.",
     tutorialAiIntroTitle: "AI writing assistance",
-    tutorialAiIntroBody:
-      "Try completion, grammar checks, chat, and document edits. This tutorial uses preset examples and needs no sign-in. Connect a service in Settings → AI for regular use.",
+    tutorialAiIntroBody: `Try completion, grammar checks, chat, and document edits. This tutorial uses preset examples and needs no sign-in. Connect a service in Settings > ${AI_NAME} for regular use.`,
     tutorialCompletionTitle: "Text completion",
     tutorialCompletionBody:
       "Suggestions appear in gray. Press Tab to accept one, or keep typing to dismiss it. You can also request a suggestion from the context menu.",
@@ -542,8 +578,7 @@ export const strings = {
     tutorialAgentEditMockReply:
       "Removed the extra opening phrase. Review the edit preview.",
     tutorialDoneTitle: "Tutorial finished",
-    tutorialDoneBody:
-      "You can start writing now. To use AI, connect a service in Settings → AI. You can reopen this tutorial from the Help menu.",
+    tutorialDoneBody: `You can start writing now. To use AI, connect a service in Settings > ${AI_NAME}. You can reopen this tutorial from the Help menu.`,
     closePromptMessage: "This document has unsaved changes.",
     closePromptSave: "Save",
     closePromptDiscard: "Don't Save",
@@ -655,16 +690,53 @@ export const strings = {
     noticeGrammarChanged: "检查期间段落有改动，请重试。",
     noticeGrammarNoIssues: "没有发现问题。",
     projectTooBroad:
-      "这个文件夹范围太大（主目录或整个磁盘），不能作为项目，请选择具体的项目文件夹。",
+      "这个文件夹范围太大（主目录或整个磁盘），不能作为项目文件夹，请选择更具体的文件夹。",
     projectNoSamples: "选中的文件都无法作为文本读取。",
-    projectNeedsSave: "保存文档后，就能把它所在的文件夹作为项目。",
+    projectNeedsSave: "请先保存文档——它所在的文件夹就是项目文件夹。",
     projectPicking: "正在选择文件夹…",
     projectLearningStyle: "正在从样本中学习你的文风…",
     projectStyleLearned: "文风档案已保存，可以在新标签页里查看和修改。",
     projectOpening: "正在打开…",
-    projectStyleTemplate: `# 文风档案\n\n<!-- 在这个项目里，${AI_NAME} 和续写都会遵循这份文件。写下你的写作习惯：语气、句子节奏、用词、标点、从不使用的写法。也可以用“学习我的文风”根据你的文章自动生成。 -->\n\n## 语气\n\n- \n\n## 句子与节奏\n\n- \n\n## 用词\n\n- \n\n## 从不\n\n- \n`,
-    projectLibraryTemplate:
-      "---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- 每当提到 {name}（或别名）时，AI 需要保持一致的设定。include: always（总是附带）| detected（被提到时附带）| never（不附带） -->\n\n",
+    projectStyleTemplate: `# 文风档案\n\n<!-- 在这个项目的所有文档里，${AI_NAME} 和续写都会遵循这份档案。写下你的写作习惯：语气、句子节奏、用词、标点、从不使用的写法——写具体的要点（“多用短句，很少超过 25 个字”），不要只写形容词。项目菜单里的“从样本学习我的文风…”可以根据你自己的文章起草它。注释（比如这一段）不会发送。 -->\n\n## 语气\n\n- \n\n## 句子与节奏\n\n- \n\n## 用词\n\n- \n\n## 从不\n\n- \n`,
+    projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- 每当提到 {name}（或别名）时，${AI_NAME} 需要保持一致的设定写在这里。include: detected（被提到时附带，默认）| always（总是附带）| never（不附带）。注释不会发送。 -->\n\n`,
+    projectInstructionsTemplate: `<!--
+这是本项目的写作要求。
+
+写在注释（比如这一段）之外的内容，会在本项目每篇文档的每次对话中
+发给 ${AI_NAME}，排在全局写作要求（设置 > ${AI_NAME}）之后；两者
+冲突时以这份为准。注释永远不会发送。
+
+适合写在这里的内容，例如：
+
+  背景    一部以 1930 年代上海为背景的悬疑小说，第一人称，叙述者是林晚。
+  语言    始终用中文回复。
+  用词    人物名统一写作“林晚”，不要写成“林婉”。
+
+文字读起来应该是什么样，写进文风档案（style.md）；人物、地点、
+术语的设定，写进资料库（library/）。
+-->
+`,
+    agentInstructionsTemplate: `<!--
+这是你给 ${AI_NAME} 的写作要求，对所有文档生效。
+
+写在注释（比如这一段）之外的内容，每次对话（AI 面板和快速提问）
+都会发给 ${AI_NAME}。注释永远不会发送，这份说明可以一直留着。
+
+适合写在这里的内容，例如：
+
+  语言    始终用中文回复。
+  用词    “登录”不要写成“登陆”。
+  格式    数字一律用阿拉伯数字。
+  背景    我写面向大众读者的科普长文。
+
+只针对某个项目的要求，写在那个项目的 .levis/agent.md 里（AI 面板的
+项目菜单 > 编辑本项目的写作要求）。两份都会发送；有冲突时以项目的
+为准。
+
+技能放在本文件旁边的 skills/ 文件夹里，一个技能一个 .md 文件；
+在对话中输入 /名称 即可使用。
+-->
+`,
     projectOpenStyle: "打开文风档案",
     projectStyleChip: "文风",
     projectLibraryChip: "资料库 {n}",
@@ -673,7 +745,9 @@ export const strings = {
     projectReveal: "在文件管理器中显示",
     projectLearnStyle: "从样本学习我的文风…",
     projectCreateStyle: "新建文风档案",
-    projectNewEntry: "新建资料条目…",
+    projectNewEntry: "新建资料库条目…",
+    projectEditInstructions: "编辑本项目的写作要求",
+    projectFolderTitle: "项目文件夹：{path}",
     projectEntryPlaceholder: "人物、地点或术语的名称",
     projectEntryCreate: "创建",
     chatHistoryUnsaved: "未保存的文档",
@@ -712,15 +786,15 @@ export const strings = {
     modelMissingHint:
       "服务商当前的模型列表里没有这个模型，可能已经下线。请换一个，或使用默认模型。",
     modelFetchedAt: "上次获取：{date}",
-    aiErrorNotConfigured: "这个 AI 服务还没有连接，请在「设置 → AI」中配置。",
-    aiErrorAuth: "服务拒绝了凭据，请在「设置 → AI」中检查 API Key 或重新登录。",
+    aiErrorNotConfigured: `这个 AI 服务还没有连接，请在「设置 > ${AI_NAME}」中配置。`,
+    aiErrorAuth: `服务拒绝了凭据，请在「设置 > ${AI_NAME}」中检查 API Key 或重新登录。`,
     aiErrorWorkspaceKey:
       "这个 Anthropic Key 不属于任何工作区。请在 Anthropic Console 的工作区里新建一个 Key 再使用。",
     aiErrorRateLimit: "服务繁忙或已达到频率限制，请稍等片刻再重试。",
     aiErrorServer: "服务端出了问题，请过一会儿再试。",
     aiErrorTimeout: "请求超时，请检查网络后重试。",
     aiErrorNetwork: "无法连接到服务，请检查网络或代理设置。",
-    aiErrorModel: "你的账号无法使用这个模型，请在「设置 → AI」中换一个。",
+    aiErrorModel: `你的账号无法使用这个模型，请在「设置 > ${AI_NAME}」中换一个。`,
     grammarIgnore: "忽略",
     treeTab: "文件树",
     outlineTab: "大纲",
@@ -782,21 +856,19 @@ export const strings = {
     editAnimationLabel: "编辑预览动画",
     agentWorkspaceLabel: "全局配置文件夹",
     agentWorkspaceOpenButton: "打开文件夹",
-    agentWorkspaceRootLabel: "工作区文件夹",
+    agentWorkspaceRootLabel: "项目文件夹",
     agentWorkspaceRootHint: `${AI_NAME} 只能读取这个文件夹：{path}`,
     agentWorkspaceRootDefault: "当前文档所在文件夹",
-    agentWorkspaceRootPick: "切换…",
-    agentWorkspaceRootReset: "改回文档所在文件夹",
-    agentSystemPromptLabel: "对话指令（agent.md）",
-    agentSystemPromptHint: "每次对话都会附上的写作要求",
+    agentWorkspaceRootPick: "选择…",
+    agentSystemPromptLabel: "写作要求（agent.md）",
+    agentSystemPromptHint: "每次对话都会附上，对所有文档生效",
     agentSystemPromptEdit: "编辑 agent.md",
-    agentSkillsLabel: "技能目录",
+    agentSkillsLabel: "技能",
     agentSkillsHint: "在对话中输入 /名称 即可使用",
     agentSkillsImport: "导入技能…",
     agentAttachFile: "附加文件：PDF、Word、PPT、表格、图片或纯文本",
     chatAttachmentTruncated: "（已截断）",
-    chatAttachmentNoVision:
-      "当前服务商无法读取图片。请在设置里更换服务商，或改为附加文档。",
+    chatAttachmentNoVision: `当前服务商无法读取图片。请在「设置 > ${AI_NAME}」中更换服务商，或改为附加文档。`,
     aiGrammarLabel: "开启语法检查",
     aiAskLabel: `${AI_NAME} 对话`,
     aiAskToggleLabel: `开启 ${AI_NAME} 对话`,
@@ -1103,8 +1175,7 @@ export const strings = {
     tutorialMarkdownStepFormula: "输入 $E=mc^2$",
     tutorialMarkdownDone: "这些练习已完成或跳过。",
     tutorialAiIntroTitle: "AI 写作协助",
-    tutorialAiIntroBody:
-      "下面练习续写、语法检查、对话和正文修改。教程使用预设示例，无需登录；实际使用前需在「设置 → AI」中连接服务。",
+    tutorialAiIntroBody: `下面练习续写、语法检查、对话和正文修改。教程使用预设示例，无需登录；实际使用前需在「设置 > ${AI_NAME}」中连接服务。`,
     tutorialCompletionTitle: "续写",
     tutorialCompletionBody:
       "建议以灰色文字显示。按 Tab 采纳，继续输入则忽略。也可通过右键菜单触发。",
@@ -1143,8 +1214,7 @@ export const strings = {
     tutorialAgentEditApplied: "修改已写入正文。",
     tutorialAgentEditMockReply: "已删去多余的开场语，请查看修改预览。",
     tutorialDoneTitle: "教程结束",
-    tutorialDoneBody:
-      "现在可以开始写作。AI 功能需要先在「设置 → AI」中连接服务。若想再练习，可从帮助菜单重新打开教程。",
+    tutorialDoneBody: `现在可以开始写作。AI 功能需要先在「设置 > ${AI_NAME}」中连接服务。若想再练习，可从帮助菜单重新打开教程。`,
     closePromptMessage: "文档有未保存的更改。",
     closePromptSave: "保存",
     closePromptDiscard: "不保存",
@@ -1257,27 +1327,69 @@ export const strings = {
       "チェック中に段落が変更されました。もう一度お試しください。",
     noticeGrammarNoIssues: "問題は見つかりませんでした。",
     projectTooBroad:
-      "このフォルダーは範囲が広すぎるため（ホームやドライブ全体）、プロジェクトにできません。プロジェクト用のフォルダーを選んでください。",
+      "このフォルダーは範囲が広すぎるため（ホームフォルダーやドライブ全体）、プロジェクトフォルダーにできません。もっと具体的なフォルダーを選んでください。",
     projectNoSamples: "選んだファイルをテキストとして読み込めませんでした。",
     projectNeedsSave:
-      "文書を保存すると、そのフォルダーをプロジェクトとして使えます。",
+      "先に文書を保存してください。そのフォルダーがプロジェクトフォルダーになります。",
     projectPicking: "フォルダーを選択中…",
     projectLearningStyle: "サンプルから文体を学習中…",
     projectStyleLearned:
       "文体プロファイルを保存しました。新しいタブで確認・編集できます。",
     projectOpening: "開いています…",
-    projectStyleTemplate: `# 文体プロファイル\n\n<!-- このプロジェクトでは、${AI_NAME}と補完がこのファイルに従います。語調、文のリズム、語彙、句読点、使わない書き方などを書いてください。「文体を学習」で自分の文章から下書きを作ることもできます。 -->\n\n## 語調\n\n- \n\n## 文とリズム\n\n- \n\n## 語彙\n\n- \n\n## 使わない\n\n- \n`,
-    projectLibraryTemplate:
-      "---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- {name}（または別名）が出てくるたびにAIが守るべき設定。include: always | detected | never -->\n\n",
+    projectStyleTemplate: `# 文体プロファイル\n\n<!-- このプロジェクトのすべての文書で、${AI_NAME}と補完がこのプロファイルに従います。語調、文のリズム、語彙、句読点、使わない書き方などを、形容詞ではなく具体的な項目（「一文は短く、40字を超えることはまれ」）で書いてください。プロジェクトメニューの「サンプルから文体を学習…」で、自分の文章から下書きを作れます。このようなコメントは送信されません。 -->\n\n## 語調\n\n- \n\n## 文とリズム\n\n- \n\n## 語彙\n\n- \n\n## 使わない\n\n- \n`,
+    projectLibraryTemplate: `---\nname: {name}\naliases: []\ninclude: detected\n---\n\n<!-- {name}（または別名）が出てくるたびに${AI_NAME}が守るべき設定をここに書きます。include: detected（言及されたとき、既定）| always（常に）| never（送らない）。このようなコメントは送信されません。 -->\n\n`,
+    projectInstructionsTemplate: `<!--
+このプロジェクトの執筆の指示です。
+
+このようなコメントの外に書いた内容は、このプロジェクトの文書に
+ついての毎回の会話で、グローバルな執筆の指示（設定 > ${AI_NAME}）
+の後に${AI_NAME}へ送られます。食い違う点はこのファイルが優先され
+ます。コメントは送信されません。
+
+ここに書くとよい内容の例：
+
+  背景    1930年代の上海を舞台にしたミステリー。語り手は林晩（一人称）。
+  言語    常に日本語で返信する。
+  用語    人物名は「林晩」と書き、「林晚」とは書かない。
+
+文章の書きぶりは文体プロファイル（style.md）に、人物・場所・用語
+の設定はライブラリ（library/）に書きます。
+-->
+`,
+    agentInstructionsTemplate: `<!--
+${AI_NAME}への執筆の指示です。すべての文書に適用されます。
+
+このようなコメントの外に書いた内容は、毎回の会話（AIパネルと
+クイック質問）で${AI_NAME}に送られます。コメントは送信されない
+ので、この説明は残しておいて構いません。
+
+ここに書くとよい内容の例：
+
+  言語    常に日本語で返信する。
+  表記    「全て」ではなく「すべて」と書く。
+  用語    「ユーザー」と書き、「ユーザ」とは書かない。
+  背景    一般読者向けの科学記事を書いている。
+
+特定のプロジェクトだけの指示は、そのプロジェクトの .levis/agent.md
+に書きます。AIパネルのプロジェクトメニューにある
+「このプロジェクトの執筆の指示を編集」で開けます。両方が送られ、
+食い違う点はプロジェクトの指示が優先されます。
+
+スキルはこのファイルの隣の skills/ フォルダーに、1つにつき1つの
+.md ファイルとして置きます。会話で /名前 と入力すると使えます。
+-->
+`,
     projectOpenStyle: "文体プロファイルを開く",
     projectStyleChip: "文体",
-    projectLibraryChip: "資料 {n}",
+    projectLibraryChip: "ライブラリ {n}",
     projectPickFolder: "プロジェクトフォルダーを選択…",
     projectUseDocFolder: "文書のフォルダーを使う",
     projectReveal: "ファイルマネージャーで表示",
     projectLearnStyle: "サンプルから文体を学習…",
     projectCreateStyle: "文体プロファイルを作成",
-    projectNewEntry: "資料を新規作成…",
+    projectNewEntry: "ライブラリに項目を追加…",
+    projectEditInstructions: "このプロジェクトの執筆の指示を編集",
+    projectFolderTitle: "プロジェクトフォルダー：{path}",
     projectEntryPlaceholder: "人物・場所・用語の名前",
     projectEntryCreate: "作成",
     chatHistoryUnsaved: "未保存の文書",
@@ -1316,10 +1428,8 @@ export const strings = {
     modelMissingHint:
       "このモデルはプロバイダーの現在の一覧にありません。提供終了の可能性があります。別のモデルか既定のモデルを選んでください。",
     modelFetchedAt: "{date} に取得",
-    aiErrorNotConfigured:
-      "このAIサービスはまだ接続されていません。「設定 → AI」で設定してください。",
-    aiErrorAuth:
-      "サービスが認証情報を拒否しました。「設定 → AI」でAPIキーを確認するか、再度サインインしてください。",
+    aiErrorNotConfigured: `このAIサービスはまだ接続されていません。「設定 > ${AI_NAME}」で設定してください。`,
+    aiErrorAuth: `サービスが認証情報を拒否しました。「設定 > ${AI_NAME}」でAPIキーを確認するか、再度サインインしてください。`,
     aiErrorWorkspaceKey:
       "このAnthropicキーはワークスペースに属していません。Anthropic Consoleのワークスペース内でキーを作成して使ってください。",
     aiErrorRateLimit:
@@ -1330,8 +1440,7 @@ export const strings = {
       "リクエストがタイムアウトしました。接続を確認して再試行してください。",
     aiErrorNetwork:
       "サービスに接続できません。インターネット接続またはプロキシ設定を確認してください。",
-    aiErrorModel:
-      "このモデルはお使いのアカウントでは利用できません。「設定 → AI」で別のモデルを選んでください。",
+    aiErrorModel: `このモデルはお使いのアカウントでは利用できません。「設定 > ${AI_NAME}」で別のモデルを選んでください。`,
     grammarIgnore: "無視",
     treeTab: "ファイル",
     outlineTab: "アウトライン",
@@ -1391,24 +1500,22 @@ export const strings = {
     webSearchLabel: "ウェブ検索",
     webSearchHint: "現在のサービスが対応している場合のみ",
     editAnimationLabel: "編集プレビューのアニメーション",
-    agentWorkspaceLabel: "グローバル設定フォルダ",
-    agentWorkspaceOpenButton: "フォルダを開く",
-    agentWorkspaceRootLabel: "ワークスペースフォルダ",
-    agentWorkspaceRootHint: `${AI_NAME} が読み取れるのはこのフォルダだけです：{path}`,
-    agentWorkspaceRootDefault: "現在の文書のフォルダ",
-    agentWorkspaceRootPick: "変更…",
-    agentWorkspaceRootReset: "文書のフォルダに戻す",
-    agentSystemPromptLabel: "チャットの指示（agent.md）",
-    agentSystemPromptHint: "毎回の会話に添える執筆の指示",
+    agentWorkspaceLabel: "グローバル設定フォルダー",
+    agentWorkspaceOpenButton: "フォルダーを開く",
+    agentWorkspaceRootLabel: "プロジェクトフォルダー",
+    agentWorkspaceRootHint: `${AI_NAME} が読み取れるのはこのフォルダーだけです：{path}`,
+    agentWorkspaceRootDefault: "現在の文書のフォルダー",
+    agentWorkspaceRootPick: "選択…",
+    agentSystemPromptLabel: "執筆の指示（agent.md）",
+    agentSystemPromptHint: "すべての文書で、毎回の会話に添えられます",
     agentSystemPromptEdit: "agent.mdを編集",
-    agentSkillsLabel: "Skill",
+    agentSkillsLabel: "スキル",
     agentSkillsHint: "会話で /名前 と入力すると使えます",
-    agentSkillsImport: "Skillをインポート…",
+    agentSkillsImport: "スキルをインポート…",
     agentAttachFile:
       "ファイルを添付：PDF、Word、PowerPoint、表計算、画像、テキスト",
     chatAttachmentTruncated: "（一部のみ）",
-    chatAttachmentNoVision:
-      "このプロバイダーは画像を読めません。設定でプロバイダーを変更するか、文書を添付してください。",
+    chatAttachmentNoVision: `このプロバイダーは画像を読めません。「設定 > ${AI_NAME}」でプロバイダーを変更するか、文書を添付してください。`,
     aiGrammarLabel: "文法チェックを有効にする",
     aiAskLabel: `${AI_NAME} チャット`,
     aiAskToggleLabel: `${AI_NAME} チャットを有効にする`,
@@ -1456,7 +1563,7 @@ export const strings = {
     agentModeEdit: "編集",
     agentModePlan: "計画",
     chatModeLabel: "モード",
-    agentPersonalizationGroupLabel: "執筆の指示とSkill",
+    agentPersonalizationGroupLabel: "執筆の指示とスキル",
     agentAdvancedGroupLabel: "詳細設定",
     writingModelLabel: "補助モデル",
     writingFeaturesLabel: "執筆アシスト",
@@ -1720,8 +1827,7 @@ export const strings = {
     tutorialMarkdownStepFormula: "$E=mc^2$ と入力",
     tutorialMarkdownDone: "各練習を完了またはスキップしました。",
     tutorialAiIntroTitle: "AIライティング支援",
-    tutorialAiIntroBody:
-      "補完、文法チェック、対話、本文の編集を練習します。このチュートリアルは用意された例を使うため、ログインは不要です。通常の利用には「設定 → AI」で接続してください。",
+    tutorialAiIntroBody: `補完、文法チェック、対話、本文の編集を練習します。このチュートリアルは用意された例を使うため、ログインは不要です。通常の利用には「設定 > ${AI_NAME}」で接続してください。`,
     tutorialCompletionTitle: "文章の補完",
     tutorialCompletionBody:
       "候補は灰色で表示されます。Tabで採用し、入力を続けると閉じます。右クリックメニューからも候補を表示できます。",
@@ -1766,8 +1872,7 @@ export const strings = {
     tutorialAgentEditMockReply:
       "不要な前置きを省きました。変更プレビューを確認してください。",
     tutorialDoneTitle: "チュートリアル終了",
-    tutorialDoneBody:
-      "ここから自由に書き始められます。AI機能は「設定 → AI」で接続すると使えます。チュートリアルはヘルプメニューから再開できます。",
+    tutorialDoneBody: `ここから自由に書き始められます。AI機能は「設定 > ${AI_NAME}」で接続すると使えます。チュートリアルはヘルプメニューから再開できます。`,
     closePromptMessage: "この文書には保存されていない変更があります。",
     closePromptSave: "保存",
     closePromptDiscard: "保存しない",

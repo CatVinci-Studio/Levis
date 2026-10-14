@@ -53,9 +53,9 @@ export type MockAgentReply = (message: string) => string | AgentTurn[];
 /// is passed per send, so each message can use the latest captured context.
 export function useAgentConversation(
   docPath: string | null,
-  /** Settings > AI's explicit workspace root, or null for the default
-   *  (the document's folder). Decides where `.levis/` is read from and how
-   *  far the agent's file tools may reach - see ai/workspace.rs. */
+  /** The chosen project folder, or null for the default (the document's
+   *  folder). Decides where `.levis/` is read from and how far the agent's
+   *  file tools may reach - see ai/workspace.rs. */
   workspaceRoot: string | null,
   provider: string,
   webSearch: boolean,

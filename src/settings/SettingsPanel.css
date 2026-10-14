@@ -326,7 +326,7 @@ button.settings-inline-button {
   flex-shrink: 0;
 }
 
-/* The resolved workspace folder. A path is long and matters exactly, so it
+/* The resolved project folder. A path is long and matters exactly, so it
    gets its own line in a mono face rather than being squeezed into the hint. */
 .shortcut-row-controls {
   display: flex;

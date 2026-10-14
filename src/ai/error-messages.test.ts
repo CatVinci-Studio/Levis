@@ -11,7 +11,7 @@ describe("classifyAiError", () => {
     ["error sending request for url (https://api...)", "network"],
     ["operation timed out", "timeout"],
     [
-      "This provider isn't set up yet - configure it in Settings.",
+      "This provider isn't set up yet - configure it in Settings > Levis AI.",
       "notConfigured",
     ],
     [

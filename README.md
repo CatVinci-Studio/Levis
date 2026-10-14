@@ -56,9 +56,10 @@
 
 ### Your project, your voice
 
-- Save a document and its folder becomes the project: the AI can read and search the text files there, and `@` brings one into the conversation.
-- **Style profile** (`.levis/style.md`): written from samples you pick, so continuations and edits sound like you.
+- **Project folder**: save a document and its folder becomes the project folder, or choose another. The AI can read and search the text files there, and `@` brings one into the conversation.
+- **Style profile** (`.levis/style.md`): **Learn my style** drafts it from samples you pick, so continuations and edits sound like you.
 - **Library** (`.levis/library/`): characters, places and terms. The entries a passage mentions go to the AI with it, so names and facts stay consistent.
+- **Writing instructions** (`agent.md`) and **skills** (`/name`): standing rules for every conversation, and reusable instructions you call by name - for all your documents or for one project.
 
 ### Providers and privacy
 
@@ -91,7 +92,7 @@ Or download an installer from [Releases](https://github.com/CatVinci-Studio/Levi
 ## Quick start
 
 1. Launch Levis. It opens on a blank draft; you only need a file when you save.
-2. Open **Settings → AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
+2. Open **Settings → Levis AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
 3. Start typing. A continuation appears as grey text when you pause; Tab accepts it.
 4. Open the AI panel with the chat button in the window bar. **Help → AI Features Guide** covers the rest.
 

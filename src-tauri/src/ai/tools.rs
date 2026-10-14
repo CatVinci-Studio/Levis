@@ -8,12 +8,13 @@ use std::path::Path;
 /// each tool's call signature.
 pub struct ToolContext<'a> {
     pub document: &'a str,
-    /// Skills from the agent workspace (global + document folder).
+    /// Skills from the global config folder and the project's .levis/.
     pub skills: &'a [AgentSkill],
-    /// The workspace root - the sandbox boundary for the file tools. The
-    /// document's own folder by default, or the folder chosen in Settings >
-    /// Agent (see workspace::resolve_root). None for an unsaved draft with no
-    /// override, in which case the file tools aren't offered at all.
+    /// The project folder (workspace root) - the sandbox boundary for the
+    /// file tools. The document's own folder by default, or the chosen
+    /// project folder (see workspace::resolve_root). None for an unsaved
+    /// draft with no folder chosen, or a folder too broad to use, in which
+    /// case the file tools aren't offered at all.
     pub root: Option<&'a Path>,
 }
 
@@ -240,8 +241,50 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
 
     // On later requests the frontend appends a bracketed status note to this
     // result (accepted / rejected / still undecided) - see
-    // annotateProposalStatuses in src/ai/proposal-status.ts.
-    "Edit proposed - the user now sees it with an Apply button. Don't repeat the full text in your reply; just say briefly what you changed and why.".to_string()
+    // annotateProposalStatuses in src/ai/proposal-status.ts. The size of
+    // the change is measured here so the reply can rest on it: replies
+    // called a 20% cut "about 70% of the original" and an expansion that
+    // shrank "expanded into two paragraphs" (docs/AI-EVAL.md, round 2).
+    let text = parsed.get("text").and_then(|v| v.as_str()).unwrap_or("");
+    let size = match action {
+        "replace" => {
+            let (from, unit) = text_size(anchor);
+            let (to, _) = text_size(text);
+            format!(" It replaces {from} {unit} with {to}.")
+        }
+        "delete" => {
+            let (n, unit) = text_size(anchor);
+            format!(" It removes {n} {unit}.")
+        }
+        "replace_selection" => String::new(),
+        _ => {
+            let (n, unit) = text_size(text);
+            format!(" It adds {n} {unit}.")
+        }
+    };
+    // "Even if it falls short": told the size, the model sent a second,
+    // shorter proposal for the same passage to meet a skill's 70% - two
+    // overlapping previews, of which only one can be applied (round-2
+    // integration, skill/zh/slash).
+    format!("Edit proposed - the user now sees it with an Apply button.{size} This is your proposal for that passage in this reply - don't send another one for it, even if it falls short of a target: say so in your reply instead. In your reply, say in a sentence or two what you proposed and why; don't repeat the text or list what you kept.")
+}
+
+/// How long a stretch of text is, in the unit its language counts in:
+/// characters for Chinese and Japanese, words otherwise.
+fn text_size(text: &str) -> (usize, &'static str) {
+    let cjk = text
+        .chars()
+        .filter(|c| matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}'))
+        .count();
+    let words = text
+        .split_whitespace()
+        .filter(|w| w.chars().any(|c| c.is_alphanumeric() && !matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}')))
+        .count();
+    if cjk > words {
+        (cjk, "characters")
+    } else {
+        (words, "words")
+    }
 }
 
 /// One character's matching form: typographic quotes, dash variants,
@@ -249,7 +292,7 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
 /// equivalents - the usual differences between a model's quote and the
 /// author's text. One char in, one char out, so positions stay aligned
 /// (src/ai/doc-markdown.ts's normalizeForMatch mirrors this exactly).
-fn normalize_char(c: char) -> char {
+pub(crate) fn normalize_char(c: char) -> char {
     match c {
         '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{2032}' => '\'',
         '\u{201C}' | '\u{201D}' | '\u{201E}' | '\u{2033}' => '"',
@@ -374,7 +417,7 @@ const SEARCH_FILES_TOOL_NAME: &str = "search_files";
 /// and build/dependency folders are skipped - see ai::project.
 fn list_files(ctx: &ToolContext, _arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "There is no project folder for this document yet (it isn't saved), so there are no files to list."
+        return "There is no project folder for this document (it hasn't been saved, or its folder is too broad to use), so there are no files to list."
             .to_string();
     };
     let files = crate::ai::project::walk_text_files(root);
@@ -402,7 +445,7 @@ fn path_argument(arguments: &str, key: &str) -> String {
 /// files and size are enforced by ai::project::read_text.
 fn read_file(ctx: &ToolContext, arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "There is no project folder for this document yet (it isn't saved), so there are no files to read."
+        return "There is no project folder for this document (it hasn't been saved, or its folder is too broad to use), so there are no files to read."
             .to_string();
     };
     crate::ai::project::read_text(root, &path_argument(arguments, "path")).unwrap_or_else(|err| err)
@@ -412,7 +455,7 @@ fn read_file(ctx: &ToolContext, arguments: &str) -> String {
 /// to search_document.
 fn search_files(ctx: &ToolContext, arguments: &str) -> String {
     let Some(root) = ctx.root else {
-        return "There is no project folder for this document yet (it isn't saved), so there is nothing to search."
+        return "There is no project folder for this document (it hasn't been saved, or its folder is too broad to use), so there is nothing to search."
             .to_string();
     };
     crate::ai::project::search(root, &path_argument(arguments, "query"))
@@ -522,7 +565,7 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
                         },
                         "reason": {
                             "type": "string",
-                            "description": "One short sentence, in the user's language, on why this change - shown on the proposal card so the user can judge it at a glance (e.g. \"Cut the repeated point about cost\")."
+                            "description": "One short sentence, in the language of your reply, on why this change - shown on the proposal card so the user can judge it at a glance (e.g. \"Cut the repeated point about cost\")."
                         }
                     },
                     "required": ["action"],

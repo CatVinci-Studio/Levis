@@ -68,17 +68,170 @@ fn qwen_uses_responses_search(model: &str) -> bool {
         .any(|prefix| model.starts_with(prefix))
 }
 
-/// The reply-language, invented-facts and shortening rules are from the live
-/// eval (docs/AI-EVAL.md): replies followed the document's language instead
-/// of the user's, expansions made up specifics, and tightened paragraphs
-/// quietly lost facts while the reply said they were all kept.
-const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Levis, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (its current text comes with their latest message, above the message itself; earlier messages show what they wrote then, not the document). Reply in the language of the user's own message - what they typed under ---the user's message--- - not the language of the document, and not the target language of a translation they asked for (asked in English to translate a paragraph into Spanish, you put Spanish in the document and reply in English); text you write into the document stays in the document's language unless they ask for another. A reply language set under ---user instructions--- overrides this. Be concise and concrete - when giving feedback, point at specific passages instead of generalities. When you write or revise text for the document, keep the author's voice, terminology and formatting conventions, change only what the request calls for, and leave everything else exactly as it was. Never add facts the author hasn't given - names, numbers, dates, causes, outcomes, plans, sensory details: expanding text or making it vivid means sharper wording and the consequences that follow from what is already there, not new information. If a request truly needs facts you don't have, say what is missing (or leave a clearly marked placeholder) instead of making them up; in fiction, invented detail is fine when it is asked for, as long as it stays consistent with the text and the project's library. When shortening, cut words, not information - every fact, figure, time span and named thing survives. Describe your changes accurately in your reply; never claim something was kept when it wasn't. Avoid the tics that make text read as machine-written unless the author's own text uses them: inflated significance (pivotal, testament, crucial, underscore, delve, tapestry, landscape), \"serves as\" where \"is\" will do, \"not just X but Y\", reflexive lists of three, closing a sentence with a participle clause about its importance, and liberal em dashes or bold. Plain, specific wording beats impressive wording. Write any math formula with `$...$` for inline and `$$...$$` on its own line for block - never `\\(...\\)` or `\\[...\\]`, which this editor does not render.";
+/// The writing assistant's standing rules, one paragraph per concern. From
+/// the live eval (docs/AI-EVAL.md): round 1 found replies in the document's
+/// language instead of the user's, expansions with made-up specifics, and
+/// tightened paragraphs that quietly lost facts while the reply said they
+/// were all kept. Round 2 found the cost of the fixes: replies that listed
+/// every fact kept ("I added no new facts" even where that was untrue),
+/// narrated the routing ("this is a question, so I won't edit") and the
+/// tools (line numbers, "I read it in the same step"); "vivid" and
+/// "formal" requests that only shuffled words, and an expansion that came
+/// out shorter because feelings counted as invented facts; edits that
+/// spread to neighbouring paragraphs "for consistency" or, after "make it
+/// warmer", to the whole email; half-width punctuation in Chinese replies.
+const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Levis, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (its current text comes with their latest message, above the message itself; earlier messages show what they wrote then, not the document).
+
+Language: reply in the language of the user's own message - what they typed under ---the user's message--- - not the language of the document, and not the target language of a translation they asked for (asked in English to translate a paragraph into Spanish, you put Spanish in the document and reply in English; asked in Chinese to translate into English, you reply in Chinese); text you write into the document stays in the document's language unless they ask for another. A reply language set under ---user instructions--- overrides this; a style profile never does, whatever language it is written in. In Chinese and Japanese, use full-width punctuation (，。：；？！（）) and quote with “ ” or 「」 - never ASCII \" or ( ) - in replies as well as in the document.
+
+Replies: short and plain. Answer a question directly, usually in a sentence or two, and add a note only when it changes the answer; don't guess at why the author wrote something or at causes the document doesn't give. After proposing an edit, say in a sentence or two what you proposed and why - the user applies it, so it is a proposal, not something you already changed. Describe the change you actually made: what you cut, added or reworded. Don't list the facts you kept, don't quote the new text back, and don't reassure the user about facts (\"I added no new facts\", \"all the facts are still there\") - mention facts only when one had to go or you need one from the user. Never mention your tools, steps, rules or line numbers (the user sees the document, not line numbers), and start with the answer or with what you proposed - never with a remark about the request itself (\"This is a question, so I'll only answer\", \"这是个问题，不是修改请求\"). Little formatting: no headings, and bullets or bold only for genuinely separate points. When giving feedback, point at specific passages instead of generalities. The user works in the rendered document and never sees its markdown: in replies and comments, speak of bullets, checkboxes, bold or headings - never of list markers, asterisks, backslash escapes or other syntax.
+
+Editing: keep the author's voice, terminology, grammatical person and formatting conventions. Change the passage the request is about and nothing outside it - don't carry an edit into neighbouring text \"for consistency\"; offer that in your reply instead. Inside the passage, do what was asked in full: \"tighten\", \"more formal\", \"more vivid\" or \"more natural\" asks for different wording - cut filler and idioms in the wrong register, choose stronger verbs, restructure sentences - not for a few words moved around. Add only the unit asked for: a paragraph is a paragraph, without a heading of its own. Before proposing, reread the new text with the text around it: don't repeat what a neighbouring paragraph already says, and remove any word or idea now said twice. A follow-up - \"make it warmer\", \"add that ...\", \"now shorter\" - works on the passage of the turn before, unless the user names another place. A limit on sentences or words is met by cutting content, never by joining sentences with semicolons, commas or \"and\". When a limit or rule applies - a length per sentence, a word count, words or punctuation to avoid, from the request, a skill, the style profile or the writing instructions - write the new text to meet it and check every sentence against it before you call propose_edit; never tell the user the text meets a limit you didn't check. When the user rejected a proposal and asks again with a change, keep what the rejected draft did well, change what they objected to, and say so if the draft already did what they ask.
+
+Facts: never add facts the author hasn't given - names, numbers, dates, events, causes, outcomes, plans, quotes. That doesn't freeze the wording: expanding, writing about feelings or making a scene vivid may render what the text already implies - the sights and sounds of an action already there, the feeling a situation plainly carries - as long as nothing new happens, and an expansion comes out longer than what it expands. If a request truly needs facts you don't have, ask for them in your reply rather than writing a placeholder into the document, unless the user wants one. In fiction, invented detail is fine when it is asked for, as long as it stays consistent with the text and the project's library, and dialogue that is asked for is written as dialogue. When shortening, cut words, not information - every fact, figure, time span and named thing survives - and keep the words that carry the author's stance or emphasis (only, as early as, forced to, 就, 才, 被迫).
+
+Style: avoid the tics that make text read as machine-written unless the author's own text uses them: inflated significance (pivotal, testament, crucial, underscore, delve, tapestry, landscape), \"serves as\" where \"is\" will do, \"not just X but Y\" (不是……而是……), reflexive lists of three, closing a sentence with a participle clause about its importance, and liberal em dashes or bold. Plain, specific wording beats impressive wording. Write any math formula with `$...$` for inline and `$$...$$` on its own line for block - never `\\(...\\)` or `\\[...\\]`, which this editor does not render.";
 
 /// Only appended for providers that actually run the tool loop; telling a
 /// tool-less provider to call tools would just confuse it.
-const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something specific in a long document, and read_document to see a whole section before you revise it - never guess at text you haven't seen. The document's folder may hold reference material - use list_files/read_file to consult it when the user's request depends on it. Read first, propose after: never send a propose_edit in the same step as the read it depends on. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, insert_at_cursor to add text where the user's cursor is (when their message carries a <cursor> block marking it - for \"write a transition here\"), delete to remove text, append to add text at the end of the document. To add a table row or a list item, insert_after the whole neighbouring row or item line with just the new line(s) as `text`, a nested item keeping its indentation. Each proposal must target its own passage - for several changes inside one passage, send a single replace covering it, since overlapping proposals can't all be applied. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and use `-` or `1.` for list items (never `•`, `●` or other bullet symbols) and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. The user reviews and applies each proposal themselves, so your reply should only say briefly what you changed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided. Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change - for feedback on specific passages, pin each point to its passage with add_comment and keep the reply to a short summary. A request for information about the document - summarize it, list its dates, explain a passage, count something - is answered in the reply even when it is phrased as a command, unless the user asks for the result to go into the document ('add a summary at the top'). When a message is genuinely ambiguous between changing the document and talking about it, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it.";
+const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something specific in a long document, and read_document to see a whole section before you revise it - never guess at text you haven't seen. Read first, propose after: never send a propose_edit in the same step as the read it depends on. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, insert_at_cursor to add text where the user's cursor is (when their message carries a <cursor> block marking it - for \"write a transition here\"), delete to remove text, append to add text at the end of the document. To add a table row or a list item, insert_after the whole neighbouring row or item line with just the new line(s) as `text`, a nested item keeping its indentation. Each proposal must target its own passage - for several changes inside one passage, send a single replace covering it, since overlapping proposals can't all be applied. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and for list items use the marker the document's lists already use (`*`, `-` or `1.`; `-` in a new list), never `•`, `●` or other bullet symbols, and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. Get the text right before you call propose_edit: a second proposal for the same passage in one reply overlaps the first and can't be applied. The user reviews and applies each proposal themselves, so your reply only says, in a sentence or two, what you proposed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided. Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change - for feedback on specific passages, pin each point to its passage with add_comment and keep the reply to a short summary. A request for information about the document - summarize it, list its dates, explain a passage, count something - is answered in the reply even when it is phrased as a command, unless the user asks for the result to go into the document ('add a summary at the top'). When a message is genuinely ambiguous between changing the document and talking about it, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it. Never explain this choice in your reply: just answer, or propose.";
 
-const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. The document's folder may hold reference material - use list_files/read_file when the request depends on it. Use use_skill when an available skill matches. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
+const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
+
+/// What the assistant is called in the UI and what its Settings page is
+/// called: `AI_NAME` in src/i18n/strings.ts ("Levis AI" until the Textus
+/// rename). A test keeps the two in step.
+pub(crate) const AI_NAME: &str = "Levis AI";
+
+/// The names the agent may use for the app's concepts and controls, as the
+/// English, Chinese and Japanese UI shows them (src/i18n/strings.ts and the
+/// help guides; a test checks every cell). The prompt describes the app in
+/// English and hands the other two languages over as this table: given
+/// inline as "style profile (文风档案 / 文体プロファイル)", the names came
+/// back as glosses - "资料库（library）", "style profile (文风档案)" -
+/// in the round-2 integration.
+const UI_NAMES: &[[&str; 3]] = &[
+    ["project folder", "项目文件夹", "プロジェクトフォルダー"],
+    ["project menu", "项目菜单", "プロジェクトメニュー"],
+    ["writing instructions", "写作要求", "執筆の指示"],
+    [
+        "global config folder",
+        "全局配置文件夹",
+        "グローバル設定フォルダー",
+    ],
+    ["skills", "技能", "スキル"],
+    ["library", "资料库", "ライブラリ"],
+    ["style profile", "文风档案", "文体プロファイル"],
+    ["Learn my style", "学习我的文风", "文体を学習"],
+    ["completion", "续写", "補完"],
+    [
+        "Choose project folder…",
+        "选择项目文件夹…",
+        "プロジェクトフォルダーを選択…",
+    ],
+    [
+        "Use the document's folder",
+        "改用文档所在文件夹",
+        "文書のフォルダーを使う",
+    ],
+    [
+        "Learn my style from samples…",
+        "从样本学习我的文风…",
+        "サンプルから文体を学習…",
+    ],
+    [
+        "Create style profile",
+        "新建文风档案",
+        "文体プロファイルを作成",
+    ],
+    [
+        "Open style profile",
+        "打开文风档案",
+        "文体プロファイルを開く",
+    ],
+    ["Style (the chip)", "文风", "文体"],
+    [
+        "New library entry…",
+        "新建资料库条目…",
+        "ライブラリに項目を追加…",
+    ],
+    [
+        "Edit project writing instructions",
+        "编辑本项目的写作要求",
+        "このプロジェクトの執筆の指示を編集",
+    ],
+    ["Settings", "设置", "設定"],
+    [
+        "Project Folder (Settings row)",
+        "项目文件夹",
+        "プロジェクトフォルダー",
+    ],
+    [
+        "Writing Instructions (agent.md)",
+        "写作要求（agent.md）",
+        "執筆の指示（agent.md）",
+    ],
+    ["Edit agent.md", "编辑 agent.md", "agent.mdを編集"],
+    ["Skills (Settings row)", "技能", "スキル"],
+    ["Import Skill…", "导入技能…", "スキルをインポート…"],
+    ["Ask", "询问", "質問"],
+    ["Edit", "编辑", "編集"],
+    ["Plan", "计划", "計画"],
+    ["Accept", "采纳", "承認"],
+    ["Reject", "拒绝", "却下"],
+];
+
+/// Where the user changes the project folder. The project menu exists only
+/// while there is a project folder - ProjectBar shows nothing for an
+/// unsaved draft and only a notice for a folder too broad - so without one,
+/// only the Settings row is named: told about the menu, the agent sent users
+/// with an unsaved draft to a bar that wasn't there (round-2 integration).
+fn where_to_choose_the_project_folder(has_menu: bool) -> String {
+    let settings = format!("Settings > {AI_NAME} > Project Folder");
+    if has_menu {
+        format!("the project menu (click the folder name in the bar under the AI panel's header, then Choose project folder…) or {settings}")
+    } else {
+        settings
+    }
+}
+
+/// What the agent is told about its project folder (in code, the workspace
+/// root) - which one is in use and why - and about what the app calls the
+/// things that shape its work (docs/AI-CONCEPTS.md: project folder,
+/// `.levis/` folder, writing instructions, global config folder, skills,
+/// library, style profile, "Learn my style"), with the menu items, chips
+/// and Settings rows that make and open them, what reaches completion too,
+/// and the same names in the Chinese and Japanese UI (UI_NAMES). Without
+/// it, the model made up its own names ("read-only mode"), told a user with
+/// an unsaved draft "I have no tool to open files" without saying why or
+/// what to do, and was told the document's folder held reference material
+/// even when no file tool was offered (docs/AI-EVAL.md, round 2). Labels it
+/// wasn't given never came up: users were told to write a hidden
+/// .levis/style.md by hand, and had no way back after choosing a folder.
+fn workspace_section(workspace: &AgentWorkspace) -> String {
+    use crate::ai::workspace::RootSource;
+    let one_folder = "There is one project folder at a time: for material in two places, the user chooses a folder that contains both.";
+    let folder = match (&workspace.root, workspace.root_source) {
+        (Some(root), RootSource::Chosen) => format!(
+            "Project folder: {root} - chosen by the user, in {}. You can read the text files in it with list_files, search_files and read_file, and nothing outside it. Use the document's folder, in the same menu or Settings row, goes back to the open document's own folder. {one_folder}",
+            where_to_choose_the_project_folder(true)
+        ),
+        (Some(root), _) => format!(
+            "Project folder: {root} - the open document's own folder, the default. You can read the text files in it with list_files, search_files and read_file, and nothing outside it; the user can choose another one in {}. {one_folder}",
+            where_to_choose_the_project_folder(true)
+        ),
+        (None, RootSource::TooBroad) => format!("Project folder: none - the document's folder is the user's home folder or a whole drive, which is too broad to open to you, so you can't read any files, and there is no project menu. If the user refers to a file, say so, ask them to paste what you need, and tell them they can choose a narrower project folder in {}.", where_to_choose_the_project_folder(false)),
+        (None, _) => format!("Project folder: none - the document isn't saved yet and no folder has been chosen, so you can't read any files, and the project bar and its menu don't appear until there is a project folder. If the user refers to a file, say that this is why, ask them to paste what you need, and tell them that saving the document next to their files, or choosing a project folder in {}, lets you read them.", where_to_choose_the_project_folder(false)),
+    };
+    let names = UI_NAMES
+        .iter()
+        .map(|[en, zh, ja]| format!("{en} | {zh} | {ja}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, each one Markdown file - a name and a one-line description at the top, then the instructions - that the user puts in .levis/skills/ or in the global config folder's skills/; nothing in the app writes one, but Settings > {AI_NAME} > Skills > Import Skill… copies a file into the global ones. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document; New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. The style profile and the library also shape completion, the grey suggestions as the user types. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.\nThe same names in the English, Chinese and Japanese UI - use only those of the language you reply in, and never add a name from another language, in parentheses or otherwise (not \"style profile (文风档案)\", not \"资料库（library）\"); Settings paths keep their \" > \" and {AI_NAME}:\nEnglish | 中文 | 日本語\n{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
+    )
+}
 
 /// Up to this many characters the document is embedded in full; past it,
 /// the prompt gets a line-numbered outline plus a head/tail excerpt, and the
@@ -163,9 +316,10 @@ fn document_section(document: &str, with_tools: bool, focus_heading: Option<&str
     )
 }
 
-/// The static half of the layering: role + workspace instructions + skill
-/// index + document go into the system prompt; skill bodies and workspace
-/// files stay out of it and are pulled in dynamically through tools.
+/// The static half of the layering: role + writing instructions + skill
+/// index (+ the document, tool-less) go into the system prompt; skill bodies
+/// and project files stay out of it and are pulled in dynamically through
+/// tools.
 pub(crate) fn build_instructions(
     workspace: &AgentWorkspace,
     document: &str,
@@ -180,7 +334,9 @@ pub(crate) fn build_instructions(
     sections.push(match mode {
         "edit" => "---interaction mode: edit---\nCarry out the user's request. When document changes are needed, submit them through propose_edit so the user can review them before applying.".to_string(),
         "plan" => "---interaction mode: plan---\nProduce a concrete, structured writing plan only - an outline, a revision plan, or the steps to get the document where the user wants it. You may research and inspect context, but do not call propose_edit and do not modify the document. Wait for the user to approve the plan in a later request.".to_string(),
-        _ => "---interaction mode: ask---\nAnswer, explain, discuss, or research in read-only mode. Do not call propose_edit and do not modify the document.".to_string(),
+        // The UI's names for the modes: told "read-only mode", the model
+        // called it that and never said how to get the edit made.
+        _ => "---interaction mode: ask---\nThe user is in Ask mode (询问 in Chinese, 質問 in Japanese): answer, explain, discuss or research, and pin feedback to passages with add_comment; you can't change the document here. When they ask for a change anyway, give the new text in your reply and say that in Edit mode (编辑 / 編集) you can propose it for them to apply with one click.".to_string(),
     });
 
     if with_tools {
@@ -192,12 +348,23 @@ pub(crate) fn build_instructions(
             }
             .to_string(),
         );
+        sections.push(workspace_section(workspace));
     }
 
-    // agent.md layers (global, then the document folder's) - the user's own
-    // standing instructions: style, terminology, project background.
+    // The writing instructions (agent.md): global, then the project's - the
+    // user's own standing rules: reply language, terminology, project
+    // background. With both layers present the project's section says it
+    // wins a conflict (docs/AI-CONCEPTS.md); a single layer keeps the plain
+    // header the rest of the prompt refers to.
     for instructions in &workspace.instructions {
         sections.push(format!("---user instructions---\n{instructions}"));
+    }
+    if let Some(project) = &workspace.project_instructions {
+        sections.push(if workspace.instructions.is_empty() {
+            format!("---user instructions---\n{project}")
+        } else {
+            format!("---user instructions for this project (where they conflict with the ones above, follow these)---\n{project}")
+        });
     }
 
     // The skill index: names + descriptions only. Bodies load on demand via
@@ -208,8 +375,11 @@ pub(crate) fn build_instructions(
             .iter()
             .map(|s| format!("- {}: {}", s.name, s.description))
             .collect();
+        // A /name the user typed arrives already expanded in a <skill> block
+        // (proposal.ts's resolveSkillMessage); loading it again cost a round
+        // trip of 12-16 s in the live eval.
         sections.push(format!(
-            "---available skills---\n{}\nWhen a request matches a skill's description, load it with use_skill and follow it.",
+            "---available skills---\n{}\nWhen a request matches a skill's description, load it with use_skill and follow it. A <skill name=\"...\"> block in the user's message is that skill already loaded - follow it without calling use_skill for it; its own rules for the result (length, form, what to say) override the general ones above.",
             index.join("\n")
         ));
     }
@@ -336,8 +506,8 @@ pub(crate) fn compact_history(history: Vec<AgentTurn>) -> Vec<AgentTurn> {
 /// `flattened_chat_turn` on a hard failure, since not every compatible
 /// server actually implements `tools` correctly. A provider with no dialect
 /// at all falls straight to `flattened_chat_turn`, a single non-agentic
-/// completion (with the workspace's agent.md layers still in the system
-/// prompt; skills reach them via the frontend's /name injection instead of
+/// completion (with the writing instructions still in the system prompt;
+/// skills reach them via the frontend's /name injection instead of
 /// use_skill). The orchestration loop (`run_agent_loop`) and the tool
 /// implementations (`crate::ai::tools`) don't know which dialect is in play -
 /// adding tool-calling support for another provider is just wiring up its
@@ -357,9 +527,8 @@ pub async fn ai_agent_message(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Levis AI's explicit workspace override.
-    // None keeps the default - the document's own folder (see
-    // workspace::load).
+    // `workspace_root`: the chosen project folder. None keeps the default -
+    // the document's own folder (see workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -390,9 +559,8 @@ async fn ai_agent_message_inner(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Levis AI's explicit workspace override.
-    // None keeps the default - the document's own folder (see
-    // workspace::load).
+    // `workspace_root`: the chosen project folder. None keeps the default -
+    // the document's own folder (see workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -413,7 +581,7 @@ async fn ai_agent_message_inner(
     // providers, so reaching here means something got out of step.
     if !images.is_empty() && !entry.supports_vision {
         return Err(format!(
-            "{} can't read images. Remove the image, or switch provider in Settings.",
+            "{} can't read images. Remove the image, or switch provider in Settings > {AI_NAME}.",
             entry.label
         ));
     }
@@ -1024,6 +1192,128 @@ mod tests {
     }
 
     #[test]
+    fn the_workspace_section_says_which_folder_and_why() {
+        use crate::ai::workspace::{load_from, RootSource};
+        let doc_folder = load_from(None, Some("/tmp/novel/chapter-1.md"), None);
+        assert_eq!(doc_folder.root_source, RootSource::DocumentFolder);
+        let text = workspace_section(&doc_folder);
+        assert!(text.contains("/tmp/novel") && text.contains("own folder"));
+        let tmp = std::env::temp_dir();
+        let chosen = load_from(None, Some("/tmp/novel/chapter-1.md"), tmp.to_str());
+        assert_eq!(chosen.root_source, RootSource::Chosen);
+        assert!(workspace_section(&chosen).contains("chosen by the user"));
+        // An unsaved draft: no files, the reason, and the way out.
+        let unsaved = load_from(None, None, None);
+        assert_eq!(unsaved.root_source, RootSource::None);
+        let text = workspace_section(&unsaved);
+        assert!(text.contains("isn't saved") && text.contains("Settings > Levis AI"));
+        assert!(!text.contains("list_files"));
+        // No project, no project bar: only the Settings row is offered.
+        assert!(!text.contains("click the folder name"));
+        assert!(workspace_section(&doc_folder).contains("click the folder name"));
+        assert!(workspace_section(&chosen).contains("Use the document's folder"));
+        let too_broad = AgentWorkspace {
+            root_source: RootSource::TooBroad,
+            ..AgentWorkspace::default()
+        };
+        let text = workspace_section(&too_broad);
+        assert!(text.contains("too broad") && !text.contains("click the folder name"));
+        // The app's names, for every case.
+        assert!(
+            text.contains("project folder | 项目文件夹 | プロジェクトフォルダー")
+                && text.contains("Learn my style")
+        );
+        // The tool-less fallback doesn't hear about file tools.
+        let prompt = build_instructions(&unsaved, "draft", false, "edit", "");
+        assert!(!prompt.contains("---project---"));
+        let ask = build_instructions(&doc_folder, "draft", true, "ask", "");
+        assert!(ask.contains("Ask mode") && ask.contains("Edit mode"));
+    }
+
+    #[test]
+    fn the_prompt_names_things_exactly_as_the_ui_does() {
+        // Every UI label the agent is told about must be the one the user
+        // sees (src/i18n/strings.ts), in each language, or the agent sends
+        // people to menu items that don't exist.
+        const STRINGS_TS: &str = include_str!("../../../src/i18n/strings.ts");
+        assert!(
+            STRINGS_TS.contains(&format!("export const AI_NAME = \"{AI_NAME}\";")),
+            "AI_NAME differs from strings.ts"
+        );
+        // A chosen project folder: the case that names every label.
+        let chosen = AgentWorkspace {
+            root: Some("/tmp/novel".into()),
+            root_source: crate::ai::workspace::RootSource::Chosen,
+            ..AgentWorkspace::default()
+        };
+        let prompt = build_instructions(&chosen, "draft", true, "ask", "");
+        // Every name in the table, in every language, is the UI's (or, for
+        // the few that are no label - "project menu" - the help guide's).
+        let guides = [
+            include_str!("../../../src/help/agent-guide.en.md"),
+            include_str!("../../../src/help/agent-guide.zh.md"),
+            include_str!("../../../src/help/agent-guide.ja.md"),
+        ];
+        for row in UI_NAMES {
+            assert!(
+                prompt.contains(&row.join(" | ")),
+                "the prompt lacks {row:?}"
+            );
+            for (lang, name) in row.iter().enumerate() {
+                // "Style (the chip)": the label is what precedes the note.
+                let name = name.split(" (").next().unwrap();
+                let known = STRINGS_TS.contains(name)
+                    || guides[lang].contains(name)
+                    || guides[lang].to_lowercase().contains(&name.to_lowercase());
+                assert!(known, "neither the UI nor the guide says {name}");
+            }
+        }
+        // The labels the English description quotes, and those too short
+        // to look up on their own, are exactly the strings.ts entries.
+        for label in [
+            "Choose project folder…",
+            "Use the document's folder",
+            "Learn my style from samples…",
+            "Create style profile",
+            "Open style profile",
+            "New library entry…",
+            "Edit project writing instructions",
+            "Writing Instructions (agent.md)",
+            "Edit agent.md",
+            "Import Skill…",
+        ] {
+            assert!(prompt.contains(label), "the prompt lacks {label}");
+            assert!(
+                STRINGS_TS.contains(&format!("\"{label}\"")),
+                "the UI has no {label}"
+            );
+        }
+        for entry in [
+            "projectStyleChip: \"Style\"",
+            "projectStyleChip: \"文风\"",
+            "projectStyleChip: \"文体\"",
+            "agentWorkspaceRootLabel: \"Project Folder\"",
+            "agentWorkspaceRootLabel: \"项目文件夹\"",
+            "agentWorkspaceRootLabel: \"プロジェクトフォルダー\"",
+            "agentSkillsLabel: \"技能\"",
+            "agentSkillsLabel: \"スキル\"",
+            "settingsTitle: \"设置\"",
+            "settingsTitle: \"設定\"",
+            "tutorialCompletionTitle: \"续写\"",
+            "completionToneLabel: \"補完のトーン\"",
+            "proposalAccept: \"采纳\"",
+            "proposalAccept: \"承認\"",
+            "proposalReject: \"拒绝\"",
+            "proposalReject: \"却下\"",
+        ] {
+            assert!(STRINGS_TS.contains(entry), "the UI has no {entry}");
+        }
+        assert!(prompt.contains(&format!("Settings > {AI_NAME} > Project Folder")));
+        // The backend's own pointer to Settings names the same page.
+        assert!(crate::ai::route::NOT_CONFIGURED.contains(&format!("Settings > {AI_NAME}.")));
+    }
+
+    #[test]
     fn interaction_mode_is_explicit_in_the_system_instructions() {
         let workspace = AgentWorkspace::default();
         let plan = build_instructions(&workspace, "draft", true, "plan", "");
@@ -1032,5 +1322,39 @@ mod tests {
 
         let edit = build_instructions(&workspace, "draft", true, "edit", "");
         assert!(edit.contains("interaction mode: edit"));
+    }
+
+    #[test]
+    fn project_writing_instructions_follow_and_override_the_global_ones() {
+        let global = "Always reply in English.";
+        let project = "Reply in Chinese.";
+        let both = AgentWorkspace {
+            instructions: vec![global.into()],
+            project_instructions: Some(project.into()),
+            ..AgentWorkspace::default()
+        };
+        let prompt = build_instructions(&both, "draft", true, "edit", "");
+        let global_at = prompt.find(global).unwrap();
+        let project_at = prompt.find(project).unwrap();
+        assert!(global_at < project_at, "global first, project after");
+        assert!(prompt.contains(
+            "---user instructions for this project (where they conflict with the ones above, follow these)---\nReply in Chinese."
+        ));
+
+        // One layer alone keeps the plain header, whichever layer it is.
+        for alone in [
+            AgentWorkspace {
+                instructions: vec![global.into()],
+                ..AgentWorkspace::default()
+            },
+            AgentWorkspace {
+                project_instructions: Some(global.into()),
+                ..AgentWorkspace::default()
+            },
+        ] {
+            let prompt = build_instructions(&alone, "draft", true, "edit", "");
+            assert!(prompt.contains("---user instructions---\nAlways reply in English."));
+            assert!(!prompt.contains("---user instructions for this project"));
+        }
     }
 }

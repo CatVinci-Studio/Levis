@@ -36,6 +36,13 @@ export function attachedFileBlock(name: string, content: string): string {
   return `<attached-file name="${name}">\n${content}\n</attached-file>`;
 }
 
+/** Wraps a skill the user called with /name: its instructions, marked as
+ *  already loaded (agent.rs's skill index tells the model not to load it
+ *  again with use_skill). Mirrored by live_eval's resolve_skill_message. */
+export function skillBlock(name: string, prompt: string): string {
+  return `<skill name="${name}">\n${prompt}\n</skill>`;
+}
+
 /** The message with every context block stripped and nothing parsed out -
  *  for callers that only want the prose, like the history list's title. */
 export function userMessageBody(text: string): string {
@@ -43,7 +50,8 @@ export function userMessageBody(text: string): string {
 }
 
 export interface ParsedUserMessage {
-  /** What the user actually typed, with the context blocks removed. */
+  /** What the user actually typed, with the context blocks removed - a
+   *  skill's expanded instructions folded back into the /name they typed. */
   body: string;
   /** The <selected-text> block's content, if the message carried one. */
   selection: string | null;
@@ -55,6 +63,7 @@ const SELECTED_TEXT = /<selected-text>\n?([\s\S]*?)\n?<\/selected-text>\n*/;
 const CURSOR = /<cursor>\n?[\s\S]*?\n?<\/cursor>\n*/;
 const ATTACHED_FILE =
   /<attached-file name="([^"]*)">\n?[\s\S]*?\n?<\/attached-file>\n*/g;
+const SKILL = /<skill name="([^"]*)">\n?[\s\S]*?\n?<\/skill>\n*/;
 
 export function parseUserMessage(text: string): ParsedUserMessage {
   const attachments: string[] = [];
@@ -64,6 +73,8 @@ export function parseUserMessage(text: string): ParsedUserMessage {
   });
 
   body = body.replace(CURSOR, "");
+  // A /name skill went out with its whole prompt; the user typed the name.
+  body = body.replace(SKILL, (_full, name: string) => `/${name} `);
 
   let selection: string | null = null;
   const selectionMatch = SELECTED_TEXT.exec(body);
