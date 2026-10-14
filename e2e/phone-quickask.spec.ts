@@ -162,8 +162,10 @@ test("a / skill suggestion is picked with a tap", async ({ page }) => {
   const dock = await openQuickAsk(page);
   const input = dock.locator("textarea");
   await input.fill("/po");
-  const row = dock.locator(".inline-chat-skill-item");
-  await expect(row).toHaveCount(1);
+  // The user's skill by its name first; the built-in Social post (alias
+  // "post") matches too, after it.
+  const row = dock.locator(".inline-chat-skill-item").first();
+  await expect(row).toContainText("/polish");
   expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await row.tap();
   await expect(input).toHaveValue("/polish ");

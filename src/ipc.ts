@@ -10,6 +10,7 @@ import type {
   ImageAttachment,
 } from "./ai/types";
 import type { GrammarIssue } from "./ai/grammar-check-plugin";
+import type { SkillCategory } from "./ai/skills/builtin";
 import { isDesktopApp, isIOSApp } from "./platform/capabilities";
 import { iosFiles, isScopedUrl, newDocumentPath } from "./platform/ios-files";
 
@@ -474,6 +475,32 @@ export interface AgentWorkspaceInfo {
   library: LibraryEntry[];
 }
 
+/**
+ * One skill as the `/` menu and Settings list it (ai::workspace's skill
+ * list): the built-ins, the global config folder's skills/ and the
+ * project's .levis/skills/, each layer replacing same-named skills of the
+ * layers before it.
+ */
+export interface SkillListItem {
+  /** Canonical, ASCII kebab-case for a built-in; what follows the `/`. */
+  name: string;
+  description: string;
+  /** The `/` menu's group. */
+  category: SkillCategory;
+  /** "user-only": offered in the `/` menu but never picked up by the model
+   *  on its own. */
+  invocation: "both" | "user-only";
+  source: "builtin" | "global" | "project";
+  /** A global or project skill with a built-in's name - a copy made by
+   *  Customize…, or the user's own skill that happens to share it. */
+  overridesBuiltin: boolean;
+  /** False for a built-in turned off in Settings (it stays listed so
+   *  Settings can turn it back on; the `/` menu leaves it out). */
+  enabled: boolean;
+  /** Extra words typed after `/` for it, by UI language code. */
+  aliases: Record<string, string[]>;
+}
+
 export const ai = {
   listProviders: () => call<ProviderCatalogEntry[]>("list_providers"),
   fetchAgentModels: (provider: string) =>
@@ -602,6 +629,20 @@ export const ai = {
   ensureGlobalAgentMd: (template: string) =>
     call<string>("ensure_global_agent_md", { template }),
   importAgentSkill: () => call<AgentSkill[] | null>("import_agent_skill"),
+  /** Every skill for this document - built-in, global and project - with
+   *  the turned-off built-ins still in (`enabled: false`). Both null: the
+   *  built-ins and the global ones, as Settings shows them. */
+  listSkills: (docPath: string | null, workspaceRoot: string | null) =>
+    call<SkillListItem[]>("list_skills", { docPath, workspaceRoot }),
+  /** Copies a built-in into the global config folder's skills/ (or finds
+   *  the copy already there) and returns its path, to open in a tab. */
+  customizeBuiltinSkill: (name: string) =>
+    call<string>("customize_builtin_skill", { name }),
+  /** Deletes the copy Customize… made, so the built-in applies again. */
+  resetBuiltinSkill: (name: string) =>
+    call<void>("reset_builtin_skill", { name }),
+  setBuiltinSkillEnabled: (name: string, enabled: boolean) =>
+    call<void>("set_builtin_skill_enabled", { name, enabled }),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),
 };
 

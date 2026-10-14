@@ -80,6 +80,21 @@ describe("the wire format's writer and reader agree", () => {
     );
   });
 
+  it("shows an alias the way it was typed", () => {
+    expect(
+      userMessageBody(
+        `${skillBlock("continue-story", "", "/续写")}\n\n林晚走进书店`,
+      ),
+    ).toBe("/续写 林晚走进书店");
+    expect(userMessageBody(skillBlock("tighten", "Cut.", '/"odd"<name>'))).toBe(
+      '/"odd"<name>',
+    );
+    // The canonical name typed as-is carries no `typed`.
+    expect(skillBlock("tighten", "Cut.", "/tighten")).toBe(
+      '<skill name="tighten">\nCut.\n</skill>',
+    );
+  });
+
   it("strips every block for a display-only body", () => {
     const text = `${attachedFileBlock("a.md", "x")}\n\n${selectedTextBlock("y")}\n\nwhat is this?`;
     expect(userMessageBody(text)).toBe("what is this?");

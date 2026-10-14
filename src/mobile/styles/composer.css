@@ -74,6 +74,12 @@
     overscroll-behavior: contain;
   }
 
+  /* A skill's two lines stay left-aligned, centred in the row's height. */
+  :root[data-window-chrome="mobile"] .composer-picker-item {
+    align-items: stretch;
+    justify-content: center;
+  }
+
   /* A tap leaves :hover on what it touched until something else is; the
      pressed state (:active) is the feedback instead. */
   :root[data-window-chrome="mobile"]

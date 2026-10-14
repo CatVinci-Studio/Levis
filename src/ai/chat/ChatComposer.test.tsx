@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatAttachment } from "../types";
 
 const pickAttachmentFile = vi.fn();
+const listSkills = vi.fn();
+const listProjectFiles = vi.fn();
 let supportsVision = true;
 
 // The composer derives vision support from the active provider itself (so no
@@ -26,6 +28,8 @@ vi.mock("../../ipc", async () => {
     ...actual,
     ai: {
       loadAgentWorkspace: vi.fn().mockResolvedValue({ skills: [] }),
+      listSkills: (...args: unknown[]) => listSkills(...args),
+      listProjectFiles: (...args: unknown[]) => listProjectFiles(...args),
       pickAttachmentFile: () => pickAttachmentFile(),
     },
   };
@@ -33,6 +37,9 @@ vi.mock("../../ipc", async () => {
 
 const { ChatComposer } = await import("./ChatComposer");
 const { IpcError } = await import("../../ipc");
+const { pickerLabels } = await import("./ComposerPicker");
+const { resolveStrings } = await import("../../i18n/strings");
+const { BUILTIN_SKILLS } = await import("../skills/builtin");
 
 const labels = {
   dropSelection: "Remove selection",
@@ -91,6 +98,8 @@ const imageAttachment: ChatAttachment = {
 
 beforeEach(() => {
   pickAttachmentFile.mockReset();
+  listSkills.mockReset().mockResolvedValue(null);
+  listProjectFiles.mockReset().mockResolvedValue([]);
   supportsVision = true;
 });
 
@@ -224,5 +233,145 @@ describe("ChatComposer attachments", () => {
     await waitFor(() =>
       expect(screen.queryByText("chart.png")).not.toBeInTheDocument(),
     );
+  });
+});
+
+// The `/` and `@` pickers: they open on the keys a Chinese IME types too,
+// always say something, and a typed alias resolves to the skill's name.
+describe("ChatComposer pickers", () => {
+  const builtins = BUILTIN_SKILLS.map((skill) => ({
+    name: skill.name,
+    description: `Model-facing description of ${skill.name}`,
+    category: skill.category,
+    invocation: skill.invocation,
+    source: "builtin",
+    overridesBuiltin: false,
+    enabled: true,
+    aliases: {},
+  }));
+
+  function renderZh(
+    props: { docPath?: string | null; onEscape?: () => void } = {},
+  ) {
+    const onSend = vi.fn();
+    const onEscape = props.onEscape ?? vi.fn();
+    render(
+      <ChatComposer
+        docPath={props.docPath ?? null}
+        workspaceRoot={null}
+        selectedText={null}
+        busy={false}
+        labels={{ ...labels, picker: pickerLabels(resolveStrings("zh"), "zh") }}
+        defaultMode="ask"
+        defaultWebSearch={false}
+        onSend={onSend}
+        onStop={() => {}}
+        onEscape={onEscape}
+      />,
+    );
+    const input = screen.getByPlaceholderText("Ask anything");
+    const type = (value: string) =>
+      fireEvent.change(input, { target: { value } });
+    return { onSend, onEscape, input, type };
+  }
+
+  it.each(["/", "／", "、", "・"])(
+    "%s lists the built-ins by group, with their labels",
+    async (key) => {
+      listSkills.mockResolvedValue(builtins);
+      const { type } = renderZh();
+      type(key);
+      const list = await screen.findByRole("listbox");
+      expect(list).toHaveTextContent("接着写");
+      expect(list).toHaveTextContent("/continue-story");
+      for (const group of ["写作", "修改", "检查", "文体"])
+        expect(screen.getByRole("group", { name: group })).toBeInTheDocument();
+      expect(screen.getAllByRole("option")).toHaveLength(18);
+    },
+  );
+
+  it("explains / when there is no skill at all", async () => {
+    listSkills.mockResolvedValue([]);
+    const { type } = renderZh();
+    type("/");
+    const empty = await screen.findByRole("status");
+    expect(empty).toHaveTextContent("输入 / 调用技能");
+    expect(empty).toHaveTextContent("导入自己的技能");
+  });
+
+  it("says when nothing matches, instead of closing", async () => {
+    listSkills.mockResolvedValue(builtins);
+    const { type } = renderZh();
+    type("/zzz");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "没有与“zzz”匹配的技能",
+    );
+  });
+
+  it("finds a skill by its localized label and alias", async () => {
+    listSkills.mockResolvedValue(builtins);
+    const { type } = renderZh();
+    type("/校");
+    const first = (await screen.findAllByRole("option"))[0];
+    expect(first).toHaveTextContent("校对");
+    type("/续写");
+    await waitFor(() =>
+      expect(screen.getAllByRole("option")[0]).toHaveTextContent(
+        "/continue-story",
+      ),
+    );
+  });
+
+  it("sends an alias as the canonical skill, keeping what was typed", async () => {
+    listSkills.mockResolvedValue(builtins);
+    const { type, onSend, input } = renderZh();
+    type("/");
+    await screen.findByRole("listbox");
+    type("、续写 林晚走进书店");
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith(
+      '<skill name="continue-story" typed="/续写"></skill>\n\n林晚走进书店',
+      [],
+      true,
+      { mode: "ask", webSearch: false },
+    );
+  });
+
+  it("Enter picks the highlighted skill; Escape closes the menu, not the chat", async () => {
+    listSkills.mockResolvedValue(builtins);
+    const { type, input, onEscape } = renderZh();
+    type("/");
+    await screen.findByRole("listbox");
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("/describe ");
+
+    type("/");
+    await screen.findByRole("listbox");
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(onEscape).not.toHaveBeenCalled();
+  });
+
+  it.each(["@", "＠"])(
+    "%s in an unsaved document says how to get files to attach",
+    async (key) => {
+      const { type } = renderZh();
+      type(`看看 ${key}`);
+      const empty = await screen.findByRole("status");
+      await waitFor(() =>
+        expect(empty).toHaveTextContent("保存文档或选择项目文件夹"),
+      );
+      expect(empty).toHaveTextContent("输入 @ 引用项目文件夹中的文件");
+    },
+  );
+
+  it("@ lists the project's files with their folders", async () => {
+    listProjectFiles.mockResolvedValue(["notes/plan.md", "readme.md"]);
+    const { type } = renderZh({ docPath: "/p/draft.md" });
+    type("＠pl");
+    const option = await screen.findByRole("option");
+    expect(option).toHaveTextContent("@plan.md");
+    expect(option).toHaveTextContent("notes/");
   });
 });

@@ -28,6 +28,9 @@ export interface UiState {
    *  takes a CSS engine, which Rust doesn't have. A cache: the frontend
    *  derives them again on every load and replaces both copies. */
   themeChrome: ThemeChromeCache;
+  /** The skills last run from the composer, newest first - the `/` menu
+   *  lists them first (ai/chat/skill-picker.ts). */
+  recentSkills: string[];
 }
 
 export interface ThemeChromeCache {
@@ -80,6 +83,11 @@ const LEGACY: {
     key: "levis.documentListView",
     decode: (raw) => raw,
     encode: (value) => value,
+  },
+  recentSkills: {
+    key: "levis-recent-skills",
+    decode: (raw) => JSON.parse(raw),
+    encode: (value) => JSON.stringify(value),
   },
 };
 
