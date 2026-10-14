@@ -82,12 +82,17 @@ const TICK_MS = 30;
 function stillRevealing(callId: string): boolean {
   const anim = animations.get(callId);
   if (!anim) return false;
-  // Nothing to type out - a `delete` proposes no text, so no green insert
-  // widget is ever drawn for it and no reveal can ever complete. Reporting
-  // "still revealing" here would strand the preview in `streaming` for good
-  // (settle can only be dispatched by a widget that doesn't exist), and a
-  // preview that never becomes decidable never gets an accept/reject bar.
-  if (anim.target.length === 0) return false;
+  // Nothing to type out - once the arguments are final. A `delete` proposes
+  // no text, so no green insert widget is ever drawn for it and no reveal
+  // can ever complete: reporting "still revealing" after its final feed
+  // would strand the preview in `streaming` for good (settle can only be
+  // dispatched by a widget that doesn't exist), and a preview that never
+  // becomes decidable never gets an accept/reject bar. While the stream is
+  // still open, though, an empty text only means its first characters
+  // haven't arrived: a draft placed right after `"text": "` used to settle
+  // there and then, became decidable mid-stream, and - settling only once -
+  // stayed "Writing…" forever when the final proposal landed mid-reveal.
+  if (anim.target.length === 0) return !anim.done;
   return !anim.done || anim.shown < anim.target.length;
 }
 
