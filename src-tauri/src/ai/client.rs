@@ -140,9 +140,9 @@ const COMPLETION_INSTRUCTIONS: &str = "You are the inline autocomplete of a mark
 The input marks the insertion point: <text-before-cursor> ends exactly at the cursor and <text-after-cursor> starts exactly there (it may be empty). When the cursor is inside a word or right after one, that word is not in <text-before-cursor> but in <word-at-cursor>, which comes right after it: the letters typed so far, with the cursor at their end. When present, <document-title>, <section> (the headings around the cursor, outermost first) and <block> (what the cursor is in) say where in the document this is. The text is plain text with its formatting removed, and what you write is inserted as plain text.
 
 Write ONLY the text to insert at the cursor:
-- When there is a <word-at-cursor>, start with that word written out in full - the same letters, finished if they are only its beginning - and go on from there; the letters already typed are removed before the writer sees your text. Otherwise start right at the last character.
-- Move the text forward with what the text already supports: finish the thought, draw the consequence it sets up, give the next step or point it promises. Never invent facts the writer hasn't given - figures, names, dates, times, findings, causes, quotes, product claims: where the next words would need one, stay general (\"move the meeting to another day\", not \"to next Friday\") or stop. In an empty paragraph after a heading or a finished section, open or connect with what the document already says. Never restate, summarize or paraphrase what is already written. Skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
-- Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese. After a finished sentence, what you write is a new sentence and starts like one, with a capital letter where the script has them.
+- When there is a <word-at-cursor>, start with that word written out in full - the same letters, finished if they are only its beginning - and go on from there; the letters already typed are removed before the writer sees your text. It may already be a whole word (for, de, the, Уроки): then write it unchanged and continue with the next words. Finish a cut-off word as the word the sentence needs (\"the extra freight co\" is cost or costs). That word alone is never the answer: always add what comes after it. Otherwise start right at the last character.
+- Move the text forward with what the text already supports: finish the thought, draw the consequence it sets up, give the next step or point it promises. Never invent facts the writer hasn't given - figures, names, dates, times, findings, causes, quotes, product claims, what a cited study or the writer's own interviews or analysis found or did, function or option names: where the next words would need one, stay general (\"move the meeting to another day\", not \"to next Friday\") or stop. In an empty paragraph after a heading or a finished section, open or connect with what the document already says. Never restate, summarize or paraphrase what is already written. Skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
+- Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese - and from the writer's side: in a letter, what they would say to the recipient, never the recipient's reply. In verse, keep each line about as long as the lines around it and don't repeat their words. After a finished sentence, what you write is a new sentence and starts like one, with a capital letter where the script has them.
 - Stay inside the block: in a list item write only the rest of that one item, in a heading only the heading, in a table cell only the cell, in a code block only code in that language and indentation. Never add a line break (except inside code), a list marker or markdown syntax such as backticks or asterisks - outside code, write plain words.
 - Where after-text exists, lead into it without repeating any of it.
 - If nothing worthwhile can be added, return nothing.
@@ -485,15 +485,64 @@ fn clean_reply(before: &str, after: &str, text: &str, in_code: bool) -> String {
     if in_code {
         return out;
     }
-    let out = out.trim_matches(['\n', '\r']);
+    let mut out = out.trim_matches(['\n', '\r']);
     if out.contains('\n') {
-        return String::new();
+        // One exception: the model answered, talked to itself, then gave
+        // the same answer again ("率\n\n</reasoning_effort>\n\nWait, I must
+        // not include tags. Output the cell content only.\n\n率", round 4,
+        // zh/table-cell) - an answer it stated twice is its answer.
+        let mut lines = out.lines().map(str::trim).filter(|l| !l.is_empty());
+        match (lines.next(), lines.next_back()) {
+            (Some(first), Some(last)) if first == last => out = first,
+            _ => return String::new(),
+        }
     }
+    let out = unwrap_quotes(out);
     if before.contains('`') || after.contains('`') {
         out.to_string()
     } else {
         out.replace('`', "")
     }
+}
+
+/// Whether a suggestion carries a figure the text around the cursor
+/// doesn't - a time, a count, a status code. The prompt rules invented
+/// figures out, and Haiku still wrote "返回 200" into a deployment step and
+/// "오전 9시부터 오후 9시까지" as a library's hours (round 4); a figure the
+/// writer didn't give is the kind of invention they may not notice before
+/// sending. The next number in a sequence the text counts (step 3 after
+/// step 2) is fine. Formatting differences ("2,300" and "2300") are one
+/// figure.
+fn invents_figures(before: &str, after: &str, text: &str) -> bool {
+    let figures = |s: &str| -> Vec<String> {
+        s.split(|c: char| !c.is_ascii_digit() && c != ',' && c != '.')
+            .map(|t| t.trim_matches(|c| c == ',' || c == '.').replace(',', ""))
+            .filter(|t| t.chars().any(|c| c.is_ascii_digit()))
+            .collect()
+    };
+    let known = figures(&format!("{before}\n{after}"));
+    let next = known
+        .iter()
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max()
+        .map(|n| (n + 1).to_string());
+    figures(text)
+        .iter()
+        .any(|f| !known.contains(f) && Some(f) != next.as_ref())
+}
+
+/// A suggestion the model wrapped whole in ASCII quotes, around Chinese or
+/// Japanese text that never quotes with them: "時'就需要先傾聽居民的意見。'"
+/// (round 4, lang/zh-Hant/mid) - the quotes are the model's, not text.
+fn unwrap_quotes(text: &str) -> &str {
+    for q in ['\'', '"'] {
+        if let Some(inner) = text.strip_prefix(q).and_then(|t| t.strip_suffix(q)) {
+            if !inner.contains(q) && inner.chars().any(is_unspaced_script) {
+                return inner;
+            }
+        }
+    }
+    text
 }
 
 /// The model's reply as the editor should get it: each candidate cleaned
@@ -523,7 +572,7 @@ pub(crate) fn finish_completion(before: &str, after: &str, raw: &str, in_code: b
                 &part[body.len()..]
             };
             let body = clean_reply(before, after, body, in_code);
-            if body.trim().is_empty() {
+            if body.trim().is_empty() || (!in_code && invents_figures(before, after, &body)) {
                 format!("{lead}{tail}")
             } else if in_code {
                 format!("{lead}{}{tail}", fit_to_cursor(before, &body))
@@ -627,7 +676,9 @@ const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedd
   - `issue`: one short sentence in the paragraph's language and with its punctuation (full-width in Chinese and Japanese, quoting with “ ” or 「」), naming what was wrong and why (\"'honest' starts with a vowel sound\"). It names the form in `corrected` as the right one, and only that form.
   Never quote overlapping text in two objects: when two mistakes are close together, fix both in one.
 
-Be precise: change only what you are confident is wrong, never a hallucinated issue or a preference disguised as a fix. Leave alone: proper nouns, names and invented or brand words, even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens and URLs - skip those tokens themselves, but still check the words around them. When a sentence is grammatically valid but could be phrased differently, only change it under the scope rules given below - matching an ordinary reader's taste is not itself a reason to report something.
+Be precise: change only what you are confident is wrong, never a hallucinated issue or a preference disguised as a fix. Leave alone: proper nouns, names and invented or brand words, even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens and URLs - skip those tokens themselves, but still check the words around them. A term in another language or script (早会, Slack) is left as it is too, and the grammar around it is checked as usual - a pronoun still agrees with its noun.
+
+Before you finish, read each sentence of `corrected` once more as a whole: a fix must leave it fully correct - never trading one error for another - and must catch every error in it, including a small one beside the one you noticed. When a sentence is grammatically valid but could be phrased differently, only change it under the scope rules given below - matching an ordinary reader's taste is not itself a reason to report something.
 
 When nothing needs fixing, `corrected` is the paragraph unchanged and `issues` is [].";
 
@@ -1231,6 +1282,60 @@ mod tests {
         assert_eq!(
             finish_completion("指标\n\n崩溃", "", "率\n\nWait - the rules say...", false),
             ""
+        );
+        // ...unless it ended by giving its first line again: that's the
+        // answer.
+        assert_eq!(
+            finish_completion(
+                "指标\n\n崩溃",
+                "",
+                "率\n\n</reasoning_effort>\n\nWait, I must not include tags. Output the cell content only.\n\n率",
+                false
+            ),
+            "率"
+        );
+        // A figure the text doesn't have is dropped; one it has, or the
+        // next in its count, stays.
+        assert_eq!(
+            finish_completion("启动服务并检查", "", "，确认健康检查接口返回 200", false),
+            ""
+        );
+        assert_eq!(
+            finish_completion(
+                "We closed 2,300 tickets, up from",
+                "",
+                "up from 1,980 last quarter.",
+                false
+            ),
+            ""
+        );
+        assert_eq!(
+            finish_completion(
+                "We closed 2,300 tickets and",
+                "",
+                "and 2300 is a record.",
+                false
+            ),
+            " 2300 is a record."
+        );
+        assert_eq!(
+            finish_completion("Step 2: install. Step", "", "Step 3: run it.", false),
+            " 3: run it."
+        );
+        // Chinese wrapped whole in ASCII quotes: the quotes are the
+        // model's. Quotes that are part of the text stay.
+        assert_eq!(
+            finish_completion(
+                "規劃者在制定方案時",
+                "",
+                "'就需要先傾聽居民的意見。'",
+                false
+            ),
+            "就需要先傾聽居民的意見。"
+        );
+        assert_eq!(
+            finish_completion("He said", "", "\"I'm done.\"", false),
+            " \"I'm done.\""
         );
         assert_eq!(
             finish_completion("for s in xs:\n", "", "    total += s\n    n += 1", true),

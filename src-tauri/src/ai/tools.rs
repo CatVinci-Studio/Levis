@@ -25,6 +25,10 @@ pub struct ToolContext<'a> {
     pub conventions: &'a crate::ai::rules::Conventions,
     /// Library names and aliases, for the library-name rule.
     pub library: &'a [String],
+    /// The passages this request's proposals already replace or delete
+    /// (their `context`, else their anchor; "" for the selection). One
+    /// context serves one request, every step of it.
+    pub proposed: std::sync::Mutex<Vec<String>>,
 }
 
 /// A tool the agent can call, paired with its local implementation. Built-in
@@ -255,6 +259,35 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
     // called a 20% cut "about 70% of the original" and an expansion that
     // shrank "expanded into two paragraphs" (docs/AI-EVAL.md, round 2).
     let text = parsed.get("text").and_then(|v| v.as_str()).unwrap_or("");
+    if let Some(problem) = degenerate_replacement(action, anchor, text) {
+        return problem;
+    }
+    // A second proposal for a passage this reply already changes: the two
+    // previews overlap and only one can ever be applied. Sonnet sent the
+    // same French proofreading twice in one step (round 4); the first
+    // stands, the copy is refused (and never shown - see proposal-status.ts).
+    if matches!(action, "replace" | "delete" | "replace_selection") {
+        let key = match action {
+            "replace_selection" => String::new(),
+            _ => parsed
+                .get("context")
+                .and_then(|v| v.as_str())
+                .filter(|c| c.contains(anchor))
+                .unwrap_or(anchor)
+                .to_string(),
+        };
+        let mut proposed = ctx.proposed.lock().unwrap_or_else(|e| e.into_inner());
+        let overlaps = proposed.iter().any(|p| {
+            (p.is_empty() && key.is_empty())
+                || (!p.is_empty()
+                    && !key.is_empty()
+                    && (p.contains(&key) || key.contains(p.as_str())))
+        });
+        if overlaps {
+            return "Not proposed: an edit you already proposed in this reply covers this passage, and overlapping proposals can't both be applied. The first one stands - don't send another; describe it in your reply.".to_string();
+        }
+        proposed.push(key);
+    }
     let size = match action {
         "replace" => {
             let (from, unit) = text_size(anchor);
@@ -275,11 +308,15 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
     // shorter proposal for the same passage to meet a skill's 70% - two
     // overlapping previews, of which only one can be applied (round-2
     // integration, skill/zh/slash).
-    format!("Edit proposed - the user now sees it with an Apply button.{size} This is your proposal for that passage in this reply - don't send another one for it, even if it falls short of a target: say so in your reply instead. In your reply, say in a sentence or two what you proposed and why; don't repeat the text or list what you kept.")
+    format!("Edit proposed - the user now sees it with an Apply button.{size} (Counts here are for you, measured the way measure_text does; the user never sees this note, so don't refer to it.) This is your proposal for that passage in this reply - don't send another one for it, even if it falls short of a target: say so in your reply instead. In your reply, say in a sentence or two what you proposed and why; don't repeat the text or list what you kept.")
 }
 
 /// How long a stretch of text is, in the unit its language counts in:
-/// characters for Chinese and Japanese, words otherwise.
+/// characters for Chinese and Japanese, words otherwise - counted exactly
+/// as measure_text's `chars` and `words` do. The note used to count only
+/// ideographs while measure_text counted punctuation too, and a reply told
+/// the user the two counts disagreed and to count again themselves
+/// (round 4, social/zh/shorten-100).
 fn text_size(text: &str) -> (usize, &'static str) {
     let cjk = text
         .chars()
@@ -290,10 +327,39 @@ fn text_size(text: &str) -> (usize, &'static str) {
         .filter(|w| w.chars().any(|c| c.is_alphanumeric() && !matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}')))
         .count();
     if cjk > words {
-        (cjk, "characters")
+        (
+            crate::ai::rules::measure::graphemes(text.trim()),
+            "characters",
+        )
     } else {
-        (words, "words")
+        (crate::ai::rules::measure::words(text), "words")
     }
+}
+
+fn is_cjk_char(c: char) -> bool {
+    matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}' | '\u{ac00}'..='\u{d7af}')
+}
+
+/// A replacement that can't be what the model meant: a whole clause of
+/// Chinese, Japanese or Korean replaced by one short Latin token. Sonnet
+/// once sent `"text": "due"` for a 26-character apology in a formal email
+/// and, told the proposal stood, could only ask the user to reject it
+/// (round 4, email/zh/formal). No translation or rewrite of a clause comes
+/// out as a single short token, so the call is refused before it becomes
+/// a proposal (the frontend drops refused calls too) and the model resends.
+fn degenerate_replacement(action: &str, anchor: &str, text: &str) -> Option<String> {
+    if action != "replace" {
+        return None;
+    }
+    let anchor_cjk = anchor.chars().filter(|&c| is_cjk_char(c)).count();
+    let text = text.trim();
+    let latin_token = !text.is_empty()
+        && text.chars().count() <= 12
+        && !text.contains(char::is_whitespace)
+        && !text.chars().any(is_cjk_char);
+    (anchor_cjk >= 12 && latin_token).then(|| {
+        format!("Not proposed: `text` is only \"{text}\", which can't be meant to replace this passage - it looks cut off. Send the proposal again with the full new text.")
+    })
 }
 
 /// One character's matching form: typographic quotes, dash variants,
@@ -531,8 +597,14 @@ fn check_conventions(ctx: &ToolContext, arguments: &str) -> String {
         .and_then(|t| t.as_str())
         .filter(|t| !t.trim().is_empty());
     let (report, scope, range) = if let Some(text) = text {
+        // The draft as it will land: proposals go through the same
+        // automatic fixes (rules::postfix) - checked raw, a draft whose
+        // French spaces the app was about to fix made the model send its
+        // proposal again and tell the user the spaces might be wrong
+        // (round 4, builtin/proofread/fr/typography).
+        let (text, _) = rules::postfix::proposal_text(ctx.document, text, ctx.conventions);
         let report = rules::document::check_document_with(
-            text,
+            &text,
             Some(ctx.document),
             ctx.conventions,
             level,
@@ -629,6 +701,17 @@ fn check_conventions(ctx: &ToolContext, arguments: &str) -> String {
             "... and {} more; check a smaller range to see them.\n",
             findings.len() - shown
         ));
+    }
+    // The bracketed names are for reading; told only those, the model
+    // proposed "Bonjour !" with a plain space and told the user it had put
+    // in no-break spaces (round 4, builtin/proofread/fr/typography).
+    let invisible = findings.iter().any(|f| {
+        f.suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains(['\u{00A0}', '\u{202F}']))
+    });
+    if invisible {
+        out.push_str("A [no-break space] or [narrow no-break space] in a fix is that character, not an ordinary space: in propose_edit's JSON write it as \\u00a0 or \\u202f inside the string, and check the draft with `text` before proposing.\n");
     }
     out
 }
@@ -970,6 +1053,7 @@ mod tests {
             root: None,
             conventions: &NO_CONVENTIONS,
             library: &[],
+            proposed: Default::default(),
         };
         let call = |name: &str| use_skill(&ctx, &json!({ "name": name }).to_string());
         let dialogue = call("dialogue");
@@ -1000,6 +1084,7 @@ mod tests {
             root: None,
             conventions: &NO_CONVENTIONS,
             library: &[],
+            proposed: Default::default(),
         }
     }
 
@@ -1037,6 +1122,7 @@ mod tests {
             "{}",
         );
         assert!(out.contains("[narrow no-break space]?"), "{out}");
+        assert!(out.contains("write it as \\u00a0 or \\u202f"), "{out}");
     }
 
     #[test]
@@ -1096,6 +1182,69 @@ mod tests {
         assert!(editing
             .iter()
             .any(|tool| tool.spec.name == PROPOSE_EDIT_TOOL_NAME));
+    }
+
+    #[test]
+    fn propose_edit_refuses_a_clause_replaced_by_one_latin_token() {
+        let doc = "会议照常。给您添麻烦了，如果周五上午不方便，请告诉我们您方便的时间。此致";
+        let anchor = "给您添麻烦了，如果周五上午不方便，请告诉我们您方便的时间。";
+        let args = |text: &str| {
+            serde_json::json!({"action": "replace", "anchor": anchor, "text": text}).to_string()
+        };
+        let out = propose_edit(&ctx(doc), &args("due"));
+        assert!(out.starts_with("Not proposed"), "{out}");
+        // A real translation and a short Chinese rewrite stand, and so does
+        // a Latin name for a short Chinese one.
+        for text in [
+            "Sorry for the trouble - if Friday morning doesn't suit you, tell us what does.",
+            "抱歉。",
+        ] {
+            let out = propose_edit(&ctx(doc), &args(text));
+            assert!(out.starts_with("Edit proposed"), "{text}: {out}");
+        }
+        let out = propose_edit(
+            &ctx("名称：乐维斯"),
+            r#"{"action":"replace","anchor":"乐维斯","text":"Levis"}"#,
+        );
+        assert!(out.starts_with("Edit proposed"), "{out}");
+    }
+
+    #[test]
+    fn a_second_proposal_for_the_same_passage_is_refused() {
+        let doc = ctx("Levis is great. Levis is fast. It ships soon.");
+        let ctx2 = ctx("Levis is great.");
+        let ctx = doc;
+        let first = r#"{"action":"replace","anchor":"Levis is great.","text":"Levis is good."}"#;
+        assert!(propose_edit(&ctx, first).starts_with("Edit proposed"));
+        assert!(propose_edit(&ctx, first).starts_with("Not proposed"));
+        // Inside the first passage, too.
+        let inner = r#"{"action":"delete","anchor":"great"}"#;
+        assert!(propose_edit(&ctx, inner).starts_with("Not proposed"));
+        // Another passage, an insertion beside the first, and the same
+        // word picked out elsewhere by its context all stand.
+        for args in [
+            r#"{"action":"replace","anchor":"It ships soon.","text":"It ships in May."}"#,
+            r#"{"action":"insert_after","anchor":"Levis is great.","text":" Really."}"#,
+            r#"{"action":"replace","anchor":"Levis","context":"Levis is fast","text":"It"}"#,
+        ] {
+            assert!(
+                propose_edit(&ctx, args).starts_with("Edit proposed"),
+                "{args}"
+            );
+        }
+        // A refused call (no match) doesn't count as proposed.
+        let missing = r#"{"action":"replace","anchor":"Levis is slow.","text":"x"}"#;
+        assert!(propose_edit(&ctx2, missing).starts_with("No exact match"));
+    }
+
+    #[test]
+    fn the_size_note_counts_like_measure_text() {
+        let out = propose_edit(
+            &ctx("周末带爸妈去了千岛湖，人很多。"),
+            r#"{"action":"replace","anchor":"周末带爸妈去了千岛湖，人很多。","text":"周末去了千岛湖。"}"#,
+        );
+        // Punctuation counts, as in measure_text's chars.
+        assert!(out.contains("replaces 15 characters with 8"), "{out}");
     }
 
     #[test]

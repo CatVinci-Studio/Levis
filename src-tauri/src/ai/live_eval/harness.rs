@@ -509,6 +509,7 @@ pub fn run_conversation(
             root,
             conventions: &conventions,
             library: &library,
+            proposed: Default::default(),
         };
         let usage = RefCell::new(Vec::new());
         let postfix = RefCell::new(Vec::new());

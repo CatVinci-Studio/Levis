@@ -10,6 +10,7 @@ import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import type { StreamingState } from "../useAgentConversation";
 import { parseProposal } from "./proposal";
+import { refusedProposalIds } from "../proposal-status";
 import { classifyAiError, type AiErrorKind } from "../error-messages";
 import { diffLines } from "./line-diff";
 import { composeSentences, diffSentences } from "./sentence-diff";
@@ -185,6 +186,9 @@ export function ChatMessages({
         map.set(turn.call_id, parseProposal(turn.arguments));
     return map;
   }, [shown]);
+  // A call the backend refused (tools.rs) was never a proposal: the model
+  // was told and resends it, so it gets no card - nor its result.
+  const refused = useMemo(() => refusedProposalIds(shown), [shown]);
 
   // A decided card shrinks to its status line; whatever is under it moves
   // up to meet it rather than jumping (FlipOnChange).
@@ -216,6 +220,11 @@ export function ChatMessages({
               "--reveal-delay": `${Math.min(i - revealFrom.current, 3) * 40}ms`,
             } as CSSProperties)
           : undefined;
+        if (
+          (turn.kind === "ToolCall" || turn.kind === "ToolResult") &&
+          refused.has(turn.call_id)
+        )
+          return null;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
           const proposal = parsedProposals.get(turn.call_id);
           if (!proposal)

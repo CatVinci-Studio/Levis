@@ -35,6 +35,8 @@ metadata:
 - Infer a compact style sheet from the sample without writing it out: sentence length and its spread, paragraphing, register and grammatical person, tense, punctuation habits, imagery and vocabulary level, dialogue habits, rhythm devices.
 - Keep the target's content: its claims, facts, numbers, sequence, how strongly each thing is asserted, and what each sentence does (fact, opinion, request, hypothesis, quotation).
 - Treat concrete limits in the style profile (sentence length, banned words or punctuation) as rules; apply its habits where they read naturally. A sample given for this request beats the profile.
+- Grammatical person and tense follow the style source, with one exception: the author's own first-person account of what they did ("I", "we") stays first-person and keeps its tense - turned into "you", it would say the reader did it. Imitate its rhythm, word choice and punctuation instead.
+- Check the result against every concrete limit before proposing; fix a breach instead of reporting it in the reply.
 - The writing instructions still win on language, terms and spellings.
 
 ## Don't

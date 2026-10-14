@@ -33,7 +33,8 @@ metadata:
 ## Do
 - Record what was decided and what happens next, not who said what.
 - Header with only the fields the notes give: meeting, date, time, place, chair, note-taker, attendees, absentees.
-- Sections: Decisions; Action items; Open questions; Next meeting (leave out a section the notes give nothing for).
+- Sections: Decisions; Action items; Open questions; Next meeting (leave out a section the notes give nothing for). Points the notes record that are neither decided nor assigned - feedback, findings, concerns - go in a short Discussion section before Decisions, never under Decisions.
+- Notes that already have these sections still get what minutes lack: the header and an owner and due date (or TBD) on every action item.
 - Action items as task-list items (`* [ ] owner – task – due date`). When the notes name no owner or date, write it so: "Owner: TBD" / 负责人待定 / 担当未定 / 담당자 미정, "due: TBD".
 - Keep figures, versions and names exactly as in the notes.
 - Chinese 纪要: 会议认为 / 会议指出 / 会议决定 / 会议要求; 出席： / 列席： / 请假： lines.
