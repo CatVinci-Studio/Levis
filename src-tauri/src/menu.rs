@@ -111,21 +111,19 @@ pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
     })
 }
 
-/// File > Open… with no window to ask (macOS, after the last window was
-/// closed): the open panel comes up on its own, as in any Mac app, and the
-/// file chosen opens the way a file opened from Finder does - in a new
-/// window, or as a tab per Settings (`queue_paths_to_open`).
-fn open_file_without_window(app: &tauri::AppHandle) {
-    use tauri_plugin_dialog::DialogExt;
-    let handle = app.clone();
-    app.dialog()
-        .file()
-        .add_filter("Markdown", &["md", "markdown"])
-        .pick_file(move |picked| {
-            if let Some(path) = picked.and_then(|p| p.into_path().ok()) {
-                crate::queue_paths_to_open(&handle, vec![path.to_string_lossy().into_owned()]);
-            }
-        });
+/// `emit_to_focused` for a command that needs a window to happen in - with
+/// none open (macOS keeps running after its last window closes), a fresh
+/// window opens and runs it once it has mounted (PENDING_MENU_EVENT). Not
+/// done here and now without a window: an open panel with no window to
+/// own it attached itself as a sheet to a closed window, which came back
+/// empty and stayed on screen.
+fn emit_or_open_window(app: &tauri::AppHandle, event: &'static str) {
+    if focused_editor_window(app).is_some() {
+        emit_to_focused(app, event);
+    } else {
+        *crate::PENDING_MENU_EVENT.lock().unwrap() = Some(event);
+        let _ = crate::open_new_window(app);
+    }
 }
 
 /// Handle to the File > Open Recent submenu, kept so add_recent_file can
@@ -503,15 +501,7 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
 /// points stay one behaviour.
 fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
     if id == SETTINGS_MENU_ID {
-        if focused_editor_window(app_handle).is_some() {
-            emit_to_focused(app_handle, "menu-open-settings");
-        } else {
-            // No window to show it in (macOS, after the last one closed): a
-            // fresh window opens with Settings, draining this as it mounts
-            // (same queue-then-drain as the help docs below).
-            crate::PENDING_OPEN_SETTINGS.store(true, std::sync::atomic::Ordering::Relaxed);
-            let _ = crate::open_new_window(app_handle);
-        }
+        emit_or_open_window(app_handle, "menu-open-settings");
     } else if id == NEW_FILE_ID {
         // Honors the same Settings choice as opening files: a new tab in the
         // focused window in tab mode, a fresh window otherwise (or when
@@ -524,11 +514,7 @@ fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
             emit_to_focused(app_handle, "menu-new-file");
         }
     } else if id == OPEN_FILE_ID {
-        if focused_editor_window(app_handle).is_some() {
-            emit_to_focused(app_handle, "menu-open-file");
-        } else {
-            open_file_without_window(app_handle);
-        }
+        emit_or_open_window(app_handle, "menu-open-file");
     } else if id == SAVE_FILE_ID {
         emit_to_focused(app_handle, "menu-save-file");
     } else if id == SAVE_FILE_AS_ID {

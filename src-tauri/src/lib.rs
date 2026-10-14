@@ -102,16 +102,18 @@ fn take_pending_show_help() -> Option<String> {
     PENDING_SHOW_HELP.lock().unwrap().take()
 }
 
-/// Settings… chosen while no window could show it (macOS, after the last
-/// window closed): the fresh window opened for it shows Settings once it has
-/// mounted. Same queue-then-drain as PENDING_SHOW_HELP.
+/// A menu command that needs a window (Settings…, Open…), chosen while none
+/// was open - macOS keeps running after its last window closes: the fresh
+/// window opened for it runs it once mounted. Holds the menu event that
+/// window would otherwise have been sent. Same queue-then-drain as
+/// PENDING_SHOW_HELP.
 #[cfg(desktop)]
-pub(crate) static PENDING_OPEN_SETTINGS: AtomicBool = AtomicBool::new(false);
+pub(crate) static PENDING_MENU_EVENT: Mutex<Option<&'static str>> = Mutex::new(None);
 
 #[cfg(desktop)]
 #[tauri::command]
-fn take_pending_open_settings() -> bool {
-    PENDING_OPEN_SETTINGS.swap(false, Ordering::Relaxed)
+fn take_pending_menu_event() -> Option<&'static str> {
+    PENDING_MENU_EVENT.lock().unwrap().take()
 }
 
 #[tauri::command]
@@ -632,7 +634,7 @@ pub fn run() {
             #[cfg(desktop)]
             take_pending_show_help,
             #[cfg(desktop)]
-            take_pending_open_settings,
+            take_pending_menu_event,
             #[cfg(desktop)]
             menu::trigger_menu_item,
             #[cfg(desktop)]

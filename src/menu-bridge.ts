@@ -126,14 +126,17 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
     );
   }, []);
 
-  // Settings… chosen from the macOS menu bar while no window was open: Rust
-  // opened this window to show it (menu.rs's dispatch). Asked once, on
-  // mount - the answer is taken, so no later window shows it again.
+  // Settings… or Open… chosen from the macOS menu bar while no window was
+  // open: Rust opened this window to carry it out (menu.rs's
+  // emit_or_open_window). Asked once, on mount - the answer is taken, so no
+  // later window repeats it.
   useEffect(() => {
     windowIpc
-      .takePendingOpenSettings()
-      .then((pending) => {
-        if (pending) latest.current.onOpenSettings();
+      .takePendingMenuEvent()
+      .then((event) => {
+        if (event === "menu-open-settings") latest.current.onOpenSettings();
+        else if (event === "menu-open-file")
+          void latest.current.openFileDialog();
       })
       .catch(() => {});
   }, []);
