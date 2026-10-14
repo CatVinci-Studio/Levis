@@ -243,6 +243,12 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   agentSkillsResetConfirm:
     "Deine Kopie von „{name}“ löschen und wieder den integrierten Skill verwenden?",
   agentSkillsShadows: "Ersetzt einen integrierten Skill",
+  agentSkillsBuiltinUpdated: "Neue Version verfügbar",
+  agentSkillsBuiltinUpdatedHint:
+    "Der integrierte Skill wurde geändert, seit du ihn angepasst hast. Setze ihn zurück, um die neue Version zu verwenden; deine Kopie wird dabei gelöscht.",
+  agentSkillsNotACopy:
+    "Das ist dein eigener Skill, keine Kopie des integrierten – es gibt nichts zurückzusetzen.",
+  agentSkillsUnknownBuiltin: `Diese Version von ${APP_NAME} hat keinen integrierten Skill mit diesem Namen.`,
   writingConventionsLabel: "Schreibkonventionen",
   writingConventionsAuto: "Automatisch",
   conventionsStandard: "Standard",

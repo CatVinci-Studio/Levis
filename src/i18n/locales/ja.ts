@@ -240,6 +240,12 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   agentSkillsResetConfirm:
     "「{name}」のコピーを削除して、組み込みスキルに戻しますか？",
   agentSkillsShadows: "組み込みスキルを置き換えています",
+  agentSkillsBuiltinUpdated: "組み込み版に更新あり",
+  agentSkillsBuiltinUpdatedHint:
+    "カスタマイズした後に組み込みスキルが更新されました。リセットすると新しい版を使えます（コピーは削除されます）。",
+  agentSkillsNotACopy:
+    "これは自分で作ったスキルで、組み込みスキルのコピーではないため、リセットするものはありません。",
+  agentSkillsUnknownBuiltin: `このバージョンの ${APP_NAME} には、その名前の組み込みスキルはありません。`,
   writingConventionsLabel: "表記ルール",
   writingConventionsAuto: "自動",
   conventionsStandard: "標準",

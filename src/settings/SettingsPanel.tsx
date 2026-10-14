@@ -65,6 +65,9 @@ interface SettingsPanelProps {
   onClose: () => void;
   /** Opens a document in the editor - the agent.md "edit" button uses it. */
   onOpenFile: (path: string) => void;
+  /** Files a settings action deleted (Reset on a customized skill), for
+   *  the editor to close their tabs. */
+  onFilesDeleted?: (paths: string[]) => void;
   /** Which of the window's view modes are on, for Editor > View. */
   viewChecks?: Pick<MenuChecks, "sourceMode" | "zen">;
 }
@@ -103,6 +106,7 @@ function HelpRow({ label, onOpen }: { label: string; onOpen: () => void }) {
 export function SettingsPanel({
   onClose,
   onOpenFile,
+  onFilesDeleted,
   viewChecks = {},
 }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
@@ -416,6 +420,7 @@ export function SettingsPanel({
               <BuiltinSkillsSection
                 t={t}
                 onOpenFile={onOpenFile}
+                onFilesDeleted={onFilesDeleted}
                 onClose={onClose}
               />
 

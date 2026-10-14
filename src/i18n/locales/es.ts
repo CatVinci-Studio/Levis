@@ -255,6 +255,12 @@ para usar una.
   agentSkillsResetConfirm:
     "¿Eliminar tu copia de «{name}» y volver a usar la habilidad integrada?",
   agentSkillsShadows: "Sustituye a una habilidad integrada",
+  agentSkillsBuiltinUpdated: "Hay una versión nueva",
+  agentSkillsBuiltinUpdatedHint:
+    "La habilidad integrada ha cambiado desde que la personalizaste. Restablécela para usar la versión nueva; tu copia se eliminará.",
+  agentSkillsNotACopy:
+    "Esta habilidad es tuya, no una copia de la integrada, así que no hay nada que restablecer.",
+  agentSkillsUnknownBuiltin: `Esta versión de ${APP_NAME} no tiene ninguna habilidad integrada con ese nombre.`,
   writingConventionsLabel: "Normas de escritura",
   writingConventionsAuto: "Automático",
   conventionsStandard: "Estándar",

@@ -873,6 +873,27 @@ function App() {
       ),
     );
   }, []);
+  // Settings > Skills > Reset deleted a customized skill's file. A tab
+  // still showing it must not write it back on the next save: an unedited
+  // one closes (the window's only tab becomes a blank one instead of
+  // closing the window), an edited one keeps its text as an unsaved draft.
+  const skillFilesDeleted = useCallback(
+    (paths: string[]) => {
+      for (const tab of tabsRef.current) {
+        if (!tab.path || !paths.includes(tab.path)) continue;
+        if (tabIsDirty(tab)) {
+          documentDeleted(tab.path);
+        } else if (tabsRef.current.length > 1) {
+          removeTab(tab.id);
+        } else {
+          const blank = makeBlankTab();
+          setTabs([blank]);
+          setActiveTabId(blank.id);
+        }
+      }
+    },
+    [documentDeleted, removeTab],
+  );
 
   // iPhone menu > Share: the share sheet needs a file, so an unsaved or
   // never-saved document is saved first (into Documents, if it is new).
@@ -1286,6 +1307,7 @@ function App() {
             <SettingsPanel
               onClose={() => setSettingsOpen(false)}
               onOpenFile={(path) => void openFile(path)}
+              onFilesDeleted={skillFilesDeleted}
               viewChecks={{
                 sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
                 zen: zenMode,

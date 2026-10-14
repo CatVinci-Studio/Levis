@@ -757,6 +757,13 @@ button.settings-inline-button {
   white-space: nowrap;
 }
 
+/* "Built-in updated": a customized copy older than the bundled skill -
+   the one tag that asks for a look, so it takes the accent. */
+.settings-skill-tag-notice {
+  background: color-mix(in srgb, var(--editor-accent) 14%, transparent);
+  color: var(--editor-accent);
+}
+
 /* The built-in skills: a disclosure like Advanced, its count of those
    switched on at the right of the title. */
 .settings-builtin-skills-count {

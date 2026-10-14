@@ -852,9 +852,10 @@ export const ai = {
    *  the copy already there) and returns its path, to open in a tab. */
   customizeBuiltinSkill: (name: string) =>
     call<string>("customize_builtin_skill", { name }),
-  /** Deletes the copy Customize… made, so the built-in applies again. */
+  /** Deletes the copy Customize… made, so the built-in applies again;
+   *  returns the deleted files' paths (a tab showing one is closed). */
   resetBuiltinSkill: (name: string) =>
-    call<void>("reset_builtin_skill", { name }),
+    call<string[]>("reset_builtin_skill", { name }),
   setBuiltinSkillEnabled: (name: string, enabled: boolean) =>
     call<string[]>("set_builtin_skill_enabled", { name, enabled }),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),

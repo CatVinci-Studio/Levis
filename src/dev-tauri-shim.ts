@@ -305,6 +305,8 @@ export function installDevTauriShim(): void {
   const skills = {
     disabled: new Set<string>(),
     customized: new Set<string>(),
+    // Copies made before the bundled built-in last changed.
+    outdated: new Set<string>(),
     files: new Map<string, string>(),
     log: [] as string[],
   };
@@ -341,7 +343,8 @@ export function installDevTauriShim(): void {
                   source: "global",
                   overridesBuiltin: true,
                   enabled,
-                  basedOn: `${skill}@1`,
+                  basedOn: `${skill}@${skills.outdated.has(skill) ? 0 : 1}`,
+                  builtinUpdated: skills.outdated.has(skill),
                 }
               : {
                   ...base,
@@ -385,11 +388,13 @@ export function installDevTauriShim(): void {
         }
         return Promise.resolve(path);
       }
-      case "reset_builtin_skill":
+      case "reset_builtin_skill": {
         skills.log.push(`${cmd}:${name}`);
-        skills.customized.delete(name);
+        const had = skills.customized.delete(name);
+        skills.outdated.delete(name);
         skills.files.delete(skillCopyPath(name));
-        return Promise.resolve(null);
+        return Promise.resolve(had ? [skillCopyPath(name)] : []);
+      }
       case "read_text_file": {
         const text = skills.files.get(String(args.path ?? ""));
         return text === undefined ? null : Promise.resolve(text);

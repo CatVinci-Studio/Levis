@@ -257,6 +257,12 @@ utiliser une.
   agentSkillsResetConfirm:
     "Supprimer votre copie de «\u00a0{name}\u00a0» et revenir à la compétence intégrée\u00a0?",
   agentSkillsShadows: "Remplace une compétence intégrée",
+  agentSkillsBuiltinUpdated: "Nouvelle version intégrée",
+  agentSkillsBuiltinUpdatedHint:
+    "La compétence intégrée a changé depuis que vous l'avez personnalisée. Réinitialisez-la pour utiliser la nouvelle version\u00a0; votre copie sera supprimée.",
+  agentSkillsNotACopy:
+    "Cette compétence est la vôtre, pas une copie de la compétence intégrée\u00a0: il n'y a rien à réinitialiser.",
+  agentSkillsUnknownBuiltin: `Cette version de ${APP_NAME} n'a aucune compétence intégrée de ce nom.`,
   writingConventionsLabel: "Conventions d'écriture",
   writingConventionsAuto: "Automatique",
   conventionsStandard: "Standard",
