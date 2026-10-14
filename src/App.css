@@ -22,9 +22,13 @@
     "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", SimSun;
   --font-cjk-sans: var(--font-cjk-sans-sc);
   --font-cjk-serif: var(--font-cjk-serif-sc);
-  --font-sans:
-    -apple-system, "SF Pro Text", var(--font-cjk-sans), Inter, system-ui,
-    sans-serif;
+  /* Where -apple-system isn't there (Linux, Windows), the CJK face leads
+     for a Chinese, Japanese or Korean UI, so their punctuation is drawn
+     full-width as it should be. For every other language a Latin face
+     comes first: a CJK face draws ’ “ ” full-width too, which put a gap
+     after each apostrophe of French text ("d’ habitants"). */
+  --font-text-sans: Inter, system-ui, var(--font-cjk-sans);
+  --font-sans: -apple-system, "SF Pro Text", var(--font-text-sans), sans-serif;
   --font-mono: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
 
   color-scheme: light;
@@ -94,6 +98,26 @@
   --font-cjk-serif:
     "AppleMyungjo", "Noto Serif CJK KR", "Source Han Serif KR", Batang,
     var(--font-cjk-serif-sc);
+}
+
+/* Korean is written with spaces between words, but browsers break it
+   between any two syllables, like Chinese: "아닙니|다". keep-all breaks
+   only at the spaces. It's set on every element because the
+   `word-break: break-word` a few components use (AI messages, inline code)
+   would otherwise put syllable breaks back. A word too long for its line
+   still wraps: overflow-wrap is inherited from the root, and break-word
+   (not anywhere) leaves min-content widths alone, so a label in a flex
+   row isn't squeezed into mid-word breaks. */
+:root:lang(ko) {
+  overflow-wrap: break-word;
+}
+
+:root:lang(ko) * {
+  word-break: keep-all;
+}
+
+:root:is(:lang(zh), :lang(ja), :lang(ko)) {
+  --font-text-sans: var(--font-cjk-sans), Inter, system-ui;
 }
 
 /* Dark palette applies when the system prefers dark (and the user hasn't

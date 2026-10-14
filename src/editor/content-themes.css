@@ -68,7 +68,7 @@
   --editor-quote-border: #3568d4;
   --editor-accent: #3467d2;
   --editor-code-bg: #eef1f5;
-  --editor-font: -apple-system, "Inter", var(--font-cjk-sans), sans-serif;
+  --editor-font: -apple-system, "Inter", var(--font-text-sans), sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -103,7 +103,7 @@
   --editor-quote-border: #4c7a4c;
   --editor-accent: #487448;
   --editor-code-bg: #e9efe3;
-  --editor-font: -apple-system, "Inter", var(--font-cjk-sans), sans-serif;
+  --editor-font: -apple-system, "Inter", var(--font-text-sans), sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {

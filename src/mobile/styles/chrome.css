@@ -155,10 +155,13 @@
 
   /* ---- The title row's menu (ui/AppMenu.tsx): a pull-down menu. ---- */
 
+  /* UIMenu's width, grown for a longer label (French "Rechercher et
+     remplacer…" ellipsized at 250px); a recent document's long name still
+     ellipsizes at the cap. */
   :root[data-window-chrome="mobile"] .app-menu-list {
-    width: 250px;
-    min-width: 0;
-    max-width: calc(100vw - 16px);
+    width: max-content;
+    min-width: 250px;
+    max-width: min(320px, calc(100vw - 16px));
     padding: 0;
     border-radius: 14px;
   }
