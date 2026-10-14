@@ -194,7 +194,7 @@
   gap: 4px;
   padding: 2px 6px;
   border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   font-size: var(--text-xs);
   color: var(--editor-muted);
 }
@@ -503,7 +503,7 @@
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--editor-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   font-size: var(--text-sm);
   transition: border-color var(--dur-fast) var(--ease-standard);
 }
@@ -539,7 +539,7 @@
 .agent-proposal-diff {
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-block);
   overflow: hidden;
   animation: motion-disclose-in var(--dur-fast) var(--ease-out);
   font-family: var(--editor-mono-font, var(--font-mono));
@@ -600,7 +600,7 @@
 
 .agent-diff-chip {
   padding: 0 5px;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-pill);
   /* Counts change in place without their digits shifting. */
   font-variant-numeric: tabular-nums;
 }
@@ -1071,7 +1071,7 @@
   padding: 8px 10px;
   border: 1px solid var(--editor-border);
   border-left: 3px solid var(--editor-accent);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
 }
 
 .agent-comment-quote {

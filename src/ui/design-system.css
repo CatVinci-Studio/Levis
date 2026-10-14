@@ -2,13 +2,38 @@
 @import "./motion.css";
 
 :root {
+  /* Corner radii - one scale, and one rule for which surface takes which.
+     The bigger and further forward a surface, the rounder; anything inside
+     another rounded box is rounder by no more than the box (an inset row
+     takes the box's radius less the inset), so corners nest evenly.
+
+       0        full-bleed panels docked to a window edge (sidebar, AI
+                panel, title row, the phone's find bar and full-screen
+                settings), table cells, rows of a grouped list (the group
+                clips them), the composer bar across the panel's foot.
+       small    marks inside text: inline code, kbd, a match highlight,
+                a page thumbnail; glyph buttons under 20px (a tab's close).
+       control  what is pressed or typed in: buttons, icon buttons, inputs,
+                selects, segmented controls, list rows (file tree, chat
+                history, clipboard), and the rows of a menu or popover
+                (a 10px surface with a 4px inset).
+       block    content shown as a block: code blocks, images, tool output,
+                a quoted selection, a proposal's diff. The document's
+                --md-radius defaults to it (themes may set their own).
+       surface  cards and floating surfaces: menus, popovers, select lists,
+                toasts, the AI panel's cards (proposals, comments, errors),
+                message bubbles, settings groups, document cards.
+       dialog   modal surfaces: dialogs, the settings window, the PDF
+                export card, the tutorial; the phone's sheets (top corners).
+       pill     chips, badges, tags, switch tracks, one-line notices.
+       50%      dots. */
   --radius-small: 4px;
   --radius-control: 6px;
+  --radius-block: 8px;
   --radius-surface: 10px;
   --radius-dialog: 14px;
   /* The phone's sheets: a dialog's corners. */
   --radius-sheet: var(--radius-dialog);
-  /* Chips, badges and one-line notices. */
   --radius-pill: 999px;
   --control-height: 32px;
   /* Buttons inside panels, bars and toasts. */
@@ -590,7 +615,7 @@
   width: 100%;
   padding: 6px 10px;
   border: none;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--editor-text);
   font: inherit;

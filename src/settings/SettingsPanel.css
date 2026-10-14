@@ -532,7 +532,7 @@ button.settings-inline-button {
   flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   box-shadow: var(--shadow-popover);
   overflow: hidden;
 }
@@ -563,7 +563,7 @@ button.settings-inline-button {
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: none;
   color: inherit;
   font: inherit;

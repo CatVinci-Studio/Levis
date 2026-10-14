@@ -6,7 +6,7 @@
   font-size: var(--text-md);
   line-height: 1.55;
   padding: 8px 10px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   max-width: 92%;
   word-break: break-word;
 }
@@ -88,7 +88,7 @@ button.agent-context-chip:hover {
   max-height: 160px;
   overflow-y: auto;
   padding: 6px 8px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-block);
   background: color-mix(in srgb, var(--sidebar-active-text) 12%, transparent);
 }
 
@@ -137,7 +137,7 @@ button.agent-context-chip:hover {
 
 .agent-markdown pre {
   background: var(--editor-code-bg);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-block);
   padding: 6px 8px;
   overflow-x: auto;
 }
@@ -220,7 +220,7 @@ button.agent-context-chip:hover {
 
 .agent-markdown img {
   max-width: 100%;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-block);
 }
 
 /* Tables scroll sideways inside the reply instead of widening it. */
@@ -283,7 +283,7 @@ button.agent-context-chip:hover {
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--editor-code-bg);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-block);
   padding: 6px 8px;
   margin: 4px 0 0;
 }
@@ -308,7 +308,7 @@ button.agent-context-chip:hover {
   padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--danger, #c1495a) 35%, transparent);
   border-left: 3px solid var(--danger, #c1495a);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   background: color-mix(in srgb, var(--danger, #c1495a) 6%, transparent);
   font-size: var(--text-md);
   line-height: 1.5;

@@ -302,8 +302,43 @@
     text-decoration-color: currentColor;
   }
 
+  /* Rounded like the code block beside it (--md-radius): separate
+     borders, so the outer edge can take the corner - each cell draws only
+     its right and bottom rule, the table the frame. */
   :root:not([data-user-theme]) .milkdown table {
     font-size: 0.95em;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--editor-border);
+    border-radius: var(--md-radius);
+  }
+
+  :root:not([data-user-theme]) .milkdown :is(th, td) {
+    border-width: 0 1px 1px 0;
+  }
+
+  :root:not([data-user-theme]) .milkdown tr > :is(th, td):last-child {
+    border-right-width: 0;
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:last-child > :is(th, td) {
+    border-bottom-width: 0;
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:first-child > :first-child {
+    border-top-left-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:first-child > :last-child {
+    border-top-right-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:last-child > :first-child {
+    border-bottom-left-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:last-child > :last-child {
+    border-bottom-right-radius: calc(var(--md-radius) - 1px);
   }
 
   :root:not([data-user-theme]) .milkdown th {

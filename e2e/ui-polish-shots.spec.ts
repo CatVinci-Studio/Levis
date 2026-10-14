@@ -210,3 +210,94 @@ for (const form of ["desktop", "narrow", "phone"] as Form[]) {
     }
   });
 }
+
+// The app's other surfaces, for the corner-radius pass and the View menu:
+// the menu with View open, the context menu, a select, the find bar, a
+// dialog, settings, the sidebar, and the phone's menu.
+for (const language of ["en", "zh"] as Lang[]) {
+  for (const scheme of ["light", "dark"] as const) {
+    const shot = (page: Page, name: string) =>
+      page.screenshot({
+        path: `${DIR}/surfaces-${language}-${scheme}-${name}.png`,
+      });
+    const emit = (page: Page, name: string, payload?: unknown) =>
+      page.evaluate(
+        ([n, p]) =>
+          (
+            window as unknown as {
+              __devEmitTauriEvent: (e: string, p?: unknown) => void;
+            }
+          ).__devEmitTauriEvent(n as string, p),
+        [name, payload] as const,
+      );
+
+    test(`${language} ${scheme}: desktop surfaces`, async ({ page }) => {
+      await openApp(page, {
+        colorScheme: scheme,
+        settings: { language, typewriterMode: true },
+        storage: { "levis-agent-panel-open": "1" },
+      });
+      await pasteMarkdown(
+        page,
+        DOC[language].doc +
+          "\n```js\nconst x = 1;\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |\n",
+      );
+      await page.locator(".window-menu-button").click();
+      const view = page
+        .locator(".app-menu-item")
+        .filter({ hasText: language === "en" ? "View" : "视图" });
+      await view.hover();
+      await page.waitForTimeout(300);
+      await shot(page, "1-view-menu");
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
+
+      await page.locator(".ProseMirror p").first().click({ button: "right" });
+      await page.waitForTimeout(200);
+      await shot(page, "2-context-menu");
+      await page.keyboard.press("Escape");
+
+      await page.locator(".inline-chat-mode").first().click();
+      await page.waitForTimeout(200);
+      await shot(page, "3-select");
+      await page.keyboard.press("Escape");
+
+      await emit(page, "menu-find-replace");
+      await page.waitForTimeout(200);
+      await shot(page, "4-find");
+      await page.keyboard.press("Escape");
+
+      await page.locator(".ProseMirror p").first().click();
+      await emit(page, "menu-insert-block", "table");
+      await page.waitForTimeout(300);
+      await shot(page, "5-dialog");
+      await page.keyboard.press("Escape");
+
+      await emit(page, "menu-toggle-sidebar");
+      await page.waitForTimeout(300);
+      await shot(page, "6-sidebar");
+
+      await emit(page, "menu-open-settings");
+      await page.waitForTimeout(300);
+      await shot(page, "7-settings");
+    });
+  }
+}
+
+test.describe("phone surfaces", () => {
+  test.use(PHONE);
+  for (const language of ["en", "zh"] as Lang[]) {
+    test(`${language}: the phone menu`, async ({ page }) => {
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "platform", { get: () => "iPhone" });
+      });
+      await openApp(page, { settings: { language } });
+      await pasteMarkdown(page, DOC[language].doc);
+      await page.locator(".window-menu-button").tap();
+      await page.waitForTimeout(300);
+      await page.screenshot({
+        path: `${DIR}/surfaces-phone-${language}-menu.png`,
+      });
+    });
+  }
+});

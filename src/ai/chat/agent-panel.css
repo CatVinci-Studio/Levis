@@ -186,7 +186,7 @@
   max-width: 60%;
   padding: 3px 6px;
   border: none;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: none;
   color: inherit;
   font: inherit;
@@ -258,7 +258,7 @@
   min-width: 0;
   padding: 4px 8px;
   border: 1px solid var(--editor-border, var(--border-color));
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: var(--editor-bg, var(--bg));
   color: inherit;
   font: inherit;
