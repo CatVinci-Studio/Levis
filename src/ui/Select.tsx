@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { isIOSApp } from "../platform/capabilities";
 import "./Select.css";
 
 /**
@@ -26,6 +27,11 @@ import "./Select.css";
  * transform - Quick Ask's entrance animation - would trap a fixed box), so
  * it is marked `data-floating-select` for useCloseOnOutsideClick to treat
  * as inside whatever opened it.
+ *
+ * On iPhone and iPad it IS a native select, laid invisibly over the same
+ * closed control: there the platform's list is the iOS picker, which is
+ * what a touch user expects, sized for a finger and never closed by the
+ * keyboard moving the page (the app-drawn list closed on any scroll).
  */
 interface OptionItem {
   value: string;
@@ -66,7 +72,64 @@ function collectOptions(children: ReactNode, out: OptionItem[] = []) {
 
 const MENU_MAX_HEIGHT = 280;
 
-export function Select({
+/** An option label as plain text, for the native list (which shows text
+ *  only) and type-ahead. */
+function textOf(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean")
+    return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (isValidElement(node))
+    return textOf((node.props as { children?: ReactNode }).children);
+  return "";
+}
+
+export function Select(props: SelectProps) {
+  return isIOSApp ? <NativeSelect {...props} /> : <DrawnSelect {...props} />;
+}
+
+function NativeSelect({
+  value,
+  onChange,
+  children,
+  className,
+  disabled,
+  "aria-label": ariaLabel,
+  title,
+}: SelectProps) {
+  const options = collectOptions(children);
+  const current = options.find((o) => o.value === value);
+  return (
+    <span
+      className={`ui-select ui-select-native-frame ${className ?? ""}`}
+      aria-disabled={disabled || undefined}
+    >
+      <span className="ui-select-value" aria-hidden="true">
+        {current?.label ?? ""}
+      </span>
+      <select
+        className="ui-select-native"
+        value={value}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        title={title}
+        onChange={(e) => onChange({ target: { value: e.target.value } })}
+      >
+        {options.map((option, index) => (
+          <option
+            key={`${option.value}-${index}`}
+            value={option.value}
+            disabled={option.disabled}
+          >
+            {textOf(option.label)}
+          </option>
+        ))}
+      </select>
+    </span>
+  );
+}
+
+function DrawnSelect({
   value,
   onChange,
   children,
@@ -195,9 +258,7 @@ export function Select({
       const ch = e.key.toLowerCase();
       for (let i = 1; i <= options.length; i++) {
         const index = (active + i) % options.length;
-        const text = String(
-          typeof options[index].label === "string" ? options[index].label : "",
-        ).toLowerCase();
+        const text = textOf(options[index].label).toLowerCase();
         if (!options[index].disabled && text.startsWith(ch)) {
           setActive(index);
           break;

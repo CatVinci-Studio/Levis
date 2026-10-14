@@ -1,0 +1,659 @@
+/* settings/PhoneSettings.tsx: Settings as an iPhone page. The shell is
+   phone-only markup; the rest restyles the desktop dialog's own rows
+   (SettingsPanel.css) as iOS grouped lists - white cells in rounded
+   groups on a grey page, label at the left, control at the right, 44pt
+   rows, hairlines between them. Everything is under .settings-phone, which
+   only usePhoneLayout() renders, and keyed like mobile/styles besides, so
+   no rule here can reach the desktop dialog or an iPad's. */
+
+@media (max-width: 760px) {
+  :root[data-window-chrome="mobile"] .settings-phone {
+    /* The grouped-list pair: the sidebar's grey page with the dialog's
+       surface for cells, which is white on grey in light mode and a
+       lighter cell on a darker page in dark mode - UIKit's own pairing. */
+    --phone-page-bg: var(--sidebar-bg);
+    --phone-cell-bg: var(--bg);
+    --phone-hairline: color-mix(in srgb, var(--border-color) 80%, transparent);
+    --phone-pressed: color-mix(in srgb, var(--chrome-text) 9%, transparent);
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-phone-page, 480);
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--phone-page-bg);
+    font-size: 17px;
+    animation: settings-phone-rise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-push {
+    animation: settings-phone-push 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-pop {
+    animation: settings-phone-pop 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ---- The root list: one rounded group of categories ---- */
+
+  :root[data-window-chrome="mobile"] .settings-phone-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--phone-cell-bg);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px 0 16px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--chrome-text);
+    font: inherit;
+    font-size: 17px;
+    text-align: left;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-row:active {
+    background: var(--phone-pressed);
+  }
+
+  /* The hairline runs from the label, not the screen edge, as UIKit insets
+     it past the icon. */
+  :root[data-window-chrome="mobile"] .settings-phone-row-label {
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone-list
+    li
+    + li
+    .settings-phone-row {
+    background-image: linear-gradient(
+      var(--phone-hairline),
+      var(--phone-hairline)
+    );
+    background-size: calc(100% - 59px) 0.5px;
+    background-position: right top;
+    background-repeat: no-repeat;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone-list
+    li
+    + li
+    .settings-phone-row:active {
+    background-color: var(--phone-pressed);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 29px;
+    height: 29px;
+    border-radius: 7px;
+    color: #fff;
+    background: #8e8e93;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-icon-editor {
+    background: #0a84ff;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-icon-ai {
+    background: #af52de;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-icon-agent {
+    background: #30b158;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone-icon-privacy {
+    background: #5856d6;
+  }
+
+  :root[data-window-chrome="mobile"]
+    :is(
+      .settings-phone-chevron,
+      .settings-phone .combobox-trigger .combobox-caret
+    ) {
+    flex: none;
+    width: 8px;
+    height: 13px;
+    color: color-mix(in srgb, var(--chrome-muted) 70%, transparent);
+    transform: none;
+  }
+
+  /* ---- A category's page: the desktop rows as grouped lists ---- */
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-group
+    + .settings-group,
+  :root[data-window-chrome="mobile"] .settings-phone .settings-advanced {
+    margin-top: 32px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-group-title {
+    margin: 0 0 7px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.settings-group-body, .settings-advanced) {
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--phone-cell-bg);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(
+      .settings-group-body > * + *,
+      .provider-picker > * + *,
+      .settings-feature-block + .settings-feature-block,
+      .settings-advanced-body > * + *
+    ) {
+    border-top: 0.5px solid var(--phone-hairline);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(
+      .settings-row,
+      .settings-field,
+      .settings-feature-block .settings-row,
+      .provider-panel .settings-row,
+      .provider-panel .settings-field
+    ) {
+    min-height: 44px;
+    padding: 11px 0;
+    gap: 12px;
+    flex-wrap: nowrap;
+    font-size: 17px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.settings-row-label, .settings-field-label) {
+    font-size: 17px;
+    line-height: 1.3;
+  }
+
+  /* A row's explanation reads as UIKit's footnote: small, muted, and as
+     wide as the cell rather than the desktop's 380px column. */
+  :root[data-window-chrome="mobile"] .settings-phone .settings-row-hint {
+    max-width: none;
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  /* The label column takes what the control leaves (basis 0), so a
+     picker's value shows whole instead of shrinking to "Ad…" beside a
+     long hint. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.settings-row, .settings-feature-option)
+    > *:first-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Rows whose right-hand side is more than one small control - buttons
+     beside a status, a key field and its Save, the theme picker and its
+     import buttons - stack: the label above, the controls on a line of
+     their own, so neither is squeezed to a sliver on a 390pt screen. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-row:has(
+      > :is(
+        .shortcut-row-controls,
+        .api-key-input-row,
+        .api-key-configured,
+        .settings-inline-buttons,
+        .appearance-options
+      )
+    ),
+  :root[data-window-chrome="mobile"] .settings-phone .settings-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(
+      .shortcut-row-controls,
+      .api-key-input-row,
+      .api-key-configured,
+      .settings-inline-buttons
+    ) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .api-key-input {
+    max-width: none;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(
+      .settings-inline-button,
+      .settings-text-input,
+      .auth-tab,
+      .settings-advanced > summary,
+      .settings-disclosure-summary
+    ) {
+    min-height: 44px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-text-input {
+    padding: 8px 12px;
+    border-radius: 8px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-inline-button {
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-disclosure-summary {
+    font-size: 17px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-advanced
+    > summary {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    font-size: 15px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-advanced-body {
+    padding: 0;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-disclosure {
+    padding: 0;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-disclosure-body {
+    margin: 0 0 12px;
+  }
+
+  /* The appearance choice is a full-width segmented control under its
+     label, each segment a finger's height. */
+  :root[data-window-chrome="mobile"] .settings-phone .appearance-options {
+    flex-wrap: nowrap;
+    padding: 2px;
+    border: none;
+    border-radius: 9px;
+    background: var(--phone-pressed);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .appearance-option {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    min-height: 40px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 15px;
+    text-align: center;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .appearance-option.is-selected {
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+  }
+
+  /* Switches at UIKit's size, 51x31. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-row
+    input[type="checkbox"] {
+    width: 51px;
+    height: 31px;
+    background: color-mix(in srgb, var(--chrome-muted) 30%, var(--bg));
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-row
+    input[type="checkbox"]::after {
+    width: 27px;
+    height: 27px;
+    box-shadow:
+      0 3px 8px rgb(0 0 0 / 0.15),
+      0 1px 1px rgb(0 0 0 / 0.16);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-row
+    input[type="checkbox"]:checked {
+    background: var(--editor-accent);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-row
+    input[type="checkbox"]:checked::after {
+    transform: translateX(20px);
+  }
+
+  /* A picker reads as UIKit's pop-up button: the value in muted text with
+     an up-and-down chevron, no field around it. The native select under it
+     (ui/Select.tsx) still opens the system list. */
+  :root[data-window-chrome="mobile"] .settings-phone .settings-select {
+    /* No height of its own: the row around it is the 44pt target. */
+    min-height: 0;
+    max-width: 50%;
+    padding: 0 18px 0 0;
+    border: none;
+    background-color: transparent;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Cpath d='M2 5L5 2L8 5M2 9L5 12L8 9' stroke='%238e8e93' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right center;
+    background-size: 10px 14px;
+    color: var(--chrome-muted);
+    font-size: 17px;
+    justify-content: flex-end;
+  }
+
+  /* Where the picker is the row's only control, the whole row is its tap
+     target, as a UIKit cell is: the invisible native select is let out of
+     its frame (position: static) to cover the row, which becomes its
+     containing block. The value and chevron are still drawn where they
+     were. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.settings-row, .settings-feature-option):has(
+      > .ui-select-native-frame
+    ) {
+    position: relative;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.settings-row, .settings-feature-option)
+    > .ui-select-native-frame {
+    position: static;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-row:active:has(> .ui-select-native-frame) {
+    background: var(--phone-pressed);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-feature-option {
+    flex-wrap: nowrap;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-feature-option
+    > .settings-select {
+    width: auto;
+    flex-basis: auto;
+  }
+
+  /* In a line of controls (model picker, custom provider, theme and its
+     import buttons, proxy beside host and port) the picker keeps a visible
+     frame: it sits among buttons and fields, not at a row's end. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.custom-model-row, .shortcut-row-controls, .settings-proxy-row)
+    .settings-select {
+    min-height: 44px;
+    max-width: none;
+    padding: 0 26px 0 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg);
+    background-position: right 10px center;
+    color: var(--chrome-text);
+    justify-content: flex-start;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .settings-proxy-row {
+    padding: 8px 0;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .settings-proxy-row
+    > .settings-select {
+    flex: 1 1 100%;
+  }
+
+  /* ---- AI Services: the provider row pushes a page of providers ---- */
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.combobox-trigger, .provider-auth-trigger) {
+    min-height: 44px;
+    padding: 0;
+    border-radius: 0;
+    font-size: 17px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .provider-disclosure-label {
+    color: var(--chrome-text);
+    font-size: 17px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.combobox-trigger-label, .status-pill) {
+    color: var(--chrome-muted);
+    font-size: 17px;
+    font-weight: 400;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .status-pill-connected {
+    color: var(--success-color);
+  }
+
+  /* A finger leaves :hover on whatever it last touched; presses show with
+     :active instead. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(
+      .combobox-trigger,
+      .provider-auth-trigger,
+      .combobox-option,
+      .auth-tab,
+      .settings-select
+    ):hover {
+    background-color: transparent;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    :is(.combobox-trigger, .provider-auth-trigger, .combobox-option):active {
+    background-color: var(--phone-pressed);
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .provider-panel {
+    margin: 0 0 12px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .auth-tabs {
+    display: flex;
+    margin: 8px 0 4px;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-phone .auth-tab {
+    flex: 1;
+    font-size: 15px;
+  }
+
+  /* The provider list is a page of its own over Settings (providers.tsx),
+     not a popover under the row: a search field at the top, where the
+     keyboard can't cover it, and a grouped list with a checkmark on the
+     current provider. */
+  :root[data-window-chrome="mobile"] .settings-phone .combobox-page {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--phone-page-bg);
+    animation: settings-phone-push 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-search {
+    flex: none;
+    min-height: 36px;
+    margin: 10px 16px 8px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--phone-pressed);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-list {
+    /* As tall as its rows, scrolling once they outgrow the screen. */
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
+    margin: 8px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding: 0 0 0 16px;
+    border-radius: 10px;
+    background: var(--phone-cell-bg);
+    overscroll-behavior: contain;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-option {
+    min-height: 44px;
+    padding: 0 16px 0 0;
+    border-radius: 0;
+    font-size: 17px;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-option
+    + .combobox-option {
+    border-top: 0.5px solid var(--phone-hairline);
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-option-active {
+    background: none;
+    color: var(--chrome-text);
+  }
+
+  /* UIKit marks the chosen row with a checkmark at its trailing edge. */
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-option-active::after {
+    content: "";
+    flex: none;
+    width: 14px;
+    height: 14px;
+    background: var(--chrome-accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.8 6.4l2.8 2.8L10.2 3' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.8 6.4l2.8 2.8L10.2 3' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-phone
+    .combobox-page
+    .combobox-empty {
+    padding: 12px 16px 12px 0;
+    font-size: 15px;
+  }
+}
+
+@keyframes settings-phone-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes settings-phone-push {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes settings-phone-pop {
+  from {
+    transform: translateX(-30%);
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-window-chrome="mobile"]
+    :is(
+      .settings-phone,
+      .settings-phone-push,
+      .settings-phone-pop,
+      .settings-phone .combobox-page
+    ) {
+    animation: none;
+  }
+}

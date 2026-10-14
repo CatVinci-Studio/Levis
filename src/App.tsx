@@ -37,6 +37,8 @@ import {
 import { SettingsPanel } from "./settings/SettingsPanel";
 import { DocumentList } from "./mobile/DocumentList";
 import { KeyboardToolbar } from "./mobile/KeyboardToolbar";
+import { ActionSheet } from "./mobile/ActionSheet";
+import { usePhoneLayout } from "./mobile/usePhoneLayout";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
@@ -888,6 +890,7 @@ function App() {
     pendingClose !== null,
     ".close-prompt-primary",
   );
+  const phone = usePhoneLayout();
 
   return (
     <AgentPanelProvider
@@ -947,7 +950,7 @@ function App() {
           </div>
           <WindowCaptionButtons />
         </header>
-        {/* iPhone: the sidebar is a drawer over the page (ui/mobile.css),
+        {/* iPhone: the sidebar is a drawer over the page (mobile/styles),
           and a tap beside it closes it. */}
         {isIOSApp && panelOpen && (
           <div className="sidebar-scrim" onClick={toggleSidebar} />
@@ -1006,7 +1009,7 @@ function App() {
                       activePath={activeTab.path}
                       onFileSelect={(path) => {
                         // On a phone the drawer covers the page it just
-                        // opened (ui/mobile.css); a docked one stays.
+                        // opened (mobile/styles); a docked one stays.
                         if (
                           isIOSApp &&
                           window.matchMedia("(max-width: 760px)").matches
@@ -1095,7 +1098,7 @@ function App() {
             className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
             style={{ width: agentPanel.width }}
           >
-            {/* Phone widths: the panel is a bottom sheet (ui/mobile.css)
+            {/* Phone widths: the panel is a bottom sheet (mobile/styles)
               and this is its handle; hidden elsewhere. */}
             {isIOSApp && (
               <AgentPanelSheetGrip
@@ -1136,7 +1139,26 @@ function App() {
           />
         )}
 
-        {pendingClose && (
+        {pendingClose && phone && (
+          // The iPhone asks what to do with an edited document from the
+          // bottom of the screen, as Notes and Pages do. The sheet runs its
+          // onClose before the chosen action: cancelClose's quit-cancel is
+          // a desktop-only call (a no-op here), and the two handlers still
+          // hold the pending close they were rendered with.
+          <ActionSheet
+            title={t.closePromptMessage}
+            items={[
+              { label: t.closePromptSave, onSelect: () => void closeSaving() },
+              {
+                label: t.closePromptDiscard,
+                danger: true,
+                onSelect: () => void closeDiscarding(),
+              },
+            ]}
+            onClose={cancelClose}
+          />
+        )}
+        {pendingClose && !phone && (
           <div className="close-prompt-overlay">
             <div
               className="close-prompt"

@@ -1,0 +1,54 @@
+/* The editor's own controls at iPhone width. The desktop reaches several
+   of them by hover, at sizes made for a pointer; a finger gets their
+   commands on the keyboard toolbar instead (KeyboardToolbar.tsx), and what
+   stays in the page is sized for a touch. */
+@media (max-width: 760px) {
+  /* A table's "+" strips (table-hover-view.ts) show on hover, which a
+     touch never gives, and are 16px targets; the toolbar's table buttons
+     add rows and columns where the caret is. */
+  :root[data-window-chrome="mobile"]
+    :is(.table-add-row-btn, .table-add-col-btn) {
+    display: none;
+  }
+
+  /* An image's resize grip is 6px wide - not something a finger can take
+     hold of. The toolbar's width presets size a tapped image. */
+  :root[data-window-chrome="mobile"] .image-resize-handle {
+    display: none;
+  }
+
+  /* A code block's language picker (code-block-language-view.ts), shown
+     while the caret is in the block: a 44pt target in text that reads at
+     arm's length - 16px, below which iOS zooms the page into a focused
+     control. */
+  :root[data-window-chrome="mobile"] .code-block-language-select {
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 16px;
+  }
+}
+
+/* Completion is accepted with a tap on the suggestion (ghost-text-plugin.ts)
+   rather than Tab, so it has to receive the touch. */
+:root[data-window-chrome="mobile"] .ghost-text {
+  pointer-events: auto;
+}
+
+/* A tap on a list marker, a code block's edge, a formula or a rule makes
+   ProseMirror select the whole block, which its stock stylesheet rings in
+   a light blue (#8cf) whatever the theme - the stray box around a line or
+   several. On a phone the selection is shown as a faint wash in the
+   theme's accent instead; an image keeps its own ring (milkdown-theme.css). */
+:root[data-window-chrome="mobile"]
+  .milkdown
+  .ProseMirror-selectednode:not(.image-view) {
+  outline: none;
+  border-radius: var(--radius-small, 4px);
+  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+}
+
+:root[data-window-chrome="mobile"]
+  .milkdown
+  li.ProseMirror-selectednode::after {
+  border: none;
+}

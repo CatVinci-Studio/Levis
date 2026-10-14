@@ -30,10 +30,15 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { registerEditorFlush } from "./editor-flush";
 import {
   buildContextMenuItems,
+  buildPhoneMoreItems,
   contextMenuTarget,
+  deleteImage,
   insertHeading,
   insertTable,
   runCommand,
+  runTableAction,
+  selectedImagePos,
+  setImageWidth,
 } from "./editor-menu";
 import { toggleSpan } from "./span-commands";
 import { cycleHeading, toggleBlockquote, toggleList } from "./block-toggles";
@@ -59,6 +64,8 @@ import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { canDetachChat, isIOSApp } from "../platform/capabilities";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
+import { ActionSheet } from "../mobile/ActionSheet";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -76,6 +83,7 @@ import { useAgentConversation } from "../ai/useAgentConversation";
 import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
 import { setChatSelection } from "../ai/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
+import { keepClearOfDock } from "../mobile/quick-ask-dock";
 import {
   locateAnchor,
   usePendingEdits,
@@ -104,6 +112,9 @@ import {
   INSERT_BLOCK_EVENT,
   TOGGLE_BLOCK_EVENT,
   TOGGLE_MARK_EVENT,
+  TABLE_ACTION_EVENT,
+  IMAGE_ACTION_EVENT,
+  EDITOR_MORE_EVENT,
   EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,
@@ -160,6 +171,9 @@ export function MilkdownEditor({
     x: number;
     y: number;
     imagePos: number | null;
+    /** Opened by the iPhone keyboard toolbar's "More": the phone's items
+     *  (buildPhoneMoreItems), as an action sheet. */
+    phone?: boolean;
   } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
   const [imageNameRequest, setImageNameRequest] =
@@ -169,6 +183,8 @@ export function MilkdownEditor({
   // so the panel's actual pixels sit wherever ProseMirror placed the
   // decoration (in the document flow, pushing content below it down).
   const [quickAskEl, setQuickAskEl] = useState<HTMLElement | null>(null);
+  // iPhone: Quick Ask docks at the bottom of the screen instead.
+  const phone = usePhoneLayout();
   const { t, settings } = useSettings();
 
   // The editor plugin chain below is only built once (empty deps), so
@@ -367,18 +383,23 @@ export function MilkdownEditor({
   // undo that tracking. `visible` transitioning true is exactly "just
   // opened (or reopened)", which is the only moment a fresh position makes
   // sense - `open()` always sets both chatInfo and visible together.
+  // On a phone there is no widget at all: the panel docks above the
+  // keyboard instead (InlineChat's `docked`), since a block in the
+  // document ends up under the keyboard with no way to scroll to it.
   useEffect(() => {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dispatch(
         setQuickAskWidget(
           view.state.tr,
-          inlineChat.visible ? (inlineChat.chatInfo?.widgetPos ?? null) : null,
+          inlineChat.visible && !phone
+            ? (inlineChat.chatInfo?.widgetPos ?? null)
+            : null,
         ),
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inlineChat.visible, run]);
+  }, [inlineChat.visible, phone, run]);
   const pendingEdits = usePendingEdits(run);
   useEffect(() => {
     pendingEditActionsRef.current = {
@@ -774,18 +795,28 @@ export function MilkdownEditor({
       let tr = view.state.tr
         .setSelection(TextSelection.near(doc.resolve(preview.from)))
         .scrollIntoView();
-      if (inlineChat.visible) {
+      if (inlineChat.visible && !phone) {
         tr = setQuickAskWidget(tr, blockPositionAfter(doc, preview.from));
       }
       view.dispatch(tr);
+      // Docked on a phone, the panel covers the bottom of the scroll area
+      // that scrollIntoView counted as visible.
+      if (inlineChat.visible && phone) {
+        requestAnimationFrame(() => keepClearOfDock(view, preview.from, true));
+      }
       // Never pull focus out of a text field: when an edit arrives while the
       // user is typing a follow-up, the rest of their message used to land
       // in the document (and invalidate the very preview it jumped to).
+      // On a phone a tapped button never holds focus, so that check alone
+      // let every Next/Previous raise the keyboard over the AI sheet.
       const active = document.activeElement;
-      if (!(
-        active instanceof HTMLTextAreaElement ||
-        active instanceof HTMLInputElement
-      ))
+      if (
+        !isIOSApp &&
+        !(
+          active instanceof HTMLTextAreaElement ||
+          active instanceof HTMLInputElement
+        )
+      )
         view.focus();
     });
   }
@@ -910,9 +941,26 @@ export function MilkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, runReady]);
 
+  // Where the Quick Ask panel renders: the zone widget in the document, or
+  // on a phone the page itself, docked - for the active tab only, since
+  // the page is shared by every tab's editor.
+  const quickAskHost = phone ? (isActive ? document.body : null) : quickAskEl;
   const chatComposer = () =>
-    quickAskEl?.querySelector<HTMLTextAreaElement>(".inline-chat textarea") ??
+    quickAskHost?.querySelector<HTMLTextAreaElement>(".inline-chat textarea") ??
     null;
+
+  /** Docked Quick Ask: keeps what it is about - the edit under review, the
+   *  first one proposed, else the passage it was opened on - above the
+   *  panel as the panel opens and grows. */
+  function keepQuickAskTargetInView(first: boolean) {
+    const info = inlineChat.chatInfo;
+    const target =
+      (pendingEdits.focusedPreview ?? pendingEdits.decidable[0])?.from ??
+      info?.range?.from ??
+      info?.anchor;
+    if (target === undefined) return;
+    run((ctx) => keepClearOfDock(ctx.get(editorViewCtx), target, first));
+  }
 
   function focusEditor() {
     run((ctx) => ctx.get(editorViewCtx).focus());
@@ -943,7 +991,7 @@ export function MilkdownEditor({
     // A fresh Quick Ask is a fresh question; an open one keeps its exchange.
     if (!wasVisible && !quickConversation.busy) quickConversation.reset();
     const moveTo = inlineChat.open();
-    if (moveTo !== null) {
+    if (moveTo !== null && !phone) {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         view.dispatch(setQuickAskWidget(view.state.tr, moveTo));
@@ -982,14 +1030,29 @@ export function MilkdownEditor({
     if (isActive) refreshEditor();
   });
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
-  grammarCaretRef.current = grammar.onCaretMove;
+  // A phone has no hover and no arrow keys - a tap on an underline is the
+  // way in, so there the caret opens the suggestion only right after a
+  // touch, not whenever typing happens to end against a flagged word (the
+  // ranges include their edges). The listener reports the selection while
+  // the transaction is still being applied, before the view holds it, so
+  // the phone's check waits a frame to see where the tap put the caret.
+  const lastTouchRef = useRef(0);
+  const onGrammarCaret = grammar.onCaretMove;
+  grammarCaretRef.current = () => {
+    if (!phone) onGrammarCaret();
+    else if (Date.now() - lastTouchRef.current < 800)
+      requestAnimationFrame(onGrammarCaret);
+  };
   const findReplace = useFindReplace(run);
 
   // Fixed-position popups are placed once, from where their anchor was:
   // when the page moves under them (scroll, resize, the window losing
   // focus) they'd point at the wrong text, so they close instead.
+  // A phone shows both as action sheets, which point at nothing - and
+  // closing them when the sheet's own list scrolls or the keyboard goes
+  // down would only lose them.
   const hideGrammar = grammar.hide;
-  const anyPopup = menu !== null || grammar.popover !== null;
+  const anyPopup = !phone && (menu !== null || grammar.popover !== null);
   useEffect(() => {
     if (!anyPopup) return;
     const close = () => {
@@ -1145,6 +1208,38 @@ export function MilkdownEditor({
     });
   });
 
+  // The iPhone keyboard toolbar's table buttons: the right-click menu's
+  // insert and delete items, for the table under the caret.
+  useWindowEvent(TABLE_ACTION_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    runTableAction(run, (e as CustomEvent<string>).detail);
+  });
+
+  // The iPhone keyboard toolbar's image buttons: the right-click menu's
+  // width presets, and delete, for the image the selection is on.
+  useWindowEvent(IMAGE_ACTION_EVENT, (e) => {
+    if (!isOnScreen()) return;
+    const pos = selectedImagePos(run);
+    if (pos === null) return;
+    const action = (e as CustomEvent<string>).detail;
+    if (action === "delete") {
+      deleteImage(run, pos);
+      return;
+    }
+    const width = /^width:(auto|\d+)$/.exec(action)?.[1];
+    // Still selected afterwards, so the toolbar shows the new width on and
+    // another preset is a tap away.
+    if (width)
+      setImageWidth(run, pos, width === "auto" ? null : Number(width), true);
+  });
+
+  // The iPhone keyboard toolbar's "More": the editor's menu for where the
+  // caret is, as an action sheet.
+  useWindowEvent(EDITOR_MORE_EVENT, () => {
+    if (!isOnScreen()) return;
+    setMenu({ x: 0, y: 0, imagePos: selectedImagePos(run), phone: true });
+  });
+
   // The app-drawn menu's Edit submenu (Windows - see ui/app-menu-actions.ts).
   // These are `PredefinedMenuItem`s in the native menu, which gives them no
   // id to dispatch by, so they arrive as an event and run the very commands
@@ -1267,8 +1362,11 @@ export function MilkdownEditor({
   return (
     <div
       onContextMenu={onContextMenu}
-      onMouseOver={grammar.onMouseOver}
-      onMouseOut={grammar.onMouseOut}
+      // iOS fires mouseover on a tap; there the caret opens the suggestion.
+      onMouseOver={phone ? undefined : grammar.onMouseOver}
+      onMouseOut={phone ? undefined : grammar.onMouseOut}
+      onPointerDown={() => (lastTouchRef.current = Date.now())}
+      onPointerUp={() => (lastTouchRef.current = Date.now())}
     >
       <Milkdown />
       {findReplace.open && (
@@ -1278,36 +1376,45 @@ export function MilkdownEditor({
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          items={buildContextMenuItems(run, {
-            t,
-            imagePos: menu.imagePos,
-            // Each AI item is only offered while its feature is enabled in
-            // Settings. The provider-free newcomer guide always exposes Ask
-            // AI so its real right-click entry point remains available even
-            // if the user previously disabled Agent chat before replaying
-            // the guide from Help.
-            aiItems: [
-              ...(settings.enableAskAi || tutorialMock
-                ? [{ label: t.askAi, onSelect: openAgentConversation }]
-                : []),
-              ...(settings.enableCompletion
-                ? [{ label: t.triggerCompletion, onSelect: triggerCompletion }]
-                : []),
-              ...(settings.enableGrammarCheck
-                ? [
-                    {
-                      label: t.triggerGrammarCheck,
-                      onSelect: triggerGrammarCheck,
-                    },
-                  ]
-                : []),
-            ],
-            copyOrCut,
-            paste,
-            selectAll,
-            toggleFindReplace: findReplace.toggle,
-            openTableDialog: () => setTableDialogOpen(true),
-          })}
+          items={(menu.phone ? buildPhoneMoreItems : buildContextMenuItems)(
+            run,
+            {
+              t,
+              imagePos: menu.imagePos,
+              // Each AI item is only offered while its feature is enabled in
+              // Settings. The provider-free newcomer guide always exposes Ask
+              // AI so its real right-click entry point remains available even
+              // if the user previously disabled Agent chat before replaying
+              // the guide from Help. The phone's "More" leaves it to the
+              // toolbar's own button.
+              aiItems: [
+                ...((settings.enableAskAi || tutorialMock) && !menu.phone
+                  ? [{ label: t.askAi, onSelect: openAgentConversation }]
+                  : []),
+                ...(settings.enableCompletion
+                  ? [
+                      {
+                        label: t.triggerCompletion,
+                        onSelect: triggerCompletion,
+                      },
+                    ]
+                  : []),
+                ...(settings.enableGrammarCheck
+                  ? [
+                      {
+                        label: t.triggerGrammarCheck,
+                        onSelect: triggerGrammarCheck,
+                      },
+                    ]
+                  : []),
+              ],
+              copyOrCut,
+              paste,
+              selectAll,
+              toggleFindReplace: findReplace.toggle,
+              openTableDialog: () => setTableDialogOpen(true),
+            },
+          )}
           onClose={() => setMenu(null)}
         />
       )}
@@ -1338,7 +1445,27 @@ export function MilkdownEditor({
           onClose={closeImageNameDialog}
         />
       )}
-      {grammar.popover && (
+      {grammar.popover && phone && (
+        // The phone's form: the explanation heads a sheet whose action is
+        // the suggested text itself, as iOS offers a spelling replacement.
+        // A fix that no longer fits the text says so in the notice, the
+        // sheet having closed on the tap.
+        <ActionSheet
+          title={grammar.popover.issue}
+          items={[
+            {
+              // A fix that deletes has no text to show.
+              label: grammar.popover.suggestion || t.grammarApply,
+              onSelect: () => {
+                if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
+              },
+            },
+            { label: t.grammarIgnore, onSelect: grammar.ignore },
+          ]}
+          onClose={grammar.hide}
+        />
+      )}
+      {grammar.popover && !phone && (
         <GrammarPopover
           info={grammar.popover}
           applyLabel={t.grammarApply}
@@ -1415,11 +1542,12 @@ export function MilkdownEditor({
         )}
       {inlineChat.chatInfo &&
         inlineChat.visible &&
-        quickAskEl &&
+        quickAskHost &&
         // The panel renders through a portal into the zone widget's DOM
         // container (quick-ask-widget-plugin) - a real block in the
         // document flow, so it pushes content below it down instead of
-        // floating over it.
+        // floating over it. On a phone, into the page, docked above the
+        // keyboard.
         createPortal(
           <InlineChat
             document={inlineChat.chatInfo.document}
@@ -1462,8 +1590,10 @@ export function MilkdownEditor({
                   }
                 : null
             }
+            docked={phone}
+            onDockResize={keepQuickAskTargetInView}
           />,
-          quickAskEl,
+          quickAskHost,
         )}
     </div>
   );

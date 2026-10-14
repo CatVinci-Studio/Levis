@@ -44,6 +44,13 @@ export function useExternalChangeReload(
             // clobbering those fresh edits with disk content would lose them.
             const live = liveTabs().find((tb) => tb.id === tab.id);
             if (!live || tabIsDirty(live)) continue;
+            // Touched but not changed (iCloud and the Files app re-stamp a
+            // document, and the phone checks on every return to the app):
+            // a remount would only throw away the open AI conversation.
+            if (content === live.savedContent) {
+              updateTab(tab.id, { diskMtime: mtime });
+              continue;
+            }
             updateTab(tab.id, {
               content,
               savedContent: content,

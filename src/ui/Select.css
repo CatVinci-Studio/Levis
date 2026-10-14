@@ -73,3 +73,26 @@
   color: var(--editor-muted);
   cursor: default;
 }
+
+/* iOS (Select.tsx's NativeSelect): the closed control is drawn as on the
+   desktop, and a transparent native select over the whole of it takes the
+   tap and opens the system picker. 16px keeps WebKit from zooming in on
+   it. */
+.ui-select-native-frame {
+  position: relative;
+}
+
+.ui-select-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  font-size: 16px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.ui-select-native-frame[aria-disabled="true"] {
+  opacity: 0.5;
+}

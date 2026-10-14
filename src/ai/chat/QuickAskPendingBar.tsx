@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { ChevronIcon } from "../../ui/icons";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { ActionSheet } from "../../mobile/ActionSheet";
+import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 
 export interface QuickAskPendingBarLabels {
   proposalAccept: string;
@@ -144,10 +146,14 @@ function SplitButton({
   primary?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // A phone shows the bulk action as an action sheet, which closes itself;
+  // the outside-click hook would count a tap on it (portalled to <body>)
+  // as outside and swallow the choice.
+  const phone = usePhoneLayout();
   const ref = useCloseOnOutsideClick<HTMLDivElement>(
     () => setOpen(false),
     false,
-    open,
+    open && !phone,
   );
 
   return (
@@ -167,7 +173,13 @@ function SplitButton({
       >
         <ChevronIcon className="quick-ask-split-chevron-icon" />
       </button>
-      {open && (
+      {open && phone && (
+        <ActionSheet
+          items={[{ label: menuLabel, onSelect: onMenuClick }]}
+          onClose={() => setOpen(false)}
+        />
+      )}
+      {open && !phone && (
         <div className="quick-ask-split-menu floating-surface">
           <button
             type="button"

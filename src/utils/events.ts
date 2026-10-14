@@ -34,6 +34,20 @@ export const TOGGLE_BLOCK_EVENT = "levis:toggle-block";
 /// again (editor/span-commands.ts; the iPhone's keyboard toolbar).
 export const TOGGLE_MARK_EVENT = "levis:toggle-mark";
 
+/// detail: a TableAction (editor/editor-menu.ts) - "row-below",
+/// "delete-column" and so on - for the table under the caret: the iPhone
+/// keyboard toolbar's table buttons.
+export const TABLE_ACTION_EVENT = "levis:table-action";
+
+/// detail: "width:auto" | "width:<percent>" | "delete" - for the selected
+/// image: the iPhone keyboard toolbar's image buttons.
+export const IMAGE_ACTION_EVENT = "levis:image-action";
+
+/// Opens the editor's menu for where the caret is, as an action sheet
+/// (editor-menu.ts's buildPhoneMoreItems): the iPhone keyboard toolbar's
+/// "More" button, standing in for the right-click a phone doesn't have.
+export const EDITOR_MORE_EVENT = "levis:editor-more";
+
 /// Fired once a chat message actually goes out (InlineChat.tsx's send), not
 /// just when the chat panel opens - the interactive tutorial's "ask AI
 /// something" step listens for this to know the user really did it. Only

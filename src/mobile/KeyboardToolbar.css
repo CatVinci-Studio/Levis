@@ -11,7 +11,8 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 44px;
+  /* 44pt buttons, and the hairline above them. */
+  height: 45px;
   padding: 0 4px;
   border-top: 1px solid var(--border-color);
   background: var(--page-bg, var(--bg));
@@ -26,7 +27,7 @@
   scrollbar-width: none;
   /* Fades the last button out at the edge on narrower iPhones, where the
      row scrolls - a hint there is more. */
-  mask-image: linear-gradient(to left, transparent, #000 12px);
+  mask-image: linear-gradient(to left, transparent, #000 28px);
   padding-right: 10px;
 }
 
@@ -53,10 +54,12 @@
   margin: 0 auto;
 }
 
+/* 44pt: Apple's minimum touch target. The row scrolls when the buttons
+   for a table outrun a narrow iPhone, rather than shrinking them. */
 .keyboard-toolbar-button {
   flex: 0 0 auto;
-  min-width: 32px;
-  height: 36px;
+  min-width: 44px;
+  height: 44px;
   padding: 0 4px;
   border: none;
   border-radius: var(--radius-md, 8px);
@@ -90,6 +93,17 @@
   font-size: 14px;
 }
 
+/* An image's widths, written out. */
+.kbt-text {
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+/* Deleting a row, a column, a table or an image. */
+.kbt-danger {
+  color: var(--danger);
+}
+
 .keyboard-toolbar-ai {
   color: var(--chrome-accent);
   font-size: 15px;
@@ -99,5 +113,5 @@
 
 /* The end of the document scrolls clear of the strip. */
 :root.has-keyboard-toolbar .editor-scroll {
-  padding-bottom: 44px;
+  padding-bottom: 45px;
 }

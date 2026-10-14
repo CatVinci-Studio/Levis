@@ -1,26 +1,9 @@
-import { devices, expect, test, type Page } from "@playwright/test";
-import { openApp, pasteMarkdown } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { PHONE, openPhone, pasteMarkdown } from "./helpers";
 
-// The iPhone layout (ui/mobile.css), checked in Chromium with touch and a
-// phone-sized viewport: Playwright can't drive iOS WebKit itself, and the
-// layout is keyed off the platform, which is faked as an iPhone here.
-test.use({
-  viewport: { width: 430, height: 932 },
-  isMobile: true,
-  hasTouch: true,
-  userAgent: devices["iPhone 15 Pro Max"].userAgent,
-});
-
-async function openPhone(page: Page) {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "platform", { get: () => "iPhone" });
-  });
-  await openApp(page, { settings: { language: "en" } });
-  await expect(page.locator("html")).toHaveAttribute(
-    "data-window-chrome",
-    "mobile",
-  );
-}
+// The iPhone layout (mobile/styles), checked in Chromium with touch and a
+// phone-sized viewport (see PHONE and openPhone in helpers.ts).
+test.use(PHONE);
 
 test("the phone menu opens the sidebar as a drawer over the page", async ({
   page,

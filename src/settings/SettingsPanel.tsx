@@ -28,6 +28,8 @@ import {
 import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
+import { PhoneSettings } from "./PhoneSettings";
+import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { useModalDialog } from "../ui/useModalDialog";
 import { Select } from "../ui/Select";
 import {
@@ -41,7 +43,8 @@ import {
 
 // The settings dialog shell: category nav + the per-category rows. Anything
 // with its own state or backend round-trips lives in sections/ - this file
-// only composes them and renders the plain settings.* rows inline.
+// only composes them and renders the plain settings.* rows inline. On an
+// iPhone the same rows sit in PhoneSettings' pushed pages instead.
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -49,7 +52,8 @@ interface SettingsPanelProps {
   onOpenFile: (path: string) => void;
 }
 
-type Category = "general" | "editor" | "ai" | "agent" | "shortcuts" | "privacy";
+export type Category =
+  "general" | "editor" | "ai" | "agent" | "shortcuts" | "privacy";
 
 function SettingsGroup({
   title,
@@ -70,7 +74,9 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
 
-  const modal = useModalDialog(onClose);
+  const phone = usePhoneLayout();
+  // The phone page runs its own focus and Escape handling (PhoneSettings).
+  const modal = useModalDialog(onClose, !phone);
 
   const categories: { id: Category; label: string }[] = [
     { id: "general", label: t.navGeneral },
@@ -81,6 +87,425 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
     ...(isIOSApp ? [] : [{ id: "shortcuts" as const, label: t.navShortcuts }]),
     { id: "privacy", label: t.navPrivacy },
   ];
+
+  // One category's rows, shared by the desktop dialog and the phone page.
+  const renderCategory = (c: Category) => (
+    <>
+      {c === "general" && (
+        <>
+          <SettingsGroup title={t.generalBasicsLabel}>
+            <div className="settings-row">
+              <span className="settings-row-label">{t.languageLabel}</span>
+              <Select
+                className="settings-select"
+                aria-label={t.languageLabel}
+                value={settings.language}
+                onChange={(e) =>
+                  setSettings({ language: e.target.value as Lang })
+                }
+              >
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+                <option value="ja">日本語</option>
+              </Select>
+            </div>
+            {canUseWindows && (
+              <>
+                <div className="settings-row">
+                  <div className="settings-row-label">
+                    {t.newDocumentModeLabel}
+                  </div>
+                  <Select
+                    className="settings-select"
+                    aria-label={t.newDocumentModeLabel}
+                    value={settings.newDocumentMode}
+                    onChange={(e) =>
+                      setSettings({
+                        newDocumentMode: e.target.value as NewDocumentMode,
+                      })
+                    }
+                  >
+                    <option value="window">{t.newDocumentModeWindow}</option>
+                    <option value="tab">{t.newDocumentModeTab}</option>
+                  </Select>
+                </div>
+                <ToggleRow
+                  label={t.restoreSessionLabel}
+                  checked={settings.restoreSessionOnStartup}
+                  onChange={(v) => setSettings({ restoreSessionOnStartup: v })}
+                />
+              </>
+            )}
+            <ToggleRow
+              label={t.autoSuggestFilenameLabel}
+              checked={settings.autoSuggestFilename}
+              onChange={(v) => setSettings({ autoSuggestFilename: v })}
+            />
+          </SettingsGroup>
+
+          <SettingsGroup title={t.generalSystemLabel}>
+            {canInstallCliCommand && <CliCommandSection t={t} />}
+            <UpdateSection t={t} />
+          </SettingsGroup>
+        </>
+      )}
+
+      {c === "editor" && (
+        <>
+          <SettingsGroup title={t.navMarkdown}>
+            <ToggleRow
+              label={t.enableMathLabel}
+              hint={t.enableMathHint}
+              checked={settings.enableMath}
+              onChange={(v) => setSettings({ enableMath: v })}
+            />
+            <ToggleRow
+              label={t.enableMermaidLabel}
+              hint={t.enableMermaidHint}
+              checked={settings.enableMermaid}
+              onChange={(v) => setSettings({ enableMermaid: v })}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t.navTheme}>
+            <ThemeSection t={t} />
+            <div className="settings-row">
+              <div>
+                <div className="settings-row-label">{t.contentWidthLabel}</div>
+                <div className="settings-row-hint">{t.contentWidthHint}</div>
+              </div>
+              <Select
+                className="settings-select"
+                aria-label={t.contentWidthLabel}
+                value={settings.contentWidth}
+                onChange={(e) =>
+                  setSettings({
+                    contentWidth: e.target.value as ContentWidth,
+                  })
+                }
+              >
+                <option value="auto">{t.contentWidthAuto}</option>
+                <option value="standard">{t.contentWidthStandard}</option>
+                <option value="full">{t.contentWidthFull}</option>
+              </Select>
+            </div>
+            <ToggleRow
+              label={t.typewriterLabel}
+              hint={t.typewriterHint}
+              checked={settings.typewriterMode}
+              onChange={(v) => setSettings({ typewriterMode: v })}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t.imageStorageGroupLabel}>
+            <ImageStorageSection t={t} />
+          </SettingsGroup>
+        </>
+      )}
+
+      {c === "ai" && (
+        <>
+          <SettingsGroup title={t.aiAccountLabel}>
+            <ProviderListPanel t={t} />
+          </SettingsGroup>
+          <SettingsGroup title={t.writingFeaturesLabel}>
+            <WritingModelSection t={t} />
+            <div className="settings-feature-grid">
+              <div className="settings-feature-block">
+                <ToggleRow
+                  label={t.aiCompletionLabel}
+                  hint={isIOSApp ? t.aiCompletionHintTouch : t.aiCompletionHint}
+                  checked={settings.enableCompletion}
+                  onChange={(v) => setSettings({ enableCompletion: v })}
+                />
+                {settings.enableCompletion && (
+                  <div className="settings-feature-option">
+                    <div>
+                      <div className="settings-row-label">
+                        {t.completionToneLabel}
+                      </div>
+                      <div className="settings-row-hint">
+                        {t.completionToneHint}
+                      </div>
+                    </div>
+                    <Select
+                      className="settings-select"
+                      aria-label={t.completionToneLabel}
+                      value={settings.completionTone}
+                      onChange={(e) =>
+                        setSettings({
+                          completionTone: e.target.value as CompletionTone,
+                        })
+                      }
+                    >
+                      {COMPLETION_TONES.map((tone) => (
+                        <option key={tone} value={tone}>
+                          {t[`completionTone_${tone}` as keyof Strings]}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+              </div>
+              <div className="settings-feature-block">
+                <ToggleRow
+                  label={t.aiGrammarLabel}
+                  hint={t.aiGrammarHint}
+                  checked={settings.enableGrammarCheck}
+                  onChange={(v) => setSettings({ enableGrammarCheck: v })}
+                />
+                {settings.enableGrammarCheck && (
+                  <div className="settings-feature-option">
+                    <div>
+                      <div className="settings-row-label">
+                        {t.grammarStrictnessLabel}
+                      </div>
+                      <div className="settings-row-hint">
+                        {t.grammarStrictnessHint}
+                      </div>
+                    </div>
+                    <Select
+                      className="settings-select"
+                      aria-label={t.grammarStrictnessLabel}
+                      value={settings.grammarStrictness}
+                      onChange={(e) =>
+                        setSettings({
+                          grammarStrictness: e.target
+                            .value as GrammarStrictness,
+                        })
+                      }
+                    >
+                      <option value="typos">{t.grammarStrictnessTypos}</option>
+                      <option value="standard">
+                        {t.grammarStrictnessStandard}
+                      </option>
+                      <option value="strict">
+                        {t.grammarStrictnessStrict}
+                      </option>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+          </SettingsGroup>
+
+          <SettingsGroup title={t.proxyLabel}>
+            <div className="settings-proxy-row">
+              <Select
+                className="settings-select"
+                aria-label={t.proxyLabel}
+                value={settings.proxyType}
+                onChange={(e) =>
+                  setSettings({ proxyType: e.target.value as ProxyType })
+                }
+              >
+                <option value="none">{t.proxyTypeNone}</option>
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+                <option value="socks5">SOCKS5</option>
+              </Select>
+              {settings.proxyType !== "none" && (
+                <>
+                  <input
+                    type="text"
+                    className="settings-text-input settings-proxy-host"
+                    placeholder={t.proxyHostPlaceholder}
+                    aria-label={t.proxyHostPlaceholder}
+                    value={settings.proxyHost}
+                    onChange={(e) => setSettings({ proxyHost: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="settings-text-input settings-proxy-port"
+                    placeholder={t.proxyPortPlaceholder}
+                    aria-label={t.proxyPortPlaceholder}
+                    value={settings.proxyPort}
+                    onChange={(e) => setSettings({ proxyPort: e.target.value })}
+                  />
+                </>
+              )}
+            </div>
+          </SettingsGroup>
+        </>
+      )}
+
+      {c === "agent" && (
+        <>
+          <SettingsGroup title={t.navAgent}>
+            <ToggleRow
+              label={t.aiAskLabel}
+              hint={t.aiAskHint}
+              checked={settings.enableAskAi}
+              onChange={(v) => setSettings({ enableAskAi: v })}
+            />
+            {settings.enableAskAi && (
+              <>
+                <AgentModelSection t={t} />
+                <AgentCapabilitySection t={t} />
+                <div className="settings-row">
+                  <div>
+                    <div className="settings-row-label">
+                      {t.agentDefaultModeLabel}
+                    </div>
+                    <div className="settings-row-hint">
+                      {t.agentDefaultModeHint}
+                    </div>
+                  </div>
+                  <Select
+                    className="settings-select"
+                    aria-label={t.agentDefaultModeLabel}
+                    value={settings.agentDefaultMode}
+                    onChange={(e) =>
+                      setSettings({
+                        agentDefaultMode: e.target.value as AgentMode,
+                      })
+                    }
+                  >
+                    <option value="ask">{t.agentModeAsk}</option>
+                    <option value="edit">{t.agentModeEdit}</option>
+                    <option value="plan">{t.agentModePlan}</option>
+                  </Select>
+                </div>
+              </>
+            )}
+          </SettingsGroup>
+
+          {settings.enableAskAi && (
+            <>
+              <SettingsGroup title={t.agentToolsGroupLabel}>
+                <ToggleRow
+                  label={t.webSearchLabel}
+                  hint={t.webSearchHint}
+                  checked={settings.enableWebSearch}
+                  onChange={(v) => setSettings({ enableWebSearch: v })}
+                />
+                {canPickFolder && <AgentWorkspaceRootSection t={t} />}
+              </SettingsGroup>
+
+              <SettingsGroup title={t.agentPersonalizationGroupLabel}>
+                {canRevealInFileManager && <AgentWorkspaceSection t={t} />}
+                <AgentSystemPromptSection
+                  t={t}
+                  onOpenFile={onOpenFile}
+                  onClose={onClose}
+                />
+                <AgentSkillsSection t={t} />
+              </SettingsGroup>
+
+              <details className="settings-advanced">
+                <summary>{t.agentAdvancedGroupLabel}</summary>
+                <div className="settings-advanced-body">
+                  <ToggleRow
+                    label={t.editAnimationLabel}
+                    hint={t.editAnimationHint}
+                    checked={settings.enableEditAnimation}
+                    onChange={(v) => setSettings({ enableEditAnimation: v })}
+                  />
+                  {canDetachChat && (
+                    <ToggleRow
+                      label={t.agentExpandWindowLabel}
+                      hint={t.agentExpandWindowHint}
+                      checked={settings.agentExpandToWindow}
+                      onChange={(v) => setSettings({ agentExpandToWindow: v })}
+                    />
+                  )}
+                </div>
+              </details>
+            </>
+          )}
+        </>
+      )}
+
+      {c === "privacy" && <PrivacySection t={t} />}
+
+      {c === "shortcuts" && (
+        <>
+          <SettingsGroup title={t.shortcutAiGroupLabel}>
+            <ShortcutRow
+              label={t.shortcutTriggerCompletion}
+              action="triggerCompletion"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutTriggerGrammarCheck}
+              action="triggerGrammarCheck"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleFloatingChat}
+              action="toggleFloatingChat"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t.shortcutEditorGroupLabel}>
+            <ShortcutRow
+              label={t.shortcutFindReplace}
+              action="findReplace"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleSidebar}
+              action="toggleSidebar"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleAgentPanel}
+              action="toggleAgentPanel"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleSplitView}
+              action="toggleSplitView"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleZenMode}
+              action="toggleZenMode"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleSourceMode}
+              action="toggleSourceMode"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+            <ShortcutRow
+              label={t.shortcutToggleTypewriterMode}
+              action="toggleTypewriterMode"
+              shortcuts={settings.shortcuts}
+              setSettings={setSettings}
+              t={t}
+            />
+          </SettingsGroup>
+        </>
+      )}
+    </>
+  );
+
+  if (phone) {
+    return (
+      <PhoneSettings
+        categories={categories}
+        renderCategory={renderCategory}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <div className="settings-backdrop" onClick={onClose}>
@@ -126,437 +551,7 @@ export function SettingsPanel({ onClose, onOpenFile }: SettingsPanelProps) {
             <h1 className="settings-category-title">
               {categories.find((c) => c.id === category)?.label}
             </h1>
-            {category === "general" && (
-              <>
-                <SettingsGroup title={t.generalBasicsLabel}>
-                  <div className="settings-row">
-                    <span className="settings-row-label">
-                      {t.languageLabel}
-                    </span>
-                    <Select
-                      className="settings-select"
-                      aria-label={t.languageLabel}
-                      value={settings.language}
-                      onChange={(e) =>
-                        setSettings({ language: e.target.value as Lang })
-                      }
-                    >
-                      <option value="en">English</option>
-                      <option value="zh">中文</option>
-                      <option value="ja">日本語</option>
-                    </Select>
-                  </div>
-                  {canUseWindows && (
-                    <>
-                      <div className="settings-row">
-                        <div className="settings-row-label">
-                          {t.newDocumentModeLabel}
-                        </div>
-                        <Select
-                          className="settings-select"
-                          aria-label={t.newDocumentModeLabel}
-                          value={settings.newDocumentMode}
-                          onChange={(e) =>
-                            setSettings({
-                              newDocumentMode: e.target
-                                .value as NewDocumentMode,
-                            })
-                          }
-                        >
-                          <option value="window">
-                            {t.newDocumentModeWindow}
-                          </option>
-                          <option value="tab">{t.newDocumentModeTab}</option>
-                        </Select>
-                      </div>
-                      <ToggleRow
-                        label={t.restoreSessionLabel}
-                        checked={settings.restoreSessionOnStartup}
-                        onChange={(v) =>
-                          setSettings({ restoreSessionOnStartup: v })
-                        }
-                      />
-                    </>
-                  )}
-                  <ToggleRow
-                    label={t.autoSuggestFilenameLabel}
-                    checked={settings.autoSuggestFilename}
-                    onChange={(v) => setSettings({ autoSuggestFilename: v })}
-                  />
-                </SettingsGroup>
-
-                <SettingsGroup title={t.generalSystemLabel}>
-                  {canInstallCliCommand && <CliCommandSection t={t} />}
-                  <UpdateSection t={t} />
-                </SettingsGroup>
-              </>
-            )}
-
-            {category === "editor" && (
-              <>
-                <SettingsGroup title={t.navMarkdown}>
-                  <ToggleRow
-                    label={t.enableMathLabel}
-                    hint={t.enableMathHint}
-                    checked={settings.enableMath}
-                    onChange={(v) => setSettings({ enableMath: v })}
-                  />
-                  <ToggleRow
-                    label={t.enableMermaidLabel}
-                    hint={t.enableMermaidHint}
-                    checked={settings.enableMermaid}
-                    onChange={(v) => setSettings({ enableMermaid: v })}
-                  />
-                </SettingsGroup>
-                <SettingsGroup title={t.navTheme}>
-                  <ThemeSection t={t} />
-                  <div className="settings-row">
-                    <div>
-                      <div className="settings-row-label">
-                        {t.contentWidthLabel}
-                      </div>
-                      <div className="settings-row-hint">
-                        {t.contentWidthHint}
-                      </div>
-                    </div>
-                    <Select
-                      className="settings-select"
-                      aria-label={t.contentWidthLabel}
-                      value={settings.contentWidth}
-                      onChange={(e) =>
-                        setSettings({
-                          contentWidth: e.target.value as ContentWidth,
-                        })
-                      }
-                    >
-                      <option value="auto">{t.contentWidthAuto}</option>
-                      <option value="standard">{t.contentWidthStandard}</option>
-                      <option value="full">{t.contentWidthFull}</option>
-                    </Select>
-                  </div>
-                  <ToggleRow
-                    label={t.typewriterLabel}
-                    hint={t.typewriterHint}
-                    checked={settings.typewriterMode}
-                    onChange={(v) => setSettings({ typewriterMode: v })}
-                  />
-                </SettingsGroup>
-                <SettingsGroup title={t.imageStorageGroupLabel}>
-                  <ImageStorageSection t={t} />
-                </SettingsGroup>
-              </>
-            )}
-
-            {category === "ai" && (
-              <>
-                <SettingsGroup title={t.aiAccountLabel}>
-                  <ProviderListPanel t={t} />
-                </SettingsGroup>
-                <SettingsGroup title={t.writingFeaturesLabel}>
-                  <WritingModelSection t={t} />
-                  <div className="settings-feature-grid">
-                    <div className="settings-feature-block">
-                      <ToggleRow
-                        label={t.aiCompletionLabel}
-                        hint={
-                          isIOSApp
-                            ? t.aiCompletionHintTouch
-                            : t.aiCompletionHint
-                        }
-                        checked={settings.enableCompletion}
-                        onChange={(v) => setSettings({ enableCompletion: v })}
-                      />
-                      {settings.enableCompletion && (
-                        <div className="settings-feature-option">
-                          <div>
-                            <div className="settings-row-label">
-                              {t.completionToneLabel}
-                            </div>
-                            <div className="settings-row-hint">
-                              {t.completionToneHint}
-                            </div>
-                          </div>
-                          <Select
-                            className="settings-select"
-                            aria-label={t.completionToneLabel}
-                            value={settings.completionTone}
-                            onChange={(e) =>
-                              setSettings({
-                                completionTone: e.target
-                                  .value as CompletionTone,
-                              })
-                            }
-                          >
-                            {COMPLETION_TONES.map((tone) => (
-                              <option key={tone} value={tone}>
-                                {t[`completionTone_${tone}` as keyof Strings]}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    <div className="settings-feature-block">
-                      <ToggleRow
-                        label={t.aiGrammarLabel}
-                        hint={t.aiGrammarHint}
-                        checked={settings.enableGrammarCheck}
-                        onChange={(v) => setSettings({ enableGrammarCheck: v })}
-                      />
-                      {settings.enableGrammarCheck && (
-                        <div className="settings-feature-option">
-                          <div>
-                            <div className="settings-row-label">
-                              {t.grammarStrictnessLabel}
-                            </div>
-                            <div className="settings-row-hint">
-                              {t.grammarStrictnessHint}
-                            </div>
-                          </div>
-                          <Select
-                            className="settings-select"
-                            aria-label={t.grammarStrictnessLabel}
-                            value={settings.grammarStrictness}
-                            onChange={(e) =>
-                              setSettings({
-                                grammarStrictness: e.target
-                                  .value as GrammarStrictness,
-                              })
-                            }
-                          >
-                            <option value="typos">
-                              {t.grammarStrictnessTypos}
-                            </option>
-                            <option value="standard">
-                              {t.grammarStrictnessStandard}
-                            </option>
-                            <option value="strict">
-                              {t.grammarStrictnessStrict}
-                            </option>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </SettingsGroup>
-
-                <SettingsGroup title={t.proxyLabel}>
-                  <div className="settings-proxy-row">
-                    <Select
-                      className="settings-select"
-                      aria-label={t.proxyLabel}
-                      value={settings.proxyType}
-                      onChange={(e) =>
-                        setSettings({ proxyType: e.target.value as ProxyType })
-                      }
-                    >
-                      <option value="none">{t.proxyTypeNone}</option>
-                      <option value="http">HTTP</option>
-                      <option value="https">HTTPS</option>
-                      <option value="socks5">SOCKS5</option>
-                    </Select>
-                    {settings.proxyType !== "none" && (
-                      <>
-                        <input
-                          type="text"
-                          className="settings-text-input settings-proxy-host"
-                          placeholder={t.proxyHostPlaceholder}
-                          aria-label={t.proxyHostPlaceholder}
-                          value={settings.proxyHost}
-                          onChange={(e) =>
-                            setSettings({ proxyHost: e.target.value })
-                          }
-                        />
-                        <input
-                          type="text"
-                          className="settings-text-input settings-proxy-port"
-                          placeholder={t.proxyPortPlaceholder}
-                          aria-label={t.proxyPortPlaceholder}
-                          value={settings.proxyPort}
-                          onChange={(e) =>
-                            setSettings({ proxyPort: e.target.value })
-                          }
-                        />
-                      </>
-                    )}
-                  </div>
-                </SettingsGroup>
-              </>
-            )}
-
-            {category === "agent" && (
-              <>
-                <SettingsGroup title={t.navAgent}>
-                  <ToggleRow
-                    label={t.aiAskLabel}
-                    hint={t.aiAskHint}
-                    checked={settings.enableAskAi}
-                    onChange={(v) => setSettings({ enableAskAi: v })}
-                  />
-                  {settings.enableAskAi && (
-                    <>
-                      <AgentModelSection t={t} />
-                      <AgentCapabilitySection t={t} />
-                      <div className="settings-row">
-                        <div>
-                          <div className="settings-row-label">
-                            {t.agentDefaultModeLabel}
-                          </div>
-                          <div className="settings-row-hint">
-                            {t.agentDefaultModeHint}
-                          </div>
-                        </div>
-                        <Select
-                          className="settings-select"
-                          aria-label={t.agentDefaultModeLabel}
-                          value={settings.agentDefaultMode}
-                          onChange={(e) =>
-                            setSettings({
-                              agentDefaultMode: e.target.value as AgentMode,
-                            })
-                          }
-                        >
-                          <option value="ask">{t.agentModeAsk}</option>
-                          <option value="edit">{t.agentModeEdit}</option>
-                          <option value="plan">{t.agentModePlan}</option>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-                </SettingsGroup>
-
-                {settings.enableAskAi && (
-                  <>
-                    <SettingsGroup title={t.agentToolsGroupLabel}>
-                      <ToggleRow
-                        label={t.webSearchLabel}
-                        hint={t.webSearchHint}
-                        checked={settings.enableWebSearch}
-                        onChange={(v) => setSettings({ enableWebSearch: v })}
-                      />
-                      {canPickFolder && <AgentWorkspaceRootSection t={t} />}
-                    </SettingsGroup>
-
-                    <SettingsGroup title={t.agentPersonalizationGroupLabel}>
-                      {canRevealInFileManager && (
-                        <AgentWorkspaceSection t={t} />
-                      )}
-                      <AgentSystemPromptSection
-                        t={t}
-                        onOpenFile={onOpenFile}
-                        onClose={onClose}
-                      />
-                      <AgentSkillsSection t={t} />
-                    </SettingsGroup>
-
-                    <details className="settings-advanced">
-                      <summary>{t.agentAdvancedGroupLabel}</summary>
-                      <div className="settings-advanced-body">
-                        <ToggleRow
-                          label={t.editAnimationLabel}
-                          hint={t.editAnimationHint}
-                          checked={settings.enableEditAnimation}
-                          onChange={(v) =>
-                            setSettings({ enableEditAnimation: v })
-                          }
-                        />
-                        {canDetachChat && (
-                          <ToggleRow
-                            label={t.agentExpandWindowLabel}
-                            hint={t.agentExpandWindowHint}
-                            checked={settings.agentExpandToWindow}
-                            onChange={(v) =>
-                              setSettings({ agentExpandToWindow: v })
-                            }
-                          />
-                        )}
-                      </div>
-                    </details>
-                  </>
-                )}
-              </>
-            )}
-
-            {category === "privacy" && <PrivacySection t={t} />}
-
-            {category === "shortcuts" && (
-              <>
-                <SettingsGroup title={t.shortcutAiGroupLabel}>
-                  <ShortcutRow
-                    label={t.shortcutTriggerCompletion}
-                    action="triggerCompletion"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutTriggerGrammarCheck}
-                    action="triggerGrammarCheck"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleFloatingChat}
-                    action="toggleFloatingChat"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                </SettingsGroup>
-                <SettingsGroup title={t.shortcutEditorGroupLabel}>
-                  <ShortcutRow
-                    label={t.shortcutFindReplace}
-                    action="findReplace"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleSidebar}
-                    action="toggleSidebar"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleAgentPanel}
-                    action="toggleAgentPanel"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleSplitView}
-                    action="toggleSplitView"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleZenMode}
-                    action="toggleZenMode"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleSourceMode}
-                    action="toggleSourceMode"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                  <ShortcutRow
-                    label={t.shortcutToggleTypewriterMode}
-                    action="toggleTypewriterMode"
-                    shortcuts={settings.shortcuts}
-                    setSettings={setSettings}
-                    t={t}
-                  />
-                </SettingsGroup>
-              </>
-            )}
+            {renderCategory(category)}
           </div>
         </div>
       </div>

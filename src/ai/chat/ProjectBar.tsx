@@ -11,6 +11,8 @@ import { errorText } from "../../utils/error-text";
 import { OPEN_FILE_IN_TAB_EVENT } from "../../utils/events";
 import { basename } from "../../utils/path";
 import { ChevronIcon, FolderIcon } from "../../ui/icons";
+import { ActionSheet, type ActionSheetItem } from "../../mobile/ActionSheet";
+import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 
 function openInTab(path: string) {
   window.dispatchEvent(
@@ -48,10 +50,14 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const phone = usePhoneLayout();
+  // Not on a phone: the action sheet is portalled outside this row, so a
+  // tap on one of its items would count as "outside" and close the menu
+  // before the item's click arrived. The sheet dismisses itself.
   const menuRef = useCloseOnOutsideClick<HTMLDivElement>(
     closeMenu,
     true,
-    menuOpen,
+    menuOpen && !phone,
   );
   const nameInput = useRef<HTMLInputElement>(null);
 
@@ -156,6 +162,52 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
     );
   }
 
+  // One list for both forms: a dropdown under the folder name, or on a
+  // phone the same items as an action sheet headed by the folder.
+  const hasFolderItems =
+    canPickFolder || !!workspaceRoot || canRevealInFileManager;
+  const menuItems: (ActionSheetItem | "separator")[] = [
+    ...(canPickFolder
+      ? [{ label: t.projectPickFolder, onSelect: pickFolder }]
+      : []),
+    ...(workspaceRoot
+      ? [
+          {
+            label: t.projectUseDocFolder,
+            onSelect: () => {
+              setMenuOpen(false);
+              setSettings({ agentWorkspaceRoot: "" });
+            },
+          },
+        ]
+      : []),
+    ...(canRevealInFileManager
+      ? [
+          {
+            label: t.projectReveal,
+            onSelect: () => {
+              setMenuOpen(false);
+              void exportDoc.revealInDir(root);
+            },
+          },
+        ]
+      : []),
+    ...(hasFolderItems ? (["separator"] as const) : []),
+    { label: t.projectLearnStyle, onSelect: learnStyle },
+    {
+      label: info?.style ? t.projectOpenStyle : t.projectCreateStyle,
+      onSelect: openStyle,
+    },
+    {
+      label: t.projectNewEntry,
+      onSelect: () => {
+        setMenuOpen(false);
+        setNaming(true);
+      },
+    },
+  ];
+  const folderName = basename(root.replace(/[\\/]+$/, "")) || root;
+
   return (
     <div className="project-bar">
       <div className="project-bar-row" ref={menuRef}>
@@ -168,9 +220,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
           onClick={() => setMenuOpen(!menuOpen)}
         >
           <FolderIcon className="project-bar-icon" />
-          <span className="project-bar-name">
-            {basename(root.replace(/[\\/]+$/, "")) || root}
-          </span>
+          <span className="project-bar-name">{folderName}</span>
           <ChevronIcon className="project-bar-chevron" />
         </button>
         {info?.style && (
@@ -191,56 +241,23 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
             )}
           </span>
         )}
-        {menuOpen && (
+        {menuOpen && !phone && (
           <div className="project-bar-menu floating-surface" role="menu">
-            {canPickFolder && (
-              <button role="menuitem" onClick={pickFolder}>
-                {t.projectPickFolder}
-              </button>
+            {menuItems.map((item, i) =>
+              item === "separator" ? (
+                <div key={i} className="project-bar-menu-sep" />
+              ) : (
+                <button key={i} role="menuitem" onClick={item.onSelect}>
+                  {item.label}
+                </button>
+              ),
             )}
-            {workspaceRoot && (
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setSettings({ agentWorkspaceRoot: "" });
-                }}
-              >
-                {t.projectUseDocFolder}
-              </button>
-            )}
-            {canRevealInFileManager && (
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  void exportDoc.revealInDir(root);
-                }}
-              >
-                {t.projectReveal}
-              </button>
-            )}
-            {(canPickFolder || !!workspaceRoot || canRevealInFileManager) && (
-              <div className="project-bar-menu-sep" />
-            )}
-            <button role="menuitem" onClick={learnStyle}>
-              {t.projectLearnStyle}
-            </button>
-            <button role="menuitem" onClick={openStyle}>
-              {info?.style ? t.projectOpenStyle : t.projectCreateStyle}
-            </button>
-            <button
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                setNaming(true);
-              }}
-            >
-              {t.projectNewEntry}
-            </button>
           </div>
         )}
       </div>
+      {menuOpen && phone && (
+        <ActionSheet title={folderName} items={menuItems} onClose={closeMenu} />
+      )}
       {naming && (
         <form
           className="project-bar-naming"

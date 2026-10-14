@@ -191,6 +191,7 @@ function FileNode({
         <ContextMenu
           x={press.at.x}
           y={press.at.y}
+          title={entry.name}
           onClose={press.close}
           items={[
             { label: t.treeOpen, onSelect: () => onSelect(entry.path) },

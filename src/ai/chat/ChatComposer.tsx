@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
 import { ai } from "../../ipc";
@@ -14,10 +20,14 @@ import {
   SearchIcon,
 } from "../../ui/icons";
 import { Select } from "../../ui/Select";
+import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { tapKeepingFocus } from "../../mobile/tap";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */
   dropSelection: string;
+  /** The docked Quick Ask's context line when nothing is selected. */
+  atCursor: string;
   placeholder: string;
   send: string;
   /** Send button's label while a request is in flight - clicking it then
@@ -34,6 +44,8 @@ export interface ChatComposerLabels {
   modeAsk: string;
   modeEdit: string;
   modePlan: string;
+  /** Accessible name of the phone's segmented mode control. */
+  modeLabel: string;
   webSearch: string;
 }
 
@@ -55,6 +67,11 @@ interface ChatComposerProps {
    *  (an @-mention still attaches a project file). */
   compact?: boolean;
   defaultWebSearch: boolean;
+  /** The docked Quick Ask on a phone (InlineChat's `docked`): its top row
+   *  quotes what the request is about - the selection, or "at the cursor" -
+   *  in place of the toolbar's "{n} chars selected" chip, and carries these
+   *  controls (new, continue in panel, close) beside it. */
+  dockActions?: ReactNode;
   /** The resolved message (skill expanded) plus any attachments - InlineChat
    *  owns tagging it with selected-text/chatInfo and actually sending it. */
   onSend: (
@@ -84,10 +101,12 @@ export function ChatComposer({
   allowPlan = true,
   compact = false,
   defaultWebSearch,
+  dockActions,
   onSend,
   onStop,
   onEscape,
 }: ChatComposerProps) {
+  const phone = usePhoneLayout();
   // Derived here rather than passed in: this is the only place an image can
   // be staged, so deriving it at the gate makes it impossible for a caller to
   // forget - which is exactly what happened when it was a prop, leaving Quick
@@ -299,6 +318,34 @@ export function ChatComposer({
     if (e.key === "Escape") onEscape();
   }
 
+  const modes: [AgentMode, string][] = [
+    ["ask", labels.modeAsk],
+    ["edit", labels.modeEdit],
+    ...(allowPlan ? [["plan", labels.modePlan] as [AgentMode, string]] : []),
+  ];
+
+  // On a phone, the composer's buttons leave focus - and so the keyboard -
+  // in the textarea: a tap's default is to blur it, which drops the
+  // keyboard under the finger mid-message (and moves the docked Quick Ask
+  // with it). The click still runs.
+  const holdFocus = phone
+    ? { onMouseDown: (e: React.MouseEvent) => e.preventDefault() }
+    : {};
+
+  const showSelection = !!selectedText && !selectionDropped;
+  const dropSelectionButton = (
+    <button
+      type="button"
+      className="inline-chat-chip-remove"
+      aria-label={labels.dropSelection}
+      title={labels.dropSelection}
+      {...holdFocus}
+      onClick={() => setDroppedSelection(selectedText)}
+    >
+      <CloseIcon />
+    </button>
+  );
+
   return (
     <>
       {matchingFiles.length > 0 && (
@@ -309,10 +356,7 @@ export function ChatComposer({
               role="option"
               aria-selected={i === activeFileIndex}
               className={`inline-chat-skill-item ${i === activeFileIndex ? "inline-chat-skill-item-active" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                void pickFile(path);
-              }}
+              {...tapKeepingFocus(() => void pickFile(path))}
             >
               <span className="inline-chat-skill-name">@{basename(path)}</span>
               {/* The folder, when there is one - for a file at the project
@@ -332,11 +376,9 @@ export function ChatComposer({
             <button
               key={skill.name}
               className={`inline-chat-skill-item ${i === activeSkillIndex ? "inline-chat-skill-item-active" : ""}`}
-              // mousedown, not click: keeps focus in the textarea.
-              onMouseDown={(e) => {
-                e.preventDefault();
-                pickSkill(skill);
-              }}
+              // On press, not click: keeps focus (and on a phone the
+              // keyboard) in the textarea.
+              {...tapKeepingFocus(() => pickSkill(skill))}
             >
               <span className="inline-chat-skill-name">/{skill.name}</span>
               <span className="inline-chat-skill-preview">
@@ -344,6 +386,18 @@ export function ChatComposer({
               </span>
             </button>
           ))}
+        </div>
+      )}
+      {dockActions !== undefined && (
+        <div className="quick-ask-dock-head">
+          {/* The passage itself, on one line, rather than a count of its
+              characters: on a phone the keyboard and this panel cover most
+              of the document, so the panel says what it is about. */}
+          <span className="quick-ask-dock-quote">
+            {showSelection ? selectedText : labels.atCursor}
+          </span>
+          {showSelection && dropSelectionButton}
+          <span className="quick-ask-dock-actions">{dockActions}</span>
         </div>
       )}
       <div className="inline-chat-bar">
@@ -397,16 +451,43 @@ export function ChatComposer({
           autoFocus
         />
         <div className="inline-chat-toolbar">
-          <Select
-            className="inline-chat-mode"
-            value={mode}
-            aria-label={labels.modeAsk}
-            onChange={(event) => setMode(event.target.value as AgentMode)}
-          >
-            <option value="ask">{labels.modeAsk}</option>
-            <option value="edit">{labels.modeEdit}</option>
-            {allowPlan && <option value="plan">{labels.modePlan}</option>}
-          </Select>
+          {phone ? (
+            // Two or three short words: they all fit in a row, and a
+            // segmented control shows which one is on and switches in one
+            // tap, where a select is a trip through the system's picker.
+            <div
+              className="chat-mode-segments"
+              role="radiogroup"
+              aria-label={labels.modeLabel}
+            >
+              {modes.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === value}
+                  className="chat-mode-segment"
+                  {...holdFocus}
+                  onClick={() => setMode(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Select
+              className="inline-chat-mode"
+              value={mode}
+              aria-label={labels.modeAsk}
+              onChange={(event) => setMode(event.target.value as AgentMode)}
+            >
+              {modes.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          )}
           {!compact && (
             <>
               <button
@@ -423,31 +504,25 @@ export function ChatComposer({
                 title={labels.webSearch}
                 aria-label={labels.webSearch}
                 aria-pressed={webSearch}
+                {...holdFocus}
                 onClick={() => setWebSearch((value) => !value)}
               >
                 <SearchIcon />
               </button>
             </>
           )}
-          {selectedText && !selectionDropped && (
+          {selectedText && !selectionDropped && dockActions === undefined && (
             <span className="inline-chat-selection-chip">
               {labels.selectedChars.replace(
                 "{n}",
                 String([...selectedText].length),
               )}
-              <button
-                type="button"
-                className="inline-chat-chip-remove"
-                aria-label={labels.dropSelection}
-                title={labels.dropSelection}
-                onClick={() => setDroppedSelection(selectedText)}
-              >
-                <CloseIcon />
-              </button>
+              {dropSelectionButton}
             </span>
           )}
           <button
             className="inline-chat-send"
+            {...holdFocus}
             onClick={busy ? onStop : submit}
             disabled={!busy && !input.trim()}
           >

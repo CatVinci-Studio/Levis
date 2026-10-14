@@ -158,6 +158,7 @@ export function DocumentList({
         tone: "warning",
         okLabel: t.docDeleteOk,
         cancelLabel: t.closePromptCancel,
+        danger: true,
       },
     );
     if (!ok) return;
@@ -338,6 +339,7 @@ function DocumentItem({
         <ContextMenu
           x={at.x}
           y={at.y}
+          title={name}
           items={actions()}
           onClose={() => {
             setMenuAt(null);

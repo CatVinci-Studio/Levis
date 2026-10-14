@@ -9,7 +9,12 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * Native behaviour (windows, dialogs, single instance) isn't reachable from
  * here - scripts/smoke-linux.sh covers the built app.
+ *
+ * PLAYWRIGHT_PORT moves the dev server off 1430, for running a second copy
+ * of the suite (another worktree) beside a first.
  */
+const port = Number(process.env.PLAYWRIGHT_PORT) || 1430;
+
 export default defineConfig({
   testDir: "./e2e",
   // The README screenshots run on their own (playwright.readme.config.ts).
@@ -28,7 +33,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: "http://localhost:1430",
+    baseURL: `http://localhost:${port}`,
     viewport: { width: 1180, height: 780 },
     deviceScaleFactor: 1,
     locale: "zh-CN",
@@ -43,8 +48,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npx vite --port 1430 --strictPort",
-    url: "http://localhost:1430",
+    command: `npx vite --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: false,
     timeout: 60_000,
   },

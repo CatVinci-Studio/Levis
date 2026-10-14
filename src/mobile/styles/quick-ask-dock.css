@@ -1,0 +1,160 @@
+/* Quick Ask on an iPhone (InlineChat's `docked`): a composer docked to the
+   bottom of the screen, like Messages' input bar, instead of a block in the
+   document. In the document it opened under the passage - which on a phone
+   is under the keyboard, in a page whose own scrolling is off
+   (KeyboardFit.swift). The web view ends at the top of the keyboard, so
+   bottom: 0 is right above it; with the keyboard down it is the screen's
+   bottom edge, above the home indicator.
+
+   Top to bottom: what it is about (the quoted selection, or "at the
+   cursor") with the panel's buttons, then the reply and the review bar in
+   a short area that scrolls, then the input. Proposed edits still preview
+   in the document itself, which scrolls clear of the panel
+   (quick-ask-dock.ts). Only rendered on a phone, so nothing here needs the
+   phone media query. */
+
+:root[data-window-chrome="mobile"] .quick-ask-dock {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  /* Over the AI sheet (40) - opened from the document, it is the newer of
+     the two - and under the title row (45) and the sidebar drawer (44). */
+  z-index: 41;
+  max-width: none;
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--editor-text);
+}
+
+:root[data-window-chrome="mobile"] .quick-ask-dock .inline-chat-shell {
+  /* Never taller than the page below the title row; the reply area gives
+     way first (below). */
+  max-height: calc(100dvh - var(--mobile-bar, 44px) - 8px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-width: 1px 0 0;
+  border-color: var(--editor-border);
+  border-radius: 14px 14px 0 0;
+  background: var(--page-bg, var(--editor-bg));
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
+}
+
+/* The context row is the composer's (ChatComposer renders it), but it
+   reads first: above the reply, as the header of the whole panel. */
+:root[data-window-chrome="mobile"] .quick-ask-dock-head {
+  order: -1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+}
+
+/* Every section under it is ruled off - including the input when there is
+   no reply yet. */
+:root[data-window-chrome="mobile"] .quick-ask-dock .inline-chat-shell > * {
+  border-top: 1px solid var(--editor-border);
+}
+
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  .inline-chat-shell
+  > .quick-ask-dock-head {
+  border-top: none;
+}
+
+/* The passage on one line, marked like a quotation. Line breaks in it
+   collapse to spaces. */
+:root[data-window-chrome="mobile"] .quick-ask-dock-quote {
+  flex: 1;
+  min-width: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--editor-accent);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  color: var(--editor-muted);
+}
+
+:root[data-window-chrome="mobile"] .quick-ask-dock-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* New, continue in the panel, close, and dropping the selection: full
+   44pt targets, not the desktop's 24px corner icons. */
+:root[data-window-chrome="mobile"] .quick-ask-dock .inline-chat-header-button,
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock-head
+  .inline-chat-chip-remove {
+  width: 44px;
+  height: 44px;
+  justify-content: center;
+}
+
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  .inline-chat-header-button
+  svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* The reply: the one part that scrolls, held to about 40% of the page so
+   the input and the passage above the panel stay in view. */
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-status {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 40vh;
+  max-height: 40dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Opened out in full, the transcript scrolls inside that area rather than
+   adding a second limit of its own. */
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-transcript {
+  max-height: calc(40dvh - 64px);
+}
+
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-more {
+  min-height: 44px;
+}
+
+/* Review: accept, reject, previous, next - finger-sized. */
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-pending-bar {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+}
+
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  :is(.inline-chat-action, .quick-ask-split-menu-item) {
+  min-height: 44px;
+}
+
+:root[data-window-chrome="mobile"]
+  .quick-ask-dock
+  .quick-ask-pending-nav-button {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+}
+
+/* "Accept all" opens upward: below the bar is the input. */
+:root[data-window-chrome="mobile"] .quick-ask-dock .quick-ask-split-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+/* The panel takes the keyboard toolbar's place (it is the bar above the
+   keyboard now), and the document scrolls clear of it, its end included. */
+:root[data-window-chrome="mobile"].has-quick-ask-dock .keyboard-toolbar {
+  display: none;
+}
+
+:root[data-window-chrome="mobile"].has-quick-ask-dock .editor-scroll {
+  padding-bottom: var(--quick-ask-dock-height, 0px);
+}

@@ -1,0 +1,140 @@
+/* The phone layout's foundation: the tokens, fonts and title row every
+   other file in mobile/styles/ builds on, and the rules that hold for any
+   touch (iPhone and iPad alike). See index.css for how these files are
+   organised. */
+
+/* iOS WebKit: -apple-system / system-ui / ui-monospace render Chinese and
+   Japanese as missing-glyph boxes, and a family that isn't installed (Fira
+   Code, SF Pro) sends Latin to Times instead of the next font in the list.
+   Single generic families cascade to PingFang correctly, so iOS gets
+   stacks made only of fonts it has. */
+/* The Slate and Forest content themes lead with -apple-system too. */
+:root[data-window-chrome="mobile"]:is(
+    [data-content-theme="slate"],
+    [data-content-theme="forest"]
+  ) {
+  --editor-font: sans-serif;
+}
+
+:root[data-window-chrome="mobile"] {
+  --font-sans: sans-serif;
+  --font-mono: Menlo, monospace;
+  --mobile-bar: 44px;
+  /* The document's background, resolved here at the root: inside the
+     chrome (.window-bar and the rest, design-system.css) --editor-bg is
+     re-bound to the chrome's own colour. */
+  --page-bg: var(--editor-bg, var(--bg));
+  /* No grey flash over whatever a finger lands on. */
+  -webkit-tap-highlight-color: transparent;
+  /* Phone-only layers, above the title row (45) and the desktop's menus
+     and dialogs (up to 450): an action sheet (mobile/ActionSheet.tsx) and
+     full-screen pages over everything. */
+  --z-phone-page: 480;
+  --z-sheet-menu: 500;
+}
+
+/* 16px is the least WebKit will show a focused field at without zooming
+   the page in, and the size iOS sets its own fields in. */
+:root[data-window-chrome="mobile"]
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea) {
+  font-size: max(16px, 1em);
+}
+
+/* The strips under the status bar and the home indicator are page
+   background: the document's, not the chrome's, so the page runs to both
+   edges of the screen. */
+:root[data-window-chrome="mobile"] body {
+  background: var(--page-bg);
+}
+
+/* The web view shrinks while the keyboard is up (KeyboardFit.swift); 100%
+   follows it where 100vh might not. */
+:root[data-window-chrome="mobile"] .app-shell {
+  height: 100%;
+}
+
+/* Title row: 44pt, Apple's minimum touch target, with the menu at the left
+   edge (no traffic lights to make room for) and the AI toggle at the right. */
+:root[data-window-chrome="mobile"] .window-bar {
+  height: var(--mobile-bar);
+  padding: 0 4px;
+  /* One surface from the status bar down through the page. */
+  background: var(--page-bg);
+}
+
+:root[data-window-chrome="mobile"] .window-menu-button,
+:root[data-window-chrome="mobile"] .window-bar-toggle {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* A touch leaves :hover stuck on the last thing tapped. */
+:root[data-window-chrome="mobile"] .window-menu-button:hover {
+  background: none;
+}
+
+:root[data-window-chrome="mobile"]
+  .window-bar-toggle:hover:not(.window-bar-toggle-on) {
+  background: none;
+}
+
+/* Focus rings are for finding your place with a keyboard. A finger knows
+   where it is, and WebKit counts a focus the app moves itself (a dialog's
+   first button, the sheet's grip) as "visible" - an accent box around
+   whatever was just tapped. Text fields keep their own focused border. */
+@media (pointer: coarse) {
+  :root[data-window-chrome="mobile"] :focus-visible {
+    outline: none;
+  }
+}
+
+/* The desktop's 12-14px glyphs read as specks in a 44pt button; iOS draws
+   bar and toolbar symbols at about 20pt. */
+:root[data-window-chrome="mobile"]
+  :is(.window-menu-button, .window-bar-toggle, .agent-panel-actions button)
+  svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* The web view stops at the safe area, so the strips under the status bar
+   and the home indicator show the body's background, not the page. While
+   something covers the page they take its colour, as a native sheet or
+   dimming view reaches the screen's edges: a full-screen page's own
+   background, or the page darkened by the scrim over it. WebKit paints
+   those strips from the background COLOUR alone, so each scrim's
+   translucent colour is pre-mixed over the page here (--overlay-bg is
+   30% navy in light themes, 48% black in dark - design-system.css). */
+:root[data-window-chrome="mobile"] {
+  --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 70%, rgb(20 27 40));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-window-chrome="mobile"]:not([data-theme="light"]) {
+    --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 52%, black);
+  }
+}
+
+:root[data-window-chrome="mobile"][data-theme="dark"] {
+  --phone-dim-overlay: color-mix(in srgb, var(--page-bg) 52%, black);
+}
+
+:root[data-window-chrome="mobile"]:has(.settings-phone) body {
+  background: var(--sidebar-bg);
+}
+
+/* The drawer's scrim is drawn at phone width only (sidebar.css). */
+@media (max-width: 760px) {
+  :root[data-window-chrome="mobile"]:has(.sidebar-scrim) body {
+    background: color-mix(in srgb, var(--page-bg) 75%, black);
+  }
+}
+
+:root[data-window-chrome="mobile"]:has(.close-prompt-overlay) body {
+  background: var(--phone-dim-overlay);
+}
+
+:root[data-window-chrome="mobile"]:has(.action-sheet-scrim) body {
+  background: color-mix(in srgb, var(--page-bg) 70%, black);
+}

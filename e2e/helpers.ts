@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { devices, expect, type Page } from "@playwright/test";
 
 /** A document exercising most of the content styling. */
 export const SAMPLE_DOC = `# 老城区更新的几点思考
@@ -88,4 +88,26 @@ export async function mockInvoke(page: Page, results: Record<string, unknown>) {
     (window as unknown as { __devInvokeResults: unknown }).__devInvokeResults =
       r;
   }, results);
+}
+
+/** An iPhone, as far as Chromium can be one: touch and a phone-sized
+ *  viewport. Playwright can't drive iOS WebKit itself; the layout is keyed
+ *  off the platform, which openPhone fakes. For `test.use(PHONE)`. */
+export const PHONE = {
+  viewport: { width: 430, height: 932 },
+  isMobile: true,
+  hasTouch: true,
+  userAgent: devices["iPhone 15 Pro Max"].userAgent,
+};
+
+/** openApp as an iPhone: the phone layout (mobile/styles) is on. */
+export async function openPhone(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "platform", { get: () => "iPhone" });
+  });
+  await openApp(page, { settings: { language: "en" } });
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-window-chrome",
+    "mobile",
+  );
 }
