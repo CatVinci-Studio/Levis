@@ -681,10 +681,65 @@ const RETIRED_NAMES: &[&str] = &[
     "standing instructions",
 ];
 
+/// Names the user's UI doesn't show: the other languages' labels for the
+/// same concepts (the prompt gives all three, in parentheses), and English
+/// mode names inside a Chinese or Japanese sentence ("Edit 模式").
+fn other_languages_names(lang: Lang) -> &'static [&'static str] {
+    match lang {
+        Lang::En => &[
+            "项目文件夹",
+            "写作要求",
+            "技能",
+            "资料库",
+            "文风档案",
+            "学习我的文风",
+            "全局配置文件夹",
+            "プロジェクトフォルダー",
+            "執筆の指示",
+            "スキル",
+            "ライブラリ",
+            "文体プロファイル",
+            "文体を学習",
+            "グローバル設定フォルダー",
+        ],
+        Lang::Ja => &[
+            "项目文件夹",
+            "写作要求",
+            "资料库",
+            "文风档案",
+            "学习我的文风",
+            "全局配置文件夹",
+            "edit モード",
+            "ask モード",
+            "plan モード",
+            "style profile",
+            "writing instructions",
+        ],
+        _ => &[
+            "プロジェクトフォルダー",
+            "執筆の指示",
+            "スキル",
+            "ライブラリ",
+            "文体プロファイル",
+            "文体を学習",
+            "グローバル設定フォルダー",
+            "edit 模式",
+            "ask 模式",
+            "plan 模式",
+            "edit模式",
+            "ask模式",
+            "style profile",
+            "writing instructions",
+        ],
+    }
+}
+
 /// The reply names each concept asked about the way the UI does: one of
-/// each group's spellings (case-insensitive), and none of the retired
-/// names. Japanese replies also keep the UI's long vowel in フォルダー.
+/// each group's spellings (case-insensitive), none of the retired names,
+/// and none of the labels another UI language uses. Japanese replies also
+/// keep the UI's long vowel in フォルダー.
 fn uses_ui_names(
+    lang: Lang,
     groups: &'static [&'static [&'static str]],
 ) -> impl Fn(&TurnOutcome) -> Result<(), String> + Send + Sync + 'static {
     move |o: &TurnOutcome| {
@@ -697,6 +752,7 @@ fn uses_ui_names(
         problems.extend(
             RETIRED_NAMES
                 .iter()
+                .chain(other_languages_names(lang))
                 .filter(|w| lower.contains(*w))
                 .map(|w| format!("says {w:?}")),
         );
@@ -719,35 +775,35 @@ fn concept_cases() -> Vec<AgentCase> {
 
     let dir = scratch("concept-en-style");
     let ws = doc_folder(&dir, "mill-street.md", ESSAY_EN);
-    c.push(AgentCase::new("concept/en/style", Lang::En, Lang::En, ESSAY_EN, "How do I get you to write more like me in this project?", no_edit().check("UI names", uses_ui_names(&[&["style profile"], &["learn my style"]])), "Expect a short English answer: the style profile (.levis/style.md), which Learn my style from samples… in the project menu drafts from the user's own writing (or Create style profile), followed in conversations and completion. Names as in the UI; no invented settings.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/en/style", Lang::En, Lang::En, ESSAY_EN, "How do I get you to write more like me in this project?", no_edit().check("UI names", uses_ui_names(Lang::En, &[&["style profile"], &["learn my style"]])), "Expect a short English answer: the style profile (.levis/style.md), which Learn my style from samples… in the project menu drafts from the user's own writing (or Create style profile), followed in conversations and completion. Names as in the UI; no invented settings.").mode("ask").disk(ws));
 
     let dir = scratch("concept-zh-style");
     let ws = doc_folder(&dir, "外婆的厨房.md", ESSAY_ZH);
-    c.push(AgentCase::new("concept/zh/style", Lang::ZhHans, Lang::ZhHans, ESSAY_ZH, "怎么才能让你以后都照我的文风来改稿？", no_edit().check("UI names", uses_ui_names(&[&["文风档案"], &["学习我的文风"]])), "Expect a short Chinese answer: the 文风档案 (.levis/style.md), drafted by 从样本学习我的文风… in the project menu (or 新建文风档案), followed in conversations and completion. UI names, full-width punctuation.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/zh/style", Lang::ZhHans, Lang::ZhHans, ESSAY_ZH, "怎么才能让你以后都照我的文风来改稿？", no_edit().check("UI names", uses_ui_names(Lang::ZhHans, &[&["文风档案"], &["学习我的文风"]])), "Expect a short Chinese answer: the 文风档案 (.levis/style.md), drafted by 从样本学习我的文风… in the project menu (or 新建文风档案), followed in conversations and completion. UI names, full-width punctuation.").mode("ask").disk(ws));
 
     let dir = scratch("concept-zh-library");
     let ws = doc_folder(&dir, "第三章.md", NOVEL_ZH);
-    c.push(AgentCase::new("concept/zh/library", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "小说里的人物越来越多，怎么让你记住每个人的设定，别写错？", no_edit().check("UI names", uses_ui_names(&[&["资料库"]])), "Expect a short Chinese answer: the 资料库 (.levis/library/, one entry per character, made with 新建资料库条目… in the project menu; an entry is sent when its name or an alias comes up). Optionally the 写作要求 for project background. UI names only.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/zh/library", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "小说里的人物越来越多，怎么让你记住每个人的设定，别写错？", no_edit().check("UI names", uses_ui_names(Lang::ZhHans, &[&["资料库"]])), "Expect a short Chinese answer: the 资料库 (.levis/library/, one entry per character, made with 新建资料库条目… in the project menu; an entry is sent when its name or an alias comes up). Optionally the 写作要求 for project background. UI names only.").mode("ask").disk(ws));
 
     let dir = scratch("concept-en-global");
     let ws = doc_folder(&dir, "welcome.md", BETA_EN);
-    c.push(AgentCase::new("concept/en/global-instructions", Lang::En, Lang::En, BETA_EN, "I want you to always reply in British English, in all my documents. Where do I set that once?", no_edit().check("UI names", uses_ui_names(&[&["writing instructions"], &["settings"]])), "Expect a short English answer: the global writing instructions, Settings > Levis AI > Writing Instructions (agent.md) > Edit agent.md, sent with every conversation in every document (a project's own writing instructions can add to them). No 'workspace', no invented menu.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/en/global-instructions", Lang::En, Lang::En, BETA_EN, "I want you to always reply in British English, in all my documents. Where do I set that once?", no_edit().check("UI names", uses_ui_names(Lang::En, &[&["writing instructions"], &["settings"]])), "Expect a short English answer: the global writing instructions, Settings > Levis AI > Writing Instructions (agent.md) > Edit agent.md, sent with every conversation in every document (a project's own writing instructions can add to them). No 'workspace', no invented menu.").mode("ask").disk(ws));
 
     let dir = scratch("concept-en-project");
     let ws = doc_folder(&dir, "chapter-2.md", STORY_EN);
-    c.push(AgentCase::new("concept/en/project-instructions", Lang::En, Lang::En, STORY_EN, "This story needs its own rules: Ines narrates, and the tone stays dry. How do I give you rules for just this project?", no_edit().check("UI names", uses_ui_names(&[&["writing instructions"], &["edit project writing instructions", ".levis/agent.md"]])), "Expect a short English answer: the project's writing instructions, opened with Edit project writing instructions in the project menu (.levis/agent.md), sent after the global ones and winning where they conflict. Optionally the style profile for the dry tone and the library for Ines.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/en/project-instructions", Lang::En, Lang::En, STORY_EN, "This story needs its own rules: Ines narrates, and the tone stays dry. How do I give you rules for just this project?", no_edit().check("UI names", uses_ui_names(Lang::En, &[&["writing instructions"], &["edit project writing instructions", ".levis/agent.md"]])), "Expect a short English answer: the project's writing instructions, opened with Edit project writing instructions in the project menu (.levis/agent.md), sent after the global ones and winning where they conflict. Optionally the style profile for the dry tone and the library for Ines.").mode("ask").disk(ws));
 
     let dir = scratch("concept-zh-skill");
     let ws = doc_folder(&dir, "改期说明.md", EMAIL_ZH);
-    c.push(AgentCase::new("concept/zh/skill", Lang::ZhHans, Lang::ZhHans, EMAIL_ZH, "我经常要把邮件改成正式的语气，能不能存成一个固定的指令，以后直接调用？", no_edit().check("UI names", uses_ui_names(&[&["技能"], &["/"]])), "Expect a short Chinese answer: a 技能 - one Markdown file (name, description, instructions) in .levis/skills/ for this project or the global config folder's skills/ (设置 > Levis AI > 技能 > 导入技能…), called with /名字 or matched by its description. UI names only.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/zh/skill", Lang::ZhHans, Lang::ZhHans, EMAIL_ZH, "我经常要把邮件改成正式的语气，能不能存成一个固定的指令，以后直接调用？", no_edit().check("UI names", uses_ui_names(Lang::ZhHans, &[&["技能"], &["/"]])), "Expect a short Chinese answer: a 技能 - one Markdown file (name, description, instructions) in .levis/skills/ for this project or the global config folder's skills/ (设置 > Levis AI > 技能 > 导入技能…), called with /名字 or matched by its description. UI names only.").mode("ask").disk(ws));
 
     let dir = scratch("concept-ja-folder");
     let ws = doc_folder(&dir, "リリース準備.md", TASKS_DOC_JA);
-    c.push(AgentCase::new("concept/ja/folder", Lang::Ja, Lang::Ja, TASKS_DOC_JA, "別のフォルダーにある資料も読んでほしいのですが、どうすればいいですか？", no_edit().check("UI names", uses_ui_names(&[&["プロジェクトフォルダー"]])), "Expect a short Japanese answer: choose that folder (or a common parent) as the プロジェクトフォルダー with プロジェクトフォルダーを選択… in the project menu or 設定 > Levis AI > プロジェクトフォルダー; files outside it can't be read. UI names (フォルダー with ー), full-width punctuation.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/ja/folder", Lang::Ja, Lang::Ja, TASKS_DOC_JA, "別のフォルダーにある資料も読んでほしいのですが、どうすればいいですか？", no_edit().check("UI names", uses_ui_names(Lang::Ja, &[&["プロジェクトフォルダー"]])), "Expect a short Japanese answer: choose that folder (or a common parent) as the プロジェクトフォルダー with プロジェクトフォルダーを選択… in the project menu or 設定 > Levis AI > プロジェクトフォルダー; files outside it can't be read. UI names (フォルダー with ー), full-width punctuation.").mode("ask").disk(ws));
 
     let dir = scratch("concept-ja-style");
     let ws = doc_folder(&dir, "リリース準備.md", TASKS_DOC_JA);
-    c.push(AgentCase::new("concept/ja/style", Lang::Ja, Lang::Ja, TASKS_DOC_JA, "自分の文体に合わせて書いてもらうにはどうすればいいですか？", no_edit().check("UI names", uses_ui_names(&[&["文体プロファイル"], &["文体を学習"]])), "Expect a short Japanese answer: the 文体プロファイル (.levis/style.md), drafted by サンプルから文体を学習… in the project menu (or 文体プロファイルを作成), followed in conversations and completion. UI names only.").mode("ask").disk(ws));
+    c.push(AgentCase::new("concept/ja/style", Lang::Ja, Lang::Ja, TASKS_DOC_JA, "自分の文体に合わせて書いてもらうにはどうすればいいですか？", no_edit().check("UI names", uses_ui_names(Lang::Ja, &[&["文体プロファイル"], &["文体を学習"]])), "Expect a short Japanese answer: the 文体プロファイル (.levis/style.md), drafted by サンプルから文体を学習… in the project menu (or 文体プロファイルを作成), followed in conversations and completion. UI names only.").mode("ask").disk(ws));
     c
 }
 
@@ -803,7 +859,7 @@ mod tests {
             reply: text.into(),
             ..TurnOutcome::default()
         };
-        let style = uses_ui_names(&[&["style profile"], &["learn my style"]]);
+        let style = uses_ui_names(Lang::En, &[&["style profile"], &["learn my style"]]);
         assert!(style(&reply(
             "Use Learn my style from samples… to draft a style profile."
         ))
@@ -813,7 +869,15 @@ mod tests {
             err.contains("learn my style") && err.contains("workspace"),
             "{err}"
         );
-        let folder = uses_ui_names(&[&["プロジェクトフォルダー"]]);
+        let err = style(&reply(
+            "Use the style profile (文风档案) - Learn my style drafts it.",
+        ))
+        .unwrap_err();
+        assert!(err.contains("文风档案"), "{err}");
+        let zh = uses_ui_names(Lang::ZhHans, &[&["资料库"]]);
+        assert!(zh(&reply("在资料库里建条目，然后在编辑模式里改。")).is_ok());
+        assert!(zh(&reply("在资料库里建条目，然后在 Edit 模式里改。")).is_err());
+        let folder = uses_ui_names(Lang::Ja, &[&["プロジェクトフォルダー"]]);
         assert!(folder(&reply("プロジェクトフォルダーを選択…を使ってください。")).is_ok());
         let err = folder(&reply("プロジェクトフォルダーと別のフォルダを…")).unwrap_err();
         assert!(err.contains("ー"), "{err}");
