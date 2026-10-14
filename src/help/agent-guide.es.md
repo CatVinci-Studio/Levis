@@ -1,6 +1,6 @@
 # Guía de funciones de IA de Levis
 
-Levis incluye una IA pensada para escribir, Levis AI: autocompletado, revisión gramatical y conversaciones que leen y revisan tu documento. Esta guía explica cómo conectar un servicio, cómo funcionan las funciones de IA y cómo convertir Levis AI en tu propio asistente de escritura con una carpeta del proyecto, un perfil de estilo, una biblioteca, instrucciones de escritura y habilidades.
+Levis incluye una IA pensada para escribir, Levis AI: autocompletado, revisión gramatical y conversaciones que leen y revisan tu documento. Esta guía explica cómo conectar un servicio, qué ofrecen las funciones de IA y cómo convertir Levis AI en tu propio asistente de escritura con una carpeta del proyecto, un perfil de estilo, una biblioteca, instrucciones de escritura y habilidades.
 
 ## Conectar un servicio
 

@@ -522,7 +522,7 @@ para usar una.
   tutorialStart: "Empezar el tutorial",
   tutorialFinish: "Empezar a escribir",
   tutorialSkip: "Salir del tutorial",
-  tutorialSkipStep: "Omitir este paso",
+  tutorialSkipStep: "Omitir paso",
   tutorialPractice: "Práctica",
   tutorialShortcut: "Atajo: {shortcut}",
   tutorialCollapse: "Minimizar",
