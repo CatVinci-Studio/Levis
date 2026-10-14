@@ -30,9 +30,11 @@ pub struct CustomEndpointStatus {
     model: String,
 }
 
-/// Saves the endpoint. A missing key keeps the stored one: the settings page
-/// no longer gets the key back, so an empty key field on re-save means
-/// "unchanged", not "remove it" (clearing the endpoint removes it).
+/// Saves the endpoint. A missing key keeps the stored one while the URL
+/// stays the same: the settings page no longer gets the key back, so an
+/// empty key field on re-save means "unchanged", not "remove it" (clearing
+/// the endpoint removes it). Saved for another URL, the old key is dropped
+/// rather than sent to the new host with every request (see resolve_key).
 #[tauri::command]
 pub fn set_custom_endpoint(
     app: AppHandle,
@@ -41,10 +43,7 @@ pub fn set_custom_endpoint(
     model: String,
 ) -> Result<(), String> {
     let path = config_file_path(&app)?;
-    let api_key = match api_key.filter(|k| !k.trim().is_empty()) {
-        Some(key) => Some(key),
-        None => load_custom_endpoint(&app)?.and_then(|c| c.api_key),
-    };
+    let api_key = key_for(&app, &base_url, api_key);
     let config = CustomEndpointConfig {
         base_url,
         api_key,
@@ -76,20 +75,27 @@ pub fn custom_endpoint_status(app: AppHandle) -> Result<Option<CustomEndpointSta
     }))
 }
 
-/// The key to try `base_url` with: the one typed, else the stored one - but
-/// only for the URL it was saved with, so editing the URL to another host
-/// and pressing "Fetch models" doesn't send that host the old key.
-fn key_for(
-    app: &AppHandle,
+/// The key to use with `base_url` - to save it, fetch its models or test
+/// it. A stored config that can't be read counts as none: saving over it
+/// is how the user repairs it, so it must not fail the save.
+fn key_for(app: &AppHandle, base_url: &str, typed: Option<String>) -> Option<String> {
+    resolve_key(load_custom_endpoint(app).ok().flatten(), base_url, typed)
+}
+
+/// The key typed, else the stored one - but only for the URL it was saved
+/// with, so editing the URL to another host and pressing "Fetch models" or
+/// "Save" doesn't hand that host the old key.
+fn resolve_key(
+    stored: Option<CustomEndpointConfig>,
     base_url: &str,
-    api_key: Option<String>,
-) -> Result<Option<String>, String> {
-    if let Some(key) = api_key.filter(|k| !k.trim().is_empty()) {
-        return Ok(Some(key));
+    typed: Option<String>,
+) -> Option<String> {
+    if let Some(key) = typed.filter(|k| !k.trim().is_empty()) {
+        return Some(key);
     }
-    Ok(load_custom_endpoint(app)?
+    stored
         .filter(|c| same_endpoint(&c.base_url, base_url))
-        .and_then(|c| c.api_key))
+        .and_then(|c| c.api_key)
 }
 
 fn same_endpoint(a: &str, b: &str) -> bool {
@@ -111,7 +117,7 @@ pub async fn fetch_custom_models(
     base_url: String,
     api_key: Option<String>,
 ) -> Result<Vec<String>, String> {
-    let api_key = key_for(&app, &base_url, api_key)?;
+    let api_key = key_for(&app, &base_url, api_key);
     custom::list_models(&base_url, api_key.as_deref()).await
 }
 
@@ -121,7 +127,7 @@ pub async fn test_custom_endpoint(
     base_url: String,
     api_key: Option<String>,
 ) -> Result<(), String> {
-    let api_key = key_for(&app, &base_url, api_key)?;
+    let api_key = key_for(&app, &base_url, api_key);
     custom::list_models(&base_url, api_key.as_deref())
         .await
         .map(|_| ())
@@ -141,5 +147,33 @@ mod tests {
             "http://localhost:11434/v1",
             "https://evil.example/v1"
         ));
+    }
+
+    #[test]
+    fn the_stored_key_only_goes_to_the_url_it_was_saved_for() {
+        let stored = || {
+            Some(CustomEndpointConfig {
+                base_url: "https://api.example/v1".to_string(),
+                api_key: Some("sk-stored".to_string()),
+                model: "m".to_string(),
+            })
+        };
+        // Re-saved or tested with the key field left blank.
+        assert_eq!(
+            resolve_key(stored(), "https://api.example/v1/", None).as_deref(),
+            Some("sk-stored")
+        );
+        assert_eq!(
+            resolve_key(stored(), "https://api.example/v1", Some(" ".into())).as_deref(),
+            Some("sk-stored")
+        );
+        // Moved to another host: the old key stays behind.
+        assert_eq!(resolve_key(stored(), "http://other.example/v1", None), None);
+        // A typed key always wins; nothing stored means no key.
+        assert_eq!(
+            resolve_key(stored(), "http://other.example/v1", Some("sk-new".into())).as_deref(),
+            Some("sk-new")
+        );
+        assert_eq!(resolve_key(None, "https://api.example/v1", None), None);
     }
 }
