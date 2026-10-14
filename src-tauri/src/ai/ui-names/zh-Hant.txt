@@ -1,2 +1,29 @@
-# Traditional Chinese: the names of en.txt as this UI shows them. Not translated yet,
-# so the AI names everything in English for a Traditional Chinese UI.
+# Traditional Chinese: the names of en.txt as this UI shows them.
+project folder = 專案資料夾
+project menu = 專案選單
+writing instructions = 寫作指示
+global config folder = 全域設定資料夾
+skills = 技能
+library = 資料庫
+style profile = 文風檔案
+Learn my style = 學習我的文風
+completion = 續寫
+Choose project folder… = 選擇專案資料夾…
+Use the document's folder = 改用文件所在的資料夾
+Learn my style from samples… = 從樣本學習我的文風…
+Create style profile = 建立文風檔案
+Open style profile = 開啟文風檔案
+Style (the chip) = 文風
+New library entry… = 新增資料庫條目…
+Edit project writing instructions = 編輯本專案的寫作指示
+Settings = 設定
+Project Folder (Settings row) = 專案資料夾
+Writing Instructions (agent.md) = 寫作指示（agent.md）
+Edit agent.md = 編輯 agent.md
+Skills (Settings row) = 技能
+Import Skill… = 匯入技能…
+Ask = 詢問
+Edit = 編輯
+Plan = 規劃
+Accept = 接受
+Reject = 拒絕
