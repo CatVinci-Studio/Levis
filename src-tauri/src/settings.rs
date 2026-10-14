@@ -738,14 +738,68 @@ fn user_theme_css(app: &AppHandle, settings: &Value) -> Value {
 }
 
 /// Adds the boot script to a webview that shows the app (editor windows,
-/// the detached chat, the iOS webview). The PDF-export and tab-drag windows
-/// load other pages and go without.
+/// the detached chat, the iOS webview), and on Linux builds the window in a
+/// pinned appearance's background (`pinned_background`). The PDF-export and
+/// tab-drag windows load other pages and go without either.
 pub fn with_boot<'a, R: tauri::Runtime, M: Manager<R>>(
     builder: tauri::WebviewWindowBuilder<'a, R, M>,
     app: &AppHandle,
     label: &str,
 ) -> tauri::WebviewWindowBuilder<'a, R, M> {
-    builder.initialization_script(boot_script(app, label))
+    let builder = builder.initialization_script(boot_script(app, label));
+    #[cfg(target_os = "linux")]
+    let builder = match app
+        .try_state::<Stores>()
+        .and_then(|stores| pinned_background(&stores.settings.snapshot().0))
+    {
+        Some(color) => builder.background_color(color),
+        None => builder,
+    };
+    builder
+}
+
+/// The colour a window shows before its page has painted, for a pinned
+/// appearance: the page's own background (App.css's `--bg`, and what
+/// index.html paints before any stylesheet loads).
+///
+/// On Linux the GTK window and the WebKit view start in their own colours -
+/// the GTK theme's window background, then white - until the page's first
+/// paint, so a window pinned to Dark opened with a white frame however early
+/// the boot script put the theme on the document (measured on a release
+/// build: GTK grey, one white frame, then the page). Built with this, the
+/// window is the page's colour from its first frame. "system" is left alone:
+/// what WebKitGTK resolves it to depends on GTK settings and the desktop's
+/// colour-scheme preference, and guessing wrong would flash the other way.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn pinned_background(settings: &Value) -> Option<tauri::window::Color> {
+    match settings.get("theme").and_then(Value::as_str) {
+        Some("dark") => Some(tauri::window::Color(0x1b, 0x1e, 0x24, 0xff)),
+        Some("light") => Some(tauri::window::Color(0xff, 0xff, 0xff, 0xff)),
+        _ => None,
+    }
+}
+
+/// Gives every open app window the background `with_boot` would give it now:
+/// after the appearance changes (or first arrives, with the legacy import),
+/// a window keeps showing its native background wherever the page hasn't
+/// painted yet - the edges of a resize - which would otherwise stay the old
+/// appearance's colour until the window is reopened.
+#[cfg(target_os = "linux")]
+fn apply_window_backgrounds(app: &AppHandle) {
+    let Some(stores) = app.try_state::<Stores>() else {
+        return;
+    };
+    let color = pinned_background(&stores.settings.snapshot().0);
+    for (label, window) in app.webview_windows() {
+        // Only the windows with_boot builds: not the transparent tab-drag
+        // pill, nor the hidden PDF-export renderers.
+        if label == crate::tab_drag::DRAG_PILL_LABEL
+            || label.starts_with(crate::commands::export::PDF_EXPORT_LABEL_PREFIX)
+        {
+            continue;
+        }
+        let _ = window.set_background_color(color);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -789,6 +843,10 @@ pub fn settings_patch(
     patch: Map<String, Value>,
 ) -> u64 {
     let rev = stores.patch_settings(&patch);
+    #[cfg(target_os = "linux")]
+    if patch.contains_key("theme") {
+        apply_window_backgrounds(&app);
+    }
     emit_to_all(
         &app,
         "settings-changed",
@@ -841,6 +899,9 @@ pub fn settings_import_legacy(
     let accepted = stores.import_legacy(payload);
     let (value, rev) = stores.settings.snapshot();
     if accepted {
+        // The appearance was only in localStorage until now.
+        #[cfg(target_os = "linux")]
+        apply_window_backgrounds(&app);
         // Windows that booted with the flag but lost the race adopt the
         // result from their own call; any other window learns it here.
         let patch = value.as_object().cloned().unwrap_or_default();
@@ -1294,6 +1355,58 @@ mod tests {
             file["settings"],
             json!({ "theme": "light", "fromTheFuture": true })
         );
+    }
+
+    #[test]
+    fn a_pinned_appearance_gives_windows_the_page_background() {
+        // Checked against the page itself, not restated here: a window must
+        // open in exactly the colour index.html paints first and App.css's
+        // --bg keeps, or the change is a flash of its own. A failure here
+        // means one of the three moved without the others.
+        let index = include_str!("../../index.html");
+        let app_css = include_str!("../../src/App.css");
+        for (theme, app_css_rule) in [
+            ("dark", ":root[data-theme=\"dark\"] {"),
+            ("light", ":root {"),
+        ] {
+            let Some(tauri::window::Color(r, g, b, a)) =
+                pinned_background(&json!({ "theme": theme }))
+            else {
+                panic!("no window background for a pinned {theme}");
+            };
+            let hex = format!("#{r:02x}{g:02x}{b:02x}");
+            assert_eq!(a, 0xff, "{theme}: an opaque window");
+            let index_rule = format!("html[data-theme=\"{theme}\"] {{");
+            assert_eq!(
+                css_value(index, &index_rule, "background:"),
+                hex,
+                "index.html, {theme}"
+            );
+            assert_eq!(
+                css_value(app_css, app_css_rule, "--bg:"),
+                hex,
+                "App.css, {theme}"
+            );
+        }
+        // "system", missing or unreadable: the toolkit's own default.
+        assert_eq!(pinned_background(&json!({ "theme": "system" })), None);
+        assert_eq!(pinned_background(&json!({})), None);
+        assert_eq!(pinned_background(&json!({ "theme": 1 })), None);
+    }
+
+    /// The value `property` has in the first rule that starts with `rule`.
+    fn css_value<'a>(css: &'a str, rule: &str, property: &str) -> &'a str {
+        let start = css.find(rule).unwrap_or_else(|| panic!("no `{rule}` rule"));
+        let body = &css[start + rule.len()..];
+        let body = &body[..body.find('}').expect("an unclosed rule")];
+        let at = body
+            .find(property)
+            .unwrap_or_else(|| panic!("no `{property}` in `{rule}`"));
+        body[at + property.len()..]
+            .split(';')
+            .next()
+            .unwrap_or_default()
+            .trim()
     }
 
     #[test]
