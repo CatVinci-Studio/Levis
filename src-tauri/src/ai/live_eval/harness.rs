@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
@@ -136,23 +136,130 @@ pub fn with_retry<T>(mut attempt: impl FnMut() -> Result<T, String>) -> Result<T
     Err(last)
 }
 
-/// One completion-style call (completion, grammar, judge) with retries.
+// ------------------------------------------------------------ cost and budget
+
+/// Dollars per million tokens: (input, 5-minute cache write, cache read,
+/// output) - Anthropic's first-party prices for the models the eval runs
+/// (Haiku 5.5 at the up-to-100K-token prompt rate, which every completion
+/// and grammar request is under). An unknown model is priced as Opus, so
+/// the budget guard errs on the side of stopping early.
+pub fn price(model: &str) -> [f64; 4] {
+    match model {
+        "claude-haiku-5-5" => [0.10, 0.125, 0.01, 0.50],
+        "claude-sonnet-5-5" => [2.0, 2.5, 0.20, 10.0],
+        _ => [4.0, 5.0, 0.20, 20.0],
+    }
+}
+
+pub fn cost_usd(model: &str, u: &StepUsage) -> f64 {
+    let [i, w, r, o] = price(model);
+    (u.input_tokens as f64 * i
+        + u.cache_creation_input_tokens as f64 * w
+        + u.cache_read_input_tokens as f64 * r
+        + u.output_tokens as f64 * o)
+        / 1_000_000.0
+}
+
+/// Token and dollar totals for a case or a suite.
+#[derive(Clone, Debug, Default)]
+pub struct Usage {
+    pub requests: u64,
+    pub input: u64,
+    pub cache_write: u64,
+    pub cache_read: u64,
+    pub output: u64,
+    pub cost_usd: f64,
+}
+
+impl Usage {
+    pub fn add(&mut self, model: &str, u: &StepUsage) {
+        self.requests += 1;
+        self.input += u.input_tokens;
+        self.cache_write += u.cache_creation_input_tokens;
+        self.cache_read += u.cache_read_input_tokens;
+        self.output += u.output_tokens;
+        self.cost_usd += cost_usd(model, u);
+    }
+    pub fn merge(&mut self, other: &Usage) {
+        self.requests += other.requests;
+        self.input += other.input;
+        self.cache_write += other.cache_write;
+        self.cache_read += other.cache_read;
+        self.output += other.output;
+        self.cost_usd += other.cost_usd;
+    }
+    pub fn json(&self) -> Value {
+        json!({
+            "requests": self.requests,
+            "input_tokens": self.input,
+            "cache_write_tokens": self.cache_write,
+            "cache_read_tokens": self.cache_read,
+            "output_tokens": self.output,
+            "cost_usd": (self.cost_usd * 1e6).round() / 1e6,
+        })
+    }
+}
+
+/// Every request this process made, in micro-dollars - what the budget
+/// guard compares against LEVIS_EVAL_BUDGET_USD.
+static SPENT_MICRO_USD: AtomicU64 = AtomicU64::new(0);
+
+/// Records one request's cost against the process-wide total.
+pub fn charge(model: &str, u: &StepUsage) {
+    let micro = (cost_usd(model, u) * 1e6).round() as u64;
+    SPENT_MICRO_USD.fetch_add(micro, Ordering::SeqCst);
+}
+
+pub fn spent_usd() -> f64 {
+    SPENT_MICRO_USD.load(Ordering::SeqCst) as f64 / 1e6
+}
+
+/// LEVIS_EVAL_BUDGET_USD: once this process has spent that much, cases that
+/// haven't started yet are skipped (marked with a failed `budget` check)
+/// instead of sent. Cases already running finish, so the overshoot is at
+/// most LEVIS_EVAL_JOBS cases.
+pub fn budget_exhausted() -> Option<String> {
+    let budget: f64 = std::env::var("LEVIS_EVAL_BUDGET_USD")
+        .ok()
+        .and_then(|v| v.parse().ok())?;
+    let spent = spent_usd();
+    (spent >= budget)
+        .then(|| format!("skipped: this run has spent ${spent:.4} of its ${budget:.2} budget"))
+}
+
+/// One completion-style reply with its latency and token usage.
+pub struct Reply {
+    pub text: String,
+    pub ms: u128,
+    pub usage: StepUsage,
+    pub model: String,
+}
+
+/// One completion-style call (completion, grammar, style, judge) with
+/// retries; every attempt that got an answer is charged.
 pub fn complete(
     auth: &AnthropicAuth,
     instructions: &str,
     user_text: &str,
     model: Option<&str>,
-) -> Result<(String, u128), String> {
+) -> Result<Reply, String> {
     let started = Instant::now();
-    let text = with_retry(|| {
-        block_on(anthropic::call_completion(
+    let effective = model.unwrap_or(anthropic::COMPLETION_MODEL).to_string();
+    let (text, usage) = with_retry(|| {
+        block_on(anthropic::call_completion_with_usage(
             auth,
             instructions.to_string(),
             user_text.to_string(),
             model,
         ))
     })?;
-    Ok((text, started.elapsed().as_millis()))
+    charge(&effective, &usage);
+    Ok(Reply {
+        text,
+        ms: started.elapsed().as_millis(),
+        usage,
+        model: effective,
+    })
 }
 
 // -------------------------------------------------------------------- agent
@@ -164,6 +271,12 @@ pub struct UserTurn {
     pub message: String,
     pub caret: Caret,
     pub accept: bool,
+    /// Quick Ask on a selection: the message goes out wrapped in the
+    /// selection as it reads NOW - the range captured when Quick Ask opened,
+    /// mapped through every accepted edit since (useInlineChat's
+    /// sendContext + chat-selection-plugin), so "shorter" -> Accept ->
+    /// "now more formal" targets the rewritten text.
+    pub follow_selection: bool,
 }
 
 impl UserTurn {
@@ -172,21 +285,31 @@ impl UserTurn {
             message: message.into(),
             caret: Caret::default(),
             accept: true,
+            follow_selection: false,
         }
     }
 }
 
 #[derive(Clone, Default)]
 pub struct TurnOutcome {
+    /// What the user typed (after any /skill expansion).
     pub message: String,
+    /// What went out as the user's message: the selection or cursor block,
+    /// then the message - what the history keeps.
+    pub message_sent: String,
+    pub caret: Caret,
+    pub focus_heading: Option<String>,
     pub turns: Vec<AgentTurn>,
     pub proposals: Vec<Proposal>,
     /// propose_edit calls the tool rejected (bad anchor, missing field) -
     /// each one cost the user a round trip of waiting.
     pub invalid_proposals: usize,
+    pub invalid_errors: Vec<String>,
     pub comments: Vec<(String, String)>,
     pub reply: String,
     pub tools: Vec<String>,
+    /// Every tool call in order: name, arguments, and the tool's result.
+    pub calls: Vec<Value>,
     pub doc_before: String,
     pub doc_after: String,
     pub apply_error: Option<String>,
@@ -194,8 +317,93 @@ pub struct TurnOutcome {
     pub usage: Vec<StepUsage>,
 }
 
+impl TurnOutcome {
+    /// Every tool result of this turn, concatenated - for checks that a
+    /// file's content did (or did not) reach the model.
+    pub fn tool_results(&self) -> String {
+        self.calls
+            .iter()
+            .filter_map(|c| c["result"].as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+/// Mirrors user-message.ts's selectedTextBlock.
+pub fn selected_text_block(markdown: &str) -> String {
+    format!("<selected-text>\n{markdown}\n</selected-text>")
+}
+
+/// Maps a byte position through the edit between `before` and `after` the
+/// way ProseMirror's mapping does: positions before the change stay, after
+/// it shift, and inside it go to the change's start (bias -1) or the end of
+/// the inserted text (bias 1).
+pub fn map_pos(before: &str, after: &str, pos: usize, bias: i8) -> usize {
+    if before == after {
+        return pos;
+    }
+    let (s, e, e2) = checks::changed_span(before, after);
+    if pos < s {
+        return pos;
+    }
+    if pos > e {
+        return pos + e2 - e;
+    }
+    // StepMap.map: the edges of a replaced range keep their side; only a
+    // pure insertion point (or the inside of a range) follows the bias.
+    let side = if e == s {
+        bias
+    } else if pos == s {
+        -1
+    } else if pos == e {
+        1
+    } else {
+        bias
+    };
+    if side < 0 {
+        s
+    } else {
+        e2
+    }
+}
+
+/// chat-selection-plugin's range mapping: outward bias at both ends, so an
+/// accepted rewrite of the selection grows the range over the replacement.
+pub fn map_selection(before: &str, after: &str, sel: (usize, usize)) -> Option<(usize, usize)> {
+    let from = map_pos(before, after, sel.0, -1);
+    let to = map_pos(before, after, sel.1, 1);
+    (from < to).then_some((from, to))
+}
+
+/// doc-markdown.ts's headingAt: the innermost heading above `pos` - the
+/// `focus_heading` the editor sends with each message.
+pub fn heading_at(doc: &str, pos: usize) -> Option<String> {
+    let mut found = None;
+    let mut in_fence = false;
+    let mut offset = 0;
+    for line in doc.split_inclusive('\n') {
+        if offset > pos {
+            break;
+        }
+        let t = line.trim_end();
+        if t.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+        } else if !in_fence {
+            let hashes = t.chars().take_while(|&c| c == '#').count();
+            if (1..=6).contains(&hashes) && t[hashes..].starts_with(' ') {
+                found = Some(t[hashes..].trim().to_string());
+            }
+        }
+        offset += line.len();
+    }
+    found
+}
+
 pub struct Conversation {
     pub outcomes: Vec<TurnOutcome>,
+    /// Set when a request failed part-way: the turns before it are kept.
+    pub error: Option<String>,
+    pub model: String,
 }
 
 impl Conversation {
@@ -205,13 +413,12 @@ impl Conversation {
     pub fn latency_ms(&self) -> u128 {
         self.outcomes.iter().map(|o| o.latency_ms).sum()
     }
-    pub fn tokens(&self) -> (u64, u64) {
-        let mut io = (0, 0);
+    pub fn usage(&self) -> Usage {
+        let mut total = Usage::default();
         for u in self.outcomes.iter().flat_map(|o| &o.usage) {
-            io.0 += u.input_tokens + u.cache_creation_input_tokens + u.cache_read_input_tokens;
-            io.1 += u.output_tokens;
+            total.add(&self.model, u);
         }
-        io
+        total
     }
 }
 
@@ -219,6 +426,8 @@ pub struct AgentSetup<'a> {
     pub model: &'a str,
     pub mode: &'a str,
     pub workspace: &'a AgentWorkspace,
+    /// None: each turn sends the heading above its selection or cursor, as
+    /// the editor does (headingAt); Some overrides it.
     pub focus_heading: Option<&'a str>,
 }
 
@@ -227,6 +436,9 @@ const ACCEPTED_NOTE: &str =
     "Status: the user accepted this proposed edit - the document text in this request includes it.";
 const REJECTED_NOTE: &str =
     "Status: the user rejected this proposed edit - it was not applied. Don't propose it again unless asked.";
+
+/// Longest tool result kept in a case's record (the model saw all of it).
+const RECORDED_RESULT_CHARS: usize = 4_000;
 
 /// Runs a scripted conversation the way the app does: each message goes out
 /// with the current document (request_context), the loop runs the real
@@ -239,7 +451,7 @@ pub fn run_conversation(
     setup: &AgentSetup,
     document: &str,
     script: &[UserTurn],
-) -> Result<Conversation, String> {
+) -> Conversation {
     let ws = setup.workspace;
     let root = ws.root.as_deref().map(Path::new);
     let tool_set =
@@ -248,9 +460,36 @@ pub fn run_conversation(
     let mut history: Vec<AgentTurn> = Vec::new();
     let mut doc = document.to_string();
     let mut outcomes = Vec::new();
+    let mut error = None;
+    // Quick Ask's captured selection, mapped through accepted edits.
+    let mut selection = script
+        .first()
+        .filter(|t| t.follow_selection)
+        .and_then(|t| t.caret.selection);
 
     for user in script {
-        let instructions = build_instructions(ws, &doc, true, setup.mode, &user.message);
+        let (message_sent, caret) = match (user.follow_selection, selection) {
+            (true, Some((s, e))) => (
+                format!(
+                    "{}\n\n{}",
+                    selected_text_block(doc[s..e].trim_end()),
+                    user.message
+                ),
+                Caret {
+                    cursor: None,
+                    selection: Some((s, e)),
+                },
+            ),
+            _ => (user.message.clone(), user.caret),
+        };
+        let focus_heading = setup.focus_heading.map(str::to_string).or_else(|| {
+            caret
+                .selection
+                .map(|s| s.0)
+                .or(caret.cursor)
+                .and_then(|at| heading_at(&doc, at))
+        });
+        let instructions = build_instructions(ws, &doc, true, setup.mode, &message_sent);
         let ctx = ToolContext {
             document: &doc,
             skills: &ws.skills,
@@ -258,12 +497,12 @@ pub fn run_conversation(
         };
         let usage = RefCell::new(Vec::new());
         let started = Instant::now();
-        let mut turns = block_on(run_agent_loop(
+        let result = block_on(run_agent_loop(
             compact_history(history.clone()),
             AgentTurn::User {
                 text: request_user_text(
-                    &request_context(ws, &doc, true, &user.message, setup.focus_heading),
-                    &user.message,
+                    &request_context(ws, &doc, true, &message_sent, focus_heading.as_deref()),
+                    &message_sent,
                 ),
                 images: Vec::new(),
             },
@@ -294,22 +533,33 @@ pub fn run_conversation(
                             Err(e) => return Err(e),
                         }
                     };
+                    charge(setup.model, &used);
                     usage.borrow_mut().push(used);
                     Ok(step)
                 }
             },
             |name, args| tools::execute(&tool_set, &ctx, name, args),
             |_| {},
-        ))?;
+        ));
         let latency_ms = started.elapsed().as_millis();
+        let mut turns = match result {
+            Ok(turns) => turns,
+            Err(e) => {
+                error = Some(format!("turn {}: {e}", outcomes.len() + 1));
+                break;
+            }
+        };
 
         // What history keeps is the plain message (ai_agent_message_inner).
         if let Some(AgentTurn::User { text, .. }) = turns.first_mut() {
-            *text = user.message.clone();
+            *text = message_sent.clone();
         }
 
         let mut outcome = TurnOutcome {
             message: user.message.clone(),
+            message_sent: message_sent.clone(),
+            caret,
+            focus_heading,
             doc_before: doc.clone(),
             latency_ms,
             usage: usage.into_inner(),
@@ -329,12 +579,18 @@ pub fn run_conversation(
                         _ => "",
                     };
                     let args: Value = serde_json::from_str(arguments).unwrap_or_default();
+                    outcome.calls.push(json!({
+                        "name": name,
+                        "args": args,
+                        "result": clip(result, RECORDED_RESULT_CHARS),
+                    }));
                     if name == "propose_edit" {
                         if result.starts_with("Edit proposed") {
                             outcome.proposals.push(Proposal::from_json(&args));
                             proposal_ids.push(call_id.clone());
                         } else {
                             outcome.invalid_proposals += 1;
+                            outcome.invalid_errors.push(result.to_string());
                         }
                     }
                     if name == "add_comment" && result.starts_with("Comment added") {
@@ -348,12 +604,15 @@ pub fn run_conversation(
         }
 
         if user.accept && !outcome.proposals.is_empty() {
-            match checks::apply_all(&doc, &outcome.proposals, user.caret) {
+            match checks::apply_all(&doc, &outcome.proposals, caret) {
                 Ok(next) => doc = next,
                 Err(e) => outcome.apply_error = Some(e),
             }
         }
         outcome.doc_after = doc.clone();
+        if let Some(sel) = selection {
+            selection = map_selection(&outcome.doc_before, &doc, sel);
+        }
 
         let note = if user.accept && outcome.apply_error.is_none() {
             ACCEPTED_NOTE
@@ -371,7 +630,11 @@ pub fn run_conversation(
         outcome.turns = turns;
         outcomes.push(outcome);
     }
-    Ok(Conversation { outcomes })
+    Conversation {
+        outcomes,
+        error,
+        model: setup.model.to_string(),
+    }
 }
 
 // -------------------------------------------------------------------- judge
@@ -422,7 +685,9 @@ pub fn judge(
         "<task>\n{task}\n</task>\n\n<expectations>\n{expectations}\n</expectations>\n\n{material}"
     );
     for _ in 0..2 {
-        let Ok((raw, _)) = complete(auth, JUDGE_INSTRUCTIONS, &user, Some(JUDGE_MODEL)) else {
+        let Ok(Reply { text: raw, .. }) =
+            complete(auth, JUDGE_INSTRUCTIONS, &user, Some(JUDGE_MODEL))
+        else {
             continue;
         };
         let (Some(start), Some(end)) = (raw.find('{'), raw.rfind('}')) else {
@@ -576,10 +841,36 @@ pub struct Record {
     pub model: String,
     pub lang: String,
     pub latency_ms: u128,
-    pub tokens: (u64, u64),
+    pub usage: Usage,
     pub checks: Checks,
     pub verdict: Option<Verdict>,
+    /// Everything that went in: document, cursor or selection, messages,
+    /// settings - enough to judge the case without re-running it.
+    pub input: Value,
     pub output: Value,
+}
+
+/// The case's group for the index: the first segment of its id
+/// ("email/zh/formal" -> "email").
+pub fn group_of(id: &str) -> &str {
+    id.split('/').next().unwrap_or(id)
+}
+
+/// A record for a case that never ran (budget exhausted).
+pub fn skipped(case: &str, model: &str, lang: &str, reason: String, input: Value) -> Record {
+    let mut checks = Checks::default();
+    checks.add("budget", Err(reason));
+    Record {
+        case: case.to_string(),
+        model: model.to_string(),
+        lang: lang.to_string(),
+        latency_ms: 0,
+        usage: Usage::default(),
+        checks,
+        verdict: None,
+        input,
+        output: Value::Null,
+    }
 }
 
 fn run_dir() -> &'static PathBuf {
@@ -613,6 +904,8 @@ pub fn finish(suite: &str, records: Vec<Record>) -> Vec<String> {
         "## {suite}\n\n| case | model | lang | ms | checks | judge (min/mean) | notes |\n| --- | --- | --- | ---: | --- | --- | --- |\n"
     );
     let mut failures = Vec::new();
+    let mut total = Usage::default();
+    let mut index: Vec<Value> = Vec::new();
     let (mut passed, mut judged, mut sum_mean, mut low) = (0, 0, 0.0, 0);
     let mut by_criterion: BTreeMap<String, (f64, usize)> = BTreeMap::new();
     for r in &records {
@@ -669,20 +962,31 @@ pub fn finish(suite: &str, records: Vec<Record>) -> Vec<String> {
             judge_cell,
             notes.join("<br>").replace('|', "\\|").replace('\n', " ")
         ));
+        total.merge(&r.usage);
         let line = json!({
             "suite": suite,
             "case": r.case,
+            "group": group_of(&r.case),
             "model": r.model,
             "lang": r.lang,
             "latency_ms": r.latency_ms as u64,
-            "input_tokens": r.tokens.0,
-            "output_tokens": r.tokens.1,
+            "usage": r.usage.json(),
             "checks": r.checks.0.iter().map(|c| json!({"name": c.name, "ok": c.ok, "detail": c.detail})).collect::<Vec<_>>(),
             "judge": r.verdict.as_ref().map(|v| json!({"scores": v.scores, "reasons": v.reasons})),
+            "input": r.input,
             "output": r.output,
         });
         jsonl.push_str(&line.to_string());
         jsonl.push('\n');
+        index.push(json!({
+            "suite": suite,
+            "id": r.case,
+            "group": group_of(&r.case),
+            "model": r.model,
+            "lang": r.lang,
+            "passed_checks": r.checks.0.iter().filter(|c| c.ok).map(|c| c.name.clone()).collect::<Vec<_>>(),
+            "failed_checks": failed.iter().map(|c| format!("{}: {}", c.name, c.detail)).collect::<Vec<_>>(),
+        }));
     }
     let n = records.len().max(1);
     let mut latencies: Vec<u128> = records.iter().map(|r| r.latency_ms).collect();
@@ -715,8 +1019,132 @@ pub fn finish(suite: &str, records: Vec<Record>) -> Vec<String> {
             "\n**Warning: {unreached} of {n} cases never got an answer from the API** (see their `request` check) - they measure the connection or the key's limits, not the prompts.\n"
         ));
     }
+    let skipped = records
+        .iter()
+        .filter(|r| r.checks.0.iter().any(|c| c.name == "budget" && !c.ok))
+        .count();
+    if skipped > 0 {
+        md.push_str(&format!(
+            "\n**Warning: {skipped} of {n} cases were skipped by the budget guard** (LEVIS_EVAL_BUDGET_USD).\n"
+        ));
+    }
+    md.push_str(&format!(
+        "\nTokens: {} requests, {} input, {} cache write, {} cache read, {} output - ${:.4} at list prices.\n",
+        total.requests, total.input, total.cache_write, total.cache_read, total.output, total.cost_usd
+    ));
     std::fs::write(dir.join(format!("{suite}.jsonl")), jsonl).expect("write jsonl");
     std::fs::write(dir.join(format!("{suite}.md")), &md).expect("write summary");
+    std::fs::write(
+        dir.join(format!("{suite}.usage.json")),
+        serde_json::to_string_pretty(
+            &json!({"suite": suite, "cases": records.len(), "usage": total.json()}),
+        )
+        .unwrap(),
+    )
+    .expect("write usage");
+    write_index(dir, suite, index);
+    record_spend(dir, suite, records.len(), &total);
     println!("\n{md}\n[live_eval] full output: {}", dir.display());
     failures
+}
+
+/// `cases-index.json` in the run folder: one row per case of every suite
+/// run into it (a suite re-run replaces its own rows).
+fn write_index(dir: &Path, suite: &str, rows: Vec<Value>) {
+    let path = dir.join("cases-index.json");
+    let mut all: Vec<Value> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    all.retain(|row| row["suite"] != suite);
+    all.extend(rows);
+    std::fs::write(&path, serde_json::to_string_pretty(&all).unwrap()).expect("write index");
+}
+
+/// LEVIS_EVAL_SPEND_FILE: a running `{"spent_usd", "runs": [...]}` ledger
+/// that each finished suite adds its cost to.
+fn record_spend(dir: &Path, suite: &str, cases: usize, total: &Usage) {
+    let Ok(path) = std::env::var("LEVIS_EVAL_SPEND_FILE") else {
+        return;
+    };
+    let mut ledger: Value = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(|| json!({"spent_usd": 0.0, "runs": []}));
+    let spent = ledger["spent_usd"].as_f64().unwrap_or(0.0) + total.cost_usd;
+    ledger["spent_usd"] = json!((spent * 1e6).round() / 1e6);
+    let finished = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let mut run = total.json();
+    run["suite"] = json!(suite);
+    run["cases"] = json!(cases);
+    run["out_dir"] = json!(dir.display().to_string());
+    run["finished_unix"] = json!(finished);
+    match ledger["runs"].as_array_mut() {
+        Some(runs) => runs.push(run),
+        None => ledger["runs"] = json!([run]),
+    }
+    if let Some(parent) = Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&path, serde_json::to_string_pretty(&ledger).unwrap()).expect("write spend");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_selection_follows_accepted_edits_like_the_editor() {
+        let before = "A one. B two. C three.";
+        let sel = (7, 13); // "B two."
+                           // The selection itself rewritten: the range grows over the new text.
+        let after = "A one. B is the second. C three.";
+        let (s, e) = map_selection(before, after, sel).unwrap();
+        assert_eq!(&after[s..e], "B is the second.");
+        // An edit before it shifts it; one after it leaves it alone.
+        let after = "A first one. B two. C three.";
+        let (s, e) = map_selection(before, after, sel).unwrap();
+        assert_eq!(&after[s..e], "B two.");
+        let after = "A one. B two. C three and four.";
+        assert_eq!(map_selection(before, after, sel), Some(sel));
+        // Deleted outright: nothing left to select.
+        assert_eq!(map_selection(before, "A one.  C three.", sel), None);
+    }
+
+    #[test]
+    fn heading_at_finds_the_section_above() {
+        let doc = "# T\n\n## One\n\ntext\n\n```\n# not a heading\n```\n\n## Two\n\nmore";
+        assert_eq!(
+            heading_at(doc, doc.find("text").unwrap()).as_deref(),
+            Some("One")
+        );
+        assert_eq!(
+            heading_at(doc, doc.find("more").unwrap()).as_deref(),
+            Some("Two")
+        );
+        assert_eq!(
+            heading_at(doc, doc.find("not a").unwrap()).as_deref(),
+            Some("One")
+        );
+        assert_eq!(heading_at(doc, 0).as_deref(), Some("T"));
+    }
+
+    #[test]
+    fn usage_is_priced_per_model() {
+        let u = StepUsage {
+            input_tokens: 1_000_000,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 1_000_000,
+            output_tokens: 100_000,
+        };
+        assert!((cost_usd("claude-sonnet-5-5", &u) - 3.2).abs() < 1e-9);
+        assert!((cost_usd("claude-haiku-5-5", &u) - 0.16).abs() < 1e-9);
+        let mut total = Usage::default();
+        total.add("claude-sonnet-5-5", &u);
+        total.add("claude-haiku-5-5", &u);
+        assert_eq!(total.requests, 2);
+        assert!((total.cost_usd - 3.36).abs() < 1e-9);
+    }
 }

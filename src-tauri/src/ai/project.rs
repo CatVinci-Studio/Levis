@@ -510,7 +510,34 @@ pub async fn pick_text_files(window: tauri::WebviewWindow) -> Vec<String> {
 const STYLE_SAMPLE_CHARS: usize = 20_000;
 const STYLE_TOTAL_CHARS: usize = 60_000;
 
-const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write a style profile in Markdown, in the same language as the samples, with exactly these sections:\n\n# Style profile\n\n## Voice and tone\n## Sentences and rhythm\n## Word choice\n## Punctuation and formatting\n## Structure\n## Never\n## Examples\n\nUnder each heading give 3-6 short, concrete, checkable bullet points drawn from the samples (\"opens paragraphs with a concrete scene, then the claim\", \"average sentence 12-18 characters, many one-clause sentences\", \"uses full-width Chinese punctuation, no em dashes\") - not generic praise or advice. 'Never' lists things this author clearly avoids. 'Examples' quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile.";
+/// The user turn of a "Learn my style" request: up to eight picked files,
+/// each cut to STYLE_SAMPLE_CHARS, until STYLE_TOTAL_CHARS - shared with the
+/// live eval, which feeds it the same files from a scratch folder.
+pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
+    let mut samples = String::new();
+    for file in files.iter().take(8) {
+        if samples.chars().count() >= STYLE_TOTAL_CHARS {
+            break;
+        }
+        let Ok(text) = std::fs::read_to_string(file) else {
+            continue;
+        };
+        let name = Path::new(file)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let excerpt: String = text.chars().take(STYLE_SAMPLE_CHARS).collect();
+        samples.push_str(&format!(
+            "<sample name=\"{name}\">\n{excerpt}\n</sample>\n\n"
+        ));
+    }
+    if samples.trim().is_empty() {
+        return Err("NO_SAMPLES".to_string());
+    }
+    Ok(samples)
+}
+
+pub(crate) const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write a style profile in Markdown, in the same language as the samples, with exactly these sections:\n\n# Style profile\n\n## Voice and tone\n## Sentences and rhythm\n## Word choice\n## Punctuation and formatting\n## Structure\n## Never\n## Examples\n\nUnder each heading give 3-6 short, concrete, checkable bullet points drawn from the samples (\"opens paragraphs with a concrete scene, then the claim\", \"average sentence 12-18 characters, many one-clause sentences\", \"uses full-width Chinese punctuation, no em dashes\") - not generic praise or advice. 'Never' lists things this author clearly avoids. 'Examples' quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile.";
 
 /// "Learn my style": analyses the picked samples and writes the project's
 /// `.levis/style.md` (keeping the previous one as style.previous.md), which
@@ -528,26 +555,7 @@ pub async fn learn_style(
     let (root, samples) = {
         tauri::async_runtime::spawn_blocking(move || -> Result<(PathBuf, String), String> {
             let root = project_root(doc_path.as_deref(), workspace_root.as_deref())?;
-            let mut samples = String::new();
-            for file in files.iter().take(8) {
-                if samples.chars().count() >= STYLE_TOTAL_CHARS {
-                    break;
-                }
-                let Ok(text) = std::fs::read_to_string(file) else {
-                    continue;
-                };
-                let name = Path::new(file)
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-                let excerpt: String = text.chars().take(STYLE_SAMPLE_CHARS).collect();
-                samples.push_str(&format!(
-                    "<sample name=\"{name}\">\n{excerpt}\n</sample>\n\n"
-                ));
-            }
-            if samples.trim().is_empty() {
-                return Err("NO_SAMPLES".to_string());
-            }
+            let samples = style_samples(&files)?;
             Ok((root, samples))
         })
         .await

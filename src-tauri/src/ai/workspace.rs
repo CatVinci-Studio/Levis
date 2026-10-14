@@ -195,10 +195,25 @@ pub fn load(
     doc_path: Option<&str>,
     root_override: Option<&str>,
 ) -> AgentWorkspace {
+    load_from(
+        global_agent_dir(app).ok().as_deref(),
+        doc_path,
+        root_override,
+    )
+}
+
+/// [`load`] with the global layer's folder given directly - the app config
+/// dir's `agent/` in the app, a scratch folder in the live eval, which
+/// builds real workspaces on disk to exercise exactly this path.
+pub(crate) fn load_from(
+    global_dir: Option<&Path>,
+    doc_path: Option<&str>,
+    root_override: Option<&str>,
+) -> AgentWorkspace {
     let mut ws = AgentWorkspace::default();
 
-    if let Ok(global_dir) = global_agent_dir(app) {
-        let (instructions, skills) = read_layer(&global_dir);
+    if let Some(global_dir) = global_dir {
+        let (instructions, skills) = read_layer(global_dir);
         ws.instructions.extend(instructions);
         ws.skills.extend(skills);
     }

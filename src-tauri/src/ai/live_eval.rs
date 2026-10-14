@@ -22,10 +22,14 @@
 //!
 //! Without a key, every test prints a notice and passes vacuously.
 
+mod agent_everyday;
 mod agent_matrix;
+mod agent_workspace;
 mod checks;
+mod completion_cases;
 mod completion_matrix;
 mod docs;
+mod grammar_cases;
 mod grammar_matrix;
 mod harness;
 
@@ -58,7 +62,8 @@ fn long_doc() -> String {
             doc.push_str("\n\n");
         }
     }
-    doc
+    // The editor's form: no trailing newline (see docs.rs).
+    doc.trim_end().to_string()
 }
 
 fn assert_clean(suite: &str, records: Vec<Record>) {
@@ -176,12 +181,35 @@ fn live_agent_caches_across_steps() {
         &[harness::UserTurn::new(
             "Tighten the first paragraph of the 'Coding' section: same facts, fewer words.",
         )],
-    )
-    .unwrap();
+    );
+    assert!(conv.error.is_none(), "{:?}", conv.error);
     let usage = &conv.last().usage;
     assert!(usage.len() > 1, "expected a read step before the edit");
     let reads: u64 = usage[1..].iter().map(|u| u.cache_read_input_tokens).sum();
     assert!(reads > 0, "no cache reads across {} steps", usage.len());
+}
+
+/// Free, no key needed: prints every case id per suite (after
+/// LEVIS_EVAL_FILTER) - what a run would send, for sizing it first.
+#[test]
+#[ignore = "prints the case list"]
+fn list_eval_cases() {
+    let agent: Vec<String> = agent_matrix::all_cases()
+        .into_iter()
+        .map(|c| c.id)
+        .collect();
+    let completion: Vec<String> = completion_matrix::all_cases()
+        .into_iter()
+        .map(|c| c.id)
+        .collect();
+    let grammar: Vec<&str> = grammar_matrix::all_cases().iter().map(|c| c.id).collect();
+    println!("agent ({}): {}", agent.len(), agent.join(" "));
+    println!(
+        "completion ({}): {}",
+        completion.len(),
+        completion.join(" ")
+    );
+    println!("grammar ({}): {}", grammar.len(), grammar.join(" "));
 }
 
 /// Free: lists models through the app's own paging and tidying, and checks

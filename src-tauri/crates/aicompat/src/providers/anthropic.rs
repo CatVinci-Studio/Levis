@@ -187,9 +187,23 @@ struct ContentBlock {
 }
 
 #[derive(Deserialize, Default)]
+struct ResponseUsage {
+    #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    cache_creation_input_tokens: u64,
+    #[serde(default)]
+    cache_read_input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+}
+
+#[derive(Deserialize, Default)]
 struct MessagesResponse {
     #[serde(default)]
     content: Vec<ContentBlock>,
+    #[serde(default)]
+    usage: ResponseUsage,
 }
 
 /// Calls the standard public Anthropic Messages API with either auth kind.
@@ -200,6 +214,19 @@ pub async fn call_completion(
     user_text: String,
     model: Option<&str>,
 ) -> Result<String, String> {
+    call_completion_with_usage(auth, instructions, user_text, model)
+        .await
+        .map(|(text, _)| text)
+}
+
+/// [`call_completion`] plus the request's token usage - what the live eval
+/// adds up to know what a run cost.
+pub async fn call_completion_with_usage(
+    auth: &AnthropicAuth,
+    instructions: String,
+    user_text: String,
+    model: Option<&str>,
+) -> Result<(String, StepUsage), String> {
     let model = model.unwrap_or(COMPLETION_MODEL);
     let body = MessagesRequest {
         model: model.to_string(),
@@ -232,11 +259,18 @@ pub async fn call_completion(
     }
 
     let parsed: MessagesResponse = res.json().await.map_err(|e| e.to_string())?;
-    Ok(parsed
+    let usage = StepUsage {
+        input_tokens: parsed.usage.input_tokens,
+        cache_creation_input_tokens: parsed.usage.cache_creation_input_tokens,
+        cache_read_input_tokens: parsed.usage.cache_read_input_tokens,
+        output_tokens: parsed.usage.output_tokens,
+    };
+    let text = parsed
         .content
         .into_iter()
         .find_map(|c| c.text)
-        .unwrap_or_default())
+        .unwrap_or_default();
+    Ok((text, usage))
 }
 
 #[derive(Deserialize)]

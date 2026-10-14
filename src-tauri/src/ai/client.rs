@@ -216,6 +216,21 @@ pub async fn ai_complete(
     // text mentions - the same writing context the agent gets, so a
     // continuation uses the right names and the author's voice.
     let workspace = cached_workspace(&app, doc_path, workspace_root);
+    add_writing_context(&mut instructions, &workspace, &before, &after);
+    let raw = call(&app, &provider, instructions, user_text, model.as_deref()).await?;
+    Ok(finish_completion(&before, &raw))
+}
+
+/// Appends the project's style profile and the library entries the text
+/// around the cursor mentions to the completion instructions - shared with
+/// the live eval, so a completion under a style profile is measured exactly
+/// as it is sent.
+pub(crate) fn add_writing_context(
+    instructions: &mut String,
+    workspace: &crate::ai::workspace::AgentWorkspace,
+    before: &str,
+    after: &str,
+) {
     let mentioned =
         crate::ai::project::relevant_library(&workspace.library, &format!("{before}\n{after}"));
     if let Some(section) =
@@ -224,8 +239,6 @@ pub async fn ai_complete(
         instructions.push_str("\n\n");
         instructions.push_str(&section);
     }
-    let raw = call(&app, &provider, instructions, user_text, model.as_deref()).await?;
-    Ok(finish_completion(&before, &raw))
 }
 
 /// Scripts written without spaces between words: ideographs, kana and

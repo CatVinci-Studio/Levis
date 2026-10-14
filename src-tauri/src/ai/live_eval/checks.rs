@@ -911,9 +911,374 @@ pub fn word_count(text: &str) -> usize {
     cjk + latin
 }
 
+// --------------------------------------------------------------- editor text
+
+/// Markdown as ProseMirror's `textBetween(from, to, sep)` reads it: inline
+/// syntax gone (link text kept, images dropped), a hard break as "\n", and
+/// `sep` between textblocks - what the editor puts in a `<cursor>` block
+/// (caretContext, sep "\n") or a completion's before-text (sep "\n\n").
+pub fn plain_text(markdown: &str, sep: &str) -> String {
+    let mut out = String::new();
+    let mut pending = false;
+    let mut in_image = 0usize;
+    for event in Parser::new_ext(markdown, markdown_options()) {
+        match event {
+            Event::Start(Tag::Image { .. }) => in_image += 1,
+            Event::End(TagEnd::Image) => in_image = in_image.saturating_sub(1),
+            Event::Start(
+                Tag::Paragraph
+                | Tag::Heading { .. }
+                | Tag::CodeBlock(_)
+                | Tag::Item
+                | Tag::TableCell
+                | Tag::BlockQuote(_)
+                | Tag::FootnoteDefinition(_),
+            ) => pending = true,
+            Event::End(TagEnd::CodeBlock) => {
+                if out.ends_with('\n') {
+                    out.pop();
+                }
+            }
+            Event::Text(t) | Event::Code(t) | Event::InlineMath(t) | Event::DisplayMath(t)
+                if in_image == 0 =>
+            {
+                if pending && !out.is_empty() {
+                    out.push_str(sep);
+                }
+                pending = false;
+                out.push_str(&t);
+            }
+            Event::HardBreak => out.push('\n'),
+            Event::SoftBreak => out.push(' '),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// doc-markdown.ts's caretContext: up to `span` characters of plain text
+/// either side of the cursor at byte `at`, blocks separated by "\n". The
+/// block the cursor is in counts as the first one visited, so a cursor at a
+/// block's end sees the next block after a separator, and one at a block's
+/// start sees a separator after the previous block.
+pub fn cursor_context(doc: &str, at: usize, span: usize) -> (String, String) {
+    let (before_md, after_md) = doc.split_at(at);
+    let mut before = plain_text(before_md, "\n");
+    if before_md.ends_with('\n') && !before.is_empty() {
+        before.push('\n');
+    }
+    // Markdown drops a paragraph's edge spaces; at the cursor they are
+    // real text.
+    let trailing = &before_md[before_md.trim_end_matches([' ', '\t']).len()..];
+    before.push_str(trailing);
+    let mut after = plain_text(after_md, "\n");
+    if after_md.starts_with('\n') && !after.is_empty() {
+        after.insert(0, '\n');
+    }
+    let leading = &after_md[..after_md.len() - after_md.trim_start_matches([' ', '\t']).len()];
+    after.insert_str(0, leading);
+    let n = before.chars().count();
+    (
+        before.chars().skip(n.saturating_sub(span)).collect(),
+        after.chars().take(span).collect(),
+    )
+}
+
+/// One inline formatting range in a paragraph's text (char offsets).
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineMark {
+    pub start: usize,
+    pub end: usize,
+    pub kind: &'static str,
+}
+
+/// A paragraph's markdown as the grammar check sees it - the block's
+/// textContent - plus where each piece of inline formatting sits in that
+/// text and, for every text char, its byte offset in the markdown (one
+/// extra entry for the end), so fixes found in the text can be written back
+/// into the markdown.
+pub struct InlineText {
+    pub text: String,
+    pub marks: Vec<InlineMark>,
+    pub md_offsets: Vec<usize>,
+}
+
+pub fn inline_text(markdown: &str) -> InlineText {
+    let mut text = String::new();
+    let mut marks = Vec::new();
+    let mut offsets = Vec::new();
+    let mut open: Vec<(&'static str, usize)> = Vec::new();
+    let chars = |s: &str| s.chars().count();
+    for (event, range) in Parser::new_ext(markdown, markdown_options()).into_offset_iter() {
+        let is_code = matches!(event, Event::Code(_));
+        match event {
+            Event::Start(tag) => {
+                let kind = match tag {
+                    Tag::Strong => "strong",
+                    Tag::Emphasis => "emphasis",
+                    Tag::Strikethrough => "strike",
+                    Tag::Link { .. } => "link",
+                    _ => continue,
+                };
+                open.push((kind, chars(&text)));
+            }
+            Event::End(
+                TagEnd::Strong | TagEnd::Emphasis | TagEnd::Strikethrough | TagEnd::Link,
+            ) => {
+                if let Some((kind, start)) = open.pop() {
+                    marks.push(InlineMark {
+                        start,
+                        end: chars(&text),
+                        kind,
+                    });
+                }
+            }
+            Event::Text(t) | Event::Code(t) => {
+                let source = &markdown[range.clone()];
+                let base = if is_code {
+                    range.start + source.find(&*t).unwrap_or(0)
+                } else if source == &*t {
+                    range.start
+                } else {
+                    // An escape or entity: the chars don't line up one to
+                    // one; pin them all to the start of the source.
+                    for _ in t.chars() {
+                        offsets.push(range.start);
+                    }
+                    text.push_str(&t);
+                    continue;
+                };
+                let start = chars(&text);
+                for (i, _) in t.char_indices() {
+                    offsets.push(base + i);
+                }
+                text.push_str(&t);
+                if is_code {
+                    marks.push(InlineMark {
+                        start,
+                        end: chars(&text),
+                        kind: "code",
+                    });
+                }
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                offsets.push(range.start);
+                text.push('\n');
+            }
+            _ => {}
+        }
+    }
+    offsets.push(markdown.trim_end().len());
+    marks.sort_by_key(|m| (m.start, m.end));
+    InlineText {
+        text,
+        marks,
+        md_offsets: offsets,
+    }
+}
+
+impl InlineText {
+    /// Byte offset in the markdown just past text char `i` (exclusive end).
+    fn md_end(&self, markdown: &str, end: usize) -> usize {
+        if end == 0 {
+            return self.md_offsets.first().copied().unwrap_or(0);
+        }
+        let last = self.md_offsets[end - 1];
+        last + markdown[last..].chars().next().map_or(0, char::len_utf8)
+    }
+
+    /// The markdown with text-space edits (char start, char end,
+    /// replacement) written back into it, back to front.
+    pub fn apply_to_markdown(
+        &self,
+        markdown: &str,
+        edits: &[(usize, usize, String)],
+    ) -> Result<String, String> {
+        let mut sorted: Vec<&(usize, usize, String)> = edits.iter().collect();
+        sorted.sort_by_key(|e| e.0);
+        let mut out = markdown.to_string();
+        for (s, e, replacement) in sorted.into_iter().rev() {
+            if *e > self.md_offsets.len() - 1 || s > e {
+                return Err(format!("edit {s}..{e} outside the text"));
+            }
+            let ms = self.md_offsets[*s];
+            let me = if e == s {
+                ms
+            } else {
+                self.md_end(markdown, *e)
+            };
+            out.replace_range(ms..me, replacement);
+        }
+        Ok(out)
+    }
+
+    /// Edits that would split or straddle a formatting range (part inside,
+    /// part outside), or touch inline code at all - accepting one damages
+    /// the author's formatting.
+    pub fn damaging(&self, edits: &[(usize, usize)]) -> Vec<String> {
+        let mut out = Vec::new();
+        for &(s, e) in edits {
+            for m in &self.marks {
+                let overlaps = s < m.end && e > m.start;
+                let inside = s >= m.start && e <= m.end;
+                if overlaps && (m.kind == "code" || !inside) {
+                    let span: String = self.text.chars().skip(s).take(e - s).collect();
+                    out.push(format!(
+                        "{span:?} crosses {} {}..{}",
+                        m.kind, m.start, m.end
+                    ));
+                }
+            }
+        }
+        out
+    }
+}
+
+/// The whole lines from the one containing `start` through the first line
+/// after it containing `end` - a table or list region, whatever padding the
+/// editor gave its rows.
+pub fn lines_between(doc: &str, start: &str, end: &str) -> String {
+    let a = doc.find(start).expect("region start");
+    let a = doc[..a].rfind('\n').map_or(0, |i| i + 1);
+    let b = a + doc[a..].find(end).expect("region end");
+    let b = doc[b..].find('\n').map_or(doc.len(), |i| b + i);
+    doc[a..b].to_string()
+}
+
+/// The trimmed cells of the table row whose first cell is `first`.
+pub fn table_row(doc: &str, first: &str) -> Option<Vec<String>> {
+    doc.lines().find_map(|line| {
+        let t = line.trim();
+        let cells: Vec<String> = t
+            .strip_prefix('|')?
+            .strip_suffix('|')?
+            .split('|')
+            .map(|c| c.trim().to_string())
+            .collect();
+        (cells.first().map(String::as_str) == Some(first)).then_some(cells)
+    })
+}
+
+pub fn row_cells_are(doc: &str, first: &str, want: &[&str]) -> Result<(), String> {
+    match table_row(doc, first) {
+        Some(cells) if cells == want => Ok(()),
+        Some(cells) => Err(format!("row reads {cells:?}")),
+        None => Err(format!("no row starting with {first:?}")),
+    }
+}
+
+// ----------------------------------------------------------------- sentences
+
+/// Sentences of prose (Markdown markers and code removed): split after
+/// 。！？!? and after a '.' that ends a word, closing quotes kept with
+/// their sentence.
+pub fn sentences(markdown: &str) -> Vec<String> {
+    let text = plain_text(markdown, "\n");
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        current.push(c);
+        let ends = match c {
+            '。' | '！' | '？' | '!' | '?' | '\n' => true,
+            '.' => chars.get(i + 1).is_none_or(|n| n.is_whitespace()),
+            _ => false,
+        };
+        if ends {
+            while let Some(&q) = chars.get(i + 1) {
+                if matches!(q, '”' | '’' | '"' | '\'' | '」' | '』' | ')' | '）') {
+                    current.push(q);
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            if current.trim().chars().any(char::is_alphanumeric) {
+                out.push(current.trim().to_string());
+            }
+            current.clear();
+        }
+        i += 1;
+    }
+    if current.trim().chars().any(char::is_alphanumeric) {
+        out.push(current.trim().to_string());
+    }
+    out
+}
+
+/// Each sentence's length: CJK characters for Chinese/Japanese text,
+/// words otherwise.
+pub fn sentence_lengths(markdown: &str) -> Vec<usize> {
+    sentences(markdown).iter().map(|s| word_count(s)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_context_reads_like_the_editor() {
+        let doc = "# Title\n\nFirst **bold** paragraph.\n\n## Next\n\nSecond one.\n";
+        let at = doc.find("\n\n## Next").unwrap();
+        let (b, a) = cursor_context(doc, at, 160);
+        assert_eq!(b, "Title\nFirst bold paragraph.");
+        assert_eq!(a, "\nNext\nSecond one.");
+        let at = doc.find("Second").unwrap();
+        let (b, a) = cursor_context(doc, at, 160);
+        assert_eq!(b, "Title\nFirst bold paragraph.\nNext\n");
+        assert_eq!(a, "Second one.");
+        let (b, _) = cursor_context(doc, doc.find("paragraph").unwrap(), 6);
+        assert_eq!(b, " bold ");
+        assert_eq!(
+            plain_text(
+                "* one\n* two [link](u) ![img](p.png)\n\n| a | b |\n| - | - |\n| 1 | 2 |\n",
+                "\n\n"
+            ),
+            "one\n\ntwo link \n\na\n\nb\n\n1\n\n2"
+        );
+    }
+
+    #[test]
+    fn inline_text_maps_fixes_back_into_the_markdown() {
+        let md = "Run `npm instal` and read the **offical** [guide](https://x.y) first.";
+        let it = inline_text(md);
+        assert_eq!(it.text, "Run npm instal and read the offical guide first.");
+        let kinds: Vec<&str> = it.marks.iter().map(|m| m.kind).collect();
+        assert_eq!(kinds, ["code", "strong", "link"]);
+        let at = it.text.find("offical").unwrap();
+        let fixed = it
+            .apply_to_markdown(md, &[(at, at + 7, "official".into())])
+            .unwrap();
+        assert_eq!(fixed, md.replace("offical", "official"));
+        // Inside code, or half in and half out of bold, is damage.
+        let code = it.text.find("instal").unwrap();
+        assert_eq!(it.damaging(&[(code, code + 6)]).len(), 1);
+        assert_eq!(it.damaging(&[(at - 4, at + 3)]).len(), 1);
+        assert!(it.damaging(&[(at, at + 7)]).is_empty());
+        let zh = inline_text("我们**非常**高兴的宣布");
+        assert_eq!(zh.text, "我们非常高兴的宣布");
+        let de = zh.text.chars().position(|c| c == '的').unwrap();
+        assert_eq!(
+            zh.apply_to_markdown("我们**非常**高兴的宣布", &[(de, de + 1, "地".into())])
+                .unwrap(),
+            "我们**非常**高兴地宣布"
+        );
+    }
+
+    #[test]
+    fn sentences_split_in_both_scripts() {
+        assert_eq!(
+            sentences("He left. \"Why?\" she asked. It was 3.5 km away!"),
+            ["He left.", "\"Why?\"", "she asked.", "It was 3.5 km away!"]
+        );
+        assert_eq!(
+            sentences("她说：“走吧。”我们就走了。天黑了！"),
+            ["她说：“走吧。”", "我们就走了。", "天黑了！"]
+        );
+        assert_eq!(sentence_lengths("我们就走了。天黑了！"), [5, 3]);
+    }
 
     #[test]
     fn detects_every_matrix_language() {
