@@ -1,4 +1,5 @@
 import { normalizeMathDelimiters } from "../../utils/markdown-math";
+import { skillBlock } from "./user-message";
 import {
   EDIT_ACTIONS,
   type AgentSkill,
@@ -56,7 +57,8 @@ export function parseProposal(argumentsJson: string): EditProposal | null {
  * use_skill for it again, a 12-16 s round trip in the live eval), with
  * whatever followed the name appended as extra input. A slash token that
  * doesn't name a skill is left alone - it might just be text that starts
- * with a slash. Mirrored by live_eval's resolve_skill_message.
+ * with a slash. The transcript shows it as the /name the user typed
+ * (user-message.ts's parseUserMessage).
  */
 export function resolveSkillMessage(
   message: string,
@@ -66,6 +68,6 @@ export function resolveSkillMessage(
   if (!m) return message;
   const skill = skills.find((s) => s.name === m[1]);
   if (!skill) return message;
-  const body = `<skill name="${skill.name}">\n${skill.prompt}\n</skill>`;
+  const body = skillBlock(skill.name, skill.prompt);
   return m[2] ? `${body}\n\n${m[2]}` : body;
 }
