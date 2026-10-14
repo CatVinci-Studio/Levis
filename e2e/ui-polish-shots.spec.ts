@@ -303,3 +303,28 @@ test.describe("phone surfaces", () => {
     });
   }
 });
+
+// Quick Ask, in the document: the card it shares with the panel's styles.
+for (const language of ["en", "zh"] as Lang[]) {
+  for (const scheme of ["light", "dark"] as const) {
+    test(`${language} ${scheme}: Quick Ask`, async ({ page }) => {
+      await openApp(page, { colorScheme: scheme, settings: { language } });
+      await pasteMarkdown(page, DOC[language].doc);
+      await converse(page, language);
+      await page.locator(".milkdown p").nth(1).click();
+      await page.keyboard.press("Control+Shift+K");
+      const input = page.locator(".inline-chat .inline-chat-input");
+      await expect(input).toBeFocused();
+      await page.waitForTimeout(200);
+      await page.screenshot({
+        path: `${DIR}/quick-${language}-${scheme}-1-open.png`,
+      });
+      await input.fill(DOC[language].ask);
+      await input.press("Enter");
+      await page.waitForTimeout(1500);
+      await page.screenshot({
+        path: `${DIR}/quick-${language}-${scheme}-2-reply.png`,
+      });
+    });
+  }
+}

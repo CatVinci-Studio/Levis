@@ -129,11 +129,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   gap: 12px;
   min-height: 0;
   margin: 0;
   padding: 24px 28px 40px;
+  /* Short of room (the / list open on a phone) it is cut, never squashed. */
+  overflow: hidden;
   text-align: center;
   animation: motion-fade-in var(--dur-slow) var(--ease-out);
 }
@@ -147,6 +149,7 @@
 
 .agent-panel-empty-mark {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 44px;
