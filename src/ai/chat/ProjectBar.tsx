@@ -7,6 +7,7 @@ import {
 import { useSettings } from "../../settings/SettingsContext";
 import { useActiveProvider } from "../provider-catalog";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { errorText } from "../../utils/error-text";
 import { OPEN_FILE_IN_TAB_EVENT } from "../../utils/events";
 import { basename } from "../../utils/path";
@@ -264,23 +265,34 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
             )}
           </span>
         )}
-        {menuOpen && !phone && (
-          <div className="project-bar-menu floating-surface" role="menu">
-            {menuItems.map((item, i) =>
-              item === "separator" ? (
-                <div key={i} className="project-bar-menu-sep" />
-              ) : (
-                <button key={i} role="menuitem" onClick={item.onSelect}>
-                  {item.label}
-                </button>
-              ),
-            )}
-          </div>
-        )}
+        <Presence show={menuOpen && !phone} exitMs={120}>
+          {menuOpen && !phone && (
+            <PresenceDiv
+              className="project-bar-menu floating-surface"
+              role="menu"
+            >
+              {menuItems.map((item, i) =>
+                item === "separator" ? (
+                  <div key={i} className="project-bar-menu-sep" />
+                ) : (
+                  <button key={i} role="menuitem" onClick={item.onSelect}>
+                    {item.label}
+                  </button>
+                ),
+              )}
+            </PresenceDiv>
+          )}
+        </Presence>
       </div>
-      {menuOpen && phone && (
-        <ActionSheet title={folderName} items={menuItems} onClose={closeMenu} />
-      )}
+      <Presence show={menuOpen && phone} exitMs={250}>
+        {menuOpen && phone && (
+          <ActionSheet
+            title={folderName}
+            items={menuItems}
+            onClose={closeMenu}
+          />
+        )}
+      </Presence>
       {naming && (
         <form
           className="project-bar-naming"

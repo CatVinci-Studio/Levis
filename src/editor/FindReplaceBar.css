@@ -9,6 +9,17 @@
   /* Card look (background/border/radius/shadow) comes from .floating-surface. */
   padding: 6px 8px;
   font-size: var(--text-md);
+  animation: motion-drop-in var(--dur-base) var(--ease-out);
+}
+
+.find-replace-bar[data-state="closing"] {
+  animation: motion-lift-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* The replace row fades in under the find row; the bar's own growth is
+   not animated. */
+.find-replace-row + .find-replace-row {
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
 }
 
 .find-replace-row {
@@ -25,7 +36,7 @@
   padding: 0 !important;
   color: var(--editor-muted);
   background: transparent;
-  transition: transform 0.1s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
   /* The chevron is now an SVG, so the button has to centre it rather than
      rely on a glyph's own line box. */
   display: flex;
@@ -72,6 +83,8 @@
   color: var(--editor-muted);
   font-size: var(--text-xs);
   white-space: nowrap;
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
 }
 
 .find-replace-count-error {
@@ -119,7 +132,7 @@
   padding: 0 !important;
   border: none !important;
   border-radius: var(--radius-control) !important;
-  font-size: 10px !important;
+  font-size: var(--text-xs) !important;
   line-height: 1;
   color: var(--editor-muted);
 }

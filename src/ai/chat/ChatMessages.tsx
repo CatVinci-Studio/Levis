@@ -13,6 +13,7 @@ import { parseProposal } from "./proposal";
 import { classifyAiError, type AiErrorKind } from "../error-messages";
 import { diffLines } from "./line-diff";
 import { composeSentences, diffSentences } from "./sentence-diff";
+import { FlipOnChange } from "../../ui/flip";
 
 /** An add_comment call's arguments (src-tauri ai/tools.rs). */
 function parseComment(
@@ -185,15 +186,34 @@ export function ChatMessages({
     return map;
   }, [shown]);
 
+  // A decided card shrinks to its status line; whatever is under it moves
+  // up to meet it rather than jumping (FlipOnChange).
+  const decisions = shown
+    .map((turn) =>
+      turn.kind === "ToolCall" && turn.name === "propose_edit"
+        ? proposalStatus(turn.call_id)
+        : "",
+    )
+    .join(" ");
+
   return (
     <>
+      <FlipOnChange
+        watch={decisions}
+        targets={() =>
+          document.querySelectorAll(
+            ":is(.inline-chat-messages, .quick-ask-transcript) > *",
+          )
+        }
+      />
       {shown.map((turn, i) => {
         const reveal = i >= revealFrom.current;
         // A CSS custom property, not a standard style key - CSSProperties
-        // doesn't type these, hence the cast.
+        // doesn't type these, hence the cast. The stagger stops at the
+        // third turn: a long reply should not take a second to show.
         const style: CSSProperties | undefined = reveal
           ? ({
-              "--reveal-delay": `${Math.min(i - revealFrom.current, 6) * 90}ms`,
+              "--reveal-delay": `${Math.min(i - revealFrom.current, 3) * 40}ms`,
             } as CSSProperties)
           : undefined;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
@@ -428,6 +448,7 @@ function ProposalCard({
   return (
     <div
       className={`agent-proposal${reveal ? " turn-reveal" : ""}`}
+      data-status={status}
       style={style}
     >
       <div className="agent-proposal-head">

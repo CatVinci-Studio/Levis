@@ -14,6 +14,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { isIOSApp } from "../platform/capabilities";
+import { useMergedRef, usePresence } from "./usePresence";
 import "./Select.css";
 
 /**
@@ -146,6 +147,10 @@ function DrawnSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
+  // The list stays a moment after it closes, shrinking back into the
+  // trigger; the choice has already gone through by then.
+  const presence = usePresence(open, { exitMs: 120 });
+  const presenceRef = useMergedRef(listRef, presence.ref);
 
   function openMenu() {
     if (disabled || options.length === 0) return;
@@ -180,6 +185,10 @@ function DrawnSelect({
       ...(up
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }),
+      // It grows out of the edge that touches the trigger.
+      ...({
+        "--transform-origin": up ? "bottom left" : "top left",
+      } as CSSProperties),
     });
   }, [open]);
 
@@ -187,7 +196,10 @@ function DrawnSelect({
   // the page moves under it (the list is placed once, from the trigger).
   useEffect(() => {
     if (!open) return;
-    listRef.current?.focus();
+    // Without preventScroll the browser may scroll the page's own scroll
+    // areas to bring the list into view before it is placed (a Settings
+    // page still settling in moved, and the scroll closed the list).
+    listRef.current?.focus({ preventScroll: true });
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
@@ -213,11 +225,19 @@ function DrawnSelect({
     };
   }, [open]);
 
+  // The highlighted option stays in view by scrolling the list alone:
+  // scrollIntoView would scroll every area around it too.
   useEffect(() => {
-    if (!open) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
-      ?.scrollIntoView?.({ block: "nearest" });
+    const list = listRef.current;
+    if (!open || !list) return;
+    const item = list.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    if (!item) return;
+    if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop;
+    else if (
+      item.offsetTop + item.offsetHeight >
+      list.scrollTop + list.clientHeight
+    )
+      list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight;
   }, [open, active]);
 
   function step(from: number, delta: number) {
@@ -286,11 +306,13 @@ function DrawnSelect({
       >
         <span className="ui-select-value">{current?.label ?? ""}</span>
       </button>
-      {open &&
+      {presence.mounted &&
         createPortal(
           <ul
-            ref={listRef}
+            ref={presenceRef}
             id={listId}
+            data-state={presence.state}
+            inert={presence.state === "closing" || undefined}
             className="ui-select-menu floating-surface"
             role="listbox"
             aria-label={ariaLabel}

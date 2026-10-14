@@ -1,5 +1,6 @@
 import { useModalDialog } from "../ui/useModalDialog";
 import { Select } from "../ui/Select";
+import { usePresenceProps } from "../ui/usePresence";
 // The app icon itself, so the welcome shows the real mark.
 import appIcon from "../../src-tauri/icons/128x128@2x.png";
 import { LANGS, LANG_NAMES, resolveStrings, type Lang } from "../i18n/strings";
@@ -17,8 +18,10 @@ export function LanguageWelcome({
   // In the language being picked, so the choice reads back at once.
   const t = resolveStrings(language);
   const modal = useModalDialog(() => {}, true, ".language-welcome-continue");
+  // Continue fades it out over the tutorial arriving (App.tsx's Presence).
+  const presence = usePresenceProps<HTMLDivElement>();
   return (
-    <div className="language-welcome-backdrop">
+    <div {...presence} className="language-welcome-backdrop">
       <div
         {...modal}
         className="language-welcome"

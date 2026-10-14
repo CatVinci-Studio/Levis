@@ -14,6 +14,7 @@ import { basename, isInside, parentDir } from "../utils/path";
 import { isIOSApp } from "../platform/capabilities";
 import { iosFiles } from "../platform/ios-files";
 import { ContextMenu } from "../editor/ContextMenu";
+import { Presence } from "../ui/usePresence";
 import { useLongPress } from "../utils/useLongPress";
 import "./FileTree.css";
 
@@ -187,21 +188,23 @@ function FileNode({
         <Icon className="tree-icon" />
         <span className="tree-label">{entry.name}</span>
       </button>
-      {press.at && (
-        <ContextMenu
-          x={press.at.x}
-          y={press.at.y}
-          title={entry.name}
-          onClose={press.close}
-          items={[
-            { label: t.treeOpen, onSelect: () => onSelect(entry.path) },
-            {
-              label: t.menuShare,
-              onSelect: () => void iosFiles.share(entry.path).catch(() => {}),
-            },
-          ]}
-        />
-      )}
+      <Presence show={!!press.at} exitMs={250}>
+        {press.at && (
+          <ContextMenu
+            x={press.at.x}
+            y={press.at.y}
+            title={entry.name}
+            onClose={press.close}
+            items={[
+              { label: t.treeOpen, onSelect: () => onSelect(entry.path) },
+              {
+                label: t.menuShare,
+                onSelect: () => void iosFiles.share(entry.path).catch(() => {}),
+              },
+            ]}
+          />
+        )}
+      </Presence>
     </>
   );
 }

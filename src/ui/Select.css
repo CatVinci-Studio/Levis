@@ -23,13 +23,19 @@
 /* The open list: a menu, like the app's other menus. */
 .ui-select-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-select);
   margin: 0;
   padding: 4px;
   list-style: none;
   overflow-y: auto;
   font-size: var(--text-md);
   outline: none;
+  transform-origin: var(--transform-origin, top left);
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.ui-select-menu[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 /* The list takes focus so the keys work in it; its highlighted option

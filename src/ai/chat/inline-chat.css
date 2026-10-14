@@ -29,6 +29,30 @@
   line-height: 1.5;
 }
 
+/* A selection that shows in both palettes without shouting: the dark
+   one's default was a dim blue-grey hardly apart from the panel. */
+.inline-chat ::selection {
+  background: color-mix(
+    in srgb,
+    var(--editor-accent) 35%,
+    var(--editor-bg, var(--bg))
+  );
+}
+
+/* It hangs below its paragraph and grows down out of it. */
+.inline-chat:not(.quick-ask-dock) > .inline-chat-shell {
+  transform-origin: top center;
+  animation: quick-ask-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes quick-ask-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--motion-distance-sm) * -1))
+      scale(calc(var(--scale-enter) + (1 - var(--scale-enter)) * 0.25));
+  }
+}
+
 /* Just the pop-out and close buttons, pinned to the panel's top-right
    corner. Deliberately slim - this is not a title bar; the panel has no
    title to show and nothing to grab - and floated rather than given a row
@@ -219,6 +243,9 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* Fades in once, when "/" opens it; narrowing it as the name is typed
+     changes nothing about it but its rows. */
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
 }
 
 .inline-chat-skill-item {
@@ -360,20 +387,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 2px 0;
-  animation: quick-ask-expand-in 0.18s ease-out;
-}
-
-@keyframes quick-ask-expand-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .quick-ask-transcript {
-    animation: none;
-  }
+  animation: motion-disclose-in var(--dur-base) var(--ease-out);
 }
 
 .quick-ask-more {
@@ -405,6 +419,17 @@
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+
+/* Decided: the card keeps its diff and says what became of it - the edge
+   takes the outcome's colour as the status line fades in. */
+.agent-proposal[data-status="accepted"] {
+  border-color: color-mix(
+    in srgb,
+    var(--success-color) 40%,
+    var(--editor-border)
+  );
 }
 
 /* Kind of edit on the left, its "+X −Y" size (the diff toggle) on the
@@ -430,6 +455,7 @@
   flex-direction: column;
   border-radius: var(--radius-control);
   overflow: hidden;
+  animation: motion-disclose-in var(--dur-fast) var(--ease-out);
   font-family: var(--editor-mono-font, var(--font-mono));
   font-size: var(--text-sm);
   line-height: 1.5;
@@ -460,12 +486,12 @@
 }
 
 .agent-diff-remove {
-  background: rgba(220, 38, 38, 0.12);
+  background: var(--diff-delete-bg);
   color: var(--editor-text);
 }
 
 .agent-diff-add {
-  background: rgba(22, 163, 74, 0.14);
+  background: var(--diff-insert-bg);
   color: var(--editor-text);
 }
 
@@ -489,6 +515,8 @@
 .agent-diff-chip {
   padding: 0 5px;
   border-radius: var(--radius-small);
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
 }
 
 .agent-diff-caret {
@@ -498,7 +526,7 @@
   border-left: 4px solid currentColor;
   border-top: 3.5px solid transparent;
   border-bottom: 3.5px solid transparent;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .agent-diff-summary[aria-expanded="true"] .agent-diff-caret {
@@ -519,6 +547,7 @@
 .agent-proposal-status {
   font-size: var(--text-sm);
   color: var(--editor-muted);
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
 }
 
 /* Not decidable yet - arguments still streaming or the typewriter still
@@ -570,8 +599,11 @@
 /* Pinned above the composer whenever anything is undecided. The cards
    themselves scroll away in a long conversation, and edits sitting
    unresolved in the document with nothing on screen saying so is how they
-   get forgotten. */
+   get forgotten. It rises out from behind the composer with the first
+   edit and goes back behind it after the last; its count changes in
+   place. */
 .inline-chat-pending-bar {
+  animation: pending-bar-in var(--dur-base) var(--ease-out);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -579,13 +611,46 @@
   padding: 5px 8px;
   font-size: var(--text-sm);
   color: var(--editor-text);
-  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+  /* Over the panel's own colour rather than see-through: on the phone the
+     sheet's composer area passes over the message list while it moves. */
+  background: color-mix(
+    in srgb,
+    var(--editor-accent) 10%,
+    var(--editor-bg, var(--bg))
+  );
+}
+
+.inline-chat-pending-bar[data-state="closing"] {
+  animation: pending-bar-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* What follows the bar paints over it while it moves. */
+.inline-chat-pending-bar
+  ~ :is(.inline-chat-bar, .inline-chat-skill-menu, .agent-plan-actions) {
+  position: relative;
+  background: var(--editor-bg, var(--bg));
+}
+
+@keyframes pending-bar-in {
+  from {
+    opacity: var(--motion-travel-fade);
+    transform: translateY(calc(100% * var(--motion-travel)));
+  }
+}
+
+@keyframes pending-bar-out {
+  to {
+    opacity: var(--motion-travel-fade);
+    transform: translateY(calc(100% * var(--motion-travel)));
+  }
 }
 
 /* The buttons drop to a second line before the label gets squeezed into
    a word per line (longer languages, a narrow panel). */
 .inline-chat-pending-count {
   flex: 1 1 10em;
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
 }
 
 .inline-chat-pending-actions {
@@ -669,6 +734,12 @@
   right: 0;
   z-index: 10;
   white-space: nowrap;
+  transform-origin: top right;
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.quick-ask-split-menu[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .quick-ask-split-menu-item {
@@ -721,27 +792,32 @@
 
 /* A reply lands all at once, not token by token - this staggers each new
    turn's entrance instead of the whole batch appearing as one flat block.
-   --reveal-delay is set per-turn inline (see ChatMessages.tsx). */
+   --reveal-delay is set per-turn inline (see ChatMessages.tsx). Streamed
+   text itself never animates: each token appearing on its own would make
+   the reply unreadable while it arrives. */
 .turn-reveal {
-  animation: turn-reveal-in 220ms ease-out both;
+  animation: turn-reveal-in var(--dur-base) var(--ease-out) both;
   animation-delay: var(--reveal-delay, 0ms);
 }
 
 @keyframes turn-reveal-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(var(--motion-distance-sm));
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .agent-thinking-dots span,
-  .turn-reveal {
-    animation: none;
+/* A proposed edit arrives as a card: it also grows out of its top edge. */
+.agent-proposal.turn-reveal {
+  transform-origin: top center;
+  animation-name: proposal-reveal-in;
+}
+
+@keyframes proposal-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-sm))
+      scale(var(--scale-enter-dialog));
   }
 }
 
@@ -873,6 +949,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  animation: motion-disclose-in var(--dur-fast) var(--ease-out);
 }
 
 .agent-proposal-picker-list label {

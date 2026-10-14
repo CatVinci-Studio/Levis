@@ -62,15 +62,18 @@
   height: 44px;
   padding: 0 4px;
   border: none;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   background: none;
   color: var(--editor-text);
   font: inherit;
-  font-size: 17px;
+  font-size: var(--ios-body);
+  /* iOS's highlight: on at the touch, fading out after it. */
+  transition: background-color var(--dur-base) var(--ease-standard);
 }
 
 .keyboard-toolbar-button:active {
   background: color-mix(in srgb, var(--editor-text) 12%, transparent);
+  transition-duration: 0s;
 }
 
 /* A block toggle that is on where the caret is. */
@@ -95,7 +98,7 @@
 
 /* An image's widths, written out. */
 .kbt-text {
-  font-size: 15px;
+  font-size: var(--ios-subhead);
   white-space: nowrap;
 }
 
@@ -106,7 +109,7 @@
 
 .keyboard-toolbar-ai {
   color: var(--chrome-accent);
-  font-size: 15px;
+  font-size: var(--ios-subhead);
   font-weight: 600;
   white-space: nowrap;
 }

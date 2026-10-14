@@ -33,10 +33,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border-color);
-  font-size: 15px;
-  font-weight: 650;
+  font-size: var(--text-xl);
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -91,10 +91,13 @@
 .settings-nav-item-active {
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
-  font-weight: 550;
+  font-weight: 500;
 }
 
+/* A new page fades in where the last one was; the nav's highlight moves
+   at once. */
 .settings-content {
+  animation: motion-settle-in var(--dur-fast) var(--ease-out);
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   flex: 1;
@@ -145,7 +148,7 @@
   border-left: 4px solid currentColor;
   border-top: 3.5px solid transparent;
   border-bottom: 3.5px solid transparent;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .settings-advanced[open] > summary::before {
@@ -275,6 +278,9 @@ button.settings-danger-button {
 /* Toggles render as switches, not native checkboxes - the single clearest
    "this is a settings panel" affordance, and it reads at a glance. */
 .settings-row input[type="checkbox"] {
+  /* The thumb, and how far it travels (the phone's are UIKit's sizes). */
+  --switch-thumb: 17px;
+  --switch-travel: 15px;
   appearance: none;
   -webkit-appearance: none;
   flex-shrink: 0;
@@ -286,28 +292,46 @@ button.settings-danger-button {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--editor-muted) 38%, var(--bg));
   cursor: pointer;
-  transition: background 160ms ease;
+  transition: background-color var(--dur-base) var(--ease-standard);
 }
 
+/* The thumb lands with UISwitch's slight overshoot. Reduced motion: it
+   jumps (a travel of 0), and only the track's colour fades. */
 .settings-row input[type="checkbox"]::after {
   content: "";
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 17px;
-  height: 17px;
+  width: var(--switch-thumb);
+  height: var(--switch-thumb);
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 160ms ease;
+  box-shadow: var(--shadow-thumb);
+  transform-origin: left center;
+  transition: transform calc(var(--dur-medium) * var(--motion-travel))
+    var(--ease-spring-bouncy);
 }
 
+/* The accent's solid fill: in dark mode the editor accent is a pale blue
+   the white thumb hardly stands out from. */
 .settings-row input[type="checkbox"]:checked {
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
 }
 
 .settings-row input[type="checkbox"]:checked::after {
-  transform: translateX(15px);
+  transform: translateX(var(--switch-travel));
+}
+
+/* Held down, the thumb stretches toward the side it would go to, as
+   UISwitch's does, and springs back when let go. */
+.settings-row input[type="checkbox"]:active::after {
+  transform: scaleX(1.2);
+  transition-duration: calc(var(--dur-fast) * var(--motion-travel));
+}
+
+.settings-row input[type="checkbox"]:checked:active::after {
+  transform: translateX(calc(var(--switch-travel) - var(--switch-thumb) * 0.2))
+    scaleX(1.2);
 }
 
 .settings-row input[type="checkbox"]:focus-visible {
@@ -491,7 +515,7 @@ button.settings-inline-button {
   flex-shrink: 0;
   color: var(--editor-muted);
   transform: rotate(90deg);
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .combobox-caret-open {
@@ -634,7 +658,7 @@ button.settings-inline-button {
 .auth-tab-active {
   background: var(--bg);
   color: var(--editor-text);
-  font-weight: 550;
+  font-weight: 500;
   box-shadow: none;
 }
 
@@ -837,15 +861,10 @@ button.settings-inline-button {
 
 .settings-category-title {
   margin: 0 0 20px;
-  font-size: 20px;
-  font-weight: 650;
+  font-size: var(--text-2xl);
+  font-weight: 600;
   line-height: 1.3;
   color: var(--editor-text);
-}
-
-.settings-panel :is(button, input, select, textarea, summary):focus-visible {
-  outline: 2px solid var(--editor-accent);
-  outline-offset: 3px;
 }
 
 .shortcut-setting {
@@ -854,13 +873,6 @@ button.settings-inline-button {
 
 .shortcut-setting .settings-error {
   margin-top: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settings-panel *,
-  .settings-panel *::after {
-    transition: none;
-  }
 }
 
 .appearance-options {
@@ -956,7 +968,7 @@ button.settings-inline-button {
   border-top: 3.5px solid transparent;
   border-bottom: 3.5px solid transparent;
   opacity: 0.6;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .settings-disclosure[open] > .settings-disclosure-summary::before {

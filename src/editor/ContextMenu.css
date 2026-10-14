@@ -4,7 +4,13 @@
   max-height: min(70vh, 480px);
   overflow-y: auto;
   /* The Agent lesson intentionally teaches this real entry point. */
-  z-index: 250;
+  z-index: var(--z-popover);
+  transform-origin: var(--transform-origin, top left);
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.context-menu[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .context-menu-item {

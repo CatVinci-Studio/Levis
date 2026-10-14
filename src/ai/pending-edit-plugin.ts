@@ -70,11 +70,18 @@ interface InsertAnimation {
   view: EditorView | null;
   /** The settle meta was dispatched - never dispatch it twice. */
   settled: boolean;
+  /** Once the whole text is known, when its reveal must be over (see
+   *  REVEAL_MAX_MS). Null while it streams. */
+  finishBy?: number | null;
 }
 
 const animations = new Map<string, InsertAnimation>();
 
 const TICK_MS = 30;
+
+/** The reveal is decoration - it shows where the edit lands - so once the
+ *  text is complete it never takes longer than this, however long it is. */
+const REVEAL_MAX_MS = 600;
 
 /** Whether the callId's text is still being revealed (or may still grow) -
  *  while true, the preview must stay in the un-decidable "streaming" state
@@ -157,10 +164,20 @@ function ensureTicking(anim: InsertAnimation) {
   }
   anim.timer = window.setInterval(() => {
     const remaining = anim.target.length - anim.shown;
+    if (!anim.done) anim.finishBy = null;
+    else anim.finishBy ??= Date.now() + REVEAL_MAX_MS;
     if (remaining > 0) {
+      const ticksLeft = anim.finishBy
+        ? Math.max(1, Math.floor((anim.finishBy - Date.now()) / TICK_MS))
+        : Infinity;
       anim.shown = Math.min(
         anim.target.length,
-        anim.shown + Math.max(2, Math.ceil(remaining / 15)),
+        anim.shown +
+          Math.max(
+            2,
+            Math.ceil(remaining / 15),
+            Math.ceil(remaining / ticksLeft),
+          ),
       );
     }
     renderAnimation(anim);

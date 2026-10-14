@@ -27,13 +27,15 @@ console.log("a fairly long first line of code to see whether the language label 
 `;
 
 /** Opens the app with onboarding done and the given extra localStorage,
- *  and makes rendering deterministic (no animations, no blinking caret). */
+ *  and makes rendering deterministic (no animations, no blinking caret).
+ *  `animations: true` leaves the motion on, for the specs that test it. */
 export async function openApp(
   page: Page,
   options: {
     storage?: Record<string, string>;
     settings?: Record<string, unknown>;
     colorScheme?: "light" | "dark";
+    animations?: boolean;
   } = {},
 ) {
   await page.emulateMedia({ colorScheme: options.colorScheme ?? "light" });
@@ -55,10 +57,11 @@ export async function openApp(
     { settings: options.settings ?? {}, storage: options.storage ?? {} },
   );
   await page.goto("/");
-  await page.addStyleTag({
-    content:
-      "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }",
-  });
+  if (!options.animations)
+    await page.addStyleTag({
+      content:
+        "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }",
+    });
   await page.waitForSelector('[data-active-tab="true"] .ProseMirror');
 }
 
@@ -101,11 +104,14 @@ export const PHONE = {
 };
 
 /** openApp as an iPhone: the phone layout (mobile/styles) is on. */
-export async function openPhone(page: Page) {
+export async function openPhone(
+  page: Page,
+  options: { animations?: boolean } = {},
+) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "platform", { get: () => "iPhone" });
   });
-  await openApp(page, { settings: { language: "en" } });
+  await openApp(page, { settings: { language: "en" }, ...options });
   await expect(page.locator("html")).toHaveAttribute(
     "data-window-chrome",
     "mobile",

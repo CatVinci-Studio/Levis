@@ -12,6 +12,7 @@ import {
   WindowRestoreIcon,
 } from "./icons";
 import { appDrawsWindowFrame } from "./window-chrome";
+import { Presence } from "./usePresence";
 import { isIOSApp } from "../platform/capabilities";
 import "./window-controls.css";
 
@@ -91,9 +92,11 @@ export function AppMenuButton({ checks }: { checks?: MenuChecks } = {}) {
       >
         <HamburgerIcon />
       </button>
-      {anchor && (
-        <AppMenu x={anchor.x} y={anchor.y} onClose={close} checks={checks} />
-      )}
+      <Presence show={anchor !== null} exitMs={120}>
+        {anchor && (
+          <AppMenu x={anchor.x} y={anchor.y} onClose={close} checks={checks} />
+        )}
+      </Presence>
     </div>
   );
 }

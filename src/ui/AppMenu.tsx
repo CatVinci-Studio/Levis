@@ -14,6 +14,7 @@ import {
 } from "./app-menu-model";
 import { hasAppMenu } from "../platform/capabilities";
 import { CheckIcon, ChevronIcon } from "./icons";
+import { usePresenceProps } from "./usePresence";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import "./app-menu.css";
 
@@ -50,6 +51,8 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(ref, x, y);
   const phone = usePhoneLayout();
+  // It grows out of the button (top left) and, closed, fades where it is.
+  const presence = usePresenceProps(ref);
 
   // Read once per opening, not per render: Open Recent must show what the
   // list holds NOW (including a file opened since the menu was last up), and
@@ -77,7 +80,7 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
   // above the find bar (300) however high its own z-index was set - the
   // find bar covered its first rows on the phone and on Windows.
   return createPortal(
-    <div ref={ref} className="app-menu" style={pos} data-floating-menu="">
+    <div {...presence} className="app-menu" style={pos} data-floating-menu="">
       <MenuList
         items={
           hasAppMenu
@@ -93,6 +96,9 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
     document.body,
   );
 }
+
+/** For the flyouts' timing, read in event handlers only. */
+const clock = () => performance.now();
 
 /** Focuses the nth enabled item of a list, wrapping at both ends. */
 function focusItem(list: HTMLElement | null, index: number) {
@@ -124,6 +130,18 @@ function MenuList({
   // One open flyout per level, by row index.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // A flyout slides out of its row - unless another one was showing a
+  // moment ago: running the pointer from one submenu to the next swaps
+  // them at once, as macOS does.
+  const lastFlyout = useRef(-Infinity);
+  const [instantFlyout, setInstantFlyout] = useState(false);
+  const showFlyout = (index: number | null) => {
+    if (index === openIndex) return;
+    const now = clock();
+    if (openIndex !== null) lastFlyout.current = now;
+    setInstantFlyout(index !== null && now - lastFlyout.current < 400);
+    setOpenIndex(index);
+  };
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -172,12 +190,13 @@ function MenuList({
             key={i}
             item={item}
             open={openIndex === i}
+            instantFlyout={instantFlyout}
             // Hovering a row with no submenu closes the one that is open:
             // otherwise a flyout opened on the way down the list stays
             // hanging over the rows below it.
-            onHover={() => setOpenIndex(item.submenu ? i : null)}
-            onOpenSubmenu={() => setOpenIndex(i)}
-            onCloseSubmenu={() => setOpenIndex(null)}
+            onHover={() => showFlyout(item.submenu ? i : null)}
+            onOpenSubmenu={() => showFlyout(i)}
+            onCloseSubmenu={() => showFlyout(null)}
             onDismiss={onDismiss}
           />
         ),
@@ -189,6 +208,7 @@ function MenuList({
 function MenuRow({
   item,
   open,
+  instantFlyout,
   onHover,
   onOpenSubmenu,
   onCloseSubmenu,
@@ -196,6 +216,8 @@ function MenuRow({
 }: {
   item: MenuEntry;
   open: boolean;
+  /** Its flyout appears without sliding (see MenuList). */
+  instantFlyout: boolean;
   onHover: () => void;
   onOpenSubmenu: () => void;
   onCloseSubmenu: () => void;
@@ -267,7 +289,7 @@ function MenuRow({
         {hasSubmenu && <ChevronIcon className="app-menu-chevron" />}
       </button>
       {hasSubmenu && open && (
-        <Flyout anchor={rowRef}>
+        <Flyout anchor={rowRef} instant={instantFlyout}>
           <MenuList
             items={item.submenu ?? []}
             onDismiss={onDismiss}
@@ -293,9 +315,11 @@ function MenuRow({
  */
 function Flyout({
   anchor,
+  instant,
   children,
 }: {
   anchor: React.RefObject<HTMLButtonElement | null>;
+  instant: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -323,7 +347,7 @@ function Flyout({
   return (
     <div
       ref={ref}
-      className="app-menu-flyout"
+      className={`app-menu-flyout${instant ? " app-menu-flyout-instant" : ""}`}
       // Painted only once measured, so the first frame is never a panel
       // sitting at the wrong corner of the window.
       style={pos ?? { visibility: "hidden", left: 0, top: 0 }}

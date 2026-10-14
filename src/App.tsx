@@ -2,6 +2,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -81,6 +82,8 @@ import { drafts, fs, session } from "./ipc";
 import { flushPendingWrites } from "./storage/pending-writes";
 import { defaultMarkdownFilename } from "./save-default-name";
 import { useModalDialog } from "./ui/useModalDialog";
+import { Presence, PresenceDiv, usePresence } from "./ui/usePresence";
+import { FlipOnChange } from "./ui/flip";
 import { SplitView } from "./editor/SplitView";
 import { SourceTextarea } from "./editor/SourceTextarea";
 import { useWindowEvent } from "./utils/useWindowEvent";
@@ -136,6 +139,14 @@ function App() {
     }
     agentPanel.toggle();
   }, [agentPanel]);
+  // Both side panels play their way out before their contents go: the
+  // sidebar slides back over the editor, the AI panel fades off its edge.
+  // The editor makes its room (or takes it back) at once, gliding there
+  // (FlipOnChange below) rather than reflowing on every frame.
+  const sidebarPresence = usePresence(panelOpen, { exitMs: 250 });
+  const sidebarClosing = sidebarPresence.state === "closing";
+  const agentPresence = usePresence(agentPanel.open, { exitMs: 250 });
+  const agentClosing = agentPresence.state === "closing";
   // iPhone: whether the AI bottom sheet is pulled up to full height.
   const [sheetFull, setSheetFull] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
@@ -563,8 +574,12 @@ function App() {
   // the one being written dims (editor/zen-focus-plugin.ts). Esc leaves.
   const [zenMode, setZenMode] = useState(false);
   const toggleZenMode = useCallback(() => setZenMode((on) => !on), []);
-  useEffect(() => {
+  // In the commit itself, before paint: the text column's glide
+  // (FlipOnChange) measures the layout this class makes.
+  useLayoutEffect(() => {
     document.documentElement.classList.toggle("zen", zenMode);
+  }, [zenMode]);
+  useEffect(() => {
     window.dispatchEvent(new CustomEvent(ZEN_MODE_EVENT, { detail: zenMode }));
     if (!zenMode || !canToggleFullscreen) return;
     const win = getCurrentWindow();
@@ -593,7 +608,7 @@ function App() {
       if (e.isComposing || e.keyCode === 229) return;
       if (
         document.querySelector(
-          '[role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu',
+          ':is([role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu):not([data-state="closing"] *, [data-state="closing"])',
         )
       )
         return;
@@ -931,10 +946,21 @@ function App() {
 
   return (
     <AgentPanelProvider
-      open={agentPanel.open}
+      // The conversation stays in the panel while it plays its exit.
+      open={agentPresence.mounted}
       setOpen={agentPanel.setOpen}
       container={agentPanelEl}
     >
+      <FlipOnChange
+        watch={`${panelOpen} ${agentPresence.mounted} ${zenMode}`}
+        targets={() =>
+          document.querySelectorAll(
+            '[data-active-tab="true"] > .editor-scroll > .editor-content, [data-active-tab="true"] > .source-view, .tab-bar > [data-flip-id]',
+          )
+        }
+        duration="--dur-slow"
+        easing="--ease-spring"
+      />
       <div className="app-shell">
         {/* The window's one top strip: traffic-light room, which document this
           is, and its status. A real row in the layout, not an overlay - the
@@ -989,19 +1015,26 @@ function App() {
         </header>
         {/* iPhone: the sidebar is a drawer over the page (mobile/styles),
           and a tap beside it closes it. */}
-        {isIOSApp && panelOpen && (
-          <div className="sidebar-scrim" onClick={toggleSidebar} />
-        )}
+        <Presence show={isIOSApp && panelOpen} exitMs={250}>
+          {isIOSApp && panelOpen && (
+            <PresenceDiv className="sidebar-scrim" onClick={toggleSidebar} />
+          )}
+        </Presence>
         <aside
+          ref={sidebarPresence.ref}
           className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"} ${sidebarLesson ? "tutorial-spotlight" : ""}`}
         >
-          {/* Contents only render while open - a collapsed sidebar is just
-            shifted out of view via margin, not unmounted, so without this
-            its buttons/tree would stay in the tab order and Tab could land
-            focus on them from the editor. */}
-          {panelOpen && (
+          {/* Contents only render while open (and inert while the sidebar
+            slides away) - a collapsed sidebar is just moved out of view,
+            not unmounted, so without this its buttons/tree would stay in
+            the tab order and Tab could land focus on them from the
+            editor. */}
+          {sidebarPresence.mounted && (
             <>
-              <div className="sidebar-header">
+              <div
+                className="sidebar-header"
+                inert={sidebarClosing || undefined}
+              >
                 <div className="sidebar-tabs">
                   <button
                     className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
@@ -1037,7 +1070,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div className="sidebar-body">
+              <div className="sidebar-body" inert={sidebarClosing || undefined}>
                 {panelMode === "tree" &&
                   (rootPath ? (
                     <FileTree
@@ -1130,8 +1163,11 @@ function App() {
           ))}
         </div>
 
-        {agentPanel.open && (
+        {agentPresence.mounted && (
           <aside
+            ref={agentPresence.ref}
+            data-state={agentPresence.state}
+            inert={agentClosing || undefined}
             className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
             style={{ width: agentPanel.width }}
           >
@@ -1169,81 +1205,93 @@ function App() {
           </aside>
         )}
 
-        {settingsOpen && (
-          <SettingsPanel
-            onClose={() => setSettingsOpen(false)}
-            onOpenFile={(path) => void openFile(path)}
-            viewChecks={{
-              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
-              zen: zenMode,
-            }}
-          />
-        )}
+        {/* The longest exit is the phone's: the page going back down. */}
+        <Presence show={settingsOpen} exitMs={320}>
+          {settingsOpen && (
+            <SettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onOpenFile={(path) => void openFile(path)}
+              viewChecks={{
+                sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+                zen: zenMode,
+              }}
+            />
+          )}
+        </Presence>
 
-        {pendingClose && phone && (
-          // The iPhone asks what to do with an edited document from the
-          // bottom of the screen, as Notes and Pages do. The sheet runs its
-          // onClose before the chosen action: cancelClose's quit-cancel is
-          // a desktop-only call (a no-op here), and the two handlers still
-          // hold the pending close they were rendered with.
-          <ActionSheet
-            title={t.closePromptMessage}
-            items={[
-              { label: t.closePromptSave, onSelect: () => void closeSaving() },
-              {
-                label: t.closePromptDiscard,
-                danger: true,
-                onSelect: () => void closeDiscarding(),
-              },
-            ]}
-            onClose={cancelClose}
-          />
-        )}
-        {pendingClose && !phone && (
-          <div className="close-prompt-overlay">
-            <div
-              className="close-prompt"
-              {...closePrompt}
-              role="dialog"
-              aria-modal="true"
-              aria-label={t.closePromptMessage}
-            >
-              <p>{t.closePromptMessage}</p>
-              <div className="close-prompt-buttons">
-                <button
-                  className="close-prompt-discard"
-                  onClick={() => void closeDiscarding()}
-                >
-                  {t.closePromptDiscard}
-                </button>
-                <div className="close-prompt-spacer" />
-                <button onClick={cancelClose}>{t.closePromptCancel}</button>
-                <button
-                  className="close-prompt-primary"
-                  autoFocus
-                  onClick={() => void closeSaving()}
-                >
-                  {t.closePromptSave}
-                </button>
+        <Presence show={!!pendingClose && phone} exitMs={250}>
+          {pendingClose && phone && (
+            // The iPhone asks what to do with an edited document from the
+            // bottom of the screen, as Notes and Pages do. The sheet runs its
+            // onClose before the chosen action: cancelClose's quit-cancel is
+            // a desktop-only call (a no-op here), and the two handlers still
+            // hold the pending close they were rendered with.
+            <ActionSheet
+              title={t.closePromptMessage}
+              items={[
+                {
+                  label: t.closePromptSave,
+                  onSelect: () => void closeSaving(),
+                },
+                {
+                  label: t.closePromptDiscard,
+                  danger: true,
+                  onSelect: () => void closeDiscarding(),
+                },
+              ]}
+              onClose={cancelClose}
+            />
+          )}
+        </Presence>
+        <Presence show={!!pendingClose && !phone} exitMs={120}>
+          {pendingClose && !phone && (
+            <PresenceDiv className="close-prompt-overlay">
+              <div
+                className="close-prompt"
+                {...closePrompt}
+                role="dialog"
+                aria-modal="true"
+                aria-label={t.closePromptMessage}
+              >
+                <p>{t.closePromptMessage}</p>
+                <div className="close-prompt-buttons">
+                  <button
+                    className="close-prompt-discard"
+                    onClick={() => void closeDiscarding()}
+                  >
+                    {t.closePromptDiscard}
+                  </button>
+                  <div className="close-prompt-spacer" />
+                  <button onClick={cancelClose}>{t.closePromptCancel}</button>
+                  <button
+                    className="close-prompt-primary"
+                    autoFocus
+                    onClick={() => void closeSaving()}
+                  >
+                    {t.closePromptSave}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </PresenceDiv>
+          )}
+        </Presence>
 
         {isIOSApp && <KeyboardToolbar />}
-        {isIOSApp && documentsOpen && (
-          <DocumentList
-            activePath={activeTab.path}
-            onClose={() => setDocumentsOpen(false)}
-            onOpen={openFromDocuments}
-            onRenamed={documentRenamed}
-            onDeleted={documentDeleted}
-            onOpenOther={() => {
-              setDocumentsOpen(false);
-              void openFileDialog();
-            }}
-          />
-        )}
+        <Presence show={isIOSApp && documentsOpen} exitMs={320}>
+          {isIOSApp && documentsOpen && (
+            <DocumentList
+              activePath={activeTab.path}
+              onClose={() => setDocumentsOpen(false)}
+              onOpen={openFromDocuments}
+              onRenamed={documentRenamed}
+              onDeleted={documentDeleted}
+              onOpenOther={() => {
+                setDocumentsOpen(false);
+                void openFileDialog();
+              }}
+            />
+          )}
+        </Presence>
         <AppDialogHost okLabel={t.dialogOk} />
 
         {zenMode &&
@@ -1263,61 +1311,65 @@ function App() {
             </div>
           ))}
 
-        {draftsRestoredCount > 0 && (
-          <div className="draft-restored-toast">
-            <span>{t.draftRestoredMessage}</span>
-            <button
-              className="update-toast-secondary"
-              onClick={() => setDraftsRestoredCount(0)}
-            >
-              {t.draftRestoredDismiss}
-            </button>
-          </div>
-        )}
+        <Presence show={draftsRestoredCount > 0} exitMs={120}>
+          {draftsRestoredCount > 0 && (
+            <PresenceDiv className="draft-restored-toast">
+              <span>{t.draftRestoredMessage}</span>
+              <button
+                className="update-toast-secondary"
+                onClick={() => setDraftsRestoredCount(0)}
+              >
+                {t.draftRestoredDismiss}
+              </button>
+            </PresenceDiv>
+          )}
+        </Presence>
 
-        {appUpdate.status !== "idle" && (
-          <div className="update-toast">
-            {appUpdate.status === "available" && (
-              <>
-                <span>
-                  {t.updateAvailable} v{appUpdate.version}
-                </span>
-                {appUpdate.selfUpdate ? (
+        <Presence show={appUpdate.status !== "idle"} exitMs={120}>
+          {appUpdate.status !== "idle" && (
+            <PresenceDiv className="update-toast">
+              {appUpdate.status === "available" && (
+                <>
+                  <span>
+                    {t.updateAvailable} v{appUpdate.version}
+                  </span>
+                  {appUpdate.selfUpdate ? (
+                    <button
+                      className="update-toast-primary"
+                      onClick={() => void appUpdate.install()}
+                    >
+                      {t.updateInstall}
+                    </button>
+                  ) : (
+                    <span>{t.updateViaPackageManager}</span>
+                  )}
                   <button
-                    className="update-toast-primary"
-                    onClick={() => void appUpdate.install()}
+                    className="update-toast-secondary"
+                    onClick={appUpdate.dismiss}
                   >
-                    {t.updateInstall}
+                    {t.updateLater}
                   </button>
-                ) : (
-                  <span>{t.updateViaPackageManager}</span>
-                )}
-                <button
-                  className="update-toast-secondary"
-                  onClick={appUpdate.dismiss}
-                >
-                  {t.updateLater}
-                </button>
-              </>
-            )}
-            {appUpdate.status === "downloading" && (
-              <span>{t.updateDownloading}</span>
-            )}
-            {appUpdate.status === "error" && (
-              <>
-                <span>
-                  {t.updateFailed} {appUpdate.error}
-                </span>
-                <button
-                  className="update-toast-secondary"
-                  onClick={appUpdate.dismiss}
-                >
-                  {t.updateLater}
-                </button>
-              </>
-            )}
-          </div>
-        )}
+                </>
+              )}
+              {appUpdate.status === "downloading" && (
+                <span>{t.updateDownloading}</span>
+              )}
+              {appUpdate.status === "error" && (
+                <>
+                  <span>
+                    {t.updateFailed} {appUpdate.error}
+                  </span>
+                  <button
+                    className="update-toast-secondary"
+                    onClick={appUpdate.dismiss}
+                  >
+                    {t.updateLater}
+                  </button>
+                </>
+              )}
+            </PresenceDiv>
+          )}
+        </Presence>
 
         {tutorial.active && settings.languageChosen && (
           <TutorialExperience
@@ -1331,13 +1383,15 @@ function App() {
             }}
           />
         )}
-        {!settings.languageChosen && (
-          <LanguageWelcome
-            language={settings.language}
-            onLanguage={(language) => setSettings({ language })}
-            onContinue={() => setSettings({ languageChosen: true })}
-          />
-        )}
+        <Presence show={!settings.languageChosen} exitMs={200}>
+          {!settings.languageChosen && (
+            <LanguageWelcome
+              language={settings.language}
+              onLanguage={(language) => setSettings({ language })}
+              onContinue={() => setSettings({ languageChosen: true })}
+            />
+          )}
+        </Presence>
       </div>
     </AgentPanelProvider>
   );

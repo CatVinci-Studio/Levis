@@ -75,6 +75,8 @@ import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
+import { Presence, PresenceDiv } from "../ui/usePresence";
+import { revealPosition } from "./reveal-position";
 import {
   applyEditorCaret,
   readEditorCaret,
@@ -341,13 +343,23 @@ export function MilkdownEditor({
   // that are often benign.
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
+  // When it goes, so a pointer resting on it can hold it (and give back
+  // what was left of its time when it moves off).
+  const noticeDeadline = useRef(0);
   const showAiNotice = useCallback((message: string | null) => {
     setAiNotice(message);
     window.clearTimeout(noticeTimer.current);
-    if (message)
-      noticeTimer.current = window.setTimeout(() => setAiNotice(null), 4000);
+    if (!message) return;
+    noticeDeadline.current = Date.now() + 4000;
+    noticeTimer.current = window.setTimeout(() => setAiNotice(null), 4000);
   }, []);
   useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
+  const holdAiNotice = () => window.clearTimeout(noticeTimer.current);
+  const releaseAiNotice = () => {
+    const left = Math.max(1500, noticeDeadline.current - Date.now());
+    noticeDeadline.current = Date.now() + left;
+    noticeTimer.current = window.setTimeout(() => setAiNotice(null), left);
+  };
 
   const { triggerCompletion, triggerGrammarCheck } = useAiActions(
     run,
@@ -1390,13 +1402,12 @@ export function MilkdownEditor({
         return;
       }
       view.dispatch(
-        view.state.tr
-          .setSelection(
-            TextSelection.create(view.state.doc, range.from, range.to),
-          )
-          .scrollIntoView(),
+        view.state.tr.setSelection(
+          TextSelection.create(view.state.doc, range.from, range.to),
+        ),
       );
       view.focus();
+      revealPosition(view, range.from);
     });
   }
 
@@ -1433,114 +1444,133 @@ export function MilkdownEditor({
       onPointerUp={() => (lastTouchRef.current = Date.now())}
     >
       <Milkdown />
-      {findReplace.open && (
-        <FindReplaceBar findReplace={findReplace} labels={t} />
-      )}
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={(menu.phone ? buildPhoneMoreItems : buildContextMenuItems)(
-            run,
-            {
-              t,
-              imagePos: menu.imagePos,
-              // Each AI item is only offered while its feature is enabled in
-              // Settings. The provider-free newcomer guide always exposes Ask
-              // AI so its real right-click entry point remains available even
-              // if the user previously disabled Agent chat before replaying
-              // the guide from Help. The phone's "More" leaves it to the
-              // toolbar's own button.
-              aiItems: [
-                ...((settings.enableAskAi || tutorialMock) && !menu.phone
-                  ? [{ label: t.askAi, onSelect: openAgentConversation }]
-                  : []),
-                ...(settings.enableCompletion
-                  ? [
-                      {
-                        label: t.triggerCompletion,
-                        onSelect: triggerCompletion,
-                      },
-                    ]
-                  : []),
-                ...(settings.enableGrammarCheck
-                  ? [
-                      {
-                        label: t.triggerGrammarCheck,
-                        onSelect: triggerGrammarCheck,
-                      },
-                    ]
-                  : []),
-              ],
-              copyOrCut,
-              paste,
-              selectAll,
-              toggleFindReplace: findReplace.toggle,
-              openTableDialog: () => setTableDialogOpen(true),
-            },
-          )}
-          onClose={() => setMenu(null)}
-        />
-      )}
-      {aiNotice && (
-        <div className="ai-notice floating-surface" role="status">
-          {aiNotice}
-        </div>
-      )}
-      {tableDialogOpen && (
-        <InsertTableDialog
-          title={t.insertTable}
-          rowsLabel={t.insertTableRowsLabel}
-          columnsLabel={t.insertTableColumnsLabel}
-          confirmLabel={t.insertTableConfirm}
-          cancelLabel={t.closePromptCancel}
-          onInsert={(rows, cols) => insertTable(run, rows, cols)}
-          onClose={() => setTableDialogOpen(false)}
-        />
-      )}
-      {imageNameRequest && (
-        <ImageNameDialog
-          request={imageNameRequest}
-          title={t.imageNameDialogTitle}
-          label={t.imageNameDialogLabel}
-          invalidLabel={t.imageNameDialogInvalid}
-          uploadLabel={t.imageNameDialogUpload}
-          cancelLabel={t.closePromptCancel}
-          onClose={closeImageNameDialog}
-        />
-      )}
-      {grammar.popover && phone && (
-        // The phone's form: the explanation heads a sheet whose action is
-        // the suggested text itself, as iOS offers a spelling replacement.
-        // A fix that no longer fits the text says so in the notice, the
-        // sheet having closed on the tap.
-        <ActionSheet
-          title={grammar.popover.issue}
-          items={[
-            {
-              // A fix that deletes has no text to show.
-              label: grammar.popover.suggestion || t.grammarApply,
-              onSelect: () => {
-                if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
+      <Presence show={findReplace.open} exitMs={120}>
+        {findReplace.open && (
+          <FindReplaceBar findReplace={findReplace} labels={t} />
+        )}
+      </Presence>
+      <Presence show={!!menu} exitMs={250}>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={(menu.phone ? buildPhoneMoreItems : buildContextMenuItems)(
+              run,
+              {
+                t,
+                imagePos: menu.imagePos,
+                // Each AI item is only offered while its feature is enabled in
+                // Settings. The provider-free newcomer guide always exposes Ask
+                // AI so its real right-click entry point remains available even
+                // if the user previously disabled Agent chat before replaying
+                // the guide from Help. The phone's "More" leaves it to the
+                // toolbar's own button.
+                aiItems: [
+                  ...((settings.enableAskAi || tutorialMock) && !menu.phone
+                    ? [{ label: t.askAi, onSelect: openAgentConversation }]
+                    : []),
+                  ...(settings.enableCompletion
+                    ? [
+                        {
+                          label: t.triggerCompletion,
+                          onSelect: triggerCompletion,
+                        },
+                      ]
+                    : []),
+                  ...(settings.enableGrammarCheck
+                    ? [
+                        {
+                          label: t.triggerGrammarCheck,
+                          onSelect: triggerGrammarCheck,
+                        },
+                      ]
+                    : []),
+                ],
+                copyOrCut,
+                paste,
+                selectAll,
+                toggleFindReplace: findReplace.toggle,
+                openTableDialog: () => setTableDialogOpen(true),
               },
-            },
-            { label: t.grammarIgnore, onSelect: grammar.ignore },
-          ]}
-          onClose={grammar.hide}
-        />
-      )}
-      {grammar.popover && !phone && (
-        <GrammarPopover
-          info={grammar.popover}
-          applyLabel={t.grammarApply}
-          ignoreLabel={t.grammarIgnore}
-          error={grammar.applyError}
-          onApply={grammar.applyFix}
-          onIgnore={grammar.ignore}
-          onMouseEnter={grammar.cancelHide}
-          onMouseLeave={grammar.hide}
-        />
-      )}
+            )}
+            onClose={() => setMenu(null)}
+          />
+        )}
+      </Presence>
+      <Presence show={!!aiNotice} exitMs={120}>
+        {aiNotice && (
+          <PresenceDiv
+            className="ai-notice floating-surface"
+            role="status"
+            onMouseEnter={holdAiNotice}
+            onMouseLeave={releaseAiNotice}
+          >
+            {aiNotice}
+          </PresenceDiv>
+        )}
+      </Presence>
+      <Presence show={tableDialogOpen} exitMs={120}>
+        {tableDialogOpen && (
+          <InsertTableDialog
+            title={t.insertTable}
+            rowsLabel={t.insertTableRowsLabel}
+            columnsLabel={t.insertTableColumnsLabel}
+            confirmLabel={t.insertTableConfirm}
+            cancelLabel={t.closePromptCancel}
+            onInsert={(rows, cols) => insertTable(run, rows, cols)}
+            onClose={() => setTableDialogOpen(false)}
+          />
+        )}
+      </Presence>
+      <Presence show={!!imageNameRequest} exitMs={120}>
+        {imageNameRequest && (
+          <ImageNameDialog
+            request={imageNameRequest}
+            title={t.imageNameDialogTitle}
+            label={t.imageNameDialogLabel}
+            invalidLabel={t.imageNameDialogInvalid}
+            uploadLabel={t.imageNameDialogUpload}
+            cancelLabel={t.closePromptCancel}
+            onClose={closeImageNameDialog}
+          />
+        )}
+      </Presence>
+      <Presence show={!!grammar.popover && phone} exitMs={250}>
+        {grammar.popover && phone && (
+          // The phone's form: the explanation heads a sheet whose action is
+          // the suggested text itself, as iOS offers a spelling replacement.
+          // A fix that no longer fits the text says so in the notice, the
+          // sheet having closed on the tap.
+          <ActionSheet
+            title={grammar.popover.issue}
+            items={[
+              {
+                // A fix that deletes has no text to show.
+                label: grammar.popover.suggestion || t.grammarApply,
+                onSelect: () => {
+                  if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
+                },
+              },
+              { label: t.grammarIgnore, onSelect: grammar.ignore },
+            ]}
+            onClose={grammar.hide}
+          />
+        )}
+      </Presence>
+      <Presence show={!!grammar.popover && !phone} exitMs={120}>
+        {grammar.popover && !phone && (
+          <GrammarPopover
+            info={grammar.popover}
+            applyLabel={t.grammarApply}
+            ignoreLabel={t.grammarIgnore}
+            error={grammar.applyError}
+            onApply={grammar.applyFix}
+            onIgnore={grammar.ignore}
+            onMouseEnter={grammar.cancelHide}
+            onMouseLeave={grammar.hide}
+          />
+        )}
+      </Presence>
       {panelContainer &&
         createPortal(
           <AgentPanelView

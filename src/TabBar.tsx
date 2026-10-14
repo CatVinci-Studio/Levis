@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { CloseIcon } from "./ui/icons";
 import { usePhoneLayout } from "./mobile/usePhoneLayout";
+import { animate, scrollBehavior } from "./ui/motion";
+import { ListMotion, measure, play, type PendingFlip } from "./ui/flip";
 
 interface TabInfo {
   id: string;
@@ -41,9 +43,11 @@ interface TabBarProps {
 const DETACH_THRESHOLD_PX = 40;
 const REORDER_THRESHOLD_PX = 5;
 
-// Duration shared by every slide in the bar (live reorder shifting, FLIP
-// settles) so overlapping animations read as one motion.
-const SLIDE_MS = 160;
+// One slide for every pill making way in the bar (live reorder shifting,
+// an incoming tab passing over them), so overlapping moves read as one.
+// No travel under reduced motion: the pills step to their places.
+const SLIDE =
+  "transform calc(var(--dur-base) * var(--motion-travel)) var(--ease-in-out)";
 
 export function TabBar({
   tabs,
@@ -72,49 +76,30 @@ export function TabBar({
     const barBox = bar.getBoundingClientRect();
     const pillBox = pill.getBoundingClientRect();
     const margin = 12;
+    const behavior = scrollBehavior();
     if (pillBox.left < barBox.left + margin)
-      bar.scrollBy({ left: pillBox.left - barBox.left - margin });
+      bar.scrollBy({ left: pillBox.left - barBox.left - margin, behavior });
     else if (pillBox.right > barBox.right - margin)
-      bar.scrollBy({ left: pillBox.right - barBox.right + margin });
+      bar.scrollBy({ left: pillBox.right - barBox.right + margin, behavior });
   }, [phone, activeTabId, tabs.length]);
 
-  // FLIP: whenever a commit is about to change the bar's layout (a tab
-  // detaching, a reorder landing), the CURRENT on-screen left edge of
-  // every flip-tracked element is captured first; the layout effect below
-  // then starts each element at its old position (transform) and slides
-  // it to its new one. This is what makes the remaining/reordered tabs
-  // glide instead of snapping.
-  const flipRects = useRef<Map<string, number> | null>(null);
+  // FLIP (ListMotion, below): a gesture here that is about to change the
+  // bar - a reorder landing, a tab tearing off - captures the CURRENT
+  // on-screen place of every pill first, mid-shift transforms included, so
+  // the commit's slides start from exactly where things were.
+  const pendingFlip = useRef<PendingFlip | null>(null);
 
-  const captureFlip = useCallback(() => {
-    const bar = barRef.current;
-    if (!bar) return;
-    const map = new Map<string, number>();
-    bar.querySelectorAll<HTMLElement>("[data-flip-id]").forEach((el) => {
-      map.set(el.dataset.flipId!, el.getBoundingClientRect().left);
-    });
-    flipRects.current = map;
-  }, []);
-
-  useLayoutEffect(() => {
-    const prev = flipRects.current;
-    if (!prev) return;
-    flipRects.current = null;
-    const bar = barRef.current;
-    if (!bar) return;
-    bar.querySelectorAll<HTMLElement>("[data-flip-id]").forEach((el) => {
-      const before = prev.get(el.dataset.flipId!);
-      if (before === undefined) return;
-      const delta = before - el.getBoundingClientRect().left;
-      if (Math.abs(delta) < 0.5) return;
-      el.style.transition = "none";
-      el.style.transform = `translateX(${delta}px)`;
-      requestAnimationFrame(() => {
-        el.style.transition = `transform ${SLIDE_MS}ms ease`;
-        el.style.transform = "";
-      });
-    });
-  });
+  const captureFlip = useCallback(
+    (how: { dropped?: string; gone?: string }) => {
+      const bar = barRef.current;
+      if (!bar) return;
+      pendingFlip.current = {
+        rects: measure(bar.querySelectorAll("[data-flip-id]")),
+        ...how,
+      };
+    },
+    [],
+  );
 
   // THE INCOMING TAB, riding the bar. The preview pill is laid out at the
   // end of the row but rendered (via transform) wherever the cursor is;
@@ -165,6 +150,7 @@ export function TabBar({
         for (const node of slidables) {
           node.style.transition = "none";
           node.style.transform = "";
+          for (const running of node.getAnimations?.() ?? []) running.cancel();
         }
         appliedShift.current.clear();
         const centers = new Map<string, number>();
@@ -202,7 +188,7 @@ export function TabBar({
         const shifted = appliedShift.current.get(id) ?? 0;
         const shift = center > x ? slot : 0;
         if (shift !== shifted) {
-          node.style.transition = `transform ${SLIDE_MS}ms ease`;
+          node.style.transition = SLIDE;
           node.style.transform = shift ? `translateX(${shift}px)` : "";
           appliedShift.current.set(id, shift);
         }
@@ -224,21 +210,20 @@ export function TabBar({
           `[data-flip-id="${CSS.escape(arrivedId)}"]`,
         );
         if (arrived) {
-          arrived.style.animation = "none"; // the grow-in would fight the settle
+          arrived.style.animation = "none"; // the pop-in would fight the settle
           const delta = prev.previewLeft - arrived.getBoundingClientRect().left;
-          if (Math.abs(delta) > 0.5) {
-            arrived.style.transition = "none";
-            arrived.style.transform = `translateX(${delta}px)`;
-            requestAnimationFrame(() => {
-              arrived.style.transition = `transform ${SLIDE_MS}ms ease`;
-              arrived.style.transform = "";
-            });
-          }
+          // Let go over the bar: it lands on a spring.
+          if (Math.abs(delta) > 0.5)
+            animate(
+              arrived,
+              [{ transform: `translateX(${delta}px)` }, { transform: "none" }],
+              { duration: "--dur-medium", easing: "--ease-spring-bouncy" },
+            );
         }
       } else {
         // Hover left without dropping: everyone slides home.
         for (const node of slidables) {
-          node.style.transition = `transform ${SLIDE_MS}ms ease`;
+          node.style.transition = SLIDE;
           node.style.transform = "";
         }
       }
@@ -252,6 +237,15 @@ export function TabBar({
 
   return (
     <div className="tab-bar" ref={barRef}>
+      {/* Pills glide aside for a new tab and close up behind a closed
+          one, which shrinks away in its old place; a new one pops in. */}
+      <ListMotion
+        ids={tabs.map((tab) => tab.id)}
+        container={barRef}
+        ghostClass="tab-pill-ghost"
+        exitMs={150}
+        pending={pendingFlip}
+      />
       {tabs.map((tab) => (
         <TabPill
           key={tab.id}
@@ -304,7 +298,7 @@ function TabPill({
   onClose: (id: string) => void;
   onDetach?: (id: string) => void;
   onReorder: (id: string, index: number) => void;
-  captureFlip: () => void;
+  captureFlip: (how: { dropped?: string; gone?: string }) => void;
 }) {
   const elRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<{
@@ -357,7 +351,7 @@ function TabPill({
       // the survivors glide into the gap.
       gesture.current = null;
       clearInlineStyles();
-      captureFlip();
+      captureFlip({ gone: tab.id });
       onDetach(tab.id);
       return;
     }
@@ -401,7 +395,7 @@ function TabPill({
       let shift = 0;
       if (r.center < mine.center && center < r.center) shift = slot;
       else if (r.center > mine.center && center > r.center) shift = -slot;
-      node.style.transition = `transform ${SLIDE_MS}ms ease`;
+      node.style.transition = SLIDE;
       node.style.transform = shift ? `translateX(${shift}px)` : "";
     }
   }
@@ -424,8 +418,22 @@ function TabPill({
     const index = g.rects.filter(
       (r) => r.id !== tab.id && r.center < center,
     ).length;
-    captureFlip();
-    clearInlineStyles();
+    if (index === tabIds.indexOf(tab.id)) {
+      // Back in its own slot: no commit will follow to play the slides,
+      // so they play here.
+      const bar = elRef.current?.parentElement;
+      const rects = measure(bar?.querySelectorAll("[data-flip-id]") ?? []);
+      clearInlineStyles();
+      play(rects, {
+        timingFor: (el) =>
+          el === elRef.current
+            ? { duration: "--dur-medium", easing: "--ease-spring-bouncy" }
+            : undefined,
+      });
+    } else {
+      captureFlip({ dropped: tab.id });
+      clearInlineStyles();
+    }
     onReorder(tab.id, index);
   }
 
