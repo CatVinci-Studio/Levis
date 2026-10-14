@@ -167,7 +167,7 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   docDelete: "Löschen",
   docDeleteConfirm: "„{name}“ löschen? Das lässt sich nicht rückgängig machen.",
   docDeleteOk: "Löschen",
-  docForget: "Aus Liste entfernen",
+  docForget: "Aus der Liste entfernen",
   docActionFailed: "Das hat nicht funktioniert",
   treeOpen: "Öffnen",
   outlineCollapse: "Einklappen",
@@ -296,7 +296,7 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   agentThinking: "Denkt nach…",
   chatTab: "Chats",
   chatHistoryEmpty: "Keine früheren Unterhaltungen.",
-  chatHistoryRestoreHint: "Diese Unterhaltung im Chat öffnen",
+  chatHistoryRestoreHint: "Diese Unterhaltung im KI-Bereich öffnen",
   chatHistoryDelete: "Unterhaltung löschen",
   chatSelectedChars: {
     one: "{n} Zeichen ausgewählt",
@@ -501,7 +501,7 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   tutorialSidebarTree:
     "Dateien: der Ordner des geöffneten Dokuments. Klicke auf eine Datei, um sie zu öffnen, auf ↑, um eine Ebene höher zu gehen, und doppelklicke auf einen Ordner, um hineinzuwechseln.",
   tutorialSidebarOutline:
-    "Gliederung: die Überschriften des Dokuments. Klicke auf eine, um dorthin zu springen; die Pfeile klappen einen Abschnitt ein.",
+    "Gliederung: die Überschriften des Dokuments. Klicke auf eine, um dorthin zu springen; die Pfeile klappen Abschnitte ein und aus.",
   tutorialSidebarClipboard:
     "Zwischenablage: was du zuletzt kopiert hast. Klicke auf einen Eintrag, um ihn am Cursor einzufügen.",
   tutorialSidebarChat:

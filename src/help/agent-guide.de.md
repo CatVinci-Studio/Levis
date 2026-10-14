@@ -7,13 +7,13 @@ Levis bringt eine eingebaute KI fürs Schreiben mit, Levis AI: Vervollständigun
 1. Öffne **Einstellungen > Levis AI** und wähle unter **Verbindung > Anbieter** den gewünschten Dienst.
 2. Klappe **Anmeldung & Zugangsdaten** auf und melde dich mit deinem Konto an oder gib einen API-Schlüssel ein – je nachdem, was der Dienst unterstützt.
 3. Wählst du **Eigener Endpunkt** (jeder OpenAI-kompatible Server: lokale Modelle, Proxys), gib die Basis-URL, bei Bedarf einen Schlüssel und den Modellnamen ein und speichere.
-4. Das Schreibmodell wählst du unter **Schreibassistenz**, das Chat-Modell unter **Chat mit Levis AI**.
+4. Wähle unter **Schreibassistenz** das **Assistenzmodell** und unter **Chat mit Levis AI** das **Chat-Modell**.
 
 Die Anmeldung läuft in deinem Browser. Ob Bilder, Websuche und Änderungen am Dokument verfügbar sind, hängt vom gewählten Dienst und Modell ab.
 
 Die eingebaute Modellliste enthält nur die Standardmodelle jedes Anbieters (bei Anthropic: Claude Sonnet 5.5 für den Chat, Claude Haiku 5.5 für Vervollständigung und Grammatik). Klicke in der Zeile **Modellliste** unter **Verbindung** auf **Modelle abrufen**, um die aktuelle Liste des Anbieters zu laden und daraus ein beliebiges Modell zu wählen.
 
-Die Tastenkürzel unten sind in macOS-Schreibweise angegeben; unter Windows und Linux steht Ctrl (Strg) für Cmd und Alt für Option. Wenn du ein Tastenkürzel geändert hast, findest du das aktuelle unter **Einstellungen > Tastenkürzel**.
+Die Tastenkürzel unten sind in macOS-Schreibweise angegeben; unter Windows und Linux drückst du Ctrl (Strg) statt Cmd und Alt statt Option. Wenn du ein Tastenkürzel geändert hast, findest du das aktuelle unter **Einstellungen > Tastenkürzel**.
 
 ## Die KI-Funktionen
 
@@ -27,17 +27,17 @@ Unter **Einstellungen > Levis AI > Schreibassistenz** kannst du den **Tonfall de
 
 ### 2. Grammatikprüfung
 
-Mögliche Fehler werden unterstrichen. Bewege den Zeiger darauf oder setze den Cursor hinein, um die Erklärung zu sehen; **Übernehmen** (oder <kbd>Option</kbd>+<kbd>Enter</kbd>, wenn der Cursor darauf steht) übernimmt die Korrektur, **Ignorieren** verwirft sie. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> prüft den aktuellen Absatz sofort.
+Mögliche Fehler werden unterstrichen. Bewege den Zeiger auf eine Unterstreichung oder setze den Cursor hinein, um die Erklärung zu sehen; **Übernehmen** (oder <kbd>Option</kbd>+<kbd>Enter</kbd>, wenn der Cursor darauf steht) korrigiert den Fehler, **Ignorieren** verwirft den Hinweis. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> prüft den aktuellen Absatz sofort.
 
 ### 3. Der KI-Bereich
 
-Die vollständige Unterhaltung findet in einem Bereich rechts neben dem Editor statt. Du öffnest und schließt ihn mit der Chat-Schaltfläche am rechten Ende der Fensterleiste oder mit <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
+Die vollständige Unterhaltung findet in einem Bereich rechts neben dem Editor statt. Du öffnest und schließt ihn mit der Chat-Schaltfläche am rechten Ende der Titelleiste oder mit <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
 
 - **Eine Unterhaltung pro Dokument**: Jeder Tab hat seine eigene Unterhaltung, und wenn du den Tab wechselst, wechselt der Bereich mit. **Neue Unterhaltung** im Kopf des Bereichs fängt von vorn an (sind noch Änderungen offen, wird vorher nachgefragt).
 - **Modi**: Das Eingabefeld bietet **Fragen**, **Bearbeiten** und **Planen**. Der Bereich startet in dem Modus, der unter **Einstellungen > Levis AI > Chat mit Levis AI > Standardmodus** eingestellt ist.
 - **@-Erwähnungen**: Tippe `@` ins Eingabefeld, um eine Textdatei aus dem Projektordner auszuwählen; sie wird an die Nachricht angehängt.
-- **Dateien anhängen**: Die Schaltfläche **+** links neben dem Eingabefeld hängt ein PDF, ein Word-Dokument, eine PowerPoint-Präsentation, eine Tabelle, ein Bild oder eine Textdatei an die Nachricht an. Alles außer Bildern wird lokal in Text umgewandelt und mit der Nachricht verschickt; Bilder gehen als echte Bilder an Anbieter, die Bilder verstehen (die anderen sagen das vorher, statt sie stillschweigend wegzulassen). Von einer langen Datei wird nur ein Teil gesendet; der Chip zeigt dann „(gekürzt)“.
-- **Websuche**: Sobald sie unter **Einstellungen > Levis AI > Chat mit Levis AI** aktiviert ist (bei Anbietern, die sie anbieten), kann Levis AI selbstständig im Web suchen, wenn eine Anfrage es erfordert.
+- **Dateien anhängen**: Die Schaltfläche **+** links neben dem Eingabefeld hängt ein PDF, ein Word-Dokument, eine PowerPoint-Präsentation, eine Tabelle, ein Bild oder eine Textdatei an die Nachricht an. Alles außer Bildern wird lokal in Text umgewandelt und mit der Nachricht verschickt; Bilder gehen als echte Bilder an Anbieter, die sie lesen können (die anderen sagen das vorher, statt sie stillschweigend wegzulassen). Von einer langen Datei wird nur ein Teil gesendet; der Chip zeigt dann „(gekürzt)“.
+- **Websuche**: Sobald sie unter **Einstellungen > Levis AI > Chat mit Levis AI** aktiviert ist (bei Anbietern, die das unterstützen), kann Levis AI selbstständig im Web suchen, wenn eine Anfrage es erfordert.
 - **Verlauf**: Der Tab **Chats** in der Seitenleiste speichert frühere Unterhaltungen. Klicke auf eine, um sie im aktuellen Editor wieder zu öffnen und fortzusetzen.
 - **Fehler**: Schlägt eine Anfrage fehl, nennt der Chat über der Meldung des Anbieters die Art des Problems und was zu tun ist (Schlüssel prüfen, kurz warten, ein anderes Modell wählen).
 
@@ -48,13 +48,13 @@ Die vollständige Unterhaltung findet in einem Bereich rechts neben dem Editor s
 Mit <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (oder Rechtsklick > KI fragen…) öffnest du direkt unter dem aktuellen Absatz eine kleine Chatleiste. Sie sitzt im Dokument und schiebt den Text darunter nach unten, statt ihn zu verdecken. War beim Öffnen Text ausgewählt, wird die Auswahl mitgeschickt. Die Schnellfrage öffnet sich im Modus **Bearbeiten**, weil man sie meist an einer Textstelle öffnet, die sich ändern soll („kürze das“); **Fragen** ist in der Modusauswahl nur einen Klick entfernt.
 
 - **Das Tastenkürzel noch einmal**: Drückst du <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> bei geöffneter Leiste, springt der Cursor in ihr Eingabefeld; drückst du es dort noch einmal, schließt sie sich. Auch <kbd>Esc</kbd> schließt sie von überall in der Leiste, und der Cursor kehrt ins Dokument zurück. Sind noch Änderungen offen, wird vor dem Schließen (oder vor einer neuen Unterhaltung) nachgefragt.
-- Die Schnellfrage führt ihre eigene kurze Unterhaltung, getrennt von der des Bereichs und ohne Eintrag im Verlauf. Sie öffnet sich auch, wenn der Bereich offen ist. **In der vollständigen Unterhaltung fortsetzen** (die Schaltfläche in ihrer Ecke) übergibt den Austausch an den KI-Bereich, wo er weitergeht und gespeichert wird. Schalte **Einstellungen > Levis AI > Erweitert > Vollständige Unterhaltungen in eigenem Fenster öffnen** ein, um ihn stattdessen in ein eigenes Fenster zu schicken.
+- Die Schnellfrage führt ihre eigene kurze Unterhaltung, getrennt von der des KI-Bereichs und ohne Eintrag im Verlauf. Sie öffnet sich auch, wenn der KI-Bereich offen ist. **In der vollständigen Unterhaltung fortsetzen** (die Schaltfläche in ihrer Ecke) übergibt den Austausch an den KI-Bereich, wo er weitergeht und gespeichert wird. Schalte **Einstellungen > Levis AI > Erweitert > Vollständige Unterhaltungen in eigenem Fenster öffnen** ein, um ihn stattdessen in ein eigenes Fenster zu schicken.
 
 ### 5. Änderungen im Dokument
 
 Der Chat schreibt nie direkt in dein Dokument. Bittest du einen Anbieter, der Tool Calling unterstützt, das Dokument zu ändern, wird jede Änderung als Vorschlag genau dort angezeigt, wo sie landen würde: Entfernter Text ist durchgestrichen, neuer Text erscheint grün eingefügt. Am Dokument ändert sich nichts, bis du annimmst, und <kbd>Cmd</kbd>+<kbd>Z</kbd> macht eine angenommene Änderung in einem Schritt rückgängig.
 
-- **Annehmen / Ablehnen**: über die schwebende Leiste neben der Änderung, die Karte des Vorschlags im Bereich oder die Tastatur – <kbd>Cmd</kbd>+<kbd>Return</kbd> nimmt an, <kbd>Cmd</kbd>+<kbd>Delete</kbd> lehnt ab, wenn der Cursor auf der Änderung steht. Mehrere Vorschläge in einer Antwort erscheinen gleichzeitig als Vorschau; mit ‹› wechselst du zwischen ihnen, und mit Alle annehmen / Alle ablehnen entscheidest du über alle auf einmal.
+- **Annehmen / Ablehnen**: über die schwebende Leiste neben der Änderung, die Karte des Vorschlags im KI-Bereich oder die Tastatur – <kbd>Cmd</kbd>+<kbd>Return</kbd> nimmt an, <kbd>Cmd</kbd>+<kbd>Delete</kbd> lehnt ab, wenn der Cursor auf der Änderung steht. Mehrere Vorschläge in einer Antwort erscheinen gleichzeitig als Vorschau; mit ‹› wechselst du zwischen ihnen, und mit Alle annehmen / Alle ablehnen entscheidest du über alle auf einmal.
 - **Begründungen**: Jede Vorschlagskarte sagt, warum Levis AI die Änderung vorgenommen hat.
 - **Nur einzelne Sätze**: Schreibt ein Vorschlag mehrere Sätze um, bietet seine Karte **Sätze auswählen (N)** an – hake die gewünschten an und klicke auf **K von N annehmen**.
 - **Am Cursor**: Wenn nichts ausgewählt ist, weiß Levis AI, wo dein Cursor steht – „schreib hier einen Übergang“ fügt also genau dort ein.
@@ -100,7 +100,7 @@ Das Projektmenü legt `.levis/` und die Dateien darin an, sobald du sie zum erst
 - Tippst du `@` ins Eingabefeld des Chats, hängst du eine seiner Dateien an deine Nachricht an.
 - Sein Ordner `.levis/` enthält Stilprofil, Lexikon, Schreibanweisungen und Skills des Projekts.
 
-Die Leiste unter dem Kopf des KI-Bereichs zeigt den Namen des Projektordners; ein Klick darauf öffnet das **Projektmenü**. Liegt dein Material nicht neben dem Entwurf, wähle dort **Projektordner wählen…** (oder **Einstellungen > Levis AI > Projektordner**). Der gewählte Ordner gilt für jedes Dokument – auch für ungespeicherte Entwürfe –, bis du wieder **Ordner des Dokuments verwenden** wählst.
+Die Leiste unter dem Kopf des KI-Bereichs zeigt den Namen des Projektordners; ein Klick darauf öffnet das **Projektmenü**. Liegt dein Material nicht neben dem Entwurf, klicke dort auf **Projektordner wählen…** (oder **Einstellungen > Levis AI > Projektordner**). Der gewählte Ordner gilt für jedes Dokument – auch für ungespeicherte Entwürfe –, bis du wieder **Ordner des Dokuments verwenden** wählst.
 
 > [!TIP]
 > Dein Entwurf liegt in `masterarbeit/entwürfe/` und deine Interviewnotizen in `masterarbeit/recherche/`? Wähle `masterarbeit/` als Projektordner, dann kann Levis AI `recherche/interviews.md` lesen, während du an `entwürfe/kapitel-2.md` arbeitest.
@@ -167,7 +167,7 @@ Schreibanweisungen gelten nur für Unterhaltungen. Die Vervollständigung liest 
 
 ### Skills (/name)
 
-**Ein Skill ist eine wiederverwendbare Sammlung von Anweisungen mit einem Namen** – „straffen“, „gliedern“, „Zitate prüfen“ –, gespeichert in einer Markdown-Datei: oben ein Name und eine einzeilige Beschreibung, darunter die vollständigen Anweisungen.
+**Ein Skill ist eine wiederverwendbare Sammlung von Anweisungen mit einem Namen** – „straffen“, „gliedern“, „Quellenangaben prüfen“ –, gespeichert in einer Markdown-Datei: oben ein Name und eine einzeilige Beschreibung, darunter die vollständigen Anweisungen.
 
 ```markdown
 ---

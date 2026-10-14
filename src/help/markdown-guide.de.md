@@ -16,10 +16,10 @@ Ein Zitat:
 Hinweise im GitHub-Stil:
 
 > [!NOTE]
-> Eine Notiz, für zusätzlichen Kontext.
+> Eine Notiz mit zusätzlichem Kontext.
 
 > [!WARNING]
-> Eine Warnung, für Dinge, auf die man achten sollte.
+> Eine Warnung vor Dingen, auf die du achten solltest.
 
 ## Textauszeichnung
 
@@ -101,11 +101,11 @@ gantt
     title Beispiel für einen Projektzeitplan
     dateFormat YYYY-MM-DD
     section Entwurf
-    Anforderungen    :done,    des1, 2026-07-01, 5d
-    UI-Design        :active,  des2, after des1, 7d
+    Anforderungen       :done,    des1, 2026-07-01, 5d
+    UI-Design           :active,  des2, after des1, 7d
     section Umsetzung
-    Kernfunktionen   :         dev1, after des2, 10d
-    Feinschliff      :         dev2, after dev1, 5d
+    Kernfunktionen      :         dev1, after des2, 10d
+    Feinschliff & Tests :         dev2, after dev1, 5d
 ```
 
 Ein Sequenzdiagramm:
@@ -122,7 +122,7 @@ sequenceDiagram
 
 Füge ein Bild direkt aus der Zwischenablage ein – Levis speichert es in einem Ordner `assets/` neben dem Dokument und fügt den Verweis ein. Oder schreib ihn von Hand:
 
-Unter **Einstellungen → Editor & Design → Bilder** kannst du neu eingefügte Bilder stattdessen an deinen eigenen Bildhoster senden. Der Endpunkt empfängt `multipart/form-data` mit einem Feld `file` und gibt die öffentliche URL entweder als reinen Text oder in einem einstellbaren JSON-Feld zurück. Hochgeladene Dateien können automatisch umbenannt werden, ihren Originalnamen behalten oder vor jedem Upload nach einem Namen fragen. Wenn du den Speicherort wechselst, bleiben vorhandene Bildverweise unverändert.
+Unter **Einstellungen → Editor & Design → Bilder** kannst du neu eingefügte Bilder stattdessen an deinen eigenen Bildhoster senden. Der Endpunkt empfängt `multipart/form-data` mit einem Feld `file` und kann die öffentliche URL entweder als reinen Text oder in einem einstellbaren JSON-Feld zurückgeben. Hochgeladene Dateien können automatisch umbenannt werden oder ihren Originalnamen behalten, oder Levis fragt dich vor jedem Upload nach einem Namen. Wenn du den Speicherort wechselst, bleiben vorhandene Bildverweise unverändert.
 
 ```markdown
 ![Alternativtext](assets/screenshot.png)
