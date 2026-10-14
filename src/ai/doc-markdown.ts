@@ -326,12 +326,15 @@ function isBlockText(text: string): boolean {
 
 /** Joins two runs of inline text, adding the one space Latin script needs
  *  between words when neither side brought it - "the study" + "in 2024" -
- *  and nothing between CJK characters or before punctuation. */
-function joinInline(left: string, right: string): string {
+ *  and nothing between CJK characters, before punctuation or before a
+ *  footnote reference, which attaches to its word ("snapshot" + "[^2]";
+ *  the live eval saw "snapshot [^2]" next to the author's "document[^1]"). */
+export function joinInline(left: string, right: string): string {
   const a = left.slice(-1);
   const b = right.charAt(0);
   if (!a || !b || /\s/.test(a) || /\s/.test(b)) return left + right;
   if (isCjk(a) || isCjk(b) || /[.,;:!?)\]}]/.test(b)) return left + right;
+  if (right.startsWith("[^")) return left + right;
   return `${left} ${right}`;
 }
 

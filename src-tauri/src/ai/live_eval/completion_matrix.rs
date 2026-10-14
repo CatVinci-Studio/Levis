@@ -10,7 +10,8 @@
 use super::checks::{self, Lang};
 use super::harness::{self, Checks, Record};
 use crate::ai::client::{
-    completion_prompt, finish_completion, CompletionHints, CANDIDATE_SEPARATOR,
+    add_writing_context, completion_prompt, finish_completion, CompletionHints,
+    CANDIDATE_SEPARATOR, CODE_BLOCK_HINT,
 };
 use aicompat::providers::anthropic::AnthropicAuth;
 use serde_json::json;
@@ -51,10 +52,15 @@ pub struct CompletionCase {
     /// The word the cursor sits inside, as it must read once accepted.
     pub completes: Option<&'static str>,
     pub rubric: &'static str,
+    /// The project's style profile (.levis/style.md), when one is active.
+    pub style_profile: Option<&'static str>,
+    /// Text that must not appear in the suggestion (a banned word, a
+    /// punctuation mark the profile rules out).
+    pub banned: Vec<&'static str>,
 }
 
 impl CompletionCase {
-    fn new(id: &str, lang: Lang, before: &str, block: &'static str) -> Self {
+    pub fn new(id: &str, lang: Lang, before: &str, block: &'static str) -> Self {
         CompletionCase {
             id: id.to_string(),
             lang,
@@ -71,30 +77,58 @@ impl CompletionCase {
             max_words: None,
             completes: None,
             rubric: "",
+            style_profile: None,
+            banned: Vec::new(),
         }
     }
-    fn title(mut self, t: &'static str, section: &[&'static str]) -> Self {
+    pub fn title(mut self, t: &'static str, section: &[&'static str]) -> Self {
         self.title = Some(t);
         self.section = section.to_vec();
         self
     }
-    fn long(mut self) -> Self {
+    pub fn long(mut self) -> Self {
         self.long = true;
         self
     }
-    fn tone(mut self, t: &'static str) -> Self {
+    pub fn tone(mut self, t: &'static str) -> Self {
         self.tone = t;
         self
     }
-    fn space(mut self, s: bool) -> Self {
+    pub fn space(mut self, s: bool) -> Self {
         self.space = Some(s);
         self
     }
-    fn after(mut self, a: &str) -> Self {
+    pub fn after(mut self, a: &str) -> Self {
         self.after = a.to_string();
         self
     }
-    fn rubric(mut self, r: &'static str) -> Self {
+    pub fn profile(mut self, profile: &'static str, banned: &[&'static str]) -> Self {
+        self.style_profile = Some(profile);
+        self.banned = banned.to_vec();
+        self
+    }
+    pub fn banned(mut self, banned: &[&'static str]) -> Self {
+        self.banned = banned.to_vec();
+        self
+    }
+    pub fn max_words(mut self, n: usize) -> Self {
+        self.max_words = Some(n);
+        self
+    }
+    pub fn candidates(mut self, n: u8) -> Self {
+        self.candidates = Some(n);
+        self.long = true;
+        self
+    }
+    pub fn code(mut self) -> Self {
+        self.code = true;
+        self
+    }
+    pub fn completes(mut self, word: &'static str) -> Self {
+        self.completes = Some(word);
+        self
+    }
+    pub fn rubric(mut self, r: &'static str) -> Self {
         self.rubric = r;
         self
     }
@@ -229,20 +263,15 @@ pub fn all_cases() -> Vec<CompletionCase> {
         .space(true),
     );
 
-    // Code blocks. What the editor sends today: block "paragraph" (code_block
-    // isn't in ghost-text-plugin's BLOCK_NAMES), and the proposed hint.
+    // A code block, with the hint the editor sends since round 1 (the old
+    // "paragraph" variant is gone: the editor no longer sends it, and only
+    // a code block may take a multi-line completion - client.rs's
+    // clean_reply).
     let code = "def average_replay_time(samples):\n    if not samples:\n        return 0.0\n    total = 0\n    for s in samples:\n        ";
-    for block in ["paragraph", "code block"] {
-        let mut c = CompletionCase::new(
-            &format!("code/python-{}", block.replace(' ', "-")),
-            Lang::En,
-            code,
-            block,
-        )
+    let mut c = CompletionCase::new("code/python-code-block", Lang::En, code, CODE_BLOCK_HINT)
         .title("Sync engine notes", &["Sync engine notes", "Design"]);
-        c.code = true;
-        cases.push(c.rubric("The cursor is inside a fenced Python code block, at the start of the loop body. Expect a code continuation (e.g. 'total += s', perhaps then the return line), valid Python with correct indentation, and no prose. Returning nothing is acceptable; prose is not."));
-    }
+    c.code = true;
+    cases.push(c.rubric("The cursor is inside a fenced Python code block, at the start of the loop body. Expect a code continuation (e.g. 'total += s', perhaps then the return line), valid Python with correct indentation, and no prose. Returning nothing is acceptable; prose is not."));
 
     // After-text present (manual trigger mid-document).
     cases.push(
@@ -301,6 +330,7 @@ pub fn all_cases() -> Vec<CompletionCase> {
         )
         .space(true),
     );
+    cases.extend(super::completion_cases::all());
     cases.retain(|c| harness::selected(&c.id));
     cases
 }
@@ -355,6 +385,14 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
         !(probe.chars().count() >= 6 && raw.trim_start().starts_with(&probe)),
         || format!("repeats {probe:?}"),
     );
+    let doubled = checks::doubled_at_join(&case.before, text);
+    checks.expect("no doubled text at the cursor", doubled.is_none(), || {
+        format!("reads {:?} twice", doubled.unwrap_or_default())
+    });
+    let meta = checks::meta_commentary(text);
+    checks.expect("no meta-commentary", meta.is_none(), || {
+        format!("contains {:?}", meta.unwrap_or_default())
+    });
     if case.block != "paragraph" || !case.long {
         checks.expect(
             "no line break",
@@ -375,6 +413,12 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
             format!("reads {:?}", tail.chars().take(30).collect::<String>())
         });
     }
+    // A figure the writer never gave: a date, amount or count made up to
+    // fill a slot ("the 14th", "约 30%", "9시부터").
+    let invented = checks::new_numbers(&format!("{}\n{}", case.before, case.after), text);
+    checks.expect("no new figures", invented.is_empty(), || {
+        format!("adds {invented:?}")
+    });
     checks.add("language", checks::check_lang(text, case.lang));
     let words = checks::word_count(text);
     let cjk = matches!(
@@ -388,7 +432,8 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
         (true, true) => 220,
     });
     checks.expect("length", words <= max, || format!("{words} > {max}"));
-    if case.long && case.candidates.is_none() {
+    // Each alternative of a manual trigger is a full continuation too.
+    if case.long {
         let min = if cjk { 30 } else { 20 };
         checks.expect("long enough", words >= min, || {
             format!("{words} < {min} for an explicit continuation")
@@ -403,9 +448,32 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
             || format!("leading space {starts_space}, expected {space}"),
         );
     }
+    // An empty paragraph (after a heading, after a section): the editor
+    // keeps leading whitespace there (code indentation), so prose must
+    // start right at the first word.
+    if case.before.ends_with('\n') {
+        checks.expect(
+            "starts at the word",
+            !text.starts_with(char::is_whitespace),
+            || format!("starts with {:?}", text.chars().next().unwrap_or(' ')),
+        );
+    }
+    let found: Vec<&str> = case
+        .banned
+        .iter()
+        .copied()
+        .filter(|b| text.to_lowercase().contains(&b.to_lowercase()))
+        .collect();
+    if !case.banned.is_empty() {
+        checks.expect("style profile followed", found.is_empty(), || {
+            format!("uses {found:?}")
+        });
+    }
 }
 
-pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Record {
+/// The request as ai_complete builds it: the prompt, plus the style profile
+/// when the project has one (add_writing_context).
+pub fn request_for(case: &CompletionCase) -> (String, String, Option<&'static str>) {
     let hints = CompletionHints {
         title: case.title.map(str::to_string),
         section: case.section.iter().map(|s| s.to_string()).collect(),
@@ -417,22 +485,78 @@ pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Rec
         .iter()
         .find(|(t, _)| *t == case.tone)
         .and_then(|(_, d)| *d);
-    let (instructions, user_text) = completion_prompt(&case.before, &case.after, &hints, style);
-    let mut checks = Checks::default();
+    let (mut instructions, user_text) = completion_prompt(&case.before, &case.after, &hints, style);
+    if let Some(profile) = case.style_profile {
+        let ws = crate::ai::workspace::AgentWorkspace {
+            style: Some(profile.to_string()),
+            ..Default::default()
+        };
+        add_writing_context(&mut instructions, &ws, &case.before, &case.after);
+    }
+    (instructions, user_text, style)
+}
+
+/// Everything the case sends, for the record.
+pub fn case_input(
+    case: &CompletionCase,
+    user_text: &str,
+    style: Option<&str>,
+) -> serde_json::Value {
+    json!({
+        "before": case.before,
+        "after": case.after,
+        "title": case.title,
+        "section": case.section,
+        "block": case.block,
+        "length": if case.long { "long" } else { "short" },
+        "candidates": case.candidates,
+        "tone": case.tone,
+        "tone_directive": style,
+        "style_profile": case.style_profile,
+        "expect": {
+            "space": case.space,
+            "completes": case.completes,
+            "max_words": case.max_words,
+            "code": case.code,
+            "banned": case.banned,
+        },
+        "rubric": case.rubric,
+        "user_text": user_text,
+    })
+}
+
+/// Sends one completion and runs its checks: (record output, checks,
+/// latency, usage).
+pub fn complete_and_check(
+    auth: &AnthropicAuth,
+    case: &CompletionCase,
+    model: &str,
+    checks: &mut Checks,
+) -> (serde_json::Value, u128, harness::Usage, Vec<String>) {
+    let (instructions, user_text, _) = request_for(case);
+    let mut usage = harness::Usage::default();
     let (raw, latency) = match harness::complete(
         auth,
         &instructions,
         &user_text,
         harness::writing_model_arg(model),
     ) {
-        Ok(v) => v,
+        Ok(r) => {
+            usage.add(&r.model, &r.usage);
+            (r.text, r.ms)
+        }
         Err(e) => {
             checks.add("request", Err(e));
             (String::new(), 0)
         }
     };
     // What ai_complete returns, then what the editor shows of it.
-    let returned = finish_completion(&case.before, &raw);
+    let returned = finish_completion(
+        &case.before,
+        &case.after,
+        &raw,
+        case.block == CODE_BLOCK_HINT,
+    );
     let parts: Vec<String> = if case.candidates.is_some() {
         returned
             .split(CANDIDATE_SEPARATOR)
@@ -444,7 +568,7 @@ pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Rec
     };
     let shown_parts: Vec<String> = parts.iter().map(|p| shown(&case.before, p)).collect();
     for (raw_part, text) in parts.iter().zip(&shown_parts) {
-        check_one(case, raw_part, text, &mut checks);
+        check_one(case, raw_part, text, checks);
     }
     if let Some(n) = case.candidates {
         checks.expect("candidate count", shown_parts.len() == n as usize, || {
@@ -463,6 +587,37 @@ pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Rec
             format!("similarity {max_sim:.2}")
         });
     }
+    let reads_as: Vec<String> = shown_parts
+        .iter()
+        .map(|p| {
+            format!(
+                "{}⟦{p}⟧{}",
+                tail(&case.before, 80),
+                case.after.chars().take(40).collect::<String>()
+            )
+        })
+        .collect();
+    (
+        json!({"raw": raw, "returned": returned, "shown": shown_parts, "reads_in_place": reads_as}),
+        latency,
+        usage,
+        shown_parts,
+    )
+}
+
+fn tail(text: &str, n: usize) -> String {
+    let count = text.chars().count();
+    text.chars().skip(count.saturating_sub(n)).collect()
+}
+
+pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Record {
+    let (_, user_text, style) = request_for(case);
+    let input = case_input(case, &user_text, style);
+    if let Some(reason) = harness::budget_exhausted() {
+        return harness::skipped(&case.id, model, case.lang.code(), reason, input);
+    }
+    let mut checks = Checks::default();
+    let (output, latency, usage, shown_parts) = complete_and_check(auth, case, model, &mut checks);
     let tone_line = style.map_or("no tone preset".to_string(), |s| {
         format!("tone preset: {s}")
     });
@@ -477,10 +632,11 @@ pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Rec
         model: model.to_string(),
         lang: case.lang.code().into(),
         latency_ms: latency,
-        tokens: (0, 0),
+        usage,
         checks,
         verdict,
-        output: json!({"raw": raw, "returned": returned, "shown": shown_parts, "tone": case.tone, "block": case.block}),
+        input,
+        output,
     }
 }
 

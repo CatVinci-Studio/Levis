@@ -144,7 +144,8 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         Lang::Es,
         &[
             "el", "los", "las", "y", "del", "una", "es", "con", "se", "más", "pero", "muy", "pues",
-            "aquí", "también", "está", "están", "sus", "hay", "fue", "este",
+            "aquí", "también", "está", "están", "sus", "hay", "fue", "este", "la", "lo", "por",
+            "su", "al", "como",
         ],
     ),
     (
@@ -152,6 +153,7 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         &[
             "le", "les", "des", "et", "est", "une", "pour", "dans", "pas", "sur", "du", "avec",
             "au", "ce", "qui", "nous", "vous", "sont", "mais", "plus", "être", "cette", "aux",
+            "la", "je", "tu", "il", "elle", "avant", "très", "sans",
         ],
     ),
     (
@@ -166,7 +168,7 @@ const LATIN_WORDS: &[(Lang, &[&str])] = &[
         &[
             "os", "do", "da", "em", "um", "uma", "não", "é", "com", "dos", "das", "mais", "mas",
             "como", "também", "são", "está", "foi", "pelo", "pela", "nos", "ao", "seu", "e", "ali",
-            "depois", "isso", "muito", "ainda",
+            "depois", "isso", "muito", "ainda", "o", "na", "você", "pra", "seus", "suas",
         ],
     ),
 ];
@@ -275,7 +277,11 @@ pub fn detect(text: &str) -> Option<Lang> {
         .split(|ch: char| !ch.is_alphabetic())
         .filter(|w| !w.is_empty())
         .collect();
+    // No evidence, or a tie between languages: too little to tell. Short
+    // completions ("alojamiento", " buchen", "tu me promets de revenir")
+    // used to default to English, or to whichever list came first.
     let mut best = (Lang::En, 0.0f64);
+    let mut tied = false;
     for (lang, list) in LATIN_WORDS {
         let mut score = words.iter().filter(|w| list.contains(w)).count() as f64;
         // Letters only one of these languages uses.
@@ -293,9 +299,12 @@ pub fn detect(text: &str) -> Option<Lang> {
         };
         if score > best.1 {
             best = (*lang, score);
+            tied = false;
+        } else if score > 0.0 && score == best.1 {
+            tied = true;
         }
     }
-    Some(best.0)
+    (best.1 > 0.0 && !tied).then_some(best.0)
 }
 
 /// Ok when `text` reads as `expected`; texts too short to tell pass.
@@ -699,7 +708,8 @@ fn join_inline(left: &str, right: &str) -> String {
                 && !b.is_whitespace()
                 && !is_cjk(a)
                 && !is_cjk(b)
-                && !".,;:!?)]}".contains(b) =>
+                && !".,;:!?)]}".contains(b)
+                && !right.starts_with("[^") =>
         {
             format!("{left} {right}")
         }
@@ -911,9 +921,671 @@ pub fn word_count(text: &str) -> usize {
     cjk + latin
 }
 
+// --------------------------------------------------------------- editor text
+
+/// Markdown as ProseMirror's `textBetween(from, to, sep)` reads it: inline
+/// syntax gone (link text kept, images dropped), a hard break as "\n", and
+/// `sep` between textblocks - what the editor puts in a `<cursor>` block
+/// (caretContext, sep "\n") or a completion's before-text (sep "\n\n").
+pub fn plain_text(markdown: &str, sep: &str) -> String {
+    let mut out = String::new();
+    let mut pending = false;
+    let mut in_image = 0usize;
+    for event in Parser::new_ext(markdown, markdown_options()) {
+        match event {
+            Event::Start(Tag::Image { .. }) => in_image += 1,
+            Event::End(TagEnd::Image) => in_image = in_image.saturating_sub(1),
+            Event::Start(
+                Tag::Paragraph
+                | Tag::Heading { .. }
+                | Tag::CodeBlock(_)
+                | Tag::Item
+                | Tag::TableCell
+                | Tag::BlockQuote(_)
+                | Tag::FootnoteDefinition(_),
+            ) => pending = true,
+            Event::End(TagEnd::CodeBlock) => {
+                if out.ends_with('\n') {
+                    out.pop();
+                }
+            }
+            Event::Text(t) | Event::Code(t) | Event::InlineMath(t) | Event::DisplayMath(t)
+                if in_image == 0 =>
+            {
+                if pending && !out.is_empty() {
+                    out.push_str(sep);
+                }
+                pending = false;
+                out.push_str(&t);
+            }
+            Event::HardBreak => out.push('\n'),
+            Event::SoftBreak => out.push(' '),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// doc-markdown.ts's caretContext: up to `span` characters of plain text
+/// either side of the cursor at byte `at`, blocks separated by "\n". The
+/// block the cursor is in counts as the first one visited, so a cursor at a
+/// block's end sees the next block after a separator, and one at a block's
+/// start sees a separator after the previous block.
+pub fn cursor_context(doc: &str, at: usize, span: usize) -> (String, String) {
+    let (before_md, after_md) = doc.split_at(at);
+    let mut before = plain_text(before_md, "\n");
+    if before_md.ends_with('\n') && !before.is_empty() {
+        before.push('\n');
+    }
+    // Markdown drops a paragraph's edge spaces; at the cursor they are
+    // real text.
+    let trailing = &before_md[before_md.trim_end_matches([' ', '\t']).len()..];
+    before.push_str(trailing);
+    let mut after = plain_text(after_md, "\n");
+    if after_md.starts_with('\n') && !after.is_empty() {
+        after.insert(0, '\n');
+    }
+    let leading = &after_md[..after_md.len() - after_md.trim_start_matches([' ', '\t']).len()];
+    after.insert_str(0, leading);
+    let n = before.chars().count();
+    (
+        before.chars().skip(n.saturating_sub(span)).collect(),
+        after.chars().take(span).collect(),
+    )
+}
+
+/// One inline formatting range in a paragraph's text (char offsets).
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineMark {
+    pub start: usize,
+    pub end: usize,
+    pub kind: &'static str,
+}
+
+/// A paragraph's markdown as the grammar check sees it - the block's
+/// textContent - plus where each piece of inline formatting sits in that
+/// text and, for every text char, its byte offset in the markdown (one
+/// extra entry for the end), so fixes found in the text can be written back
+/// into the markdown.
+pub struct InlineText {
+    pub text: String,
+    pub marks: Vec<InlineMark>,
+    pub md_offsets: Vec<usize>,
+}
+
+pub fn inline_text(markdown: &str) -> InlineText {
+    let mut text = String::new();
+    let mut marks = Vec::new();
+    let mut offsets = Vec::new();
+    let mut open: Vec<(&'static str, usize)> = Vec::new();
+    let chars = |s: &str| s.chars().count();
+    for (event, range) in Parser::new_ext(markdown, markdown_options()).into_offset_iter() {
+        let is_code = matches!(event, Event::Code(_));
+        match event {
+            Event::Start(tag) => {
+                let kind = match tag {
+                    Tag::Strong => "strong",
+                    Tag::Emphasis => "emphasis",
+                    Tag::Strikethrough => "strike",
+                    Tag::Link { .. } => "link",
+                    _ => continue,
+                };
+                open.push((kind, chars(&text)));
+            }
+            Event::End(
+                TagEnd::Strong | TagEnd::Emphasis | TagEnd::Strikethrough | TagEnd::Link,
+            ) => {
+                if let Some((kind, start)) = open.pop() {
+                    marks.push(InlineMark {
+                        start,
+                        end: chars(&text),
+                        kind,
+                    });
+                }
+            }
+            Event::Text(t) | Event::Code(t) => {
+                let source = &markdown[range.clone()];
+                let base = if is_code {
+                    range.start + source.find(&*t).unwrap_or(0)
+                } else if source == &*t {
+                    range.start
+                } else {
+                    // An escape or entity: the chars don't line up one to
+                    // one; pin them all to the start of the source.
+                    for _ in t.chars() {
+                        offsets.push(range.start);
+                    }
+                    text.push_str(&t);
+                    continue;
+                };
+                let start = chars(&text);
+                for (i, _) in t.char_indices() {
+                    offsets.push(base + i);
+                }
+                text.push_str(&t);
+                if is_code {
+                    marks.push(InlineMark {
+                        start,
+                        end: chars(&text),
+                        kind: "code",
+                    });
+                }
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                offsets.push(range.start);
+                text.push('\n');
+            }
+            _ => {}
+        }
+    }
+    offsets.push(markdown.trim_end().len());
+    marks.sort_by_key(|m| (m.start, m.end));
+    InlineText {
+        text,
+        marks,
+        md_offsets: offsets,
+    }
+}
+
+impl InlineText {
+    /// Byte offset in the markdown just past text char `i` (exclusive end).
+    fn md_end(&self, markdown: &str, end: usize) -> usize {
+        if end == 0 {
+            return self.md_offsets.first().copied().unwrap_or(0);
+        }
+        let last = self.md_offsets[end - 1];
+        last + markdown[last..].chars().next().map_or(0, char::len_utf8)
+    }
+
+    /// The markdown with text-space edits (char start, char end,
+    /// replacement) written back into it, back to front.
+    pub fn apply_to_markdown(
+        &self,
+        markdown: &str,
+        edits: &[(usize, usize, String)],
+    ) -> Result<String, String> {
+        let mut sorted: Vec<&(usize, usize, String)> = edits.iter().collect();
+        sorted.sort_by_key(|e| e.0);
+        let mut out = markdown.to_string();
+        for (s, e, replacement) in sorted.into_iter().rev() {
+            if *e > self.md_offsets.len() - 1 || s > e {
+                return Err(format!("edit {s}..{e} outside the text"));
+            }
+            let ms = self.md_offsets[*s];
+            let me = if e == s {
+                ms
+            } else {
+                self.md_end(markdown, *e)
+            };
+            out.replace_range(ms..me, replacement);
+        }
+        Ok(out)
+    }
+
+    /// Edits that would split or straddle a formatting range (part inside,
+    /// part outside), or touch inline code at all - accepting one damages
+    /// the author's formatting.
+    pub fn damaging(&self, edits: &[(usize, usize)]) -> Vec<String> {
+        let mut out = Vec::new();
+        for &(s, e) in edits {
+            for m in &self.marks {
+                let overlaps = s < m.end && e > m.start;
+                let inside = s >= m.start && e <= m.end;
+                if overlaps && (m.kind == "code" || !inside) {
+                    let span: String = self.text.chars().skip(s).take(e - s).collect();
+                    out.push(format!(
+                        "{span:?} crosses {} {}..{}",
+                        m.kind, m.start, m.end
+                    ));
+                }
+            }
+        }
+        out
+    }
+}
+
+/// The whole lines from the one containing `start` through the first line
+/// after it containing `end` - a table or list region, whatever padding the
+/// editor gave its rows.
+pub fn lines_between(doc: &str, start: &str, end: &str) -> String {
+    let a = doc.find(start).expect("region start");
+    let a = doc[..a].rfind('\n').map_or(0, |i| i + 1);
+    let b = a + doc[a..].find(end).expect("region end");
+    let b = doc[b..].find('\n').map_or(doc.len(), |i| b + i);
+    doc[a..b].to_string()
+}
+
+/// The trimmed cells of the table row whose first cell is `first`.
+pub fn table_row(doc: &str, first: &str) -> Option<Vec<String>> {
+    doc.lines().find_map(|line| {
+        let t = line.trim();
+        let cells: Vec<String> = t
+            .strip_prefix('|')?
+            .strip_suffix('|')?
+            .split('|')
+            .map(|c| c.trim().to_string())
+            .collect();
+        (cells.first().map(String::as_str) == Some(first)).then_some(cells)
+    })
+}
+
+pub fn row_cells_are(doc: &str, first: &str, want: &[&str]) -> Result<(), String> {
+    match table_row(doc, first) {
+        Some(cells) if cells == want => Ok(()),
+        Some(cells) => Err(format!("row reads {cells:?}")),
+        None => Err(format!("no row starting with {first:?}")),
+    }
+}
+
+// --------------------------------------------------------------- completion
+
+/// Text the suggestion repeats from just before the cursor, as the user
+/// would read it once accepted: "常備" + "常備薬" reads 常備常備薬, "Lessons
+/// from" + " Lessons from a..." reads the heading twice. Two or more
+/// characters of an unspaced script, or four or more otherwise.
+pub fn doubled_at_join(before: &str, shown: &str) -> Option<String> {
+    let start = shown.trim_start();
+    let chars: Vec<char> = before.trim_end().chars().collect();
+    (2..=chars.len().min(40)).rev().find_map(|k| {
+        let tail: String = chars[chars.len() - k..].iter().collect();
+        let cjk = tail.chars().any(is_cjk);
+        let enough = if cjk { k >= 2 } else { k >= 4 };
+        // Mid-word tails ("ssons from") don't count - only whole words.
+        let whole = !cjk
+            && (chars.len() - k)
+                .checked_sub(1)
+                .and_then(|i| chars.get(i))
+                .is_some_and(|c| c.is_alphanumeric());
+        (enough && !whole && tail.chars().any(char::is_alphanumeric) && start.starts_with(&tail))
+            .then_some(tail)
+    })
+}
+
+/// Reasoning that leaked into a completion or grammar reply - the model
+/// talking about its instructions instead of writing the text.
+pub fn meta_commentary(text: &str) -> Option<&'static str> {
+    let lower = text.to_lowercase();
+    [
+        "</reasoning",
+        "<reasoning",
+        "the instructions",
+        "per instructions",
+        "per the scope",
+        "the rules say",
+        "text-before-cursor",
+        "word-at-cursor",
+        "the last word",
+        "the text ends with",
+        "so i repeat",
+        "wait—",
+        "wait —",
+        "wait -",
+        "i'll report",
+    ]
+    .into_iter()
+    .find(|m| lower.contains(m))
+}
+
+/// Text written twice in `after` that `before` didn't have twice: a doubled
+/// word ("uns uns"), two articles in a row ("a an"), or a repeated run of
+/// two to four characters in Chinese or Japanese ("高兴的高兴地").
+pub fn doubled_words(before: &str, after: &str) -> Option<String> {
+    fn words(text: &str) -> Vec<String> {
+        text.split(|c: char| !c.is_alphanumeric() && c != '\'' || is_cjk(c))
+            .filter(|w| w.chars().any(char::is_alphabetic))
+            .map(str::to_lowercase)
+            .collect()
+    }
+    fn pairs(text: &str) -> Vec<String> {
+        const ARTICLES: [&str; 3] = ["a", "an", "the"];
+        words(text)
+            .windows(2)
+            .filter(|p| {
+                p[0] == p[1]
+                    || (ARTICLES.contains(&p[0].as_str()) && ARTICLES.contains(&p[1].as_str()))
+            })
+            .map(|p| format!("{} {}", p[0], p[1]))
+            .collect()
+    }
+    // A run repeated right away or after one character ("高兴的高兴").
+    fn cjk_repeats(text: &str) -> Vec<String> {
+        let chars: Vec<char> = text.chars().collect();
+        let mut found = Vec::new();
+        for n in 2..=4 {
+            for gap in 0..=1 {
+                for i in 0..(chars.len() + 1).saturating_sub(2 * n + gap) {
+                    let (a, b) = (&chars[i..i + n], &chars[i + n + gap..i + 2 * n + gap]);
+                    if a == b && a.iter().all(|&c| is_cjk(c) && c.is_alphabetic()) {
+                        found.push(a.iter().collect::<String>());
+                    }
+                }
+            }
+        }
+        found
+    }
+    let count = |all: &[String], x: &String| all.iter().filter(|y| *y == x).count();
+    for (old, new) in [
+        (pairs(before), pairs(after)),
+        (cjk_repeats(before), cjk_repeats(after)),
+    ] {
+        if let Some(x) = new.iter().find(|x| count(&new, x) > count(&old, x)) {
+            return Some(x.clone());
+        }
+    }
+    None
+}
+
+/// `text` without what it quotes ("...", “...”, 「...」) - a reply in English
+/// about a Chinese edit quotes Chinese words, which say nothing about the
+/// reply's own language.
+pub fn unquoted(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut closing: Option<char> = None;
+    for c in text.chars() {
+        match closing {
+            Some(end) if c == end => closing = None,
+            Some(_) => {}
+            None => match c {
+                '"' => closing = Some('"'),
+                '“' => closing = Some('”'),
+                '「' => closing = Some('」'),
+                '『' => closing = Some('』'),
+                _ => out.push(c),
+            },
+        }
+    }
+    out
+}
+
+/// The agent's machinery surfacing in a reply to the writer: a tool's name
+/// or a line number from read_document/search_document ("（第91行）").
+pub fn process_talk(reply: &str) -> Option<String> {
+    let lower = reply.to_lowercase();
+    let tools = [
+        "propose_edit",
+        "read_document",
+        "search_document",
+        "list_files",
+        "read_file",
+        "search_files",
+        "use_skill",
+        "add_comment",
+    ];
+    if let Some(t) = tools.iter().find(|t| lower.contains(*t)) {
+        return Some(t.to_string());
+    }
+    let chars: Vec<char> = lower.chars().collect();
+    for i in 0..chars.len() {
+        let digits = |from: usize| -> String {
+            chars[from.min(chars.len())..]
+                .iter()
+                .take_while(|d| d.is_ascii_digit())
+                .collect()
+        };
+        // "line 12", "lines 3-5"
+        let word = |w: &str| {
+            let w: Vec<char> = w.chars().collect();
+            chars[i..].starts_with(&w) && (i == 0 || !chars[i - 1].is_alphabetic())
+        };
+        for w in ["line ", "lines "] {
+            if word(w) {
+                let n = digits(i + w.chars().count());
+                if !n.is_empty() {
+                    return Some(format!("{w}{n}"));
+                }
+            }
+        }
+        // 第91行
+        if chars[i] == '第' {
+            let n = digits(i + 1);
+            if !n.is_empty() && chars.get(i + 1 + n.len()) == Some(&'行') {
+                return Some(format!("第{n}行"));
+            }
+        }
+    }
+    None
+}
+
+/// ASCII punctuation in Chinese or Japanese prose in a reply - "无法按时出席,
+/// 特向您", "文档\"配置\"一节", "(当前这章)" - outside code spans: a comma,
+/// colon or semicolon right after a CJK character, or a bracket or quote
+/// next to one.
+pub fn half_width_in_cjk(reply: &str) -> Option<String> {
+    let cjk = |c: char| matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}');
+    for line in reply.lines() {
+        for part in line.split('`').step_by(2) {
+            let chars: Vec<char> = part.chars().collect();
+            for (i, &c) in chars.iter().enumerate() {
+                let prev = i.checked_sub(1).map(|j| chars[j]).is_some_and(cjk);
+                let next = chars.get(i + 1).copied().is_some_and(cjk);
+                let wrong = match c {
+                    ',' | ':' | ';' => prev,
+                    '(' | ')' | '"' => prev || next,
+                    _ => false,
+                };
+                if wrong {
+                    let from = i.saturating_sub(4);
+                    return Some(chars[from..(i + 5).min(chars.len())].iter().collect());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Figures in `text` that `context` doesn't have - an invented number,
+/// date or amount (a reformatted one, "1,056" -> "1056", is allowed).
+pub fn new_numbers(context: &str, text: &str) -> Vec<String> {
+    let digits_of = |s: &str| -> Vec<String> {
+        s.split(|c: char| !c.is_ascii_digit() && c != ',' && c != '.')
+            .map(|t| t.trim_matches(|c| c == ',' || c == '.').replace(',', ""))
+            .filter(|t| t.chars().any(|c| c.is_ascii_digit()))
+            .collect()
+    };
+    let known = digits_of(context);
+    digits_of(text)
+        .into_iter()
+        .filter(|d| !known.contains(d))
+        .collect()
+}
+
+// ----------------------------------------------------------------- sentences
+
+/// Sentences of prose (Markdown markers and code removed): split after
+/// 。！？!? and after a '.' that ends a word, closing quotes kept with
+/// their sentence.
+pub fn sentences(markdown: &str) -> Vec<String> {
+    let text = plain_text(markdown, "\n");
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        current.push(c);
+        let ends = match c {
+            '。' | '！' | '？' | '!' | '?' | '\n' => true,
+            '.' => chars.get(i + 1).is_none_or(|n| n.is_whitespace()),
+            _ => false,
+        };
+        if ends {
+            while let Some(&q) = chars.get(i + 1) {
+                if matches!(q, '”' | '’' | '"' | '\'' | '」' | '』' | ')' | '）') {
+                    current.push(q);
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            if current.trim().chars().any(char::is_alphanumeric) {
+                out.push(current.trim().to_string());
+            }
+            current.clear();
+        }
+        i += 1;
+    }
+    if current.trim().chars().any(char::is_alphanumeric) {
+        out.push(current.trim().to_string());
+    }
+    out
+}
+
+/// Each sentence's length: CJK characters for Chinese/Japanese text,
+/// words otherwise.
+pub fn sentence_lengths(markdown: &str) -> Vec<usize> {
+    sentences(markdown).iter().map(|s| word_count(s)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_context_reads_like_the_editor() {
+        let doc = "# Title\n\nFirst **bold** paragraph.\n\n## Next\n\nSecond one.\n";
+        let at = doc.find("\n\n## Next").unwrap();
+        let (b, a) = cursor_context(doc, at, 160);
+        assert_eq!(b, "Title\nFirst bold paragraph.");
+        assert_eq!(a, "\nNext\nSecond one.");
+        let at = doc.find("Second").unwrap();
+        let (b, a) = cursor_context(doc, at, 160);
+        assert_eq!(b, "Title\nFirst bold paragraph.\nNext\n");
+        assert_eq!(a, "Second one.");
+        let (b, _) = cursor_context(doc, doc.find("paragraph").unwrap(), 6);
+        assert_eq!(b, " bold ");
+        assert_eq!(
+            plain_text(
+                "* one\n* two [link](u) ![img](p.png)\n\n| a | b |\n| - | - |\n| 1 | 2 |\n",
+                "\n\n"
+            ),
+            "one\n\ntwo link \n\na\n\nb\n\n1\n\n2"
+        );
+    }
+
+    #[test]
+    fn inline_text_maps_fixes_back_into_the_markdown() {
+        let md = "Run `npm instal` and read the **offical** [guide](https://x.y) first.";
+        let it = inline_text(md);
+        assert_eq!(it.text, "Run npm instal and read the offical guide first.");
+        let kinds: Vec<&str> = it.marks.iter().map(|m| m.kind).collect();
+        assert_eq!(kinds, ["code", "strong", "link"]);
+        let at = it.text.find("offical").unwrap();
+        let fixed = it
+            .apply_to_markdown(md, &[(at, at + 7, "official".into())])
+            .unwrap();
+        assert_eq!(fixed, md.replace("offical", "official"));
+        // Inside code, or half in and half out of bold, is damage.
+        let code = it.text.find("instal").unwrap();
+        assert_eq!(it.damaging(&[(code, code + 6)]).len(), 1);
+        assert_eq!(it.damaging(&[(at - 4, at + 3)]).len(), 1);
+        assert!(it.damaging(&[(at, at + 7)]).is_empty());
+        let zh = inline_text("我们**非常**高兴的宣布");
+        assert_eq!(zh.text, "我们非常高兴的宣布");
+        let de = zh.text.chars().position(|c| c == '的').unwrap();
+        assert_eq!(
+            zh.apply_to_markdown("我们**非常**高兴的宣布", &[(de, de + 1, "地".into())])
+                .unwrap(),
+            "我们**非常**高兴地宣布"
+        );
+    }
+
+    #[test]
+    fn completion_join_problems_are_caught() {
+        assert_eq!(doubled_at_join("常备", "常备药").as_deref(), Some("常备"));
+        assert_eq!(
+            doubled_at_join(
+                "Lessons from",
+                " Lessons from
+more"
+            )
+            .as_deref(),
+            Some("Lessons from")
+        );
+        assert_eq!(
+            doubled_at_join("Lecciones de", " Lecciones de un año").as_deref(),
+            Some("Lecciones de")
+        );
+        assert_eq!(doubled_at_join("in the", " the end"), None);
+        assert_eq!(doubled_at_join("崩溃", "率"), None);
+        assert_eq!(doubled_at_join("the docu", "ment is"), None);
+        // Grammar fixes applied: new doubled words, articles, CJK runs.
+        let doubled = |a: &str, b: &str| doubled_words(a, b);
+        assert_eq!(
+            doubled("has a honest opinion", "has a an opinion").as_deref(),
+            Some("a an")
+        );
+        assert_eq!(
+            doubled("Kellner hat uns lange", "Kellner uns uns lange").as_deref(),
+            Some("uns uns")
+        );
+        assert_eq!(
+            doubled("他高兴的跳了起来", "他高兴的高兴地跳了起来").as_deref(),
+            Some("高兴")
+        );
+        assert_eq!(
+            doubled("has a honest opinion", "has an honest opinion"),
+            None
+        );
+        // Already doubled before: not the fix's doing.
+        assert_eq!(doubled("that the the value", "that the the value"), None);
+        assert_eq!(doubled("一个字一个字地", "一个字一个字地"), None);
+        assert_eq!(
+            meta_commentary("约</reasoning_effort>"),
+            Some("</reasoning")
+        );
+        assert_eq!(
+            new_numbers("we ship 700 units", "and 1,200 later"),
+            ["1200"]
+        );
+        // An English reply quoting Chinese reads as English.
+        let reply = "I proposed a tighter first paragraph. \"不大\" becomes \"小\", \"一年四季\" becomes \"四季\", and “贴着白色的瓷砖” becomes “贴白瓷砖”.";
+        assert_eq!(detect(&unquoted(reply)), Some(Lang::En));
+        assert_eq!(unquoted("他说「好」。"), "他说。");
+        // Agent replies: machinery and ASCII punctuation in Chinese.
+        assert_eq!(
+            process_talk("答案是 214（第91行）。").as_deref(),
+            Some("第91行")
+        );
+        assert_eq!(
+            process_talk("See line 3 of the notes.").as_deref(),
+            Some("line 3")
+        );
+        assert_eq!(
+            process_talk("I'll call propose_edit").as_deref(),
+            Some("propose_edit")
+        );
+        assert_eq!(process_talk("The deadline moved online 3 times."), None);
+        assert_eq!(process_talk("Streamline 2024 plans."), None);
+        assert!(half_width_in_cjk("无法按时出席,特向您申请").is_some());
+        assert!(half_width_in_cjk("文档\"配置\"一节").is_some());
+        assert!(half_width_in_cjk("(当前这章)").is_some());
+        assert!(half_width_in_cjk("我把 `retry: 3` 改成了 5，叫 \"Levis\" 也行。").is_none());
+        assert!(half_width_in_cjk("Plain English, no CJK: fine (really).").is_none());
+        assert!(new_numbers("closed 2,300 tickets", "the 2300 tickets").is_empty());
+        assert!(meta_commentary(
+            "率
+
+Wait—the instructions say"
+        )
+        .is_some());
+        assert_eq!(
+            meta_commentary(" every box seems heavier than the last."),
+            None
+        );
+    }
+
+    #[test]
+    fn sentences_split_in_both_scripts() {
+        assert_eq!(
+            sentences("He left. \"Why?\" she asked. It was 3.5 km away!"),
+            ["He left.", "\"Why?\"", "she asked.", "It was 3.5 km away!"]
+        );
+        assert_eq!(
+            sentences("她说：“走吧。”我们就走了。天黑了！"),
+            ["她说：“走吧。”", "我们就走了。", "天黑了！"]
+        );
+        assert_eq!(sentence_lengths("我们就走了。天黑了！"), [5, 3]);
+    }
 
     #[test]
     fn detects_every_matrix_language() {
@@ -934,6 +1606,17 @@ mod tests {
             Lang::Pt,
             "passam por ali antes de voltar para casa e levam livros emprestados para ler no trem.",
         )]);
+        // Two short completions the first round-2 run misread (as pt, en).
+        let samples = samples.chain([
+            (
+                Lang::Es,
+                " que salen tarde la usan como lugar para estudiar antes de volver a casa.",
+            ),
+            (
+                Lang::Pt,
+                " usam o espaço para estudar antes de pegar o trem para casa.",
+            ),
+        ]);
         for (lang, text) in samples {
             assert_eq!(detect(text), Some(lang), "{text}");
         }

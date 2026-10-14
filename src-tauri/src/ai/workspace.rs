@@ -65,6 +65,26 @@ pub struct AgentWorkspace {
     pub style: Option<String>,
     /// `.levis/library/*.md` - the project's people, places and terms.
     pub library: Vec<crate::ai::project::LibraryEntry>,
+    /// Where `root` came from - or why there is none - so the agent can
+    /// tell the user which folder it reads and how to change that.
+    pub root_source: RootSource,
+}
+
+/// Why the workspace root (the project folder, to the user) is the one it
+/// is, or why there is none.
+#[derive(Serialize, Clone, Copy, Default, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum RootSource {
+    /// An unsaved document and no folder chosen.
+    #[default]
+    None,
+    /// The open document's own folder - the default.
+    DocumentFolder,
+    /// The folder the user picked (the AI panel's folder row, or Settings).
+    Chosen,
+    /// The folder would be the home folder or a drive root, which is never
+    /// opened to the agent (project::is_too_broad).
+    TooBroad,
 }
 
 fn global_agent_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -210,15 +230,40 @@ pub fn load(
     doc_path: Option<&str>,
     root_override: Option<&str>,
 ) -> AgentWorkspace {
+    load_from(
+        global_agent_dir(app).ok().as_deref(),
+        doc_path,
+        root_override,
+    )
+}
+
+/// [`load`] with the global layer's folder given directly - the app config
+/// dir's `agent/` in the app, a scratch folder in the live eval, which
+/// builds real workspaces on disk to exercise exactly this path.
+pub(crate) fn load_from(
+    global_dir: Option<&Path>,
+    doc_path: Option<&str>,
+    root_override: Option<&str>,
+) -> AgentWorkspace {
     let mut ws = AgentWorkspace::default();
 
-    if let Ok(global_dir) = global_agent_dir(app) {
-        let (instructions, skills) = read_layer(&global_dir);
+    if let Some(global_dir) = global_dir {
+        let (instructions, skills) = read_layer(global_dir);
         ws.instructions.extend(instructions);
         ws.skills.extend(skills);
     }
 
-    if let Some(root) = project_root(doc_path, root_override) {
+    let resolved = resolve_root(doc_path, root_override);
+    let chosen = root_override
+        .map(str::trim)
+        .is_some_and(|p| !p.is_empty() && Path::new(p).is_dir());
+    ws.root_source = match &resolved {
+        None => RootSource::None,
+        Some(root) if crate::ai::project::is_too_broad(root) => RootSource::TooBroad,
+        Some(_) if chosen => RootSource::Chosen,
+        Some(_) => RootSource::DocumentFolder,
+    };
+    if let Some(root) = resolved.filter(|_| ws.root_source != RootSource::TooBroad) {
         let root = root.as_path();
         ws.root = Some(root.to_string_lossy().to_string());
         ws.style = crate::ai::project::read_style(root);

@@ -51,9 +51,12 @@ export function parseProposal(argumentsJson: string): EditProposal | null {
 
 /**
  * Resolves a leading /name skill invocation: the skill's prompt becomes the
- * message body, with whatever followed the name appended as extra input.
- * A slash token that doesn't name a skill is left alone - it might just be
- * text that starts with a slash.
+ * message body, in a <skill> block that tells the model it is already
+ * loaded (agent.rs's skill index says so - sent bare, the model called
+ * use_skill for it again, a 12-16 s round trip in the live eval), with
+ * whatever followed the name appended as extra input. A slash token that
+ * doesn't name a skill is left alone - it might just be text that starts
+ * with a slash. Mirrored by live_eval's resolve_skill_message.
  */
 export function resolveSkillMessage(
   message: string,
@@ -63,5 +66,6 @@ export function resolveSkillMessage(
   if (!m) return message;
   const skill = skills.find((s) => s.name === m[1]);
   if (!skill) return message;
-  return m[2] ? `${skill.prompt}\n\n${m[2]}` : skill.prompt;
+  const body = `<skill name="${skill.name}">\n${skill.prompt}\n</skill>`;
+  return m[2] ? `${body}\n\n${m[2]}` : body;
 }

@@ -6,6 +6,7 @@
 //! judge.
 
 use super::checks::{self, Caret, Lang, StructureExpect};
+use super::completion_matrix::CompletionCase;
 use super::docs::{lang_doc, para, LANG_DOCS, RICH_DOC, RICH_DOC_ZH, TASKS_DOC_JA};
 use super::harness::{
     self, conversation_material, run_conversation, AgentSetup, Checks, Record, TurnOutcome,
@@ -13,7 +14,9 @@ use super::harness::{
 };
 use crate::ai::workspace::{AgentSkill, AgentWorkspace};
 use aicompat::providers::anthropic::AnthropicAuth;
-use serde_json::json;
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub enum EditExpect {
@@ -27,6 +30,36 @@ pub enum EditExpect {
 }
 
 type Custom = fn(&TurnOutcome) -> Result<(), String>;
+
+/// A named check that may capture case data (the selected passage, a
+/// sample's habits) - shows up under its own name in the record.
+pub type Check = Arc<dyn Fn(&TurnOutcome) -> Result<(), String> + Send + Sync>;
+
+/// A check on a generated style profile: (profile, the samples it was
+/// learned from).
+pub type ProfileCheck = Arc<dyn Fn(&str, &str) -> Result<(), String> + Send + Sync>;
+
+/// A real workspace on disk, loaded through workspace::load_from exactly
+/// as the app loads it: the global agent folder (the app config dir's
+/// `agent/`), the open document's path, and the panel's workspace override.
+#[derive(Clone, Default)]
+pub struct DiskWorkspace {
+    pub global: Option<PathBuf>,
+    pub doc_path: Option<PathBuf>,
+    pub root_override: Option<PathBuf>,
+    /// Folders whose files go into the record (the workspace as built).
+    pub show: Vec<PathBuf>,
+}
+
+/// "Learn my style": the picked sample files, where the profile is
+/// written (the project's .levis/style.md, read back by the workspace
+/// load), and checks on the generated profile.
+#[derive(Clone)]
+pub struct LearnStyle {
+    pub samples: Vec<PathBuf>,
+    pub write_to: Option<PathBuf>,
+    pub checks: Vec<(&'static str, ProfileCheck)>,
+}
 
 /// What one turn must do. Checked on that turn's own before/after.
 #[derive(Clone, Default)]
@@ -47,7 +80,57 @@ pub struct Expect {
     pub shorter: bool,
     pub longer: bool,
     pub tools: Vec<&'static str>,
+    /// Tools that must NOT be called.
+    pub no_tools: Vec<&'static str>,
     pub custom: Option<Custom>,
+    pub named: Vec<(&'static str, Check)>,
+}
+
+impl Expect {
+    pub fn check(
+        mut self,
+        name: &'static str,
+        f: impl Fn(&TurnOutcome) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        self.named.push((name, Arc::new(f)));
+        self
+    }
+    pub fn has(mut self, needles: &[&str]) -> Self {
+        self.doc_has.extend(needles.iter().map(|s| s.to_string()));
+        self
+    }
+    pub fn lacks(mut self, needles: &[&str]) -> Self {
+        self.doc_lacks.extend(needles.iter().map(|s| s.to_string()));
+        self
+    }
+    pub fn reply(mut self, any: &[&str]) -> Self {
+        self.reply_any = any.iter().map(|s| s.to_string()).collect();
+        self
+    }
+    pub fn shorter(mut self) -> Self {
+        self.shorter = true;
+        self
+    }
+    pub fn longer(mut self) -> Self {
+        self.longer = true;
+        self
+    }
+    pub fn tools(mut self, tools: &[&'static str]) -> Self {
+        self.tools.extend(tools);
+        self
+    }
+    pub fn without_tools(mut self, tools: &[&'static str]) -> Self {
+        self.no_tools.extend(tools);
+        self
+    }
+    pub fn comments(mut self) -> Self {
+        self.comments = Some(true);
+        self
+    }
+    pub fn keep_inline(mut self) -> Self {
+        self.keep_inline = true;
+        self
+    }
 }
 
 pub struct AgentCase {
@@ -61,12 +144,19 @@ pub struct AgentCase {
     pub expects: Vec<Expect>,
     pub mode: &'static str,
     pub workspace: AgentWorkspace,
+    /// When set, the workspace is loaded from these folders at run time
+    /// instead of `workspace`.
+    pub disk: Option<DiskWorkspace>,
+    pub learn: Option<LearnStyle>,
+    /// A completion sent after the conversation under the same workspace
+    /// (its style profile), checked like a completion case.
+    pub then_complete: Option<CompletionCase>,
     /// Task-specific expectations for the judge.
     pub rubric: String,
 }
 
 impl AgentCase {
-    fn new(
+    pub fn new(
         id: &str,
         lang: Lang,
         doc_lang: Lang,
@@ -84,36 +174,86 @@ impl AgentCase {
             expects: vec![expect],
             mode: "edit",
             workspace: AgentWorkspace::default(),
+            disk: None,
+            learn: None,
+            then_complete: None,
             rubric: rubric.to_string(),
         }
     }
-    fn mode(mut self, mode: &'static str) -> Self {
+    pub fn mode(mut self, mode: &'static str) -> Self {
         self.mode = mode;
         self
     }
-    fn workspace(mut self, ws: AgentWorkspace) -> Self {
+    pub fn workspace(mut self, ws: AgentWorkspace) -> Self {
         self.workspace = ws;
         self
     }
-    fn caret(mut self, caret: Caret) -> Self {
+    pub fn disk(mut self, disk: DiskWorkspace) -> Self {
+        self.disk = Some(disk);
+        self
+    }
+    pub fn learn(mut self, learn: LearnStyle) -> Self {
+        self.learn = Some(learn);
+        self
+    }
+    pub fn complete_after(mut self, case: CompletionCase) -> Self {
+        self.then_complete = Some(case);
+        self
+    }
+    pub fn caret(mut self, caret: Caret) -> Self {
         self.script[0].caret = caret;
+        self
+    }
+    /// Quick Ask opened on `selected`: every message of the conversation
+    /// goes out with the selection as it reads at send time (see
+    /// UserTurn::follow_selection), in edit mode (Quick Ask's default).
+    pub fn quick(mut self, selected: &str) -> Self {
+        let start = self.doc.find(selected).expect("selection in document");
+        self.script[0].caret = Caret {
+            cursor: None,
+            selection: Some((start, start + selected.len())),
+        };
+        for turn in &mut self.script {
+            turn.follow_selection = true;
+        }
+        self.mode = "edit";
         self
     }
     /// A follow-up message; `accept_previous` is what the user did with the
     /// previous turn's proposals.
-    fn then(mut self, accept_previous: bool, message: &str, expect: Expect) -> Self {
+    pub fn then(mut self, accept_previous: bool, message: &str, expect: Expect) -> Self {
+        let follow = self.script[0].follow_selection;
         self.script.last_mut().unwrap().accept = accept_previous;
-        self.script.push(UserTurn::new(message));
+        let mut turn = UserTurn::new(message);
+        turn.follow_selection = follow;
+        self.script.push(turn);
         self.expects.push(expect);
         self
     }
+    /// A case that only learns a style profile (no conversation).
+    pub fn learn_only(id: &str, lang: Lang, learn: LearnStyle, rubric: &str) -> AgentCase {
+        AgentCase {
+            id: id.to_string(),
+            lang,
+            doc_lang: lang,
+            doc: String::new(),
+            script: Vec::new(),
+            expects: Vec::new(),
+            mode: "edit",
+            workspace: AgentWorkspace::default(),
+            disk: None,
+            learn: Some(learn),
+            then_complete: None,
+            rubric: rubric.to_string(),
+        }
+    }
 }
 
-fn s(v: &[&str]) -> Vec<String> {
+pub fn s(v: &[&str]) -> Vec<String> {
     v.iter().map(|x| x.to_string()).collect()
 }
 
-fn edit_in(region: &str, structure: StructureExpect) -> Expect {
+pub fn edit_in(region: &str, structure: StructureExpect) -> Expect {
     Expect {
         edit: EditExpect::Required,
         region: Some(region.to_string()),
@@ -122,19 +262,30 @@ fn edit_in(region: &str, structure: StructureExpect) -> Expect {
     }
 }
 
-fn no_edit() -> Expect {
+pub fn edit_anywhere() -> Expect {
+    Expect {
+        edit: EditExpect::Required,
+        ..Expect::default()
+    }
+}
+
+pub fn no_edit() -> Expect {
     Expect {
         edit: EditExpect::Forbidden,
         ..Expect::default()
     }
 }
 
+pub fn either() -> Expect {
+    Expect::default()
+}
+
 /// Mirrors src/ai/chat/user-message.ts: the selection block, then the
 /// message - plus where the selection sits, for replace_selection.
-fn with_selection(doc: &str, selected: &str, message: &str) -> (String, Caret) {
+pub fn with_selection(doc: &str, selected: &str, message: &str) -> (String, Caret) {
     let start = doc.find(selected).expect("selection in document");
     (
-        format!("<selected-text>\n{selected}\n</selected-text>\n\n{message}"),
+        format!("{}\n\n{message}", harness::selected_text_block(selected)),
         Caret {
             cursor: None,
             selection: Some((start, start + selected.len())),
@@ -142,17 +293,11 @@ fn with_selection(doc: &str, selected: &str, message: &str) -> (String, Caret) {
     )
 }
 
-/// Mirrors user-message.ts's cursorBlock: up to 200 characters either side.
-fn with_cursor(doc: &str, at: usize, message: &str) -> (String, Caret) {
-    let before: String = doc[..at]
-        .chars()
-        .rev()
-        .take(200)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-    let after: String = doc[at..].chars().take(200).collect();
+/// Mirrors user-message.ts's cursorBlock around doc-markdown.ts's
+/// caretContext: up to 160 characters of the editor's plain text either
+/// side, blocks separated by a newline.
+pub fn with_cursor(doc: &str, at: usize, message: &str) -> (String, Caret) {
+    let (before, after) = checks::cursor_context(doc, at, 160);
     (
         format!("<cursor>\n{before}⟦cursor⟧{after}\n</cursor>\n\n{message}"),
         Caret {
@@ -160,6 +305,50 @@ fn with_cursor(doc: &str, at: usize, message: &str) -> (String, Caret) {
             selection: None,
         },
     )
+}
+
+/// Mirrors proposal.ts's resolveSkillMessage: "/name rest" becomes the
+/// skill's prompt, a blank line, then the rest.
+pub fn resolve_skill_message(message: &str, skills: &[AgentSkill]) -> String {
+    let Some(rest) = message.strip_prefix('/') else {
+        return message.to_string();
+    };
+    let (name, tail) = rest
+        .split_once(char::is_whitespace)
+        .map_or((rest, ""), |(n, t)| (n, t.trim_start()));
+    match skills.iter().find(|s| s.name == name) {
+        Some(skill) => {
+            let body = format!(
+                "<skill name=\"{}\">\n{}\n</skill>",
+                skill.name, skill.prompt
+            );
+            if tail.is_empty() {
+                body
+            } else {
+                format!("{body}\n\n{tail}")
+            }
+        }
+        None => message.to_string(),
+    }
+}
+
+/// All text the turn's accepted proposals wrote, concatenated.
+pub fn proposed_text(o: &TurnOutcome) -> String {
+    o.proposals
+        .iter()
+        .map(|p| p.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The text an accepted edit put into the document (the changed span of
+/// the result), or "" when nothing changed.
+pub fn inserted(o: &TurnOutcome) -> String {
+    if o.doc_after == o.doc_before {
+        return String::new();
+    }
+    let (s, _, e2) = checks::changed_span(&o.doc_before, &o.doc_after);
+    o.doc_after[s..e2].to_string()
 }
 
 const SHORTEN_RUBRIC: &str = "The user asked to tighten the Method paragraph. Expect exactly one edit, to that paragraph only, written in the document's language, clearly shorter, and keeping every fact: the whole year (January to December), attendance recorded at every session, a short monthly paper questionnaire about the club and how it was run. The reply should be a brief note in the language the user wrote in.";
@@ -241,21 +430,32 @@ fn structure_cases() -> Vec<AgentCase> {
         let b = a + d[a..].find(end).expect("section end") + end.len();
         d[a..b].to_string()
     };
-    let table = section("| Component", "| Offline queue | Ana | Done |");
-    let tasks = section("- [x] Write", "large files");
+    let table = checks::lines_between(d, "| Component", "| Offline queue");
+    let tasks = section("* [x] Write", "large files");
     let design_para = section("The engine keeps", "wire format.");
-    let lists = section("- Storage", "exponential backoff");
+    let lists = section("* Storage", "exponential backoff");
     let variance = section("$$\ns^2", "^2\n$$");
     let code = section("```python", "1)\n```");
     let mermaid = section("```mermaid", "Log store]\n```");
     let details = section("<details>", "</details>");
-    let note = section("> [!NOTE]", "today.");
+    // The editor writes the alert marker escaped (`> \[!NOTE]`) - what the
+    // model sees in the app.
+    let note = section("> \\[!NOTE]", "today.");
     let front = section("---\ntitle", "sync]\n---");
     let image = section("![Architecture", "architecture.png)");
 
     let mut cases = Vec::new();
     let mut e = edit_in(&table, StructureExpect::Same);
-    e.doc_has = s(&["| Search index | Tom | Done |"]);
+    e.named.push((
+        "search index row is Done",
+        Arc::new(|o: &TurnOutcome| {
+            checks::row_cells_are(
+                &o.doc_after,
+                "Search index",
+                &["Search index", "Tom", "Done"],
+            )
+        }),
+    ));
     cases.push(AgentCase::new("md/table-cell", Lang::En, Lang::En, d, "Mark the search index as done in the status table.", e, "Expect one edit changing only the Status cell of the Search index row to Done, table formatting intact."));
 
     let mut e = edit_in(
@@ -274,7 +474,7 @@ fn structure_cases() -> Vec<AgentCase> {
         &tasks,
         StructureExpect::Delta(&[("task", -1), ("task:x", 1)]),
     );
-    e.doc_has = s(&["- [x] Update the docs"]);
+    e.doc_has = s(&["* [x] Update the docs"]);
     cases.push(AgentCase::new(
         "md/task-check",
         Lang::En,
@@ -282,23 +482,28 @@ fn structure_cases() -> Vec<AgentCase> {
         d,
         "Check off \"Update the docs\".",
         e,
-        "Expect the single task item turned into `- [x] Update the docs`, nothing else touched.",
+        "Expect the single task item turned into `* [x] Update the docs`, nothing else touched.",
     ));
 
     let mut e = edit_in(&lists, StructureExpect::Delta(&[("item", 1), ("/", 1)]));
     e.doc_has = s(&["Long polling"]);
     e.custom = Some(|o| {
         let after = &o.doc_after;
-        let t = after.find("- Transport").ok_or("Transport item gone")?;
+        let t = after.find("* Transport").ok_or("Transport item gone")?;
         let tail = &after[t..];
         let lp = tail
             .find("Long polling")
             .ok_or("new item not under Transport")?;
         let line_start = tail[..lp].rfind('\n').map_or(0, |i| i + 1);
         tail[line_start..lp]
-            .starts_with("  - ")
+            .starts_with("  * ")
             .then_some(())
-            .ok_or_else(|| "new item is not nested under Transport".to_string())
+            .ok_or_else(|| {
+                format!(
+                    "new item is not a `  * ` item under Transport (the list's own bullet): {:?}",
+                    &tail[line_start..lp]
+                )
+            })
     });
     cases.push(AgentCase::new("md/nested-list-add", Lang::En, Lang::En, d, "Under Transport, add a sub-item: long polling as a fallback.", e, "Expect one new nested list item (indented two spaces, like its sibling) under Transport, nothing else changed."));
 
@@ -322,7 +527,12 @@ fn structure_cases() -> Vec<AgentCase> {
             |sk: &checks::Skeleton| sk.inline.keys().filter(|k| k.starts_with("fnref:")).count();
         let defs =
             |sk: &checks::Skeleton| sk.blocks.iter().filter(|b| b.starts_with("fndef:")).count();
-        if refs(&after) == refs(&before) + 1 && defs(&after) == defs(&before) + 1 {
+        // A reference attaches to its word, as the author's "document[^1]"
+        // does - not "snapshot [^2]".
+        let detached = o.doc_after.matches(" [^").count() > o.doc_before.matches(" [^").count();
+        if detached {
+            Err("the new reference is detached by a space".into())
+        } else if refs(&after) == refs(&before) + 1 && defs(&after) == defs(&before) + 1 {
             Ok(())
         } else {
             Err(format!(
@@ -338,7 +548,7 @@ fn structure_cases() -> Vec<AgentCase> {
 
     let mut e = edit_in(&note, StructureExpect::Same);
     e.shorter = true;
-    e.doc_has = s(&["> [!NOTE]"]);
+    e.doc_has = s(&["[!NOTE]"]);
     cases.push(AgentCase::new("md/alert-shorten", Lang::En, Lang::En, d, "Make the note at the top more concise.", e, "Expect the [!NOTE] alert kept as an alert (> [!NOTE] line and > prefixes), its sentence clearly shorter with the same meaning."));
 
     let mut e = edit_in(&design_para, StructureExpect::Same);
@@ -391,10 +601,14 @@ fn structure_cases() -> Vec<AgentCase> {
 
     // Chinese and Japanese documents with the same kinds of in-place edits.
     let zt = RICH_DOC_ZH;
-    let ztable = &zt[zt.find("| 模块").unwrap()
-        ..zt.find("| 离线队列 | 安娜 | 已完成 |").unwrap() + "| 离线队列 | 安娜 | 已完成 |".len()];
-    let mut e = edit_in(ztable, StructureExpect::Same);
-    e.doc_has = s(&["| 搜索索引 | 阿汤 | 已完成 |"]);
+    let ztable = checks::lines_between(zt, "| 模块", "| 离线队列");
+    let mut e = edit_in(&ztable, StructureExpect::Same);
+    e.named.push((
+        "search index row is 已完成",
+        Arc::new(|o: &TurnOutcome| {
+            checks::row_cells_are(&o.doc_after, "搜索索引", &["搜索索引", "阿汤", "已完成"])
+        }),
+    ));
     cases.push(AgentCase::new(
         "md/zh-table-cell",
         Lang::ZhHans,
@@ -408,13 +622,13 @@ fn structure_cases() -> Vec<AgentCase> {
     let mut e = edit_in(zcode, StructureExpect::Same);
     e.doc_has = s(&["i = 0"]);
     cases.push(AgentCase::new("md/zh-code-fix", Lang::ZhHans, Lang::ZhHans, zt, "averageReplayTime 算出来的平均值偏小，帮我修一下。", e, "The bug: the loop starts at i = 1 and skips the first sample. Expect a minimal fix inside the js block (start at 0, or use reduce/for-of), the Chinese comment kept; reply in Chinese naming the cause."));
-    let ja_tasks = &TASKS_DOC_JA[TASKS_DOC_JA.find("- [x]").unwrap()
+    let ja_tasks = &TASKS_DOC_JA[TASKS_DOC_JA.find("* [x]").unwrap()
         ..TASKS_DOC_JA.find("見直す").unwrap() + "見直す".len()];
     let mut e = edit_in(
         ja_tasks,
         StructureExpect::Delta(&[("task", -1), ("task:x", 1)]),
     );
-    e.doc_has = s(&["- [x] スクリーンショットを更新する"]);
+    e.doc_has = s(&["* [x] スクリーンショットを更新する"]);
     cases.push(AgentCase::new(
         "md/ja-task-check",
         Lang::Ja,
@@ -453,10 +667,17 @@ fn behaviour_cases() -> Vec<AgentCase> {
         edit: EditExpect::Required,
         ..Expect::default()
     };
+    // Judged on the text, not the changed span: a summary that starts
+    // with "The " shares that prefix with the intro, which pushed the
+    // minimal diff's start past it (a false failure in round 2's run1).
     e.custom = Some(|o| {
-        let (s, _, _) = checks::changed_span(&o.doc_before, &o.doc_after);
-        let intro = o.doc_before.find("The city library").unwrap();
-        (s <= intro && s >= o.doc_before.find('\n').unwrap())
+        let title = o.doc_before.lines().next().unwrap_or("");
+        let head = o
+            .doc_after
+            .split("The city library started")
+            .next()
+            .unwrap_or("");
+        (head.starts_with(title) && head[title.len()..].trim().len() > 40)
             .then_some(())
             .ok_or_else(|| {
                 "summary not placed between the title and the first paragraph".to_string()
@@ -768,7 +989,7 @@ fn workspace_cases() -> Vec<AgentCase> {
     };
     let mut e = edit_in(para(en, 1), StructureExpect::Same);
     e.shorter = true;
-    cases.push(AgentCase::new("skill/slash-invoked", Lang::En, Lang::En, en, &format!("{}\n\nthe Method paragraph", tighten.prompt), e, "The user invoked the /tighten skill (its instructions are at the top of the message) on the Method paragraph. Expect one edit to that paragraph at roughly 40-60% of its length with every fact kept, and a one-line reply saying how much shorter it got.").workspace(ws));
+    cases.push(AgentCase::new("skill/slash-invoked", Lang::En, Lang::En, en, &resolve_skill_message("/tighten the Method paragraph", std::slice::from_ref(&tighten)), e, "The user invoked the /tighten skill (its instructions are at the top of the message) on the Method paragraph. Expect one edit to that paragraph at roughly 40-60% of its length with every fact kept, and a one-line reply saying how much shorter it got.").workspace(ws));
 
     let headline = AgentSkill {
         name: "house-headline".into(),
@@ -846,6 +1067,8 @@ pub fn all_cases() -> Vec<AgentCase> {
     let mut cases = language_cases();
     cases.extend(structure_cases());
     cases.extend(behaviour_cases());
+    cases.extend(super::agent_everyday::cases());
+    cases.extend(super::agent_workspace::cases());
     cases.retain(|c| harness::selected(&c.id));
     cases
 }
@@ -885,7 +1108,21 @@ fn check_turn(case: &AgentCase, expect: &Expect, o: &TurnOutcome, checks: &mut C
     checks.expect("reply present", !o.reply.trim().is_empty(), || {
         "empty closing reply".into()
     });
-    checks.add("reply language", checks::check_lang(&o.reply, case.lang));
+    checks.add(
+        "reply language",
+        checks::check_lang(&checks::unquoted(&o.reply), case.lang),
+    );
+    // The reply talks to a writer: no tool names, no line numbers.
+    let process = checks::process_talk(&o.reply);
+    checks.expect("no tool or line-number talk", process.is_none(), || {
+        format!("reply says {:?}", process.unwrap_or_default())
+    });
+    if matches!(case.lang, Lang::ZhHans | Lang::ZhHant | Lang::Ja) {
+        let half = checks::half_width_in_cjk(&o.reply);
+        checks.expect("full-width punctuation in reply", half.is_none(), || {
+            format!("{:?}", half.unwrap_or_default())
+        });
+    }
     if !expect.reply_any.is_empty() {
         let lower = o.reply.to_lowercase();
         checks.expect(
@@ -909,7 +1146,9 @@ fn check_turn(case: &AgentCase, expect: &Expect, o: &TurnOutcome, checks: &mut C
         let (s, e, e2) = checks::changed_span(&o.doc_before, &o.doc_after);
         let inserted = &o.doc_after[s..e2];
         let removed = &o.doc_before[s..e];
-        if checks::word_count(inserted) >= 4 {
+        // Six words: shorter text says too little about its language
+        // ("Do teams need SSO?" reads as Portuguese).
+        if checks::word_count(inserted) >= 6 {
             checks.add(
                 "edit language",
                 checks::check_lang(inserted, expect.edit_lang.unwrap_or(case.doc_lang)),
@@ -976,71 +1215,284 @@ fn check_turn(case: &AgentCase, expect: &Expect, o: &TurnOutcome, checks: &mut C
             || "still in the result".into(),
         );
     }
+    for t in &expect.no_tools {
+        checks.expect(
+            &format!("never calls {t}"),
+            !o.tools.iter().any(|x| x == t),
+            || format!("called {t}"),
+        );
+    }
+    let skip_edit_checks = expect.edit == EditExpect::Required && o.proposals.is_empty();
     if let Some(custom) = expect.custom {
-        if !(expect.edit == EditExpect::Required && o.proposals.is_empty()) {
+        if !skip_edit_checks {
             checks.add("case-specific", custom(o));
+        }
+    }
+    for (name, check) in &expect.named {
+        if !skip_edit_checks {
+            checks.add(name, check(o));
         }
     }
 }
 
-pub fn run_case(auth: &AnthropicAuth, case: &AgentCase, model: &str) -> Record {
-    let setup = AgentSetup {
-        model,
-        mode: case.mode,
-        workspace: &case.workspace,
-        focus_heading: None,
-    };
-    let mut checks = Checks::default();
-    let conv = match run_conversation(auth, &setup, &case.doc, &case.script) {
-        Ok(c) => c,
-        Err(e) => {
-            checks.add("request", Err(e));
-            return Record {
-                case: case.id.clone(),
-                model: model.to_string(),
-                lang: case.lang.code().into(),
-                latency_ms: 0,
-                tokens: (0, 0),
-                checks,
-                verdict: None,
-                output: json!(null),
-            };
+/// Every file under `dir` (relative path -> content, clipped), for the
+/// record: the workspace exactly as the case built it.
+fn files_under(dir: &Path) -> serde_json::Map<String, Value> {
+    let mut out = serde_json::Map::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(d) = pending.pop() {
+        let Ok(entries) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+        paths.sort();
+        for p in paths {
+            if p.is_dir() {
+                pending.push(p);
+            } else if let Ok(text) = std::fs::read_to_string(&p) {
+                let rel = p
+                    .strip_prefix(dir)
+                    .unwrap_or(&p)
+                    .to_string_lossy()
+                    .into_owned();
+                out.insert(rel, json!(harness::clip(&text, 6_000)));
+            }
         }
-    };
-    for (expect, outcome) in case.expects.iter().zip(&conv.outcomes) {
-        check_turn(case, expect, outcome, &mut checks);
     }
-    let verdict = harness::judge(
-        auth,
-        &format!("An AI writing agent in {} mode answered a user in a Markdown editor. User language: {}; document language: {}.", case.mode, case.lang.code(), case.doc_lang.code()),
-        &case.rubric,
-        &conversation_material(&conv),
-    );
-    let output = json!(conv
-        .outcomes
-        .iter()
-        .map(|o| json!({
-            "message": o.message,
-            "reply": o.reply,
-            "tools": o.tools,
-            "proposals": o.proposals.iter().map(|p| json!({"action": p.action, "anchor": p.anchor, "text": p.text, "context": p.context})).collect::<Vec<_>>(),
-            "invalid_proposals": o.invalid_proposals,
-            "comments": o.comments,
-            "apply_error": o.apply_error,
-            "diff": harness::diff_view(&o.doc_before, &o.doc_after),
-            "latency_ms": o.latency_ms as u64,
-            "steps": o.usage.len(),
-        }))
-        .collect::<Vec<_>>());
+    out
+}
+
+fn workspace_json(ws: &AgentWorkspace) -> Value {
+    json!({
+        "instructions": ws.instructions,
+        "project_instructions": ws.project_instructions,
+        "skills": ws.skills.iter().map(|s| json!({"name": s.name, "description": s.description, "prompt": s.prompt})).collect::<Vec<_>>(),
+        "root": ws.root,
+        "style": ws.style,
+        "library": ws.library.iter().map(|e| json!({"name": e.name, "aliases": e.aliases, "file": e.file, "body": e.body})).collect::<Vec<_>>(),
+    })
+}
+
+/// The case's inputs for the record (the workspace as loaded is added at
+/// run time).
+fn case_input(case: &AgentCase) -> Value {
+    json!({
+        "document": case.doc,
+        "doc_chars": case.doc.chars().count(),
+        "user_lang": case.lang.code(),
+        "doc_lang": case.doc_lang.code(),
+        "mode": case.mode,
+        "script": case.script.iter().map(|t| json!({
+            "message": t.message,
+            "accept_proposals": t.accept,
+            "quick_ask_selection_follows": t.follow_selection,
+            "cursor": t.caret.cursor,
+            "selection": t.caret.selection,
+        })).collect::<Vec<_>>(),
+        "disk_workspace": case.disk.as_ref().map(|d| json!({
+            "global_agent_dir": d.global.as_ref().map(|p| p.display().to_string()),
+            "doc_path": d.doc_path.as_ref().map(|p| p.display().to_string()),
+            "workspace_root_override": d.root_override.as_ref().map(|p| p.display().to_string()),
+            "files": d.show.iter().map(|dir| json!({"dir": dir.display().to_string(), "files": files_under(dir)})).collect::<Vec<_>>(),
+        })),
+        "learn_style": case.learn.as_ref().map(|l| json!({
+            "samples": l.samples.iter().map(|p| json!({
+                "name": p.file_name().map(|n| n.to_string_lossy().into_owned()),
+                "text": std::fs::read_to_string(p).unwrap_or_default(),
+            })).collect::<Vec<_>>(),
+            "writes": l.write_to.as_ref().map(|p| p.display().to_string()),
+        })),
+        "rubric": case.rubric,
+    })
+}
+
+/// Document text for the record: in full when it is short enough to read,
+/// otherwise the changed region with context (`diff` always has it too).
+fn recorded_doc(doc: &str) -> Value {
+    if doc.chars().count() <= 15_000 {
+        json!(doc)
+    } else {
+        json!(format!("({} chars - see diff)", doc.chars().count()))
+    }
+}
+
+fn turn_json(o: &TurnOutcome, model: &str) -> Value {
+    let mut usage = harness::Usage::default();
+    for u in &o.usage {
+        usage.add(model, u);
+    }
+    json!({
+        "message": o.message,
+        "message_sent": o.message_sent,
+        "cursor": o.caret.cursor,
+        "selection": o.caret.selection,
+        "focus_heading": o.focus_heading,
+        "reply": o.reply,
+        "tools": o.tools,
+        "tool_calls": o.calls,
+        "proposals": o.proposals.iter().map(|p| json!({"action": p.action, "anchor": p.anchor, "text": p.text, "context": p.context})).collect::<Vec<_>>(),
+        "invalid_proposals": o.invalid_proposals,
+        "invalid_proposal_errors": o.invalid_errors,
+        "comments": o.comments,
+        "apply_error": o.apply_error,
+        "document_changed": o.doc_after != o.doc_before,
+        "diff": harness::diff_view(&o.doc_before, &o.doc_after),
+        "document_after": if o.doc_after != o.doc_before { recorded_doc(&o.doc_after) } else { Value::Null },
+        "latency_ms": o.latency_ms as u64,
+        "steps": o.usage.len(),
+        "usage": usage.json(),
+    })
+}
+
+pub fn run_case(auth: &AnthropicAuth, case: &AgentCase, model: &str) -> Record {
+    let mut input = case_input(case);
+    if let Some(reason) = harness::budget_exhausted() {
+        return harness::skipped(&case.id, model, case.lang.code(), reason, input);
+    }
+    let mut checks = Checks::default();
+    let mut usage = harness::Usage::default();
+    let mut output = serde_json::Map::new();
+    let mut latency = 0u128;
+
+    // "Learn my style" first: the profile it writes is what the workspace
+    // load below reads back.
+    let mut learned: Option<String> = None;
+    if let Some(learn) = &case.learn {
+        let files: Vec<String> = learn
+            .samples
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect();
+        let samples = crate::ai::project::style_samples(&files).unwrap_or_default();
+        match harness::complete(
+            auth,
+            crate::ai::project::STYLE_INSTRUCTIONS,
+            &samples,
+            Some(model),
+        ) {
+            Ok(reply) => {
+                usage.add(&reply.model, &reply.usage);
+                latency += reply.ms;
+                let profile = reply.text.trim().to_string();
+                checks.expect("profile written", !profile.is_empty(), || {
+                    "empty profile".into()
+                });
+                for (name, check) in &learn.checks {
+                    checks.add(name, check(&profile, &samples));
+                }
+                if let Some(path) = &learn.write_to {
+                    if let Some(parent) = path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    std::fs::write(path, format!("{profile}\n")).expect("write style.md");
+                }
+                output.insert("learned_profile".into(), json!(profile));
+                output.insert("learn_latency_ms".into(), json!(reply.ms as u64));
+                learned = Some(profile);
+            }
+            Err(e) => checks.add("request", Err(e)),
+        }
+    }
+
+    let ws = match &case.disk {
+        Some(d) => crate::ai::workspace::load_from(
+            d.global.as_deref(),
+            d.doc_path
+                .as_ref()
+                .map(|p| p.to_string_lossy().into_owned())
+                .as_deref(),
+            d.root_override
+                .as_ref()
+                .map(|p| p.to_string_lossy().into_owned())
+                .as_deref(),
+        ),
+        None => case.workspace.clone(),
+    };
+    input["workspace_loaded"] = workspace_json(&ws);
+
+    if !case.script.is_empty() && checks.0.iter().all(|c| c.name != "request") {
+        let script: Vec<UserTurn> = case
+            .script
+            .iter()
+            .map(|t| UserTurn {
+                message: resolve_skill_message(&t.message, &ws.skills),
+                ..t.clone()
+            })
+            .collect();
+        let setup = AgentSetup {
+            model,
+            mode: case.mode,
+            workspace: &ws,
+            focus_heading: None,
+        };
+        let conv = run_conversation(auth, &setup, &case.doc, &script);
+        if let Some(e) = &conv.error {
+            checks.add("request", Err(e.clone()));
+        }
+        for (expect, outcome) in case.expects.iter().zip(&conv.outcomes) {
+            check_turn(case, expect, outcome, &mut checks);
+        }
+        usage.merge(&conv.usage());
+        latency += conv.latency_ms();
+        output.insert(
+            "turns".into(),
+            json!(conv
+                .outcomes
+                .iter()
+                .map(|o| turn_json(o, model))
+                .collect::<Vec<_>>()),
+        );
+        output.insert("error".into(), json!(conv.error));
+        if !conv.outcomes.is_empty() {
+            let verdict_material = conversation_material(&conv);
+            output.insert("judge_material".into(), json!(verdict_material));
+        }
+    }
+
+    // A completion under the same workspace's style profile.
+    if let Some(completion) = &case.then_complete {
+        let mut c = completion.clone();
+        if let Some(style) = ws.style.clone().or(learned) {
+            c.style_profile = Some(Box::leak(style.into_boxed_str()));
+        }
+        let (_, user_text, tone) = super::completion_matrix::request_for(&c);
+        input["completion"] = super::completion_matrix::case_input(&c, &user_text, tone);
+        let mut cchecks = Checks::default();
+        let (out, ms, u, _) = super::completion_matrix::complete_and_check(
+            auth,
+            &c,
+            &harness::writing_model(),
+            &mut cchecks,
+        );
+        for check in cchecks.0 {
+            checks.0.push(harness::Check {
+                name: format!("completion: {}", check.name),
+                ..check
+            });
+        }
+        usage.merge(&u);
+        latency += ms;
+        output.insert("completion".into(), out);
+    }
+
+    let verdict = output.get("judge_material").and_then(|m| {
+        harness::judge(
+            auth,
+            &format!("An AI writing agent in {} mode answered a user in a Markdown editor. User language: {}; document language: {}.", case.mode, case.lang.code(), case.doc_lang.code()),
+            &case.rubric,
+            m.as_str().unwrap_or(""),
+        )
+    });
     Record {
         case: case.id.clone(),
         model: model.to_string(),
         lang: case.lang.code().into(),
-        latency_ms: conv.latency_ms(),
-        tokens: conv.tokens(),
+        latency_ms: latency,
+        usage,
         checks,
         verdict,
-        output,
+        input,
+        output: Value::Object(output),
     }
 }
 
@@ -1065,3 +1517,105 @@ pub const COMPARISON_CASES: &[&str] = &[
     "files/facts-from-notes",
     "long/edit-one-section",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_case_is_well_formed() {
+        let cases = all_cases();
+        assert!(cases.len() > 140, "{} cases", cases.len());
+        let mut ids = std::collections::HashSet::new();
+        for case in &cases {
+            assert!(ids.insert(case.id.clone()), "duplicate id {}", case.id);
+            assert_eq!(case.script.len(), case.expects.len(), "{}", case.id);
+            assert!(
+                !case.script.is_empty() || case.learn.is_some(),
+                "{}: nothing to run",
+                case.id
+            );
+            if let Some(region) = case.expects.first().and_then(|e| e.region.as_ref()) {
+                assert!(
+                    case.doc.contains(region.as_str()),
+                    "{}: region not in the document",
+                    case.id
+                );
+            }
+            if let Some((s, e)) = case.script.first().and_then(|t| t.caret.selection) {
+                assert!(
+                    e <= case.doc.len()
+                        && case.doc.is_char_boundary(s)
+                        && case.doc.is_char_boundary(e),
+                    "{}",
+                    case.id
+                );
+            }
+            if let Some(learn) = &case.learn {
+                assert!(
+                    learn.samples.iter().all(|p| p.exists()),
+                    "{}: samples missing",
+                    case.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn slash_skills_expand_like_the_composer() {
+        let skills = vec![AgentSkill {
+            name: "润色".into(),
+            description: String::new(),
+            prompt: "Polish it.".into(),
+        }];
+        assert_eq!(
+            resolve_skill_message("/润色 第二段", &skills),
+            "<skill name=\"润色\">\nPolish it.\n</skill>\n\n第二段"
+        );
+        assert_eq!(
+            resolve_skill_message("/润色", &skills),
+            "<skill name=\"润色\">\nPolish it.\n</skill>"
+        );
+        assert_eq!(resolve_skill_message("/other x", &skills), "/other x");
+        assert_eq!(resolve_skill_message("plain", &skills), "plain");
+    }
+
+    fn load(case_id: &str) -> AgentWorkspace {
+        let case = all_cases()
+            .into_iter()
+            .find(|c| c.id == case_id)
+            .expect("case");
+        let d = case.disk.as_ref().unwrap();
+        let path = |p: &Option<PathBuf>| p.as_ref().map(|p| p.to_string_lossy().into_owned());
+        crate::ai::workspace::load_from(
+            d.global.as_deref(),
+            path(&d.doc_path).as_deref(),
+            path(&d.root_override).as_deref(),
+        )
+    }
+
+    #[test]
+    fn disk_workspaces_load_through_the_app_loader() {
+        let ws = load("agentmd/global-plus-workspace");
+        assert_eq!(ws.instructions.len(), 1, "the global layer");
+        assert!(ws.project_instructions.is_some(), "and the project's");
+        assert!(
+            !ws.instructions[0].contains("French"),
+            "comments are stripped"
+        );
+        let ws = load("workspace/en/override-root");
+        assert!(ws.root.as_deref().unwrap().ends_with("research"));
+        assert!(
+            ws.instructions.is_empty() && ws.project_instructions.is_none(),
+            "the document folder's agent.md doesn't apply"
+        );
+        let ws = load("skill/en/project-shadows-global");
+        assert_eq!(ws.skills.len(), 1);
+        assert!(ws.skills[0].prompt.contains("at most 6 words"));
+        let ws = load("library/en/alias-fact");
+        assert_eq!(ws.library.len(), 2);
+        assert!(crate::ai::project::relevant_library(&ws.library, "the captain").len() == 1);
+        let ws = load("workspace/en/unsaved-draft");
+        assert!(ws.root.is_none());
+    }
+}
