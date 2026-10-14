@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "Hola, Levis";
+    let greeting = "¡Hola, Levis!";
     println!("{greeting}");
 }
 ```
