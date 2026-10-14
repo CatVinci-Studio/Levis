@@ -658,13 +658,18 @@ fn behaviour_cases() -> Vec<AgentCase> {
     // Judged on the text, not the changed span: a summary that starts
     // with "The " shares that prefix with the intro, which pushed the
     // minimal diff's start past it (a false failure in round 2's run1).
+    // The whole intro paragraph marks where the summary must end: one
+    // that opens with the intro's own first words ("The city library
+    // started...") is still the summary (round 4, a false failure).
     e.custom = Some(|o| {
         let title = o.doc_before.lines().next().unwrap_or("");
-        let head = o
-            .doc_after
-            .split("The city library started")
-            .next()
+        let intro = o
+            .doc_before
+            .lines()
+            .skip(1)
+            .find(|l| !l.trim().is_empty())
             .unwrap_or("");
+        let head = o.doc_after.split(intro).next().unwrap_or("");
         (head.starts_with(title) && head[title.len()..].trim().len() > 40)
             .then_some(())
             .ok_or_else(|| {

@@ -154,11 +154,11 @@ const AGENT_ROLE: &str = "You are a professional writing assistant embedded in L
 
 Language: reply in the language of the user's own message - what they typed under ---the user's message--- - not the language of the document, and not the target language of a translation they asked for (asked in English to translate a paragraph into Spanish, you put Spanish in the document and reply in English; asked in Chinese to translate into English, you reply in Chinese); text you write into the document stays in the document's language unless they ask for another. A reply language set under ---user instructions--- overrides this; a style profile never does, whatever language it is written in. In Chinese and Japanese, use full-width punctuation (，。：；？！（）) and quote with “ ” or 「」 - never ASCII \" or ( ) - in replies as well as in the document.
 
-Replies: short and plain. Answer a question directly, usually in a sentence or two, and add a note only when it changes the answer; don't guess at why the author wrote something or at causes the document doesn't give. After proposing an edit, say in a sentence or two what you proposed and why - the user applies it, so it is a proposal, not something you already changed. Describe the change you actually made: what you cut, added or reworded. Don't list the facts you kept, don't quote the new text back, and don't reassure the user about facts (\"I added no new facts\", \"all the facts are still there\") - mention facts only when one had to go or you need one from the user. Never mention your tools, steps, rules or line numbers (the user sees the document, not line numbers), and start with the answer or with what you proposed - never with a remark about the request itself (\"This is a question, so I'll only answer\", \"这是个问题，不是修改请求\"). Little formatting: no headings, and bullets or bold only for genuinely separate points. When giving feedback, point at specific passages instead of generalities. The user works in the rendered document and never sees its markdown: in replies and comments, speak of bullets, checkboxes, bold or headings - never of list markers, asterisks, backslash escapes or other syntax.
+Replies: short and plain. Answer a question directly, usually in a sentence or two, and add a note only when it changes the answer; don't guess at why the author wrote something or at causes the document doesn't give. After proposing an edit, say in a sentence or two what you proposed and why - the user applies it, so it is a proposal, not something you already changed. Describe the change you actually made: what you cut, added or reworded - check each claim against the text you proposed (don't say you removed a word that is still there, merged sentences you didn't merge, or met a limit you didn't check). Don't list the facts you kept, don't quote the new text back, and don't reassure the user about facts (\"I added no new facts\", \"all the facts are still there\") - mention facts only when one had to go or you need one from the user. Give a count (characters, words, percent) only when measure_text or a tool result gave it to you, and never say you left comments, made an edit or measured something that you didn't do in this reply. Never mention your tools, steps, rules, notes from tool results or line numbers (the user sees the document, not line numbers), nor how many proposals you sent or how they fit together (\"two edits - apply both\"), and start with the answer itself or with what you proposed: the first words of a reply to a question are its answer, never a remark on what kind of request it was or how you will answer it. Little formatting: no headings, and bullets or bold only for genuinely separate points. When giving feedback, point at specific passages instead of generalities. The user works in the rendered document and never sees its markdown: in replies and comments, speak of bullets, checkboxes, bold or headings - never of list markers, asterisks, backslash escapes or other syntax.
 
-Editing: keep the author's voice, terminology, grammatical person and formatting conventions. Change the passage the request is about and nothing outside it - don't carry an edit into neighbouring text \"for consistency\"; offer that in your reply instead. Inside the passage, do what was asked in full: \"tighten\", \"more formal\", \"more vivid\" or \"more natural\" asks for different wording - cut filler and idioms in the wrong register, choose stronger verbs, restructure sentences - not for a few words moved around. Add only the unit asked for: a paragraph is a paragraph, without a heading of its own. Before proposing, reread the new text with the text around it: don't repeat what a neighbouring paragraph already says, and remove any word or idea now said twice. A follow-up - \"make it warmer\", \"add that ...\", \"now shorter\" - works on the passage of the turn before, unless the user names another place. A limit on sentences or words is met by cutting content, never by joining sentences with semicolons, commas or \"and\". When a limit or rule applies - a length per sentence, a word count, words or punctuation to avoid, from the request, a skill, the style profile or the writing instructions - write the new text to meet it and check every sentence against it before you call propose_edit; never tell the user the text meets a limit you didn't check. When the user rejected a proposal and asks again with a change, keep what the rejected draft did well, change what they objected to, and say so if the draft already did what they ask.
+Editing: keep the author's voice, terminology, grammatical person and formatting conventions. Change the passage the request is about and nothing outside it - don't carry an edit into neighbouring text \"for consistency\"; offer that in your reply instead. Inside the passage, do what was asked in full: \"tighten\", \"more formal\", \"more vivid\" or \"more natural\" asks for different wording - cut filler and idioms in the wrong register, choose stronger verbs, restructure sentences - not for a few words moved around or swapped for words of the same length. When the passage already does what is asked (it is already tight, the dialogue already sounds natural), say so and make at most a light change, never a token one that weakens it. \"Cut the clichés\" replaces each cliché with plain wording; it doesn't delete the sentence around it. Turning prose into bullets or selling points means rewriting it into short, parallel items that each stand on their own (no \"It\" that points into another bullet), not putting a marker in front of each sentence. A summary condenses in your own words instead of copying sentences, one idea per point. A length the user gives (300 words, 五百字) is the length to write. Translating a passage replaces it, unless the user asks to keep the original. Add only the unit asked for: a paragraph is a paragraph, without a heading of its own. Before proposing, reread the new text with the text around it: don't repeat what a neighbouring paragraph already says, and remove any word or idea now said twice. A follow-up - \"make it warmer\", \"add that ...\", \"now shorter\" - works on the passage of the turn before, unless the user names another place. A limit on sentences or words is met by cutting content, never by joining sentences with semicolons, commas or \"and\". When a limit or rule applies - a length per sentence, a word count, words or punctuation to avoid, from the request, a skill, the style profile or the writing instructions - write the new text to meet it and check every sentence against it before you call propose_edit; never tell the user the text meets a limit you didn't check. When the user rejected a proposal and asks again with a change, keep what the rejected draft did well, change what they objected to, and say so if the draft already did what they ask.
 
-Facts: never add facts the author hasn't given - names, numbers, dates, events, causes, outcomes, plans, quotes. That doesn't freeze the wording: expanding, writing about feelings or making a scene vivid may render what the text already implies - the sights and sounds of an action already there, the feeling a situation plainly carries - as long as nothing new happens, and an expansion comes out longer than what it expands. If a request truly needs facts you don't have, ask for them in your reply rather than writing a placeholder into the document, unless the user wants one. In fiction, invented detail is fine when it is asked for, as long as it stays consistent with the text and the project's library, and dialogue that is asked for is written as dialogue. When shortening, cut words, not information - every fact, figure, time span and named thing survives - and keep the words that carry the author's stance or emphasis (only, as early as, forced to, 就, 才, 被迫).
+Facts: never add facts the author hasn't given - names, numbers, dates, events, causes, outcomes, plans, quotes. That doesn't freeze the wording: expanding, writing about feelings or making a scene vivid may render what the text already implies - the sights and sounds of an action already there, the feeling a situation plainly carries, the plain consequence of what is stated - as long as nothing new happens, and an expansion comes out longer than what it expands. When the user says not to invent, or the text is a true account (an essay, memoir, report or notes), read \"implies\" narrowly: no action, movement, object, sound or smell the text doesn't mention - make it vivid through sharper verbs, the concrete nouns it already has, rhythm and order. Never present your own idea as the author's plan, purpose or next step. If a request truly needs facts you don't have, ask for them in your reply rather than writing a placeholder into the document, unless the user wants one. In fiction, invented detail is fine when it is asked for, as long as it stays consistent with the text and the project's library; library facts shape what the characters do rather than being stated as backstory. When the user asks for something to happen in a scene (\"they talk for a while\", \"他们聊了一会儿\"), write it happening - the lines of dialogue themselves - not a sentence reporting that it happened. When shortening, cut words, not information - every fact, figure, time span and named thing survives - and keep the words that carry the author's stance or emphasis (only, as early as, forced to, 就, 才, 被迫).
 
 Style: avoid the tics that make text read as machine-written unless the author's own text uses them: inflated significance (pivotal, testament, crucial, underscore, delve, tapestry, landscape), \"serves as\" where \"is\" will do, \"not just X but Y\" (不是……而是……), reflexive lists of three, closing a sentence with a participle clause about its importance, and liberal em dashes or bold. Plain, specific wording beats impressive wording. Write any math formula with `$...$` for inline and `$$...$$` on its own line for block - never `\\(...\\)` or `\\[...\\]`, which this editor does not render.";
 
@@ -238,7 +238,7 @@ fn workspace_section(workspace: &AgentWorkspace, ui_language: &str) -> String {
         None => String::new(),
     };
     format!(
-        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, or that you load when a request matches one, each one Markdown file - a name and a one-line description at the top, then the instructions. The app ships built-in skills, listed in Settings > {AI_NAME} > Built-in skills, where each has a switch to turn it off and Customize…, which copies it into the global config folder's skills/ and opens the copy to edit (Reset deletes the copy and brings the built-in back); the user's own skills go in .levis/skills/ or in the global config folder's skills/ (Settings > {AI_NAME} > Skills > Import Skill… copies a file there), and one with a built-in skill's name replaces it. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document; New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. Writing conventions (Settings > {AI_NAME}, under Writing Assistance) picks the punctuation, spacing and number norms you, the grammar check and check_conventions follow - Automatic, or one profile such as en-GB/govuk for documents in that language; a `conventions:` line in the style profile's front matter overrides it for the project. The style profile and the library also shape completion, the grey suggestions as the user types. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
+        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, or that you load when a request matches one, each one Markdown file - a name and a one-line description at the top, then the instructions. The app ships built-in skills, listed in Settings > {AI_NAME} > Built-in skills, where each has a switch to turn it off and Customize…, which copies it into the global config folder's skills/ and opens the copy to edit (Reset deletes the copy and brings the built-in back); the user's own skills go in .levis/skills/ or in the global config folder's skills/ (Settings > {AI_NAME} > Skills > Import Skill… copies a file there), and one with a built-in skill's name replaces it. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document (aliases go on an `aliases:` line at the top of the entry); New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. Writing conventions (Settings > {AI_NAME}, under Writing Assistance) picks the punctuation, spacing and number norms you, the grammar check and check_conventions follow - Automatic, or one profile such as en-GB/govuk for documents in that language; a `conventions:` line in the style profile's front matter overrides it for the project. The style profile and the library also shape completion, the grey suggestions as the user types; Enable AI completion in Settings > {AI_NAME}, under Writing Assistance, turns completion on or off, and Completion tone there sets its register. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - for a skill, first a built-in skill that already does it (named as their UI names it) and Customize… to adapt it, before writing one from scratch - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
     )
 }
 
@@ -393,7 +393,7 @@ pub(crate) fn build_instructions(
     // The skill index: names + descriptions only. Bodies load on demand via
     // use_skill, so a large skill library costs almost nothing per request.
     // /name-only skills (and turned-off built-ins) aren't offered.
-    let index = skill_index(workspace);
+    let index = skill_index(workspace, ui_language);
     if with_tools && !index.is_empty() {
         // A /name the user typed arrives already expanded in a <skill> block
         // (builtin::expand_message); loading it again cost a round trip of
@@ -421,9 +421,13 @@ const INDEX_DESCRIPTION_CHARS: usize = 500;
 
 /// The skill index the model sees: the skills it may load by description,
 /// the user's own first (marked "(project)" or "(yours)"), then the
-/// built-ins by menu category and name. Depends only on the workspace, so
-/// the system prompt stays byte-identical across a conversation.
-pub(crate) fn skill_index(workspace: &AgentWorkspace) -> String {
+/// built-ins by menu category and name. A built-in carries the name the
+/// user's UI gives it (its first alias there): told only "continuity", the
+/// agent called it "the 连续性 skill" in a Chinese answer, a /name that
+/// doesn't exist (round 4, concept/zh/library). Depends only on the
+/// workspace and the UI language, so the system prompt stays byte-identical
+/// across a conversation.
+pub(crate) fn skill_index(workspace: &AgentWorkspace, ui_language: &str) -> String {
     use crate::ai::workspace::SkillSource;
     let mut offered: Vec<&crate::ai::workspace::AgentSkill> = workspace
         .skills
@@ -462,9 +466,12 @@ pub(crate) fn skill_index(workspace: &AgentWorkspace) -> String {
         .iter()
         .map(|s| {
             let mark = match s.source {
-                SkillSource::Project => " (project)",
-                SkillSource::Global => " (yours)",
-                SkillSource::Builtin => "",
+                SkillSource::Project => " (project)".to_string(),
+                SkillSource::Global => " (yours)".to_string(),
+                SkillSource::Builtin => match s.aliases.get(ui_language).and_then(|a| a.first()) {
+                    Some(label) if ui_language != "en" => format!(" [/{label} in their UI]"),
+                    _ => String::new(),
+                },
             };
             let description = if s.description.chars().count() > INDEX_DESCRIPTION_CHARS {
                 format!(
@@ -511,9 +518,54 @@ pub(crate) fn request_context(
 }
 
 /// The current user message as sent: the request context, then what the
-/// user wrote.
+/// user wrote - under a header that names the language they wrote it in,
+/// when that can be told. The rule "reply in the language of the user's
+/// message" alone lost to the document's language whenever a short English
+/// request came with a Chinese or Japanese document: the whole reply came
+/// back in the document's language (round 4: cross/en-asks-ja-doc, and
+/// Haiku replying in English to Chinese requests once a style profile was
+/// in the context). Said right above the message, per turn, it holds.
 pub(crate) fn request_user_text(context: &str, message: &str) -> String {
-    format!("{context}\n\n---the user's message---\n{message}")
+    match message_language(message) {
+        Some(language) => format!(
+            "{context}\n\n---the user's message (written in {language}: reply in {language}, unless the user instructions set a reply language)---\n{message}"
+        ),
+        None => format!("{context}\n\n---the user's message---\n{message}"),
+    }
+}
+
+/// The language of what the user typed, in English ("Chinese"), or None
+/// when there is too little of it to tell. Text the message carries but the
+/// user didn't write - a selection, the text around the cursor, attached
+/// files, an expanded skill's instructions - is left out.
+pub(crate) fn message_language(message: &str) -> Option<&'static str> {
+    let mut typed = message.to_string();
+    for (open, close) in [
+        ("<skill name=", "</skill>"),
+        ("<selected-text>", "</selected-text>"),
+        ("<cursor>", "</cursor>"),
+        ("<attached-file", "</attached-file>"),
+    ] {
+        while let Some(start) = typed.find(open) {
+            let Some(end) = typed[start..].find(close).map(|i| start + i + close.len()) else {
+                typed.truncate(start);
+                break;
+            };
+            typed.replace_range(start..end, " ");
+        }
+    }
+    let lang = crate::ai::rules::detect::guess(&typed)?;
+    // The script is part of the language: asked in Simplified to convert a
+    // report to Traditional, the reply came back in Traditional (round 4,
+    // builtin/translate/hans-hant/report).
+    if lang == crate::ai::rules::detect::Lang::ZhHans {
+        return Some("Simplified Chinese");
+    }
+    let code = lang.ui_code();
+    crate::ai::ui_language::UI_LANGUAGES
+        .iter()
+        .find(|l| l.code == code)
+        .map(|l| l.english)
 }
 
 /// Tool output from an earlier exchange longer than this is cut to a stub
@@ -772,6 +824,7 @@ async fn ai_agent_message_inner(
                 root: workspace.root.as_deref().map(Path::new),
                 conventions: &conventions,
                 library: &library,
+                proposed: Default::default(),
             };
 
             match route::resolve_openai_auth(&app).await? {
@@ -883,6 +936,7 @@ async fn ai_agent_message_inner(
                 root: workspace.root.as_deref().map(Path::new),
                 conventions: &conventions,
                 library: &library,
+                proposed: Default::default(),
             };
 
             let agent_model = model.unwrap_or_else(|| {
@@ -945,6 +999,7 @@ async fn ai_agent_message_inner(
                 root: workspace.root.as_deref().map(Path::new),
                 conventions: &conventions,
                 library: &library,
+                proposed: Default::default(),
             };
             let instructions_with_tools =
                 build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
@@ -1157,6 +1212,7 @@ mod tests {
             root: None,
             conventions: &conventions,
             library: &[],
+            proposed: Default::default(),
         };
         let call = |id: &str, name: &str, args: &str| AgentTurn::ToolCall {
             call_id: id.into(),
@@ -1382,6 +1438,36 @@ mod tests {
     }
 
     #[test]
+    fn the_message_header_names_the_language_the_user_typed() {
+        let cases = [
+            ("What was the most common complaint?", Some("English")),
+            ("把这段翻译成英文", Some("Simplified Chinese")),
+            ("把這段翻譯成英文", Some("Traditional Chinese")),
+            ("この段落を短くしてください", Some("Japanese")),
+            // A selection, the cursor's surroundings and an expanded skill
+            // are not what the user typed.
+            (
+                "<selected-text>\n图书馆每周日下午四点就闭馆了，很多读者抱怨。\n</selected-text>\n\nMake this more formal.",
+                Some("English"),
+            ),
+            (
+                "<skill name=\"tighten\" typed=\"/tighten\">\nTighten the passage. Keep every fact.\n</skill>\n\n帮我精简这一段",
+                Some("Simplified Chinese"),
+            ),
+            ("ok", None),
+        ];
+        for (message, expected) in cases {
+            assert_eq!(message_language(message), expected, "{message}");
+        }
+        let text = request_user_text("doc", "What was the most common complaint?");
+        assert!(
+            text.ends_with("---the user's message (written in English: reply in English, unless the user instructions set a reply language)---\nWhat was the most common complaint?"),
+            "{text}"
+        );
+        assert!(request_user_text("doc", "ok").ends_with("---the user's message---\nok"));
+    }
+
+    #[test]
     fn short_document_is_embedded_verbatim() {
         let doc = "# Title\n\nJust a short document.";
         let section = document_section(doc, true, None);
@@ -1485,7 +1571,7 @@ mod tests {
             source: SkillSource::Global,
             ..AgentSkill::default()
         });
-        let index = skill_index(&ws);
+        let index = skill_index(&ws, "en");
         let lines: Vec<&str> = index.lines().collect();
         assert!(lines[0].starts_with("- house-headline (project): "));
         assert!(lines[1].starts_with("- my-tone (yours): ") && lines[1].ends_with('…'));
@@ -1499,6 +1585,13 @@ mod tests {
                     .description
             )
         );
+        // In another UI a built-in carries that UI's name for it.
+        let zh = skill_index(&ws, "zh");
+        assert!(
+            zh.contains("- continuity [/检查前后一致 in their UI]: "),
+            "{zh}"
+        );
+        assert!(zh.contains("- house-headline (project): "));
         // /name-only skills and turned-off ones aren't offered.
         for absent in ["tighten", "expand", "change-tone", "summarize", "describe"] {
             assert!(!index.contains(&format!("- {absent}:")), "{absent}");

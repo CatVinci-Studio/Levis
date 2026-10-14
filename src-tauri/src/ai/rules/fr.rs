@@ -318,12 +318,16 @@ fn ligature(t: &Text, _ctx: &Ctx, out: &mut Out) {
 
 static SYMBOL: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(\d)(%|€|\$|£|(?:kg|km|cm|mm|g|m|l|h|min)\b)").unwrap());
+/// An ordinary space a line can break at, before the two symbols no French
+/// word starts with (unit letters after a space are too often words).
+static SPACED_SYMBOL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d) (%|€)").unwrap());
 
-/// fr.num.symbol-space: 85%, 25€, 58kg -> a no-break space before the
+/// fr.num.symbol-space: 85%, 25€, 58kg - or 85 % with an ordinary space,
+/// which a line can break at - -> a no-break space before the
 /// symbol (fr-CH and the EU differ for %).
 fn symbol_space(t: &Text, ctx: &Ctx, out: &mut Out) {
     let no_pct_space = ctx.profile.region_is("CH") || ctx.profile.is("eu");
-    for caps in t.captures(&SYMBOL) {
+    for caps in t.captures(&SYMBOL).chain(t.captures(&SPACED_SYMBOL)) {
         let (Some((a, b)), Some((d, _)), Some((u1, u2))) = (caps[0], caps[1], caps[2]) else {
             continue;
         };
@@ -510,6 +514,17 @@ mod tests {
             "Il pèse 58\u{00A0}kg et coûte 25\u{00A0}€, soit 85\u{00A0}%."
         );
         assert!(hits("fr.num.symbol-space", F, Some("fr-CH"), "soit 85%.").is_empty());
+        // An ordinary space before % or € becomes a no-break one; one
+        // before a unit letter is left alone (« en 2 l'espace »).
+        assert_eq!(
+            fixed(
+                "fr.num.symbol-space",
+                F,
+                None,
+                "soit 85 % et 25 € en 2 l'espace."
+            ),
+            "soit 85\u{00A0}% et 25\u{00A0}€ en 2 l'espace."
+        );
         assert_eq!(
             fixed(
                 "fr.word.capital-accent",

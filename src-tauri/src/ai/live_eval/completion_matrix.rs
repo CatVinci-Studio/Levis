@@ -21,14 +21,14 @@ use serde_json::json;
 pub const TONES: &[(&str, Option<&str>)] = &[
     ("default", None),
     ("formal", Some("Write in a formal, polished tone.")),
-    ("casual", Some("Write in a relaxed, conversational tone.")),
+    ("casual", Some("Write in a relaxed, conversational tone - everyday words, contractions and short sentences, the way you would say it to a colleague; in Chinese, spoken 口语 rather than written 书面语.")),
     (
         "academic",
         Some("Write in a precise, academic tone appropriate for scholarly writing."),
     ),
     (
         "concise",
-        Some("Be as concise as possible - prefer short, plain phrasing."),
+        Some("Be as concise as possible - the fewest plain words that carry the point, at the short end of the length above."),
     ),
 ];
 

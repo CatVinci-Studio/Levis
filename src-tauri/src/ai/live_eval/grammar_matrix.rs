@@ -76,7 +76,7 @@ pub const CASES: &[GrammarCase] = &[
     GrammarCase { id: "zh/clean/strict", lang: Lang::ZhHans, strictness: "strict", paragraph: "市图书馆在一月份启动了周末读书会。一年下来，注册参与者从 120 人增长到 310 人，周日闭馆太早是大家最常提到的问题。", fixes: &[], protected: &["120", "310"], extra: 1, ..G },
     GrammarCase { id: "zh/mixed-terms/standard", lang: Lang::Mixed, strictness: "standard", paragraph: "我们用 Tauri 重写了 editor，安装包从 180 MB 降到了 12 MB，冷启动也块了很多。", fixes: &[("块了", "快了")], protected: &["Tauri", "editor", "180 MB", "12 MB"], extra: 0, ..G },
     GrammarCase { id: "zh-Hant/wrong-script/standard", lang: Lang::ZhHant, strictness: "standard", paragraph: "我們明天要去圖書館借書。他的作業寫得很好，老師很满意。", fixes: &[("满意", "滿意")], protected: &[], extra: 0, ..G },
-    GrammarCase { id: "ja/typo/standard", lang: Lang::Ja, strictness: "standard", paragraph: "昨日は友達と映画を見に行きました。とても面白かったでしだ。", fixes: &[("でしだ", "でした|かったです")], protected: &[], extra: 0, ..G },
+    GrammarCase { id: "ja/typo/standard", lang: Lang::Ja, strictness: "standard", paragraph: "昨日は友達と映画を見に行きました。とても面白かったでしだ。", fixes: &[("でしだ", "かったです。|かった。")], protected: &[], extra: 0, ..G },
     GrammarCase { id: "ja/clean/standard", lang: Lang::Ja, strictness: "standard", paragraph: "市立図書館は一月に週末読書クラブを始めました。登録参加者は一年で120人から310人に増えました。", fixes: &[], protected: &[], extra: 0, ..G },
     GrammarCase { id: "ko/typo/standard", lang: Lang::Ko, strictness: "standard", paragraph: "저는 어제 오랜만에 친구를 만낫어요. 같이 저녁을 먹고 산책을 했어요.", fixes: &[("만낫어요", "만났어요")], protected: &[], extra: 0, ..G },
     GrammarCase { id: "es/accent/standard", lang: Lang::Es, strictness: "standard", paragraph: "Ayer fuimos a la playa y nos divertimos mucho, aunque hacia demasiado calor para quedarnos toda la tarde.", fixes: &[("hacia", "hacía")], protected: &[], extra: 0, ..G },

@@ -53,8 +53,23 @@ pub fn proposal_text(
             _ => false,
         }
     };
+    // French spacing the user chose (a fr-FR or fr-CA profile set in
+    // Settings or the style profile), even where the document doesn't
+    // follow it yet: models can't type a no-break space - told the exact
+    // character and its JSON escape, Sonnet still proposed "Bonjour !"
+    // with a plain space and said it had put in no-break spaces (round 4,
+    // builtin/proofread/fr/typography). Only the kind of space changes.
+    let chosen_french = doc_lang == Some(Lang::Fr) && conv.profile_for(Lang::Fr).explicit;
+    let french_space = |f: &Finding| -> bool {
+        let unspaced = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+        chosen_french
+            && matches!(f.rule, "fr.space.high-punct" | "fr.num.symbol-space")
+            && f.suggestion
+                .as_deref()
+                .is_some_and(|s| unspaced(s) == unspaced(&f.original))
+    };
     let report = check_document_with(text, Some(document), conv, Level::Standard, &[]);
-    let fixes: Vec<Finding> = report
+    let mut fixes: Vec<Finding> = report
         .findings
         .into_iter()
         .filter(|f| {
@@ -64,6 +79,12 @@ pub fn proposal_text(
                 && conforms(f.rule)
         })
         .collect();
+    if chosen_french {
+        // Strict: the space before % is an Info-level rule.
+        let strict = check_document_with(text, Some(document), conv, Level::Strict, &[]);
+        fixes.extend(strict.findings.into_iter().filter(|f| french_space(f)));
+        fixes.sort_by_key(|f| f.start);
+    }
     let mut rules: Vec<&'static str> = fixes.iter().map(|f| f.rule).collect();
     rules.dedup();
     (apply(text, &fixes), rules)
@@ -262,6 +283,22 @@ mod tests {
         // Only P0 safe rules: a P1 suggestion (straight quotes) is not applied.
         let (fixed, _) = proposal_text(ZH_DOC, "他说\"好\"。", &conv);
         assert_eq!(fixed, "他说\"好\"。");
+    }
+
+    #[test]
+    fn chosen_french_spacing_reaches_proposals() {
+        let doc = "Bonjour! Le programme commence à neuf heures, avec l'accueil des participants et une présentation du projet.";
+        let text = "Bonjour ! A-t-il confirmé sa venue ? La séance dure une heure ; voici le plan : 85 % viennent.";
+        let mut conv = Conventions::default();
+        // Automatic: French spacing isn't forced on a document without it.
+        assert_eq!(proposal_text(doc, text, &conv).0, text);
+        conv.project.profiles.push("fr-FR".into());
+        let (fixed, rules) = proposal_text(doc, text, &conv);
+        assert_eq!(
+            fixed,
+            "Bonjour\u{202f}! A-t-il confirmé sa venue\u{202f}? La séance dure une heure\u{202f}; voici le plan\u{a0}: 85\u{a0}% viennent."
+        );
+        assert_eq!(rules, ["fr.space.high-punct", "fr.num.symbol-space"]);
     }
 
     #[test]
