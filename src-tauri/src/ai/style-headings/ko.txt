@@ -3,4 +3,4 @@
 # "Learn my style" is told to head a Korean profile with them (project.rs's
 # style_instructions); the starter profile's headings (projectStyleTemplate
 # in src/i18n/locales/) must be among them.
-# Not translated yet: "Learn my style" picks Korean headings itself.
+문체 프로필 / 어조 / 문장과 리듬 / 어휘 / 문장 부호와 서식 / 구성 / 금지 사항 / 예시
