@@ -1,0 +1,62 @@
+// @vitest-environment jsdom
+
+import "@testing-library/jest-dom/vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { strings } from "../../i18n/strings";
+import type { AgentWorkspaceInfo } from "../../ipc";
+
+const t = strings.en;
+let answer: (info: AgentWorkspaceInfo | null) => void = () => {};
+
+vi.mock("../../settings/SettingsContext", () => ({
+  useSettings: () => ({
+    t,
+    settings: { agentWorkspaceRoot: "", aiProvider: "custom", agentModels: {} },
+    setSettings: vi.fn(),
+  }),
+}));
+vi.mock("../provider-catalog", () => ({ useActiveProvider: () => null }));
+vi.mock("../../ipc", async () => {
+  const actual = await vi.importActual<typeof import("../../ipc")>("../../ipc");
+  return {
+    ...actual,
+    ai: {
+      loadAgentWorkspace: vi.fn(
+        () =>
+          new Promise<AgentWorkspaceInfo | null>((resolve) => {
+            answer = resolve;
+          }),
+      ),
+    },
+  };
+});
+
+const { ProjectBar } = await import("./ProjectBar");
+
+const workspace = (root: string | null): AgentWorkspaceInfo => ({
+  instructions: [],
+  skills: [],
+  root,
+  style: null,
+  library: [],
+});
+
+afterEach(cleanup);
+
+describe("ProjectBar", () => {
+  it("says nothing about the folder until the workspace has loaded", async () => {
+    render(<ProjectBar docPath="/notes/draft.md" />);
+    // The panel just opened: no answer yet, so no "too broad" either.
+    expect(screen.queryByText(t.projectTooBroad)).toBeNull();
+    await act(async () => answer(workspace("/notes")));
+    expect(screen.getByText("notes")).toBeInTheDocument();
+    expect(screen.queryByText(t.projectTooBroad)).toBeNull();
+  });
+
+  it("still says so when the folder really is too broad", async () => {
+    render(<ProjectBar docPath="/Users/me/draft.md" />);
+    await act(async () => answer(workspace(null)));
+    expect(screen.getByText(t.projectTooBroad)).toBeInTheDocument();
+  });
+});
