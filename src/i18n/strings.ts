@@ -130,10 +130,8 @@ type /name in a conversation to use one.
     modelMissingHint:
       "This model isn't in the provider's current list - it may have been retired. Pick another, or the default.",
     modelFetchedAt: "Fetched {date}",
-    aiErrorNotConfigured:
-      "This AI service isn't connected yet. Set it up in Settings → AI.",
-    aiErrorAuth:
-      "The service rejected the credentials. Check the API key (or sign in again) in Settings → AI.",
+    aiErrorNotConfigured: `This AI service isn't connected yet. Set it up in Settings > ${AI_NAME}.`,
+    aiErrorAuth: `The service rejected the credentials. Check the API key (or sign in again) in Settings > ${AI_NAME}.`,
     aiErrorWorkspaceKey:
       "This Anthropic key isn't tied to a workspace. Create a key inside a workspace in the Anthropic Console and use that one.",
     aiErrorRateLimit:
@@ -144,8 +142,7 @@ type /name in a conversation to use one.
       "The request took too long. Check your connection, then retry.",
     aiErrorNetwork:
       "Couldn't reach the service. Check your internet connection or proxy settings.",
-    aiErrorModel:
-      "This model isn't available for your account. Pick another in Settings → AI.",
+    aiErrorModel: `This model isn't available for your account. Pick another in Settings > ${AI_NAME}.`,
     grammarIgnore: "Ignore",
     treeTab: "Files",
     outlineTab: "Outline",
@@ -220,8 +217,7 @@ type /name in a conversation to use one.
     agentAttachFile:
       "Attach a file: PDF, Word, PowerPoint, spreadsheet, image or plain text",
     chatAttachmentTruncated: "(shortened)",
-    chatAttachmentNoVision:
-      "This provider can't read images. Switch provider in Settings, or attach a document instead.",
+    chatAttachmentNoVision: `This provider can't read images. Switch provider in Settings > ${AI_NAME}, or attach a document instead.`,
     aiGrammarLabel: "Enable grammar check",
     aiAskLabel: `${AI_NAME} Chat`,
     aiAskToggleLabel: `Enable ${AI_NAME} chat`,
@@ -538,8 +534,7 @@ type /name in a conversation to use one.
     tutorialMarkdownStepFormula: "Type $E=mc^2$",
     tutorialMarkdownDone: "These exercises are complete or skipped.",
     tutorialAiIntroTitle: "AI writing assistance",
-    tutorialAiIntroBody:
-      "Try completion, grammar checks, chat, and document edits. This tutorial uses preset examples and needs no sign-in. Connect a service in Settings → AI for regular use.",
+    tutorialAiIntroBody: `Try completion, grammar checks, chat, and document edits. This tutorial uses preset examples and needs no sign-in. Connect a service in Settings > ${AI_NAME} for regular use.`,
     tutorialCompletionTitle: "Text completion",
     tutorialCompletionBody:
       "Suggestions appear in gray. Press Tab to accept one, or keep typing to dismiss it. You can also request a suggestion from the context menu.",
@@ -583,8 +578,7 @@ type /name in a conversation to use one.
     tutorialAgentEditMockReply:
       "Removed the extra opening phrase. Review the edit preview.",
     tutorialDoneTitle: "Tutorial finished",
-    tutorialDoneBody:
-      "You can start writing now. To use AI, connect a service in Settings → AI. You can reopen this tutorial from the Help menu.",
+    tutorialDoneBody: `You can start writing now. To use AI, connect a service in Settings > ${AI_NAME}. You can reopen this tutorial from the Help menu.`,
     closePromptMessage: "This document has unsaved changes.",
     closePromptSave: "Save",
     closePromptDiscard: "Don't Save",
@@ -792,15 +786,15 @@ type /name in a conversation to use one.
     modelMissingHint:
       "服务商当前的模型列表里没有这个模型，可能已经下线。请换一个，或使用默认模型。",
     modelFetchedAt: "上次获取：{date}",
-    aiErrorNotConfigured: "这个 AI 服务还没有连接，请在「设置 → AI」中配置。",
-    aiErrorAuth: "服务拒绝了凭据，请在「设置 → AI」中检查 API Key 或重新登录。",
+    aiErrorNotConfigured: `这个 AI 服务还没有连接，请在「设置 > ${AI_NAME}」中配置。`,
+    aiErrorAuth: `服务拒绝了凭据，请在「设置 > ${AI_NAME}」中检查 API Key 或重新登录。`,
     aiErrorWorkspaceKey:
       "这个 Anthropic Key 不属于任何工作区。请在 Anthropic Console 的工作区里新建一个 Key 再使用。",
     aiErrorRateLimit: "服务繁忙或已达到频率限制，请稍等片刻再重试。",
     aiErrorServer: "服务端出了问题，请过一会儿再试。",
     aiErrorTimeout: "请求超时，请检查网络后重试。",
     aiErrorNetwork: "无法连接到服务，请检查网络或代理设置。",
-    aiErrorModel: "你的账号无法使用这个模型，请在「设置 → AI」中换一个。",
+    aiErrorModel: `你的账号无法使用这个模型，请在「设置 > ${AI_NAME}」中换一个。`,
     grammarIgnore: "忽略",
     treeTab: "文件树",
     outlineTab: "大纲",
@@ -874,8 +868,7 @@ type /name in a conversation to use one.
     agentSkillsImport: "导入技能…",
     agentAttachFile: "附加文件：PDF、Word、PPT、表格、图片或纯文本",
     chatAttachmentTruncated: "（已截断）",
-    chatAttachmentNoVision:
-      "当前服务商无法读取图片。请在设置里更换服务商，或改为附加文档。",
+    chatAttachmentNoVision: `当前服务商无法读取图片。请在「设置 > ${AI_NAME}」中更换服务商，或改为附加文档。`,
     aiGrammarLabel: "开启语法检查",
     aiAskLabel: `${AI_NAME} 对话`,
     aiAskToggleLabel: `开启 ${AI_NAME} 对话`,
@@ -1182,8 +1175,7 @@ type /name in a conversation to use one.
     tutorialMarkdownStepFormula: "输入 $E=mc^2$",
     tutorialMarkdownDone: "这些练习已完成或跳过。",
     tutorialAiIntroTitle: "AI 写作协助",
-    tutorialAiIntroBody:
-      "下面练习续写、语法检查、对话和正文修改。教程使用预设示例，无需登录；实际使用前需在「设置 → AI」中连接服务。",
+    tutorialAiIntroBody: `下面练习续写、语法检查、对话和正文修改。教程使用预设示例，无需登录；实际使用前需在「设置 > ${AI_NAME}」中连接服务。`,
     tutorialCompletionTitle: "续写",
     tutorialCompletionBody:
       "建议以灰色文字显示。按 Tab 采纳，继续输入则忽略。也可通过右键菜单触发。",
@@ -1222,8 +1214,7 @@ type /name in a conversation to use one.
     tutorialAgentEditApplied: "修改已写入正文。",
     tutorialAgentEditMockReply: "已删去多余的开场语，请查看修改预览。",
     tutorialDoneTitle: "教程结束",
-    tutorialDoneBody:
-      "现在可以开始写作。AI 功能需要先在「设置 → AI」中连接服务。若想再练习，可从帮助菜单重新打开教程。",
+    tutorialDoneBody: `现在可以开始写作。AI 功能需要先在「设置 > ${AI_NAME}」中连接服务。若想再练习，可从帮助菜单重新打开教程。`,
     closePromptMessage: "文档有未保存的更改。",
     closePromptSave: "保存",
     closePromptDiscard: "不保存",
@@ -1437,10 +1428,8 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
     modelMissingHint:
       "このモデルはプロバイダーの現在の一覧にありません。提供終了の可能性があります。別のモデルか既定のモデルを選んでください。",
     modelFetchedAt: "{date} に取得",
-    aiErrorNotConfigured:
-      "このAIサービスはまだ接続されていません。「設定 → AI」で設定してください。",
-    aiErrorAuth:
-      "サービスが認証情報を拒否しました。「設定 → AI」でAPIキーを確認するか、再度サインインしてください。",
+    aiErrorNotConfigured: `このAIサービスはまだ接続されていません。「設定 > ${AI_NAME}」で設定してください。`,
+    aiErrorAuth: `サービスが認証情報を拒否しました。「設定 > ${AI_NAME}」でAPIキーを確認するか、再度サインインしてください。`,
     aiErrorWorkspaceKey:
       "このAnthropicキーはワークスペースに属していません。Anthropic Consoleのワークスペース内でキーを作成して使ってください。",
     aiErrorRateLimit:
@@ -1451,8 +1440,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
       "リクエストがタイムアウトしました。接続を確認して再試行してください。",
     aiErrorNetwork:
       "サービスに接続できません。インターネット接続またはプロキシ設定を確認してください。",
-    aiErrorModel:
-      "このモデルはお使いのアカウントでは利用できません。「設定 → AI」で別のモデルを選んでください。",
+    aiErrorModel: `このモデルはお使いのアカウントでは利用できません。「設定 > ${AI_NAME}」で別のモデルを選んでください。`,
     grammarIgnore: "無視",
     treeTab: "ファイル",
     outlineTab: "アウトライン",
@@ -1527,8 +1515,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
     agentAttachFile:
       "ファイルを添付：PDF、Word、PowerPoint、表計算、画像、テキスト",
     chatAttachmentTruncated: "（一部のみ）",
-    chatAttachmentNoVision:
-      "このプロバイダーは画像を読めません。設定でプロバイダーを変更するか、文書を添付してください。",
+    chatAttachmentNoVision: `このプロバイダーは画像を読めません。「設定 > ${AI_NAME}」でプロバイダーを変更するか、文書を添付してください。`,
     aiGrammarLabel: "文法チェックを有効にする",
     aiAskLabel: `${AI_NAME} チャット`,
     aiAskToggleLabel: `${AI_NAME} チャットを有効にする`,
@@ -1840,8 +1827,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
     tutorialMarkdownStepFormula: "$E=mc^2$ と入力",
     tutorialMarkdownDone: "各練習を完了またはスキップしました。",
     tutorialAiIntroTitle: "AIライティング支援",
-    tutorialAiIntroBody:
-      "補完、文法チェック、対話、本文の編集を練習します。このチュートリアルは用意された例を使うため、ログインは不要です。通常の利用には「設定 → AI」で接続してください。",
+    tutorialAiIntroBody: `補完、文法チェック、対話、本文の編集を練習します。このチュートリアルは用意された例を使うため、ログインは不要です。通常の利用には「設定 > ${AI_NAME}」で接続してください。`,
     tutorialCompletionTitle: "文章の補完",
     tutorialCompletionBody:
       "候補は灰色で表示されます。Tabで採用し、入力を続けると閉じます。右クリックメニューからも候補を表示できます。",
@@ -1886,8 +1872,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
     tutorialAgentEditMockReply:
       "不要な前置きを省きました。変更プレビューを確認してください。",
     tutorialDoneTitle: "チュートリアル終了",
-    tutorialDoneBody:
-      "ここから自由に書き始められます。AI機能は「設定 → AI」で接続すると使えます。チュートリアルはヘルプメニューから再開できます。",
+    tutorialDoneBody: `ここから自由に書き始められます。AI機能は「設定 > ${AI_NAME}」で接続すると使えます。チュートリアルはヘルプメニューから再開できます。`,
     closePromptMessage: "この文書には保存されていない変更があります。",
     closePromptSave: "保存",
     closePromptDiscard: "保存しない",

@@ -34,6 +34,34 @@ describe.each(["en", "zh", "ja"] as const)("AI concept copy in %s", (lang) => {
       expect(template).toContain(AI_NAME);
   });
 
+  it("every Settings path names a page that exists", () => {
+    // The AI page is AI_NAME ("Levis AI"); messages that sent the user to
+    // "Settings → AI" pointed at a page that was renamed in 0.9.7.
+    const settings = { en: "Settings", zh: "设置", ja: "設定" }[lang];
+    const pages = [
+      t.navGeneral,
+      t.navEditor,
+      t.navTheme,
+      t.navMarkdown,
+      t.navAi,
+      t.navPrivacy,
+      t.navShortcuts,
+    ];
+    let paths = 0;
+    for (const [key, value] of Object.entries(t)) {
+      if (typeof value !== "string") continue;
+      for (const m of value.matchAll(new RegExp(`${settings} [>→] `, "g"))) {
+        paths++;
+        const rest = value.slice((m.index ?? 0) + m[0].length);
+        expect(
+          pages.some((page) => rest.startsWith(page)),
+          `${key}: ${value}`,
+        ).toBe(true);
+      }
+    }
+    expect(paths).toBeGreaterThan(0);
+  });
+
   it("Settings and the project bar give the same choice the same words", () => {
     // Both "go back to the default" buttons are one string.
     expect(Object.keys(t)).not.toContain("agentWorkspaceRootReset");

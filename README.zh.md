@@ -91,7 +91,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 ## 快速上手
 
 1. 启动 Levis，直接进入空白草稿；保存时才需要文件。
-2. 打开 **设置 → AI**，选择服务商，在**登录与凭据**中登录或填写密钥。
+2. 打开 **设置 → Levis AI**，选择服务商，在**登录与凭据**中登录或填写密钥。
 3. 开始写。停顿时续写会以灰色文字出现，按 Tab 采纳。
 4. 点窗口顶栏的对话按钮打开 AI 面板。其余功能见 **帮助 → AI 功能指南**。
 

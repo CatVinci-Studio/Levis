@@ -92,7 +92,7 @@ Or download an installer from [Releases](https://github.com/CatVinci-Studio/Levi
 ## Quick start
 
 1. Launch Levis. It opens on a blank draft; you only need a file when you save.
-2. Open **Settings → AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
+2. Open **Settings → Levis AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
 3. Start typing. A continuation appears as grey text when you pause; Tab accepts it.
 4. Open the AI panel with the chat button in the window bar. **Help → AI Features Guide** covers the rest.
 

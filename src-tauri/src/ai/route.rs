@@ -7,7 +7,7 @@ use aicompat::providers::anthropic::AnthropicAuth;
 use tauri::AppHandle;
 
 pub(crate) const NOT_CONFIGURED: &str =
-    "This provider isn't set up yet - configure it in Settings.";
+    "This provider isn't set up yet - configure it in Settings > Levis AI.";
 
 pub enum OpenaiAuth {
     /// Browser "sign in with ChatGPT" - talks to the ChatGPT backend, not
