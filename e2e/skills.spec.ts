@@ -204,10 +204,14 @@ test.describe("Settings > Levis AI skills", () => {
     await builtins.locator("summary").click();
     const row = builtins.locator('[data-skill="summarize"]');
     await expect(row).toContainText("Customized");
-    // A customized skill is also listed among the user's own.
-    await expect(panel.locator(".settings-skill-list")).toContainText(
-      "Replaces a built-in skill",
+    // The copy shows here only, not again among the user's own skills,
+    // and its switch is still the built-in's.
+    await expect(panel.locator(".settings-skill-list")).not.toContainText(
+      "/summarize",
     );
+    await row.getByRole("checkbox", { name: "Summarize" }).uncheck();
+    await expect(row).toHaveAttribute("data-enabled", "false");
+    await row.getByRole("checkbox", { name: "Summarize" }).check();
     await row.getByRole("button", { name: "Reset: Summarize" }).click();
     const confirm = page.getByRole("dialog", { name: /Delete your copy/ });
     await expect(confirm).toContainText("“Summarize”");
