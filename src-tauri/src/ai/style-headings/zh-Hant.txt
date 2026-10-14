@@ -3,4 +3,4 @@
 # "Learn my style" is told to head a Traditional Chinese profile with them (project.rs's
 # style_instructions); the starter profile's headings (projectStyleTemplate
 # in src/i18n/locales/) must be among them.
-# Not translated yet: "Learn my style" picks Traditional Chinese headings itself.
+文風檔案 / 語氣與筆調 / 句子與節奏 / 用字遣詞 / 標點與格式 / 結構 / 禁忌 / 範例
