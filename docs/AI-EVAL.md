@@ -132,6 +132,98 @@ showed that the editor writes a GitHub alert marker as `> \[!NOTE]` - see
 Remaining weaknesses.) The `<cursor>` block mirrors `caretContext`: 160
 characters of plain text either side, blocks separated by a newline.
 
+### Built-in skills suite (`agent-builtin`)
+
+The built-in writing skills (the 18 skills of the built-in skills
+catalogue, `src-tauri/src/ai/skills/`) have their own suite,
+`live_eval/agent_builtin.rs`, run as `agent-builtin` so the `agent`
+matrix's numbers stay comparable with earlier rounds. It has 76 cases:
+
+- **56 skill cases**, `builtin/<skill>/<lang>/<case>`, two to four per
+  skill: `continue-story` (zh with library and fiction profile, en matched
+  by description, ja dialogue marks, zh options only), `describe`,
+  `dialogue` (zh punctuation only, en tags, es raya, de §79 commas),
+  `imitate-style` (a sample file, the style profile), `expand` (TBD costs
+  must not become prices), `tighten` (de, ja, en to a word target),
+  `change-tone` (ja である調, ko 하십시오체, plain English, a firmer zh
+  email), `de-ai` (en and zh rewrites, a check-only request, a dialogue
+  guard), `translate` (en->zh, zh->ja, Simplified->Taiwan), `proofread`
+  (seeded errors in zh, en, fr and ko), `continuity` (library and earlier
+  chapters), `email`, `notice` (zh 请示, ko 공문서, en notice, zh-Hant 函),
+  `minutes`, `academic-polish`, `social-post` (X, 小红书, the advertising
+  law), `headline` (options, a 公众号 title, a project skill that shadows
+  the built-in) and `summarize`.
+- **20 routing cases**, no `/`: 14 `route/<skill>/<lang>` requests whose
+  wording should load that skill by its description (one per model-invoked
+  skill, across all ten languages), and 6 `route/none/<lang>/<case>`
+  requests that should load none - a question about the document, "怎么开启续写？"
+  (the completion setting, not `continue-story`), "Make the second
+  paragraph shorter." (`tighten` is `/`-only), a question about a selected
+  paragraph, a one-character title fix (`proofread` tolerated) and a
+  one-word translation question (`translate` tolerated). Each routing row
+  records its latency; a routed skill that adds more than about 8 s on
+  short requests should become `/`-only.
+
+Every case builds its folder on disk and loads it through
+`workspace::load_from`, so the built-in layer, the global and project
+skills that shadow it, the library and the style profile (with its
+`conventions:` front matter) are what the model gets. A `/name` message is
+expanded as the app expands it, and every such case also checks that it
+was (`expanded as the skill`): a missing built-in fails loudly instead of
+quietly measuring the base agent. Eighteen new fixtures (`novel-ja`,
+`dialogue-{zh,en,es,de}`, `ai-{en,zh}`, `proof-{zh,en,fr,ko}`, `email-ko`,
+`email-ja-notes`, `qingshi-zh`, `gongmun-ko`, `han-tw`, `office-move-en`,
+`standup-en`) are round-tripped by `eval-docs.test.ts` like the others.
+
+Checks added for it (`checks_builtin.rs`, unit-tested in CI):
+`measured` (characters, CJK characters, words, X's weighted length with
+URLs at 23 and emoji sequences at 2), Japanese and Korean register
+(です・ます / である, 하십시오체 / 해요체 / 해라체) per finished sentence,
+`max_overlap` with a style sample (n characters or words), punctuation-only
+edits, paired `……` / `――`, missing commas before speech tags, adverb
+tags, list items in a reply, task items, hashtags, and edits that must land
+between two anchors. `use_skill` calls are read from the record, so a case
+can require one skill, none, or "none or this one"; hidden reference packs
+(`contract`, `craft`, `standards-*`) don't count as skills.
+
+**`conventions_clean`** runs the deterministic rules engine
+(`src-tauri/src/ai/rules/`) over the paragraphs an edit touched, with the
+case's conventions profile (`zh-Hans-CN/fiction`, `fr-FR`, `en-US/general`
+...) at the "standard" level, and fails on any error or warning (no P0 or
+P1 finding; `info` notes are document-level and ignored). It reaches the
+engine through `live_eval/conventions.rs`, an adapter with the engine's
+`check(text, lang, profile, level) -> Vec<Finding>` shape. Until the engine
+is wired in there, `engine()` returns None and the check is recorded as
+`conventions clean (<profile>): not checked (no rules engine)` and passes -
+the name says it measured nothing.
+
+**Running it cheaply.** Size a run first, free and with no key:
+
+```sh
+cargo test --lib live_eval::list_builtin_cases -- --ignored --nocapture
+LEVIS_EVAL_FILTER=builtin/proofread/,route/none/ cargo test --lib live_eval::list_builtin_cases -- --ignored --nocapture
+```
+
+It prints one line per case (id, mode, user language, message), the count
+per group and an estimate at $0.02-0.03 a case without the judge. Then run
+the automatic checks only, filtered, under a budget:
+
+```sh
+LEVIS_EVAL_JUDGE=0 LEVIS_EVAL_BUDGET_USD=1 LEVIS_EVAL_FILTER=builtin/dialogue/ \
+  cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
+LEVIS_EVAL_JUDGE=0 LEVIS_EVAL_BUDGET_USD=4 LEVIS_EVAL_SPEND_FILE=~/levis-eval-spend.json \
+  cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
+```
+
+The whole suite is about $2 at list prices with `LEVIS_EVAL_JUDGE=0`
+(76 cases); `LEVIS_EVAL_FILTER=builtin/` or `route/` runs one half. The
+judge (`LEVIS_EVAL_JUDGE` unset) roughly doubles the cost; the cheaper
+way is to judge the `agent-builtin.jsonl` rows afterwards with subagents,
+each row carrying its rubric and the judge's material. Pass bar: every automatic check;
+judge good or acceptable on at least 90% of each skill's cases; routing
+positives load the right skill in at least 90% of cases and negatives load
+none in at least 95%.
+
 ### How a case is judged
 
 **Automatic checks** (hard - a failure fails the test):
@@ -208,11 +300,13 @@ cases at a time itself. Useful variables:
 | `LEVIS_EVAL_SPEND_FILE`    | A `{"spent_usd", "runs"}` ledger each finished suite adds its cost to |
 
 Single suites: `cargo test --lib live_eval::live_agent_matrix -- --ignored --nocapture`
-(also `live_completion_matrix`, `live_grammar_matrix`,
+(also `live_agent_builtin`, `live_completion_matrix`, `live_grammar_matrix`,
 `live_agent_model_comparison`, `live_writing_model_comparison`,
 `live_agent_caches_across_steps`, `live_lists_every_model`).
 `live_eval::list_eval_cases` is free and needs no key: it prints every case
-id per suite after `LEVIS_EVAL_FILTER`, for sizing a run before paying for it.
+id per suite after `LEVIS_EVAL_FILTER`, for sizing a run before paying for it;
+`live_eval::list_builtin_cases` does the same for the built-in skills suite
+in more detail (see "Built-in skills suite").
 
 Every suite writes to the output folder:
 
