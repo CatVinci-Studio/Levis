@@ -387,19 +387,24 @@ const WINDOWS_RESERVED_NAMES: &[&str] = &[
 /// file's frontmatter, i.e. from whoever wrote that file: `name: ../../x`
 /// must not become a path. Keeps letters (any script), digits, `-` and `_`,
 /// turns everything else - separators, dots, control characters - into
-/// `-`, and caps the length well under any filesystem's limit.
+/// `-`, and caps the length well under any filesystem's limit - counted in
+/// bytes, which is what that limit counts (255 on most): a Chinese or
+/// Japanese character takes three, and the atomic writer's temp name adds
+/// about 35 more.
 fn skill_file_stem(name: &str) -> String {
-    let stem: String = name
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' || c == '_' {
-                c
-            } else {
-                '-'
-            }
-        })
-        .take(100)
-        .collect();
+    const MAX_STEM_BYTES: usize = 120;
+    let mut stem = String::new();
+    for c in name.chars() {
+        let c = if c.is_alphanumeric() || c == '-' || c == '_' {
+            c
+        } else {
+            '-'
+        };
+        if stem.len() + c.len_utf8() > MAX_STEM_BYTES {
+            break;
+        }
+        stem.push(c);
+    }
     let stem = stem.trim_matches('-');
     if stem.is_empty() {
         "skill".to_string()
@@ -570,6 +575,13 @@ mod tests {
         assert_eq!(skill_file_stem("nul"), "nul-skill");
         assert_eq!(skill_file_stem("润色"), "润色");
         assert_eq!(skill_file_stem("fix-my_prose2"), "fix-my_prose2");
+        // 100 Chinese characters are 300 bytes - past a 255-byte file name.
+        let long = skill_file_stem(&"润".repeat(100));
+        assert!(
+            long.len() <= 120 && long.chars().all(|c| c == '润'),
+            "{long}"
+        );
+        assert_eq!(skill_file_stem(&"a".repeat(300)).len(), 120);
     }
 
     #[test]
