@@ -87,10 +87,16 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      # The same Xcode the TestFlight upload uses (ios-release.yml).
+      # The same Xcode the TestFlight upload uses (ios-release.yml has why
+      # it is picked this way).
       - name: Select Xcode
         run: |
-          xcode=$(printf '%s\n' /Applications/Xcode_26*.app | sort -V | tail -n1)
+          xcode=$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' \
+            | grep -E '/Xcode_[0-9.]+\.app$' | sort -V | tail -n1)
+          if [ -z "$xcode" ]; then
+            echo "::error::no released Xcode 26 on this runner image"
+            exit 1
+          fi
           sudo xcode-select -s "$xcode"
           xcodebuild -version
       - uses: actions/setup-node@v4

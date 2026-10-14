@@ -55,10 +55,19 @@ jobs:
 
       # App Store Connect takes uploads built with the current SDK only.
       # The newest Xcode 26 on the image, chosen explicitly rather than
-      # trusting the image's default to be it.
+      # trusting the image's default to be it - and only a released one:
+      # uploads built with a beta Xcode are refused, and the image installs
+      # betas as e.g. Xcode_26_beta.app, with plain-version symlinks
+      # (Xcode_26.0.app) pointing at them. So real folders only (find
+      # skips symlinks), named by a version number alone.
       - name: Select Xcode
         run: |
-          xcode=$(printf '%s\n' /Applications/Xcode_26*.app | sort -V | tail -n1)
+          xcode=$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' \
+            | grep -E '/Xcode_[0-9.]+\.app$' | sort -V | tail -n1)
+          if [ -z "$xcode" ]; then
+            echo "::error::no released Xcode 26 on this runner image"
+            exit 1
+          fi
           sudo xcode-select -s "$xcode"
           xcodebuild -version
 
