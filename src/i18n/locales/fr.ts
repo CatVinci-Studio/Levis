@@ -406,7 +406,7 @@ utiliser une.
   menuCloseTab: "Fermer l'onglet",
   menuUndo: "Annuler",
   menuRedo: "Rétablir",
-  menuFindReplace: "Rechercher…",
+  menuFindReplace: "Rechercher et remplacer…",
   menuHeadingTemplate: "Titre {n}",
   menuBulletList: "Liste à puces",
   menuOrderedList: "Liste numérotée",
@@ -526,7 +526,7 @@ utiliser une.
   tutorialNext: "Continuer",
   tutorialStart: "Commencer le tutoriel",
   tutorialFinish: "Commencer à écrire",
-  tutorialSkip: "Quitter le guide",
+  tutorialSkip: "Quitter le tutoriel",
   tutorialSkipStep: "Passer cette étape",
   tutorialPractice: "Exercice",
   tutorialShortcut: "Raccourci\u00a0: {shortcut}",
@@ -564,7 +564,7 @@ utiliser une.
   tutorialCompletionGhostShown:
     "Appuyez sur Tab pour accepter la suggestion en gris.",
   tutorialCompletionAccepted: "Suggestion acceptée.",
-  tutorialGrammarTitle: "Vérifier la grammaire",
+  tutorialGrammarTitle: "Vérification grammaticale",
   tutorialGrammarBody:
     "Les erreurs possibles sont soulignées. Survolez un soulignement pour en voir la raison et choisir d'appliquer ou non la correction.",
   tutorialGrammarTarget: "Il faut que tu viens demain",
@@ -623,7 +623,7 @@ utiliser une.
   imagePasteFailedMessage: "Impossible d'enregistrer l'image collée.",
   imageStorageGroupLabel: "Images",
   imageStorageLabel: "Stockage des images",
-  imageStorageLocal: "Dossier assets local",
+  imageStorageLocal: "Dossier local «\u00a0assets\u00a0»",
   imageStorageRemote: "Hébergeur d'images",
   imageUploadEndpointLabel: "URL d'envoi",
   imageUploadEndpointHint:
