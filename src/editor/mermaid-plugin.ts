@@ -15,6 +15,11 @@ const mermaidKey = new PluginKey("mermaid-preview");
 const DEBOUNCE_MS = 500;
 type MermaidApi = (typeof import("mermaid"))["default"];
 let mermaidPromise: Promise<MermaidApi> | null = null;
+// Render ids are unique across every editor, not per editor: two tabs
+// rendering at startup both used "mermaid-preview-1-0", and the first one
+// to finish removed the other's measuring node mid-render (renderMermaid's
+// cleanup), so the diagram in the other tab failed and stayed raw source.
+let renderIdCounter = 0;
 
 export function loadMermaid(): Promise<MermaidApi> {
   mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => mermaid);
@@ -145,6 +150,10 @@ export function createMermaidPreviewPlugin(options: {
     let lastWidth = 0;
     // And the appearance and face it was drawn in (see configureMermaid).
     let lastStyle = "";
+    // Bumped whenever the width or the style changes, so the widgets get new
+    // keys: with only the source in the key, ProseMirror kept the old
+    // widget DOM, and a switch to dark mode left the light diagrams up.
+    let layoutGen = 0;
 
     function buildDecorations(state: EditorState): RevealState {
       if (!options.enabled()) return emptyReveal;
@@ -191,8 +200,9 @@ export function createMermaidPreviewPlugin(options: {
             // source was edited in place: the source is part of the key. The
             // position is not - typing above a diagram moves it, and a key
             // that moved with it rebuilt the SVG on every keystroke. Which
-            // repeat of an identical source it is tells copies apart.
-            { side: 1, key: `mermaid-${hashCode(code)}-${nth}` },
+            // repeat of an identical source it is tells copies apart, and
+            // layoutGen renews them all after a theme or width change.
+            { side: 1, key: `mermaid-${layoutGen}-${hashCode(code)}-${nth}` },
           ),
         );
       }
@@ -268,7 +278,7 @@ export function createMermaidPreviewPlugin(options: {
               continue;
             }
             try {
-              const id = `mermaid-preview-${mySeq}-${rendered.size}`;
+              const id = `mermaid-preview-${++renderIdCounter}`;
               const svg = await renderMermaid(mermaid, id, code);
               if (mySeq !== renderSeq) return; // superseded by a newer render pass
               rendered.set(code, svg);
@@ -285,6 +295,7 @@ export function createMermaidPreviewPlugin(options: {
             style === lastStyle &&
             rendered.size === lastRenders.size &&
             [...rendered].every(([code, svg]) => lastRenders.get(code) === svg);
+          if (width !== lastWidth || style !== lastStyle) layoutGen++;
           lastRenders = rendered;
           lastWidth = width;
           lastStyle = style;
