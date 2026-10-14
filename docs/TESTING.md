@@ -87,7 +87,10 @@ drives a flow and compares a screenshot: first run, the sidebar lesson, a
 document in light and dark (including the table-header regression, #15),
 split view, zen mode, the AI panel, an agent reply with a reasoned edit, the
 sentence picker and a comment (accepting only some sentences is checked in
-the document), Quick Ask, settings.
+the document), Quick Ask, settings. Other specs assert behaviour without a
+screenshot: the file-backed storage (the boot snapshot, a close that waits
+for settings still on their way), the CJK font stacks, the phone, and an
+iPad's keyboard shortcuts and review-step focus.
 
 Baselines are per platform. After an intended UI change:
 `npm run test:visual -- --update-snapshots`, then look at every changed

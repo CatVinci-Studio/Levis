@@ -12,6 +12,7 @@ import { ChevronIcon } from "../../ui/icons";
 import { auth, type CustomEndpointConfig } from "../../ipc";
 import { Select } from "../../ui/Select";
 import { isIOSApp } from "../../platform/capabilities";
+import { VERBATIM_INPUT } from "./controls";
 
 // General > AI Login Settings: two compact disclosure rows (provider, then
 // credentials) plus the per-provider account/API-key/custom panels.
@@ -464,7 +465,15 @@ function ApiKeyProviderPanel({
   );
 }
 
-function CustomProviderPanel({
+/** Whether two base URLs name the same endpoint - the rule the backend's
+ *  same_endpoint (auth/custom_endpoint.rs) uses to decide that a stored key
+ *  may go to a URL. */
+function sameEndpoint(a: string, b: string): boolean {
+  const norm = (url: string) => url.trim().replace(/\/+$/, "");
+  return norm(a) === norm(b);
+}
+
+export function CustomProviderPanel({
   t,
   onStatusChange,
 }: {
@@ -486,7 +495,9 @@ function CustomProviderPanel({
       if (c) {
         setConfig(c);
         setBaseUrl(c.base_url);
-        setApiKey(c.api_key ?? "");
+        // The key never comes back (only `has_api_key`): the empty field
+        // says it's saved, in its placeholder.
+        setApiKey("");
         setSelectedModel(c.model);
         onStatusChange?.(true);
       }
@@ -498,7 +509,7 @@ function CustomProviderPanel({
     setStatus("checking");
     setStatusMessage(null);
     try {
-      const list = await auth.fetchCustomModels(baseUrl, apiKey || null);
+      const list = await auth.fetchCustomModels(baseUrl, apiKey.trim() || null);
       setModels(list);
       setStatus("ok");
       if (!selectedModel && list.length > 0) setSelectedModel(list[0]);
@@ -512,7 +523,7 @@ function CustomProviderPanel({
     setStatus("checking");
     setStatusMessage(null);
     try {
-      await auth.testCustomEndpoint(baseUrl, apiKey || null);
+      await auth.testCustomEndpoint(baseUrl, apiKey.trim() || null);
       setStatus("ok");
       setStatusMessage(t.customTestSuccess);
     } catch (err) {
@@ -521,18 +532,29 @@ function CustomProviderPanel({
     }
   }
 
+  // An empty key field means "the saved key" to every action here (the
+  // backend fills it in) - but only while the URL is the one it was saved
+  // with: edited to another host, the old key is not sent, so the field
+  // must not claim one either.
+  const keySaved =
+    !!config?.has_api_key && sameEndpoint(config.base_url, baseUrl);
+
   async function save() {
     if (!baseUrl.trim() || !selectedModel.trim()) return;
+    const typed = apiKey.trim();
     await auth.setCustomEndpoint(
       baseUrl.trim(),
-      apiKey.trim() || null,
+      typed || null,
       selectedModel.trim(),
     );
     setConfig({
       base_url: baseUrl.trim(),
-      api_key: apiKey.trim() || null,
+      api_key: null,
+      has_api_key: !!typed || keySaved,
       model: selectedModel.trim(),
     });
+    // Like the provider keys: once saved, the key leaves the field.
+    setApiKey("");
     onStatusChange?.(true);
   }
 
@@ -560,6 +582,8 @@ function CustomProviderPanel({
         <label className="settings-field-label">{t.customBaseUrlLabel}</label>
         <input
           type="text"
+          inputMode="url"
+          {...VERBATIM_INPUT}
           className="settings-text-input"
           placeholder={t.customBaseUrlPlaceholder}
           value={baseUrl}
@@ -571,7 +595,8 @@ function CustomProviderPanel({
         <input
           type="password"
           className="settings-text-input"
-          placeholder={t.apiKeyPlaceholder}
+          aria-label={t.customApiKeyLabel}
+          placeholder={keySaved ? t.customApiKeySaved : t.apiKeyPlaceholder}
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
         />
@@ -594,6 +619,7 @@ function CustomProviderPanel({
           ) : (
             <input
               type="text"
+              {...VERBATIM_INPUT}
               className="settings-text-input"
               placeholder={t.customModelPlaceholder}
               value={selectedModel}

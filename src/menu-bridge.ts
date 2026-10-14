@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { windowIpc } from "./ipc";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
@@ -123,5 +124,20 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
           h().openHelpTab(event.payload);
       }),
     );
+  }, []);
+
+  // Settings… or Open… chosen from the macOS menu bar while no window was
+  // open: Rust opened this window to carry it out (menu.rs's
+  // emit_or_open_window). Asked once, on mount - the answer is taken, so no
+  // later window repeats it.
+  useEffect(() => {
+    windowIpc
+      .takePendingMenuEvent()
+      .then((event) => {
+        if (event === "menu-open-settings") latest.current.onOpenSettings();
+        else if (event === "menu-open-file")
+          void latest.current.openFileDialog();
+      })
+      .catch(() => {});
   }, []);
 }

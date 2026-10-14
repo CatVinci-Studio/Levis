@@ -159,7 +159,7 @@ fn read_layer(dir: &Path) -> (Option<String>, Vec<AgentSkill>) {
 ///
 /// The document's own folder is the default and covers the common case (a
 /// folder of chapters, notes next to the draft). `root_override` is the
-/// Settings > Agent "workspace" picker: without it, reference material one
+/// Settings > Levis AI "workspace" picker: without it, reference material one
 /// folder over is simply unreachable, and so is any attachment the user
 /// picked from elsewhere on disk - which is exactly the wall a user hits the
 /// first time their sources and their draft don't live together.
@@ -237,7 +237,7 @@ pub async fn load_agent_workspace(
     .unwrap_or_default()
 }
 
-/// Folder picker behind Settings > Agent's "switch workspace" button.
+/// Folder picker behind Settings > Levis AI's "switch workspace" button.
 /// Desktop only: the dialog plugin has no folder picker on iOS.
 #[cfg(desktop)]
 #[tauri::command]
@@ -295,7 +295,7 @@ pub fn ensure_global_agent_md(app: AppHandle, lang: Option<String>) -> Result<St
 /// frontend passes its language setting along (Rust can't read it itself).
 const AGENT_MD_TEMPLATE_EN: &str = "\
 <!--
-This file customizes the AI chat agent (Settings > Agent).
+This file customizes Levis AI Chat (Settings > Levis AI).
 
 Everything OUTSIDE comment blocks like this one is added to every
 conversation's system prompt, for all documents. Comments are stripped
@@ -316,7 +316,7 @@ Reusable skills go in skills/*.md (invoked with /name in the chat).
 
 const AGENT_MD_TEMPLATE_ZH: &str = "\
 <!--
-这个文件用于定制 AI 对话 Agent（设置 > Agent）。
+这个文件用于定制 Levis AI 对话（设置 > Levis AI）。
 
 写在注释块（比如这一段）之外的所有内容，都会加入每次对话的系统
 提示词，对所有文档生效。注释会被剥离、永远不会发给模型，所以这
@@ -337,7 +337,7 @@ const AGENT_MD_TEMPLATE_ZH: &str = "\
 
 const AGENT_MD_TEMPLATE_JA: &str = "\
 <!--
-このファイルはAIチャットAgent（設定 > Agent）をカスタマイズします。
+このファイルはLevis AI チャット（設定 > Levis AI）をカスタマイズします。
 
 このようなコメントブロックの外に書かれた内容は、すべての文書に
 ついて、すべての会話のシステムプロンプトに追加されます。コメン
@@ -486,6 +486,21 @@ mod tests {
         // The starter templates must contribute zero prompt content.
         assert!(strip_html_comments(AGENT_MD_TEMPLATE_EN).trim().is_empty());
         assert!(strip_html_comments(AGENT_MD_TEMPLATE_ZH).trim().is_empty());
+        assert!(strip_html_comments(AGENT_MD_TEMPLATE_JA).trim().is_empty());
+    }
+
+    #[test]
+    fn templates_name_the_settings_page_that_exists() {
+        // The Settings page is "Levis AI" (src/i18n/strings.ts, navAi);
+        // there has been no "Agent" page since 0.9.7.
+        for (template, settings) in [
+            (AGENT_MD_TEMPLATE_EN, "Settings > Levis AI"),
+            (AGENT_MD_TEMPLATE_ZH, "设置 > Levis AI"),
+            (AGENT_MD_TEMPLATE_JA, "設定 > Levis AI"),
+        ] {
+            assert!(template.contains(settings), "{template}");
+            assert!(!template.contains("> Agent"), "{template}");
+        }
     }
 
     #[test]

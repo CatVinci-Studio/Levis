@@ -20,27 +20,60 @@ export function installDevTauriShim(): void {
   const listeners = new Map<string, number[]>();
 
   // The settings/UI-state/history store of src-tauri/src/settings.rs, in
-  // memory. Only reached when a test installs `window.__BOOT__` the way Rust
-  // would (e2e/storage.spec.ts) - without one the frontend keeps everything
-  // in localStorage and never calls these. `window.__devStorage` exposes the
-  // state for assertions.
+  // memory (and, below, the saved custom endpoint, which every page can
+  // reach). The store is only reached when a test installs
+  // `window.__BOOT__` the way Rust would (e2e/storage.spec.ts) - without
+  // one the frontend keeps everything in localStorage and never calls
+  // these. `window.__devStorage` exposes the state for assertions,
+  // including `log`, every command in the order it arrived (and
+  // "<command>:done" when a storage write was answered).
+  // `window.__devLiveSettings` starts the store from other settings than
+  // the boot snapshot's - what Rust holds when a reload replays an old one -
+  // and `window.__devStorageLatency` (ms) delays every storage write's
+  // answer, as a slow IPC would.
   const boot = w.__BOOT__ as
     | {
         settings?: Record<string, unknown>;
         rev?: number;
         legacyImport?: boolean;
+        uiState?: Record<string, unknown>;
       }
     | undefined;
+  const live = w.__devLiveSettings as Record<string, unknown> | undefined;
   const store = {
-    settings: { ...(boot?.settings ?? {}) } as Record<string, unknown>,
-    rev: boot?.rev ?? 1,
+    settings: { ...(live ?? boot?.settings ?? {}) } as Record<string, unknown>,
+    rev: (boot?.rev ?? 1) + (live ? 10 : 0),
     legacyPending: boot?.legacyImport === true,
     imports: 0,
     patches: [] as Record<string, unknown>[],
-    uiState: {} as Record<string, unknown>,
+    fills: [] as Record<string, unknown>[],
+    log: [] as string[],
+    uiState: { ...(boot?.uiState ?? {}) } as Record<string, unknown>,
     histories: { chat: [], clipboard: [] } as Record<string, unknown[]>,
+    // custom_endpoint.json: the key is kept here but, as in Rust, never
+    // handed back - custom_endpoint_status says only whether there is one.
+    customEndpoint: null as {
+      baseUrl: string;
+      apiKey: string | null;
+      model: string;
+    } | null,
   };
   w.__devStorage = store;
+  // Bounded: a long smoke-testing session in the browser invokes a lot.
+  const log = (entry: string) => {
+    if (store.log.push(entry) > 2000) store.log.splice(0, 1000);
+  };
+  const answer = <T>(cmd: string, value: T): Promise<T> => {
+    const latency = Number(w.__devStorageLatency) || 0;
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        log(`${cmd}:done`);
+        resolve(value);
+      }, latency),
+    );
+  };
+  const sameEndpoint = (a: string, b: string) =>
+    a.trim().replace(/\/+$/, "") === b.trim().replace(/\/+$/, "");
   const emitSoon = (event: string, payload: unknown) =>
     queueMicrotask(() =>
       (w.__devEmitTauriEvent as (e: string, p?: unknown) => void)(
@@ -64,7 +97,20 @@ export function installDevTauriShim(): void {
         store.patches.push(patch);
         store.rev += 1;
         emitSoon("settings-changed", { rev: store.rev, patch, from: "main" });
-        return Promise.resolve(store.rev);
+        return answer(cmd, store.rev);
+      }
+      case "settings_fill_defaults": {
+        // Only the fields not set yet (settings.rs's fill_missing).
+        const defaults = args.defaults as Record<string, unknown>;
+        const added = Object.fromEntries(
+          Object.entries(defaults).filter(([key]) => !(key in store.settings)),
+        );
+        store.fills.push(added);
+        if (Object.keys(added).length > 0) {
+          store.settings = { ...store.settings, ...added };
+          store.rev += 1;
+        }
+        return answer(cmd, { value: store.settings, rev: store.rev });
       }
       case "settings_import_legacy": {
         const payload = args.payload as Record<string, unknown>;
@@ -95,7 +141,7 @@ export function installDevTauriShim(): void {
           ...store.uiState,
           ...(args.patch as Record<string, unknown>),
         };
-        return Promise.resolve(null);
+        return answer(cmd, null);
       case "history_list":
         return Promise.resolve(store.histories[kind] ?? []);
       case "history_upsert": {
@@ -104,15 +150,46 @@ export function installDevTauriShim(): void {
           args.entry,
           ...store.histories[kind].filter((e) => historyKey(kind, e) !== key),
         ];
-        return Promise.resolve(null);
+        return answer(cmd, null);
       }
       case "history_remove":
         store.histories[kind] = store.histories[kind].filter(
           (e) => historyKey(kind, e) !== args.key,
         );
-        return Promise.resolve(null);
+        return answer(cmd, null);
       case "history_clear":
         store.histories[kind] = [];
+        return answer(cmd, null);
+      // auth/custom_endpoint.rs, including its rule that an empty key keeps
+      // the stored one - for the URL it was saved with only.
+      case "custom_endpoint_status": {
+        const saved = store.customEndpoint;
+        return Promise.resolve(
+          saved && {
+            base_url: saved.baseUrl,
+            api_key: null,
+            has_api_key: !!saved.apiKey,
+            model: saved.model,
+          },
+        );
+      }
+      case "set_custom_endpoint": {
+        const baseUrl = String(args.baseUrl ?? "");
+        const typed = typeof args.apiKey === "string" ? args.apiKey.trim() : "";
+        const saved = store.customEndpoint;
+        store.customEndpoint = {
+          baseUrl,
+          apiKey:
+            typed ||
+            (saved && sameEndpoint(saved.baseUrl, baseUrl)
+              ? saved.apiKey
+              : null),
+          model: String(args.model ?? ""),
+        };
+        return Promise.resolve(null);
+      }
+      case "clear_custom_endpoint":
+        store.customEndpoint = null;
         return Promise.resolve(null);
     }
     return null;
@@ -124,6 +201,7 @@ export function installDevTauriShim(): void {
       currentWebview: { label: "main", windowLabel: "main" },
     },
     invoke: (cmd: string, args?: { event?: string; handler?: number }) => {
+      log(cmd);
       // `window.__devInvokeResults = { cmd: value }` answers a command with
       // a canned value - e.g. take_chat_handoff, without which the chat
       // window (?view=chat) has no conversation to show.

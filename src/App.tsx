@@ -78,6 +78,7 @@ import { useDraftAutosave } from "./draft-autosave";
 import { useMenuBridge } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
 import { drafts, fs, session } from "./ipc";
+import { flushPendingWrites } from "./storage/pending-writes";
 import { defaultMarkdownFilename } from "./save-default-name";
 import { useModalDialog } from "./ui/useModalDialog";
 import { SplitView } from "./editor/SplitView";
@@ -632,10 +633,12 @@ function App() {
           // cleanup effect (which clears a departed tab's snapshot) never gets
           // another run - without the explicit clear here, a dirty tab closed
           // via "Don't Save" comes back as a recovered draft on next launch.
+          // Storage writes still on their way go first, like every close.
           cancelDraftFlushes();
-          void drafts
-            .clearDraftSnapshot(id)
-            .finally(() => void getCurrentWindow().destroy());
+          void Promise.allSettled([
+            drafts.clearDraftSnapshot(id),
+            flushPendingWrites(),
+          ]).then(() => void getCurrentWindow().destroy());
           return prev;
         }
         return next;
@@ -719,7 +722,6 @@ function App() {
     newDocumentMode: settings.newDocumentMode,
     language: settings.language,
     onboardingShown: settings.onboardingShown,
-    updateTab,
     setTabs,
     setDraftsRestoredCount,
     markOnboardingShown: () => setSettings({ onboardingShown: true }),
@@ -749,11 +751,21 @@ function App() {
   // needs a decision, not just the active one). Registered once; reads
   // dirtiness through liveTabs so the listener doesn't churn on every
   // keystroke, and so an edit typed just before closing still counts.
+  // Every way of closing a window lands here - its close button, File >
+  // Close Window, Quit (Cmd+Q closes each window in turn), Alt+F4 - and the
+  // Tauri API destroys the window once this handler resolves, unless it
+  // prevented the close. So with nothing to ask, it first waits for the
+  // storage writes still on their way to Rust (a setting typed a moment
+  // ago) or held back (the resting zoom); the prompt's Save / Don't Save do the same before they
+  // destroy the window themselves.
   useEffect(() => {
-    const unlisten = getCurrentWindow().onCloseRequested((event) => {
-      if (!liveTabs().some(tabIsDirty)) return;
-      event.preventDefault();
-      setPendingClose({ kind: "window" });
+    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
+      if (liveTabs().some(tabIsDirty)) {
+        event.preventDefault();
+        setPendingClose({ kind: "window" });
+        return;
+      }
+      await flushPendingWrites();
     });
     return unlistenAll(unlisten);
   }, [liveTabs]);
@@ -859,6 +871,7 @@ function App() {
       // The just-saved tabs' snapshot cleanup would race destroy() below
       // (it runs on a later effect tick) - do it synchronously instead.
       await clearWindowDrafts();
+      await flushPendingWrites();
       await getCurrentWindow().destroy();
     } else if (action.kind === "tab") {
       if (!(await saveTab(action.tabId))) return;
@@ -884,6 +897,7 @@ function App() {
       // "Don't Save" is a decision - the discarded content must not come
       // back as a recovered draft on the next launch.
       await clearWindowDrafts();
+      await flushPendingWrites();
       await getCurrentWindow().destroy();
     } else if (action.kind === "tab") removeTab(action.tabId);
     else await replaceTabWithFile(action.tabId, action.path);

@@ -43,7 +43,11 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
   const { t, settings, setSettings } = useSettings();
   const provider = useActiveProvider();
   const workspaceRoot = settings.agentWorkspaceRoot || null;
-  const [info, setInfo] = useState<AgentWorkspaceInfo | null>(null);
+  // undefined until the first load answers: "no root" means unsaved or too
+  // broad, which mustn't be said before anyone has looked.
+  const [info, setInfo] = useState<AgentWorkspaceInfo | null | undefined>(
+    undefined,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [naming, setNaming] = useState(false);
   const [entryName, setEntryName] = useState("");
@@ -153,6 +157,10 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
       );
     });
 
+  // Still loading: say nothing. The answer takes one IPC round trip, long
+  // enough on an iPhone for "too broad" to flash every time the panel
+  // opened, or the app started with it open.
+  if (info === undefined) return null;
   // An unsaved draft simply has no project yet - nothing to say about it
   // up front. A folder too broad to read is worth saying, once.
   if (!root) {

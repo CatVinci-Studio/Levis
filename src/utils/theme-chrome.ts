@@ -74,14 +74,18 @@ export function themeColumnWidth(maxWidth: string): string | null {
   return null;
 }
 
+/** Also the id the boot script (src-tauri/src/boot.js) gives the copy it
+ *  paints the first frame with, so applying here replaces that one. */
 const STYLE_ID = "levis-imported-chrome";
 export function clearThemeChrome() {
   document.getElementById(STYLE_ID)?.remove();
 }
 
 /** An isolated document avoids sampling our own derived palette on reapply.
- * Local imports have already been inlined by theme-import.ts. */
-export function applyThemeChrome(css: string, dark: boolean) {
+ * Local imports have already been inlined by theme-import.ts. Returns the
+ * stylesheet it applied (null when it couldn't derive one), which the
+ * settings store remembers for the next window's first frame. */
+export function applyThemeChrome(css: string, dark: boolean): string | null {
   const frame = document.createElement("iframe");
   frame.hidden = true;
   frame.width = String(window.innerWidth);
@@ -92,7 +96,7 @@ export function applyThemeChrome(css: string, dark: boolean) {
   try {
     const doc = frame.contentDocument;
     const view = frame.contentWindow;
-    if (!doc || !view) return;
+    if (!doc || !view) return null;
     doc.documentElement.dataset.theme = dark ? "dark" : "light";
     const base = doc.createElement("style");
     base.textContent = `body { background: var(--bg-color, var(--editor-bg, var(--bg, ${dark ? "#1b1e24" : "#fff"}))); color: var(--text-color, var(--editor-text, ${dark ? "#e4e7ed" : "#24272e"})); } a { color: var(--primary-color, var(--editor-accent, #315ed1)); }`;
@@ -114,7 +118,7 @@ export function applyThemeChrome(css: string, dark: boolean) {
     const canvas = doc.createElement("canvas");
     canvas.width = canvas.height = 1;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return null;
     const read = (value: string): RGB | null => {
       ctx.clearRect(0, 0, 1, 1);
       ctx.fillStyle = value;
@@ -162,6 +166,7 @@ export function applyThemeChrome(css: string, dark: boolean) {
       .join("\n")} }`;
     clearThemeChrome();
     document.head.appendChild(style);
+    return style.textContent;
   } finally {
     frame.remove();
   }

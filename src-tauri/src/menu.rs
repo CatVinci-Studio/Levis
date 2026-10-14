@@ -111,6 +111,21 @@ pub(crate) fn focused_editor_window(app: &tauri::AppHandle) -> Option<String> {
     })
 }
 
+/// `emit_to_focused` for a command that needs a window to happen in - with
+/// none open (macOS keeps running after its last window closes), a fresh
+/// window opens and runs it once it has mounted (PENDING_MENU_EVENT). Not
+/// done here and now without a window: an open panel with no window to
+/// own it attached itself as a sheet to a closed window, which came back
+/// empty and stayed on screen.
+fn emit_or_open_window(app: &tauri::AppHandle, event: &'static str) {
+    if focused_editor_window(app).is_some() {
+        emit_to_focused(app, event);
+    } else {
+        *crate::PENDING_MENU_EVENT.lock().unwrap() = Some(event);
+        let _ = crate::open_new_window(app);
+    }
+}
+
 /// Handle to the File > Open Recent submenu, kept so add_recent_file can
 /// rebuild its entries at runtime without touching the rest of the menu.
 struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
@@ -486,7 +501,7 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
 /// points stay one behaviour.
 fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
     if id == SETTINGS_MENU_ID {
-        emit_to_focused(app_handle, "menu-open-settings");
+        emit_or_open_window(app_handle, "menu-open-settings");
     } else if id == NEW_FILE_ID {
         // Honors the same Settings choice as opening files: a new tab in the
         // focused window in tab mode, a fresh window otherwise (or when
@@ -499,7 +514,7 @@ fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
             emit_to_focused(app_handle, "menu-new-file");
         }
     } else if id == OPEN_FILE_ID {
-        emit_to_focused(app_handle, "menu-open-file");
+        emit_or_open_window(app_handle, "menu-open-file");
     } else if id == SAVE_FILE_ID {
         emit_to_focused(app_handle, "menu-save-file");
     } else if id == SAVE_FILE_AS_ID {
@@ -525,8 +540,14 @@ fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
             &app_handle.state::<commands::session::SessionTabsState>(),
         );
         // close() (not destroy()) so each frontend gets its close-requested
-        // prompt; the app exits once the last window actually closes.
-        for (_, window) in app_handle.webview_windows() {
+        // prompt; the app exits once the last window actually closes
+        // (lib.rs's Destroyed handler).
+        let windows = app_handle.webview_windows();
+        if windows.is_empty() {
+            // macOS with no window open: nothing to close, nothing to ask.
+            app_handle.exit(0);
+        }
+        for (_, window) in windows {
             let _ = window.close();
         }
     } else if let Some(kind) = id.strip_prefix(INSERT_BLOCK_PREFIX) {
@@ -567,8 +588,8 @@ fn dispatch(app_handle: &tauri::AppHandle, id: &str) {
         let _ = crate::open_new_window(app_handle);
     } else if let Some(doc) = id.strip_prefix(HELP_DOC_PREFIX) {
         // A help doc opens as a tab in the focused window; with no window to
-        // receive it (macOS keeps the app alive windowless), spawn one that
-        // drains the pending doc on mount.
+        // receive it (macOS keeps the app running after its last window
+        // closes), spawn one that drains the pending doc on mount.
         if let Some(label) = focused_editor_window(app_handle) {
             let _ = app_handle.emit_to(EventTarget::webview_window(&label), "menu-open-help", doc);
         } else {

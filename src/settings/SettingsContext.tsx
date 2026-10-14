@@ -16,6 +16,12 @@ import {
 import { ai, storage, themes } from "../ipc";
 import { readBoot, readLocalJson } from "../storage/boot";
 import { importLegacyStorage } from "../storage/legacy-import";
+import { trackWrite } from "../storage/pending-writes";
+import {
+  getUiState,
+  setUiState,
+  type ThemeChromeCache,
+} from "../storage/ui-state";
 import { listenToThisWindow } from "../utils/tauri-events";
 import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
 import { SettingsSync, type Raw } from "./settings-sync";
@@ -409,18 +415,6 @@ function writeLocalSettings(patch: Raw) {
 // wins when). Without it, localStorage, as before the move.
 // ---------------------------------------------------------------------------
 
-/** Fields edited keystroke by keystroke: their writes to Rust wait for a
- *  pause in the typing. Every other change goes out at once. */
-const DEBOUNCED_FIELDS = new Set<string>([
-  "customCss",
-  "proxyHost",
-  "proxyPort",
-  "imageUploadEndpoint",
-  "imageUploadUrlField",
-  "agentWorkspaceRoot",
-]);
-const DEBOUNCE_MS = 400;
-
 /** Mirrors SettingsChanged in src-tauri/src/settings.rs. */
 interface SettingsChanged {
   rev: number;
@@ -431,8 +425,6 @@ interface SettingsChanged {
 let sync: SettingsSync | null = null;
 let normalised: { raw: Raw; settings: Settings } | null = null;
 const remoteListeners = new Set<() => void>();
-let delayed = new Map<string, number>();
-let delayTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** The file-backed store, set up on first use; null without Rust. */
 function fileStore(): SettingsSync | null {
@@ -451,19 +443,25 @@ function fileStore(): SettingsSync | null {
     });
   } else {
     sync = new SettingsSync(boot.settings, boot.rev);
-    if (Object.keys(boot.settings).length === 0) {
-      // Nothing stored (an unreadable settings.json was moved aside):
-      // write the fresh defaults out now, as a first launch always has, so
-      // the next launch doesn't read a half-written file as an old install.
-      send(sync.local(normaliseSettings(null) as unknown as Raw));
-    }
     // The snapshot is from when the window was built - a reload replays an
     // old one, and a change made meanwhile by another window was sent
-    // before this page could hear it.
-    storage
-      .settingsGet()
-      .then((live) => adopt(live.value, live.rev))
-      .catch(() => {});
+    // before this page could hear it - so the live values replace it.
+    const live =
+      Object.keys(boot.settings).length === 0
+        ? // Nothing stored (a corrupt settings.json was moved aside, or
+          // one Rust can't read is being left alone): write the fresh
+          // defaults out now, as a first launch always has, so the next
+          // launch doesn't read a half-written file as an old install.
+          // Only into fields still missing, though: reloaded later, this
+          // window replays the same empty snapshot, and must not put the
+          // defaults back over everything changed since.
+          trackWrite(
+            storage.settingsFillDefaults(
+              normaliseSettings(null) as unknown as Raw,
+            ),
+          )
+        : storage.settingsGet();
+    live.then((s) => adopt(s.value, s.rev)).catch(() => {});
   }
 
   void listenToThisWindow<SettingsChanged>("settings-changed", (event) => {
@@ -475,8 +473,6 @@ function fileStore(): SettingsSync | null {
     delete shared.zoom;
     if (sync.remote(shared, rev)) notifyRemote();
   });
-  // Typing that hasn't paused yet when the window goes away.
-  window.addEventListener("pagehide", flushDelayed);
   return sync;
 }
 
@@ -502,21 +498,23 @@ function send(ticket: Map<string, number>) {
   if (!store) return;
   const patch: Raw = {};
   for (const key of ticket.keys()) patch[key] = store.raw[key];
-  storage.settingsPatch(patch).then(
+  trackWrite(storage.settingsPatch(patch)).then(
     (rev) => store.confirm(ticket, rev),
     () => store.confirm(ticket),
   );
 }
 
-function flushDelayed() {
-  clearTimeout(delayTimer);
-  if (delayed.size === 0) return;
-  const ticket = delayed;
-  delayed = new Map();
-  send(ticket);
-}
-
-/** Saves the fields in `patch` that differ from what's stored. */
+/** Saves the fields in `patch` that differ from what's stored.
+ *
+ *  Every change goes to Rust at once, keystrokes in Custom CSS included:
+ *  Rust holds it in memory, coalesces the disk writes (FLUSH_DELAY in
+ *  settings.rs) and writes whatever is pending when the app exits. A
+ *  debounce here lost the last keystrokes of a quick Cmd+Q, window close or
+ *  Dock Quit on macOS: the window was gone before the timer fired, and a
+ *  flush from pagehide didn't reach Rust either. The IPC is still
+ *  asynchronous, so every close path the app owns waits for the patches
+ *  on their way before the window is destroyed (send's trackWrite,
+ *  storage/pending-writes.ts). */
 function persist(patch: Partial<Settings>) {
   const store = fileStore();
   if (!store) {
@@ -532,16 +530,7 @@ function persist(patch: Partial<Settings>) {
       changed[key] = value;
   }
   if (Object.keys(changed).length === 0) return;
-  const now = new Map<string, number>();
-  for (const [key, seq] of store.local(changed)) {
-    if (DEBOUNCED_FIELDS.has(key)) delayed.set(key, seq);
-    else now.set(key, seq);
-  }
-  if (now.size > 0) send(now);
-  if (delayed.size > 0) {
-    clearTimeout(delayTimer);
-    delayTimer = setTimeout(flushDelayed, DEBOUNCE_MS);
-  }
+  send(store.local(changed));
 }
 
 /** Calls `fn` whenever another window (or a re-read) changes the settings.
@@ -577,8 +566,24 @@ export function resetSettingsStoreForTests(): void {
   sync = null;
   normalised = null;
   remoteListeners.clear();
-  clearTimeout(delayTimer);
-  delayed = new Map();
+}
+
+/** Keeps an imported theme's chrome colours for the boot script, which
+ *  paints the next window's first frame with them (ui-state.ts's
+ *  themeChrome) - written only when they changed, so opening a window
+ *  doesn't rewrite ui-state.json. Without Rust there is no boot script. */
+function rememberThemeChrome(chrome: ThemeChromeCache) {
+  if (!readBoot()) return;
+  const cached = getUiState("themeChrome") as
+    Partial<ThemeChromeCache> | undefined;
+  if (
+    cached?.id === chrome.id &&
+    cached.dark === chrome.dark &&
+    cached.sourceLength === chrome.sourceLength &&
+    cached.css === chrome.css
+  )
+    return;
+  setUiState("themeChrome", chrome);
 }
 
 /// Optional-called: an environment without matchMedia (jsdom, an odd
@@ -740,10 +745,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
         styleEl.textContent = adaptTyporaCss(css ?? "");
         document.head.appendChild(styleEl);
-        // The user's own CSS stays after the theme, whenever it loads.
-        const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
-        if (custom) document.head.appendChild(custom);
-        applyThemeChrome(css ?? "", isEffectiveDark(settings.theme));
+        const dark = isEffectiveDark(settings.theme);
+        let chrome: string | null;
+        try {
+          chrome = applyThemeChrome(css ?? "", dark);
+        } finally {
+          // The user's own CSS stays after the theme and the chrome derived
+          // from it, whenever they load - the order the boot script gives
+          // the first frame, and the one an edit to it leaves.
+          const custom = document.getElementById(CUSTOM_CSS_STYLE_ID);
+          if (custom) document.head.appendChild(custom);
+        }
+        if (typeof chrome === "string")
+          rememberThemeChrome({
+            id: theme.id,
+            dark,
+            sourceLength: (css ?? "").length,
+            css: chrome,
+          });
       } catch {
         // Theme file missing/unreadable - leave whatever was there before.
       }

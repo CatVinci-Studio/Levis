@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { storage, type HistoryKind } from "../ipc";
 import { legacyImportSettled, readBoot, readLocalJson } from "../storage/boot";
+import { trackWrite } from "../storage/pending-writes";
 import { listenToThisWindow } from "./tauri-events";
 
 /**
@@ -32,6 +33,13 @@ export function createPersistedList<T>(
     keyOf: (entry: T) => string;
     /** Order kept on every change, e.g. most recent first. */
     sort?: (a: T, b: T) => number;
+    /** The form an entry is stored in, applied to every entry written - and,
+     *  file-backed, to the entries already stored when the list loads, where
+     *  any it changes are written back: a migration of what an older build
+     *  stored (the chat history's iOS document paths, ai/chat-history.ts).
+     *  Must return an entry already in that form unchanged (the same
+     *  object). */
+    normalise?: (entry: T) => T;
   },
 ) {
   const listeners = new Set<() => void>();
@@ -83,8 +91,14 @@ export function createPersistedList<T>(
         let next = tidy(Array.isArray(list) ? list : []);
         for (const op of mine.ops) next = apply(next, op);
         request = null;
+        // After the replay: an entry removed meanwhile stays removed, and
+        // the ones upserted meanwhile went out normalised already.
+        const outdated = options.normalise
+          ? next.filter((entry) => options.normalise!(entry) !== entry)
+          : [];
         entries = next;
         notify();
+        for (const entry of outdated) change({ type: "upsert", entry });
       })
       .catch(() => {
         if (request === mine) request = null;
@@ -122,6 +136,8 @@ export function createPersistedList<T>(
   /** Applies `op` here at once, then hands it to the store behind. */
   function change(op: Op<T>) {
     start();
+    if (op.type === "upsert" && options.normalise)
+      op = { type: "upsert", entry: options.normalise(op.entry) };
     entries = apply(entries, op);
     if (readBoot()) {
       request?.ops.push(op);
@@ -132,8 +148,9 @@ export function createPersistedList<T>(
             ? storage.historyRemove(options.kind, op.key)
             : storage.historyClear(options.kind);
       // A history is a convenience: a failed write just won't survive
-      // the session.
-      sent.catch(() => {});
+      // the session. A window closing waits for it, though
+      // (storage/pending-writes.ts).
+      trackWrite(sent).catch(() => {});
     } else {
       try {
         localStorage.setItem(key, JSON.stringify(entries));

@@ -70,6 +70,11 @@ pub struct Store {
     /// Whether the file was absent when loaded - what decides that this is
     /// the first launch since the move and localStorage should be imported.
     missing_at_load: bool,
+    /// The file exists but couldn't be read (permissions, an I/O error): it
+    /// probably still holds the user's real data, which the first write
+    /// would replace with this session's defaults. So nothing is written
+    /// for the rest of the session - changes live in memory only.
+    unreadable: bool,
 }
 
 struct Inner {
@@ -87,21 +92,36 @@ impl Store {
     /// than overwritten, so whatever is in it can still be recovered by
     /// hand, and the app starts from defaults instead of refusing to start.
     pub fn load(path: PathBuf, key: &'static str, empty: Value, pretty: bool) -> Self {
-        let (payload, schema, missing) = match std::fs::read_to_string(&path) {
+        let mut missing = false;
+        let mut unreadable = false;
+        let (payload, schema) = match std::fs::read_to_string(&path) {
             Ok(raw) => match parse(&raw, key, &empty) {
-                Some((payload, schema)) => (payload, schema, false),
+                Some(parsed) => parsed,
                 None => {
                     move_aside(&path);
-                    (empty, SCHEMA_VERSION, false)
+                    (empty, SCHEMA_VERSION)
                 }
             },
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (empty, SCHEMA_VERSION, true),
-            // Unreadable for another reason (permissions): start empty but
-            // don't treat it as a first launch - importing would then
-            // replace a file that probably still holds the real data.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                missing = true;
+                (empty, SCHEMA_VERSION)
+            }
+            // Not UTF-8: as corrupt as a file that doesn't parse.
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+                move_aside(&path);
+                (empty, SCHEMA_VERSION)
+            }
+            // Unreadable for another reason (permissions, an I/O error):
+            // start empty, but neither treat it as a first launch -
+            // importing would then replace a file that probably still holds
+            // the real data - nor write it at all (see `unreadable`).
             Err(e) => {
-                eprintln!("levis: cannot read {}: {e}", path.display());
-                (empty, SCHEMA_VERSION, false)
+                eprintln!(
+                    "levis: cannot read {}: {e}; using defaults for this session and leaving the file alone",
+                    path.display()
+                );
+                unreadable = true;
+                (empty, SCHEMA_VERSION)
             }
         };
         Self {
@@ -116,6 +136,7 @@ impl Store {
             }),
             flush_scheduled: AtomicBool::new(false),
             missing_at_load: missing,
+            unreadable,
         }
     }
 
@@ -143,7 +164,7 @@ impl Store {
     }
 
     fn schedule_flush(self: &Arc<Self>) {
-        if self.flush_scheduled.swap(true, Ordering::AcqRel) {
+        if self.unreadable || self.flush_scheduled.swap(true, Ordering::AcqRel) {
             return;
         }
         let store = Arc::clone(self);
@@ -158,10 +179,11 @@ impl Store {
         });
     }
 
-    /// Writes the file now if anything changed since the last write.
+    /// Writes the file now if anything changed since the last write - never
+    /// over a file that was there but couldn't be read (`unreadable`).
     pub fn flush(&self) -> std::io::Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        if !inner.dirty {
+        if !inner.dirty || self.unreadable {
             return Ok(());
         }
         let mut file = Map::new();
@@ -190,6 +212,34 @@ impl Store {
     /// once without one undoing the other.
     pub fn patch(self: &Arc<Self>, patch: &Map<String, Value>) -> u64 {
         self.update(|payload| merge_top_level(payload, patch)).1
+    }
+
+    /// Sets the fields of `defaults` that are absent, leaving every present
+    /// one alone. Returns what was added and the new revision, or `None`
+    /// (no new revision, nothing to write) when nothing was missing.
+    pub fn fill_missing(
+        self: &Arc<Self>,
+        defaults: &Map<String, Value>,
+    ) -> Option<(Map<String, Value>, u64)> {
+        let (added, rev) = {
+            let mut inner = self.inner.lock().unwrap();
+            let missing: Map<String, Value> = defaults
+                .iter()
+                .filter(|(key, value)| {
+                    !value.is_null() && inner.payload.get(key.as_str()).is_none()
+                })
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect();
+            if missing.is_empty() {
+                return None;
+            }
+            merge_top_level(&mut inner.payload, &missing);
+            inner.rev += 1;
+            inner.dirty = true;
+            (missing, inner.rev)
+        };
+        self.schedule_flush();
+        Some((added, rev))
     }
 
     // -- array payloads -----------------------------------------------------
@@ -456,6 +506,28 @@ impl Stores {
         self.settings.patch(patch)
     }
 
+    /// Adds the fields of `defaults` the settings don't have yet, and
+    /// nothing else - checked and changed under one lock, so it can never
+    /// overwrite a value, whoever set it and whenever. A window whose boot
+    /// snapshot had no settings at all (a corrupt settings.json was moved
+    /// aside at launch, or an unreadable one is being left alone) writes
+    /// the fresh defaults out through this;
+    /// reloaded later, it replays that same empty snapshot, and a plain
+    /// patch would then put every default back over what the user has
+    /// changed since. Returns the fields added and the new revision, or
+    /// `None` when nothing was missing.
+    pub fn fill_missing_settings(
+        &self,
+        defaults: &Map<String, Value>,
+    ) -> Option<(Map<String, Value>, u64)> {
+        let mut legacy = self.legacy.lock().unwrap();
+        let (added, rev) = self.settings.fill_missing(defaults)?;
+        if legacy.pending {
+            legacy.touched.extend(added.keys().cloned());
+        }
+        Some((added, rev))
+    }
+
     /// Takes the localStorage contents one window read at its first launch
     /// after the move. Only the first call counts: every window restored at
     /// launch boots with the same "import" flag and will try. Returns
@@ -551,6 +623,53 @@ pub fn init(app: &AppHandle) {
     let config_dir = app.path().app_config_dir().unwrap_or_default();
     let data_dir = app.path().app_data_dir().unwrap_or_default();
     app.manage(Stores::load(&config_dir, &data_dir));
+    #[cfg(target_os = "macos")]
+    apply_app_theme(app);
+}
+
+/// The appearance setting changed, or first arrived with the legacy import:
+/// brings the native side in line with it, so what a window shows before
+/// (and around) its page matches the page. macOS sets the app's appearance
+/// (`apply_app_theme`), Linux the open windows' background colour
+/// (`apply_window_backgrounds`); Windows and iOS need nothing.
+fn theme_changed(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    apply_app_theme(app);
+    #[cfg(target_os = "linux")]
+    apply_window_backgrounds(app);
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let _ = app;
+}
+
+/// The appearance AppKit gives the app - Light or Dark when Settings pins
+/// one, the system's otherwise. Set here before any window is built, and
+/// again whenever the setting changes.
+///
+/// It decides a new window's first frames: until its page has painted
+/// (some 125 ms), a WKWebView shows a background that follows the app's
+/// appearance, not the page. So with Levis pinned to Dark on a light Mac,
+/// every window opened white for a moment however early the boot script
+/// put the theme on the document. It also gives scrollbars, context menus,
+/// open/save panels and the page's prefers-color-scheme the same appearance
+/// as the app. App-wide on macOS (tao sets NSApp.appearance); left alone
+/// on the other platforms.
+#[cfg(target_os = "macos")]
+fn apply_app_theme(app: &AppHandle) {
+    let Some(stores) = app.try_state::<Stores>() else {
+        return;
+    };
+    let (settings, _) = stores.settings.snapshot();
+    app.set_theme(app_theme(&settings));
+}
+
+/// The pinned appearance in `settings`, if any.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn app_theme(settings: &Value) -> Option<tauri::Theme> {
+    match settings.get("theme").and_then(Value::as_str) {
+        Some("dark") => Some(tauri::Theme::Dark),
+        Some("light") => Some(tauri::Theme::Light),
+        _ => None,
+    }
 }
 
 /// Writes whatever is still waiting on its debounce. From the exit event.
@@ -666,14 +785,68 @@ fn user_theme_css(app: &AppHandle, settings: &Value) -> Value {
 }
 
 /// Adds the boot script to a webview that shows the app (editor windows,
-/// the detached chat, the iOS webview). The PDF-export and tab-drag windows
-/// load other pages and go without.
+/// the detached chat, the iOS webview), and on Linux builds the window in a
+/// pinned appearance's background (`pinned_background`). The PDF-export and
+/// tab-drag windows load other pages and go without either.
 pub fn with_boot<'a, R: tauri::Runtime, M: Manager<R>>(
     builder: tauri::WebviewWindowBuilder<'a, R, M>,
     app: &AppHandle,
     label: &str,
 ) -> tauri::WebviewWindowBuilder<'a, R, M> {
-    builder.initialization_script(boot_script(app, label))
+    let builder = builder.initialization_script(boot_script(app, label));
+    #[cfg(target_os = "linux")]
+    let builder = match app
+        .try_state::<Stores>()
+        .and_then(|stores| pinned_background(&stores.settings.snapshot().0))
+    {
+        Some(color) => builder.background_color(color),
+        None => builder,
+    };
+    builder
+}
+
+/// The colour a window shows before its page has painted, for a pinned
+/// appearance: the page's own background (App.css's `--bg`, and what
+/// index.html paints before any stylesheet loads).
+///
+/// On Linux the GTK window and the WebKit view start in their own colours -
+/// the GTK theme's window background, then white - until the page's first
+/// paint, so a window pinned to Dark opened with a white frame however early
+/// the boot script put the theme on the document (measured on a release
+/// build: GTK grey, one white frame, then the page). Built with this, the
+/// window is the page's colour from its first frame. "system" is left alone:
+/// what WebKitGTK resolves it to depends on GTK settings and the desktop's
+/// colour-scheme preference, and guessing wrong would flash the other way.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn pinned_background(settings: &Value) -> Option<tauri::window::Color> {
+    match settings.get("theme").and_then(Value::as_str) {
+        Some("dark") => Some(tauri::window::Color(0x1b, 0x1e, 0x24, 0xff)),
+        Some("light") => Some(tauri::window::Color(0xff, 0xff, 0xff, 0xff)),
+        _ => None,
+    }
+}
+
+/// Gives every open app window the background `with_boot` would give it now:
+/// after the appearance changes (or first arrives, with the legacy import),
+/// a window keeps showing its native background wherever the page hasn't
+/// painted yet - the edges of a resize - which would otherwise stay the old
+/// appearance's colour until the window is reopened.
+#[cfg(target_os = "linux")]
+fn apply_window_backgrounds(app: &AppHandle) {
+    let Some(stores) = app.try_state::<Stores>() else {
+        return;
+    };
+    let color = pinned_background(&stores.settings.snapshot().0);
+    for (label, window) in app.webview_windows() {
+        // Only the windows with_boot builds: not the transparent tab-drag
+        // pill, nor the hidden PDF-export renderers.
+        if label == crate::tab_drag::DRAG_PILL_LABEL
+            || label.starts_with(crate::commands::export::PDF_EXPORT_LABEL_PREFIX)
+        {
+            continue;
+        }
+        let _ = window.set_background_color(color);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -717,6 +890,9 @@ pub fn settings_patch(
     patch: Map<String, Value>,
 ) -> u64 {
     let rev = stores.patch_settings(&patch);
+    if patch.contains_key("theme") {
+        theme_changed(&app);
+    }
     emit_to_all(
         &app,
         "settings-changed",
@@ -727,6 +903,33 @@ pub fn settings_patch(
         },
     );
     rev
+}
+
+/// Writes out the frontend's defaults for whatever settings fields are
+/// missing - never over a field that's set (`Stores::fill_missing_settings`)
+/// - and answers with the live settings either way, which the window then
+/// adopts in place of its (empty, possibly stale) boot snapshot. Fields it
+/// added are broadcast like any other change.
+#[tauri::command]
+pub fn settings_fill_defaults(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    stores: tauri::State<Stores>,
+    defaults: Map<String, Value>,
+) -> Snapshot {
+    if let Some((patch, rev)) = stores.fill_missing_settings(&defaults) {
+        emit_to_all(
+            &app,
+            "settings-changed",
+            SettingsChanged {
+                rev,
+                patch,
+                from: window.label().to_string(),
+            },
+        );
+    }
+    let (value, rev) = stores.settings.snapshot();
+    Snapshot { value, rev }
 }
 
 /// The first window's copy of what localStorage held (see
@@ -742,6 +945,8 @@ pub fn settings_import_legacy(
     let accepted = stores.import_legacy(payload);
     let (value, rev) = stores.settings.snapshot();
     if accepted {
+        // The appearance was only in localStorage until now.
+        theme_changed(&app);
         // Windows that booted with the flag but lost the race adopt the
         // result from their own call; any other window learns it here.
         let patch = value.as_object().cloned().unwrap_or_default();
@@ -1091,6 +1296,94 @@ mod tests {
     }
 
     #[test]
+    fn a_settings_file_that_is_not_utf8_counts_as_corrupt() {
+        let dir = temp_dir();
+        std::fs::write(settings_path(&dir), [0xff, 0xfe, b'{']).unwrap();
+        let stores = Stores::load(&dir, &dir);
+        assert_eq!(stores.settings.snapshot().0, json!({}));
+        assert!(!settings_path(&dir).exists());
+        stores.patch_settings(&obj(json!({ "theme": "dark" })));
+        stores.flush_all();
+        assert_eq!(
+            read_file(&settings_path(&dir))["settings"],
+            json!({ "theme": "dark" })
+        );
+    }
+
+    /// A settings.json that's there but can't be read (here: no read
+    /// permission) is left exactly as it is - never replaced by this
+    /// session's defaults - while the app runs on in-memory settings.
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_settings_file_is_never_overwritten() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir();
+        let path = settings_path(&dir);
+        let original = r#"{"schemaVersion":1,"settings":{"theme":"dark"}}"#;
+        std::fs::write(&path, original).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        if std::fs::read_to_string(&path).is_ok() {
+            // Running as root: permissions don't stop reads, nothing to test.
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            return;
+        }
+        let stores = Stores::load(&dir, &dir);
+        assert_eq!(stores.settings.snapshot().0, json!({}));
+        // Not a first launch either: no import over the real data.
+        assert!(!stores.legacy_import_pending());
+        // The frontend writes its defaults, the user changes something...
+        stores.fill_missing_settings(&obj(json!({ "theme": "system", "zoom": 1 })));
+        stores.patch_settings(&obj(json!({ "zoom": 1.5 })));
+        // ...and it all works, in memory,
+        assert_eq!(
+            stores.settings.snapshot().0,
+            json!({ "theme": "system", "zoom": 1.5 })
+        );
+        // without a write, debounced or on exit.
+        std::thread::sleep(FLUSH_DELAY * 3);
+        stores.flush_all();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, [file_name("settings")], "nothing moved aside");
+    }
+
+    #[test]
+    fn filling_defaults_never_overwrites_a_set_field() {
+        let dir = temp_dir();
+        std::fs::write(settings_path(&dir), "{ not json").unwrap();
+        // Launch after the corrupt file was moved aside: nothing stored.
+        let stores = Stores::load(&dir, &dir);
+        let defaults = obj(json!({ "theme": "system", "zoom": 1, "language": "en" }));
+        let (added, rev) = stores.fill_missing_settings(&defaults).unwrap();
+        assert_eq!(added, defaults);
+        // The user changes things...
+        let changed = stores.patch_settings(&obj(json!({ "theme": "dark", "zoom": null })));
+        assert!(changed > rev);
+        // ...and a reloaded window, replaying its empty boot snapshot, offers
+        // the same defaults again: only the field that's missing comes back.
+        let (added, _) = stores.fill_missing_settings(&defaults).unwrap();
+        assert_eq!(added, obj(json!({ "zoom": 1 })));
+        assert_eq!(
+            stores.settings.snapshot().0,
+            json!({ "theme": "dark", "zoom": 1, "language": "en" })
+        );
+        // Nothing missing: no change, no new revision.
+        let rev = stores.settings.snapshot().1;
+        assert!(stores.fill_missing_settings(&defaults).is_none());
+        assert_eq!(stores.settings.snapshot().1, rev);
+        stores.flush_all();
+        assert_eq!(
+            read_file(&settings_path(&dir))["settings"]["theme"],
+            json!("dark")
+        );
+    }
+
+    #[test]
     fn schema_version_is_written_and_a_newer_one_kept() {
         let dir = temp_dir();
         std::fs::write(
@@ -1107,6 +1400,73 @@ mod tests {
             file["settings"],
             json!({ "theme": "light", "fromTheFuture": true })
         );
+    }
+
+    #[test]
+    fn only_a_pinned_appearance_overrides_the_system() {
+        assert_eq!(
+            app_theme(&json!({ "theme": "dark" })),
+            Some(tauri::Theme::Dark)
+        );
+        assert_eq!(
+            app_theme(&json!({ "theme": "light" })),
+            Some(tauri::Theme::Light)
+        );
+        assert_eq!(app_theme(&json!({ "theme": "system" })), None);
+        assert_eq!(app_theme(&json!({})), None);
+        assert_eq!(app_theme(&json!({ "theme": 42 })), None);
+    }
+
+    #[test]
+    fn a_pinned_appearance_gives_windows_the_page_background() {
+        // Checked against the page itself, not restated here: a window must
+        // open in exactly the colour index.html paints first and App.css's
+        // --bg keeps, or the change is a flash of its own. A failure here
+        // means one of the three moved without the others.
+        let index = include_str!("../../index.html");
+        let app_css = include_str!("../../src/App.css");
+        for (theme, app_css_rule) in [
+            ("dark", ":root[data-theme=\"dark\"] {"),
+            ("light", ":root {"),
+        ] {
+            let Some(tauri::window::Color(r, g, b, a)) =
+                pinned_background(&json!({ "theme": theme }))
+            else {
+                panic!("no window background for a pinned {theme}");
+            };
+            let hex = format!("#{r:02x}{g:02x}{b:02x}");
+            assert_eq!(a, 0xff, "{theme}: an opaque window");
+            let index_rule = format!("html[data-theme=\"{theme}\"] {{");
+            assert_eq!(
+                css_value(index, &index_rule, "background:"),
+                hex,
+                "index.html, {theme}"
+            );
+            assert_eq!(
+                css_value(app_css, app_css_rule, "--bg:"),
+                hex,
+                "App.css, {theme}"
+            );
+        }
+        // "system", missing or unreadable: the toolkit's own default.
+        assert_eq!(pinned_background(&json!({ "theme": "system" })), None);
+        assert_eq!(pinned_background(&json!({})), None);
+        assert_eq!(pinned_background(&json!({ "theme": 1 })), None);
+    }
+
+    /// The value `property` has in the first rule that starts with `rule`.
+    fn css_value<'a>(css: &'a str, rule: &str, property: &str) -> &'a str {
+        let start = css.find(rule).unwrap_or_else(|| panic!("no `{rule}` rule"));
+        let body = &css[start + rule.len()..];
+        let body = &body[..body.find('}').expect("an unclosed rule")];
+        let at = body
+            .find(property)
+            .unwrap_or_else(|| panic!("no `{property}` in `{rule}`"));
+        body[at + property.len()..]
+            .split(';')
+            .next()
+            .unwrap_or_default()
+            .trim()
     }
 
     #[test]

@@ -62,6 +62,11 @@ import {
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { canDetachChat, isIOSApp } from "../platform/capabilities";
+import {
+  editorFocusedBeforeAction,
+  PRESS_WINDOW_MS,
+  refocusAfterReview,
+} from "./review-focus";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
 import { ActionSheet } from "../mobile/ActionSheet";
@@ -781,11 +786,41 @@ export function MilkdownEditor({
       pushChatStatuses(pendingEdits.allStatuses);
   }, [detachedChatLabel, isActive, pushChatStatuses, pendingEdits.allStatuses]);
 
+  /** iPad: whether the editor had focus at the last press anywhere in the
+   *  page - see editorFocusedBeforeAction. */
+  const focusAtPress = useRef<{ focused: boolean; at: number } | null>(null);
+  const editorHasFocus = useCallback(
+    () => run((ctx) => ctx.get(editorViewCtx).hasFocus()) === true,
+    [run],
+  );
+  useEffect(() => {
+    // The active tab's editor only: the others take no review steps.
+    if (!isIOSApp || phone || !isActive) return;
+    const record = () => {
+      focusAtPress.current = { focused: editorHasFocus(), at: Date.now() };
+    };
+    // Capture, so it runs before the press can move the focus anywhere.
+    window.addEventListener("pointerdown", record, true);
+    return () => window.removeEventListener("pointerdown", record, true);
+  }, [phone, isActive, editorHasFocus]);
+  function editorHadFocusBeforeAction(): boolean {
+    return editorFocusedBeforeAction(
+      editorHasFocus(),
+      focusAtPress.current,
+      Date.now(),
+    );
+  }
+
   /** Scrolls to a pending edit and, while Quick Ask is the active surface,
    *  moves its zone widget to follow - the direct, synchronous result of a
    *  nav-bar click (Next/Previous/Accept/Reject), never a background
-   *  reaction to something else changing (see the call sites below). */
-  function revealPreview(preview: PendingPreview) {
+   *  reaction to something else changing (see the call sites below).
+   *  `editorHadFocus`: whether the editor had focus when the step began
+   *  (by default: now, or at the press that started it). */
+  function revealPreview(
+    preview: PendingPreview,
+    editorHadFocus = editorHadFocusBeforeAction(),
+  ) {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       const { doc } = view.state;
@@ -804,20 +839,18 @@ export function MilkdownEditor({
       if (inlineChat.visible && phone) {
         requestAnimationFrame(() => keepClearOfDock(view, preview.from, true));
       }
-      // Never pull focus out of a text field: when an edit arrives while the
-      // user is typing a follow-up, the rest of their message used to land
-      // in the document (and invalidate the very preview it jumped to).
-      // On a phone a tapped button never holds focus, so that check alone
-      // let every Next/Previous raise the keyboard over the AI sheet. An
-      // iPad keeps the desktop's rule: with a hardware keyboard the next
-      // keystroke belongs in the document.
+      // Back into the document, except out of a text field, on a phone, or
+      // on an iPad whose user wasn't typing in it (review-focus.ts).
       const active = document.activeElement;
       if (
-        !phone &&
-        !(
-          active instanceof HTMLTextAreaElement ||
-          active instanceof HTMLInputElement
-        )
+        refocusAfterReview({
+          phone,
+          ios: isIOSApp,
+          editorHadFocus,
+          textFieldFocused:
+            active instanceof HTMLTextAreaElement ||
+            active instanceof HTMLInputElement,
+        })
       )
         view.focus();
     });
@@ -844,26 +877,55 @@ export function MilkdownEditor({
   // click Next first - after that, only an explicit nav/decide action moves
   // the panel again (see [[ui-no-auto-jump-preference]]).
   const revealArmed = useRef(false);
+  /** Whether the editor had focus when the Accept/Reject that armed the
+   *  reveal was pressed - by the time the reveal runs, a render later, that
+   *  is history - and when. Null when edits arriving armed it. */
+  const revealArmedFocus = useRef<{ focused: boolean; at: number } | null>(
+    null,
+  );
   const hadPendingRef = useRef(false);
   useEffect(() => {
     const hasPending = pendingEdits.decidable.length > 0;
-    if (hasPending && !hadPendingRef.current) revealArmed.current = true;
+    if (hasPending && !hadPendingRef.current) {
+      revealArmed.current = true;
+      revealArmedFocus.current = null;
+    }
     hadPendingRef.current = hasPending;
   }, [pendingEdits.decidable.length]);
   useEffect(() => {
     if (!revealArmed.current) return;
     revealArmed.current = false;
-    if (pendingEdits.focusedPreview) revealPreview(pendingEdits.focusedPreview);
+    const armed = revealArmedFocus.current;
+    revealArmedFocus.current = null;
+    if (pendingEdits.focusedPreview)
+      revealPreview(
+        pendingEdits.focusedPreview,
+        // The press that armed it, if it was just now; otherwise (edits
+        // arriving, or an arming that never led to a reveal until much
+        // later) nobody pressed anything for this reveal - only whether
+        // the editor has focus now counts.
+        armed && Date.now() - armed.at < PRESS_WINDOW_MS
+          ? armed.focused
+          : editorHasFocus(),
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEdits.focusedPreview]);
 
-  function handleAcceptFocused() {
+  function armReveal() {
     revealArmed.current = true;
+    revealArmedFocus.current = {
+      focused: editorHadFocusBeforeAction(),
+      at: Date.now(),
+    };
+  }
+
+  function handleAcceptFocused() {
+    armReveal();
     pendingEdits.acceptFocused();
   }
 
   function handleRejectFocused() {
-    revealArmed.current = true;
+    armReveal();
     pendingEdits.rejectFocused();
   }
 
@@ -1285,8 +1347,8 @@ export function MilkdownEditor({
 
   // Quick Ask's "continue in the panel": its exchange becomes the full
   // conversation - in the docked panel, or the detached window when the
-  // user prefers it there (Settings > Agent) - and from then on is saved to
-  // History like any other. The panel's previous conversation is already
+  // user prefers it there (Settings > Levis AI) - and from then on is saved
+  // to History like any other. The panel's previous conversation is already
   // in History. Not while either side is mid-reply: the turns would be
   // incomplete.
   function expandQuickAsk() {

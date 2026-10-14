@@ -99,8 +99,8 @@ export function useActiveProvider(): ProviderCatalogEntry | undefined {
 }
 
 /// Shared catalog fetch (fallback -> real list once it resolves) - both the
-/// provider picker and the Agent tab's model picker need the same data, so
-/// this is the one place that owns fetching it.
+/// provider picker and the Levis AI page's chat model picker need the same
+/// data, so this is the one place that owns fetching it.
 export function useProviderCatalog(): ProviderCatalogEntry[] {
   const [catalog, setCatalog] =
     useState<ProviderCatalogEntry[]>(FALLBACK_CATALOG);

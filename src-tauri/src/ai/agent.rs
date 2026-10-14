@@ -357,8 +357,9 @@ pub async fn ai_agent_message(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Agent's explicit workspace override. None
-    // keeps the default - the document's own folder (see workspace::load).
+    // `workspace_root`: Settings > Levis AI's explicit workspace override.
+    // None keeps the default - the document's own folder (see
+    // workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -389,8 +390,9 @@ async fn ai_agent_message_inner(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Agent's explicit workspace override. None
-    // keeps the default - the document's own folder (see workspace::load).
+    // `workspace_root`: Settings > Levis AI's explicit workspace override.
+    // None keeps the default - the document's own folder (see
+    // workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
