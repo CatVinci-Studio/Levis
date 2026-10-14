@@ -65,9 +65,11 @@ test.describe("desktop", () => {
       t.aiAskLabel,
       t.agentPersonalizationGroupLabel,
     ]);
-    await expect(panel.locator(".settings-advanced > summary")).toHaveText(
-      t.agentAdvancedGroupLabel,
-    );
+    await expect(
+      panel.locator(
+        ".settings-advanced:not(.settings-builtin-skills) > summary",
+      ),
+    ).toHaveText(t.agentAdvancedGroupLabel);
 
     // Each model sits in the group of the feature it drives.
     const group = (title: string) =>
@@ -120,7 +122,9 @@ test.describe("desktop", () => {
     await openApp(page, { settings: { language: "en" } });
     const panel = await openSettings(page);
     await panel.getByRole("button", { name: t.navAi, exact: true }).click();
-    const summary = panel.locator(".settings-advanced > summary");
+    const summary = panel.locator(
+      ".settings-advanced:not(.settings-builtin-skills) > summary",
+    );
     // From the control just before it, Tab lands on the summary - not back
     // on the close button.
     await panel.getByRole("checkbox", { name: t.aiAskToggleLabel }).focus();

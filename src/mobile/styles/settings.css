@@ -187,6 +187,26 @@
     background: var(--grouped-card);
   }
 
+  /* A built-in skill: its switch beside the name, Customize… on a line
+     of its own under what it does - beside the switch it squeezed the
+     text into a narrow column and was cut short itself. */
+  :root[data-window-chrome="mobile"] .settings-builtin-skill {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .settings-builtin-skill
+    .settings-row-control {
+    display: contents;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-skill-actions {
+    order: 3;
+    flex-basis: 100%;
+    margin: 0 0 0 -6px;
+  }
+
   /* No hover on glass: a tapped tab or row stays as it was. */
   :root[data-window-chrome="mobile"]
     .settings-nav-item:hover:not(.settings-nav-item-active) {
