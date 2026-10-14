@@ -68,17 +68,19 @@ missing.
   whole object or list back, so two windows changing different things both
   land. Every settings and history change is broadcast to all windows.
 - Writes are debounced by 250 ms and flushed when the app exits, through a
-  write-then-rename, so a crash never leaves a half-written file.
-- A window never closes with a change still on its way to Rust. The
-  frontend holds keystroke-heavy settings fields (Custom CSS, the proxy,
-  ...) back for 400 ms of quiet, and the zoom until it has rested as long,
-  and IPC is asynchronous, so every close path the app owns - the window's
-  close request (close button, Close Window, Quit and Cmd+Q, Alt+F4), the
+  write-then-rename, so a crash never leaves a half-written file. That
+  debounce is the only one for settings: windows send every change as it is
+  made, keystrokes in Custom CSS included, so quitting right after typing
+  loses nothing. (The zoom alone is held back until a pinch or wheel burst
+  has rested for 400 ms.)
+- A window never closes with a change still on its way to Rust. IPC is
+  asynchronous, so every close path the app owns - the window's close
+  request (close button, Close Window, Quit and Cmd+Q, Alt+F4), the
   unsaved-changes prompt, closing the last tab, the detached chat, an
-  update's install - first sends what's held back and waits for Rust to
-  answer every settings, UI-state and history write
+  update's install - first sends what's held back (the resting zoom) and
+  waits for Rust to answer every settings, UI-state and history write
   (`src/storage/pending-writes.ts`, at most 2 s). On iOS, going to the
-  background sends it.
+  background sends what's held back too.
 - A file that can't be parsed (or isn't UTF-8) is renamed to
   `<name>.corrupt-<unix time>` and the app starts from defaults rather than
   refusing to start. A window that boots with no settings at all writes the
@@ -98,6 +100,11 @@ missing.
   `src/utils/theme-chrome.ts`), so the frontend remembers the result in
   `ui-state.json` (`themeChrome`, per theme and appearance) and the boot
   script applies it when it matches.
+- Until its page first paints, a window shows the platform's own
+  background, so Rust also follows a pinned Light or Dark natively
+  (`theme_changed` in `settings.rs`): on macOS it sets the app's appearance
+  (`apply_app_theme`), on Linux it builds windows in the page's background
+  colour and recolours open ones (`pinned_background`).
 
 ## The move out of localStorage (0.9.6 to 0.9.7)
 

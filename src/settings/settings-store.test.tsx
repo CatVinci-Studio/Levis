@@ -136,8 +136,9 @@ describe("file-backed settings", () => {
     expect(loadSettings().theme).toBe("dark");
   });
 
-  it("debounces keystroke-heavy fields", () => {
-    vi.useFakeTimers();
+  it("sends every keystroke at once, so a quick quit can't lose it", () => {
+    // Rust coalesces the disk writes and flushes on exit; a debounce here
+    // lost whatever was typed in the last moments before Cmd+Q.
     boot({ languageChosen: true });
     render(
       <SettingsProvider>
@@ -147,14 +148,11 @@ describe("file-backed settings", () => {
     act(() => lastSet({ customCss: "/* a */" }));
     act(() => lastSet({ customCss: "/* ab */" }));
     act(() => lastSet({ customCss: "/* abc */" }));
-    expect(storage.settingsPatch).not.toHaveBeenCalled();
-    // ...but the rest of the app sees the change at once.
-    expect(loadSettings().customCss).toBe("/* abc */");
-    act(() => vi.advanceTimersByTime(500));
-    expect(storage.settingsPatch).toHaveBeenCalledTimes(1);
-    expect(storage.settingsPatch).toHaveBeenCalledWith({
+    expect(storage.settingsPatch).toHaveBeenCalledTimes(3);
+    expect(storage.settingsPatch).toHaveBeenLastCalledWith({
       customCss: "/* abc */",
     });
+    expect(loadSettings().customCss).toBe("/* abc */");
   });
 
   it("applies other windows' changes, except zoom and its own echo", () => {
@@ -282,8 +280,7 @@ describe("file-backed settings", () => {
 });
 
 describe("closing the window", () => {
-  it("sends a debounced field at once and waits for Rust to take it", async () => {
-    vi.useFakeTimers();
+  it("waits for Rust to take a change that is still on its way", async () => {
     let answer!: (rev: number) => void;
     vi.mocked(storage.settingsPatch).mockReturnValue(
       new Promise((resolve) => (answer = resolve)),
@@ -295,40 +292,20 @@ describe("closing the window", () => {
       </SettingsProvider>,
     );
     act(() => lastSet({ customCss: "p { color: red }" }));
-    expect(storage.settingsPatch).not.toHaveBeenCalled();
-    // The window is closing, well inside the typing debounce.
-    let flushed = false;
-    void flushPendingWrites().then(() => (flushed = true));
+    // Sent at once - nothing waits for a pause in the typing.
     expect(storage.settingsPatch).toHaveBeenCalledWith({
       customCss: "p { color: red }",
     });
+    // The window is closing while the patch is still on its way.
+    let flushed = false;
+    void flushPendingWrites().then(() => (flushed = true));
     await act(async () => {});
     // Not until Rust has answered: destroying the window now could drop it.
     expect(flushed).toBe(false);
     await act(async () => answer(5));
     expect(flushed).toBe(true);
-    // Nothing left for the debounce timer to send.
-    act(() => vi.advanceTimersByTime(1000));
+    // The close sent nothing again: there was nothing held back.
     expect(storage.settingsPatch).toHaveBeenCalledTimes(1);
-  });
-
-  it("also sends held-back typing when the app goes to the background", () => {
-    vi.useFakeTimers();
-    boot({ languageChosen: true });
-    render(
-      <SettingsProvider>
-        <Probe />
-      </SettingsProvider>,
-    );
-    act(() => lastSet({ proxyHost: "127.0.0.1" }));
-    const visibility = vi
-      .spyOn(document, "visibilityState", "get")
-      .mockReturnValue("hidden");
-    document.dispatchEvent(new Event("visibilitychange"));
-    visibility.mockRestore();
-    expect(storage.settingsPatch).toHaveBeenCalledWith({
-      proxyHost: "127.0.0.1",
-    });
   });
 });
 

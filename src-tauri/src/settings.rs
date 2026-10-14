@@ -623,6 +623,53 @@ pub fn init(app: &AppHandle) {
     let config_dir = app.path().app_config_dir().unwrap_or_default();
     let data_dir = app.path().app_data_dir().unwrap_or_default();
     app.manage(Stores::load(&config_dir, &data_dir));
+    #[cfg(target_os = "macos")]
+    apply_app_theme(app);
+}
+
+/// The appearance setting changed, or first arrived with the legacy import:
+/// brings the native side in line with it, so what a window shows before
+/// (and around) its page matches the page. macOS sets the app's appearance
+/// (`apply_app_theme`), Linux the open windows' background colour
+/// (`apply_window_backgrounds`); Windows and iOS need nothing.
+fn theme_changed(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    apply_app_theme(app);
+    #[cfg(target_os = "linux")]
+    apply_window_backgrounds(app);
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let _ = app;
+}
+
+/// The appearance AppKit gives the app - Light or Dark when Settings pins
+/// one, the system's otherwise. Set here before any window is built, and
+/// again whenever the setting changes.
+///
+/// It decides a new window's first frames: until its page has painted
+/// (some 125 ms), a WKWebView shows a background that follows the app's
+/// appearance, not the page. So with Levis pinned to Dark on a light Mac,
+/// every window opened white for a moment however early the boot script
+/// put the theme on the document. It also gives scrollbars, context menus,
+/// open/save panels and the page's prefers-color-scheme the same appearance
+/// as the app. App-wide on macOS (tao sets NSApp.appearance); left alone
+/// on the other platforms.
+#[cfg(target_os = "macos")]
+fn apply_app_theme(app: &AppHandle) {
+    let Some(stores) = app.try_state::<Stores>() else {
+        return;
+    };
+    let (settings, _) = stores.settings.snapshot();
+    app.set_theme(app_theme(&settings));
+}
+
+/// The pinned appearance in `settings`, if any.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn app_theme(settings: &Value) -> Option<tauri::Theme> {
+    match settings.get("theme").and_then(Value::as_str) {
+        Some("dark") => Some(tauri::Theme::Dark),
+        Some("light") => Some(tauri::Theme::Light),
+        _ => None,
+    }
 }
 
 /// Writes whatever is still waiting on its debounce. From the exit event.
@@ -843,9 +890,8 @@ pub fn settings_patch(
     patch: Map<String, Value>,
 ) -> u64 {
     let rev = stores.patch_settings(&patch);
-    #[cfg(target_os = "linux")]
     if patch.contains_key("theme") {
-        apply_window_backgrounds(&app);
+        theme_changed(&app);
     }
     emit_to_all(
         &app,
@@ -900,8 +946,7 @@ pub fn settings_import_legacy(
     let (value, rev) = stores.settings.snapshot();
     if accepted {
         // The appearance was only in localStorage until now.
-        #[cfg(target_os = "linux")]
-        apply_window_backgrounds(&app);
+        theme_changed(&app);
         // Windows that booted with the flag but lost the race adopt the
         // result from their own call; any other window learns it here.
         let patch = value.as_object().cloned().unwrap_or_default();
@@ -1355,6 +1400,21 @@ mod tests {
             file["settings"],
             json!({ "theme": "light", "fromTheFuture": true })
         );
+    }
+
+    #[test]
+    fn only_a_pinned_appearance_overrides_the_system() {
+        assert_eq!(
+            app_theme(&json!({ "theme": "dark" })),
+            Some(tauri::Theme::Dark)
+        );
+        assert_eq!(
+            app_theme(&json!({ "theme": "light" })),
+            Some(tauri::Theme::Light)
+        );
+        assert_eq!(app_theme(&json!({ "theme": "system" })), None);
+        assert_eq!(app_theme(&json!({})), None);
+        assert_eq!(app_theme(&json!({ "theme": 42 })), None);
     }
 
     #[test]
