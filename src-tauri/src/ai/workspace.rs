@@ -68,6 +68,9 @@ pub struct AgentWorkspace {
     /// Where `root` came from - or why there is none - so the agent can
     /// tell the user which folder it reads and how to change that.
     pub root_source: RootSource,
+    /// The writing conventions the style profile's front matter sets
+    /// (`conventions: zh-Hans-CN/fiction`, option keys) - rules::profile.
+    pub conventions: crate::ai::rules::ProjectConventions,
 }
 
 /// Why the workspace root (the project folder, to the user) is the one it
@@ -267,6 +270,7 @@ pub(crate) fn load_from(
         let root = root.as_path();
         ws.root = Some(root.to_string_lossy().to_string());
         ws.style = crate::ai::project::read_style(root);
+        ws.conventions = crate::ai::project::style_conventions(ws.style.as_deref());
         ws.library = crate::ai::project::read_library(root);
         let (instructions, skills) = read_layer(&root.join(WORKSPACE_DIR_NAME));
         ws.project_instructions = instructions;

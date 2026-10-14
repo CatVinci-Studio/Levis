@@ -1,0 +1,13 @@
+# Mensagens das regras de escrita comuns (src-tauri/src/ai/rules/messages.rs).
+shared.nfc.invisible = Caractere invisível: remova-o.
+shared.nfc.compose = Acento decomposto: use o caractere composto.
+shared.space-before-punct = Sem espaço antes deste sinal de pontuação.
+shared.double-space = Dois espaços entre palavras: deixe só um.
+shared.doubled-word = Palavra repetida: “{0}” aparece duas vezes seguidas.
+shared.residue = Restos de resposta de chatbot ou um marcador de posição no texto.
+shared.library-name = Possível erro no nome da biblioteca “{0}”.
+shared.heading-structure.skip = Nível de título pulado: o nível {0} vem depois do nível {1}.
+shared.heading-structure.depth = Mais de três níveis de título: considere simplificar a estrutura.
+shared.image-alt.empty = Imagem sem texto alternativo: descreva-a, a menos que seja apenas decorativa.
+shared.image-alt.long = Texto alternativo com mais de 155 caracteres: encurte-o e deixe os detalhes para o texto.
+shared.image-alt.redundant = O texto alternativo não precisa começar com “Imagem de” ou “Foto de”.

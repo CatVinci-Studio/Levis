@@ -472,6 +472,162 @@ export interface AgentWorkspaceInfo {
   root: string | null;
   style: string | null;
   library: LibraryEntry[];
+  /** What the style profile's front matter sets for the writing
+   *  conventions (`conventions:` and option keys) - ai::rules::profile. */
+  conventions?: ProjectConventions;
+}
+
+// ---------------------------------------------------------------------------
+// Writing conventions (src-tauri/src/ai/rules/profile.rs)
+
+/** The settings.json key of the global writing conventions default. */
+export const WRITING_CONVENTIONS_KEY = "writingConventions";
+/** Its default value, and the per-language value meaning "no choice". */
+export const WRITING_CONVENTIONS_AUTOMATIC = "automatic";
+
+/** A document language as the rules engine names it. */
+export type ConventionsLang =
+  "zh-Hans" | "zh-Hant" | "en" | "ja" | "ko" | "es" | "fr" | "de" | "ru" | "pt";
+
+/**
+ * The profiles each language offers, the first entry being the one
+ * Automatic uses (null: no national norm - universal rules and consistency
+ * checks only). Mirrors LANGUAGE_PROFILES in src-tauri/src/ai/rules/profile.rs
+ * (a Rust test keeps them the same); `writingConventionsOptions()` returns
+ * the same data from Rust, with the option keys.
+ */
+export const WRITING_CONVENTIONS: Record<
+  ConventionsLang,
+  { automatic: string | null; profiles: string[] }
+> = {
+  "zh-Hans": {
+    automatic: "zh-Hans-CN",
+    profiles: [
+      "zh-Hans-CN",
+      "zh-Hans-CN/tech",
+      "zh-Hans-CN/gongwen",
+      "zh-Hans-CN/academic",
+      "zh-Hans-CN/fiction",
+      "zh-Hans-CN/newmedia",
+      "zh-Hant-CN",
+    ],
+  },
+  "zh-Hant": {
+    automatic: "zh-Hant-TW",
+    profiles: ["zh-Hant-TW", "zh-Hant-TW/gongwen", "zh-Hant-HK"],
+  },
+  en: {
+    automatic: null,
+    profiles: [
+      "en-US/general",
+      "en-US/news",
+      "en-US/tech-google",
+      "en-US/tech-microsoft",
+      "en-US/apa",
+      "en-US/mla",
+      "en-GB/govuk",
+      "en-GB/oxford",
+      "en-US/army",
+      "en-AU",
+    ],
+  },
+  ja: {
+    automatic: "ja/jtf",
+    profiles: ["ja/jtf", "ja/koyobun", "ja/fiction", "ja/tech"],
+  },
+  ko: { automatic: "ko", profiles: ["ko", "ko/official"] },
+  es: { automatic: null, profiles: ["es-ES", "es-419", "es/eu"] },
+  fr: { automatic: null, profiles: ["fr-FR", "fr-CA", "fr-CH", "fr/eu"] },
+  de: {
+    automatic: null,
+    profiles: ["de-DE", "de-DE/din5008", "de-AT", "de-CH", "de/eu"],
+  },
+  ru: { automatic: "ru", profiles: ["ru", "ru/gost"] },
+  pt: {
+    automatic: "pt-BR",
+    profiles: ["pt-BR", "pt-BR/official", "pt-PT", "pt/eu"],
+  },
+};
+
+/**
+ * The stored setting: "automatic", or a profile per language (a language
+ * left out, or set to "automatic", stays Automatic), with optional option
+ * keys (`cjk-latin-space`, `quotes`, `fr.spacing`...).
+ */
+export type WritingConventionsSetting =
+  | typeof WRITING_CONVENTIONS_AUTOMATIC
+  | ({ [lang in ConventionsLang]?: string } & {
+      options?: Record<string, string>;
+    });
+
+/** `.levis/style.md` front matter, as Rust read it. */
+export interface ProjectConventions {
+  profiles: string[];
+  options: Record<string, string>;
+}
+
+/** A resolved profile (rules::Profile). */
+export interface ConventionsProfile {
+  id: string;
+  lang: ConventionsLang;
+  region: string | null;
+  preset: string | null;
+  /** Chosen by the user (settings or project) rather than Automatic. */
+  explicit: boolean;
+  source: "automatic" | "settings" | "project";
+  options: Record<string, string>;
+}
+
+export interface WritingConventionsOptions {
+  settingKey: string;
+  automatic: string;
+  languages: {
+    lang: ConventionsLang;
+    automaticProfile: string | null;
+    profiles: string[];
+  }[];
+  options: { key: string; values: string[] }[];
+}
+
+export interface EffectiveConventions {
+  lang: ConventionsLang | null;
+  profile: ConventionsProfile | null;
+  byLanguage: ConventionsProfile[];
+}
+
+/** One finding of the rules engine (rules::Finding). */
+export interface ConventionsFinding {
+  rule: string;
+  /** Unicode-scalar offsets into the checked Markdown. */
+  start: number;
+  end: number;
+  original: string;
+  /** Null when the finding only flags. */
+  suggestion: string | null;
+  severity: "error" | "warning" | "info";
+  /** "safe": fine to apply without review ("fix all"). */
+  fix: "safe" | "suggest" | "none";
+  priority: "P0" | "P1" | "P2";
+  /** In the language of the text it fired on. */
+  message: string;
+  /** 1-based line. */
+  line?: number;
+}
+
+export interface ConventionsReport {
+  lang: ConventionsLang | null;
+  profile: ConventionsProfile | null;
+  findings: ConventionsFinding[];
+}
+
+/** An exact platform count (rules::measure). */
+export interface TextMeasure {
+  metric: string;
+  count: number;
+  limit: number | null;
+  unit: string;
+  within: boolean;
+  notes: string[];
 }
 
 export const ai = {
@@ -508,12 +664,20 @@ export const ai = {
     paragraph: string,
     strictness: string | null,
     model: string | null,
+    /** The document's project, for its writing conventions profile and
+     *  library names; omitted, the check uses the global setting. */
+    project: { docPath: string | null; workspaceRoot: string | null } = {
+      docPath: null,
+      workspaceRoot: null,
+    },
   ) =>
     call<GrammarIssue[]>("ai_grammar_check", {
       provider,
       paragraph,
       strictness,
       model,
+      docPath: project.docPath,
+      workspaceRoot: project.workspaceRoot,
     }),
   agentMessage: ({
     onEvent,
@@ -557,6 +721,36 @@ export const ai = {
 
   loadAgentWorkspace: (docPath: string | null, rootOverride: string | null) =>
     call<AgentWorkspaceInfo>("load_agent_workspace", { docPath, rootOverride }),
+  /** The writing conventions setting's allowed values (ai::conventions). */
+  writingConventionsOptions: () =>
+    call<WritingConventionsOptions>("writing_conventions_options"),
+  /** The profile a document follows, and each language's in its project. */
+  writingConventionsEffective: (
+    docPath: string | null,
+    workspaceRoot: string | null,
+    document: string | null = null,
+  ) =>
+    call<EffectiveConventions>("writing_conventions_effective", {
+      docPath,
+      workspaceRoot,
+      document,
+    }),
+  /** Checks a document's writing conventions offline (no AI provider). */
+  checkConventions: (
+    document: string,
+    docPath: string | null,
+    workspaceRoot: string | null,
+    strictness: string | null = null,
+  ) =>
+    call<ConventionsReport>("conventions_check_document", {
+      document,
+      docPath,
+      workspaceRoot,
+      strictness,
+    }),
+  /** Exact platform counts: "x_weighted", "bluesky", "wechat_title"... */
+  measureText: (text: string, metric: string) =>
+    call<TextMeasure | null>("measure_text", { text, metric }),
   /** The project folder's text files, for @-mentions (ai::project). */
   listProjectFiles: (docPath: string | null, workspaceRoot: string | null) =>
     call<string[]>("list_project_files", { docPath, workspaceRoot }),

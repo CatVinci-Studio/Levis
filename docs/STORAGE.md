@@ -43,6 +43,14 @@ marked †, so a development build never rewrites an installed app's settings
 | `agent/agent.md`, `agent/skills/`                                                                   | The global config folder: global writing instructions and skills ([AI-CONCEPTS.md](AI-CONCEPTS.md)).                                                                                                                                 |
 | `provider_keys.json`, `api_key.json`, `custom_endpoint.json`, `auth-codex.json`, `auth-claude.json` | AI credentials (owner-only on Unix).                                                                                                                                                                                                 |
 
+`settings.json`'s `writingConventions` is also read by Rust
+(`ai::conventions`), which owns its meaning: `"automatic"` (the default; a
+missing field means the same), or `{ "zh-Hans": "zh-Hans-CN/tech", "en":
+"en-GB/govuk", "options": { "cjk-latin-space": "on" } }` - one profile per
+language key, `"automatic"` or a missing language meaning Automatic. The
+allowed values are `writing_conventions_options` (`src/ipc.ts`:
+`WRITING_CONVENTIONS`).
+
 ### Data directory
 
 | File                       | What                                                                                                                     |

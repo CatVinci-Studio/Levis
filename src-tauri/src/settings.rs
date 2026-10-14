@@ -680,9 +680,8 @@ pub fn flush_all(app: &AppHandle) {
 }
 
 /// A settings field as Rust sees it, for the few decisions made in Rust
-/// before any webview exists (window vs tab, session restore).
-// Desktop only so far (commands/prefs.rs); iOS makes no such decisions.
-#[cfg_attr(mobile, allow(dead_code))]
+/// before any webview exists (window vs tab, session restore) and for the
+/// writing conventions profile (`writingConventions`, ai::conventions).
 pub fn read_setting(app: &AppHandle, key: &str) -> Option<Value> {
     let stores = app.try_state::<Stores>()?;
     let (settings, _) = stores.settings.snapshot();
