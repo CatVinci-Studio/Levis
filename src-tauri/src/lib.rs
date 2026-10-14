@@ -666,6 +666,8 @@ pub fn run() {
             #[cfg(desktop)]
             menu::set_menu_labels,
             #[cfg(desktop)]
+            menu::set_menu_checks,
+            #[cfg(desktop)]
             tab_drag::take_detached_tab,
             #[cfg(desktop)]
             tab_drag::list_window_bounds,

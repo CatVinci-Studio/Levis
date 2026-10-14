@@ -18,7 +18,8 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::menu::{
-    Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder,
+    CheckMenuItem, CheckMenuItemBuilder, Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem,
+    Submenu, SubmenuBuilder,
 };
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Wry};
 
@@ -145,6 +146,26 @@ struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
 #[derive(Default)]
 struct MenuLabels(Mutex<HashMap<String, String>>);
 
+/// The View menu's on/off items and whether each is on, keyed by menu id:
+/// the states the frontend last sent (`set_menu_checks`), kept so a rebuild
+/// for a new language starts from them, and the items they are shown on.
+#[derive(Default)]
+struct ViewChecks(Mutex<ViewCheckState>);
+
+#[derive(Default)]
+struct ViewCheckState {
+    checked: HashMap<String, bool>,
+    items: Vec<CheckMenuItem<Wry>>,
+}
+
+/// What `build` makes: the bar, its Open Recent submenu (built empty) and
+/// the View menu's on/off items.
+struct BuiltMenu {
+    menu: Menu<Wry>,
+    open_recent: Submenu<Wry>,
+    check_items: Vec<CheckMenuItem<Wry>>,
+}
+
 /// The label for `key`, or `english` when none was sent - as menu text:
 /// muda reads a lone `&` as a mnemonic marker and drops it ("Find & Replace…"
 /// showed as "Find  Replace…"), so a literal one is doubled.
@@ -186,6 +207,34 @@ pub fn set_menu_labels(app: AppHandle, labels: HashMap<String, String>) {
     }
     #[cfg(not(target_os = "macos"))]
     let _ = (app, labels);
+}
+
+/// The View menu's check marks (Sidebar, AI Panel, Source Code Mode, Split
+/// View, Typewriter Mode, Zen Mode), keyed by menu id - from the front
+/// window, which sends its state on every change and as it gains focus.
+/// The items are named by what they show, never "Toggle ...", and the mark
+/// is AppKit's own. Only macOS shows this menu; elsewhere the app-drawn menu
+/// draws the same marks (ui/AppMenu.tsx) and this does nothing.
+#[tauri::command(async)]
+pub fn set_menu_checks(app: AppHandle, checks: HashMap<String, bool>) {
+    #[cfg(target_os = "macos")]
+    {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let Some(state) = handle.try_state::<ViewChecks>() else {
+                return;
+            };
+            let mut guard = state.0.lock().unwrap();
+            for item in &guard.items {
+                if let Some(&on) = checks.get(item.id().as_ref()) {
+                    let _ = item.set_checked(on);
+                }
+            }
+            guard.checked = checks;
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, checks);
 }
 
 /// Runs a menu id exactly as clicking that item in the native menu would.
@@ -296,6 +345,7 @@ pub(crate) fn rebuild_recent_menu(app: &tauri::AppHandle, list: Vec<String>) {
 pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
     app.manage(MenuLabels::default());
     app.manage(RecentMenu(Mutex::new(None)));
+    app.manage(ViewChecks::default());
     set_menu(app.handle(), &HashMap::new())?;
     app.on_menu_event(move |app_handle, event| dispatch(app_handle, event.id().as_ref()));
     Ok(())
@@ -304,18 +354,22 @@ pub(crate) fn install(app: &tauri::App) -> tauri::Result<()> {
 /// Builds the menu bar with `labels` and makes it the app's, Open Recent
 /// filled from the persisted list.
 fn set_menu(app: &AppHandle, labels: &HashMap<String, String>) -> tauri::Result<()> {
-    let (menu, open_recent_menu) = build(app, labels)?;
-    app.set_menu(menu)?;
-    *app.state::<RecentMenu>().0.lock().unwrap() = Some(open_recent_menu);
+    let checked = app.state::<ViewChecks>().0.lock().unwrap().checked.clone();
+    let built = build(app, labels, &checked)?;
+    app.set_menu(built.menu)?;
+    *app.state::<RecentMenu>().0.lock().unwrap() = Some(built.open_recent);
+    app.state::<ViewChecks>().0.lock().unwrap().items = built.check_items;
     rebuild_recent_menu(app, commands::recents::read_recent_files(app));
     Ok(())
 }
 
-/// The whole menu bar, and its Open Recent submenu (built empty).
+/// The whole menu bar, its Open Recent submenu (built empty) and the View
+/// menu's on/off items, marked as `checked` has them.
 fn build(
     app: &AppHandle,
     labels: &HashMap<String, String>,
-) -> tauri::Result<(Menu<Wry>, Submenu<Wry>)> {
+    checked: &HashMap<String, bool>,
+) -> tauri::Result<BuiltMenu> {
     let l = |key: &str, english: &'static str| label(labels, key, english);
     let name = app_identity::APP_NAME;
     // Accelerators below are written "CmdOrCtrl+X", never "Cmd+X". They read
@@ -491,14 +545,19 @@ fn build(
     // Settings. A native accelerator here would keep firing on the
     // default combo even after the user rebinds it.
     let item = |id: &str, english: &'static str| MenuItemBuilder::with_id(id, l(id, english));
-    let toggle_source_mode_item =
-        item(TOGGLE_SOURCE_MODE_ID, "Toggle Source Code Mode").build(app)?;
-    let toggle_typewriter_mode_item =
-        item(TOGGLE_TYPEWRITER_MODE_ID, "Toggle Typewriter Mode").build(app)?;
-    let toggle_sidebar_item = item(TOGGLE_SIDEBAR_ID, "Toggle Sidebar").build(app)?;
-    let toggle_agent_panel_item = item(TOGGLE_AGENT_PANEL_ID, "Toggle AI Panel").build(app)?;
-    let toggle_split_view_item = item(TOGGLE_SPLIT_VIEW_ID, "Split View").build(app)?;
-    let toggle_zen_mode_item = item(TOGGLE_ZEN_MODE_ID, "Zen Mode").build(app)?;
+    // The on/off items: named by what they show ("Sidebar", never "Toggle
+    // Sidebar"), with the check mark saying whether it is on.
+    let check = |id: &str, english: &'static str| {
+        CheckMenuItemBuilder::with_id(id, l(id, english))
+            .checked(checked.get(id).copied().unwrap_or(false))
+            .build(app)
+    };
+    let toggle_source_mode_item = check(TOGGLE_SOURCE_MODE_ID, "Source Code Mode")?;
+    let toggle_typewriter_mode_item = check(TOGGLE_TYPEWRITER_MODE_ID, "Typewriter Mode")?;
+    let toggle_sidebar_item = check(TOGGLE_SIDEBAR_ID, "Sidebar")?;
+    let toggle_agent_panel_item = check(TOGGLE_AGENT_PANEL_ID, "AI Panel")?;
+    let toggle_split_view_item = check(TOGGLE_SPLIT_VIEW_ID, "Split View")?;
+    let toggle_zen_mode_item = check(TOGGLE_ZEN_MODE_ID, "Zen Mode")?;
 
     // Fixed OS-convention accelerators (like Cmd+S / Cmd+W), not
     // user-configurable ones - so unlike the items above they keep
@@ -537,7 +596,7 @@ fn build(
         #[cfg(target_os = "macos")]
         let builder = builder
             .separator()
-            .fullscreen_with_text(l("predefined:fullscreen", "Toggle Full Screen"));
+            .fullscreen_with_text(l("predefined:fullscreen", "Full Screen"));
         builder.build()?
     };
 
@@ -602,7 +661,19 @@ fn build(
             &help_menu,
         ])
         .build()?;
-    Ok((menu, open_recent_menu))
+    let check_items = vec![
+        toggle_sidebar_item,
+        toggle_agent_panel_item,
+        toggle_source_mode_item,
+        toggle_split_view_item,
+        toggle_typewriter_mode_item,
+        toggle_zen_mode_item,
+    ];
+    Ok(BuiltMenu {
+        menu,
+        open_recent: open_recent_menu,
+        check_items,
+    })
 }
 
 /// What a menu id does. Reached from a native menu click (`on_menu_event`

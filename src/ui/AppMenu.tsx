@@ -12,7 +12,8 @@ import {
   type MenuEntry,
   type MenuNode,
 } from "./app-menu-model";
-import { hasAppMenu } from "../platform/capabilities";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { canToggleFullscreen, hasAppMenu } from "../platform/capabilities";
 import { CheckIcon, ChevronIcon } from "./icons";
 import { usePresenceProps } from "./usePresence";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
@@ -48,6 +49,7 @@ interface AppMenuProps {
 export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
   const { t, settings } = useSettings();
   const [recents, setRecents] = useState<string[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pos = useViewportClamp(ref, x, y);
   const phone = usePhoneLayout();
@@ -75,6 +77,21 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
     };
   }, []);
 
+  // Full Screen is the window's, not the app's: asked as the menu opens.
+  useEffect(() => {
+    if (!hasAppMenu || !canToggleFullscreen) return;
+    let alive = true;
+    void getCurrentWindow()
+      .isFullscreen()
+      .then((on) => {
+        if (alive) setFullscreen(on === true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // On <body>, not inside the title row that opens it: the row is a fixed
   // layer of its own (z-index 45), so a menu inside it could never rise
   // above the find bar (300) however high its own z-index was set - the
@@ -84,7 +101,10 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
       <MenuList
         items={
           hasAppMenu
-            ? buildAppMenu(t, settings.shortcuts, recents, checks)
+            ? buildAppMenu(t, settings.shortcuts, recents, {
+                ...checks,
+                fullscreen,
+              })
             : buildMobileMenu(t, checks)
         }
         onDismiss={onClose}
@@ -175,6 +195,12 @@ function MenuList({
     }
   }
 
+  // A list with an on/off item gives every row the trailing check column,
+  // so the shortcut hints stay in one line whether a mark is showing or not.
+  const checkColumn = items.some(
+    (item) => item !== "separator" && item.checked !== undefined,
+  );
+
   return (
     <div
       ref={listRef}
@@ -189,6 +215,7 @@ function MenuList({
           <MenuRow
             key={i}
             item={item}
+            checkColumn={checkColumn}
             open={openIndex === i}
             instantFlyout={instantFlyout}
             // Hovering a row with no submenu closes the one that is open:
@@ -207,6 +234,7 @@ function MenuList({
 
 function MenuRow({
   item,
+  checkColumn,
   open,
   instantFlyout,
   onHover,
@@ -215,6 +243,8 @@ function MenuRow({
   onDismiss,
 }: {
   item: MenuEntry;
+  /** Keep the trailing check column, marked or empty (see MenuList). */
+  checkColumn: boolean;
   open: boolean;
   /** Its flyout appears without sliding (see MenuList). */
   instantFlyout: boolean;
@@ -282,9 +312,14 @@ function MenuRow({
         }}
       >
         <span className="app-menu-label">{item.label}</span>
-        {item.checked && <CheckIcon className="app-menu-check" />}
         {item.accel && (
           <span className="app-menu-accel">{formatCombo(item.accel)}</span>
+        )}
+        {/* One mark for every on/off item, always at the trailing edge. */}
+        {checkColumn && !hasSubmenu && (
+          <span className="app-menu-check" aria-hidden="true">
+            {item.checked && <CheckIcon />}
+          </span>
         )}
         {hasSubmenu && <ChevronIcon className="app-menu-chevron" />}
       </button>

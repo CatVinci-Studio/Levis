@@ -211,17 +211,17 @@
     background: color-mix(in srgb, var(--editor-text) 6%, transparent);
   }
 
-  /* A check sits in a column at the leading edge, and every row of a
-     menu that has one keeps that column, so the labels line up. */
-  :root[data-window-chrome="mobile"]
-    .app-menu-list:has([role="menuitemcheckbox"])
-    .app-menu-item {
-    padding-left: 40px;
+  /* The check of an on/off row sits at the trailing edge, as on the
+     desktop menus; a little larger, for the 17pt row. */
+  :root[data-window-chrome="mobile"] .app-menu-check {
+    width: 20px;
+    height: 20px;
+    margin-left: 0;
   }
 
-  :root[data-window-chrome="mobile"] .app-menu-check {
-    position: absolute;
-    left: 14px;
+  :root[data-window-chrome="mobile"] .app-menu-check svg {
+    width: 17px;
+    height: 17px;
   }
 
   /* A tap leaves :hover on the row it lifted from; a row lights only

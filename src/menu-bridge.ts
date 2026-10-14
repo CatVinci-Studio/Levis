@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { menuIpc, windowIpc } from "./ipc";
 import { hasNativeMenuBar } from "./platform/capabilities";
-import { nativeMenuLabels } from "./ui/app-menu-model";
+import {
+  nativeMenuChecks,
+  nativeMenuLabels,
+  type MenuChecks,
+} from "./ui/app-menu-model";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
@@ -150,4 +154,23 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
       })
       .catch(() => {});
   }, []);
+}
+
+/**
+ * The macOS menu bar's View check marks, from this window's state: sent on
+ * every change while the window has focus, and again whenever it gains
+ * focus - the bar is one for the whole app, so it shows the front window.
+ */
+export function useNativeMenuChecks(checks: MenuChecks) {
+  const key = JSON.stringify(nativeMenuChecks(checks));
+  useEffect(() => {
+    if (!hasNativeMenuBar) return;
+    const send = () =>
+      void menuIpc
+        .setMenuChecks(JSON.parse(key) as Record<string, boolean>)
+        .catch(() => {});
+    if (document.hasFocus()) send();
+    window.addEventListener("focus", send);
+    return () => window.removeEventListener("focus", send);
+  }, [key]);
 }

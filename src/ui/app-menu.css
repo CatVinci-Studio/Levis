@@ -81,9 +81,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* An on/off mode that is on (View > Sidebar, Source Mode...). */
+/* The on/off items' column (View > Sidebar, Source Code Mode...): the
+   trailing edge of the row, after the shortcut hint, where the mark shows
+   while the mode is on. Every row of a list that has one keeps the column
+   (empty when off or a plain action), so the hints stay aligned. */
 .app-menu-check {
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  /* Closer to the hint than the label's 16px gap: it belongs to the row's
+     trailing edge, not to the hint. */
+  margin-left: -6px;
   color: var(--chrome-accent);
 }
 

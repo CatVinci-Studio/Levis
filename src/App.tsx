@@ -78,7 +78,7 @@ import { useTabDragMerge } from "./useTabDragMerge";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 import { useExternalChangeReload } from "./useExternalChangeReload";
 import { useDraftAutosave } from "./draft-autosave";
-import { useMenuBridge } from "./menu-bridge";
+import { useMenuBridge, useNativeMenuChecks } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
 import { drafts, fs, session } from "./ipc";
 import { flushPendingWrites } from "./storage/pending-writes";
@@ -886,6 +886,18 @@ function App() {
     if (path) await iosFiles.share(path).catch(() => {});
   }, [activeTabId, liveTabs, saveTab]);
 
+  // Which View items are on: the check marks in the app-drawn menu and in
+  // the macOS menu bar.
+  const menuChecks = {
+    sidebar: panelOpen,
+    agentPanel: agentPanel.open,
+    sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+    splitView: !!activeTab.sourceMode && !!activeTab.splitView,
+    typewriter: settings.typewriterMode,
+    zen: zenMode,
+  };
+  useNativeMenuChecks(menuChecks);
+
   useMenuBridge({
     activeTabId,
     liveTabs,
@@ -1042,16 +1054,7 @@ function App() {
           below render nothing anywhere else, so this stays one strip on
           every platform. See ui/window-chrome.ts. */}
         <header className="window-bar" data-tauri-drag-region>
-          <AppMenuButton
-            checks={{
-              sidebar: panelOpen,
-              agentPanel: agentPanel.open,
-              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
-              splitView: !!activeTab.sourceMode && !!activeTab.splitView,
-              typewriter: settings.typewriterMode,
-              zen: zenMode,
-            }}
-          />
+          <AppMenuButton checks={menuChecks} />
           {/* The unsaved dot leads the title, as a native edited-document
             title does - in the status group it sat on top of a long title
             on a narrow window. */}

@@ -294,6 +294,10 @@ export const menuIpc = {
    *  ui/app-menu-model.ts's nativeMenuLabels keys them. */
   setMenuLabels: (labels: Record<string, string>) =>
     desktopQuery<void>("set_menu_labels", undefined, { labels }),
+  /** Sets the native (macOS) View items' check marks, keyed by menu id
+   *  (ui/app-menu-model.ts's nativeMenuChecks). */
+  setMenuChecks: (checks: Record<string, boolean>) =>
+    desktopQuery<void>("set_menu_checks", undefined, { checks }),
 };
 
 // ---------------------------------------------------------------------------

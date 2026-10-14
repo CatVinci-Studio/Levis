@@ -81,8 +81,9 @@ export interface MenuEntry {
   action?: MenuAction;
   submenu?: MenuNode[];
   disabled?: boolean;
-  /** An on/off mode: a check mark shows when on. Leave unset for plain
-   *  actions. */
+  /** An on/off mode, named by the thing itself ("Sidebar", "Zen Mode" -
+   *  never "Toggle ..."): a check mark at the row's trailing edge shows
+   *  when it is on. Leave unset for plain actions. */
   checked?: boolean;
 }
 
@@ -94,9 +95,27 @@ export interface MenuChecks {
   splitView?: boolean;
   typewriter?: boolean;
   zen?: boolean;
+  fullscreen?: boolean;
 }
 
 export type MenuNode = MenuEntry | "separator";
+
+/**
+ * The same states for the macOS menu bar, keyed by native menu id, for
+ * menu.rs's set_menu_checks: there the View items are NSMenu check items,
+ * which draw AppKit's own mark. Full Screen is left out - AppKit names and
+ * marks its own fullscreen item.
+ */
+export function nativeMenuChecks(checks: MenuChecks): Record<string, boolean> {
+  return {
+    "toggle-sidebar": !!checks.sidebar,
+    "toggle-agent-panel": !!checks.agentPanel,
+    "toggle-source-mode": !!checks.sourceMode,
+    "toggle-split-view": !!checks.splitView,
+    "toggle-typewriter-mode": !!checks.typewriter,
+    "toggle-zen-mode": !!checks.zen,
+  };
+}
 
 /** Recent files are listed by name, with the full path on hover - a Windows
  *  home directory eats most of the width of `C:\Users\...\notes.md`, and two
@@ -301,6 +320,7 @@ export function buildAppMenu(
           label: t.menuFullscreen,
           accel: "f11",
           action: { local: "fullscreen" },
+          checked: !!checks.fullscreen,
         },
       ],
     },
