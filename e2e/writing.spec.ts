@@ -293,3 +293,47 @@ test("a note's body starts flush with the lines under it", async ({ page }) => {
   );
   expect(shown).toEqual(["none"]);
 });
+
+test("typed dollar amounts stay text; a typed formula still forms", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await page.locator('[data-active-tab="true"] .ProseMirror').click();
+  await page.keyboard.type("It costs $5 a month, or $50 a year.", {
+    delay: 20,
+  });
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Price $4) and $19 ok.", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("The plan costs $5.", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Area $x^2$ and $2 \\times 3$ here.", {
+    delay: 20,
+  });
+  const paragraphs = page.locator('[data-active-tab="true"] .ProseMirror p');
+  await expect(paragraphs).toHaveCount(4);
+  const prices = [
+    "It costs $5 a month, or $50 a year.",
+    "Price $4) and $19 ok.",
+    "The plan costs $5.",
+  ];
+  for (let i = 0; i < prices.length; i++) {
+    await expect(paragraphs.nth(i)).toHaveText(prices[i]);
+    await expect(paragraphs.nth(i).locator(".math-inline")).toHaveCount(0);
+  }
+  await expect(paragraphs.nth(3).locator(".math-inline")).toHaveCount(2);
+});
+
+test("diagrams are redrawn when the appearance changes", async ({ page }) => {
+  await openApp(page, { settings: { language: "en", theme: "light" } });
+  await pasteMarkdown(page, "```mermaid\ngraph TD\n  A-->B\n```\n\nEnd.");
+  const preview = page.locator(".mermaid-preview svg");
+  await expect(preview).toHaveCount(1, { timeout: 10_000 });
+  await preview.evaluate((el) => el.setAttribute("data-first", "1"));
+  await page.evaluate(() =>
+    document.documentElement.setAttribute("data-theme", "dark"),
+  );
+  await expect(
+    page.locator(".mermaid-preview svg:not([data-first])"),
+  ).toHaveCount(1, { timeout: 10_000 });
+});
