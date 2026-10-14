@@ -211,7 +211,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   agentSkillsImport: "스킬 가져오기…",
   agentAttachFile:
     "파일 첨부: PDF, Word, PowerPoint, 스프레드시트, 이미지 또는 일반 텍스트",
-  chatAttachmentTruncated: "(일부만)",
+  chatAttachmentTruncated: "(일부 생략)",
   chatAttachmentNoVision: `이 제공업체는 이미지를 읽을 수 없습니다. 설정 > ${AI_NAME}에서 제공업체를 바꾸거나 문서를 첨부하세요.`,
   aiGrammarLabel: "문법 검사 사용",
   aiAskLabel: `${AI_NAME} 채팅`,
@@ -553,7 +553,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
     "수정 내용은 미리 보기로 표시됩니다. 변경을 수락하면 문서에 적용되고, 거부할 수도 있습니다.",
   tutorialAgentEditTarget:
     "다름이 아니라 회의가 내일 오후 세 시에 시작될 예정이라는 점을 알려 드리고자 합니다.",
-  tutorialAgentEditPrompt: "이 문장을 더 짧게 고쳐 주세요",
+  tutorialAgentEditPrompt: "이 문장을 더 짧게 고쳐 주세요.",
   tutorialAgentEditSuggestion: "회의는 내일 오후 3시에 시작합니다.",
   tutorialAgentEditWaiting: "먼저 아래 문장을 편집기에 입력하세요.",
   tutorialAgentEditReady:
