@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { AppDialogHost, showConfirm, showMessage } from "./ui/app-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -113,6 +114,16 @@ type PendingClose =
 // guard; see startup-restore.ts's `drained`.)
 let tutorialTabRecoveryDone = false;
 
+/** The sidebar's width (App.css .sidebar) and the narrowest text column
+ *  the docked panel may leave beside it. */
+const SIDEBAR_WIDTH = 240;
+const MIN_TEXT_COLUMN = 420;
+
+function subscribeWindowResize(onChange: () => void) {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+}
+
 function App() {
   const { t, settings, setSettings } = useSettings();
   const [tabs, setTabs] = useState<DocTab[]>(() => [makeBlankTab()]);
@@ -127,6 +138,17 @@ function App() {
   // The docked Agent panel on the right (ai/chat/agent-panel.tsx). App owns
   // the frame; the active tab's editor renders its conversation into it.
   const agentPanel = useAgentPanelState();
+  // With the sidebar and the docked panel both open, a small window left
+  // the text column ~120px wide - a word a line. Below this much room for
+  // the text the panel lies over the page instead, as it does on a narrow
+  // window (agent-panel.css).
+  const windowWidth = useSyncExternalStore(subscribeWindowResize, () =>
+    typeof window === "undefined" ? 0 : window.innerWidth,
+  );
+  const agentOverlays =
+    !isIOSApp &&
+    panelOpen &&
+    windowWidth - SIDEBAR_WIDTH - agentPanel.width < MIN_TEXT_COLUMN;
   const [agentPanelEl, setAgentPanelEl] = useState<HTMLElement | null>(null);
   // On a phone, opening the sheet puts the keyboard away in one movement:
   // the document gives up focus here and the sheet's input doesn't take it
@@ -961,7 +983,17 @@ function App() {
         duration="--dur-slow"
         easing="--ease-spring"
       />
-      <div className="app-shell">
+      <div
+        className="app-shell"
+        style={
+          {
+            "--docked-panel-width":
+              agentPresence.mounted && !agentOverlays && !isIOSApp
+                ? `${agentPanel.width}px`
+                : "0px",
+          } as React.CSSProperties
+        }
+      >
         {/* The window's one top strip: traffic-light room, which document this
           is, and its status. A real row in the layout, not an overlay - the
           overlay title bar hides the native drag area behind the webview, so
@@ -1173,7 +1205,7 @@ function App() {
             ref={agentPresence.ref}
             data-state={agentPresence.state}
             inert={agentClosing || undefined}
-            className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
+            className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}${agentOverlays ? " agent-panel-overlay" : ""}`}
             style={{ width: agentPanel.width }}
           >
             {/* Phone widths: the panel is a bottom sheet (mobile/styles)

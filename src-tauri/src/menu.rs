@@ -145,9 +145,16 @@ struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
 #[derive(Default)]
 struct MenuLabels(Mutex<HashMap<String, String>>);
 
-/// The label for `key`, or `english` when none was sent.
-fn label<'a>(labels: &'a HashMap<String, String>, key: &str, english: &'a str) -> &'a str {
-    labels.get(key).map_or(english, String::as_str)
+/// The label for `key`, or `english` when none was sent - as menu text:
+/// muda reads a lone `&` as a mnemonic marker and drops it ("Find & Replace…"
+/// showed as "Find  Replace…"), so a literal one is doubled.
+fn label(labels: &HashMap<String, String>, key: &str, english: &str) -> String {
+    menu_text(labels.get(key).map_or(english, String::as_str))
+}
+
+/// `text` with every `&` doubled, so the menu shows it as written.
+fn menu_text(text: &str) -> String {
+    text.replace('&', "&&")
 }
 
 /// The menu bar in the UI's language: `labels` as `MenuLabels` keys them,
@@ -261,9 +268,11 @@ pub(crate) fn rebuild_recent_menu(app: &tauri::AppHandle, list: Vec<String>) {
             return;
         }
         for path in &list {
-            if let Ok(item) =
-                MenuItemBuilder::with_id(format!("{RECENT_PREFIX}{path}"), abbreviate_home(path))
-                    .build(&app)
+            if let Ok(item) = MenuItemBuilder::with_id(
+                format!("{RECENT_PREFIX}{path}"),
+                menu_text(&abbreviate_home(path)),
+            )
+            .build(&app)
             {
                 let _ = submenu.append(&item);
             }
@@ -307,7 +316,7 @@ fn build(
     app: &AppHandle,
     labels: &HashMap<String, String>,
 ) -> tauri::Result<(Menu<Wry>, Submenu<Wry>)> {
-    let l = |key: &str, english: &'static str| label(labels, key, english).to_string();
+    let l = |key: &str, english: &'static str| label(labels, key, english);
     let name = app_identity::APP_NAME;
     // Accelerators below are written "CmdOrCtrl+X", never "Cmd+X". They read
     // the same on macOS - both parse to ⌘ - but muda maps a bare CMD to

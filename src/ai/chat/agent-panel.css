@@ -116,9 +116,25 @@
   color: var(--editor-muted);
 }
 
-/* Narrow windows: the editor keeps priority; the panel overlays it instead
+/* Narrow windows - or a small one with the sidebar open too (App.tsx's
+   agentOverlays): the editor keeps priority; the panel overlays it instead
    of squeezing the text column to nothing - in from the window's edge on
    a spring, and back out. */
+.agent-panel.agent-panel-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  max-width: 92vw;
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  animation: motion-edge-in-end var(--dur-slow) var(--ease-spring);
+}
+
+.agent-panel.agent-panel-overlay[data-state="closing"] {
+  animation: motion-edge-out-end var(--dur-base) var(--ease-in) forwards;
+}
+
 @media (max-width: 760px) {
   .agent-panel {
     position: absolute;

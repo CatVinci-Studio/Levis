@@ -324,11 +324,6 @@ body {
   top: 28px;
 }
 
-/* The find bar's corner is where the app-drawn caption buttons sit. */
-:root[data-window-chrome="app"] .find-replace-bar {
-  top: 40px;
-}
-
 /* Centered on the WINDOW (not on the space left over after the traffic-light
    inset), which is where a native title sits. Absolute rather than a flex
    child for that reason; the status group below stays in flow on the right
