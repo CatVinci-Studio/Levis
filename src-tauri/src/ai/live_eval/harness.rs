@@ -315,6 +315,10 @@ pub struct TurnOutcome {
     pub apply_error: Option<String>,
     pub latency_ms: u128,
     pub usage: Vec<StepUsage>,
+    /// Rules the proposal post-processing applied to this turn's
+    /// propose_edit texts (rules::postfix) - a prompt regression shows here
+    /// instead of being silently repaired.
+    pub postfix: Vec<String>,
 }
 
 impl TurnOutcome {
@@ -454,7 +458,7 @@ pub fn run_conversation(
     let ws = setup.workspace;
     let root = ws.root.as_deref().map(Path::new);
     let tool_set =
-        tools::builtin_tools(!ws.skills.is_empty(), root.is_some(), setup.mode == "edit");
+        tools::builtin_tools(ws.has_usable_skills(), root.is_some(), setup.mode == "edit");
     let specs = tools::tool_specs(&tool_set);
     let mut history: Vec<AgentTurn> = Vec::new();
     let mut doc = document.to_string();
@@ -490,12 +494,24 @@ pub fn run_conversation(
         });
         let instructions =
             build_instructions(ws, &doc, true, setup.mode, &message_sent, setup.ui_language);
+        // The app's conventions for this workspace (the setting is the
+        // default, Automatic): proposals are post-processed as the app does
+        // (agent::postfix_step), and what was fixed is recorded.
+        let conventions = crate::ai::rules::Conventions {
+            setting: None,
+            project: ws.conventions.clone(),
+        };
+        let library = crate::ai::conventions::library_names(ws);
         let ctx = ToolContext {
             document: &doc,
             skills: &ws.skills,
+            ui_language: setup.ui_language,
             root,
+            conventions: &conventions,
+            library: &library,
         };
         let usage = RefCell::new(Vec::new());
+        let postfix = RefCell::new(Vec::new());
         let started = Instant::now();
         let result = block_on(run_agent_loop(
             compact_history(history.clone()),
@@ -508,7 +524,9 @@ pub fn run_conversation(
             },
             MAX_STEPS,
             |h: Vec<AgentTurn>| {
-                let (instructions, specs, usage) = (&instructions, &specs, &usage);
+                let (instructions, specs, usage, postfix) =
+                    (&instructions, &specs, &usage, &postfix);
+                let (doc, conventions) = (&doc, &conventions);
                 async move {
                     // with_retry's loop, inline: this already runs inside
                     // block_on, which can't be nested.
@@ -535,6 +553,10 @@ pub fn run_conversation(
                     };
                     charge(setup.model, &used);
                     usage.borrow_mut().push(used);
+                    let (step, applied) = crate::ai::agent::postfix_step(step, doc, conventions);
+                    postfix
+                        .borrow_mut()
+                        .extend(applied.into_iter().map(str::to_string));
                     Ok(step)
                 }
             },
@@ -563,6 +585,7 @@ pub fn run_conversation(
             doc_before: doc.clone(),
             latency_ms,
             usage: usage.into_inner(),
+            postfix: postfix.into_inner(),
             ..TurnOutcome::default()
         };
         let mut proposal_ids = Vec::new();

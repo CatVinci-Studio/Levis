@@ -40,7 +40,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// A fresh folder for one case under the system temp dir.
-fn scratch(name: &str) -> PathBuf {
+pub fn scratch(name: &str) -> PathBuf {
     // A fresh folder per call: unit tests build the case list concurrently,
     // and a shared one was emptied by one test while another loaded it.
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -53,7 +53,7 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-fn put(dir: &Path, rel: &str, text: &str) -> PathBuf {
+pub fn put(dir: &Path, rel: &str, text: &str) -> PathBuf {
     let path = dir.join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).expect("mkdir");
     std::fs::write(&path, text).expect("write");
@@ -61,7 +61,7 @@ fn put(dir: &Path, rel: &str, text: &str) -> PathBuf {
 }
 
 /// The document's own folder as the project folder (none chosen).
-fn doc_folder(dir: &Path, doc_rel: &str, doc: &str) -> DiskWorkspace {
+pub fn doc_folder(dir: &Path, doc_rel: &str, doc: &str) -> DiskWorkspace {
     DiskWorkspace {
         doc_path: Some(put(dir, doc_rel, doc)),
         show: vec![dir.to_path_buf()],

@@ -1,0 +1,13 @@
+# 共享写作规则的提示语（src-tauri/src/ai/rules/messages.rs）。
+shared.nfc.invisible = 不可见字符：请删除。
+shared.nfc.compose = 分解形式的附加符号：请改用合成字符。
+shared.space-before-punct = 此标点前不应有空格。
+shared.double-space = 词之间有两个空格：保留一个即可。
+shared.doubled-word = 词语重复：“{0}”连续出现了两次。
+shared.residue = 正文里残留了聊天机器人的套话或占位符。
+shared.library-name = 可能写错了资料库中的名称“{0}”。
+shared.heading-structure.skip = 标题跳级：{1} 级标题后直接出现了 {0} 级标题。
+shared.heading-structure.depth = 标题超过三级：建议精简层级。
+shared.image-alt.empty = 图片缺少替代文字：除非纯属装饰，请描述图片内容。
+shared.image-alt.long = 替代文字超过 155 个字符：请写短一些，细节放到正文里。
+shared.image-alt.redundant = 替代文字不必以“图片：”或“图像：”开头。

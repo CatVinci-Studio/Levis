@@ -740,6 +740,86 @@ button.settings-inline-button {
   text-overflow: ellipsis;
 }
 
+/* "Replaces a built-in skill", "This project", "Customized": a quiet pill
+   after the name. */
+.settings-skill-tag {
+  flex-shrink: 0;
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--editor-muted) 14%, transparent);
+  color: var(--editor-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 18px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+/* The built-in skills: a disclosure like Advanced, its count of those
+   switched on at the right of the title. */
+.settings-builtin-skills-count {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.settings-builtin-category-title {
+  padding: 12px 0 2px;
+  color: var(--editor-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.settings-builtin-category > .settings-row + .settings-row {
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.settings-builtin-skill-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.settings-builtin-skill .settings-row-control {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+/* Customize… / Open / Reset: words, not boxed buttons - eighteen rows of
+   boxes outweighed the skills they belong to. */
+button.settings-skill-action {
+  width: auto;
+  margin: 0;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--editor-accent);
+  font: inherit;
+  font-size: var(--text-md);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-skill-actions {
+  display: flex;
+  gap: 2px;
+}
+
+button.settings-skill-action:hover {
+  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+}
+
+button.settings-skill-action:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+
+.settings-builtin-skill input[type="checkbox"] {
+  margin-left: 6px;
+}
+
 /* The skills list continues its header row - no hairline between them. */
 .settings-group-body > .settings-skill-list {
   border-top: none;

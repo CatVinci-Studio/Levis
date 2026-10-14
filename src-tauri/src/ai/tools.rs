@@ -1,4 +1,5 @@
-use crate::ai::workspace::AgentSkill;
+use crate::ai::builtin;
+use crate::ai::workspace::{AgentSkill, Invocation};
 use aicompat::agent::ToolSpec;
 use serde_json::json;
 use std::path::Path;
@@ -8,14 +9,22 @@ use std::path::Path;
 /// each tool's call signature.
 pub struct ToolContext<'a> {
     pub document: &'a str,
-    /// Skills from the global config folder and the project's .levis/.
+    /// The merged skills: built-in, global config folder, project .levis/.
     pub skills: &'a [AgentSkill],
+    /// The UI language (src/i18n/langs.ts) - which language's writing
+    /// conventions a skill gets when the document is too short to tell.
+    pub ui_language: &'a str,
     /// The project folder (workspace root) - the sandbox boundary for the
     /// file tools. The document's own folder by default, or the chosen
     /// project folder (see workspace::resolve_root). None for an unsaved
     /// draft with no folder chosen, or a folder too broad to use, in which
     /// case the file tools aren't offered at all.
     pub root: Option<&'a Path>,
+    /// The writing conventions (setting and style-profile front matter)
+    /// check_conventions checks against.
+    pub conventions: &'a crate::ai::rules::Conventions,
+    /// Library names and aliases, for the library-name rule.
+    pub library: &'a [String],
 }
 
 /// A tool the agent can call, paired with its local implementation. Built-in
@@ -177,7 +186,7 @@ fn read_document(ctx: &ToolContext, arguments: &str) -> String {
     format!("{header}\n{out}")
 }
 
-const PROPOSE_EDIT_TOOL_NAME: &str = "propose_edit";
+pub(crate) const PROPOSE_EDIT_TOOL_NAME: &str = "propose_edit";
 
 /// The edit operations the frontend knows how to apply. Kept in sync with
 /// `EditAction` in src/ai/types.ts - adding one here without teaching
@@ -378,29 +387,51 @@ fn add_comment(ctx: &ToolContext, arguments: &str) -> String {
 const USE_SKILL_TOOL_NAME: &str = "use_skill";
 
 /// Dynamic skill loading: the system prompt only carries each skill's name
-/// and description; this returns the full instructions on demand.
+/// and description; this returns the full instructions on demand, with the
+/// reference-pack sections the skill declares appended (builtin::
+/// expand_skill). A reference pack loads by name too, whole or one section
+/// (`standards-fr#dialogue`).
 fn use_skill(ctx: &ToolContext, arguments: &str) -> String {
     let name = serde_json::from_str::<serde_json::Value>(arguments)
         .ok()
         .and_then(|v| {
             v.get("name")
                 .and_then(|n| n.as_str())
-                .map(|s| s.to_string())
+                .map(|s| s.trim().to_string())
         })
         .unwrap_or_default();
 
-    match ctx.skills.iter().find(|s| s.name == name) {
+    let skill = ctx.skills.iter().find(|s| s.name == name && s.enabled);
+    match skill {
+        Some(skill) if skill.invocation == Invocation::UserOnly => format!(
+            "The skill `{name}` runs only when the user types /{name}. Handle this request without it."
+        ),
         Some(skill) => format!(
             "Instructions for skill `{name}` - follow them for this request:\n\n{}",
-            skill.prompt
-        ),
-        None => {
-            let available: Vec<&str> = ctx.skills.iter().map(|s| s.name.as_str()).collect();
-            format!(
-                "No skill named `{name}`. Available skills: {}.",
-                available.join(", ")
+            builtin::expand_skill(
+                skill,
+                ctx.document,
+                ctx.ui_language,
+                "",
+                builtin::chosen_profile(ctx.conventions, ctx.document).as_deref(),
             )
-        }
+        ),
+        None => match builtin::load_reference(&name, ctx.document, ctx.ui_language) {
+            Some(text) => format!("Reference `{name}` - apply it to this request:\n\n{text}"),
+            None => {
+                let available: Vec<&str> = ctx
+                    .skills
+                    .iter()
+                    .filter(|s| s.offered_to_model())
+                    .map(|s| s.name.as_str())
+                    .collect();
+                format!(
+                    "No skill named `{name}`. Available skills: {}. Reference packs: {} (add #section for one section).",
+                    available.join(", "),
+                    builtin::reference_pack_names().join(", ")
+                )
+            }
+        },
     }
 }
 
@@ -461,6 +492,184 @@ fn search_files(ctx: &ToolContext, arguments: &str) -> String {
     crate::ai::project::search(root, &path_argument(arguments, "query"))
 }
 
+const CHECK_CONVENTIONS_TOOL_NAME: &str = "check_conventions";
+
+/// Most lines check_conventions returns.
+const MAX_CONVENTION_LINES: usize = 50;
+
+/// Invisible characters spelled out, so a suggestion that only changes a
+/// space can be read: the model can't see a no-break space.
+fn visible(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\u{00A0}' => "[no-break space]".to_string(),
+            '\u{202F}' => "[narrow no-break space]".to_string(),
+            '\u{3000}' => "[ideographic space]".to_string(),
+            '\u{200B}' => "[zero-width space]".to_string(),
+            '\u{200D}' => "[zero-width joiner]".to_string(),
+            '\u{FEFF}' => "[BOM]".to_string(),
+            '\n' => "\\n".to_string(),
+            c => c.to_string(),
+        })
+        .collect()
+}
+
+/// Checks a passage against the document's writing conventions with the
+/// rules engine (ai::rules): a section, a line range, the whole document,
+/// or a draft (`text`) not yet in it - judged against the rest of the
+/// document's own majority. Findings grouped by rule, at most 50 lines.
+fn check_conventions(ctx: &ToolContext, arguments: &str) -> String {
+    use crate::ai::rules::{self, Level};
+    let args: serde_json::Value = serde_json::from_str(arguments).unwrap_or_default();
+    let level = if args.get("strict").and_then(|v| v.as_bool()) == Some(true) {
+        Level::Strict
+    } else {
+        Level::Standard
+    };
+    let text = args
+        .get("text")
+        .and_then(|t| t.as_str())
+        .filter(|t| !t.trim().is_empty());
+    let (report, scope, range) = if let Some(text) = text {
+        let report = rules::document::check_document_with(
+            text,
+            Some(ctx.document),
+            ctx.conventions,
+            level,
+            ctx.library,
+        );
+        (report, "the text you gave".to_string(), None)
+    } else {
+        let lines: Vec<&str> = ctx.document.lines().collect();
+        let total = lines.len().max(1);
+        let range = if let Some(heading) = args
+            .get("heading")
+            .and_then(|h| h.as_str())
+            .map(str::trim)
+            .filter(|h| !h.is_empty())
+        {
+            match section_range(&lines, heading) {
+                Some((a, b)) => (a + 1, b),
+                None => return format!("No heading matching \"{heading}\". The outline in the document section lists them."),
+            }
+        } else {
+            let line_arg = |key: &str| args.get(key).and_then(|v| v.as_u64()).map(|n| n as usize);
+            let start = line_arg("start_line").unwrap_or(1).clamp(1, total);
+            let end = line_arg("end_line").unwrap_or(total).clamp(start, total);
+            (start, end)
+        };
+        let report = rules::check_document(ctx.document, ctx.conventions, level, ctx.library);
+        (
+            report,
+            format!("lines {}-{}", range.0, range.1),
+            Some(range),
+        )
+    };
+    let profile = report
+        .profile
+        .as_ref()
+        .map(|p| p.describe())
+        .unwrap_or_else(|| "none (too little prose to tell the language)".to_string());
+    let findings: Vec<&rules::Finding> = report
+        .findings
+        .iter()
+        .filter(|f| range.is_none_or(|(a, b)| f.line.is_some_and(|l| l >= a && l <= b)))
+        .collect();
+    let mut out = format!("Writing conventions: {profile}.\n");
+    if findings.is_empty() {
+        out.push_str(&format!("No convention issues found in {scope}."));
+        return out;
+    }
+    out.push_str(&format!(
+        "{} finding(s) in {scope}. \"fix\" lines are mechanical and safe; \"suggest\" lines need judgement; \"check\" lines only point at something to look at.\n",
+        findings.len()
+    ));
+    // Grouped by rule, rules in order of first appearance.
+    let mut order: Vec<&str> = Vec::new();
+    for f in &findings {
+        if !order.contains(&f.rule) {
+            order.push(f.rule);
+        }
+    }
+    let mut lines_out = 0;
+    let mut shown = 0;
+    'rules: for rule in order {
+        let group: Vec<&&rules::Finding> = findings.iter().filter(|f| f.rule == rule).collect();
+        if lines_out >= MAX_CONVENTION_LINES {
+            break;
+        }
+        out.push_str(&format!("{rule} ({}): {}\n", group.len(), group[0].message));
+        lines_out += 1;
+        for f in group {
+            if lines_out >= MAX_CONVENTION_LINES {
+                break 'rules;
+            }
+            let line = f.line.map(|l| format!("L{l}")).unwrap_or_default();
+            let kind = match (f.fix, &f.suggestion) {
+                (rules::Fix::Safe, Some(_)) => "fix",
+                (_, Some(_)) => "suggest",
+                _ => "check",
+            };
+            let what = match &f.suggestion {
+                Some(s) => format!("\"{}\" -> \"{}\"", visible(&f.original), visible(s)),
+                None => format!("\"{}\"", visible(&f.original)),
+            };
+            let note = if f.message != findings.iter().find(|g| g.rule == rule).unwrap().message {
+                format!(" ({})", f.message)
+            } else {
+                String::new()
+            };
+            out.push_str(&format!("  {line} {kind}: {what}{note}\n"));
+            lines_out += 1;
+            shown += 1;
+        }
+    }
+    if shown < findings.len() {
+        out.push_str(&format!(
+            "... and {} more; check a smaller range to see them.\n",
+            findings.len() - shown
+        ));
+    }
+    out
+}
+
+const MEASURE_TEXT_TOOL_NAME: &str = "measure_text";
+
+/// Exact counts for a length limit (ai::rules::measure).
+fn measure_text(_ctx: &ToolContext, arguments: &str) -> String {
+    use crate::ai::rules::measure;
+    let args: serde_json::Value = serde_json::from_str(arguments).unwrap_or_default();
+    let Some(text) = args.get("text").and_then(|t| t.as_str()) else {
+        return "No `text` given - pass the exact text to count.".to_string();
+    };
+    match args
+        .get("metric")
+        .and_then(|m| m.as_str())
+        .filter(|m| !m.is_empty() && *m != "all")
+    {
+        Some(metric) => match measure::measure(text, metric) {
+            Some(m) => m.describe(),
+            None => format!(
+                "Unknown metric `{metric}`. Use one of: {}.",
+                measure::METRICS.join(", ")
+            ),
+        },
+        None => [
+            "chars",
+            "words",
+            "cjk_chars",
+            "utf8_bytes",
+            "x_weighted",
+            "bluesky",
+        ]
+        .iter()
+        .filter_map(|m| measure::measure(text, m))
+        .map(|m| m.describe())
+        .collect::<Vec<_>>()
+        .join("\n"),
+    }
+}
+
 /// The tools available to an agent conversation. Skill and file tools are
 /// only offered when there's something for them to work on - a tool that can
 /// only report "nothing there" would just waste the model's steps. Append
@@ -506,6 +715,62 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
             },
             run: read_document,
         }];
+
+    // The rules engine's read-only tools: every mode has them.
+    tools.push(Tool {
+        spec: ToolSpec {
+            name: CHECK_CONVENTIONS_TOOL_NAME,
+            description: "Check text against the document's writing conventions with a deterministic rules engine: punctuation and spacing (full-width marks in Chinese and Japanese, French no-break spaces, quotes, dashes, ellipses), numbers and dates, spelling lists, and consistency with the rest of the document, under the conventions profile in force (shown in the result). Pass `heading` or a line range for part of the document (default: all of it), or `text` to check a draft before you propose it. Returns findings grouped by rule with line numbers, the text, the fix and why. Use it to ground proofreading and convention fixes instead of guessing; it changes nothing.",
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "heading": {
+                        "type": "string",
+                        "description": "Heading text of the section to check (case-insensitive, partial match). Takes precedence over the line range."
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "First line to check, 1-based."
+                    },
+                    "end_line": {
+                        "type": "integer",
+                        "description": "Last line to check, inclusive."
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "A draft (markdown) to check instead of the document, judged against the document's own conventions."
+                    },
+                    "strict": {
+                        "type": "boolean",
+                        "description": "Also report style hints (long sentences, wordy phrases, passive voice...). Default false."
+                    }
+                },
+            }),
+        },
+        run: check_conventions,
+    });
+    tools.push(Tool {
+        spec: ToolSpec {
+            name: MEASURE_TEXT_TOOL_NAME,
+            description: "Count text exactly for a length limit - never estimate a count yourself. Metrics: x_weighted (X, limit 280: URLs count 23, CJK characters and emoji 2), bluesky (300 graphemes and 3,000 bytes), threads (500), instagram (2,200, at most 5 hashtags), mastodon (500 by default), linkedin (3,000, fold near 140), wechat_title (32), wechat_digest (120), wechat_content, xhs_title (20), xhs_body (1,000), weibo, govuk_title (65), govuk_summary (160), zh_academic_title (25 字), and plain chars, words, cjk_chars, utf8_bytes. Without `metric` it returns the basic counts. Use it on the exact text before proposing anything that must fit a limit, and give the count in your reply.",
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "The exact text to count, as it will be posted or used."
+                    },
+                    "metric": {
+                        "type": "string",
+                        "enum": crate::ai::rules::measure::METRICS,
+                        "description": "What to count, and against which limit."
+                    }
+                },
+                "required": ["text"],
+            }),
+        },
+        run: measure_text,
+    });
 
     // Comments change nothing, so every mode has them - feedback is most
     // often asked for in Ask mode.
@@ -579,13 +844,13 @@ pub fn builtin_tools(has_skills: bool, has_root: bool, allow_edits: bool) -> Vec
         tools.push(Tool {
             spec: ToolSpec {
                 name: USE_SKILL_TOOL_NAME,
-                description: "Load the full instructions of one of the available skills (listed in the system prompt). Call this before following a skill whenever the user's request matches its description, or when the user invokes it by name.",
+                description: "Load the full instructions of one of the available skills (listed in the system prompt), or a reference pack a skill names. Call this before following a skill whenever the user's request matches its description, or when the user invokes it by name.",
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "name": {
                             "type": "string",
-                            "description": "The skill's name, exactly as listed"
+                            "description": "The skill's name, exactly as listed, or a reference pack such as standards-fr or standards-fr#dialogue"
                         }
                     },
                     "required": ["name"],
@@ -692,11 +957,116 @@ mod tests {
         assert!(check_anchor(doc, &args("missing sat."), "sat.").is_err());
     }
 
+    static NO_CONVENTIONS: std::sync::LazyLock<crate::ai::rules::Conventions> =
+        std::sync::LazyLock::new(crate::ai::rules::Conventions::default);
+    #[test]
+    fn use_skill_expands_skills_and_loads_packs() {
+        let ws = crate::ai::workspace::load_layers(None, None, None, &["describe".to_string()]);
+        let doc = "雨はまだ降っていた。美咲は改札の前で、何度も時計を見た。";
+        let ctx = ToolContext {
+            document: doc,
+            skills: &ws.skills,
+            ui_language: "en",
+            root: None,
+            conventions: &NO_CONVENTIONS,
+            library: &[],
+        };
+        let call = |name: &str| use_skill(&ctx, &json!({ "name": name }).to_string());
+        let dialogue = call("dialogue");
+        assert!(dialogue.starts_with("Instructions for skill `dialogue`"));
+        assert!(
+            dialogue.contains("### contract") && dialogue.contains("### standards-ja#dialogue")
+        );
+        assert!(call("tighten").contains("only when the user types /tighten"));
+        assert!(
+            call("describe").starts_with("No skill named `describe`"),
+            "turned off"
+        );
+        let fr = call("standards-fr#dialogue");
+        assert!(fr.starts_with("Reference `standards-fr#dialogue`") && fr.contains("guillemets"));
+        let missing = call("nope");
+        assert!(missing.contains("Reference packs: craft, standards-en"));
+        assert!(
+            !missing.contains("tighten"),
+            "a /name-only skill isn't offered"
+        );
+    }
+
     fn ctx(document: &str) -> ToolContext<'_> {
         ToolContext {
             document,
             skills: &[],
+            ui_language: "en",
             root: None,
+            conventions: &NO_CONVENTIONS,
+            library: &[],
+        }
+    }
+
+    #[test]
+    fn check_conventions_reports_by_rule_with_lines() {
+        let doc = "# 周报\n\n本周完成了三项工作，进展顺利。\n\n下周继续推进,争取月底上线...\n";
+        let out = check_conventions(&ctx(doc), "{}");
+        assert!(
+            out.starts_with("Writing conventions: zh-Hans-CN (Automatic"),
+            "{out}"
+        );
+        assert!(
+            out.contains("zh.punct.halfwidth (1): 中文句子里应使用全角标点。"),
+            "{out}"
+        );
+        assert!(out.contains("L5 fix: \",\" -> \"，\""), "{out}");
+        assert!(out.contains("zh.punct.ellipsis (1)"), "{out}");
+        // A range or heading limits what is reported.
+        let out = check_conventions(&ctx(doc), r#"{"start_line":1,"end_line":3}"#);
+        assert!(
+            out.contains("No convention issues found in lines 1-3."),
+            "{out}"
+        );
+        let out = check_conventions(&ctx(doc), r#"{"heading":"没有"}"#);
+        assert!(out.starts_with("No heading matching"), "{out}");
+        // A draft is judged against the document.
+        let out = check_conventions(&ctx(doc), r#"{"text":"我们还要测试,然后发布。"}"#);
+        assert!(
+            out.contains("in the text you gave") && out.contains("L1 fix"),
+            "{out}"
+        );
+        // French no-break spaces are spelled out.
+        let out = check_conventions(
+            &ctx("Vraiment ? Nous avons fini le travail dans la maison avec les enfants."),
+            "{}",
+        );
+        assert!(out.contains("[narrow no-break space]?"), "{out}");
+    }
+
+    #[test]
+    fn measure_text_counts_exactly() {
+        let out = measure_text(
+            &ctx(""),
+            r#"{"text":"你好 https://levis.app","metric":"x_weighted"}"#,
+        );
+        assert_eq!(out, "x_weighted: 28 of 280 weighted characters - within the limit (252 to spare). URLs count 23 each; CJK characters and emoji count 2.");
+        let out = measure_text(&ctx(""), r#"{"text":"hi"}"#);
+        assert!(
+            out.contains("chars: 2 characters.") && out.contains("bluesky: 2 of 300"),
+            "{out}"
+        );
+        assert!(measure_text(&ctx(""), r#"{"text":"hi","metric":"tiktok"}"#)
+            .starts_with("Unknown metric"));
+        assert!(measure_text(&ctx(""), "{}").starts_with("No `text`"));
+    }
+
+    #[test]
+    fn the_rules_tools_are_in_every_mode() {
+        for edits in [false, true] {
+            let names: Vec<&str> = builtin_tools(false, false, edits)
+                .iter()
+                .map(|t| t.spec.name)
+                .collect();
+            assert!(
+                names.contains(&"check_conventions") && names.contains(&"measure_text"),
+                "{names:?}"
+            );
         }
     }
 

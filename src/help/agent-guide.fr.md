@@ -187,6 +187,24 @@ Il y a deux façons d'utiliser une compétence :
 
 Les compétences existent aux deux mêmes niveaux que les instructions d'écriture : les compétences globales dans le dossier `skills/` du dossier de configuration globale (**Réglages > Levis AI > Compétences > Importer une compétence…** y copie un fichier de compétence), les compétences du projet dans `.levis/skills/` (un dossier caché : dans le Finder de macOS, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> l'affiche). Une compétence du projet qui porte le même nom qu'une compétence globale la remplace.
 
+### Compétences intégrées
+
+Levis propose 18 compétences pour les tâches d'écriture courantes. Le menu `/` les range en **Écrire** (continuer l'histoire, décrire un personnage ou un lieu, peaufiner les dialogues, imiter un style), **Retravailler** (développer, resserrer, changer de ton, retirer le ton IA, traduire et peaufiner), **Vérifier** (relire et corriger, vérifier la cohérence) et **Formats** (rédiger un courriel, avis ou document officiel, compte rendu, style académique, publication réseaux sociaux, titre, résumer). Tapez `/` et choisissez-en une, ou tapez son nom dans n'importe quelle langue de l'application : `/proofread`, `/corriger` et `/校对` appellent la même compétence. Levis AI choisit aussi de lui-même la plupart d'entre elles quand votre demande s'y prête ; **Développer**, **Resserrer**, **Changer de ton** et **Résumer** ne s'exécutent que si vous les appelez.
+
+**Réglages > Levis AI > Compétences intégrées** les liste toutes. L'interrupteur en désactive une : elle disparaît du menu `/` et Levis AI ne s'en sert plus. **Personnaliser…** copie la compétence dans le dossier `skills/` du dossier de configuration globale et ouvre la copie, pour que vous en modifiiez les instructions ; c'est ensuite votre copie qui s'exécute. **Réinitialiser** supprime la copie et rétablit la version intégrée. Une compétence à vous qui porte le nom d'une compétence intégrée la remplace.
+
+### Conventions d'écriture
+
+**Réglages > Levis AI > Aide à l'écriture > Conventions d'écriture** détermine les règles de ponctuation, d'espacement et d'écriture des nombres que suivent Levis AI et la vérification grammaticale. **Automatique** applique la norme nationale quand la langue en a une (GB/T pour le chinois simplifié, JTF pour le japonais, par exemple) ; sinon, il suit l'usage le plus fréquent dans votre document et ne signale que les incohérences. Choisissez un profil, par exemple **France** ou **Canada** pour le français, et les documents dans cette langue s'y conforment.
+
+Un projet peut choisir le sien : ajoutez une ligne `conventions:` entre les deux lignes `---` en tête de son profil de style (`.levis/style.md`). Pour les documents de ce projet, elle l'emporte sur le réglage.
+
+```markdown
+---
+conventions: zh-Hans-CN/fiction, en-GB/govuk
+---
+```
+
 ### Le dossier de configuration globale
 
 **Le dossier de configuration globale contient ce qui s'applique à tous les documents** : votre `agent.md` global et vos compétences globales. Il appartient à l'application, pas à un projet ; **Réglages > Levis AI > Dossier de configuration globale > Ouvrir le dossier** l'affiche.

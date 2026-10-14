@@ -1,5 +1,6 @@
 import { plural, type Lang, type Strings } from "../../i18n/strings";
 import type { InlineChatLabels } from "./InlineChat";
+import { pickerLabels } from "./ComposerPicker";
 
 /**
  * The chat's user-facing strings, assembled once here rather than inline at
@@ -12,6 +13,7 @@ import type { InlineChatLabels } from "./InlineChat";
 export function chatLabels(t: Strings, lang: Lang): InlineChatLabels {
   return {
     placeholder: t.agentInputPlaceholder,
+    picker: pickerLabels(t, lang),
     send: t.agentSend,
     stop: t.agentStop,
     retry: t.agentRetry,

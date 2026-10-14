@@ -236,6 +236,10 @@ export function withEditorExtensions(
           model: () =>
             settings.current.writingModels[settings.current.aiProvider] || null,
           strictness: () => settings.current.grammarStrictness,
+          project: () => ({
+            docPath: docPath.current,
+            workspaceRoot: settings.current.agentWorkspaceRoot || null,
+          }),
         }),
       )
       .use(

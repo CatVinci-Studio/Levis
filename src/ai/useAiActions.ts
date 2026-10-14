@@ -94,11 +94,15 @@ export function useAiActions(
           aiProvider,
           grammarStrictness,
           writingModels[aiProvider] || null,
+          {
+            docPath: getDocPath(),
+            workspaceRoot: getSettings().agentWorkspaceRoot || null,
+          },
         ),
         getT().aiWorkingGrammar,
       );
     });
-  }, [run, getSettings, getT, report]);
+  }, [run, getSettings, getT, report, getDocPath]);
 
   return { triggerCompletion, triggerGrammarCheck };
 }

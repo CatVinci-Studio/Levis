@@ -187,6 +187,24 @@ Use a skill in either of two ways:
 
 Skills live at the same two levels as writing instructions: global skills in the `skills/` folder of the global config folder (**Settings > Levis AI > Skills > Import Skill…** copies a skill file there), project skills in `.levis/skills/` (a hidden folder — in macOS Finder, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> shows it). A project skill with the same name as a global one replaces it.
 
+### Built-in skills
+
+Levis comes with 18 skills for common writing jobs. The `/` menu groups them as **Write** (continue the story, describe a scene or character, polish dialogue, imitate a style), **Revise** (expand, tighten, change tone, remove AI tone, translate and polish), **Check** (proofread, check continuity) and **Formats** (email, notice or official document, meeting minutes, academic polish, social post, headline, summary). Type `/` and pick one, or type its name in any of the app's languages: `/proofread`, `/校对` and `/校正` call the same skill. Levis AI also picks most of them by itself when your request matches one; **Expand**, **Tighten**, **Change tone** and **Summarize** run only when you call them.
+
+**Settings > Levis AI > Built-in skills** lists them all. The switch turns one off: it leaves the `/` menu and Levis AI stops using it. **Customize…** copies the skill into the `skills/` folder of the global config folder and opens the copy, so you can change its instructions; from then on your copy runs instead. **Reset** deletes the copy and brings the built-in version back. A skill of your own with a built-in skill's name replaces the built-in one.
+
+### Writing conventions
+
+**Settings > Levis AI > Writing Assistance > Writing conventions** decides which punctuation, spacing and number rules Levis AI and the grammar check follow. **Automatic** uses the national standard where a language has one (GB/T for Simplified Chinese, JTF for Japanese, for example); elsewhere it follows what your document already does most and points out only inconsistencies. Pick a profile, such as Simplified Chinese **Fiction** or English **UK · GOV.UK**, and documents in that language are held to it.
+
+A project can choose its own: add a `conventions:` line between the two `---` lines at the top of its style profile (`.levis/style.md`). For that project's documents it wins over the setting.
+
+```markdown
+---
+conventions: zh-Hans-CN/fiction, en-GB/govuk
+---
+```
+
 ### The global config folder
 
 **The global config folder holds what applies to every document**: your global `agent.md` and your global skills. It belongs to the app, not to any project; **Settings > Levis AI > Global Config Folder > Open Folder** shows it.

@@ -66,4 +66,25 @@ describe("Select", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("lists <optgroup>s under their names, and says the group when closed", () => {
+    const onChange = vi.fn();
+    render(
+      <Select value="fiction" onChange={onChange} aria-label="Conventions">
+        <option value="auto">Automatic</option>
+        <optgroup label="English">
+          <option value="news">News</option>
+          <option value="fiction">Fiction</option>
+        </optgroup>
+      </Select>,
+    );
+    const trigger = screen.getByRole("combobox", { name: "Conventions" });
+    expect(trigger).toHaveTextContent("English · Fiction");
+    fireEvent.click(trigger);
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+    expect(screen.getByText("English")).toHaveClass("ui-select-group");
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "ArrowUp" });
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith({ target: { value: "news" } });
+  });
 });

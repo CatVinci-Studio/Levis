@@ -299,6 +299,16 @@ pub fn read_style(root: &Path) -> Option<String> {
         .map(|s| s.chars().take(MAX_STYLE_CHARS).collect())
 }
 
+/// The writing conventions a style profile's front matter sets: a
+/// `conventions:` profile (or several, comma-separated, one per language)
+/// and option keys such as `cjk-latin-space: on` - see rules::profile. The
+/// front matter stays in the profile text the model reads.
+pub fn style_conventions(style: Option<&str>) -> crate::ai::rules::ProjectConventions {
+    style
+        .map(crate::ai::rules::ProjectConventions::from_style)
+        .unwrap_or_default()
+}
+
 /// The library entries a request should carry: `always` ones, plus
 /// `detected` ones whose name or an alias appears in `context` (the user's
 /// message, the selection, the text around the cursor). Bounded overall.

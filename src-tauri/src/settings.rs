@@ -680,13 +680,32 @@ pub fn flush_all(app: &AppHandle) {
 }
 
 /// A settings field as Rust sees it, for the few decisions made in Rust
-/// before any webview exists (window vs tab, session restore).
-// Desktop only so far (commands/prefs.rs); iOS makes no such decisions.
-#[cfg_attr(mobile, allow(dead_code))]
+/// before any webview exists (window vs tab, session restore), for the
+/// writing conventions profile (`writingConventions`, ai::conventions) and
+/// for the built-in skills turned off.
 pub fn read_setting(app: &AppHandle, key: &str) -> Option<Value> {
     let stores = app.try_state::<Stores>()?;
     let (settings, _) = stores.settings.snapshot();
     settings.get(key).cloned()
+}
+
+/// Changes settings fields on Rust's own initiative - a command that owns a
+/// setting's logic, like turning a built-in skill off - and tells every
+/// window, the way settings_patch does for a window's change (`from` names
+/// no window, so every one applies it).
+pub fn patch_from_backend(app: &AppHandle, patch: Map<String, Value>) -> Option<u64> {
+    let stores = app.try_state::<Stores>()?;
+    let rev = stores.patch_settings(&patch);
+    emit_to_all(
+        app,
+        "settings-changed",
+        SettingsChanged {
+            rev,
+            patch,
+            from: String::new(),
+        },
+    );
+    Some(rev)
 }
 
 /// Delivers an event to every window. Each one individually: every event in

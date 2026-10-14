@@ -28,8 +28,12 @@ import {
   AgentWorkspaceRootSection,
   AgentWorkspaceSection,
   AgentSystemPromptSection,
-  AgentSkillsSection,
 } from "./sections/agent";
+import {
+  AgentSkillsSection,
+  BuiltinSkillsSection,
+  WritingConventionsRow,
+} from "./sections/skills";
 import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
@@ -354,6 +358,7 @@ export function SettingsPanel({
                 </Select>
               </SettingRow>
             )}
+            <WritingConventionsRow t={t} />
           </SettingsGroup>
 
           <SettingsGroup title={t.aiAskLabel}>
@@ -407,6 +412,12 @@ export function SettingsPanel({
                 <AgentSkillsSection t={t} />
                 {canRevealInFileManager && <AgentWorkspaceSection t={t} />}
               </SettingsGroup>
+
+              <BuiltinSkillsSection
+                t={t}
+                onOpenFile={onOpenFile}
+                onClose={onClose}
+              />
 
               <details className="settings-advanced">
                 <summary>{t.agentAdvancedGroupLabel}</summary>

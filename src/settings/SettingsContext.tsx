@@ -169,6 +169,12 @@ export interface Settings {
   agentDefaultMode: AgentMode;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
+  /// Settings > Levis AI > Writing Assistance > Writing conventions:
+  /// "automatic", or a profile such as "zh-Hans-CN/fiction" that the AI
+  /// and the checks follow for documents in that language (Rust reads it;
+  /// settings/writing-conventions.ts lists the values). A project's style
+  /// profile overrides it.
+  writingConventions: string;
   /// Offer the active provider's native server-side web search to Agent;
   /// providers without a compatible search API safely ignore it.
   enableWebSearch: boolean;
@@ -256,6 +262,7 @@ const DEFAULT_SETTINGS: Settings = {
   agentModels: {},
   agentDefaultMode: "ask",
   completionTone: "default",
+  writingConventions: "automatic",
   enableWebSearch: false,
   enableEditAnimation: true,
   agentExpandToWindow: false,
@@ -382,6 +389,13 @@ export function normaliseSettings(parsed: Raw | null): Settings {
       theme: THEME_MODES.includes(parsed.theme as ThemeMode)
         ? (parsed.theme as ThemeMode)
         : DEFAULT_SETTINGS.theme,
+      // Any profile string is kept - a newer build's may not be in this
+      // build's list - but it has to be one.
+      writingConventions:
+        typeof parsed.writingConventions === "string" &&
+        parsed.writingConventions
+          ? parsed.writingConventions
+          : DEFAULT_SETTINGS.writingConventions,
     };
   } catch {
     return DEFAULT_SETTINGS;

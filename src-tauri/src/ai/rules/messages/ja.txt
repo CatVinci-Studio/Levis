@@ -1,0 +1,13 @@
+# 共通の表記ルールのメッセージ（src-tauri/src/ai/rules/messages.rs）。
+shared.nfc.invisible = 見えない文字があります。削除してください。
+shared.nfc.compose = 分解された結合文字です。合成済みの文字を使ってください。
+shared.space-before-punct = この句読点の前にスペースは不要です。
+shared.double-space = 語の間にスペースが二つあります。一つにしてください。
+shared.doubled-word = 語の重複：「{0}」が続けて二回出てきます。
+shared.residue = チャットボットの決まり文句やプレースホルダーが本文に残っています。
+shared.library-name = ライブラリの名前「{0}」の書き間違いかもしれません。
+shared.heading-structure.skip = 見出しのレベルが飛んでいます：レベル {1} の次にレベル {0} があります。
+shared.heading-structure.depth = 見出しが三階層を超えています。構成を浅くすることを検討してください。
+shared.image-alt.empty = 画像に代替テキストがありません。装飾目的でなければ内容を説明してください。
+shared.image-alt.long = 代替テキストが 155 文字を超えています。短くまとめ、詳細は本文に書いてください。
+shared.image-alt.redundant = 代替テキストを「画像：」や「写真：」で始める必要はありません。

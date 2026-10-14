@@ -307,29 +307,17 @@ pub fn with_cursor(doc: &str, at: usize, message: &str) -> (String, Caret) {
     )
 }
 
-/// Mirrors proposal.ts's resolveSkillMessage: "/name rest" becomes the
-/// skill's prompt, a blank line, then the rest.
-pub fn resolve_skill_message(message: &str, skills: &[AgentSkill]) -> String {
-    let Some(rest) = message.strip_prefix('/') else {
-        return message.to_string();
-    };
-    let (name, tail) = rest
-        .split_once(char::is_whitespace)
-        .map_or((rest, ""), |(n, t)| (n, t.trim_start()));
-    match skills.iter().find(|s| s.name == name) {
-        Some(skill) => {
-            let body = format!(
-                "<skill name=\"{}\">\n{}\n</skill>",
-                skill.name, skill.prompt
-            );
-            if tail.is_empty() {
-                body
-            } else {
-                format!("{body}\n\n{tail}")
-            }
-        }
-        None => message.to_string(),
-    }
+/// "/name rest" as the app sends it: the production expansion
+/// (builtin::expand_message) - the skill's instructions, with any reference
+/// packs it declares for the document's language, in a <skill> block, a
+/// blank line, then the rest.
+pub fn resolve_skill_message(
+    message: &str,
+    skills: &[AgentSkill],
+    document: &str,
+    ui_language: &str,
+) -> String {
+    crate::ai::builtin::expand_message(message, skills, document, ui_language)
 }
 
 /// All text the turn's accepted proposals wrote, concatenated.
@@ -982,6 +970,7 @@ fn workspace_cases() -> Vec<AgentCase> {
         name: "tighten".into(),
         description: "Cut wordiness from a passage without losing any fact".into(),
         prompt: "When tightening text: remove filler, doubled phrases and throat-clearing; keep every number, name and claim; aim for 40-60% of the original length; keep the author's register. Propose one edit per paragraph and say in one line how much shorter it got.".into(),
+        ..AgentSkill::default()
     };
     let ws = AgentWorkspace {
         skills: vec![tighten.clone()],
@@ -989,12 +978,13 @@ fn workspace_cases() -> Vec<AgentCase> {
     };
     let mut e = edit_in(para(en, 1), StructureExpect::Same);
     e.shorter = true;
-    cases.push(AgentCase::new("skill/slash-invoked", Lang::En, Lang::En, en, &resolve_skill_message("/tighten the Method paragraph", std::slice::from_ref(&tighten)), e, "The user invoked the /tighten skill (its instructions are at the top of the message) on the Method paragraph. Expect one edit to that paragraph at roughly 40-60% of its length with every fact kept, and a one-line reply saying how much shorter it got.").workspace(ws));
+    cases.push(AgentCase::new("skill/slash-invoked", Lang::En, Lang::En, en, &resolve_skill_message("/tighten the Method paragraph", std::slice::from_ref(&tighten), en, "en"), e, "The user invoked the /tighten skill (its instructions are at the top of the message) on the Method paragraph. Expect one edit to that paragraph at roughly 40-60% of its length with every fact kept, and a one-line reply saying how much shorter it got.").workspace(ws));
 
     let headline = AgentSkill {
         name: "house-headline".into(),
         description: "Write or rewrite document titles and headlines in the house style".into(),
         prompt: "House style for titles: sentence case (only the first word and proper nouns capitalised), at most 8 words, no colon, no question mark, lead with the concrete result.".into(),
+        ..AgentSkill::default()
     };
     let ws = AgentWorkspace {
         skills: vec![headline],
@@ -1333,6 +1323,7 @@ fn turn_json(o: &TurnOutcome, model: &str) -> Value {
         "proposals": o.proposals.iter().map(|p| json!({"action": p.action, "anchor": p.anchor, "text": p.text, "context": p.context})).collect::<Vec<_>>(),
         "invalid_proposals": o.invalid_proposals,
         "invalid_proposal_errors": o.invalid_errors,
+        "postfix": o.postfix,
         "comments": o.comments,
         "apply_error": o.apply_error,
         "document_changed": o.doc_after != o.doc_before,
@@ -1422,7 +1413,22 @@ pub fn run_case(auth: &AnthropicAuth, case: &AgentCase, model: &str) -> Record {
             .script
             .iter()
             .map(|t| UserTurn {
-                message: resolve_skill_message(&t.message, &ws.skills),
+                // As ai_agent_message: the packs filtered by the profile the
+                // case's style.md chose (no Settings in the eval).
+                message: crate::ai::builtin::expand_message_with(
+                    &t.message,
+                    &ws.skills,
+                    &case.doc,
+                    case.lang.ui_code(),
+                    crate::ai::builtin::chosen_profile(
+                        &crate::ai::rules::Conventions {
+                            setting: None,
+                            project: ws.conventions.clone(),
+                        },
+                        &case.doc,
+                    )
+                    .as_deref(),
+                ),
                 ..t.clone()
             })
             .collect();
@@ -1576,17 +1582,21 @@ mod tests {
             name: "润色".into(),
             description: String::new(),
             prompt: "Polish it.".into(),
+            ..AgentSkill::default()
         }];
         assert_eq!(
-            resolve_skill_message("/润色 第二段", &skills),
+            resolve_skill_message("/润色 第二段", &skills, "", "zh"),
             "<skill name=\"润色\">\nPolish it.\n</skill>\n\n第二段"
         );
         assert_eq!(
-            resolve_skill_message("/润色", &skills),
+            resolve_skill_message("/润色", &skills, "", "zh"),
             "<skill name=\"润色\">\nPolish it.\n</skill>"
         );
-        assert_eq!(resolve_skill_message("/other x", &skills), "/other x");
-        assert_eq!(resolve_skill_message("plain", &skills), "plain");
+        assert_eq!(
+            resolve_skill_message("/other x", &skills, "", "zh"),
+            "/other x"
+        );
+        assert_eq!(resolve_skill_message("plain", &skills, "", "zh"), "plain");
     }
 
     fn load(case_id: &str) -> AgentWorkspace {
@@ -1619,8 +1629,13 @@ mod tests {
             "the document folder's agent.md doesn't apply"
         );
         let ws = load("skill/en/project-shadows-global");
-        assert_eq!(ws.skills.len(), 1);
-        assert!(ws.skills[0].prompt.contains("at most 6 words"));
+        let own: Vec<_> = ws
+            .skills
+            .iter()
+            .filter(|s| s.source != crate::ai::workspace::SkillSource::Builtin)
+            .collect();
+        assert_eq!(own.len(), 1);
+        assert!(own[0].prompt.contains("at most 6 words"));
         let ws = load("library/en/alias-fact");
         assert_eq!(ws.library.len(), 2);
         assert!(crate::ai::project::relevant_library(&ws.library, "the captain").len() == 1);

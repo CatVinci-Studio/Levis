@@ -1,0 +1,13 @@
+# Mensajes de las reglas de escritura comunes (src-tauri/src/ai/rules/messages.rs).
+shared.nfc.invisible = Carácter invisible: elimínalo.
+shared.nfc.compose = Tilde descompuesta: usa el carácter compuesto.
+shared.space-before-punct = Sin espacio antes de este signo de puntuación.
+shared.double-space = Dos espacios entre palabras: deja uno.
+shared.doubled-word = Palabra repetida: «{0}» aparece dos veces seguidas.
+shared.residue = Restos de un chatbot o un marcador de posición en el texto.
+shared.library-name = Posible error en el nombre de la biblioteca «{0}».
+shared.heading-structure.skip = Nivel de encabezado omitido: el nivel {0} sigue al nivel {1}.
+shared.heading-structure.depth = Más de tres niveles de encabezado: plantéate simplificar la estructura.
+shared.image-alt.empty = Imagen sin texto alternativo: descríbela, salvo que sea decorativa.
+shared.image-alt.long = Texto alternativo de más de 155 caracteres: abrévialo y deja los detalles para el texto.
+shared.image-alt.redundant = El texto alternativo no necesita empezar por «Imagen de» o «Foto de».

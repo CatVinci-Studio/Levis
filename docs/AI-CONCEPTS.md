@@ -12,7 +12,7 @@ Textus rename); the help guides spell the name out.
 
 "Conversation" below means the AI panel and Quick Ask, which run the same
 agent (`src-tauri/src/ai/agent.rs`). "Completion" is the grey continuation.
-Grammar check uses none of these concepts.
+Grammar check uses only the writing conventions and the library's names.
 
 ## Glossary
 
@@ -26,6 +26,8 @@ Grammar check uses none of these concepts.
 | Writing instructions | 写作要求         | 執筆の指示               | Standing rules sent with every conversation, in `agent.md`.                            |
 | Skills               | 技能             | スキル                   | Named, reusable instructions, called with `/name`.                                     |
 | Global config folder | 全局配置文件夹   | グローバル設定フォルダー | The app's folder for the writing instructions and skills that apply to every document. |
+| Built-in skills      | 内置技能         | 組み込みスキル           | The 18 skills that come with the app; each can be turned off, customized or reset.     |
+| Writing conventions  | 写作规范         | 表記ルール               | The punctuation, spacing and number norms followed, per document language.             |
 
 ### Project folder
 
@@ -114,17 +116,34 @@ reply language, spellings and terms, things to always or never do.**
 calls with `/name` or Levis AI loads by itself when a request matches its
 description.**
 
-- **On disk:** global: `skills/*.md` in the global config folder; project:
-  `.levis/skills/*.md`. Frontmatter `name` and `description`, then the
-  instructions.
+- **On disk:** built-in: 18 skills bundled with the app
+  (`src-tauri/src/ai/skills/*.md`, read-only); global: `skills/*.md` in the
+  global config folder; project: `.levis/skills/*.md`. Frontmatter `name`
+  and `description` (block scalars allowed), Levis-only keys under
+  `metadata:` (`levis-invocation`, `levis-category`, `levis-packs`,
+  `levis-aliases-<lang>`, `levis-version`, `levis-based-on`), then the
+  instructions. `<!-- -->` comments in the instructions are never sent.
 - **Create / edit:** **Settings > Levis AI > Skills > Import Skill…** copies
-  a file into the global skills; or by hand in either folder.
-- **Levis AI uses it:** every skill's name and description are listed in
-  the system prompt (`---available skills---`) for tool-calling providers;
-  the body arrives through `use_skill`, or - when the user types `/name` -
-  already expanded in a `<skill name="...">` block at the top of the
-  message, which the agent follows without loading it again.
-  Conversations only.
+  a file into the global skills; **Customize…** on a built-in copies it
+  there with `levis-based-on` (so **Reset to built-in** may delete it); or
+  by hand in either folder. A built-in can be turned off
+  (`settings.disabledBuiltinSkills`).
+- **Reference packs:** `contract`, `craft` and `standards-<lang>` for ten
+  languages (`src-tauri/src/ai/skills/packs/`), never listed or called with
+  `/`. A skill's `levis-packs` sections (`standards#dialogue` = the
+  document language's pack) are appended to its instructions whenever it is
+  used, and the model can load any section with
+  `use_skill("standards-fr#dialogue")`. Attribution:
+  `src-tauri/src/ai/skills/ATTRIBUTION.md`.
+- **Levis AI uses it:** the name and description of every skill it may
+  start (`levis-invocation: both`; not `user-only` ones like `/tighten`, not
+  turned-off built-ins) are listed in the system prompt
+  (`---available skills---`) for tool-calling providers, the user's own
+  marked "(project)" or "(yours)" and preferred over a built-in when both
+  match; the body arrives through `use_skill`, or - when the user types
+  `/name` or an alias (`/校对`) - already expanded by Rust
+  (`builtin::expand_message`) in a `<skill name="...">` block, which the
+  agent follows without loading it again. Conversations only.
 
 ### Global config folder
 
@@ -142,6 +161,39 @@ writing instructions and the global skills.**
   conversation request. It has no style profile or library: those describe
   one body of work, so they belong to a project.
 
+### Writing conventions
+
+**Which national norm or house style a document's mechanical conventions
+follow - punctuation, spacing, quotes, numbers, spelling lists - per
+document language: a profile such as `zh-Hans-CN/fiction`, `en-GB/govuk` or
+`fr-CA`, or Automatic.**
+
+- **On disk:** global: the `writingConventions` setting in `settings.json`
+  (`"automatic"`; one profile as a string, which is what the Settings row
+  stores and applies to documents in that profile's language; or an object
+  from language to profile, with an optional `options` object); project: the `conventions:` key (one profile, or
+  several separated by commas, one per language) and option keys such as
+  `cjk-latin-space: on` in the front matter of `.levis/style.md`. The
+  profiles and option keys are listed in
+  `src-tauri/src/ai/rules/profile.rs` (`LANGUAGE_PROFILES`, `OPTIONS`) and
+  mirrored in `src/ipc.ts` (`WRITING_CONVENTIONS`).
+- **Create / edit:** **Settings > Levis AI > Writing Assistance > Writing
+  conventions** (default Automatic) for the global choice; the style
+  profile's front matter for a project, which wins for the languages it
+  names.
+- **Automatic:** the national norm where there is one (GB/T for Simplified
+  Chinese, the MOE handbook for Traditional, JTF for Japanese, the national
+  rules for Korean and Russian, Brazilian Portuguese), none for English,
+  Spanish, French and German. Wherever sources disagree (CJK-Latin spacing,
+  French spacing, quote systems, serial comma, -ize/-ise...), Automatic
+  follows the document's own majority and flags only the minority.
+- **Levis AI uses it:** through the deterministic rules engine
+  (`src-tauri/src/ai/rules/`): the grammar check adds the engine's findings
+  to the model's; conversations get the read-only tools
+  `check_conventions` and `measure_text`, and each proposal's text is made
+  to follow the P0 conventions the document already follows before the
+  user sees it; completions are made to match the text before the cursor.
+
 ### Not a file: completion tone
 
 The **completion tone** (Settings > Levis AI > Writing Assistance) is a
@@ -158,6 +210,7 @@ part of the project.
 | Writing instructions (global and project) |       ✓       |            |               |
 | Skills (global and project)               |       ✓       |            |               |
 | Completion tone                           |               |     ✓      |               |
+| Writing conventions                       |       ✓       |     ✓      |       ✓       |
 
 - **One project folder at a time.** A chosen folder is a single setting
   and applies to every document, unsaved drafts included, until **Use the
@@ -179,7 +232,8 @@ part of the project.
   ```
 
 - **Skills merge by name.** A project skill replaces a global skill with the
-  same `name`; all other skills from both levels are available.
+  same `name`, and either replaces a built-in one; all other skills from
+  the three levels are available.
 - **The style profile and library are per project only.** There is no
   global version of either.
 - **Completion tone and style profile both reach completion.** The tone is
@@ -223,12 +277,12 @@ part of the project.
 Some identifiers predate these names. They stay; their comments use the
 names above.
 
-| User-facing name     | In code                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Project folder       | workspace root: `settings.agentWorkspaceRoot` (`""` = the document's folder), `workspace::project_root`, `AgentWorkspace.root` |
-| `.levis/` folder     | `WORKSPACE_DIR_NAME`                                                                                                           |
-| Style profile        | `AgentWorkspace.style`, `project::read_style`, `learn_style`                                                                   |
-| Library              | `AgentWorkspace.library`, `project::read_library`, `project::relevant_library`                                                 |
-| Writing instructions | `AgentWorkspace.instructions` (global) and `AgentWorkspace.project_instructions`; `agentSystemPrompt*` strings                 |
-| Skills               | `AgentWorkspace.skills`, the `use_skill` tool, `import_agent_skill`                                                            |
-| Global config folder | `global_agent_dir`, `agentWorkspaceLabel`                                                                                      |
+| User-facing name     | In code                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project folder       | workspace root: `settings.agentWorkspaceRoot` (`""` = the document's folder), `workspace::project_root`, `AgentWorkspace.root`                                    |
+| `.levis/` folder     | `WORKSPACE_DIR_NAME`                                                                                                                                              |
+| Style profile        | `AgentWorkspace.style`, `project::read_style`, `learn_style`                                                                                                      |
+| Library              | `AgentWorkspace.library`, `project::read_library`, `project::relevant_library`                                                                                    |
+| Writing instructions | `AgentWorkspace.instructions` (global) and `AgentWorkspace.project_instructions`; `agentSystemPrompt*` strings                                                    |
+| Skills               | `AgentWorkspace.skills`, the `use_skill` tool, `import_agent_skill`, `ai::builtin`, `customize_builtin_skill`, `reset_builtin_skill`, `set_builtin_skill_enabled` |
+| Global config folder | `global_agent_dir`, `agentWorkspaceLabel`                                                                                                                         |
