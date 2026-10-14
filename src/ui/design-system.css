@@ -1,4 +1,6 @@
 /* Application UI contract. Content themes remain scoped to the document. */
+@import "./motion.css";
+
 :root {
   --radius-small: 4px;
   --radius-control: 6px;
@@ -107,8 +109,8 @@
   )
   button {
   transition:
-    background-color 120ms ease,
-    border-color 120ms ease;
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
 }
 
 :is(
@@ -152,9 +154,9 @@
   line-height: 1.2;
   cursor: pointer;
   transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
 }
 
 :is(
@@ -252,8 +254,8 @@
   color: var(--editor-muted);
   cursor: pointer;
   transition:
-    background-color 120ms ease,
-    color 120ms ease;
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
 }
 
 :is(.inline-chat-header-button, .quick-ask-pending-nav-button, .tree-tool) {
@@ -302,7 +304,7 @@
   font: inherit;
   font-size: var(--text-md);
   cursor: pointer;
-  transition: border-color 120ms ease;
+  transition: border-color var(--dur-fast) var(--ease-standard);
 }
 
 .inline-chat-mode {
@@ -420,8 +422,8 @@ input[type="checkbox"].ui-check {
   background: var(--editor-bg, var(--bg));
   cursor: pointer;
   transition:
-    background-color 120ms ease,
-    border-color 120ms ease;
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
 }
 
 input[type="checkbox"].ui-check:checked {
@@ -459,15 +461,4 @@ input[type="checkbox"].ui-check:checked {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
 }
