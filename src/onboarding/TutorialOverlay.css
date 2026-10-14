@@ -131,7 +131,7 @@
   border-radius: var(--radius-surface);
   color: var(--editor-accent);
   background: var(--tutorial-soft);
-  font: 650 19px/1 var(--font-mono);
+  font: 600 19px/1 var(--font-mono);
 }
 
 .tutorial-glyph-icon {

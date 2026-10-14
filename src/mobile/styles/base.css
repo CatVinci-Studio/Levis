@@ -67,7 +67,7 @@
 :root[data-window-chrome="mobile"] .window-bar-toggle {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
 }
 
 /* A touch leaves :hover stuck on the last thing tapped. */
@@ -78,6 +78,13 @@
 :root[data-window-chrome="mobile"]
   .window-bar-toggle:hover:not(.window-bar-toggle-on) {
   background: none;
+}
+
+/* On, it takes the tint as an iOS bar button does, rather than a filled
+   box flush against the screen's edge. */
+:root[data-window-chrome="mobile"] .window-bar-toggle-on {
+  background: none;
+  color: var(--chrome-accent);
 }
 
 /* Focus rings are for finding your place with a keyboard. A finger knows

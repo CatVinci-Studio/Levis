@@ -29,6 +29,16 @@
   line-height: 1.5;
 }
 
+/* A selection that shows in both palettes without shouting: the dark
+   one's default was a dim blue-grey hardly apart from the panel. */
+.inline-chat ::selection {
+  background: color-mix(
+    in srgb,
+    var(--editor-accent) 35%,
+    var(--editor-bg, var(--bg))
+  );
+}
+
 /* It hangs below its paragraph and grows down out of it. */
 .inline-chat:not(.quick-ask-dock) > .inline-chat-shell {
   transform-origin: top center;
@@ -476,12 +486,12 @@
 }
 
 .agent-diff-remove {
-  background: rgba(220, 38, 38, 0.12);
+  background: var(--diff-delete-bg);
   color: var(--editor-text);
 }
 
 .agent-diff-add {
-  background: rgba(22, 163, 74, 0.14);
+  background: var(--diff-insert-bg);
   color: var(--editor-text);
 }
 
@@ -505,6 +515,8 @@
 .agent-diff-chip {
   padding: 0 5px;
   border-radius: var(--radius-small);
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
 }
 
 .agent-diff-caret {
@@ -637,6 +649,8 @@
    a word per line (longer languages, a narrow panel). */
 .inline-chat-pending-count {
   flex: 1 1 10em;
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
 }
 
 .inline-chat-pending-actions {

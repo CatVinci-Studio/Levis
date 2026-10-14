@@ -10,7 +10,7 @@
   display: inline-flex;
   flex-shrink: 0;
   padding: 2px;
-  border-radius: 9px;
+  border-radius: var(--radius-surface);
   background: color-mix(in srgb, var(--editor-text) 8%, transparent);
 }
 
@@ -19,7 +19,8 @@
   min-height: 40px;
   padding: 0 12px;
   border: none;
-  border-radius: 7px;
+  /* Concentric with the track: its radius less its padding. */
+  border-radius: calc(var(--radius-surface) - 2px);
   background: none;
   color: var(--editor-text);
   font: inherit;
@@ -29,7 +30,7 @@
 
 :root[data-window-chrome="mobile"] .chat-mode-segment[aria-checked="true"] {
   background: var(--editor-bg, var(--bg));
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+  box-shadow: var(--shadow-raised);
   font-weight: 600;
 }
 

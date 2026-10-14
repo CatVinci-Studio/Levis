@@ -33,10 +33,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border-color);
-  font-size: 15px;
-  font-weight: 650;
+  font-size: var(--text-xl);
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -85,7 +85,7 @@
 .settings-nav-item-active {
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
-  font-weight: 550;
+  font-weight: 500;
 }
 
 /* A new page fades in where the last one was; the nav's highlight moves
@@ -652,7 +652,7 @@ button.settings-inline-button {
 .auth-tab-active {
   background: var(--bg);
   color: var(--editor-text);
-  font-weight: 550;
+  font-weight: 500;
   box-shadow: none;
 }
 
@@ -853,8 +853,8 @@ button.settings-inline-button {
 
 .settings-category-title {
   margin: 0 0 20px;
-  font-size: 20px;
-  font-weight: 650;
+  font-size: var(--text-2xl);
+  font-weight: 600;
   line-height: 1.3;
   color: var(--editor-text);
 }

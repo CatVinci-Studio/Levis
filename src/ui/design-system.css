@@ -18,9 +18,28 @@
   --text-sm: 12px;
   --text-md: 13px;
   --text-lg: 14px;
+  /* Display steps, for titles only: a sheet's, a panel's or the phone's
+     navigation title (iOS "headline"), and a welcome or empty state. */
+  --text-xl: 17px;
+  --text-2xl: 22px;
+  /* The phone's text styles (iOS Dynamic Type at its default size). */
+  --ios-body: 17px;
+  --ios-callout: 16px;
+  --ios-subhead: 15px;
+  --ios-footnote: 13px;
+  --ios-caption: 12px;
+  /* Spacing on a 4-point grid, 8 the default step. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
   --chrome-subtle: #f8f9fb;
   --chrome-primary: #315ed1;
   --success-color: #24734d;
+  --danger-fill: #be364b;
   --overlay-bg: rgb(20 27 40 / 30%);
   --shadow-popover: 0 4px 16px rgb(20 27 40 / 10%);
   --shadow-dialog: 0 16px 48px rgb(20 27 40 / 16%);
@@ -31,6 +50,12 @@
   --shadow-raised: 0 1px 3px rgb(0 0 0 / 12%);
   /* A switch's thumb, lifted off its track. */
   --shadow-thumb: 0 1px 3px rgb(0 0 0 / 25%);
+  /* Proposed edits, in the document and in the AI's diffs: built on the
+     success and danger colours, so the dark palette tunes them too. */
+  --diff-insert-bg: color-mix(in srgb, var(--success-color) 16%, transparent);
+  --diff-delete-bg: color-mix(in srgb, var(--danger) 12%, transparent);
+  --diff-delete-line: color-mix(in srgb, var(--danger) 60%, transparent);
+  --diff-caret: var(--success-color);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,6 +64,7 @@
     --chrome-primary: #4168ce;
     --success-color: #79cba1;
     --danger: #f18b99;
+    --danger-fill: #d0465a;
     --overlay-bg: rgb(0 0 0 / 48%);
     --shadow-popover: 0 4px 16px rgb(0 0 0 / 24%);
     --shadow-dialog: 0 16px 48px rgb(0 0 0 / 32%);
@@ -52,6 +78,7 @@
   --chrome-primary: #4168ce;
   --success-color: #79cba1;
   --danger: #f18b99;
+  --danger-fill: #d0465a;
   --overlay-bg: rgb(0 0 0 / 48%);
   --shadow-popover: 0 4px 16px rgb(0 0 0 / 24%);
   --shadow-dialog: 0 16px 48px rgb(0 0 0 / 32%);
@@ -315,6 +342,27 @@
   border-color: color-mix(in srgb, var(--chrome-primary) 80%, #000);
   background: color-mix(in srgb, var(--chrome-primary) 80%, #000);
   transition-duration: 0s;
+}
+
+/* A destructive confirm (app-dialog's `danger`): the primary in the
+   danger fill, not the blue that says "go ahead". The fill is its own
+   token: the dark palette's pale --danger carries no white text. */
+.close-prompt-buttons button.close-prompt-primary.app-dialog-danger {
+  border-color: var(--danger-fill);
+  background: var(--danger-fill);
+  color: #fff;
+}
+
+.close-prompt-buttons
+  button.close-prompt-primary.app-dialog-danger:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--danger-fill) 86%, #000);
+  background: color-mix(in srgb, var(--danger-fill) 86%, #000);
+}
+
+.close-prompt-buttons
+  button.close-prompt-primary.app-dialog-danger:not(:disabled):active {
+  border-color: color-mix(in srgb, var(--danger-fill) 80%, #000);
+  background: color-mix(in srgb, var(--danger-fill) 80%, #000);
 }
 
 /* Icon buttons: no frame, a muted glyph that darkens on hover. Compact
@@ -666,4 +714,32 @@ input[type="checkbox"].ui-check:checked {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Materials: translucent, blurred surfaces only where content scrolls
+   under chrome - menus, popovers, the find bar, the phone's keyboard
+   toolbar and Quick Ask dock - and only on macOS and iOS. WebKitGTK
+   composites a blur on the main thread (slower still without DMABUF), so
+   Linux keeps opaque surfaces, and so does Windows to match the title
+   bar. Never on a large region: scrims only dim. The doubled :root
+   outranks the phone layout's opaque fills. */
+@supports (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  :root:root:is([data-platform="macos"], [data-platform="ios"])
+    :is(
+      .app-menu-list,
+      .ui-select-menu,
+      .context-menu,
+      .project-bar-menu,
+      .quick-ask-split-menu,
+      .grammar-popover,
+      .find-replace-bar,
+      .keyboard-toolbar,
+      .quick-ask-dock .inline-chat-shell
+    ) {
+    background: color-mix(in srgb, var(--page-bg, var(--bg)) 72%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
 }

@@ -14,7 +14,7 @@
   border: none;
   background: none;
   color: var(--editor-accent);
-  font-size: 17px;
+  font-size: var(--ios-body);
 }
 
 @media (max-width: 760px) {
@@ -58,7 +58,7 @@
     justify-content: center;
     min-height: 44px;
     padding: 0 16px;
-    font-size: 17px;
+    font-size: var(--ios-body);
     font-weight: 600;
   }
 
@@ -100,7 +100,7 @@
   }
 
   :root[data-window-chrome="mobile"] .settings-group-title {
-    font-size: 13px;
+    font-size: var(--ios-footnote);
   }
 
   :root[data-window-chrome="mobile"] .settings-row {
@@ -123,11 +123,11 @@
       .settings-disclosure-summary,
       .settings-advanced > summary
     ) {
-    font-size: 16px;
+    font-size: var(--ios-callout);
   }
 
   :root[data-window-chrome="mobile"] .settings-row-hint {
-    font-size: 13px;
+    font-size: var(--ios-footnote);
   }
 
   /* Controls a finger can hit: 36pt tall, in the body's 15pt type. */
@@ -135,7 +135,7 @@
     .settings-panel
     :is(.settings-select, button.settings-inline-button, .appearance-option) {
     min-height: 36px;
-    font-size: 15px;
+    font-size: var(--ios-subhead);
   }
 
   /* UIKit's switch. */
@@ -146,9 +146,49 @@
     height: 31px;
   }
 
+  /* iOS's inset grouped style: white cards on a grey page (black page,
+     dark grey cards in dark mode) - not near-white cards on white, which
+     reads inverted - with hairlines a device pixel thin. */
+  :root[data-window-chrome="mobile"] .settings-panel {
+    --grouped-page: #f2f2f7;
+    --grouped-card: #fff;
+    background: var(--grouped-page);
+  }
+
+  :root[data-window-chrome="mobile"][data-theme="dark"] .settings-panel {
+    --grouped-page: #000;
+    --grouped-card: #1c1c1e;
+  }
+
+  :root[data-window-chrome="mobile"] .settings-nav {
+    background: var(--grouped-page);
+  }
+
+  :root[data-window-chrome="mobile"]
+    :is(.settings-group-body, .settings-advanced) {
+    border: none;
+    background: var(--grouped-card);
+  }
+
   /* No hover on glass: a tapped tab or row stays as it was. */
   :root[data-window-chrome="mobile"]
     .settings-nav-item:hover:not(.settings-nav-item-active) {
     background: transparent;
+  }
+}
+
+@media (max-width: 760px) and (prefers-color-scheme: dark) {
+  :root[data-window-chrome="mobile"]:not([data-theme="light"]) .settings-panel {
+    --grouped-page: #000;
+    --grouped-card: #1c1c1e;
+  }
+}
+
+/* A hairline is one device pixel where the screen has two or more per
+   point, as iOS draws its separators. */
+@media (max-width: 760px) and (min-resolution: 2dppx) {
+  :root[data-window-chrome="mobile"] .settings-group-body > * + *,
+  :root[data-window-chrome="mobile"] .provider-picker > * + * {
+    border-top-width: 0.5px;
   }
 }

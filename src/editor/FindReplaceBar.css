@@ -83,6 +83,8 @@
   color: var(--editor-muted);
   font-size: var(--text-xs);
   white-space: nowrap;
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
 }
 
 .find-replace-count-error {
@@ -130,7 +132,7 @@
   padding: 0 !important;
   border: none !important;
   border-radius: var(--radius-control) !important;
-  font-size: 10px !important;
+  font-size: var(--text-xs) !important;
   line-height: 1;
   color: var(--editor-muted);
 }
