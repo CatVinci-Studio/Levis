@@ -44,8 +44,11 @@ shown:
 - **Reinstall / uninstall-first** - see below.
 
 The wording of all four is NSIS's own, which means it follows the operating
-system's language, not the app's. English, Simplified Chinese and Japanese
-are bundled (`nsis.languages`), matching the three the app itself offers.
+system's language, not the app's. Bundled (`nsis.languages`) are the ten
+the app itself offers: English, Simplified and Traditional Chinese, Japanese,
+Korean, Spanish, French, German, Russian and Portuguese (NSIS's Brazilian
+`PortugueseBR`; NSIS falls back to it for any Portuguese system, as it does
+to Spanish for every Spanish region).
 
 ## Upgrading
 

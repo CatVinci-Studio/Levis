@@ -24,7 +24,18 @@
         "headerImage": "installer/header.bmp",
         "sidebarImage": "installer/sidebar.bmp",
         "installMode": "currentUser",
-        "languages": ["English", "SimpChinese", "Japanese"],
+        "languages": [
+          "English",
+          "SimpChinese",
+          "TradChinese",
+          "Japanese",
+          "Korean",
+          "Spanish",
+          "French",
+          "German",
+          "Russian",
+          "PortugueseBR"
+        ],
         "compression": "lzma"
       }
     }

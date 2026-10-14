@@ -12,6 +12,23 @@
   <!-- Only standard encryption (HTTPS): exempt from export documentation. -->
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
+  <!-- The UI languages (src/i18n/langs.ts), as iOS names them. The app picks
+       its own language in Settings; this lets what the system draws - the
+       share sheet, the Files picker, the Copy/Paste menu - follow the
+       device's language instead of staying English. -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>zh-Hans</string>
+    <string>zh-Hant</string>
+    <string>ja</string>
+    <string>ko</string>
+    <string>es</string>
+    <string>fr</string>
+    <string>de</string>
+    <string>ru</string>
+    <string>pt-BR</string>
+  </array>
   <key>UIFileSharingEnabled</key>
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>

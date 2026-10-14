@@ -289,6 +289,10 @@ export const menuIpc = {
   /** Backs File > Open Recent, whose native submenu the app-drawn menu
    *  cannot read. */
   listRecentFiles: () => desktopQuery<string[]>("list_recent_files", []),
+  /** Rebuilds the native (macOS) menu bar with these labels, keyed as
+   *  ui/app-menu-model.ts's nativeMenuLabels keys them. */
+  setMenuLabels: (labels: Record<string, string>) =>
+    desktopQuery<void>("set_menu_labels", undefined, { labels }),
 };
 
 // ---------------------------------------------------------------------------
