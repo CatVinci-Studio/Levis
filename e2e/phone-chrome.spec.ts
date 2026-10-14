@@ -155,3 +155,33 @@ test("the menu opens over the find bar", async ({ page }) => {
   );
   expect(hit).toBe("Documents");
 });
+
+test("a full-screen page covers the find bar but not its own alerts", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await menuItem(page, "Find & Replace…");
+  await menuItem(page, "Settings…");
+  const hitAt = (x: number, y: number) =>
+    page.evaluate(
+      ({ x, y }) =>
+        document
+          .elementFromPoint(x, y)
+          ?.closest(".settings-panel, .find-replace-bar")?.className ?? null,
+      { x, y },
+    );
+  // Where the find bar sits, under the title row: Settings is on top.
+  expect(await hitAt(215, 66)).toContain("settings-panel");
+  // A clear asks first, and the question is over Settings, not behind it.
+  await page.getByRole("button", { name: "Privacy" }).tap();
+  await page.getByRole("button", { name: "Clear" }).first().tap();
+  const alert = page.getByRole("dialog", { name: "Clear Chat History" });
+  await expect(alert).toBeVisible();
+  const box = (await alert.boundingBox())!;
+  expect(
+    await page.evaluate(
+      ({ x, y }) => !!document.elementFromPoint(x, y)?.closest(".app-dialog"),
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    ),
+  ).toBe(true);
+});
