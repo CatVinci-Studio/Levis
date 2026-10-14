@@ -181,9 +181,6 @@ function ProviderModelRow({
   return (
     <SettingRow
       label={label}
-      // The writing model sits under its two features, but which features
-      // use it is not obvious from "writing" alone.
-      hint={kind === "writing" ? t.writingModelHint : undefined}
       error={currentMissing ? t.modelMissingHint : null}
     >
       {presetOptions.length > 0 ? (

@@ -287,9 +287,9 @@ export function SettingsPanel({
           </SettingsGroup>
 
           <SettingsGroup title={t.writingFeaturesLabel}>
+            <WritingModelSection t={t} />
             <ToggleRow
               label={t.aiCompletionLabel}
-              hint={isIOSApp ? t.aiCompletionHintTouch : t.aiCompletionHint}
               checked={settings.enableCompletion}
               onChange={(v) => setSettings({ enableCompletion: v })}
             />
@@ -338,7 +338,6 @@ export function SettingsPanel({
                 </Select>
               </SettingRow>
             )}
-            <WritingModelSection t={t} />
           </SettingsGroup>
 
           <SettingsGroup title={t.aiAskLabel}>

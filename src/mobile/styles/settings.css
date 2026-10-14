@@ -46,19 +46,20 @@
     font-size: 17px;
   }
 
-  /* Four tabs across one screen, English's "Editor & Appearance" included:
-     the tightest spacing that still fits them on a 375pt iPhone. */
+  /* Four tabs across one screen, English's "Editor & Appearance" and
+     "Levis AI" included: the tightest spacing that still fits them on a
+     375pt iPhone. */
   :root[data-window-chrome="mobile"] .settings-nav {
-    padding: 8px 12px;
-    gap: 4px;
+    padding: 8px 8px;
+    gap: 2px;
     border-bottom: 1px solid var(--border-color);
   }
 
   :root[data-window-chrome="mobile"] .settings-nav-item {
     min-height: 36px;
-    padding: 0 10px;
+    padding: 0 8px;
     border-radius: var(--radius-pill);
-    font-size: 15px;
+    font-size: 14px;
   }
 
   /* The tab says which category this is; no second title under it. */
