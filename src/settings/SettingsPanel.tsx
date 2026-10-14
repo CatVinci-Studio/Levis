@@ -59,8 +59,7 @@ interface SettingsPanelProps {
   viewChecks?: Pick<MenuChecks, "sourceMode" | "zen">;
 }
 
-export type Category =
-  "general" | "editor" | "ai" | "agent" | "shortcuts" | "privacy";
+export type Category = "general" | "editor" | "ai" | "shortcuts" | "privacy";
 
 function SettingsGroup({
   title,
@@ -98,7 +97,9 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
-  const modal = useModalDialog(onClose);
+  // Closing Settings on a phone leaves the keyboard down: the user is
+  // going back to the page, not necessarily to typing.
+  const modal = useModalDialog(onClose, true, undefined, false);
 
   // The guides open as documents, behind this panel - so it gives way.
   const openHelp = (doc: "markdown" | "agent") => {
@@ -110,7 +111,6 @@ export function SettingsPanel({
     { id: "general", label: t.navGeneral },
     { id: "editor", label: t.navEditor },
     { id: "ai", label: t.navAi },
-    { id: "agent", label: t.navAgent },
     // A phone has no keyboard to bind shortcuts on.
     ...(isIOSApp ? [] : [{ id: "shortcuts" as const, label: t.navShortcuts }]),
     { id: "privacy", label: t.navPrivacy },
@@ -241,6 +241,9 @@ export function SettingsPanel({
         </>
       )}
 
+      {/* One page for the AI, connect first and then the features, each
+          model beside the feature it drives. The model list is fetched
+          once, under Connection, for both pickers. */}
       {c === "ai" && (
         <>
           <SettingsGroup title={t.aiAccountLabel}>
@@ -280,14 +283,9 @@ export function SettingsPanel({
                 />
               </div>
             )}
-          </SettingsGroup>
-          {/* Both pickers together, under one fetch of the provider's
-              list - they used to sit on two pages, each with its own. */}
-          <SettingsGroup title={t.settingsModelsGroup}>
-            <WritingModelSection t={t} />
-            <AgentModelSection t={t} />
             <ModelListRow t={t} />
           </SettingsGroup>
+
           <SettingsGroup title={t.writingFeaturesLabel}>
             <ToggleRow
               label={t.aiCompletionLabel}
@@ -340,20 +338,18 @@ export function SettingsPanel({
                 </Select>
               </SettingRow>
             )}
+            <WritingModelSection t={t} />
           </SettingsGroup>
-        </>
-      )}
 
-      {c === "agent" && (
-        <>
-          <SettingsGroup title={t.navAgent}>
+          <SettingsGroup title={t.aiAskLabel}>
             <ToggleRow
-              label={t.aiAskLabel}
+              label={t.aiAskToggleLabel}
               checked={settings.enableAskAi}
               onChange={(v) => setSettings({ enableAskAi: v })}
             />
             {settings.enableAskAi && (
               <>
+                <AgentModelSection t={t} />
                 <SettingRow label={t.agentDefaultModeLabel}>
                   <Select
                     className="settings-select"
@@ -372,6 +368,7 @@ export function SettingsPanel({
                 </SettingRow>
                 <ToggleRow
                   label={t.webSearchLabel}
+                  hint={t.webSearchHint}
                   checked={settings.enableWebSearch}
                   onChange={(v) => setSettings({ enableWebSearch: v })}
                 />
@@ -379,6 +376,8 @@ export function SettingsPanel({
             )}
           </SettingsGroup>
 
+          {/* Only the chat reads the workspace, so with it off there is
+              nothing here to set. */}
           {settings.enableAskAi && (
             <>
               <SettingsGroup title={t.agentPersonalizationGroupLabel}>

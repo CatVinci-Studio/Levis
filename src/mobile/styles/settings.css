@@ -46,15 +46,17 @@
     font-size: 17px;
   }
 
+  /* Four tabs across one screen, English's "Editor & Appearance" included:
+     the tightest spacing that still fits them on a 375pt iPhone. */
   :root[data-window-chrome="mobile"] .settings-nav {
     padding: 8px 12px;
-    gap: 6px;
+    gap: 4px;
     border-bottom: 1px solid var(--border-color);
   }
 
   :root[data-window-chrome="mobile"] .settings-nav-item {
     min-height: 36px;
-    padding: 0 14px;
+    padding: 0 10px;
     border-radius: var(--radius-pill);
     font-size: 15px;
   }

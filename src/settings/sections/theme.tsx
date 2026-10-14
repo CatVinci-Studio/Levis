@@ -102,6 +102,11 @@ export function ThemeSection({ t }: { t: Strings }) {
   const latest = useLatest(settings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Open when there is CSS to show, judged once: following the text would
+  // fold the box (and take the focus out of it) the moment it is emptied.
+  const [customCssOpen, setCustomCssOpen] = useState(
+    () => !!settings.customCss?.trim(),
+  );
 
   // One step: pick a CSS file and it's imported and selected right away,
   // named after the file. (A dark variant can still exist in the data model
@@ -242,7 +247,8 @@ export function ThemeSection({ t }: { t: Strings }) {
       {/* A tweak on top of the theme, folded away until wanted. */}
       <details
         className="settings-disclosure"
-        open={!!settings.customCss?.trim()}
+        open={customCssOpen}
+        onToggle={(e) => setCustomCssOpen(e.currentTarget.open)}
       >
         <summary className="settings-disclosure-summary">
           {t.customCssLabel}
