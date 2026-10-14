@@ -393,12 +393,12 @@ fn check_one(case: &CompletionCase, raw: &str, text: &str, checks: &mut Checks) 
     checks.expect("no meta-commentary", meta.is_none(), || {
         format!("contains {:?}", meta.unwrap_or_default())
     });
+    // A trailing line break counts: Tab inserts it too ("率\n\n" in a table
+    // cell passed while this check trimmed it).
     if case.block != "paragraph" || !case.long {
-        checks.expect(
-            "no line break",
-            !text.trim_end().contains('\n') || case.code,
-            || "line break in output".into(),
-        );
+        checks.expect("no line break", !text.contains('\n') || case.code, || {
+            "line break in output".into()
+        });
     }
     if case.code {
         let prose =

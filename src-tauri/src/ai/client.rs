@@ -142,7 +142,7 @@ The input marks the insertion point: <text-before-cursor> ends exactly at the cu
 Write ONLY the text to insert at the cursor:
 - When there is a <word-at-cursor>, start with that word written out in full - the same letters, finished if they are only its beginning - and go on from there; the letters already typed are removed before the writer sees your text. Otherwise start right at the last character.
 - Move the text forward with what the text already supports: finish the thought, draw the consequence it sets up, give the next step or point it promises. Never invent facts the writer hasn't given - figures, names, dates, times, findings, causes, quotes, product claims: where the next words would need one, stay general (\"move the meeting to another day\", not \"to next Friday\") or stop. In an empty paragraph after a heading or a finished section, open or connect with what the document already says. Never restate, summarize or paraphrase what is already written. Skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
-- Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese.
+- Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese. After a finished sentence, what you write is a new sentence and starts like one, with a capital letter where the script has them.
 - Stay inside the block: in a list item write only the rest of that one item, in a heading only the heading, in a table cell only the cell, in a code block only code in that language and indentation. Never add a line break (except inside code), a list marker or markdown syntax such as backticks or asterisks - outside code, write plain words.
 - Where after-text exists, lead into it without repeating any of it.
 - If nothing worthwhile can be added, return nothing.
@@ -445,12 +445,14 @@ fn used_as_whole_word(text: &str, word: &str) -> bool {
 
 /// Removes what never belongs in a suggestion, before it is fitted: tags
 /// that aren't in the document (Haiku with thinking off once ended a word
-/// with "</reasoning_effort>"); outside code, leading line breaks and the
-/// backticks a plain-text context doesn't use (Tab inserts plain text, so
-/// "`max_retries`" would land as literal backticks). A reply that still runs
-/// over several lines outside code is dropped whole: the prompt rules line
-/// breaks out there, and in the live eval every such reply was the model's
-/// reasoning about the prompt or a second block - an empty suggestion costs
+/// with "</reasoning_effort>"); outside code, line breaks at either end -
+/// including those a removed tag leaves behind ("率\n\n<br>" in a table
+/// cell, round-2 integration) - and the backticks a plain-text context
+/// doesn't use (Tab inserts plain text, so "`max_retries`" would land as
+/// literal backticks). A reply that still runs over several lines outside
+/// code is dropped whole: the prompt rules line breaks out there, and in
+/// the live eval every such reply was the model's reasoning about the
+/// prompt or a second block - an empty suggestion costs
 /// one pause, garbage costs a Tab and a cleanup.
 fn clean_reply(before: &str, after: &str, text: &str, in_code: bool) -> String {
     let mut out = String::with_capacity(text.len());
@@ -483,8 +485,8 @@ fn clean_reply(before: &str, after: &str, text: &str, in_code: bool) -> String {
     if in_code {
         return out;
     }
-    let out = out.trim_start_matches(['\n', '\r']);
-    if out.trim_end().contains('\n') {
+    let out = out.trim_matches(['\n', '\r']);
+    if out.contains('\n') {
         return String::new();
     }
     if before.contains('`') || after.contains('`') {
@@ -501,7 +503,11 @@ fn clean_reply(before: &str, after: &str, text: &str, in_code: bool) -> String {
 /// whose indentation must survive - while after a separator, newlines only
 /// end the separator's line: each later candidate gets exactly one, so the
 /// frontend can split there and keep the joining space that follows it.
+/// Newlines a candidate ends with only lead into the next separator, so
+/// outside code the last one keeps none: the as-you-type path shows the
+/// reply as it is, and "率\n" in a table cell would insert the line break.
 pub(crate) fn finish_completion(before: &str, after: &str, raw: &str, in_code: bool) -> String {
+    let parts = raw.split(CANDIDATE_SEPARATOR).count();
     raw.split(CANDIDATE_SEPARATOR)
         .enumerate()
         .map(|(i, part)| {
@@ -511,7 +517,11 @@ pub(crate) fn finish_completion(before: &str, after: &str, raw: &str, in_code: b
                 ("\n", part.trim_start_matches('\n'))
             };
             let body = part.trim_end_matches('\n');
-            let tail = &part[body.len()..];
+            let tail = if i + 1 == parts && !in_code {
+                ""
+            } else {
+                &part[body.len()..]
+            };
             let body = clean_reply(before, after, body, in_code);
             if body.trim().is_empty() {
                 format!("{lead}{tail}")
@@ -606,7 +616,7 @@ const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedd
 - `issues`: one object for each change you made in `corrected`:
   - `original`: the wrong words copied verbatim from the paragraph, together with a word or two around them - enough that this exact text occurs only once in the paragraph and the fix reads naturally (\"a honest opinion\", \"高兴的跳\", \"hat uns lange warten lassen\").
   - `suggestion`: that same stretch as it reads in `corrected` (\"an honest opinion\", \"高兴地跳\"). To delete a doubled word, leave it out (\"that the the value\" -> \"that the value\").
-  - `issue`: one short sentence in the paragraph's language naming what was wrong and why (\"'honest' starts with a vowel sound\").
+  - `issue`: one short sentence in the paragraph's language and with its punctuation (full-width in Chinese and Japanese, quoting with “ ” or 「」), naming what was wrong and why (\"'honest' starts with a vowel sound\"). It names the form in `corrected` as the right one, and only that form.
   Never quote overlapping text in two objects: when two mistakes are close together, fix both in one.
 
 Be precise: change only what you are confident is wrong, never a hallucinated issue or a preference disguised as a fix. Leave alone: proper nouns, names and invented or brand words, even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens and URLs - skip those tokens themselves, but still check the words around them. When a sentence is grammatically valid but could be phrased differently, only change it under the scope rules given below - matching an ordinary reader's taste is not itself a reason to report something.
@@ -775,8 +785,25 @@ fn narrow(original: &[char], suggestion: &[char]) -> Option<(usize, usize, Strin
             break;
         }
     }
+    let spaced_word = |c: char| !c.is_whitespace() && !is_unspaced_script(c);
+    // Only spacing or punctuation changes, next to a word in a spaced
+    // script - "it's" -> "its", "두번" -> "두 번", "당황 했다" -> "당황했다":
+    // the span takes the words on both sides, so the underline and the
+    // card show words, not a lone apostrophe or space with an empty or
+    // space-led suggestion (round-2 integration judges).
+    let (o, s) = mid(p, q);
+    if !o.iter().chain(s).any(|&c| is_word_char(c))
+        && ((p > 0 && is_word_char(original[p - 1]))
+            || (q > 0 && is_word_char(original[original.len() - q])))
+    {
+        while p > 0 && spaced_word(original[p - 1]) {
+            p -= 1;
+        }
+        while q > 0 && spaced_word(original[original.len() - q]) {
+            q -= 1;
+        }
+    }
     if p + q == original.len() {
-        let spaced_word = |c: char| !c.is_whitespace() && !is_unspaced_script(c);
         if q > 0 && spaced_word(original[p]) {
             // The next word.
             while q > 0 && !original[original.len() - q].is_whitespace() {
@@ -1219,6 +1246,17 @@ mod tests {
             finish_completion("Notes\n\n", "", "\nThe pilot ran", false),
             "The pilot ran"
         );
+        // So are trailing ones - also those a removed tag leaves behind -
+        // which would put a line break into a table cell.
+        assert_eq!(
+            finish_completion("指标\n\n崩溃", "", "率\n\n<br>", false),
+            "率"
+        );
+        assert_eq!(finish_completion("指标\n\n崩溃", "", "率\n", false), "率");
+        assert_eq!(
+            finish_completion("def f():", "", "\n    return 1\n", true),
+            "\n    return 1\n"
+        );
         // Backticks a plain-text context doesn't use would be inserted
         // literally.
         assert_eq!(
@@ -1346,6 +1384,33 @@ mod tests {
         assert_eq!(
             one("今天下午开会,大家讨论了", "开会,大家", "开会，大家"),
             pair(",", "，")
+        );
+        // A change of spacing or punctuation alone between letters shows
+        // the words around it.
+        assert_eq!(
+            one(
+                "The company changed it's logo.",
+                "changed it's logo",
+                "changed its logo"
+            ),
+            pair("it's", "its")
+        );
+        assert_eq!(
+            one("영수증을 두번 출력해서", "두번 출력해서", "두 번 출력해서"),
+            pair("두번", "두 번")
+        );
+        assert_eq!(
+            one("조금 당황 했다.", "당황 했다", "당황했다"),
+            pair("당황 했다", "당황했다")
+        );
+        assert_eq!(
+            one("However the plan held.", "However the", "However, the"),
+            pair("However", "However,")
+        );
+        // ...but never runs on into a script written without spaces.
+        assert_eq!(
+            one("我们用React,很方便", "React,很方便", "React，很方便"),
+            pair("React,", "React，")
         );
     }
 
