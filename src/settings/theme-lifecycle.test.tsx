@@ -13,7 +13,6 @@ import { themes } from "../ipc";
 import { applyThemeChrome } from "../utils/theme-chrome";
 vi.mock("../ipc", () => ({
   ai: { setAiProxy: vi.fn().mockResolvedValue(null) },
-  prefs: { setNewDocumentMode: vi.fn(), setRestoreSessionOnStartup: vi.fn() },
   themes: { loadThemeCss: vi.fn() },
 }));
 vi.mock("../utils/theme-chrome", () => ({

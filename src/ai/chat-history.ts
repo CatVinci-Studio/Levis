@@ -2,13 +2,14 @@ import type { AgentTurn } from "./types";
 import { userMessageBody } from "./chat/user-message";
 import { loadSettings } from "../settings/SettingsContext";
 import { createPersistedList } from "../utils/persisted-list";
+import { CHAT_HISTORY_KEY } from "../storage/legacy-import";
 
 /**
  * Persisted agent conversations, so past chats can be reopened and continued
- * (the Chats sidebar panel). Stored in localStorage: small, synchronous, and
- * survives restarts; capped so it can't grow unbounded. A persisted list
- * (utils/persisted-list.ts) so the sidebar list re-renders live as
- * conversations are saved or deleted, in every window.
+ * (the Chats sidebar panel). Kept by Rust in chat-history.json and capped
+ * so it can't grow unbounded. A persisted list (utils/persisted-list.ts) so
+ * the sidebar list re-renders live as conversations are saved or deleted,
+ * in every window.
  */
 export interface ChatHistoryEntry {
   id: string;
@@ -20,12 +21,13 @@ export interface ChatHistoryEntry {
   turns: AgentTurn[];
 }
 
-const STORAGE_KEY = "levis-chat-history";
 const MAX_ENTRIES = 60;
 const MAX_TITLE_CHARS = 60;
 
-const history = createPersistedList<ChatHistoryEntry>(STORAGE_KEY, {
+const history = createPersistedList<ChatHistoryEntry>(CHAT_HISTORY_KEY, {
+  kind: "chat",
   max: MAX_ENTRIES,
+  keyOf: (entry) => entry.id,
   isEntry: (e): e is ChatHistoryEntry => {
     const entry = e as ChatHistoryEntry;
     return (
@@ -46,15 +48,15 @@ export function useChatHistory(): ChatHistoryEntry[] {
  *  A no-op while Settings > Privacy > Chat History is off. */
 export function saveConversation(entry: ChatHistoryEntry) {
   if (!loadSettings().enableChatHistory) return;
-  history.set([entry, ...history.get().filter((e) => e.id !== entry.id)]);
+  history.upsert(entry);
 }
 
 export function deleteConversation(id: string) {
-  history.set(history.get().filter((e) => e.id !== id));
+  history.remove(id);
 }
 
 export function clearAllConversations() {
-  history.set([]);
+  history.clear();
 }
 
 /**

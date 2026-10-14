@@ -1,13 +1,14 @@
 import { loadSettings } from "../settings/SettingsContext";
 import { createPersistedList } from "./persisted-list";
+import { CLIPBOARD_HISTORY_KEY } from "../storage/legacy-import";
 
 /**
  * Rolling history of text that moved through the clipboard inside the
  * editor - both directions (copies/cuts made here and pastes arriving
  * here). Capped at the most recent 30 distinct entries; re-encountering a
- * known text just bumps it to the top. Persisted in localStorage so the
- * history survives restarts, and shared across windows (see
- * persisted-list.ts).
+ * known text just bumps it to the top. Kept by Rust in
+ * clipboard-history.json so the history survives restarts, and shared
+ * across windows (see persisted-list.ts).
  *
  * Only clipboard traffic through the DOCUMENT is recorded - see
  * shouldCaptureFor: settings inputs (e.g. API keys) must never end up in a
@@ -19,12 +20,13 @@ export interface ClipboardEntry {
   at: number;
 }
 
-const STORAGE_KEY = "levis-clipboard-history";
 const MAX_ENTRIES = 30;
 const MAX_TEXT_LENGTH = 50_000;
 
-const history = createPersistedList<ClipboardEntry>(STORAGE_KEY, {
+const history = createPersistedList<ClipboardEntry>(CLIPBOARD_HISTORY_KEY, {
+  kind: "clipboard",
   max: MAX_ENTRIES,
+  keyOf: (entry) => entry.text,
   isEntry: (e): e is ClipboardEntry =>
     typeof (e as ClipboardEntry)?.text === "string" &&
     typeof (e as ClipboardEntry)?.at === "number",
@@ -34,14 +36,11 @@ export function recordClipboardEntry(text: string): void {
   if (!loadSettings().enableClipboardHistory) return;
   const trimmed = text.trim();
   if (!trimmed || text.length > MAX_TEXT_LENGTH) return;
-  history.set([
-    { text, at: Date.now() },
-    ...history.get().filter((e) => e.text !== text),
-  ]);
+  history.upsert({ text, at: Date.now() });
 }
 
 export function clearClipboardHistory(): void {
-  history.set([]);
+  history.clear();
 }
 
 export function useClipboardHistory(): ClipboardEntry[] {

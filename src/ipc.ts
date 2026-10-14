@@ -161,17 +161,46 @@ export const session = {
 };
 
 // ---------------------------------------------------------------------------
-// prefs (src-tauri/src/commands/prefs.rs) - the two frontend settings
-// mirrored into Rust because they're needed before any webview exists.
+// storage (src-tauri/src/settings.rs) - settings, UI state and the two
+// histories, held by Rust in plain JSON files (docs/STORAGE.md). Only called
+// when Rust booted this window (src/storage/boot.ts); without that, the
+// stores fall back to localStorage.
 // ---------------------------------------------------------------------------
 
-export const prefs = {
-  setNewDocumentMode: (mode: string) =>
-    desktopQuery<void>("set_new_document_mode", undefined, { mode }),
-  setRestoreSessionOnStartup: (enabled: boolean) =>
-    desktopQuery<void>("set_restore_session_on_startup", undefined, {
-      enabled,
+export interface StoredSnapshot {
+  value: Record<string, unknown>;
+  rev: number;
+}
+
+export type HistoryKind = "chat" | "clipboard";
+
+/** What one window read from localStorage at the first launch after the
+ *  move, handed over once (see settings_import_legacy). */
+export interface LegacyStorage {
+  settings: Record<string, unknown>;
+  uiState: Record<string, unknown>;
+  chatHistory: unknown[] | null;
+  clipboardHistory: unknown[] | null;
+}
+
+export const storage = {
+  settingsGet: () => call<StoredSnapshot>("settings_get"),
+  /** Top-level fields only; resolves to the new revision. */
+  settingsPatch: (patch: Record<string, unknown>) =>
+    call<number>("settings_patch", { patch }),
+  settingsImportLegacy: (payload: LegacyStorage) =>
+    call<StoredSnapshot & { accepted: boolean }>("settings_import_legacy", {
+      payload,
     }),
+  uiStateGet: () => call<Record<string, unknown>>("ui_state_get"),
+  uiStatePatch: (patch: Record<string, unknown>) =>
+    call<void>("ui_state_patch", { patch }),
+  historyList: (kind: HistoryKind) => call<unknown[]>("history_list", { kind }),
+  historyUpsert: (kind: HistoryKind, entry: unknown) =>
+    call<void>("history_upsert", { kind, entry }),
+  historyRemove: (kind: HistoryKind, key: string) =>
+    call<void>("history_remove", { kind, key }),
+  historyClear: (kind: HistoryKind) => call<void>("history_clear", { kind }),
 };
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -13,9 +12,12 @@ import {
   type Strings,
   type StringKey,
 } from "../i18n/strings";
-import { ai, prefs, themes } from "../ipc";
-import { canUseWindows } from "../platform/capabilities";
+import { ai, storage, themes } from "../ipc";
+import { readBoot, readLocalJson } from "../storage/boot";
+import { importLegacyStorage } from "../storage/legacy-import";
+import { listenToThisWindow } from "../utils/tauri-events";
 import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
+import { SettingsSync, type Raw } from "./settings-sync";
 import { adaptTyporaCss } from "./typora-compat";
 
 /// Light/dark, orthogonal to which content theme is selected: `themeId`
@@ -110,7 +112,7 @@ export type GrammarStrictness = "typos" | "standard" | "strict";
 /// A user-imported (Typora-style) theme. The actual CSS lives on disk under
 /// the app's theme directory (see ../utils/theme-import and the Rust
 /// save_theme_css/load_theme_css commands) - only small metadata is kept
-/// here in localStorage.
+/// here in the settings.
 export interface UserThemeMeta {
   id: string;
   name: string;
@@ -177,9 +179,8 @@ export interface Settings {
   /// reference material that doesn't live next to the draft.
   agentWorkspaceRoot: string;
   /// Proxy all AI provider requests route through, as type + host + port
-  /// ("none" or an empty host means direct connection). Mirrored to Rust as
-  /// a URL (see the effect below) because requests are sent from Rust, which
-  /// can't read localStorage.
+  /// ("none" or an empty host means direct connection). Handed to Rust as a
+  /// URL (see the effect below), which is what sends the requests.
   proxyType: ProxyType;
   proxyHost: string;
   proxyPort: string;
@@ -199,15 +200,15 @@ export interface Settings {
   userThemes: UserThemeMeta[];
   /// "window" (default): opening another document spawns a new OS window,
   /// unchanged from the original behavior. "tab": opening another document
-  /// opens a tab in the current window instead. Mirrored to Rust (see the
-  /// effect below) because window-vs-tab has to be decided in Rust, before
-  /// any webview - let alone its localStorage - exists.
+  /// opens a tab in the current window instead. Read by Rust straight from
+  /// the settings file (commands/prefs.rs), since window-vs-tab is decided
+  /// there, often before any webview exists.
   newDocumentMode: NewDocumentMode;
   /// Whether startup reopens last session's documents (default) or starts
-  /// blank. Mirrored to Rust (see the effect below) because the decision is
-  /// made in setup(), before any webview - let alone its localStorage -
-  /// exists; this is also what lets an app-update relaunch (which starts
-  /// with no file arguments at all) reopen whatever was open before it.
+  /// blank. Read by Rust straight from the settings file, since the decision
+  /// is made in setup() before any webview exists; this is also what lets an
+  /// app-update relaunch (which starts with no file arguments at all) reopen
+  /// whatever was open before it.
   restoreSessionOnStartup: boolean;
   /** Suggest an H1 or first content line as a draft's Save As filename. */
   autoSuggestFilename: boolean;
@@ -304,25 +305,35 @@ function migrateAgentModels(
   return models;
 }
 
-/** Exported so small standalone stores (chat-history.ts, clipboard-history.ts)
- *  can read a privacy toggle's current value without depending on React
- *  context - they're plain localStorage-backed modules, not components. */
-export function loadSettings(): Settings {
+const LANGS = Object.keys(strings) as Lang[];
+
+/** The `lang` attribute for the UI language, which the CSS `:lang()` font
+ *  stacks key off (Chinese needs its region to pick Simplified glyphs).
+ *  Kept in step with the boot script (src-tauri/src/boot.js). */
+export function htmlLang(language: Lang): string {
+  return language === "zh" ? "zh-CN" : language;
+}
+
+function guessLanguage(): Lang {
+  const locale =
+    typeof navigator === "undefined" ? "" : navigator.language.toLowerCase();
+  return locale.startsWith("zh") ? "zh" : locale.startsWith("ja") ? "ja" : "en";
+}
+
+function isRecord(value: unknown): value is Raw {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Stored settings -> a complete, valid `Settings`: defaults for what's
+ * missing, and the migrations of older shapes. Nothing stored at all (null,
+ * or an empty object) is a brand-new installation; a stored object that is
+ * merely missing a field is an existing one from before that field.
+ */
+export function normaliseSettings(parsed: Raw | null): Settings {
+  if (!parsed || Object.keys(parsed).length === 0)
+    return { ...DEFAULT_SETTINGS, language: guessLanguage() };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const locale =
-        typeof navigator === "undefined"
-          ? ""
-          : navigator.language.toLowerCase();
-      const language: Lang = locale.startsWith("zh")
-        ? "zh"
-        : locale.startsWith("ja")
-          ? "ja"
-          : "en";
-      return { ...DEFAULT_SETTINGS, language };
-    }
-    const parsed = JSON.parse(raw);
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
@@ -339,26 +350,229 @@ export function loadSettings(): Settings {
           ? parsed.languageChosen
           : true,
       aiProvider:
-        LEGACY_PROVIDER_IDS[parsed.aiProvider] ??
-        parsed.aiProvider ??
+        LEGACY_PROVIDER_IDS[parsed.aiProvider as string] ??
+        (parsed.aiProvider as string | undefined) ??
         DEFAULT_SETTINGS.aiProvider,
       agentModels: migrateAgentModels(parsed),
       writingModels: {
         ...(parsed.writingModels as Record<string, string> | undefined),
       },
       agentDefaultMode: ["ask", "edit", "plan"].includes(
-        parsed.agentDefaultMode,
+        parsed.agentDefaultMode as string,
       )
         ? (parsed.agentDefaultMode as AgentMode)
         : DEFAULT_SETTINGS.agentDefaultMode,
-      shortcuts: { ...DEFAULT_SETTINGS.shortcuts, ...(parsed.shortcuts ?? {}) },
-      theme: THEME_MODES.includes(parsed.theme)
+      shortcuts: {
+        ...DEFAULT_SETTINGS.shortcuts,
+        ...((parsed.shortcuts as Partial<Shortcuts> | undefined) ?? {}),
+      },
+      // An unknown language (a newer build's, a hand edit) would leave
+      // `strings[language]` undefined and take the whole UI down with it.
+      language: LANGS.includes(parsed.language as Lang)
+        ? (parsed.language as Lang)
+        : "en",
+      theme: THEME_MODES.includes(parsed.theme as ThemeMode)
         ? (parsed.theme as ThemeMode)
         : DEFAULT_SETTINGS.theme,
     };
   } catch {
     return DEFAULT_SETTINGS;
   }
+}
+
+/** The settings blob localStorage held before the move - still the store
+ *  without Rust (the browser dev shim, vitest), and what the one-time
+ *  import reads. Left in place after the import, so a downgrade to 0.9.6
+ *  still finds it. */
+function readLocalSettings(): Raw | null {
+  const parsed = readLocalJson(STORAGE_KEY);
+  return isRecord(parsed) ? parsed : null;
+}
+
+function writeLocalSettings(patch: Raw) {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...readLocalSettings(), ...patch }),
+    );
+  } catch {
+    // Storage unavailable: the change holds for this session only.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The store. With Rust behind the page (src/storage/boot.ts), the settings
+// live in settings.json, held by Rust: read here from the boot snapshot,
+// changed by sending only the fields that changed, and kept in step with
+// other windows through "settings-changed" (see settings-sync.ts for who
+// wins when). Without it, localStorage, as before the move.
+// ---------------------------------------------------------------------------
+
+/** Fields edited keystroke by keystroke: their writes to Rust wait for a
+ *  pause in the typing. Every other change goes out at once. */
+const DEBOUNCED_FIELDS = new Set<string>([
+  "customCss",
+  "proxyHost",
+  "proxyPort",
+  "imageUploadEndpoint",
+  "imageUploadUrlField",
+  "agentWorkspaceRoot",
+]);
+const DEBOUNCE_MS = 400;
+
+/** Mirrors SettingsChanged in src-tauri/src/settings.rs. */
+interface SettingsChanged {
+  rev: number;
+  patch: Raw;
+  from: string;
+}
+
+let sync: SettingsSync | null = null;
+let normalised: { raw: Raw; settings: Settings } | null = null;
+const remoteListeners = new Set<() => void>();
+let delayed = new Map<string, number>();
+let delayTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** The file-backed store, set up on first use; null without Rust. */
+function fileStore(): SettingsSync | null {
+  if (sync) return sync;
+  const boot = readBoot();
+  if (!boot) return null;
+
+  if (boot.legacyImport) {
+    // First launch since the move: Rust has nothing yet, localStorage has
+    // everything. Use it right away and hand it over; Rust answers with
+    // what it kept (another window may have got there first).
+    const legacy = normaliseSettings(readLocalSettings()) as unknown as Raw;
+    sync = new SettingsSync(legacy, boot.rev);
+    void importLegacyStorage(legacy).then((result) => {
+      if (result) adopt(result.value, result.rev);
+    });
+  } else {
+    sync = new SettingsSync(boot.settings, boot.rev);
+    if (Object.keys(boot.settings).length === 0) {
+      // Nothing stored (an unreadable settings.json was moved aside):
+      // write the fresh defaults out now, as a first launch always has, so
+      // the next launch doesn't read a half-written file as an old install.
+      send(sync.local(normaliseSettings(null) as unknown as Raw));
+    }
+    // The snapshot is from when the window was built - a reload replays an
+    // old one, and a change made meanwhile by another window was sent
+    // before this page could hear it.
+    storage
+      .settingsGet()
+      .then((live) => adopt(live.value, live.rev))
+      .catch(() => {});
+  }
+
+  void listenToThisWindow<SettingsChanged>("settings-changed", (event) => {
+    const { rev, patch, from } = event.payload;
+    if (from === boot.label || !sync) return;
+    // Zoom is each window's own (see its field comment): saved for the
+    // next window to open with, never pushed into ones already open.
+    const shared = { ...patch };
+    delete shared.zoom;
+    if (sync.remote(shared, rev)) notifyRemote();
+  });
+  // Typing that hasn't paused yet when the window goes away.
+  window.addEventListener("pagehide", flushDelayed);
+  return sync;
+}
+
+/** Adopts a full snapshot from Rust, keeping this window's zoom. */
+function adopt(value: Raw, rev: number) {
+  if (!sync) return;
+  const next = { ...value };
+  if (sync.raw.zoom !== undefined) next.zoom = sync.raw.zoom;
+  if (sync.snapshot(next, rev)) notifyRemote();
+}
+
+function notifyRemote() {
+  for (const fn of remoteListeners) fn();
+}
+
+function send(ticket: Map<string, number>) {
+  const store = sync;
+  if (!store) return;
+  const patch: Raw = {};
+  for (const key of ticket.keys()) patch[key] = store.raw[key];
+  storage.settingsPatch(patch).then(
+    (rev) => store.confirm(ticket, rev),
+    () => store.confirm(ticket),
+  );
+}
+
+function flushDelayed() {
+  clearTimeout(delayTimer);
+  if (delayed.size === 0) return;
+  const ticket = delayed;
+  delayed = new Map();
+  send(ticket);
+}
+
+/** Saves the fields in `patch` that differ from what's stored. */
+function persist(patch: Partial<Settings>) {
+  const store = fileStore();
+  if (!store) {
+    writeLocalSettings(patch);
+    return;
+  }
+  // A field not stored at all reads as its default, so setting it to the
+  // default changes nothing either.
+  const current = loadSettings() as unknown as Raw;
+  const changed: Raw = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (JSON.stringify(current[key]) !== JSON.stringify(value))
+      changed[key] = value;
+  }
+  if (Object.keys(changed).length === 0) return;
+  const now = new Map<string, number>();
+  for (const [key, seq] of store.local(changed)) {
+    if (DEBOUNCED_FIELDS.has(key)) delayed.set(key, seq);
+    else now.set(key, seq);
+  }
+  if (now.size > 0) send(now);
+  if (delayed.size > 0) {
+    clearTimeout(delayTimer);
+    delayTimer = setTimeout(flushDelayed, DEBOUNCE_MS);
+  }
+}
+
+/** Calls `fn` whenever another window (or a re-read) changes the settings.
+ *  Returns the unsubscribe. */
+function subscribeRemote(fn: () => void): () => void {
+  if (fileStore()) {
+    remoteListeners.add(fn);
+    return () => remoteListeners.delete(fn);
+  }
+  // Fallback: another window's write to the same localStorage key.
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY && e.newValue !== null) fn();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
+}
+
+/** The current settings, outside React - exported so small standalone
+ *  stores (chat-history.ts, clipboard-history.ts) can read a privacy
+ *  toggle's current value without depending on context. Includes this
+ *  window's latest changes, whether or not they've reached Rust yet. */
+export function loadSettings(): Settings {
+  const store = fileStore();
+  // The fallback re-reads every time: other tabs write it too.
+  if (!store) return normaliseSettings(readLocalSettings());
+  if (normalised?.raw !== store.raw)
+    normalised = { raw: store.raw, settings: normaliseSettings(store.raw) };
+  return normalised.settings;
+}
+
+/** Forgets the store, for tests that install a different boot snapshot. */
+export function resetSettingsStoreForTests(): void {
+  sync = null;
+  normalised = null;
+  remoteListeners.clear();
+  clearTimeout(delayTimer);
+  delayed = new Map();
 }
 
 /// Optional-called: an environment without matchMedia (jsdom, an odd
@@ -377,47 +591,26 @@ function isEffectiveDark(themeMode: ThemeMode): boolean {
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(loadSettings);
-  // Set right before applying a cross-window update (see the storage
-  // listener below) so the persist effect skips re-writing localStorage for
-  // it - otherwise each window's zoom (the one field that's deliberately
-  // per-window, not synced) would bounce back and forth forever, each
-  // window's write-back triggering the other's storage listener in turn.
-  const applyingRemoteRef = useRef(false);
 
   useEffect(() => {
-    if (applyingRemoteRef.current) {
-      applyingRemoteRef.current = false;
-      return;
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [settings]);
-
-  // Cross-window sync (2.5): another window's SettingsProvider just wrote a
-  // change to the same localStorage key - pick it up here instead of this
-  // window silently going stale until its own next unrelated write
-  // overwrites the other window's change. `zoom` stays this window's own
-  // (see its field comment) - everything else adopts the incoming value.
-  useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (e.key !== STORAGE_KEY || e.newValue === null) return;
+    // Without Rust, a first launch writes the whole set of defaults out at
+    // once, as it always did: a later partial write must not make the next
+    // launch mistake this for an old installation (see normaliseSettings).
+    // With Rust, the store does the same (fileStore).
+    if (!readBoot() && readLocalSettings() === null)
+      writeLocalSettings(loadSettings() as unknown as Raw);
+    // Cross-window sync: another window changed something. `zoom` stays
+    // this window's own (see its field comment) - everything else adopts
+    // the incoming value.
+    return subscribeRemote(() => {
       const incoming = loadSettings();
-      applyingRemoteRef.current = true;
       setSettingsState((prev) => ({ ...incoming, zoom: prev.zoom }));
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    });
   }, []);
 
-  // Mirrors for Rust's window/session startup (prefs.rs) - desktop only.
   useEffect(() => {
-    if (!canUseWindows) return;
-    void prefs.setNewDocumentMode(settings.newDocumentMode);
-  }, [settings.newDocumentMode]);
-
-  useEffect(() => {
-    if (!canUseWindows) return;
-    void prefs.setRestoreSessionOnStartup(settings.restoreSessionOnStartup);
-  }, [settings.restoreSessionOnStartup]);
+    document.documentElement.lang = htmlLang(settings.language);
+  }, [settings.language]);
 
   // An unparseable proxy is rejected by the backend (and requests fall back
   // to a direct connection), so a half-typed host while editing the setting
@@ -555,9 +748,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   function setSettings(patch: Partial<Settings>) {
     setSettingsState((prev) => ({ ...prev, ...patch }));
+    persist(patch);
   }
 
-  const t = strings[settings.language];
+  const t = strings[settings.language] ?? strings.en;
 
   const value = useMemo(() => ({ settings, setSettings, t }), [settings, t]);
 

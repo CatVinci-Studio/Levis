@@ -4,6 +4,7 @@ import { ContextMenu, type ContextMenuItem } from "../editor/ContextMenu";
 import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
 import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
 import { fs } from "../ipc";
+import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
 import { useLongPress } from "../utils/useLongPress";
 import {
@@ -37,14 +38,8 @@ interface Entry {
 }
 
 type View = "list" | "grid";
-const VIEW_KEY = "levis.documentListView";
-
 function loadView(): View {
-  try {
-    return localStorage.getItem(VIEW_KEY) === "grid" ? "grid" : "list";
-  } catch {
-    return "list";
-  }
+  return getUiState("documentListView") === "grid" ? "grid" : "list";
 }
 
 /** The first lines of a Markdown document with its syntax mostly gone -
@@ -106,11 +101,7 @@ export function DocumentList({
 
   function switchView(next: View) {
     setView(next);
-    try {
-      localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // Remembering the choice is a convenience only.
-    }
+    setUiState("documentListView", next);
   }
 
   const dateFormat = new Intl.DateTimeFormat(settings.language, {

@@ -322,11 +322,12 @@ export type AgentConversation = ReturnType<typeof useAgentConversation>;
  * displays (name and type).
  *
  * Attached images are REQUEST data: base64 inflates a file by 4/3, and chat
- * history lives in localStorage under a ~5-10 MB quota that `store()`
- * deliberately swallows the overflow error of. Persisting one 6 MB screenshot
- * would therefore not just fail to save that conversation - it would silently
- * stop ALL conversation history from saving, with nothing on screen. A retry
- * still has the real payloads; they hang off `RetryableSend`, not off history.
+ * history is one JSON file (chat-history.json, see docs/STORAGE.md) that
+ * Rust rewrites on every save and every window keeps a copy of. A few
+ * screenshots would turn each save into megabytes of writing and IPC. (Under
+ * localStorage, where history used to live, one 6 MB screenshot overflowed
+ * the quota and silently stopped ALL history from saving.) A retry still has
+ * the real payloads; they hang off `RetryableSend`, not off history.
  */
 function withoutImageData(turn: AgentTurn): AgentTurn {
   if (turn.kind !== "User" || !turn.images?.length) return turn;

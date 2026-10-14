@@ -19,6 +19,105 @@ export function installDevTauriShim(): void {
   // event name -> handler callback ids (as registered via transformCallback)
   const listeners = new Map<string, number[]>();
 
+  // The settings/UI-state/history store of src-tauri/src/settings.rs, in
+  // memory. Only reached when a test installs `window.__BOOT__` the way Rust
+  // would (e2e/storage.spec.ts) - without one the frontend keeps everything
+  // in localStorage and never calls these. `window.__devStorage` exposes the
+  // state for assertions.
+  const boot = w.__BOOT__ as
+    | {
+        settings?: Record<string, unknown>;
+        rev?: number;
+        legacyImport?: boolean;
+      }
+    | undefined;
+  const store = {
+    settings: { ...(boot?.settings ?? {}) } as Record<string, unknown>,
+    rev: boot?.rev ?? 1,
+    legacyPending: boot?.legacyImport === true,
+    imports: 0,
+    patches: [] as Record<string, unknown>[],
+    uiState: {} as Record<string, unknown>,
+    histories: { chat: [], clipboard: [] } as Record<string, unknown[]>,
+  };
+  w.__devStorage = store;
+  const emitSoon = (event: string, payload: unknown) =>
+    queueMicrotask(() =>
+      (w.__devEmitTauriEvent as (e: string, p?: unknown) => void)(
+        event,
+        payload,
+      ),
+    );
+  const historyKey = (kind: unknown, entry: unknown) =>
+    (entry as Record<string, unknown>)?.[kind === "chat" ? "id" : "text"];
+  function storageCommand(
+    cmd: string,
+    args: Record<string, unknown> = {},
+  ): Promise<unknown> | null {
+    const kind = args.kind as string;
+    switch (cmd) {
+      case "settings_get":
+        return Promise.resolve({ value: store.settings, rev: store.rev });
+      case "settings_patch": {
+        const patch = args.patch as Record<string, unknown>;
+        store.settings = { ...store.settings, ...patch };
+        store.patches.push(patch);
+        store.rev += 1;
+        emitSoon("settings-changed", { rev: store.rev, patch, from: "main" });
+        return Promise.resolve(store.rev);
+      }
+      case "settings_import_legacy": {
+        const payload = args.payload as Record<string, unknown>;
+        store.imports += 1;
+        const accepted = store.legacyPending;
+        if (accepted) {
+          store.legacyPending = false;
+          store.settings = {
+            ...(payload.settings as object),
+            ...store.settings,
+          };
+          store.uiState = { ...(payload.uiState as object) };
+          store.histories.chat = (payload.chatHistory as unknown[]) ?? [];
+          store.histories.clipboard =
+            (payload.clipboardHistory as unknown[]) ?? [];
+          store.rev += 1;
+        }
+        return Promise.resolve({
+          accepted,
+          value: store.settings,
+          rev: store.rev,
+        });
+      }
+      case "ui_state_get":
+        return Promise.resolve(store.uiState);
+      case "ui_state_patch":
+        store.uiState = {
+          ...store.uiState,
+          ...(args.patch as Record<string, unknown>),
+        };
+        return Promise.resolve(null);
+      case "history_list":
+        return Promise.resolve(store.histories[kind] ?? []);
+      case "history_upsert": {
+        const key = historyKey(kind, args.entry);
+        store.histories[kind] = [
+          args.entry,
+          ...store.histories[kind].filter((e) => historyKey(kind, e) !== key),
+        ];
+        return Promise.resolve(null);
+      }
+      case "history_remove":
+        store.histories[kind] = store.histories[kind].filter(
+          (e) => historyKey(kind, e) !== args.key,
+        );
+        return Promise.resolve(null);
+      case "history_clear":
+        store.histories[kind] = [];
+        return Promise.resolve(null);
+    }
+    return null;
+  }
+
   w.__TAURI_INTERNALS__ = {
     metadata: {
       currentWindow: { label: "main" },
@@ -63,6 +162,8 @@ export function installDevTauriShim(): void {
         );
         return Promise.resolve(null);
       }
+      const stored = storageCommand(cmd, args as Record<string, unknown>);
+      if (stored) return stored;
       // A canned suggestion instead of null: lets ghost-text rendering (and
       // the tutorial's completion step) be smoke-tested in the browser -
       // null would make the manual trigger path throw an error dialog.
