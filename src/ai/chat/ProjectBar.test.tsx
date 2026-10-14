@@ -36,6 +36,7 @@ const { ProjectBar } = await import("./ProjectBar");
 
 const workspace = (root: string | null): AgentWorkspaceInfo => ({
   instructions: [],
+  project_instructions: null,
   skills: [],
   root,
   style: null,
