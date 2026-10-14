@@ -337,19 +337,19 @@ fn tool_to_schema(tool: &ToolSpec) -> Value {
 /// (`responses_api::agent_request_body`, which just emits one item per
 /// turn): Messages requires strictly alternating user/assistant roles, so a
 /// `ToolCall`/`ToolResult` can't each be their own message the way they are
-/// for OpenAI - every `ToolCall` in a run must land in ONE assistant
-/// message's `tool_use` blocks, immediately followed by every `ToolResult`
-/// in that run as ONE user message's `tool_result` blocks (matched by id).
-/// `run_agent_loop` interleaves them as Call1, Result1, Call2, Result2, ...
-/// (see agent.rs), so a run is collected in that order and re-emitted as
-/// [assistant: tool_use*] then [user: tool_result*].
+/// for OpenAI - every `ToolCall` of a step must land in ONE assistant
+/// message's `tool_use` blocks, immediately followed by their `ToolResult`s
+/// as ONE user message's `tool_result` blocks (matched by id).
+/// `run_agent_loop` records a step as its calls, then their results (see
+/// agent.rs), so a run of calls and the run of results after it are one
+/// step, and a call right after a result starts the next.
 ///
-/// One fidelity trade-off: if the model calls tools across more than one
-/// step without a plain turn in between (rare - e.g. it calls a tool, gets
-/// the result, and immediately calls another before writing any text), this
-/// merges both steps' calls into a single assistant turn instead of two.
-/// That's structurally valid (ids still line up 1:1 with their results) and
-/// only costs the model a little turn-shape fidelity, never a 400.
+/// Splitting at steps is also what keeps the prompt cache: merging a later
+/// step's calls into the earlier step's message changed that message, so
+/// every step re-sent the ones before it uncached. Conversations saved
+/// before the loop recorded calls first interleave Call1, Result1, Call2,
+/// Result2 - those replay as one pair per call, which is valid and only
+/// loses the fact that the calls ran in parallel.
 fn turns_to_messages(history: &[AgentTurn]) -> Vec<Value> {
     let mut messages = Vec::new();
     let mut i = 0;
@@ -397,6 +397,8 @@ fn turns_to_messages(history: &[AgentTurn]) -> Vec<Value> {
                 let mut tool_results = Vec::new();
                 while let Some(turn) = history.get(i) {
                     match turn {
+                        // The next step's calls.
+                        AgentTurn::ToolCall { .. } if !tool_results.is_empty() => break,
                         AgentTurn::ToolCall {
                             call_id,
                             name,
@@ -433,6 +435,100 @@ fn turns_to_messages(history: &[AgentTurn]) -> Vec<Value> {
         }
     }
     messages
+}
+
+const EPHEMERAL: &str = "ephemeral";
+
+/// Makes the last content block of `message` a cache breakpoint. A plain
+/// string `content` becomes the one text block it stands for - the same
+/// prompt, so the cache entry still matches it once the marker moves on.
+fn mark_cache_breakpoint(message: &mut Value) {
+    let content = &mut message["content"];
+    if let Some(text) = content.as_str() {
+        *content = json!([{"type": "text", "text": text}]);
+    }
+    if let Some(last) = content.as_array_mut().and_then(|blocks| blocks.last_mut()) {
+        last["cache_control"] = json!({"type": EPHEMERAL});
+    }
+}
+
+/// [`turns_to_messages`] with the conversation's two cache breakpoints.
+///
+/// The message being sent carries the document (agent.rs's request_context)
+/// and history later keeps it without, so nothing cached while an exchange
+/// ran is ever a prefix of the next exchange's requests. What every later
+/// request does share is the history, which agent.rs keeps byte-stable once
+/// replayed: the first breakpoint goes on its last block, so this request
+/// writes everything up to the message being sent. The second goes on the
+/// last block before the newest exchange in that history - exactly where the
+/// previous request put its first one - so the cache entry it wrote is read
+/// back at a breakpoint of its own, however many blocks the newest exchange
+/// added (a breakpoint only looks 20 blocks back for an earlier entry).
+fn messages_with_cache_breakpoints(history: &[AgentTurn]) -> Vec<Value> {
+    let is_user = |turn: &AgentTurn| matches!(turn, AgentTurn::User { .. });
+    let Some(current) = history.iter().rposition(is_user) else {
+        return turns_to_messages(history);
+    };
+    let newest = history[..current].iter().rposition(is_user).unwrap_or(0);
+    // Each slice starts at a user turn, which no message spans, so rendering
+    // them one by one gives the same messages as rendering them together.
+    let mut messages = turns_to_messages(&history[..newest]);
+    if let Some(last) = messages.last_mut() {
+        mark_cache_breakpoint(last);
+    }
+    messages.extend(turns_to_messages(&history[newest..current]));
+    if let Some(last) = messages.last_mut() {
+        mark_cache_breakpoint(last);
+    }
+    messages.extend(turns_to_messages(&history[current..]));
+    messages
+}
+
+/// One agent step's Messages API body. Three explicit cache breakpoints
+/// plus the automatic one - the API's limit of four: the last system block
+/// (tools render before it, so tools and system prompt are cached together,
+/// for every exchange and every conversation in the same project and mode),
+/// the two in the history (see [`messages_with_cache_breakpoints`]), and the
+/// top-level automatic breakpoint, which follows the end of the request so
+/// each tool step (up to 12 per message) reads the step before it -
+/// document included - instead of paying for it again.
+fn agent_request_body(
+    auth: &AnthropicAuth,
+    instructions: &str,
+    history: &[AgentTurn],
+    tools: &[ToolSpec],
+    web_search: bool,
+    model: &str,
+) -> Value {
+    let mut system: Vec<Value> = system_blocks(instructions.to_string(), auth)
+        .iter()
+        .map(|b| json!({"type": b.kind, "text": b.text}))
+        .collect();
+    if let Some(last) = system.last_mut() {
+        last["cache_control"] = json!({"type": EPHEMERAL});
+    }
+    let mut tool_schemas = tools.iter().map(tool_to_schema).collect::<Vec<_>>();
+    // Claude executes this server tool inside the Messages request. Its
+    // server_tool_use/result blocks are intentionally ignored by
+    // parse_agent_response; the final cited text blocks are still retained.
+    if web_search {
+        tool_schemas.push(json!({
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 5,
+        }));
+    }
+    json!({
+        "model": model,
+        // Room for a rewritten section inside one propose_edit call; at
+        // 4096 a long rewrite was cut off mid-arguments.
+        "max_tokens": AGENT_MAX_TOKENS,
+        "stream": true,
+        "system": system,
+        "messages": messages_with_cache_breakpoints(history),
+        "tools": tool_schemas,
+        "cache_control": {"type": EPHEMERAL},
+    })
 }
 
 /// Parses a Messages API `content` block array into a [`StepResult`]: any
@@ -665,36 +761,7 @@ pub async fn agent_step_with_usage(
     model: &str,
     on_event: EventSink<'_>,
 ) -> Result<(StepResult, StepUsage), String> {
-    let system: Vec<Value> = system_blocks(instructions.to_string(), auth)
-        .iter()
-        .map(|b| json!({"type": b.kind, "text": b.text}))
-        .collect();
-    let mut tool_schemas = tools.iter().map(tool_to_schema).collect::<Vec<_>>();
-    // Claude executes this server tool inside the Messages request. Its
-    // server_tool_use/result blocks are intentionally ignored by
-    // parse_agent_response; the final cited text blocks are still retained.
-    if web_search {
-        tool_schemas.push(json!({
-            "type": "web_search_20250305",
-            "name": "web_search",
-            "max_uses": 5,
-        }));
-    }
-    let body = json!({
-        "model": model,
-        // Room for a rewritten section inside one propose_edit call; at
-        // 4096 a long rewrite was cut off mid-arguments.
-        "max_tokens": AGENT_MAX_TOKENS,
-        "stream": true,
-        "system": system,
-        "messages": turns_to_messages(history),
-        "tools": tool_schemas,
-        // Automatic prompt caching: the breakpoint follows the end of the
-        // conversation, so each tool step (up to 12 per message) re-reads
-        // the system prompt, document and history from cache instead of
-        // paying for all of it again.
-        "cache_control": {"type": "ephemeral"},
-    });
+    let body = agent_request_body(auth, instructions, history, tools, web_search, model);
 
     let client = crate::http::streaming_client();
     let res = apply_auth(client.post(MESSAGES_URL), auth)
@@ -798,42 +865,56 @@ mod tests {
         assert_eq!(text_only[0]["content"], "hi");
     }
 
+    fn user(text: &str) -> AgentTurn {
+        AgentTurn::User {
+            text: text.to_string(),
+            images: Vec::new(),
+        }
+    }
+
+    fn call(id: &str, query: &str) -> AgentTurn {
+        AgentTurn::ToolCall {
+            call_id: id.to_string(),
+            name: "search_document".to_string(),
+            arguments: format!("{{\"query\":\"{query}\"}}"),
+        }
+    }
+
+    fn result(id: &str, output: &str) -> AgentTurn {
+        AgentTurn::ToolResult {
+            call_id: id.to_string(),
+            output: output.to_string(),
+        }
+    }
+
+    fn assistant(text: &str) -> AgentTurn {
+        AgentTurn::Assistant {
+            text: text.to_string(),
+        }
+    }
+
     #[test]
-    fn turns_to_messages_groups_interleaved_tool_calls_into_one_pair() {
-        // run_agent_loop interleaves Call1, Result1, Call2, Result2 - this
-        // must become exactly one assistant message (both tool_use blocks)
-        // followed by one user message (both tool_result blocks), or Claude
-        // rejects the request for having consecutive assistant messages.
+    fn turns_to_messages_groups_each_steps_tool_calls_into_one_pair() {
+        // run_agent_loop records a step as Call1, Call2, Result1, Result2:
+        // that step must become exactly one assistant message (both tool_use
+        // blocks) followed by one user message (both tool_result blocks), or
+        // Claude rejects the request for having consecutive assistant
+        // messages. Call3, after a result, is the next step's own pair.
         let history = vec![
-            AgentTurn::User {
-                text: "do it".to_string(),
-                images: Vec::new(),
-            },
-            AgentTurn::ToolCall {
-                call_id: "1".to_string(),
-                name: "search_document".to_string(),
-                arguments: "{\"query\":\"a\"}".to_string(),
-            },
-            AgentTurn::ToolResult {
-                call_id: "1".to_string(),
-                output: "found a".to_string(),
-            },
-            AgentTurn::ToolCall {
-                call_id: "2".to_string(),
-                name: "search_document".to_string(),
-                arguments: "{\"query\":\"b\"}".to_string(),
-            },
-            AgentTurn::ToolResult {
-                call_id: "2".to_string(),
-                output: "found b".to_string(),
-            },
-            AgentTurn::Assistant {
-                text: "done".to_string(),
-            },
+            user("do it"),
+            call("1", "a"),
+            call("2", "b"),
+            result("1", "found a"),
+            result("2", "found b"),
+            call("3", "c"),
+            result("3", "found c"),
+            assistant("done"),
         ];
 
         let messages = turns_to_messages(&history);
-        assert_eq!(messages.len(), 4); // user, assistant(tool_use x2), user(tool_result x2), assistant
+        // user, assistant(tool_use x2), user(tool_result x2),
+        // assistant(tool_use), user(tool_result), assistant
+        assert_eq!(messages.len(), 6);
 
         assert_eq!(messages[1]["role"], "assistant");
         let tool_uses = messages[1]["content"].as_array().unwrap();
@@ -851,8 +932,186 @@ mod tests {
         assert_eq!(tool_results[0]["content"], "found a");
         assert_eq!(tool_results[1]["tool_use_id"], "2");
 
-        assert_eq!(messages[3]["role"], "assistant");
-        assert_eq!(messages[3]["content"], "done");
+        assert_eq!(messages[3]["content"][0]["id"], "3");
+        assert_eq!(messages[4]["content"][0]["tool_use_id"], "3");
+        assert_eq!(messages[5]["role"], "assistant");
+        assert_eq!(messages[5]["content"], "done");
+    }
+
+    /// Saved before the loop recorded calls first: Call1, Result1, Call2,
+    /// Result2. Each call becomes its own pair - still one result per call
+    /// in the message right after it, so the API accepts it.
+    #[test]
+    fn interleaved_history_replays_as_one_pair_per_call() {
+        let history = vec![
+            user("do it"),
+            call("1", "a"),
+            result("1", "found a"),
+            call("2", "b"),
+            result("2", "found b"),
+            assistant("done"),
+        ];
+        let roles: Vec<_> = turns_to_messages(&history)
+            .iter()
+            .map(|m| m["role"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(
+            roles,
+            [
+                "user",
+                "assistant",
+                "user",
+                "assistant",
+                "user",
+                "assistant"
+            ]
+        );
+    }
+
+    fn api_key() -> AnthropicAuth {
+        AnthropicAuth::ApiKey("k".to_string())
+    }
+
+    fn body(history: &[AgentTurn]) -> Value {
+        agent_request_body(&api_key(), "rules", history, &[], false, "m")
+    }
+
+    /// Where the request's cache_control markers sit, as "system/i" and
+    /// "messages/i" paths - the top-level automatic one is not listed.
+    fn breakpoints(body: &Value) -> Vec<String> {
+        let mut found = Vec::new();
+        for section in ["system", "messages"] {
+            for (i, item) in body[section].as_array().unwrap().iter().enumerate() {
+                let blocks = match section {
+                    "system" => vec![item.clone()],
+                    _ => item["content"].as_array().cloned().unwrap_or_default(),
+                };
+                if blocks.iter().any(|b| b.get("cache_control").is_some()) {
+                    found.push(format!("{section}/{i}"));
+                }
+            }
+        }
+        found
+    }
+
+    /// The prompt a request sends, without its cache markers: a marked
+    /// message's one text block is the plain string it was before marking.
+    fn prompt_of(messages: &[Value]) -> Vec<Value> {
+        messages
+            .iter()
+            .map(|m| {
+                let mut m = m.clone();
+                if let Some(blocks) = m["content"].as_array_mut() {
+                    for block in blocks.iter_mut() {
+                        block.as_object_mut().unwrap().remove("cache_control");
+                    }
+                    if let [only] = blocks.as_slice() {
+                        if only["type"] == "text" && only.as_object().unwrap().len() == 2 {
+                            m["content"] = only["text"].clone();
+                        }
+                    }
+                }
+                m
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_request_marks_the_system_prompt_and_the_history_for_caching() {
+        // First message: only the system prompt has a history-independent
+        // breakpoint; the automatic one covers the rest.
+        let first = body(&[user("doc + q1")]);
+        assert_eq!(breakpoints(&first), ["system/0"]);
+        assert_eq!(first["cache_control"]["type"], "ephemeral");
+
+        // Second: the end of the history too - not the message being sent,
+        // which carries the document and is never sent again as it is.
+        let second = body(&[user("q1"), assistant("a1"), user("doc + q2")]);
+        assert_eq!(breakpoints(&second), ["system/0", "messages/1"]);
+
+        // Third: also the end of the history before the newest exchange.
+        // Three explicit markers and the automatic one: the API's limit.
+        let third = body(&[
+            user("q1"),
+            assistant("a1"),
+            user("q2"),
+            call("1", "a"),
+            result("1", "found"),
+            assistant("a2"),
+            user("doc + q3"),
+        ]);
+        assert_eq!(
+            breakpoints(&third),
+            ["system/0", "messages/1", "messages/5"]
+        );
+        assert!(third["messages"][6]["content"].is_string());
+
+        // An OAuth request's identity block comes first; the marker stays
+        // on the last block, so it still covers the whole system prompt.
+        let oauth = agent_request_body(
+            &AnthropicAuth::Oauth("t".to_string()),
+            "rules",
+            &[user("q")],
+            &[],
+            false,
+            "m",
+        );
+        assert_eq!(breakpoints(&oauth), ["system/1"]);
+    }
+
+    /// The property the breakpoints rely on, through a whole conversation:
+    /// each tool step's prompt starts with the step before it, and each
+    /// exchange's starts with the previous exchange's up to the block that
+    /// one marked as the end of its history - so every request reads what
+    /// the one before it wrote.
+    #[test]
+    fn every_request_starts_with_what_the_one_before_it_cached() {
+        let prompt = |request: &Value| prompt_of(request["messages"].as_array().unwrap());
+        // What run_agent_loop sends: the history, the current message with
+        // the document, then each step's calls and results.
+        let exchange = |history: &[AgentTurn], sent: &str, steps: &[&[AgentTurn]]| {
+            let mut turns = history.to_vec();
+            turns.push(user(sent));
+            let mut requests = vec![body(&turns)];
+            for step in steps {
+                turns.extend(step.iter().cloned());
+                requests.push(body(&turns));
+            }
+            requests
+        };
+        let read_then_edit: [&[AgentTurn]; 2] = [
+            &[
+                call("r1", "a"),
+                call("r2", "b"),
+                result("r1", "x"),
+                result("r2", "y"),
+            ],
+            &[call("e", "c"), result("e", "Edit proposed")],
+        ];
+        let first = exchange(&[], "doc + q1", &read_then_edit);
+        for step in first.windows(2) {
+            let (before, after) = (prompt(&step[0]), prompt(&step[1]));
+            assert_eq!(after[..before.len()], before[..]);
+            assert_eq!(step[0]["system"], step[1]["system"]);
+        }
+        // The edit step's pair is its own: the read step's stays as it was.
+        assert_eq!(prompt(&first[2]).len(), 5);
+
+        // History keeps each message without its document (agent.rs).
+        let mut history = vec![user("q1")];
+        history.extend(read_then_edit.iter().flat_map(|s| s.iter().cloned()));
+        history.push(assistant("a1"));
+        let second = &exchange(&history, "doc' + q2", &[])[0];
+        history.extend([user("q2"), assistant("a2")]);
+        let third = &exchange(&history, "doc'' + q3", &[])[0];
+        // Exchange 2 marks the end of exchange 1; exchange 3 marks that same
+        // block (and the end of exchange 2), so it reads what exchange 2
+        // wrote there without relying on the lookback.
+        assert_eq!(breakpoints(second), ["system/0", "messages/5"]);
+        assert_eq!(breakpoints(third), ["system/0", "messages/5", "messages/7"]);
+        assert_eq!(prompt(third)[..=5], prompt(second)[..=5]);
+        assert_eq!(second["system"], third["system"]);
+        assert_eq!(first[0]["system"], second["system"]);
     }
 
     #[test]

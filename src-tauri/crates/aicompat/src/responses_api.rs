@@ -435,6 +435,36 @@ mod tests {
         assert_eq!(body["text"]["verbosity"], "low");
     }
 
+    /// OpenAI caches prompt prefixes on its own; every step and exchange
+    /// keeps it only if the earlier input items never change. One item per
+    /// turn, rendered from that turn alone, guarantees it.
+    #[test]
+    fn a_new_step_only_appends_input_items() {
+        let mut turns = vec![AgentTurn::User {
+            text: "doc + q".to_string(),
+            images: Vec::new(),
+        }];
+        let before = agent_request_body("gpt-6-luna", "rules", &turns, &[], false, true);
+        turns.extend([
+            AgentTurn::ToolCall {
+                call_id: "c1".to_string(),
+                name: "read_document".to_string(),
+                arguments: "{}".to_string(),
+            },
+            AgentTurn::ToolResult {
+                call_id: "c1".to_string(),
+                output: "text".to_string(),
+            },
+        ]);
+        let after = agent_request_body("gpt-6-luna", "rules", &turns, &[], false, true);
+        let (before, after) = (
+            before["input"].as_array().unwrap(),
+            after["input"].as_array().unwrap(),
+        );
+        assert_eq!(after[..before.len()], before[..]);
+        assert_eq!(after.len(), before.len() + 2);
+    }
+
     /// The image part's exact shape is the whole contract with the provider,
     /// and getting it wrong fails at request time with an opaque 400 - worth
     /// pinning here rather than discovering it from a user's bug report.

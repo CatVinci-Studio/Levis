@@ -1341,6 +1341,13 @@ fn turn_json(o: &TurnOutcome, model: &str) -> Value {
         "latency_ms": o.latency_ms as u64,
         "steps": o.usage.len(),
         "usage": usage.json(),
+        // Per request: what prompt caching read and wrote at each step.
+        "step_usage": o.usage.iter().map(|u| json!({
+            "input": u.input_tokens,
+            "cache_write": u.cache_creation_input_tokens,
+            "cache_read": u.cache_read_input_tokens,
+            "output": u.output_tokens,
+        })).collect::<Vec<_>>(),
     })
 }
 
