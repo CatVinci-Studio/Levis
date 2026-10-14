@@ -11,6 +11,19 @@ import {
 // Generic row controls shared by the settings categories.
 
 /**
+ * For a field that takes a machine-read value - a URL, a host, a model or
+ * field name - rather than prose. iOS capitalises the first letter of a
+ * text field and autocorrects it, with the software keyboard and a hardware
+ * one alike: "Http://..." still connected, but "Mock-model" or "Gpt-..."
+ * is a model id the provider rejects. Spread onto the <input>.
+ */
+export const VERBATIM_INPUT = {
+  autoCapitalize: "off",
+  autoCorrect: "off",
+  spellCheck: false,
+} as const;
+
+/**
  * One setting: its name on the left, its control on the right - the shape
  * every row in Settings takes, on the desktop and the phone alike. `hint`
  * is for the few rows whose label can't say enough on its own (a value

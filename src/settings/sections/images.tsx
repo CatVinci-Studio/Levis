@@ -8,6 +8,7 @@ import {
   type ImageStorageMode,
 } from "../SettingsContext";
 import { Select } from "../../ui/Select";
+import { VERBATIM_INPUT } from "./controls";
 
 export function ImageStorageSection({ t }: { t: Strings }) {
   const { settings, setSettings } = useSettings();
@@ -77,6 +78,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
               </div>
             </div>
             <input
+              {...VERBATIM_INPUT}
               className="settings-text-input image-settings-input"
               type="url"
               placeholder="https://images.example.com/upload"
@@ -96,6 +98,7 @@ export function ImageStorageSection({ t }: { t: Strings }) {
               </div>
             </div>
             <input
+              {...VERBATIM_INPUT}
               className="settings-text-input image-settings-input"
               placeholder="url"
               value={settings.imageUploadUrlField}

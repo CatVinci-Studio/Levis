@@ -174,6 +174,27 @@ test.describe("desktop", () => {
     await expect(css).toBeFocused();
   });
 
+  test("a custom endpoint's model names can be typed in full", async ({
+    page,
+  }) => {
+    await openApp(page, {
+      settings: { language: "en", aiProvider: "custom" },
+    });
+    const panel = await openSettings(page);
+    await panel.getByRole("button", { name: t.navAi, exact: true }).click();
+    // Nothing to list for a custom endpoint: a field to type the name in,
+    // which used to become a one-option select after the first character.
+    for (const label of [t.writingModelLabel, t.agentModelLabel]) {
+      const field = panel.getByRole("textbox", { name: label });
+      await field.pressSequentially("mock-model-1");
+      await expect(field).toHaveValue("mock-model-1");
+      await expect(field).toBeFocused();
+      // Machine-read text: iOS must not capitalise or autocorrect it.
+      await expect(field).toHaveAttribute("autocapitalize", "off");
+      await expect(field).toHaveAttribute("autocorrect", "off");
+    }
+  });
+
   test("after a clear the focus stays in Settings and Escape closes it", async ({
     page,
   }) => {
@@ -190,6 +211,27 @@ test.describe("desktop", () => {
     await expect(clear).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
+  });
+});
+
+test.describe("iPad", () => {
+  test.use({ viewport: { width: 1032, height: 1376 }, hasTouch: true });
+
+  test("Done is a word at the right of the title, not a bar across it", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "platform", { get: () => "iPad" });
+    });
+    await openApp(page, { settings: { language: "en" } });
+    const panel = await openSettings(page);
+    const done = panel.getByRole("button", { name: t.settingsDone });
+    const header = await panel.locator(".settings-header").boundingBox();
+    const box = await done.boundingBox();
+    expect(box!.width).toBeLessThan(120);
+    // Its right edge near the header's right edge.
+    expect(header!.x + header!.width - (box!.x + box!.width)).toBeLessThan(40);
+    await expect(done).toHaveCSS("border-top-style", "none");
   });
 });
 
