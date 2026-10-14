@@ -78,6 +78,7 @@ import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
 import { Presence, PresenceDiv } from "../ui/usePresence";
+import { SparkleIcon } from "../ui/icons";
 import { revealPosition } from "./reveal-position";
 import {
   applyEditorCaret,
@@ -1630,11 +1631,16 @@ export function MilkdownEditor({
             headerExtra={<ProjectBar docPath={filePath} />}
           >
             {conversation.history.length === 0 && !conversation.busy && (
-              <p className="agent-panel-empty">
-                {/* No selecting-then-asking on a phone: the system's
-                    own text menu takes the long press. */}
-                {isIOSApp ? t.agentPanelEmptyPhone : t.agentPanelEmpty}
-              </p>
+              <div className="agent-panel-empty">
+                <span className="agent-panel-empty-mark" aria-hidden="true">
+                  <SparkleIcon />
+                </span>
+                <p className="agent-panel-empty-text">
+                  {/* No selecting-then-asking on a phone: the system's
+                      own text menu takes the long press. */}
+                  {isIOSApp ? t.agentPanelEmptyPhone : t.agentPanelEmpty}
+                </p>
+              </div>
             )}
             <ChatBody
               document=""

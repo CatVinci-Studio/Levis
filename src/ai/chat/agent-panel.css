@@ -69,8 +69,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 8px 8px 12px;
-  border-bottom: 1px solid var(--editor-border, var(--border-color));
+  min-height: 40px;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--chat-hairline, var(--border-color));
 }
 
 .agent-panel-heading {
@@ -83,6 +84,7 @@
 .agent-panel-title {
   font-size: var(--text-md);
   font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 .agent-panel-actions {
@@ -104,16 +106,68 @@
   max-height: none;
 }
 
+/* The composer is a box of its own on the panel's foot (inline-chat.css's
+   .inline-chat-field), so no rule across the panel above it; the / and @
+   lists, which open in the flow above it, keep theirs. */
 .agent-panel-body .inline-chat-bar,
 .agent-panel-body .inline-chat-skill-menu {
   flex: 0 0 auto;
-  border-top: 1px solid var(--editor-border, var(--border-color));
 }
 
+.agent-panel-body .inline-chat-skill-menu {
+  border-top: 1px solid var(--chat-hairline, var(--border-color));
+}
+
+.agent-panel-body .inline-chat-bar {
+  padding: 8px 10px 10px;
+}
+
+/* Nothing said yet: the spark and what to do, in the middle of the
+   panel's empty height rather than as a line in its top corner. */
 .agent-panel-empty {
-  margin: 16px 14px 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+  margin: 0;
+  padding: 24px 28px 40px;
+  text-align: center;
+  animation: motion-fade-in var(--dur-slow) var(--ease-out);
+}
+
+/* The (empty) message list after it gives it the room. */
+.agent-panel-empty + .inline-chat-messages {
+  flex: 0 0 auto;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.agent-panel-empty-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--editor-accent) 12%, transparent);
+  color: var(--editor-accent);
+}
+
+.agent-panel-empty-mark svg {
+  width: 22px;
+  height: 22px;
+}
+
+.agent-panel-empty-text {
+  max-width: 26em;
+  margin: 0;
   font-size: var(--text-md);
+  line-height: 1.55;
   color: var(--editor-muted);
+  text-wrap: pretty;
 }
 
 /* Narrow windows - or a small one with the sidebar open too (App.tsx's
@@ -161,8 +215,8 @@
 /* The project bar (ProjectBar.tsx): which folder the agent works in, and
    the style profile / library kept in it. */
 .project-bar {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--editor-border, var(--border-color));
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--chat-hairline, var(--border-color));
   font-size: var(--text-sm);
 }
 

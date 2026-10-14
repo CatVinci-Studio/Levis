@@ -34,7 +34,11 @@ export function toolActivityText(
     (typeof args.start_line === "number"
       ? `${args.start_line}–${typeof args.end_line === "number" ? args.end_line : ""}`
       : "");
-  const template = labels.toolActivity[name];
+  // A tool called with no argument may have its own wording ("Reading the
+  // document" rather than "Reading “”"), keyed "<name>:whole".
+  const template =
+    (arg ? undefined : labels.toolActivity[`${name}:whole`]) ??
+    labels.toolActivity[name];
   if (!template) return name;
   return template.replace("{arg}", arg);
 }

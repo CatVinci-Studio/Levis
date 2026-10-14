@@ -110,6 +110,7 @@ para usar una.
   toolResult: "Resultado",
   toolSearchDocument: "Buscando «{arg}» en el documento",
   toolReadDocument: "Leyendo «{arg}»",
+  toolReadWholeDocument: "Leyendo el documento",
   toolSearchFiles: "Buscando «{arg}» en el proyecto",
   toolListFiles: "Revisando los archivos del proyecto",
   toolReadFile: "Leyendo {arg}",

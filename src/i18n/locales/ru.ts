@@ -103,6 +103,7 @@ export default {
   toolResult: "Результат",
   toolSearchDocument: "Поиск в документе: «{arg}»",
   toolReadDocument: "Чтение: «{arg}»",
+  toolReadWholeDocument: "Чтение документа",
   toolSearchFiles: "Поиск в проекте: «{arg}»",
   toolListFiles: "Просмотр файлов проекта",
   toolReadFile: "Чтение файла {arg}",

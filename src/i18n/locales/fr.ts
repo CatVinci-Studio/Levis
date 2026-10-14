@@ -110,6 +110,7 @@ utiliser une.
   toolResult: "Résultat",
   toolSearchDocument: "Recherche de «\u00a0{arg}\u00a0» dans le document",
   toolReadDocument: "Lecture de «\u00a0{arg}\u00a0»",
+  toolReadWholeDocument: "Lecture du document",
   toolSearchFiles: "Recherche de «\u00a0{arg}\u00a0» dans le projet",
   toolListFiles: "Consultation des fichiers du projet",
   toolReadFile: "Lecture de {arg}",

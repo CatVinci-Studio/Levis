@@ -11,8 +11,13 @@
   word-break: break-word;
 }
 
+/* Sent from the trailing edge: the corner nearest the composer it came
+   from stays tight, as a message bubble's does. */
 .agent-message-user {
   align-self: flex-end;
+  max-width: 86%;
+  padding: 7px 12px;
+  border-bottom-right-radius: var(--radius-small);
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
   display: flex;
@@ -92,15 +97,17 @@ button.agent-context-chip:hover {
   background: color-mix(in srgb, var(--sidebar-active-text) 12%, transparent);
 }
 
-/* No bubble: the reply is the main content of the panel, and boxing it just
-   narrows the column it's read in. A leading accent rule marks it instead. */
+/* No bubble and no rule: the reply is the main content of the panel, read
+   at the panel's full width like any text. The user's tinted bubble on the
+   other side is what tells the two apart - a second mark (the accent rule
+   it had) only added a stripe down every answer. */
 .agent-message-assistant {
   align-self: stretch;
   max-width: 100%;
-  padding-left: 10px;
-  border-left: 2px solid var(--editor-accent);
+  padding: 0 2px;
   border-radius: 0;
   color: var(--editor-text);
+  line-height: 1.6;
 }
 
 /* The assistant reply rendered as markdown (see MarkdownText) - block
@@ -265,11 +272,16 @@ button.agent-context-chip:hover {
   align-self: flex-start;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: var(--text-xs);
   color: var(--editor-muted);
-  padding: 1px 6px;
-  opacity: 0.75;
+  padding: 0 2px;
+}
+
+.agent-tool-line .agent-tool-icon {
+  width: 11px;
+  height: 11px;
+  opacity: 0.8;
 }
 
 .agent-tool-result {
@@ -277,6 +289,43 @@ button.agent-context-chip:hover {
   font-size: var(--text-xs);
   color: var(--editor-muted);
   max-width: 92%;
+  padding: 0 2px;
+}
+
+/* The disclosure is the step's footnote: the app's own small caret rather
+   than the browser's triangle, quiet until hovered. */
+.agent-tool-result > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+
+.agent-tool-result > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-tool-result > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  margin: 0 2px 0 3px;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.agent-tool-result[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.agent-tool-result > summary:hover {
+  opacity: 1;
+  color: var(--editor-text);
 }
 
 .agent-tool-result pre {
@@ -296,7 +345,7 @@ button.agent-context-chip:hover {
   padding: 4px 6px;
 }
 
-/* A failed request: the same card shape as a proposal or a comment, marked
+/* A failed request: the same card shape as a proposal or a comment, tinted
    in the danger colour - what went wrong in words, the provider's own
    message under it, and Retry. */
 .agent-error {
@@ -306,10 +355,9 @@ button.agent-context-chip:hover {
   gap: 6px;
   margin: 6px 0;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--danger, #c1495a) 35%, transparent);
-  border-left: 3px solid var(--danger, #c1495a);
+  border: 1px solid color-mix(in srgb, var(--danger, #c1495a) 30%, transparent);
   border-radius: var(--radius-surface);
-  background: color-mix(in srgb, var(--danger, #c1495a) 6%, transparent);
+  background: color-mix(in srgb, var(--danger, #c1495a) 7%, transparent);
   font-size: var(--text-md);
   line-height: 1.5;
   color: var(--editor-text);

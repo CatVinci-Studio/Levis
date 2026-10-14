@@ -94,6 +94,7 @@ export default {
   toolResult: "结果",
   toolSearchDocument: "在文档中搜索「{arg}」",
   toolReadDocument: "阅读「{arg}」",
+  toolReadWholeDocument: "阅读全文",
   toolSearchFiles: "在项目中搜索「{arg}」",
   toolListFiles: "查看项目文件",
   toolReadFile: "读取 {arg}",

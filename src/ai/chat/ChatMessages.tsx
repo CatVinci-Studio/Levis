@@ -289,7 +289,7 @@ export function ChatMessages({
         );
       })}
       {streaming && streaming.text.length > 0 && (
-        <div className="turn-reveal">
+        <div className="turn-reveal agent-streaming">
           <AgentTurnView
             turn={{ kind: "Assistant", text: streaming.text }}
             labels={labels}

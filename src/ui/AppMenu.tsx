@@ -81,12 +81,16 @@ export function AppMenu({ x, y, onClose, checks }: AppMenuProps) {
   useEffect(() => {
     if (!hasAppMenu || !canToggleFullscreen) return;
     let alive = true;
-    void getCurrentWindow()
-      .isFullscreen()
-      .then((on) => {
-        if (alive) setFullscreen(on === true);
-      })
-      .catch(() => {});
+    try {
+      void getCurrentWindow()
+        .isFullscreen()
+        .then((on) => {
+          if (alive) setFullscreen(on === true);
+        })
+        .catch(() => {});
+    } catch {
+      // No window to ask (a test, the dev shim): Full Screen shows off.
+    }
     return () => {
       alive = false;
     };

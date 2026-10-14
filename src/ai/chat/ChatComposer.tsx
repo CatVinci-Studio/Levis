@@ -504,127 +504,131 @@ export function ChatComposer({
         {attachError && (
           <div className="inline-chat-attach-error">{attachError}</div>
         )}
-        {attachments.length > 0 && (
-          <div className="inline-chat-attachments">
-            {attachments.map((file, i) => (
-              <span key={i} className="inline-chat-attachment">
-                {/* The two kinds reach the model in completely different
+        {/* The field: what is attached, the text and its controls, one box
+            in the panel and the detached window (inline-chat.css). */}
+        <div className="inline-chat-field">
+          {attachments.length > 0 && (
+            <div className="inline-chat-attachments">
+              {attachments.map((file, i) => (
+                <span key={i} className="inline-chat-attachment">
+                  {/* The two kinds reach the model in completely different
                     ways - extracted text in the prompt, or a native image
                     part - so the chip says which this is. */}
-                {file.kind === "image" ? (
-                  <ImageFileIcon className="inline-chat-attachment-kind" />
-                ) : (
-                  <GenericFileIcon className="inline-chat-attachment-kind" />
-                )}
-                {file.name}
-                {/* A file cut at the extraction cap must say so - otherwise
+                  {file.kind === "image" ? (
+                    <ImageFileIcon className="inline-chat-attachment-kind" />
+                  ) : (
+                    <GenericFileIcon className="inline-chat-attachment-kind" />
+                  )}
+                  {file.name}
+                  {/* A file cut at the extraction cap must say so - otherwise
                     a partial answer looks like the model misread the whole
                     document rather than having seen only part of it. */}
-                {file.kind === "text" && file.truncated && (
-                  <span className="inline-chat-attachment-note">
-                    {labels.attachmentTruncated}
-                  </span>
-                )}
-                <button
-                  className="inline-chat-attachment-remove"
-                  onClick={() =>
-                    setAttachments((prev) => prev.filter((_, j) => j !== i))
-                  }
-                >
-                  <CloseIcon />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <textarea
-          ref={inputRef}
-          className="inline-chat-input"
-          rows={1}
-          placeholder={labels.placeholder}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            setPickerIndex(0);
-          }}
-          onKeyDown={onKeyDown}
-          autoFocus={focusOnOpen}
-        />
-        <div className="inline-chat-toolbar">
-          {phone ? (
-            // Two or three short words: they all fit in a row, and a
-            // segmented control shows which one is on and switches in one
-            // tap, where a select is a trip through the system's picker.
-            <div
-              className="chat-mode-segments"
-              role="radiogroup"
-              aria-label={labels.modeLabel}
-            >
-              {modes.map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === value}
-                  className="chat-mode-segment"
-                  {...holdFocus}
-                  onClick={() => setMode(value)}
-                >
-                  {label}
-                </button>
+                  {file.kind === "text" && file.truncated && (
+                    <span className="inline-chat-attachment-note">
+                      {labels.attachmentTruncated}
+                    </span>
+                  )}
+                  <button
+                    className="inline-chat-attachment-remove"
+                    onClick={() =>
+                      setAttachments((prev) => prev.filter((_, j) => j !== i))
+                    }
+                  >
+                    <CloseIcon />
+                  </button>
+                </span>
               ))}
             </div>
-          ) : (
-            <Select
-              className="inline-chat-mode"
-              value={mode}
-              aria-label={labels.modeAsk}
-              onChange={(event) => setMode(event.target.value as AgentMode)}
+          )}
+          <textarea
+            ref={inputRef}
+            className="inline-chat-input"
+            rows={1}
+            placeholder={labels.placeholder}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setPickerIndex(0);
+            }}
+            onKeyDown={onKeyDown}
+            autoFocus={focusOnOpen}
+          />
+          <div className="inline-chat-toolbar">
+            {phone ? (
+              // Two or three short words: they all fit in a row, and a
+              // segmented control shows which one is on and switches in one
+              // tap, where a select is a trip through the system's picker.
+              <div
+                className="chat-mode-segments"
+                role="radiogroup"
+                aria-label={labels.modeLabel}
+              >
+                {modes.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === value}
+                    className="chat-mode-segment"
+                    {...holdFocus}
+                    onClick={() => setMode(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Select
+                className="inline-chat-mode"
+                value={mode}
+                aria-label={labels.modeAsk}
+                onChange={(event) => setMode(event.target.value as AgentMode)}
+              >
+                {modes.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {!compact && (
+              <>
+                <button
+                  className="inline-chat-attach"
+                  title={labels.attachFile}
+                  aria-label={labels.attachFile}
+                  onClick={attachFile}
+                >
+                  <PlusIcon />
+                </button>
+                <button
+                  type="button"
+                  className={`inline-chat-web-search${webSearch ? " is-active" : ""}`}
+                  title={labels.webSearch}
+                  aria-label={labels.webSearch}
+                  aria-pressed={webSearch}
+                  {...holdFocus}
+                  onClick={() => setWebSearch((value) => !value)}
+                >
+                  <SearchIcon />
+                </button>
+              </>
+            )}
+            {selectedText && !selectionDropped && dockActions === undefined && (
+              <span className="inline-chat-selection-chip">
+                {labels.selectedChars([...selectedText].length)}
+                {dropSelectionButton}
+              </span>
+            )}
+            <button
+              className="inline-chat-send"
+              {...holdFocus}
+              onClick={busy ? onStop : submit}
+              disabled={!busy && !input.trim()}
             >
-              {modes.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          )}
-          {!compact && (
-            <>
-              <button
-                className="inline-chat-attach"
-                title={labels.attachFile}
-                aria-label={labels.attachFile}
-                onClick={attachFile}
-              >
-                <PlusIcon />
-              </button>
-              <button
-                type="button"
-                className={`inline-chat-web-search${webSearch ? " is-active" : ""}`}
-                title={labels.webSearch}
-                aria-label={labels.webSearch}
-                aria-pressed={webSearch}
-                {...holdFocus}
-                onClick={() => setWebSearch((value) => !value)}
-              >
-                <SearchIcon />
-              </button>
-            </>
-          )}
-          {selectedText && !selectionDropped && dockActions === undefined && (
-            <span className="inline-chat-selection-chip">
-              {labels.selectedChars([...selectedText].length)}
-              {dropSelectionButton}
-            </span>
-          )}
-          <button
-            className="inline-chat-send"
-            {...holdFocus}
-            onClick={busy ? onStop : submit}
-            disabled={!busy && !input.trim()}
-          >
-            {busy ? labels.stop : labels.send}
-          </button>
+              {busy ? labels.stop : labels.send}
+            </button>
+          </div>
         </div>
       </div>
     </>

@@ -103,6 +103,7 @@ type /name in a conversation to use one.
   toolResult: "Result",
   toolSearchDocument: "Searching the document for “{arg}”",
   toolReadDocument: "Reading “{arg}”",
+  toolReadWholeDocument: "Reading the document",
   toolSearchFiles: "Searching the project for “{arg}”",
   toolListFiles: "Looking at the project's files",
   toolReadFile: "Reading {arg}",
