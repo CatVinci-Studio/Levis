@@ -5,11 +5,34 @@ what the first full evaluation found, what was changed because of it, and
 what is still weak. The suite lives in `src-tauri/src/ai/live_eval.rs` and
 `src-tauri/src/ai/live_eval/`; this document is its guide and its record.
 
+## Concepts
+
+One folder used to go by three names - "project folder" in the AI panel and
+the tools, "Workspace Folder" in Settings, "the document's folder" in the
+prompt - and agent.md by three more, so the agent made up its own ("I'm in
+read-only mode", "I have no tool to open files"). The names below follow the
+concept model of PR #42 (`docs/AI-CONCEPTS.md` there), which brings the UI
+and the in-app guide in line in en, zh and ja; since round 2 the agent is
+told the same names and what each thing is (`agent.rs`'s
+`workspace_section`).
+
+| Concept                                                      | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                              | Where it lives                                                                                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Project folder** (项目文件夹; in code, the workspace root) | The one folder Levis AI may read (`list_files`, `read_file`, `search_files`, @-mentions), and whose `.levis/` folder configures the documents in it. The open document's own folder by default (`RootSource::DocumentFolder`), or one the user chose (`Chosen`). An unsaved draft with no chosen folder has none (`None`): no file tools are offered, and the agent says why and how to fix it. A home folder or drive root is never used (`TooBroad`). | The folder row at the top of the AI panel (Choose project folder…), or Settings > Levis AI; resolved by `workspace::load_from` |
+| **Writing instructions** (写作要求, agent.md)                | Standing instructions sent with every conversation: the global ones, then the project's.                                                                                                                                                                                                                                                                                                                                                                | App config `agent/agent.md`; `.levis/agent.md`                                                                                 |
+| **Skills** (技能)                                            | Reusable instructions: the index (name + description) is in the prompt, the body loads with `use_skill` - or arrives already expanded in a `<skill name="...">` block when the user types `/name`. A project skill shadows a global one of the same name.                                                                                                                                                                                               | `agent/skills/*.md`; `.levis/skills/*.md`                                                                                      |
+| **Library** (资料库)                                         | Facts about characters, places and terms. An entry is sent when the request, selection or text around the cursor mentions its name or an alias (`include: detected`), always, or never. It is a constraint on what is written, not text to recite.                                                                                                                                                                                                      | `.levis/library/*.md`                                                                                                          |
+| **Style profile** (文风档案)                                 | How the author writes - voice, sentence rhythm, word choice, punctuation, what they never do - which both the agent and inline completion follow for every document in the project folder. Its concrete limits (sentence length, banned words or punctuation) are rules; its habits apply where they read naturally and never override the request (an expansion still gets longer) or the sense of the text.                                           | `.levis/style.md`                                                                                                              |
+| **Writing-style learning** ("Learn my style", 学习我的文风)  | Drafts the style profile from samples of the author's own writing (`project::learn_style`, `STYLE_INSTRUCTIONS`), in the samples' language, headings included; the author reviews and edits it in a tab. The previous profile is kept as `style.previous.md`.                                                                                                                                                                                           | The folder row's menu in the AI panel                                                                                          |
+| **Completion tone**                                          | A preset register for inline completion only (formal, casual, academic, concise), the same in every document. It sets the register; the style profile is the author's own voice.                                                                                                                                                                                                                                                                        | Settings > Levis AI > Writing Assistance (`completion-style.ts`)                                                               |
+| **Ask / Edit / Plan mode** (询问 / 编辑 / 计划)              | The panel's modes: Ask reads, answers and comments, with no edit tool; Edit can propose edits; Plan writes a plan without editing. An edit asked for in Ask mode gets the text in the reply and a pointer to Edit mode.                                                                                                                                                                                                                                 | The composer's mode picker                                                                                                     |
+| **Quick Ask**                                                | The chat bar under the current paragraph: the same agent and prompt, opened in Edit mode on the selection it captured; each follow-up is sent against that range as mapped through accepted edits.                                                                                                                                                                                                                                                      | Cmd+Shift+K                                                                                                                    |
+
 ## What is evaluated
 
 Each case goes through the app's real code path: the same system prompts,
 tool definitions, agent loop, completion and grammar prompts, and the same
-post-processing (`finish_completion`, `parse_grammar_reply`). Where the
+post-processing (`finish_completion`, `finish_grammar`). Where the
 frontend does something to the model's output, the eval mirrors it - for
 example `checks::apply_all` composes an accepted `propose_edit` exactly as
 `src/ai/doc-markdown.ts` does, and the completion's "what the user sees"
@@ -22,7 +45,7 @@ disabled for completions as in the app).
 | Suite        | Cases | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------ | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `agent`      |   150 | Round 1 (75 cases): **Languages**: one report in en, zh-Hans, zh-Hant, ja, ko, es, fr, de, ru, pt and mixed Chinese/English, each asked a question and asked to tighten a paragraph; requests in a different language from the document; translation (whole paragraph, and a selection). **Markdown**: edit a table cell, add a table row, fix a bug in fenced Python and JS, check off a task (en, ja), add a nested list item, fix display math, add a footnote, shorten a GitHub alert, change a link, edit YAML front matter, raw HTML, a Mermaid diagram, rename a heading, rewrite a paragraph that carries a link, inline math and a footnote ref, change an image's alt text, answer a question about the document. **Agent behaviour**: summarise (in chat, and into the document), expand, rewrite formally, delete a sentence, continue, replace a selection, insert at the cursor (en, zh) and inside a sentence, review with comments (edit mode and ask mode), questions that must not become edits, plan mode, two ambiguous requests, three multi-turn follow-ups (accept then "same again", reject then retry, question then act), agent.md (reply language + spelling; Chinese conventions), the style profile, the library (a fact by alias; character consistency), a `/skill` and a skill matched by description, facts from a project file, one section of a 60k-character document. |
-| `completion` |   106 | Round 1 (43 cases): Every tone preset (default, formal, casual, academic, concise) on English mid-sentence, English long continuation and Chinese after-sentence text; mid-sentence in every matrix language; list item (en, zh), table cell, heading (en, zh), blockquote; a Python code block with the hint the editor sends today and with the new `code block` hint; after-text (manual trigger mid-document); three candidates (en, zh); the cursor inside a word (en, fr, de); a nearly empty document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `completion` |   105 | Round 1 (43 cases): Every tone preset (default, formal, casual, academic, concise) on English mid-sentence, English long continuation and Chinese after-sentence text; mid-sentence in every matrix language; list item (en, zh), table cell, heading (en, zh), blockquote; a Python code block with the `code block` hint the editor sends (round 2 dropped the old `paragraph`-hint variant); after-text (manual trigger mid-document); three candidates (en, zh); the cursor inside a word (en, fr, de); a nearly empty document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `grammar`    |    61 | Round 1 (26 cases): Each strictness level on real mistakes and on correct text (where any report is a false positive); typos (en, zh, zh-Hant wrong script, ja, ko), grammar (en, zh 的/地, fr, de, es, ru, pt), code tokens / URLs / math / names / dialogue that must be left alone, "typos" mode on a paragraph that also has a grammar mistake, strict mode on wordy text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | model runs   |       | `agent-models`: 17 agent cases (one of each kind) on Haiku 5.5, Sonnet 5.5 and Opus 5.5. `completion-models` / `grammar-models`: both suites on Haiku 5.5 and Sonnet 5.5.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
@@ -122,20 +145,36 @@ characters of plain text either side, blocks separated by a newline.
   called (read before editing a long document, `use_skill`, `read_file`),
   and per-case checks (the title follows the skill's house style, the
   footnote is a new ref plus a new definition, the new item is nested...).
-- Completion: non-empty, no echo of the text before the cursor, no line
-  break outside code, language, length bounds per mode, the word under the
-  cursor finished correctly, a space where the language needs one,
-  candidates count and distinctness (bigram similarity < 0.6).
+- Agent replies (round 2): no tool names or line numbers ("第91行") in what
+  the writer reads; in Chinese and Japanese replies, no ASCII `, : ; ( ) "`
+  against CJK text; the reply's language is detected without what it
+  quotes (an English reply about a Chinese edit quotes Chinese).
+- Completion: non-empty, no echo of the text before the cursor (and no
+  text doubled at the join, `checks::doubled_at_join`), no leaked
+  meta-commentary, no line break outside code, no figure the context
+  doesn't have (`checks::new_numbers`), language, length bounds per mode
+  (alternatives included), the word under the cursor finished correctly, a
+  space where the language needs one, candidates count and distinctness
+  (bigram similarity < 0.6).
 - Grammar: the reply parses, every known mistake is flagged by an
-  overlapping span, applying all suggestions yields the corrected text, no
-  issue on protected spans, no extra issues beyond the case's allowance,
-  issue descriptions in the paragraph's language.
+  overlapping span, applying all suggestions yields the corrected text and
+  writes nothing twice ("a an", "uns uns", "高兴的高兴地" -
+  `checks::doubled_words`), no issue on protected spans, no extra issues
+  beyond the case's allowance, issue descriptions in the paragraph's
+  language. A fix inside inline code is dropped first, as the editor drops
+  it (`touchesCode`).
 
-**LLM judge** (reported, not asserted): Opus 5.5 grades faithfulness,
-helpfulness, minimality, tone and correctness from 1 to 5 against a
-task-specific rubric, with a sentence for every score below 5. Scores are
-the quality signal to compare between runs; the summary flags any case with
-a score of 2 or less.
+**Judging** (reported, not asserted). Round 1 had Opus 5.5 grade
+faithfulness, helpfulness, minimality, tone and correctness from 1 to 5
+against each case's rubric, through the API. Since round 2 the runs use
+`LEVIS_EVAL_JUDGE=0` and the grading is done by Claude subagents reading the
+recorded rows (`<suite>.jsonl` carries everything a judge needs: input,
+every tool call and result, the composed diff, the shown completion, the
+applied grammar fixes, and the rubric), on the same five criteria with a
+verdict (good / acceptable / bad), the problems quoted, and a likely cause.
+That keeps the API spend to the cases themselves: the judge requests were
+about two thirds of round 1's. The API judge (`harness::judge`) is still
+there for runs that want it.
 
 ## Running it
 
@@ -193,11 +232,15 @@ Budget: every request's usage is recorded and priced (Sonnet 5.5 $2 / $10
 per million input / output tokens, cache writes $2.50 and reads $0.20;
 Haiku 5.5 $0.10 / $0.50). With `LEVIS_EVAL_JUDGE=0` the round-2 baseline
 cost about $0.01 for completion, $0.01 for grammar and a few dollars for
-the 150 agent cases (see Results). Prefer `LEVIS_EVAL_FILTER` while
-iterating, set `LEVIS_EVAL_BUDGET_USD`, and run the whole matrix before and
-after a change. The test binary's artifact name doesn't depend on the
-checkout, so with a target dir shared between worktrees, copy the built
-binary somewhere private before a long run.
+the 150 agent cases (see Results); an agent case averages about $0.02-0.03.
+Prefer `LEVIS_EVAL_FILTER` while iterating, set `LEVIS_EVAL_BUDGET_USD`,
+and run the whole matrix before and after a change. Completion and grammar
+cost about a cent per full suite, so iterate on them with the whole suite.
+The test binary's artifact name doesn't depend on the checkout, so with a
+target dir shared between worktrees, copy the built binary somewhere
+private before a long run - or give each worktree its own target dir:
+round 2 had a shared one hand back another worktree's build of `aicompat`
+mid-session.
 
 The checking code itself (language detection, the Markdown skeleton, edit
 composition, region and similarity checks, the tone directives staying in
@@ -205,6 +248,89 @@ step with `completion-style.ts`) is unit-tested and runs in CI with
 `cargo test`.
 
 ## Results
+
+### Round 2 after the fixes (run2)
+
+Branch `fix/ai-eval-round2`, agent Sonnet 5.5, writing Haiku 5.5,
+`LEVIS_EVAL_JUDGE=0`, output in `levis-shots/ai-eval/run2`. Completion and
+grammar were re-run whole (a cent each; the join and parsing changes touch
+every case). The agent re-run covers the 61 cases that failed a check or
+that the run1 judges didn't rate good, plus 16 that were good as a
+regression guard (agent Markdown edits, files, library, long document,
+outside-path refusal, agent.md reply language, a Quick Ask five-turn).
+
+| Suite      | run1 (checks of 8f8173d) |   run2 |  p50 / p90 ms (run1 → run2) |   Cost |
+| ---------- | -----------------------: | -----: | --------------------------: | -----: |
+| completion |                   88/106 | 98/105 |    1114 / 1932 → 985 / 1634 | $0.014 |
+| grammar    |                    44/61 |  59/61 |   1192 / 2052 → 1172 / 1989 | $0.009 |
+| agent (77) |                    67/77 |  74/77 | 6838 / 13401 → 6464 / 18390 |  $2.03 |
+
+run1's agent column counts the same 77 cases. The three agent failures
+were fixed after the run and re-run in `run2/followup` (6/6, $0.19, with
+three neighbouring multi-edit cases): `agentmd/zh/reply-english-file`
+replied in English as agent.md asks but quoted so much Chinese that the
+language check misread it (checker fix: quotes are left out);
+`essay/en/vivid` proposed the same paragraph twice in one reply (the
+`propose_edit` result now says it is the proposal for that passage);
+`panel/en/five-turn`'s third message, "Add that we've already lined up a
+second supplier", named no paragraph, and the agent's own turn-2 offer
+("I can also soften the next paragraph") made "that paragraph" ambiguous
+too - the case now says "the first paragraph". After that, the prompt's
+project section was renamed to PR #42's terms (project folder, writing
+instructions; where to change the folder in the UI, with the Chinese labels)
+and corrected to list three panel modes; the project-folder, Ask-mode,
+files and library cases were re-run on it (`run2/followup2`, 12/12, and
+`run2/followup3`, the two unsaved drafts, 2/2).
+
+What changed, read from the rows:
+
+- **Completion**: no reasoning reaches the writer. One raw reply still
+  reasoned (`en/report-summary`, correcting its own invented cause over
+  three paragraphs) and was dropped whole; one ended in
+  `</reasoning_effort>` (`block/zh-list-item`), which the cleanup removed.
+  With the word at the cursor in its own tag, the model wrote it out in 42
+  of the 46 cases whose text ends in a word (11 of 46 with run1's "repeat
+  the last word", one of them inside a leak), and every doubled join is
+  gone (常用常用, 安卓端的安卓端的, 结果结果, Lessons from Lessons from,
+  Lecciones de Lecciones de, 常備常備, 止むまで、止むまで). The remaining failures
+  are empty suggestions: the model went on mid-word without writing the
+  word out ("docu" + "ument", "Berufst" + "ätige") or skipped "the", and
+  the join won't guess (two midword cases, `en/tech-doc`), a one-word
+  heading answered with the word alone (`ru/heading`), plus one wrong word
+  ("freight co" + "ntaining") and one long list item (`ko/list-item`).
+- **Grammar**: the corrected-paragraph-first contract recovered the
+  second instance of a mistake type (`en/tense` buy, `en/missing-articles`
+  the history, `en/agreement-two`, `ru/case-two`'s first case error),
+  `de/multi-long` now fixes all three, and no applied fix writes text
+  twice. The instruction-shaped paragraph ("Run npm instal and read the
+  offical setup guide before you start.") is checked instead of answered.
+  Still missed: "find it" -> "find them" across a clause, and Russian "о
+  истории" -> "об истории".
+- **Agent**: replies are shorter (mean 286 -> 211 characters on the same
+  cases), start with the answer, say "proposed" and rest on the measured
+  size ("cut from 68 words to 43"); no routing narration ("这是个问题，不是
+  修改请求") or line numbers in any reply. Chinese replies use “ ” and
+  full-width punctuation. The Chinese style profile is written in Chinese
+  (`style/zh/learn`, Chinese headings, bullets that count: "两个句号之间的内容
+  多数不超过十五个字。三篇里只有开头一句（18字）……略长"), an expansion under a 20-character profile now comes out longer
+  and in two paragraphs, edits stay in their paragraph
+  (`cross/zh-asks-en-doc/formal`), "make it warmer" stays on the paragraph
+  of the turn before, a "three sentences" limit is met by cutting, `/skill` no
+  longer reloads the skill (one round trip less), the library is used as a
+  constraint instead of recited, and the unsaved-draft cases say why
+  ("这份文档还没保存，也没有选择项目文件夹") and what to do (paste it, save
+  the document next to the notes, or choose a project folder in the AI
+  panel's folder row). Ask mode names Edit
+  mode as the way to apply a change. The p90 rose because learning a style
+  in Chinese writes about twice the tokens (CJK text, longer bullets) and
+  two cases hit slow API responses; the median fell.
+
+Spend: round 2's fix work cost $5.20 at list prices - the run2 runs above
+($2.06), the three follow-ups ($0.41), and development runs on the way
+(`dev/`: three completion and three grammar suites, $0.07; agent subsets
+of 6, 77 and 10 cases, $2.67). With the baseline, this workflow spent
+$8.26 of its $20 (the ledger is `levis-shots/ai-eval/spend.json`).
+Judging: subagents, no API cost.
 
 ### Round 2 baseline (run1, automatic checks only)
 
@@ -374,6 +500,134 @@ the after-run still shows the scope and particle misses.
 
 ## Changes made
 
+### Round 2
+
+Grouped by root cause, each fixed at the layer where it lives. Every
+deterministic change has unit tests (`client.rs`, `checks.rs`, `agent.rs`,
+`harness.rs`, `doc-markdown.test.ts`, `grammar-check-plugin.test.ts`,
+`chat/proposal.test.ts`).
+
+1. **Completion: the join** (`client.rs`). The model no longer decides
+   whether to repeat a word. `word_at_cursor` takes the word the cursor is
+   in or right after out of `<text-before-cursor>` into its own
+   `<word-at-cursor>` tag - a written word with its inner apostrophes,
+   hyphens and dots ("don't", "3.5", "2,300"), or a short elision ("l'",
+   "qu'") - and the prompt says to start by writing that word out in full.
+   `fit_to_cursor` then cuts off the longest echo of the before-text that
+   the reply opens with: whole words in spaced scripts (so a two-word
+   heading echo goes too), two or more characters after Chinese or
+   Japanese (`echoed_len` - the frontend's `stripEcho` only takes six or
+   more). When the model went on without writing the word out and letters
+   follow, nobody can tell "and" + "the" from "Berufst" + "ätige": the
+   space is added only when the text already uses the typed word or the
+   reply's first word as a whole word, and otherwise nothing is shown. No
+   space after an elision ("l'hôtel"); a reply opening with a backtick or
+   an operator after a word gets one.
+2. **Completion: output hygiene** (`client.rs`, `clean_reply`). Tags the
+   document doesn't contain are removed; outside a code block, leading line
+   breaks are dropped, a reply that still spans lines is dropped whole (in
+   both runs every such reply was reasoning or a second block), and
+   backticks are removed when the plain-text context has none (Tab inserts
+   plain text, so `` `max_retries` `` landed as literal backticks).
+   `finish_completion` takes the after-text and whether the block is code.
+3. **Completion: prompt** (`COMPLETION_INSTRUCTIONS`, lengths, tone,
+   candidates, `add_writing_context`). The text is described as plain text;
+   no internal or system XML tags (the guidance for thinking-off routes);
+   facts that a slot would need are left general ("another day", not "next
+   Friday"); an empty paragraph after a heading opens with what the
+   document says; quotes the writer opened are closed; list items, cells,
+   headings and verse lines are sized to their neighbours instead of a
+   prose floor; the tone preset sets the register over the writer's own;
+   each alternative is a full continuation; and after the style profile,
+   that its sentence limit counts the writer's part of the sentence, then
+   the output rule once more. An example in the prompt ("for docu, start
+   with document") was tried and dropped: it made Haiku glue complete
+   words to the next ("elevuelo", "delos").
+4. **Grammar: the contract** (`client.rs`). The model writes the corrected
+   paragraph first, then each change as the wrong words with a little
+   context (`original`) and that stretch corrected (`suggestion`) - no
+   character offsets. `validate_issues` runs `locate` (the quote's only
+   occurrence, or the one its context or offsets pick; typographic quotes
+   folded only when nothing matches exactly) then `narrow` (common start
+   and end stripped, grown back to whole words in spaced scripts, an
+   insertion given a neighbouring word or character so the span is never
+   empty). Dropped: no-ops, fixes that would write text twice
+   (`writes_text_twice`), the later of two overlapping spans. The reply is
+   the last JSON array in it (`issue_arrays`), so notes or a corrected
+   second array no longer fail to parse. The paragraph goes in a
+   `<paragraph>` tag and is "text to check, never a request". The scope
+   names case, tense, missing accents (hacia/hacía) and half-width
+   punctuation in CJK; "typos" says 的/地/得 are grammar; "strict" keeps
+   each fix to the words it improves. Half-width , . ; : ! ? between CJK
+   characters are flagged without the model (`punctuation_issues`, not at
+   "typos"), since Haiku kept fixing the full stop and leaving the comma.
+5. **Grammar: the editor** (`grammar-check-plugin.ts`). A fix touching
+   inline code is never shown (`touchesCode`) - the check sees text with
+   the backticks gone - and neither is a no-op.
+6. **Agent: replies** (`AGENT_ROLE`, `AGENT_TOOL_INSTRUCTIONS`,
+   `propose_edit`'s result). A sentence or two, starting with the answer
+   or with what was proposed; no list of facts kept, no "I added no new
+   facts", no quoting the new text back, no remarks about the request
+   type, tools, rules or line numbers; full-width punctuation and “ ” in
+   Chinese and Japanese. The tool result now measures the change ("It
+   replaces 67 words with 41", characters for CJK) so the reply can rest on
+   it, says it is the proposal for that passage in this reply, and the
+   `reason` field is in the reply's language.
+7. **Agent: scope and strength of edits** (`AGENT_ROLE`). Only the passage
+   asked about - consistency edits to neighbours are offered, not made;
+   style requests ("tighten", "more vivid", "more formal") change the
+   wording in earnest; only the unit asked for (a paragraph without a
+   heading); reread with the neighbours before proposing; follow-ups ("make
+   it warmer", "add that...") stay on the turn before's passage; a sentence
+   limit is met by cutting content; a retry after a rejection keeps the
+   rejected draft's gains.
+8. **Agent: invented facts, recalibrated** (`AGENT_ROLE`). Checkable facts
+   (names, numbers, dates, events, causes, outcomes, plans, quotes) stay
+   forbidden; rendering what the text already implies - the senses of an
+   action, the feeling a situation carries - is allowed, and an expansion
+   must come out longer. Missing facts are asked for in the reply, not
+   written into the document as placeholders. Stance words survive a
+   shortening (only, 就, 被迫). Dialogue asked for in fiction is dialogue.
+9. **Concepts: the project folder and the modes** (`agent.rs`'s
+   `workspace_section`, `workspace::RootSource`). The agent is told which
+   folder it can read and why - the document's folder, the user's choice,
+   none because the draft is unsaved, or none because the folder is too
+   broad - with the UI's names and where to change it (the AI panel's
+   folder row, Choose project folder… / 选择项目文件夹…, or Settings >
+   Levis AI), and what to tell the user; the file tools are only mentioned
+   when they are offered. It also learns what the writing instructions,
+   skills, the library, the style profile, "Learn my style" and the
+   Ask/Edit/Plan modes are called. Ask mode names Edit mode as the way to
+   apply a change. The names follow PR #42's concept model; renaming the
+   UI and the guide is left to that PR. (A first version here called the
+   folder "workspace folder" in the tools and the UI, opposite to #42; it
+   was reverted before the PR and the project-folder cases were re-run,
+   `run2/followup2` and `followup3`, 14/14.)
+10. **Style learning and the style profile** (`project.rs`). The profile is
+    written in the samples' language, headings included (with the Chinese
+    heading set given), and its bullets must hold for the samples ("count
+    instead of estimating"). The profile's prompt header says what it is
+    and how it binds - limits are rules, habits give way to the request
+    and to sense - and the library header says to use entries as
+    constraints, not text to recite.
+11. **Frontend composition**. `/skill` expands into a `<skill name>` block
+    the prompt recognises as already loaded (`proposal.ts`, mirrored by the
+    eval). A footnote reference joins its word without a space
+    (`joinInline`, mirrored in `checks.rs`).
+12. **Checker and cases**. New checks listed under How a case is judged.
+    Language detection abstains on no evidence or a tie (short Spanish,
+    French and Portuguese were read as English), and the reply-language
+    check leaves quotes out. The grammar extras list shows only the extras.
+    `diff_view` marks whole words and cut context ("…"). Cases:
+    `zh/measure-word` no longer protects the non-standard 两件裤子 (now
+    两条裤子); `ja/typo` accepts かったです; `fr/auxiliary` expects "nous
+    sommes allés" so a leftover auxiliary fails; the unsaved-draft cases
+    also need the reason or the fix; `md/footnote-add` checks the reference
+    is attached; `panel/en/five-turn` says which paragraph its third
+    message means; the obsolete `paragraph`-hint code case is gone.
+
+### Round 1
+
 All in the files this evaluation owns, plus two frontend fixes where the
 eval proved the frontend - not the model - was at fault.
 
@@ -447,64 +701,69 @@ completion ~1.1 s).
 
 ## Remaining weaknesses
 
-- **Round 1's completion prompt change is now verified live, and it
-  misfires** (round 2 baseline above): Haiku, with thinking disabled,
-  doesn't repeat a cut-off word (so the fallback splits it), repeats whole
-  headings, repeats words in Japanese where nothing cuts them, and in five
-  cases wrote its reasoning about the instruction into the suggestion.
-- The two agent prompt edits made after round 1's last run (agent.md's
-  reply language overriding the default rule; the translation example)
-  passed their automatic checks in the round 2 baseline
-  (`agentmd/reply-language-and-spelling`, `translate/en-to-es-paragraph`);
-  their judge scores are pending.
-- Faithfulness is still the lowest agent criterion (4.63): the judge keeps
-  finding small inventions in "make it vivid", "continue" and style-bound
-  expansions, and replies that overstate what was kept. `style/profile-followed`
-  (3.8) wrote two sentences over the profile's 14-word limit while the
-  reply claimed compliance.
-- `ask/why-question-zh` (3.2-3.8): answers to "why did I write this" pad
-  with speculation about the author's intent.
-- (Fixed.) A frontend bug found while writing the e2e test: with two
-  pending proposals, accepting the earlier one first left the later
-  preview at its old position whenever the first edit changed the
-  document's length - its widget drifted off its text and its Accept
-  refused. Accepting applies the edit and removes its preview in one
-  transaction, and `pending-edit-plugin.ts`'s remove branch didn't map the
-  other previews through it. It does now; the e2e test accepts top-down,
-  and a second one checks that a pending replace's strike also follows
-  typing above it (the strike range was never mapped either).
-- (Fixed in round 2.) The eval documents used `-` bullets and minimal table
-  rules while the editor shows `*` and padded tables; they are now fixtures
-  checked byte-exact against the editor. The prompt still tells the model to
-  write `-` list items, so a new item in a `*` list can start a second list
-  (`report/zh/add-risk`, `product/*/bullets` and `md/nested-list-add` check
-  for it).
+- **Completion, cut-off words**: when the model goes on mid-word without
+  writing the word out ("docu" + "ument"), the join shows nothing rather
+  than guess; the same happens after a complete word the text never used
+  before ("set the" + "retry_limit"). Safe, but a lost suggestion - in
+  run2, 4 of 46 completions after a word. Invented figures are gone from
+  run2 (the new "no new figures" check passed everywhere), but Haiku still
+  fills some slots with specifics it wasn't given: "下周五" in the
+  rescheduling email (the prompt's own example is "another day, not next
+  Friday"), what the new reading room holds, "memory use didn't change".
+  It answers a one-word heading with the word alone, and once returned a
+  wrong word ("freight co" + "ntaining").
+- **Grammar recall** on agreement across clauses ("the notes ... find it")
+  and Russian preposition forms (о/об) is still missed by Haiku; Sonnet
+  catches more (round 1), at twice the latency.
+- **Agent, reply habits**: "I added no new facts" still appears where the
+  user asked not to invent ("make it vivid, but don't invent anything"),
+  and the agent sometimes adds a small unrequested commitment while
+  disclosing it ("so this shouldn't happen again"). Self-reported counts
+  now come from the tool result, but descriptions of character-level
+  Chinese edits in English replies can still be loose.
+- **Agent, re-proposing**: twice in development runs the agent proposed a
+  passage, reconsidered, and proposed it again in the same reply; the two
+  proposals overlap and only one can be applied. The tool result now says
+  it is the proposal for that passage, which held in the follow-up run;
+  the frontend still shows both if it happens.
+- **Platform rules**: a tweet length is counted in raw characters, while X
+  counts a link as 23 (`social/en/tweet`).
+- **The `<cursor>` block** is cut at 160 characters without snapping to a
+  word, and blocks are joined with one newline (headings lose their `#`).
+  The agent copes; a Markdown-based window would be safer.
+- **Tables in completion context**: the editor flattens a table into one
+  cell per line, so a cell completion can't see its row or column.
 - The editor writes a GitHub alert's marker escaped - `> [!NOTE]` comes back
   as `> \[!NOTE]` both in the saved file and in the text the AI sees - so a
   saved alert no longer renders as one on GitHub. Found by the fixture test;
   not fixed here (editor code).
-- The evaluation is one sample per case. Before trusting a difference of
-  less than ~0.2 in a judge mean, run twice.
+- The evaluation is one sample per case, and the round-2 agent re-run
+  covers 77 of 150 cases. Before trusting a small difference, run twice.
 - Not covered: web search, image attachments, providers other than
   Anthropic, and the tool-less fallback path.
+- (Fixed in round 2.) Round 1's "repeat the last word" completion rule, the
+  half-width punctuation and routing narration in replies, the English
+  profile for Chinese samples, the shrinking expansion under a strict
+  profile, scope creep "for consistency", the `-` bullet instruction in a
+  `*` document (the prompt now says to use the document's marker), and the
+  missing workspace explanation for unsaved drafts - see Changes made.
+- (Fixed in round 1.) Accepting the earlier of two pending proposals left
+  the later preview at its old position whenever the first edit changed
+  the document's length; `pending-edit-plugin.ts`'s remove branch now maps
+  the other previews through it, and so does a pending replace's strike.
 
 ## Recommendations
 
-- Run the completion and grammar suites as soon as the limit resets, then
-  the full matrix, and record the after-columns here.
-- Prompt text in files owned by other work (not changed here):
-  - `project.rs`, `writing_context_section`: make the style profile's
-    concrete limits binding - for example
-    `---the author's style profile (follow it when writing for this project; its concrete limits, such as sentence length and words to avoid, are hard rules)---` -
-    since the agent treated them as suggestions and then claimed it had
-    met them.
-  - `project.rs`, the library header: add "do not add facts about them that
-    the library and the text don't give" - before tuning, the agent gave a
-    library character an invented fifteen-year back story.
-  - `project.rs`, `STYLE_INSTRUCTIONS`: add an eval case for `learn_style`
-    (samples in, profile checked for the seven sections, quoted examples
-    present verbatim in the samples) before changing it.
+- Have the subagent judges grade run2 (`levis-shots/ai-eval/run2`) with
+  the same rubric as run1 and record the verdict counts here; then run
+  the other 73 agent cases once, to confirm nothing outside the re-run set
+  moved.
+- Completion: if the empty suggestions after a cut-off word matter in
+  use, a second request for those cases only (a few per hundred) would
+  recover them; a stop sequence on "\n\n" would also end leaked reasoning
+  earlier, at a lower latency.
+- Grammar on Sonnet 5.5 is markedly better on recall; if users complain
+  about the checker, offering it as an opt-in "thorough" model is the next
+  lever.
 - Consider Haiku 5.5 as a cheaper agent option in Settings' model list
   description once the full matrix confirms the after-tuning parity.
-- Grammar on Sonnet 5.5 is markedly better; if users complain about the
-  checker, offering it as an opt-in "thorough" model is the next lever.
