@@ -11,7 +11,12 @@ import {
   type ProxyType,
 } from "./SettingsContext";
 import type { Lang, Strings } from "../i18n/strings";
-import { SettingRow, ToggleRow, ShortcutRow } from "./sections/controls";
+import {
+  SettingRow,
+  ToggleRow,
+  ShortcutRow,
+  VERBATIM_INPUT,
+} from "./sections/controls";
 import { ChevronIcon, CloseIcon } from "../ui/icons";
 import { UpdateSection, CliCommandSection } from "./sections/general";
 import { ThemeSection } from "./sections/theme";
@@ -267,6 +272,8 @@ export function SettingsPanel({
               <div className="settings-proxy-row">
                 <input
                   type="text"
+                  inputMode="url"
+                  {...VERBATIM_INPUT}
                   className="settings-text-input settings-proxy-host"
                   placeholder={t.proxyHostPlaceholder}
                   aria-label={t.proxyHostPlaceholder}
@@ -275,6 +282,8 @@ export function SettingsPanel({
                 />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  {...VERBATIM_INPUT}
                   className="settings-text-input settings-proxy-port"
                   placeholder={t.proxyPortPlaceholder}
                   aria-label={t.proxyPortPlaceholder}

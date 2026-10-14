@@ -17,7 +17,7 @@ import {
 import { useActiveProvider } from "../../ai/provider-catalog";
 import { ai, auth } from "../../ipc";
 import { Select } from "../../ui/Select";
-import { SettingRow } from "./controls";
+import { SettingRow, VERBATIM_INPUT } from "./controls";
 
 // The AI category's model pickers and chat-workspace rows. The workspace
 // itself is file-managed (the .levis/ convention) - these sections mostly
@@ -132,6 +132,11 @@ function ProviderModelRow({
   // retired. Still selectable (it may just be unlisted), but flagged.
   const currentMissing =
     !!current && fetched.length > 0 && !fetched.includes(current);
+  // A list to choose from, or only a name to type (a custom endpoint, whose
+  // models are never listed here). Decided before the saved name joins the
+  // options: counting it turned the text field into a one-option select at
+  // the first keystroke, so a model name could only ever be one character.
+  const hasList = knownAndFetched.length > 0;
   if (current && !knownAndFetched.includes(current)) {
     knownAndFetched.push(current);
   }
@@ -183,7 +188,7 @@ function ProviderModelRow({
       label={label}
       error={currentMissing ? t.modelMissingHint : null}
     >
-      {presetOptions.length > 0 ? (
+      {useCodexPresets || defaultModel || hasList ? (
         <Select
           className="settings-select settings-model-select"
           aria-label={label}
@@ -199,6 +204,7 @@ function ProviderModelRow({
       ) : (
         <input
           type="text"
+          {...VERBATIM_INPUT}
           className="settings-text-input"
           aria-label={label}
           placeholder={t.customModelPlaceholder}

@@ -12,6 +12,7 @@ import { ChevronIcon } from "../../ui/icons";
 import { auth, type CustomEndpointConfig } from "../../ipc";
 import { Select } from "../../ui/Select";
 import { isIOSApp } from "../../platform/capabilities";
+import { VERBATIM_INPUT } from "./controls";
 
 // General > AI Login Settings: two compact disclosure rows (provider, then
 // credentials) plus the per-provider account/API-key/custom panels.
@@ -560,6 +561,8 @@ function CustomProviderPanel({
         <label className="settings-field-label">{t.customBaseUrlLabel}</label>
         <input
           type="text"
+          inputMode="url"
+          {...VERBATIM_INPUT}
           className="settings-text-input"
           placeholder={t.customBaseUrlPlaceholder}
           value={baseUrl}
@@ -594,6 +597,7 @@ function CustomProviderPanel({
           ) : (
             <input
               type="text"
+              {...VERBATIM_INPUT}
               className="settings-text-input"
               placeholder={t.customModelPlaceholder}
               value={selectedModel}
