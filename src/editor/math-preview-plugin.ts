@@ -229,7 +229,10 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
               displayMode,
             );
             floatEl.style.display = "block";
+            place(view);
+          }
 
+          function place(view: EditorView) {
             // Anchored below the cursor's current line (not the node's
             // start), so it tracks along as you type a multi-line block, and
             // matches how every other popup in this app (grammar fixes,
@@ -256,6 +259,35 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
 
           updateFloat(editorView);
 
+          // The page can move under an open preview without a transaction:
+          // the AI panel opening narrows the column, a scroll or a window
+          // resize. It follows the caret instead of staying where it was.
+          let frame = 0;
+          let settleTimer: number | undefined;
+          const placeIfShown = () => {
+            if (floatEl.style.display !== "none") place(editorView);
+          };
+          const follow = () => {
+            if (floatEl.style.display === "none" || hideTimer !== null) return;
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(placeIfShown);
+            // Once more where the column's glide to its new place
+            // (App.tsx's FlipOnChange) has ended.
+            window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(placeIfShown, 400);
+          };
+          const resize =
+            typeof ResizeObserver === "undefined"
+              ? null
+              : new ResizeObserver(follow);
+          resize?.observe(editorView.dom);
+          // The pane, not just the text: a column that keeps its width
+          // still moves when the pane beside it narrows.
+          const pane = editorView.dom.closest(".editor-scroll");
+          if (pane) resize?.observe(pane);
+          window.addEventListener("resize", follow);
+          document.addEventListener("scroll", follow, true);
+
           return {
             // Wrapped: the view-update callback's second argument is
             // prevState, which must not land in updateFloat's fromTimer.
@@ -263,6 +295,11 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             destroy() {
               cancelShow();
               cancelHide();
+              cancelAnimationFrame(frame);
+              window.clearTimeout(settleTimer);
+              resize?.disconnect();
+              window.removeEventListener("resize", follow);
+              document.removeEventListener("scroll", follow, true);
               floatEl.remove();
             },
           };

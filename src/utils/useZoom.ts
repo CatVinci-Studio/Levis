@@ -39,6 +39,17 @@ function snap(zoom: number): number {
   return Math.abs(clamped - 1) < 0.03 ? 1 : clamped;
 }
 
+/// The document's top-level block at viewport y `line`: the one it falls
+/// in, else the first below it.
+function blockAt(content: Element, line: number): Element | null {
+  const blocks = content.querySelector(".ProseMirror")?.children;
+  if (!blocks) return null;
+  for (const block of Array.from(blocks)) {
+    if (block.getBoundingClientRect().bottom >= line) return block;
+  }
+  return null;
+}
+
 /**
  * Applies `initialZoom` on mount and owns every zoom input for this window.
  * The live value lives in a ref (not React state) - pinch updates arrive per
@@ -82,6 +93,23 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
         box.height,
         Math.max(0, (anchorClientY ?? box.top + box.height / 2) - box.top),
       );
+      // The block under the anchor stays under it, at the same share of
+      // its height. Scaling the distance into the content alone drifted:
+      // where the column widens with the zoom the text rewraps, so the
+      // content does not grow in proportion.
+      const line = box.top + anchor;
+      const block = blockAt(content, line);
+      if (block) {
+        const was = block.getBoundingClientRect();
+        const share = was.height > 0 ? (line - was.top) / was.height : 0;
+        document.documentElement.style.setProperty(
+          "--content-zoom",
+          String(next),
+        );
+        const now = block.getBoundingClientRect();
+        scroller.scrollTop += now.top + share * now.height - line;
+        return;
+      }
       // The column's padding is outside the zoomed node, so only the
       // distance INTO the content scales.
       const contentTop = () =>

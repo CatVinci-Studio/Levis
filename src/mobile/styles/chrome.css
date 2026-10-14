@@ -136,8 +136,10 @@
     transition-duration: 0s;
   }
 
+  /* .close-prompt here too, or the buttons' own `border: none` above won
+     and Cancel and Delete ran together with no hairline between them. */
   :root[data-window-chrome="mobile"]
-    .app-dialog
+    .app-dialog.close-prompt
     .close-prompt-buttons
     button
     + button {
@@ -145,7 +147,7 @@
   }
 
   :root[data-window-chrome="mobile"]
-    .app-dialog
+    .app-dialog.close-prompt
     .close-prompt-buttons:has(> button:nth-of-type(3))
     button
     + button {

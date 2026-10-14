@@ -155,14 +155,17 @@ export function KeyboardToolbar() {
   useLayoutEffect(() => {
     if (!editing) return;
     let observed: HTMLElement | null = null;
-    const resize = new ResizeObserver(() => measure());
+    const resize =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => measure());
     function measure() {
       const panel = document.querySelector<HTMLElement>(
         '.agent-panel:not([data-state="closing"])',
       );
       if (panel !== observed) {
-        if (observed) resize.unobserve(observed);
-        if (panel) resize.observe(panel);
+        if (observed) resize?.unobserve(observed);
+        if (panel) resize?.observe(panel);
         observed = panel;
       }
       const docked = !!panel && getComputedStyle(panel).position !== "fixed";
@@ -174,7 +177,7 @@ export function KeyboardToolbar() {
     window.addEventListener("resize", measure);
     return () => {
       window.removeEventListener("resize", measure);
-      resize.disconnect();
+      resize?.disconnect();
     };
   }, [editing]);
 

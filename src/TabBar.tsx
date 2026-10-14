@@ -449,6 +449,12 @@ function TabPill({
       // selection and paints a selection sweep through the editor below
       // once the pill detaches mid-gesture.
       onMouseDown={(e) => e.preventDefault()}
+      // Entered once: a reorder moves the pill's node, and a moved node
+      // starts its stylesheet animation over - the dropped tab faded in
+      // from nothing while its neighbour slid under it (App.css).
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget) e.currentTarget.dataset.entered = "";
+      }}
     >
       {tab.dirty && <span className="tab-pill-dirty-dot" />}
       <span className="tab-pill-title">{title}</span>

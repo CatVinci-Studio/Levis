@@ -538,6 +538,10 @@ body {
     color var(--dur-fast) var(--ease-standard);
 }
 
+.tab-pill[data-entered]:not(.tab-pill-ghost) {
+  animation: none;
+}
+
 .tab-pill:hover {
   background: var(--sidebar-hover);
 }
@@ -657,13 +661,15 @@ body {
    fixed-position overlays (find bar, popovers) live OUTSIDE the zoomed
    nodes and keep their unzoomed viewport coordinates. */
 /* The column's unzoomed width (Settings > Editor > Text Width). "auto"
-   holds the classic 760px measure on ordinary windows and widens with the
-   pane on large screens, where a fixed 760px left two thirds of the
-   window empty. Percentages resolve against the scroll pane, so an open
-   sidebar narrows it too. An imported theme that sizes #write itself
-   (theme-chrome.ts's --theme-content-width) takes over "auto". */
+   holds a 680px column on ordinary windows - about 80 Latin characters a
+   line at 16.5px, 38 Chinese; the classic 760px ran English to 95 - and
+   widens with the pane on large screens, where a fixed column left two
+   thirds of the window empty. "Standard" keeps the classic 760px.
+   Percentages resolve against the scroll pane, so an open sidebar narrows
+   it too. An imported theme that sizes #write itself (theme-chrome.ts's
+   --theme-content-width) takes over "auto". */
 :root {
-  --content-width: var(--theme-content-width, max(760px, min(1080px, 64%)));
+  --content-width: var(--theme-content-width, max(680px, min(960px, 56%)));
 }
 
 :root[data-content-width="standard"] {

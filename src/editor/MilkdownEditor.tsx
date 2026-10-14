@@ -25,6 +25,7 @@ import {
 } from "@milkdown/kit/preset/commonmark";
 import { undoCommand, redoCommand } from "@milkdown/kit/plugin/history";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
@@ -164,6 +165,19 @@ interface MilkdownEditorProps {
    *  triggers are ignored, and the chat answers from a pre-written script
    *  instead of the backend. First-run users have no AI account yet. */
   tutorialMock?: boolean;
+}
+
+/** Whether document position `pos` shows inside its editor's scroller. */
+function previewOnScreen(view: EditorView, pos: number): boolean {
+  const scroller = view.dom.closest(".editor-scroll");
+  if (!scroller) return false;
+  try {
+    const at = view.coordsAtPos(Math.min(pos + 1, view.state.doc.content.size));
+    const box = scroller.getBoundingClientRect();
+    return at.top >= box.top && at.bottom <= box.bottom;
+  } catch {
+    return false;
+  }
 }
 
 export function MilkdownEditor({
@@ -855,17 +869,23 @@ export function MilkdownEditor({
   function revealPreview(
     preview: PendingPreview,
     editorHadFocus = editorHadFocusBeforeAction(),
+    arriving = false,
   ) {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       const { doc } = view.state;
+      // Edits arriving mid-answer, the first already on screen: the panel
+      // stays where it is. Moved to the edit's block, it jumped from under
+      // the selection to above it in one frame and pushed the text down.
+      const stay = arriving && !phone && previewOnScreen(view, preview.from);
       // near(), not create(): an anchored proposal's `from` is the position
       // BEFORE a block node, which is not a valid text position - create()
       // throws there. near() snaps to the closest one it can select.
-      let tr = view.state.tr
-        .setSelection(TextSelection.near(doc.resolve(preview.from)))
-        .scrollIntoView();
-      if (inlineChat.visible && !phone) {
+      let tr = view.state.tr.setSelection(
+        TextSelection.near(doc.resolve(preview.from)),
+      );
+      if (!stay) tr = tr.scrollIntoView();
+      if (inlineChat.visible && !phone && !stay) {
         tr = setQuickAskWidget(tr, blockPositionAfter(doc, preview.from));
       }
       view.dispatch(tr);
@@ -942,6 +962,7 @@ export function MilkdownEditor({
         armed && Date.now() - armed.at < PRESS_WINDOW_MS
           ? armed.focused
           : editorHasFocus(),
+        armed === null,
       );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEdits.focusedPreview]);

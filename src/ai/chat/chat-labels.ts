@@ -56,6 +56,9 @@ export function chatLabels(t: Strings, lang: Lang): InlineChatLabels {
       read_file: t.toolReadFile,
       use_skill: t.toolUseSkill,
       add_comment: t.toolAddComment,
+      // The edit being written, in words: Quick Ask's status line showed
+      // the raw "propose_edit…". The ellipsis is added after it.
+      propose_edit: t.proposalStatusStreaming.replace(/…$/, ""),
     },
     diffCollapse: t.diffCollapse,
     diffShow: t.diffShow,

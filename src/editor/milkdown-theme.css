@@ -23,9 +23,14 @@
   --md-radius-sm: 4px;
 }
 
+/* A click anywhere below the text still lands in it: the page's height,
+   less the column's padding above and below it (App.css .editor-content,
+   3rem + 6rem) - with only 6rem off, an empty document scrolled by 48px
+   and showed a scrollbar. Divided by the zoom, which scales this node's
+   lengths (useZoom.ts). */
 .milkdown .ProseMirror {
   outline: none;
-  min-height: calc(100vh - 6rem);
+  min-height: calc((100vh - 9rem) / var(--content-zoom, 1));
 }
 
 @media print {

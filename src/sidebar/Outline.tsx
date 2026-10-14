@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseHeadings } from "./outline-parse";
 import { ChevronIcon } from "../ui/icons";
 import { useSettings } from "../settings/SettingsContext";
@@ -9,6 +9,27 @@ interface OutlineProps {
   content: string;
 }
 
+const HEADINGS = ":scope > :is(h1, h2, h3, h4, h5, h6)";
+
+/** The index of the section being read in the active editor: the last
+ *  top-level heading at or above a line a little below the scroller's top
+ *  (where an outline jump lands one), or -1 above the first. */
+function currentHeading(): number {
+  const scroller = document.querySelector(
+    '[data-active-tab="true"] > .editor-scroll',
+  );
+  const root = scroller?.querySelector(".editor-content .ProseMirror");
+  if (!scroller || !root) return -1;
+  const line = scroller.getBoundingClientRect().top + 80;
+  const headings = root.querySelectorAll(HEADINGS);
+  let current = -1;
+  for (let i = 0; i < headings.length; i++) {
+    if (headings[i].getBoundingClientRect().top > line) break;
+    current = i;
+  }
+  return current;
+}
+
 function scrollToHeading(index: number) {
   // Every tab's editor stays mounted, so scope to the active one. Top-level
   // headings only: parseHeadings never counts one inside a quote or list
@@ -17,9 +38,7 @@ function scrollToHeading(index: number) {
   const root = document.querySelector(
     '[data-active-tab="true"] .editor-content .ProseMirror',
   );
-  const heading = root?.querySelectorAll(
-    ":scope > :is(h1, h2, h3, h4, h5, h6)",
-  )[index];
+  const heading = root?.querySelectorAll(HEADINGS)[index];
   heading?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 }
 
@@ -54,6 +73,22 @@ export function Outline({ content }: OutlineProps) {
     });
   }, [content]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // The section being read is marked, following the scroll (any scroller:
+  // the event doesn't bubble, so it is caught on its way down).
+  const [current, setCurrent] = useState(-1);
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setCurrent(currentHeading()));
+    };
+    update();
+    document.addEventListener("scroll", update, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", update, true);
+    };
+  }, [content]);
 
   const visible = useMemo(() => {
     const rows: typeof headings = [];
@@ -106,7 +141,8 @@ export function Outline({ content }: OutlineProps) {
               <span className="outline-toggle-spacer" />
             )}
             <button
-              className="tree-row"
+              className={`tree-row${h.index === current ? " tree-row-active" : ""}`}
+              aria-current={h.index === current ? "location" : undefined}
               onClick={() => scrollToHeading(h.index)}
             >
               <span className="tree-label">{headingLabel(h.text)}</span>

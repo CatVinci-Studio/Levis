@@ -190,3 +190,106 @@ test("a broken diagram leaves no mermaid node in the page", async ({
     ),
   ).toBe(0);
 });
+
+test("the outline marks the section being read", async ({ page }) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(
+    page,
+    longDoc([
+      { at: 10, text: "## Early section" },
+      { at: 60, text: "## Late section" },
+    ]),
+  );
+  await emit(page, "menu-toggle-sidebar");
+  await page.locator(".sidebar-tab").nth(1).click();
+  await page
+    .locator(".outline-row .tree-label", { hasText: "Late section" })
+    .click();
+  const current = page.locator('.outline-row [aria-current="location"]');
+  await expect(current).toHaveText("Late section");
+  await page
+    .locator(".outline-row .tree-label", { hasText: "Early section" })
+    .click();
+  await expect(current).toHaveText("Early section");
+});
+
+test("an empty document doesn't scroll", async ({ page }) => {
+  await openApp(page, { settings: { language: "en" } });
+  const scroller = page.locator('[data-active-tab="true"] .editor-scroll');
+  expect(
+    await scroller.evaluate((el) => el.scrollHeight - el.clientHeight),
+  ).toBeLessThanOrEqual(0);
+});
+
+test("zooming keeps the line being read in place", async ({ page }) => {
+  await openApp(page, {
+    // Full width: the column can't widen with the zoom, so the text
+    // rewraps and the content doesn't grow in proportion.
+    settings: { language: "en", contentWidth: "full" },
+  });
+  await pasteMarkdown(page, longDoc([{ at: 50, text: "## Anchor line" }]));
+  const heading = page.locator(".milkdown h2", { hasText: "Anchor line" });
+  await heading.evaluate((el) =>
+    el.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  const before = (await heading.boundingBox())!;
+  const center = await page.evaluate(() => {
+    const box = document
+      .querySelector('[data-active-tab="true"] .editor-scroll')!
+      .getBoundingClientRect();
+    return box.top + box.height / 2;
+  });
+  await emit(page, "menu-zoom-in");
+  await emit(page, "menu-zoom-in");
+  await page.waitForTimeout(200);
+  const after = (await heading.boundingBox())!;
+  // The heading at the pane's centre stays there.
+  console.log(
+    "zoom",
+    before.y + before.height / 2,
+    after.y + after.height / 2,
+    center,
+  );
+  expect(
+    Math.abs(after.y + after.height / 2 - (before.y + before.height / 2)),
+  ).toBeLessThan(24);
+});
+
+test("the math preview follows its formula when the column moves", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, "Some text with $x^2 + y^2$ in it.");
+  // Into the formula from the end of the line.
+  await page.locator('[data-active-tab="true"] .milkdown p').first().click();
+  await page.keyboard.press("End");
+  for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowLeft");
+  const preview = page.locator(".math-float-preview");
+  await expect(preview).toBeVisible();
+  const before = (await preview.boundingBox())!;
+  // The AI panel takes its room; the column (and the formula) moves left.
+  await emit(page, "menu-toggle-agent-panel");
+  await expect(page.locator(".agent-panel")).toBeVisible();
+  await expect
+    .poll(async () => (await preview.boundingBox())!.x)
+    .not.toBe(before.x);
+});
+
+test("a note's body starts flush with the lines under it", async ({ page }) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(
+    page,
+    "Intro.\n\n> [!NOTE]\n> Useful information.\n\nEnd.",
+  );
+  await page.locator('[data-active-tab="true"] .milkdown p').last().click();
+  // The marker line's soft break is hidden with the marker: drawn, it was
+  // a space at the start of the body.
+  const shown = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll(
+        '[data-active-tab="true"] blockquote.md-alert [data-type="hardbreak"]',
+      ),
+    ).map((el) => getComputedStyle(el).display),
+  );
+  expect(shown).toEqual(["none"]);
+});
