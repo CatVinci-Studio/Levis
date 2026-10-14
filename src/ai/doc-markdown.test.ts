@@ -165,6 +165,33 @@ describe("composeMarkdownEdit", () => {
     );
   });
 
+  it("keeps a sentence off the edge of a table, heading or list", () => {
+    // Only a paragraph carries on past its last sentence: glued on, the
+    // sentence would be a third cell, would turn the header row (and so
+    // the whole table) into a paragraph, or would join the heading/item.
+    const table = "| a | b |\n| --- | --- |\n| 1 | 2 |";
+    const doc = blocks("## Background", table, "- one\n- two");
+    const edit = (
+      anchor: string,
+      action: "insert_before" | "insert_after",
+      text: string,
+    ) => composeMarkdownEdit(findMarkdownMatch(doc, anchor)!, action, text);
+    expect(edit("| 1 | 2 |", "insert_after", "Figures are rough.")).toBe(
+      `${table}\n\nFigures are rough.`,
+    );
+    expect(edit("| a | b |", "insert_before", "The table lists it.")).toBe(
+      `The table lists it.\n\n${table}`,
+    );
+    expect(edit("Background", "insert_after", "It explains why.")).toBe(
+      "## Background\n\nIt explains why.",
+    );
+    expect(edit("- two", "insert_after", "That is all.")).toBe(
+      "- one\n- two\n\nThat is all.",
+    );
+    // Away from the edge, a phrase still joins the cell or item.
+    expect(edit("one", "insert_after", "(first)")).toBe("- one (first)\n- two");
+  });
+
   it("adds a table row inside the table, not after a blank line", () => {
     const table = "| a | b |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |";
     const doc = blocks("Intro", table, "Outro");

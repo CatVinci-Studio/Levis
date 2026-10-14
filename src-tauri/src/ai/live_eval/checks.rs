@@ -657,6 +657,13 @@ fn is_block_text(text: &str) -> bool {
     starts_block || t.contains("\n\n") || t.contains("\n \n")
 }
 
+/// Mirrors doc-markdown.ts's isParagraph: one plain paragraph, the only
+/// block a sentence carries on past the edge of.
+fn is_paragraph(markdown: &str) -> bool {
+    let t = markdown.trim_start();
+    !is_block_text(markdown) && !["<", "$$", "[^", "---"].iter().any(|p| t.starts_with(p))
+}
+
 fn is_cjk(c: char) -> bool {
     matches!(c, '\u{3000}'..='\u{9fff}' | '\u{ac00}'..='\u{d7af}' | '\u{ff00}'..='\u{ffef}')
 }
@@ -754,6 +761,12 @@ fn resolve(doc: &str, p: &Proposal, caret: Caret) -> Result<(usize, usize, Strin
             let prefix = &doc[bs..s];
             let suffix = &doc[e..be];
             let whole_block = prefix.trim().is_empty() && suffix.trim().is_empty();
+            // Mirrors doc-markdown.ts's startsBlock for the given edge.
+            let starts_block = |edge: &str| {
+                is_block_text(&text)
+                    || whole_block
+                    || (edge.trim().is_empty() && !is_paragraph(&doc[bs..be]))
+            };
             let lines = trim_lines(&text);
             let middle = match action {
                 "delete" => String::new(),
@@ -764,7 +777,7 @@ fn resolve(doc: &str, p: &Proposal, caret: Caret) -> Result<(usize, usize, Strin
                     let at_line_start = prefix.is_empty() || prefix.ends_with('\n');
                     if at_line_start && same_line_kind(lines.lines().last().unwrap_or(""), line) {
                         format!("{lines}\n{matched}")
-                    } else if is_block_text(&text) || whole_block {
+                    } else if starts_block(prefix) {
                         format!("{}\n\n{matched}", text.trim())
                     } else {
                         join_inline(&text, matched)
@@ -776,7 +789,7 @@ fn resolve(doc: &str, p: &Proposal, caret: Caret) -> Result<(usize, usize, Strin
                     let at_line_end = suffix.is_empty() || suffix.starts_with('\n');
                     if at_line_end && same_line_kind(line, lines.lines().next().unwrap_or("")) {
                         format!("{matched}\n{lines}")
-                    } else if is_block_text(&text) || whole_block {
+                    } else if starts_block(suffix) {
                         format!("{matched}\n\n{}", text.trim())
                     } else {
                         join_inline(matched, &text)
@@ -1064,6 +1077,21 @@ mod tests {
         )
         .unwrap();
         assert!(out.contains("  - WebSocket\n  - Long polling\n"), "{out}");
+        // A sentence at a table's or list's edge is a block of its own.
+        let out = apply_all(
+            doc,
+            &[p("insert_after", "| 1 | 2 |", "Rough figures.")],
+            Caret::default(),
+        )
+        .unwrap();
+        assert!(out.contains("| 1 | 2 |\n\nRough figures."), "{out}");
+        let out = apply_all(
+            doc,
+            &[p("insert_after", "  - WebSocket", "That is all.")],
+            Caret::default(),
+        )
+        .unwrap();
+        assert!(out.contains("  - WebSocket\n\nThat is all."), "{out}");
         let out = apply_all(
             doc,
             &[p("insert_after", "B two.", " C three.")],

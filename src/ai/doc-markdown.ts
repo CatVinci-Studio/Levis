@@ -355,6 +355,29 @@ function wholeBlock(match: MarkdownMatch): boolean {
   return match.prefix.trim() === "" && match.suffix.trim() === "";
 }
 
+/** Whether the matched markdown is one plain paragraph - not several
+ *  blocks, and not a heading, list, table, quote, fence, math or HTML
+ *  block, footnote or rule. */
+function isParagraph(markdown: string): boolean {
+  return !isBlockText(markdown) && !/^\s*(<|\$\$|\[\^|---)/.test(markdown);
+}
+
+/** Whether text inserted on the `edge` side of the match (its prefix or
+ *  suffix) starts a block of its own: it is block content, the match is
+ *  the whole block, or the match reaches the edge of a block no sentence
+ *  carries on past. Only a paragraph goes on after its last sentence - a
+ *  sentence glued onto a table's row turns into a cell (or, before the
+ *  header row, dissolves the table), and onto a heading or the last list
+ *  item it becomes part of them. */
+function startsBlock(
+  match: MarkdownMatch,
+  text: string,
+  edge: string,
+): boolean {
+  if (isBlockText(text) || wholeBlock(match)) return true;
+  return edge.trim() === "" && !isParagraph(match.markdown);
+}
+
 /** `text` without blank lines around it, but with its first line's
  *  indentation - a nested list item's indent is part of its meaning. */
 function trimLines(text: string): string {
@@ -386,9 +409,8 @@ export function composeMarkdownEdit(
       middle = "";
       break;
     // A new row or list item next to a whole row or item joins its table
-    // or list line by line. Otherwise a new block only where one belongs:
-    // the text is block content, or the anchor is the whole block (a
-    // paragraph, a heading). Anything else is part of the sentence - always
+    // or list line by line. Otherwise a new block only where one belongs
+    // (startsBlock). Anything else is part of the sentence - always
     // breaking out a paragraph turned "add 'in 2024' after 'the study'"
     // into three paragraphs, and a sentence added after a paragraph's last
     // sentence into a paragraph of its own.
@@ -398,7 +420,7 @@ export function composeMarkdownEdit(
       const atLineStart = match.prefix === "" || match.prefix.endsWith("\n");
       if (atLineStart && sameLineKind(lines.split("\n").pop() ?? "", line))
         middle = `${lines}\n${matched}`;
-      else if (isBlockText(text) || wholeBlock(match))
+      else if (startsBlock(match, text, match.prefix))
         middle = `${text.trim()}${BLOCK_SEPARATOR}${matched}`;
       else middle = joinInline(text, matched);
       break;
@@ -409,7 +431,7 @@ export function composeMarkdownEdit(
       const atLineEnd = match.suffix === "" || match.suffix.startsWith("\n");
       if (atLineEnd && sameLineKind(line, lines.split("\n")[0]))
         middle = `${matched}\n${lines}`;
-      else if (isBlockText(text) || wholeBlock(match))
+      else if (startsBlock(match, text, match.suffix))
         middle = `${matched}${BLOCK_SEPARATOR}${text.trim()}`;
       else middle = joinInline(matched, text);
       break;
