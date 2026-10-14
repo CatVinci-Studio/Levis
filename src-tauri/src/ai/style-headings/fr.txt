@@ -3,4 +3,4 @@
 # "Learn my style" is told to head a French profile with them (project.rs's
 # style_instructions); the starter profile's headings (projectStyleTemplate
 # in src/i18n/locales/) must be among them.
-# Not translated yet: "Learn my style" picks French headings itself.
+Profil de style / Voix et ton / Phrases et rythme / Choix des mots / Ponctuation et mise en forme / Structure / À proscrire / Exemples
