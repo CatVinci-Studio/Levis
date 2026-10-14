@@ -1378,13 +1378,15 @@ function App() {
             }}
           />
         )}
-        {!settings.languageChosen && (
-          <LanguageWelcome
-            language={settings.language}
-            onLanguage={(language) => setSettings({ language })}
-            onContinue={() => setSettings({ languageChosen: true })}
-          />
-        )}
+        <Presence show={!settings.languageChosen} exitMs={200}>
+          {!settings.languageChosen && (
+            <LanguageWelcome
+              language={settings.language}
+              onLanguage={(language) => setSettings({ language })}
+              onContinue={() => setSettings({ languageChosen: true })}
+            />
+          )}
+        </Presence>
       </div>
     </AgentPanelProvider>
   );

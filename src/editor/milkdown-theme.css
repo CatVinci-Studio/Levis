@@ -84,6 +84,13 @@
   white-space: pre-wrap;
 }
 
+/* A suggestion's first appearance fades in; the rest of one already on
+   show (ghost-text-plugin.ts's `fresh`) and its removal are instant -
+   nothing on the typing path moves. */
+.ghost-text-enter::after {
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
+}
+
 /* While the caret sits exactly where a suggestion is showing, WKWebView's
    caret canonicalization paints the native caret AFTER the suggestion (it
    skips over an inline element with no real text). Painting can't be
@@ -148,21 +155,12 @@
      reason. */
   white-space: normal;
   user-select: none;
-  animation: pending-insert-fade 0.25s ease-out;
+  animation: motion-fade-in var(--dur-base) var(--ease-out);
 }
 
 .pending-insert code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-}
-
-@keyframes pending-insert-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 /* While the typewriter is still revealing text (pending-edit-plugin's
@@ -173,12 +171,6 @@
   border-left: 1.5px solid rgba(22, 163, 74, 0.9);
   margin-left: 1px;
   animation: ghost-caret-blink 1.1s step-end infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pending-insert {
-    animation: none;
-  }
 }
 
 /* "Show in document" (reveal-position.ts): the block a comment is about
@@ -394,7 +386,7 @@
   box-shadow: 0 0 0 2px var(--editor-bg, var(--bg));
   cursor: ew-resize;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--dur-fast) var(--ease-standard);
   touch-action: none;
 }
 
@@ -596,7 +588,7 @@
   padding-top: 2px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-fast) var(--ease-standard);
 }
 
 .code-block-wrapper:hover .code-block-header,
@@ -910,9 +902,9 @@
   opacity: 0;
   pointer-events: none;
   transition:
-    opacity 0.12s ease,
-    color 0.12s ease,
-    border-color 0.12s ease;
+    opacity var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
 }
 
 .table-wrapper:hover .table-add-row-btn,
@@ -946,9 +938,10 @@
 }
 
 /* Zen mode's focus (zen-focus-plugin.ts): everything but the block being
-   written recedes. */
+   written recedes. It changes only when the caret changes block, never per
+   keystroke. */
 .zen .milkdown .ProseMirror > * {
-  transition: opacity 0.25s ease;
+  transition: opacity var(--dur-base) var(--ease-standard);
 }
 
 .zen .milkdown .ProseMirror > :not(.zen-current) {

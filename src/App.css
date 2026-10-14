@@ -1147,18 +1147,57 @@ body {
 
 /* Zen mode (App.tsx): only the text. The window bar stays as an invisible
    drag strip that shows itself on hover, so the window can still be moved
-   and closed. */
+   and closed.
+
+   The chrome fades rather than snapping away, and comes back the same way.
+   The tab bar and the docked panel leave the layout at once - lifted out
+   of it, they fade where they were while the text column glides into the
+   room they made (App.tsx's FlipOnChange) - and visibility, switched after
+   the fade, takes them out of clicks and the tab order as display: none
+   did, with no allow-discrete needed. */
+.tab-bar,
+.agent-panel,
+.window-bar-status,
+.window-bar-title {
+  transition:
+    opacity var(--dur-slow) var(--ease-in-out),
+    visibility 0s;
+}
+
 .zen .sidebar,
 .zen .agent-panel,
 .zen .tab-bar,
 .zen .window-bar-status,
 .zen .window-bar-title {
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-slow) var(--ease-in-out),
+    visibility 0s linear var(--dur-slow);
+}
+
+.zen .tab-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  background: var(--editor-bg, var(--bg));
+}
+
+/* A docked panel (the narrow and phone layouts already lie over the
+   page). */
+.zen .agent-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .zen .window-bar {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--dur-base) var(--ease-standard);
 }
 
 .zen .window-bar:hover {

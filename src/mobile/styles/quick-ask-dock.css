@@ -34,9 +34,11 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-width: 1px 0 0;
   border-color: var(--editor-border);
-  border-radius: 14px 14px 0 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--page-bg, var(--editor-bg));
-  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
+  box-shadow: var(--shadow-sheet);
+  /* It rises with the keyboard, from the bottom edge. */
+  animation: motion-sheet-in var(--dur-slow) var(--ease-spring);
 }
 
 /* The context row is the composer's (ChatComposer renders it), but it

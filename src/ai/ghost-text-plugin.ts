@@ -129,6 +129,10 @@ function ghostDecoration(
   cursorPos: number,
   suggestion: string | string[],
   index = 0,
+  /** A suggestion appearing, rather than the rest of one already on show
+   *  (after Ctrl+Right) or its next alternative: only that fades in - a
+   *  continuing one stays put, it must not flash. */
+  fresh = true,
 ): GhostMeta {
   const candidates = Array.isArray(suggestion) ? suggestion : [suggestion];
   const shown = candidates[index] ?? "";
@@ -137,12 +141,16 @@ function ghostDecoration(
       cursorPos,
       () => {
         const span = document.createElement("span");
-        span.className = "ghost-text";
+        span.className = fresh ? "ghost-text ghost-text-enter" : "ghost-text";
         span.setAttribute("data-suggestion", shown);
         span.contentEditable = "false";
         return span;
       },
-      { side: 1, ignoreSelection: true, key: `ghost-${index}-${shown}` },
+      {
+        side: 1,
+        ignoreSelection: true,
+        key: `ghost-${index}-${fresh ? "new" : "kept"}-${shown}`,
+      },
     ),
   ];
   // With alternatives, a quiet "2/3 · Alt+]" after the text says there are
@@ -397,6 +405,7 @@ export function createGhostTextPlugin(options: {
                     state.from,
                     state.candidates,
                     (state.index + step + n) % n,
+                    false,
                   ),
                 ),
               );
@@ -416,7 +425,13 @@ export function createGhostTextPlugin(options: {
               tr.setMeta(
                 ghostTextKey,
                 rest.trim()
-                  ? ghostDecoration(tr.doc, state.from + chunk.length, rest)
+                  ? ghostDecoration(
+                      tr.doc,
+                      state.from + chunk.length,
+                      rest,
+                      0,
+                      false,
+                    )
                   : { type: "clear" },
               );
               view.dispatch(tr);

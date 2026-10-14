@@ -29,6 +29,20 @@
   line-height: 1.5;
 }
 
+/* It hangs below its paragraph and grows down out of it. */
+.inline-chat:not(.quick-ask-dock) > .inline-chat-shell {
+  transform-origin: top center;
+  animation: quick-ask-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes quick-ask-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--motion-distance-sm) * -1))
+      scale(calc(var(--scale-enter) + (1 - var(--scale-enter)) * 0.25));
+  }
+}
+
 /* Just the pop-out and close buttons, pinned to the panel's top-right
    corner. Deliberately slim - this is not a title bar; the panel has no
    title to show and nothing to grab - and floated rather than given a row
