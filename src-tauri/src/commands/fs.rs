@@ -219,7 +219,11 @@ pub async fn save_pasted_image(
         n += 1;
     }
     let full = dir.join(&name);
-    fs::write(&full, bytes).await.map_err(|e| e.to_string())?;
+    // Through a temp file: a crash mid-write must not leave a truncated
+    // image that the document already links to.
+    crate::atomic::write(&full, bytes)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let src = if relative {
         format!("assets/{name}")

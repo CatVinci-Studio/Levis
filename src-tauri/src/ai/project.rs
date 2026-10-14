@@ -483,7 +483,7 @@ pub async fn ensure_project_file(
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
-            std::fs::write(&path, template).map_err(|e| e.to_string())?;
+            crate::atomic::write_sync(&path, template).map_err(|e| e.to_string())?;
         }
         Ok(path.to_string_lossy().into_owned())
     })
@@ -572,6 +572,8 @@ pub async fn learn_style(
     if path.exists() {
         let _ = std::fs::copy(&path, path.with_file_name("style.previous.md"));
     }
-    std::fs::write(&path, format!("{profile}\n")).map_err(|e| e.to_string())?;
+    crate::atomic::write(&path, format!("{profile}\n"))
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }

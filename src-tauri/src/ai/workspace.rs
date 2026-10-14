@@ -372,9 +372,53 @@ fn ensure_global_layer(app: &AppHandle, lang: Option<&str>) -> Result<PathBuf, S
             Some("ja") => AGENT_MD_TEMPLATE_JA,
             _ => AGENT_MD_TEMPLATE_EN,
         };
-        std::fs::write(&agent_md, template).map_err(|e| e.to_string())?;
+        crate::atomic::write_sync(&agent_md, template).map_err(|e| e.to_string())?;
     }
     Ok(dir)
+}
+
+/// Windows refuses these as file names whatever the extension ("con.md").
+const WINDOWS_RESERVED_NAMES: &[&str] = &[
+    "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8",
+    "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+];
+
+/// A file stem for a skill named `name`. The name comes from the imported
+/// file's frontmatter, i.e. from whoever wrote that file: `name: ../../x`
+/// must not become a path. Keeps letters (any script), digits, `-` and `_`,
+/// turns everything else - separators, dots, control characters - into
+/// `-`, and caps the length well under any filesystem's limit.
+fn skill_file_stem(name: &str) -> String {
+    let stem: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .take(100)
+        .collect();
+    let stem = stem.trim_matches('-');
+    if stem.is_empty() {
+        "skill".to_string()
+    } else if WINDOWS_RESERVED_NAMES.contains(&stem.to_lowercase().as_str()) {
+        format!("{stem}-skill")
+    } else {
+        stem.to_string()
+    }
+}
+
+/// Where the skill `name` is stored in `skills_dir` - checked to really be
+/// a file directly inside it, as a second line of defence behind
+/// skill_file_stem.
+fn skill_file_path(skills_dir: &Path, name: &str) -> Result<PathBuf, String> {
+    let path = skills_dir.join(format!("{}.md", skill_file_stem(name)));
+    if path.parent() != Some(skills_dir) {
+        return Err("That skill's name can't be used as a file name.".to_string());
+    }
+    Ok(path)
 }
 
 /// Copies a user-picked .md skill file into the global skills folder and
@@ -413,7 +457,9 @@ pub async fn import_agent_skill(
     let global_dir = global_agent_dir(&app)?;
     let skills_dir = global_dir.join("skills");
     std::fs::create_dir_all(&skills_dir).map_err(|e| e.to_string())?;
-    std::fs::write(skills_dir.join(format!("{}.md", skill.name)), &content)
+    let target = skill_file_path(&skills_dir, &skill.name)?;
+    crate::atomic::write(&target, &content)
+        .await
         .map_err(|e| e.to_string())?;
 
     let (_, skills) = read_layer(&global_dir);
@@ -500,6 +546,30 @@ mod tests {
             resolve_root(Some("/tmp/novel/chapter-1.md"), Some("   ")),
             Some(PathBuf::from("/tmp/novel"))
         );
+    }
+
+    #[test]
+    fn a_skill_name_cannot_escape_the_skills_folder() {
+        let dir = Path::new("/config/agent/skills");
+        for name in [
+            "../../x",
+            "..",
+            "/etc/passwd",
+            "a/../b",
+            "..\\..\\win",
+            "nul",
+            "",
+        ] {
+            let path = skill_file_path(dir, name).unwrap();
+            assert_eq!(path.parent(), Some(dir), "{name}");
+            let file = path.file_name().unwrap().to_str().unwrap();
+            assert!(!file.starts_with('.'), "{name} -> {file}");
+            assert!(!file.contains(".."), "{name} -> {file}");
+        }
+        assert_eq!(skill_file_stem("../../x"), "x");
+        assert_eq!(skill_file_stem("nul"), "nul-skill");
+        assert_eq!(skill_file_stem("润色"), "润色");
+        assert_eq!(skill_file_stem("fix-my_prose2"), "fix-my_prose2");
     }
 
     #[test]
