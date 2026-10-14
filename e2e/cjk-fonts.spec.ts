@@ -1,0 +1,51 @@
+import { expect, test, type Page } from "@playwright/test";
+import { openApp } from "./helpers";
+
+// Han characters are drawn differently in Japanese, Simplified and
+// Traditional Chinese and Korean; the font stacks pick the faces for the
+// language <html lang> names (App.css), in the chrome and in the content
+// themes alike. What's checked is the stack each element resolves to - the
+// faces themselves aren't installed on a CI runner.
+
+/** The first CJK face in the font-family of `selector`, under `lang`. */
+async function firstCjkFace(page: Page, lang: string, selector: string) {
+  return page.evaluate(
+    ([lang, selector]) => {
+      document.documentElement.lang = lang;
+      const family = getComputedStyle(
+        document.querySelector(selector)!,
+      ).fontFamily;
+      const faces = family.split(",").map((f) => f.trim().replace(/"/g, ""));
+      return faces.find((f) =>
+        /PingFang|Hiragino|Apple|Songti|Noto|Source Han/.test(f),
+      );
+    },
+    [lang, selector],
+  );
+}
+
+test("the interface font follows the UI language's CJK faces", async ({
+  page,
+}) => {
+  await openApp(page);
+  expect(await firstCjkFace(page, "en", "body")).toBe("PingFang SC");
+  expect(await firstCjkFace(page, "zh-CN", "body")).toBe("PingFang SC");
+  expect(await firstCjkFace(page, "ja", "body")).toBe("Hiragino Sans");
+  expect(await firstCjkFace(page, "zh-Hant", "body")).toBe("PingFang TC");
+  expect(await firstCjkFace(page, "zh-TW", "body")).toBe("PingFang TC");
+  expect(await firstCjkFace(page, "ko", "body")).toBe("Apple SD Gothic Neo");
+});
+
+test("the Paper theme's serif follows the language too", async ({ page }) => {
+  await openApp(page, { settings: { themeId: "paper" } });
+  const editor = '[data-active-tab="true"] .ProseMirror';
+  await expect(page.locator(editor)).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-content-theme",
+    "paper",
+  );
+  expect(await firstCjkFace(page, "zh-CN", editor)).toBe("Songti SC");
+  expect(await firstCjkFace(page, "ja", editor)).toBe("Hiragino Mincho ProN");
+  expect(await firstCjkFace(page, "zh-HK", editor)).toBe("Songti TC");
+  expect(await firstCjkFace(page, "ko", editor)).toBe("AppleMyungjo");
+});
