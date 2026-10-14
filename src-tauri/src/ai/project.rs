@@ -1,6 +1,7 @@
-//! The project folder: the agent workspace root seen as writing material.
-//! One place for walking it, reading from it safely, searching it, and the
-//! two writing aids that live in its `.levis/` directory:
+//! The project folder (in code, the workspace root) seen as writing
+//! material - see docs/AI-CONCEPTS.md. One place for walking it, reading
+//! from it safely, searching it, and the two writing aids that live in its
+//! `.levis/` directory:
 //!
 //! ```text
 //! my-novel/
@@ -25,9 +26,11 @@
 //!
 //! Entries go to the model only when they matter: `always`, or `detected` -
 //! the name or an alias appears in what the request is about. Undetected
-//! entries cost nothing, so a large library stays cheap.
+//! entries cost nothing, so a large library stays cheap. As in agent.md,
+//! `<!-- -->` comments in the style profile and in entries are notes to
+//! self and never reach the model.
 
-use crate::ai::workspace::WORKSPACE_DIR_NAME;
+use crate::ai::workspace::{strip_html_comments, WORKSPACE_DIR_NAME};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -231,7 +234,7 @@ pub fn parse_library_entry(file: &str, stem: &str, content: &str) -> LibraryEntr
         aliases: Vec::new(),
         include: LibraryInclude::Detected,
         file: file.to_string(),
-        body: content.trim().to_string(),
+        body: strip_html_comments(content).trim().to_string(),
     };
     if let Some(rest) = content.strip_prefix("---") {
         if let Some(end) = rest.find("\n---") {
@@ -255,7 +258,7 @@ pub fn parse_library_entry(file: &str, stem: &str, content: &str) -> LibraryEntr
                     _ => {}
                 }
             }
-            entry.body = rest[end + 4..].trim().to_string();
+            entry.body = strip_html_comments(&rest[end + 4..]).trim().to_string();
         }
     }
     entry
@@ -291,7 +294,7 @@ fn style_path(root: &Path) -> PathBuf {
 pub fn read_style(root: &Path) -> Option<String> {
     std::fs::read_to_string(style_path(root))
         .ok()
-        .map(|s| s.trim().to_string())
+        .map(|s| strip_html_comments(&s).trim().to_string())
         .filter(|s| !s.is_empty())
         .map(|s| s.chars().take(MAX_STYLE_CHARS).collect())
 }
@@ -367,6 +370,24 @@ mod tests {
         let plain = parse_library_entry("f", "Harbour", "A port city.");
         assert_eq!(plain.name, "Harbour");
         assert_eq!(plain.include, LibraryInclude::Detected);
+    }
+
+    #[test]
+    fn comments_in_library_entries_never_reach_the_model() {
+        // The "New library entry…" template explains itself in a comment;
+        // left untouched, the entry has no facts and is not an entry.
+        let fresh = parse_library_entry(
+            "f",
+            "lin",
+            "---\nname: Lin Wan\ninclude: detected\n---\n\n<!-- Facts to keep consistent. -->\n",
+        );
+        assert_eq!(fresh.body, "");
+        let noted = parse_library_entry(
+            "f",
+            "lin",
+            "---\nname: Lin Wan\n---\n<!-- note to self -->\nTeaches Chinese.",
+        );
+        assert_eq!(noted.body, "Teaches Chinese.");
     }
 
     #[test]

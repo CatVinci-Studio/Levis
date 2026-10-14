@@ -1,10 +1,10 @@
 # Levis AI Features Guide
 
-Levis has a built-in AI made for writing, Levis AI: completion, grammar checking, and conversations that read and revise your document. This guide covers connecting a service, the AI features, and how to shape Levis AI into your own writing assistant with a project folder, writing instructions and skills.
+Levis has a built-in AI made for writing, Levis AI: completion, grammar checking, and conversations that read and revise your document. This guide covers connecting a service, the AI features, and how to shape Levis AI into your own writing assistant with a project folder, a style profile, a library, writing instructions and skills.
 
 ## Connecting a service
 
-1. Open **Settings > AI** and choose the service you want under **Connection > Provider**.
+1. Open **Settings > Levis AI** and choose the service you want under **Connection > Provider**.
 2. Expand **Login & credentials** and sign in to your account or enter an API key, whichever that service supports.
 3. For a **Custom Endpoint** (any OpenAI-compatible server: local models, proxies), enter the base URL, a key if it needs one, and the model name, then save.
 4. Pick the writing model under **Writing Assistance** and the chat model under **Levis AI Chat**.
@@ -23,7 +23,7 @@ As you type, a gray continuation appears at the cursor — press <kbd>Tab</kbd> 
 
 Ask for one explicitly with <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> or the context menu (the cursor must be at the end of a paragraph): you get a longer continuation with up to three alternatives — <kbd>Option</kbd>+<kbd>[</kbd> / <kbd>Option</kbd>+<kbd>]</kbd> cycle through them.
 
-Under **Settings > AI > Writing Assistance** you can pick a **completion tone** (match the document / formal / casual / academic / concise). When the document belongs to a project with a style profile or library (see below), completion follows them too.
+Under **Settings > Levis AI > Writing Assistance** you can pick a **completion tone** (match the document / formal / casual / academic / concise). When the document belongs to a project with a style profile or library (see **Make Levis AI yours** below), completion follows them too.
 
 ### 2. Grammar check
 
@@ -34,10 +34,10 @@ Possible issues get underlined. Hover over one, or move the caret into it, to se
 The full conversation lives in a panel on the right side of the editor. Open or close it with the chat button at the right end of the window bar or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
 
 - **One conversation per document**: each tab has its own conversation, and switching tabs switches the panel with it. **New conversation** in the panel's header starts over (with edits still undecided, it asks first).
-- **Modes**: the composer has **Ask**, **Edit** and **Plan**. The panel starts in the mode set under **Settings > AI > Levis AI Chat > Default mode**.
+- **Modes**: the composer has **Ask**, **Edit** and **Plan**. The panel starts in the mode set under **Settings > Levis AI > Levis AI Chat > Default mode**.
 - **@-mentions**: type `@` in the input to pick a text file from the project folder; it is attached to the message.
 - **Attach files**: the **+** button on the left of the input attaches a PDF, Word document, PowerPoint deck, spreadsheet, image, or plain text file to that message. Everything except images is extracted to text locally and travels inside the message; images are sent as real images to providers that can see (ones that can't say so up front rather than dropping them silently). A long file is sent only in part, and the chip says "(shortened)" when that happens.
-- **Web search**: once enabled in **Settings > AI > Levis AI Chat** (for providers that offer it), Levis AI can search the web on its own when a request needs it.
+- **Web search**: once enabled in **Settings > Levis AI > Levis AI Chat** (for providers that offer it), Levis AI can search the web on its own when a request needs it.
 - **History**: the sidebar's **Chats** tab stores past conversations. Click one to reopen it in the current editor and continue.
 - **Errors**: when a request fails, the chat says what kind of problem it is and what to do (check the key, wait a moment, pick another model) above the provider's own message.
 
@@ -48,7 +48,7 @@ The full conversation lives in a panel on the right side of the editor. Open or 
 Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (or right-click > Ask AI…) to open a small chat bar right below the paragraph you are in. It sits in the document, pushing the text below it down rather than covering it. If text was selected when you opened it, the selection is included. Quick Ask opens in **Edit** mode, because it is usually opened on a passage to change it ("shorten this"); Ask is one click away in the mode picker.
 
 - **The shortcut again**: pressing <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> while the bar is open moves the cursor to its input; pressing it once more from the input closes it. <kbd>Esc</kbd> anywhere in the bar closes it too, and the cursor goes back to the document. With edits still undecided, closing (or starting a new conversation) asks first.
-- Quick Ask keeps its own short conversation, separate from the panel's and not saved to History. It opens even while the panel is open. **Continue in the full conversation** (the button in its corner) hands the exchange to the AI panel, where it carries on and is saved. Turn on **Settings > AI > Advanced > Open full conversations in a separate window** to send it to a separate window instead.
+- Quick Ask keeps its own short conversation, separate from the panel's and not saved to History. It opens even while the panel is open. **Continue in the full conversation** (the button in its corner) hands the exchange to the AI panel, where it carries on and is saved. Turn on **Settings > Levis AI > Advanced > Open full conversations in a separate window** to send it to a separate window instead.
 
 ### 5. Edits in the document
 
@@ -60,31 +60,80 @@ The chat never writes to your document directly. When you ask a tool-calling pro
 - **At the cursor**: with nothing selected, Levis AI knows where your cursor is, so "write a transition here" inserts exactly there.
 - **Comments instead of edits**: ask for a review ("what's weak here?") and Levis AI pins comments to passages without changing them. Each comment card has **Show in document**, which selects the passage it is about.
 
-## The project folder
+## Make Levis AI yours
 
-When a document is saved, **its folder is the project**. Levis AI can list, read and search the text files in it (Markdown, plain text, and similar formats) to find a character's earlier scenes, a term, or your notes. Hidden files and folders, build and dependency folders (such as `node_modules`), and files over 100 KB are left out. An unsaved draft has no project, and a folder that is too broad — your home folder or a whole drive — is refused.
+Levis AI learns about you and your work from a few plain Markdown files, not from hidden settings. Each has one job:
 
-The bar under the AI panel's header shows the project. Its menu can **Choose project folder…** (for when your reference material doesn't live next to the draft), go back with **Use the document's folder**, or **Show in file manager**. The same choice is under **Settings > AI > Workspace Folder**. Everything Levis AI reads must be inside the project: `..`, absolute paths, and symlinks pointing outside are refused.
+| Concept | What it is | Where it lives |
+| --- | --- | --- |
+| **Project folder** | The folder Levis AI works in and may read | The document's folder, or one you choose |
+| **Style profile** | How you write | `.levis/style.md` |
+| **Library** | Facts about people, places and terms | `.levis/library/` |
+| **Writing instructions** | Standing rules for every conversation | `agent.md` — global, and per project |
+| **Skills** | Reusable instructions you call with `/name` | `skills/` — global, and per project |
+| **Global config folder** | What applies to every document | The app's settings folder |
 
-The project also holds two writing aids in its `.levis/` folder:
+"Conversations" below means the AI panel and Quick Ask. Here is a whole project at a glance:
 
 ```
-my-novel/
-├── chapter-1.md
-└── .levis/
-    ├── style.md          ← your style profile
-    └── library/
-        ├── lin-wan.md    ← one entry per character, place or term
-        └── harbour-city.md
+my-novel/                ← the project folder
+├── chapter-1.md         ← the document you are editing
+├── notes/
+│   └── timeline.md      ← reference material Levis AI can read
+└── .levis/              ← the project's own settings
+    ├── style.md         ← style profile
+    ├── agent.md         ← writing instructions for this project
+    ├── library/
+    │   ├── lin-wan.md   ← one entry per character, place or term
+    │   └── harbour-city.md
+    └── skills/
+        └── polish.md    ← one skill per file
 ```
 
-### style.md — your voice
+The project menu creates `.levis/` and its files for you the first time you ask for them; project skills are the only thing you add by hand. Text inside `<!-- -->` comments in any of these files is a note to yourself and is never sent.
 
-A description of how you write: voice and tone, sentence rhythm, word choice, things you never do. Levis AI and completion follow it for every document in the project. Create it from the project menu (**Create style profile**), or use **Learn my style from samples…**: pick a few files of your own writing and the AI drafts the profile from them, then opens it in a new tab for you to review and edit (the previous profile is kept as `style.previous.md`).
+### The project folder
 
-### library/ — facts to keep straight
+**The project folder is the folder Levis AI works in.** By default it is the folder of the document you are editing: save a document, and its folder becomes the project folder.
 
-One Markdown file per character, place or term (**New library entry…** in the project menu creates one):
+- Levis AI can list, read and search the text files in it (Markdown, plain text and similar formats) to find a character's earlier scenes, a term, or your notes. Hidden files and folders, build and dependency folders (such as `node_modules`) and files over 100 KB are left out.
+- Typing `@` in the chat input attaches one of its files to your message.
+- Its `.levis/` folder holds the project's style profile, library, writing instructions and skills.
+
+The bar under the AI panel's header shows the project folder's name; click it for the **project menu**. When your reference material doesn't live next to the draft, use **Choose project folder…** there (or **Settings > Levis AI > Project Folder**). The folder you choose is used for every document — unsaved drafts included — until you pick **Use the document's folder** again.
+
+> [!TIP]
+> Your draft is in `thesis/drafts/` and your interview notes in `thesis/research/`? Choose `thesis/` as the project folder, and Levis AI can read `research/interviews.md` while you work on `drafts/chapter-2.md`.
+
+Everything Levis AI reads must be inside the project folder: `..`, absolute paths and links pointing outside are refused. An unsaved draft has no project folder unless you have chosen one, and a folder that is too broad — your home folder or a whole drive — is refused.
+
+### The style profile — "Learn my style"
+
+**The style profile describes how you write**, so that continuations and edits sound like you: voice and tone, sentence rhythm, word choice, punctuation, things you never do. Levis AI follows it in conversations, and completion follows it as you type, in every document of the project. It is the file `.levis/style.md`.
+
+There are two ways to make one, both in the project menu:
+
+- **Learn my style from samples…** — pick a few files of your own writing (up to eight). Levis AI studies them and drafts a profile — voice and tone, sentences and rhythm, word choice, punctuation, structure, what you never do, and a few short quotes as examples — then opens it in a new tab. Read it, correct it, add to it: it is yours. Learning again keeps the previous profile as `style.previous.md`.
+- **Create style profile** — start from an empty outline and write it yourself.
+
+Once there is a profile, the **Style** chip next to the folder name opens it.
+
+```markdown
+# Style profile
+
+## Sentences and rhythm
+- Short sentences, rarely over 15 words.
+- Opens a paragraph with a concrete scene, then the point.
+
+## Never
+- No exclamation marks. No "suddenly".
+```
+
+Concrete, checkable points work better than adjectives: "short sentences, rarely over 15 words" rather than "concise". Keep it to a page or two; only the first 6,000 characters are used. The **completion tone** in Settings applies as well — leave it on *Match the document* when your style profile already describes your voice.
+
+### The library
+
+**The library holds facts that must stay consistent**: one Markdown file per character, place or term, in `.levis/library/`. **New library entry…** in the project menu asks for a name and opens the new entry; the **Library** chip shows how many there are.
 
 ```markdown
 ---
@@ -93,34 +142,32 @@ aliases: [Wan, Ms Lin]
 include: detected
 ---
 
-Protagonist, 32, teaches Chinese at a secondary school...
+Protagonist, 32, teaches Chinese at a secondary school in Harbour City.
+Left-handed. Never talks about her brother.
 ```
 
-You don't attach entries yourself. An entry with `include: detected` (the default) is given to the AI automatically whenever its name or an alias appears in your message, the selection, or the text around the cursor; `always` sends it with every request and `never` keeps it out. A large library costs nothing until an entry is relevant.
+You don't attach entries yourself. An entry with `include: detected` (the default) goes to Levis AI whenever its name or one of its aliases comes up: in your message or the document during a conversation, in the text around the cursor during completion. `always` sends it with every request; `never` keeps it out. Entries that aren't mentioned cost nothing, so the library can grow as large as your project needs.
 
-## Writing instructions and skills
+### Writing instructions (agent.md)
 
-Instructions and skills live in the same `.levis/` folder:
+**Writing instructions are standing rules sent with every conversation**: what the project is, which language to reply in, spellings and terms, things Levis AI should always or never do. They live in files called `agent.md`, at two levels:
 
+- **Global**, for every document: **Settings > Levis AI > Writing Instructions (agent.md) > Edit agent.md**.
+- **Project**, for the documents of one project: `.levis/agent.md`, opened with **Edit project writing instructions** in the project menu.
+
+Both open in a tab and start with a short how-to in comments. When both exist, Levis AI gets both — the global instructions first, then the project's — and where they disagree, the project's win.
+
+```markdown
+The book is a mystery set in 1930s Shanghai, told by Lin Wan in the first person.
+Always reply in English, even though the novel is in Chinese.
+Spell it "Harbour City", never "Harbor City".
 ```
-my-novel/
-├── chapter-1.md       ← the document being edited
-└── .levis/
-    ├── agent.md       ← standing instructions: style, glossary, project background
-    └── skills/
-        ├── polish.md  ← one skill per file
-        └── outline.md
-```
 
-There is also a **global layer** with the same structure that applies to every document (**Settings > AI > Global Config Folder**). A workspace skill with the same name overrides the global one.
+Writing instructions apply to conversations only. Completion doesn't read them; it follows the style profile and the library.
 
-### agent.md — standing instructions
+### Skills (/name)
 
-Whatever you write in `agent.md` is given to Levis AI in every chat. Good candidates: requirements for the reply, what the project is, rules Levis AI should always follow.
-
-### skills/ — skills
-
-One skill = one Markdown file: YAML metadata at the top, the full instructions below.
+**A skill is a reusable set of instructions with a name** — "polish", "outline", "check the citations" — kept in one Markdown file: a name and a one-line description at the top, the full instructions below.
 
 ```markdown
 ---
@@ -133,14 +180,49 @@ split overlong sentences, and keep the original meaning and voice.
 Output only the polished text.
 ```
 
-Skills trigger two ways:
+Use a skill in either of two ways:
 
-1. **Manually**: type `/` in the chat input and pick from the menu (or type `/polish take another look at this`).
-2. **Automatically** (tool-calling providers only): Levis AI knows every skill's name and description, and when your request matches one, it loads and follows the full instructions by itself.
+1. **Call it**: type `/` in the chat input and pick it from the menu, or type its name followed by your request: `/polish take another look at this`.
+2. **Just ask** (tool-calling providers only): Levis AI knows every skill's name and description, and when your request matches one, it loads the full instructions and follows them by itself.
 
-> [!NOTE]
-> Files in `.levis/` take effect without a restart — Levis AI's next request uses the new content (completion picks it up within a few seconds).
+Skills live at the same two levels as writing instructions: global skills in the `skills/` folder of the global config folder (**Settings > Levis AI > Skills > Import Skill…** copies a skill file there), project skills in `.levis/skills/` (a hidden folder — in macOS Finder, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> shows it). A project skill with the same name as a global one replaces it.
+
+### The global config folder
+
+**The global config folder holds what applies to every document**: your global `agent.md` and your global skills. It belongs to the app, not to any project; **Settings > Levis AI > Global Config Folder > Open Folder** shows it.
+
+```
+agent/                ← the global config folder
+├── agent.md          ← global writing instructions
+└── skills/
+    └── outline.md    ← a global skill
+```
+
+There is no global style profile or library: those describe one body of work, so they belong to a project.
+
+### Which applies when
+
+| | Conversations | Completion | Grammar check |
+| --- | :---: | :---: | :---: |
+| Project files (read, search, `@`) | ✓ | | |
+| Style profile | ✓ | ✓ | |
+| Library entries that come up | ✓ | ✓ | |
+| Writing instructions | ✓ | | |
+| Skills | ✓ | | |
+| Completion tone (Settings) | | ✓ | |
+
+- **Global, then project.** Writing instructions from both levels are sent, the project's last, and the project's win a conflict. A project skill replaces a global skill of the same name.
+- **One project folder at a time.** Only its `.levis/` counts: when you have chosen a project folder, a `.levis/` next to the document is not read.
+- **No restart needed.** Edit any of these files and the next request uses the new version (completion within about ten seconds).
+
+### Which file for what?
+
+- How your text should sound → the **style profile**.
+- Who is who, what is what → the **library**.
+- What Levis AI should know or always do in a conversation → **writing instructions**.
+- A task you ask for again and again → a **skill**.
+- Notes, research, earlier chapters → ordinary files in the **project folder**; Levis AI reads them when a request needs them.
 
 ## A note on privacy
 
-Your document, attached and @-mentioned files, workspace instructions, the style profile, relevant library entries, and any project files Levis AI reads are sent to the provider you selected as part of each request. Web search runs on that provider's servers. Turn any feature off in Settings when you don't want that.
+Your document, attached and @-mentioned files, your writing instructions, the style profile, the library entries that come up, and any project files Levis AI reads are sent to the provider you selected as part of each request; **Learn my style** sends the samples you pick. Web search runs on that provider's servers. Turn any feature off in Settings when you don't want that.

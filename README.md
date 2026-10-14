@@ -56,9 +56,10 @@
 
 ### Your project, your voice
 
-- Save a document and its folder becomes the project: the AI can read and search the text files there, and `@` brings one into the conversation.
-- **Style profile** (`.levis/style.md`): written from samples you pick, so continuations and edits sound like you.
+- **Project folder**: save a document and its folder becomes the project folder, or choose another. The AI can read and search the text files there, and `@` brings one into the conversation.
+- **Style profile** (`.levis/style.md`): **Learn my style** drafts it from samples you pick, so continuations and edits sound like you.
 - **Library** (`.levis/library/`): characters, places and terms. The entries a passage mentions go to the AI with it, so names and facts stay consistent.
+- **Writing instructions** (`agent.md`) and **skills** (`/name`): standing rules for every conversation, and reusable instructions you call by name - for all your documents or for one project.
 
 ### Providers and privacy
 

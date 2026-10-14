@@ -384,8 +384,10 @@ export function SettingsPanel({
             )}
           </SettingsGroup>
 
-          {/* Only the chat reads the workspace, so with it off there is
-              nothing here to set. */}
+          {/* Project files, writing instructions and skills only reach
+              conversations, so with chat off there is nothing here to set.
+              (Completion still follows the project's style profile and
+              library - see docs/AI-CONCEPTS.md.) */}
           {settings.enableAskAi && (
             <>
               <SettingsGroup title={t.agentPersonalizationGroupLabel}>
