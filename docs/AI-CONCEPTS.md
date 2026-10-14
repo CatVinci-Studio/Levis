@@ -205,11 +205,16 @@ part of the project.
   `agent.md` starters explain themselves in comments, which never reach the
   model.
 - **Levis AI itself**: the agent's prompt (`agent.rs`'s `workspace_section`)
-  says which project folder is in use and why, and names each concept, the
-  project menu's items and the Settings rows as the UI shows them in en, zh
-  and ja, so its answers point at labels that exist. Unit tests check every
-  label it quotes, and the "Learn my style" headings, against
-  `src/i18n/strings.ts`; the live eval's `concept/` cases check the replies.
+  says which project folder is in use and why, describes each concept in
+  English with the project menu's items, the **Style** chip and the
+  Settings rows that make and open it (and what reaches completion), and
+  hands over the Chinese and Japanese names as a table (`UI_NAMES`), to be
+  used only in the user's language, so its answers point at labels that
+  exist. Without a project folder it names only the Settings row: the
+  project bar isn't shown then. Unit tests check every name in the table
+  against `src/i18n/strings.ts` (or, for "project menu", the help guides),
+  and the "Learn my style" headings against the templates; the live eval's
+  `concept/` cases check the replies.
 
 ## Names in code
 

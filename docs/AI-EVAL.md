@@ -258,6 +258,135 @@ step with `completion-style.ts`) is unit-tested and runs in CI with
 
 ## Results
 
+### Round 2 integration, judged and fixed (run3-fix)
+
+Subagent judges graded run3 with round 1's rubric - a verdict (good /
+acceptable / bad) and a comparison with run1 (better / same / worse) per
+row - by reading the rows, at no API cost: six judges of 15 agent rows
+each, four for completion (30, 30, 30 and 15 rows) and two for grammar
+(31 and 30). The counts below add up what the judges reported.
+
+| Suite      | Rows | Bad | Acceptable  | Good     | Against run1 (better / same / worse)  |
+| ---------- | ---: | --: | ----------- | -------- | ------------------------------------- |
+| completion |  105 |   6 | at least 11 | the rest | 34 / 57 / 14                          |
+| grammar    |   61 |   1 | 1-2         | the rest | 19 / 41 / 1                           |
+| agent      |   90 |   1 | 2 reported  | the rest | 16 / 23 / 6 (45 rows), 8 worse in all |
+
+Completion batch means were 4.0-4.15 of 5, agent rows mostly 4 and 5 (one
+batch: six 5s and nine 4s). Three agent judges and three completion
+judges named their weak rows without counting the rest, hence the partial
+cells; the bad and worse rows are complete. What was worse than run1 is
+mostly wording: a looser tone, a reply that describes its edit less
+exactly. The bad rows:
+
+- **Completion**: `midword/en` and `en/midword-cost` (empty: the model
+  wrote "ument" after "docu", or reasoned before a usable line),
+  `ru/heading` (the one-word heading answered with the word alone),
+  `lang/de/mid` (a relative clause hung on the word at the cursor instead
+  of finishing the verb-second clause), `en/email-after-sentence` (a
+  lower-case fragment after a full stop) and `ja/list-item` (常備薬の服用, an
+  action in a packing list).
+- **Grammar**: `en/mixed-zh-terms` ("find it" for the notes, missed in all
+  three runs).
+- **Agent**: `style/cross/zh-profile-en-doc` (a Chinese reply to an English
+  request under a Chinese style profile, claiming every sentence was under
+  15 words when one had 21). Acceptable: `essay/en/vivid` (small invented
+  details behind "no new events or people") and `skill/zh/slash` (85% of
+  the length for a 70% skill, explained wrongly).
+
+What the judges found across rows, and what was changed for it:
+
+1. **The agent pointed at UI that isn't there**: both unsaved-draft
+   replies sent the user to the project menu, but without a project folder
+   the project bar shows nothing (a folder too broad shows only a notice).
+   `workspace_section` now names only Settings > Levis AI > Project Folder
+   then, and says the bar appears once there is a project folder.
+2. **Labels it wasn't given never came up**: answers told users to write a
+   hidden `.levis/style.md` by hand and gave no way back after choosing a
+   folder. The prompt now names Create style profile, Open style profile,
+   the Style chip, Use the document's folder, Accept and Reject; says the
+   library goes by the user's message or the open document (it said "the
+   request", which one answer turned into "you must name the character"),
+   that the style profile and library also shape completion, and that
+   there is one project folder at a time (choose a folder containing both).
+3. **Names as glosses**: given inline as "style profile (文风档案 /
+   文体プロファイル)", the names came back that way - three of eight concept
+   answers in the first re-run had "style profile (文风档案)",
+   "资料库（library）" or "(编辑本项目的写作要求 in the Chinese UI)". The prompt
+   now describes the app in English and gives the Chinese and Japanese
+   names as a table (`UI_NAMES`, every cell tested against `strings.ts` or
+   the guides), with "never add a name from another language".
+4. **How-to answers ran three to five blocks** with bullets, code blocks,
+   tips and comments on the user's draft. They are now asked for two to
+   four plain sentences: mean concept answer 594 -> 277 characters.
+5. **The style profile set the reply language**: its header said "follow
+   it in everything you write". It now says the profile shapes the text
+   for the documents, never the reply's language, and the role says the
+   same.
+6. **Claims of compliance nobody checked** ("每句都在 20 字以内" over a
+   26-character sentence): limits from the request, a skill, the style
+   profile or the writing instructions are checked sentence by sentence
+   before `propose_edit`, and an unchecked limit is never claimed. The
+   `propose_edit` result also says not to send a second proposal when the
+   first falls short of a target - in the third re-run, told its edit was
+   86%, `skill/zh/slash` proposed a 70% version of the same paragraph
+   again, and the two overlapped.
+7. **Markdown in replies**: "the other lists still use `*`", a comment on
+   the `\$` escape. Replies and comments now speak of bullets, checkboxes
+   and bold, never of markers or escapes.
+8. **Completion**: a removed tag left its line breaks behind ("率\n\n<br>"
+   became "率\n\n" in a table cell, and the check trimmed them) - outside
+   code, line breaks at either end are now dropped and the check counts
+   them. A continuation after a finished sentence starts like a sentence.
+9. **Grammar**: a fix that changes only spacing or punctuation between
+   letters showed a lone apostrophe or space ("'" -> "", "번" -> " 번");
+   such spans now take the words on both sides ("it's" -> "its", "두번" ->
+   "두 번", "당황 했다" -> "당황했다"). Issue text uses the paragraph's
+   punctuation (full-width, “ ” or 「」) and names only the corrected form
+   as right (pt called "desde de manhã" correct).
+10. **A /skill message showed its whole expanded `<skill>` block** in the
+    transcript and as the conversation's title in History (since #47);
+    `user-message.ts` now shows it as the /name the user typed.
+
+Tried and dropped: keeping the word at the cursor in `<text-before-cursor>`
+as well as in its tag, for `lang/de/mid` and `ru/heading`. The model then
+went on from the cursor without writing the word out in five of the 19
+judged cases, which the join won't place, so 12 of 19 passed (run3: 16)
+and `ru/heading` still got the word alone (`run3-fix/try-word-in-before`).
+
+Re-run with `LEVIS_EVAL_JUDGE=0`, only the judged cases, output in
+`levis-shots/ai-eval/run3-fix`:
+
+| Suite                       | run3 (same cases) | run3-fix |   Cost |
+| --------------------------- | ----------------: | -------: | -----: |
+| completion (`c2`, 19 cases) |             16/19 |    17/19 | $0.003 |
+| grammar (`g1`, 15 cases)    |             13/15 |    13/15 | $0.003 |
+| agent (`final`, 25 cases)   |             23/25 |    24/25 |  $0.62 |
+
+On the 25 agent cases the median latency fell from 7.3 s to 4.4 s and the
+mean reply from 360 to 253 characters; `social/en/tweet` took 20 s instead
+of 34 and came out at 269 characters with its parallel list intact. The
+one failure is a Chinese reply quoting with ASCII marks
+(`style/cross/en-profile-zh-doc`, which passed in the two earlier
+re-runs). Read from the rows: the unsaved drafts name only Settings >
+Levis AI > Project Folder; concept answers are short, use Create style
+profile, the Style chip and completion, and say to choose a folder that
+holds both; no glosses; `meeting/en/to-tasks` no longer mentions `*`; the
+English request under a Chinese profile got English replies in all three
+re-runs; `style/zh/rules` keeps every sentence within 20 characters and
+says the expansion barely grew. Completion's two remaining failures are
+`en/midword-cost` and `ru/heading`; grammar still misses "find it" and
+"о истории". The completion and grammar re-runs are single samples:
+`lang/de/mid` and `en/email-after-sentence` came out right this time.
+
+The intermediate agent passes: `a1` (all 25, before the name table)
+22/25, the three glosses; `a2` (concept and workspace cases, 12) 12/12;
+`a3` (the other 13) 12/13, the double proposal above; `final` (all 25).
+
+Spend: $1.89 at list prices - completion and grammar $0.01, agent $1.88
+(`a1` $0.61, `a2` $0.19, `a3` $0.46, `final` $0.62). The ledger stands at
+$17.12 of the $19 cap.
+
 ### Round 2 integration (run3)
 
 Branch `integrate/ai-0.9.7`: `dev` (with #48) plus #42 (the concept model:
@@ -272,11 +401,12 @@ What the merge changed for the model:
   concept in en, zh and ja (project folder / 项目文件夹 / プロジェクトフォルダー,
   writing instructions, global config folder, skills, library, style
   profile, "Learn my style"), the project menu's items, the Settings rows
-  (Project Folder, Writing Instructions (agent.md) > Edit agent.md, Skills
-  > Import Skill…), how a skill is made, the Japanese mode names, and says
-  > to use each name only in the user's language. `AI_NAME` has a Rust twin;
-  > unit tests check every label the prompt quotes, and the "Learn my style"
-  > headings (now with a Japanese set), against `src/i18n/strings.ts`.
+  (Project Folder; Writing Instructions (agent.md), then Edit agent.md;
+  Skills, then Import Skill…), how a skill is made, the Japanese mode
+  names, and says to use each name only in the user's language. `AI_NAME`
+  has a Rust twin; unit tests check every label the prompt quotes, and the
+  "Learn my style" headings (now with a Japanese set), against
+  `src/i18n/strings.ts`.
 - **#42's layering**: with a global and a project agent.md, the project's
   section is headed as the one that wins a conflict
   (`agentmd/global-plus-workspace`); `<!-- -->` comments are stripped from
@@ -329,7 +459,8 @@ Instructions (agent.md) > Edit agent.md"), keep the style profile and the
 writing instructions apart ("文风档案管你怎么写，写作要求管我该怎么做"), and
 say what the project folder holds now. The unsaved-draft replies point to
 the project menu and Settings > Levis AI > Project Folder in the UI's
-words.
+words - but an unsaved draft has no project bar, so the menu isn't there
+(fixed after judging, below).
 
 Spend: run3 cost $6.97 at list prices - completion and grammar $0.02, the
 three agent passes $6.73, follow-ups $0.22 - and the ledger stands at
@@ -800,28 +931,55 @@ completion ~1.1 s).
   rescheduling email (the prompt's own example is "another day, not next
   Friday"), what the new reading room holds, "memory use didn't change".
   It answers a one-word heading with the word alone, and once returned a
-  wrong word ("freight co" + "ntaining").
+  wrong word ("freight co" + "ntaining"). In run3, `en/midword-cost`
+  reasoned before a usable line and was dropped whole, and `lang/de/mid`
+  (in run2 and run3, not in run3-fix) hung a relative clause on the word
+  at the cursor instead of finishing the clause.
+- **Completion, meaning and register** (run3 judges): the tone presets
+  barely change a one-sentence completion ("concise" came back as long as
+  the default); report-style text gets findings and causes the writer
+  never gave ("差异明显" across age groups, "利用者の数も大きく増えた", "loin
+  du bruit de leur domicile") - the "no new figures" check sees only
+  numbers; an open quote is left open, a poem without punctuation gets a
+  comma and a full stop, a packing list gets an action (常備薬の服用).
 - **Grammar recall** on agreement across clauses ("the notes ... find it")
   and Russian preposition forms (о/об) is still missed by Haiku; Sonnet
-  catches more (round 1), at twice the latency.
+  catches more (round 1), at twice the latency. Explanations are not
+  checked for accuracy: the Russian one names the genitive for an
+  accusative, the German one calls a Perfekt narrative's tense Präteritum,
+  and `ja/typo` accepts 面白かったでした.
 - **Agent, reply habits**: "I added no new facts" still appears where the
   user asked not to invent ("make it vivid, but don't invent anything"),
   and the agent sometimes adds a small unrequested commitment while
   disclosing it ("so this shouldn't happen again"). Self-reported counts
   now come from the tool result, but descriptions of character-level
-  Chinese edits in English replies can still be loose.
-- **Agent, re-proposing**: twice in development runs the agent proposed a
-  passage, reconsidered, and proposed it again in the same reply; the two
-  proposals overlap and only one can be applied. The tool result now says
-  it is the proposal for that passage, which held in the follow-up run;
-  the frontend still shows both if it happens.
+  Chinese edits in English replies can still be loose, and a reply may
+  frame a gap as new that the document already had (`report/en/add-row`)
+  or add a caveat nobody asked for (the "private" folder in
+  `workspace/en/outside-root`).
+- **Agent, re-proposing**: twice in development runs, and once in
+  run3-fix (`skill/zh/slash`, after the tool result said the edit was 86%
+  of a 70% target), the agent proposed a passage and then proposed it
+  again in the same reply; the two proposals overlap and only one can be
+  applied. The tool result now also says to report a missed target
+  instead, which held in the final pass; the frontend still shows both if
+  it happens. Letting a later proposal for the same passage in one reply
+  replace the earlier preview (`pending-edit-plugin.ts`'s add) would make
+  it harmless.
 - **Agent, reply language under a profile in another language**: once in
   seven runs of `style/cross/zh-profile-en-doc`, an English request under a
-  Chinese style profile got a Chinese reply (run3). The rule says the
-  user's message decides; the profile's language still pulls now and then.
+  Chinese style profile got a Chinese reply (run3). The profile's header
+  said "follow it in everything you write"; it now says the profile never
+  sets the reply language, and the three run3-fix passes replied in
+  English. One sample each - watch it.
 - **Agent, style limits**: under a 20-character sentence limit the agent
-  occasionally writes one longer sentence and still says every sentence is
-  within it (`style/zh/rules`, once in run3).
+  occasionally wrote one longer sentence and still said every sentence was
+  within it (`style/zh/rules`, once in run3); it now checks before
+  proposing. The cost shows in expansions: asked to "write more about the
+  feelings" under that limit, the final pass grew the text by one
+  character and said so.
+- **Agent, ASCII quotes in a Chinese reply** still slip through now and
+  then (`style/cross/en-profile-zh-doc`, once in three run3-fix passes).
 - **Platform rules**: a tweet length is counted in raw characters, while X
   counts a link as 23 (`social/en/tweet`).
 - **The `<cursor>` block** is cut at 160 characters without snapping to a
@@ -834,8 +992,9 @@ completion ~1.1 s).
   saved alert no longer renders as one on GitHub. Found by the fixture test;
   not fixed here (editor code).
 - The evaluation is one sample per case, and the round-2 agent re-runs
-  cover 118 of the 158 cases between them (77 in run2, 84 in run3).
-  Before trusting a small difference, run twice.
+  cover 118 of the 158 cases between them (77 in run2, 84 in run3); the
+  run3-fix prompt ran only on the 25 judged agent cases. Before trusting
+  a small difference, run twice.
 - Not covered: web search, image attachments, providers other than
   Anthropic, and the tool-less fallback path.
 - (Fixed in round 2.) Round 1's "repeat the last word" completion rule, the
@@ -851,12 +1010,13 @@ completion ~1.1 s).
 
 ## Recommendations
 
-- Have the subagent judges grade run2 and run3 (`levis-shots/ai-eval/`)
-  with the same rubric as run1 and record the verdict counts here; then
-  run the 40 agent cases neither re-run covered (mostly round 1's
-  language and Markdown cases) once on the final prompt, to confirm
-  nothing outside the re-run sets moved. Every agent prompt changed in the
-  integration (the project section is in all of them).
+- Run the whole agent matrix (158 cases, about $4) once on the run3-fix
+  prompt and have the subagent judges grade it: the project section is in
+  every prompt with tools, and since run3 it is a table and a few
+  sentences longer, so cases outside the 25 re-run may have moved. This
+  round's $19 cap had $1.88 left, too little for it.
+- The pending-edit plugin could let a later proposal for the same passage
+  in one reply replace the earlier preview (see Remaining weaknesses).
 - Completion: if the empty suggestions after a cut-off word matter in
   use, a second request for those cases only (a few per hundred) would
   recover them; a stop sequence on "\n\n" would also end leaked reasoning
