@@ -34,6 +34,13 @@ describe("the languages", () => {
       expect(boot).toMatch(new RegExp(`"?${lang}"?: "${localeOf(lang)}",`));
   });
 
+  it("are all fully translated, so none ships half in English", () => {
+    const complete = LANGS.filter((lang) => LOCALES[lang].complete);
+    expect(complete.sort()).toEqual(
+      ["de", "en", "es", "fr", "ja", "ko", "pt", "ru", "zh", "zh-Hant"].sort(),
+    );
+  });
+
   it("fall back to English for whatever they leave out", () => {
     const untranslated = LANGS.find(
       (lang) => Object.keys(LOCALES[lang].default).length === 0,
