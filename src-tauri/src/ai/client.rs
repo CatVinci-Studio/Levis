@@ -133,7 +133,7 @@ const COMPLETION_INSTRUCTIONS: &str = "You are the inline autocomplete of a mark
 The input marks the insertion point: <text-before-cursor> ends exactly at the cursor and <text-after-cursor> starts exactly there (it may be empty). When present, <document-title>, <section> (the headings around the cursor, outermost first) and <block> (what the cursor is in) say where in the document this is.
 
 Write ONLY the text to insert at the cursor:
-- Continue from the exact last character. When <text-before-cursor> ends with a letter or digit, begin your output by repeating its last word exactly as typed - completed, if the cursor is in the middle of it - and continue from there; the repeated part is removed before the writer sees it, which is how a cut-off word gets finished and how the space after a finished word comes out right. When it ends with a space, punctuation or a CJK character, repeat nothing and just continue.
+- Continue from the exact last character. When <text-before-cursor> ends with a letter or digit, begin your output by repeating its last word exactly as typed - completed, if the cursor is in the middle of it - and continue from there; the repeated part is removed before the writer sees it, which is how a cut-off word gets finished and how the space after a finished word comes out right. When it ends with a space, punctuation or a character of a script written without spaces (Chinese, Japanese, Thai), repeat nothing and just continue.
 - Move the text forward with what the text already supports: finish the thought, draw the consequence it sets up, give the next step or point it promises. Never invent facts the writer hasn't given - figures, names, dates, findings, quotes - and never restate, summarize or paraphrase what is already written. Skip generic filler and stock phrases (pivotal, crucial, delve, \"plays a vital role\", \"not just X but Y\", 至关重要, 不仅……更……) unless the writer already writes that way.
 - Write as this writer writes: same language (including any mixing), register, person, tense, terminology and punctuation style, such as full-width punctuation in Chinese.
 - Stay inside the block: in a list item write only that item's text, in a heading only the heading, in a table cell only the cell, in a code block only code in that language and indentation. Never add a line break (except inside code), list marker or markdown the surrounding text isn't already using.
@@ -228,14 +228,51 @@ pub async fn ai_complete(
     Ok(finish_completion(&before, &raw))
 }
 
-/// Ideographs, kana and full-width forms: scripts written without spaces
-/// between words. Hangul is not among them - Korean spaces its words.
+/// Scripts written without spaces between words: ideographs, kana and
+/// full-width forms, and Thai, Lao, Tibetan, Myanmar and Khmer. Hangul is
+/// not among them - Korean spaces its words.
 fn is_unspaced_script(c: char) -> bool {
-    matches!(c, '\u{2e80}'..='\u{9fff}' | '\u{f900}'..='\u{faff}' | '\u{ff00}'..='\u{ffef}')
+    matches!(c,
+        '\u{0e00}'..='\u{109f}'
+        | '\u{1780}'..='\u{17ff}'
+        | '\u{2e80}'..='\u{9fff}'
+        | '\u{f900}'..='\u{faff}'
+        | '\u{ff00}'..='\u{ffef}'
+        | '\u{20000}'..='\u{3134f}')
 }
 
 fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() && !is_unspaced_script(c)
+}
+
+/// What holds letters together in one written word: "don't", "C'est",
+/// "well-known", "3.5", "total_count".
+const WORD_JOINERS: [char; 5] = ['\'', '\u{2019}', '-', '.', '_'];
+
+/// What the model may repeat as the last word before the cursor, longest
+/// first: the whole written word ("don't", "well-known", "3.5") and its
+/// tails after a hyphen, dot or underscore ("known", "5"). Never the tail
+/// after an apostrophe: nobody repeats the "t" of "don't", and matching it
+/// would cut the "t" off a next word like "think".
+fn repeatable_words(before: &str) -> Vec<&str> {
+    let start = before
+        .char_indices()
+        .rev()
+        .take_while(|&(_, c)| is_word_char(c) || WORD_JOINERS.contains(&c))
+        .last()
+        .map_or(before.len(), |(i, _)| i);
+    let token = &before[start..];
+    let mut words = Vec::new();
+    let mut prev: Option<char> = None;
+    for (i, c) in token.char_indices() {
+        let starts_word = is_word_char(c) && !prev.is_some_and(is_word_char);
+        let after_apostrophe = matches!(prev, Some('\'' | '\u{2019}')) && !words.is_empty();
+        if starts_word && !after_apostrophe {
+            words.push(&token[i..]);
+        }
+        prev = Some(c);
+    }
+    words
 }
 
 /// Joins one continuation onto the text before the cursor. The prompt has
@@ -246,13 +283,6 @@ fn is_word_char(c: char) -> bool {
 /// the repeat gets the space a new word needs. Models never begin a reply
 /// with a space on their own, which is why this can't be left to them.
 pub(crate) fn fit_to_cursor(before: &str, text: &str) -> String {
-    let fragment_start = before
-        .char_indices()
-        .rev()
-        .take_while(|(_, c)| is_word_char(*c))
-        .last()
-        .map_or(before.len(), |(i, _)| i);
-    let fragment = &before[fragment_start..];
     // Spaces the model led with are its guess at the join, which is made
     // here instead - except at the start of a line, where they are code
     // indentation.
@@ -261,8 +291,13 @@ pub(crate) fn fit_to_cursor(before: &str, text: &str) -> String {
     } else {
         text.trim_start_matches([' ', '\t'])
     };
-    if !fragment.is_empty() && text.len() > fragment.len() && text.starts_with(fragment) {
-        return text[fragment.len()..].to_string();
+    // The repeated word cut off again - all of the reply when the model
+    // repeated it and had nothing to add.
+    if let Some(rest) = repeatable_words(before)
+        .into_iter()
+        .find_map(|word| text.strip_prefix(word))
+    {
+        return rest.to_string();
     }
     let joins_words = before
         .chars()
@@ -281,16 +316,26 @@ pub(crate) fn fit_to_cursor(before: &str, text: &str) -> String {
 
 /// The model's reply as the editor should get it: each candidate fitted to
 /// the cursor, the separator lines kept for the frontend's splitCandidates.
+/// A newline the first (or only) candidate opens with is its own - code
+/// going on on the next line, whose indentation must survive - while after
+/// a separator, newlines only end the separator's line: each later
+/// candidate gets exactly one, so the frontend can split there and keep the
+/// joining space that follows it.
 pub(crate) fn finish_completion(before: &str, raw: &str) -> String {
     raw.split(CANDIDATE_SEPARATOR)
-        .map(|part| {
-            let inner = part.trim_matches('\n');
-            if inner.trim().is_empty() {
-                part.to_string()
+        .enumerate()
+        .map(|(i, part)| {
+            let (lead, part) = if i == 0 {
+                ("", part)
             } else {
-                let lead = &part[..part.len() - part.trim_start_matches('\n').len()];
-                let tail = &part[part.trim_end_matches('\n').len()..];
-                format!("{lead}{}{tail}", fit_to_cursor(before, inner))
+                ("\n", part.trim_start_matches('\n'))
+            };
+            let body = part.trim_end_matches('\n');
+            if body.trim().is_empty() {
+                format!("{lead}{part}")
+            } else {
+                let tail = &part[body.len()..];
+                format!("{lead}{}{tail}", fit_to_cursor(before, body))
             }
         })
         .collect::<Vec<_>>()
@@ -571,19 +616,41 @@ mod tests {
             fit_to_cursor("Berufstätige", ", die abends"),
             ", die abends"
         );
+        // A word with an apostrophe, hyphen or dot is repeated whole - and
+        // without the repeat, the letters after an apostrophe never eat
+        // the start of the next word.
+        assert_eq!(fit_to_cursor("I don't", "don't think so"), " think so");
+        assert_eq!(fit_to_cursor("I don't", "think so"), " think so");
+        assert_eq!(fit_to_cursor("I don'", "don't know"), "t know");
+        assert_eq!(fit_to_cursor("C'est", "C'est la vie"), " la vie");
+        assert_eq!(fit_to_cursor("a well-known", "well-known fact"), " fact");
+        assert_eq!(fit_to_cursor("a well-known", "known fact"), " fact");
+        assert_eq!(fit_to_cursor("version 3.5", "3.5 adds"), " adds");
+        // The repeat and nothing more: nothing to add.
+        assert_eq!(fit_to_cursor("it quickly", "quickly"), "");
         // Unspaced scripts and spaces already typed: nothing added.
         assert_eq!(fit_to_cursor("规划者在制定方案时", "应当"), "应当");
         assert_eq!(fit_to_cursor("我们用", "React 重写"), "React 重写");
+        assert_eq!(fit_to_cursor("ฉันชอบ", "กินข้าว"), "กินข้าว");
         assert_eq!(fit_to_cursor("thank you for ", "your note"), "your note");
         // Code indentation at the start of a line is kept.
         assert_eq!(
             fit_to_cursor("for s in xs:\n", "    total += s"),
             "    total += s"
         );
-        // Each candidate is fitted; the separators survive.
+        assert_eq!(
+            finish_completion("def f():", "\n    return 1"),
+            "\n    return 1"
+        );
+        // Each candidate is fitted, and each later one starts on the line
+        // after its separator, so its joining space survives the split.
         assert_eq!(
             finish_completion("it quickly", "quickly grew\n<<<>>>\nslowed"),
             " grew\n<<<>>>\n slowed"
+        );
+        assert_eq!(
+            finish_completion("it quickly", "grew\n\n<<<>>>\n\nslowed\n<<<>>>\n"),
+            " grew\n\n<<<>>>\n slowed\n<<<>>>\n"
         );
     }
 

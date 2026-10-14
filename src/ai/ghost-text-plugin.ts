@@ -190,9 +190,11 @@ export function nextWordChunk(text: string): string {
 }
 
 /** The alternatives in a multi-candidate response (CANDIDATE_SEPARATOR in
- *  src-tauri ai/client.rs); a single continuation comes back as one. */
+ *  src-tauri ai/client.rs); a single continuation comes back as one. Only
+ *  whole lines go with the separator: a candidate's leading space is the
+ *  join the backend made onto the before-text ("quickly" + " grew"). */
 export function splitCandidates(raw: string): string[] {
-  return raw.split(/\n\s*<<<>>>\s*\n?/).filter((part) => part.trim());
+  return raw.split(/\n\s*<<<>>>(?:[ \t]*\n)*/).filter((part) => part.trim());
 }
 
 /// Runs a completion request right now at the cursor and shows it as ghost

@@ -317,10 +317,15 @@ fn shown(before: &str, raw: &str) -> String {
             break;
         }
     }
+    // src/utils/cjk.ts's isCjk - kana, ideographs and CJK punctuation, but
+    // not Hangul: Korean spaces its words, and the editor keeps the space.
     let last_cjk = before.chars().last().is_some_and(|c| {
-        ('\u{3000}'..='\u{9fff}').contains(&c)
-            || ('\u{ac00}'..='\u{d7af}').contains(&c)
-            || ('\u{ff00}'..='\u{ffef}').contains(&c)
+        matches!(c,
+            '\u{3000}'..='\u{30ff}'
+            | '\u{3400}'..='\u{4dbf}'
+            | '\u{4e00}'..='\u{9fff}'
+            | '\u{f900}'..='\u{faff}'
+            | '\u{ff00}'..='\u{ffef}')
     });
     if last_cjk {
         out = out.trim_start_matches([' ', '\t']).to_string();
@@ -499,5 +504,6 @@ mod tests {
     fn shown_text_strips_echo_like_the_editor() {
         assert_eq!(super::shown("it quickly", "it quickly grew"), " grew");
         assert_eq!(super::shown("规划者在制定方案时", " 应当"), "应当");
+        assert_eq!(super::shown("직장인들이", " 들른다"), " 들른다");
     }
 }

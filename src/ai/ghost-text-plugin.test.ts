@@ -34,5 +34,11 @@ describe("splitCandidates", () => {
       "two",
     ]);
     expect(splitCandidates("just one")).toEqual(["just one"]);
+    expect(splitCandidates("one\n\n<<<>>>\n\ntwo")).toEqual(["one", "two"]);
+  });
+  it("keeps each candidate's joining space", () => {
+    expect(splitCandidates(" grew\n<<<>>>\n slowed\n<<<>>>\n stalled")).toEqual(
+      [" grew", " slowed", " stalled"],
+    );
   });
 });
