@@ -206,6 +206,12 @@ fn ellipsis(t: &Text, ctx: &Ctx, out: &mut Out) {
         if run == "……" || run == "…………" {
             continue;
         }
+        // A lone … after a menu command ("询问 AI…", "导入技能…") is the UI's
+        // label, not a Chinese ellipsis: only one inside a sentence (CJK
+        // letters on both sides) is taken for one.
+        if run == "…" && !(t.before(a).is_some_and(is_cjk) && t.at(b).is_some_and(is_cjk)) {
+            continue;
+        }
         let near_cjk = t.before(a).is_some_and(cjk_before)
             || t.at(b).is_some_and(opens_cjk)
             || t.at(b).is_some_and(is_fullwidth_punct);
@@ -1139,6 +1145,14 @@ mod tests {
         // Two pairs (omitted paragraphs) and English segments stay.
         assert!(hits("zh.punct.ellipsis", H, None, "前文…………后文").is_empty());
         assert!(hits("zh.punct.ellipsis", H, None, "他说 wait... ok 吧").is_empty());
+        // Menu labels keep their single ellipsis.
+        assert!(hits(
+            "zh.punct.ellipsis",
+            H,
+            None,
+            "右键 > 询问 AI…）打开，或选择导入技能… 即可"
+        )
+        .is_empty());
         assert_eq!(
             fixed(
                 "zh.punct.ellipsis-deng",

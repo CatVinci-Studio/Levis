@@ -264,8 +264,10 @@ fn honorific_thing(t: &Text, _ctx: &Ctx, out: &mut Out) {
 static FORMAL_END: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:습니다|ㅂ니다|십시오|습니까|입니다|합니다|됩니다)[.?!]").unwrap()
 });
+/// 해요체 statements and questions. The polite imperative -(으)세요 is left
+/// out: manuals in 하십시오체 use it for instructions as a matter of course.
 static POLITE_END: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\p{Hangul}(?:요|죠)[.?!]").unwrap());
+    LazyLock::new(|| Regex::new(r"[\p{Hangul}&&[^세]](?:요|죠)[.?!]").unwrap());
 
 /// ko.style.register-mix: 하십시오체 and 해요체 mixed in one document - the
 /// minority flagged; not quotations or dialogue.
@@ -414,6 +416,9 @@ mod tests {
             hits("ko.style.register-mix", K, None, text),
             flagged("좋아요")
         );
+        // Instructions in -세요 are normal in a 하십시오체 manual.
+        let manual = "확인했습니다. 진행합니다. 완료됩니다. 파일을 여세요.";
+        assert!(hits("ko.style.register-mix", K, None, manual).is_empty());
         assert_eq!(
             fixed(
                 "ko.official.format",

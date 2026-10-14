@@ -498,3 +498,6 @@ mod tests {
         assert!(start.elapsed().as_millis() < 3_000, "{:?}", start.elapsed());
     }
 }
+
+#[cfg(test)]
+mod sweep;

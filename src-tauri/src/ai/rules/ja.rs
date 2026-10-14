@@ -164,9 +164,10 @@ fn width_alnum(t: &Text, ctx: &Ctx, out: &mut Out) {
 /// inside a Latin phrase (Visual Studio Code) aren't boundaries.
 fn space_typed(t: &Text, ctx: &Ctx, out: &mut Out) {
     let s = ctx.stats;
-    if minority(s.cjk_latin_tight, s.cjk_latin_spaced)
-        || (s.cjk_latin_tight == 0 && s.cjk_latin_spaced >= 3)
-    {
+    // A chosen profile (JTF, 公用文, technical, fiction) removes the spaces;
+    // Automatic only where the document's majority is unspaced - many
+    // Japanese technical texts space Latin terms on purpose.
+    if !ctx.profile.explicit && !minority(s.cjk_latin_spaced, s.cjk_latin_tight) {
         return;
     }
     for i in 1..t.len().saturating_sub(1) {
@@ -205,6 +206,14 @@ fn space_fullwidth(t: &Text, _ctx: &Ctx, out: &mut Out) {
         }
         let (p, q) = (t.chars[a - 1], t.chars[i]);
         let after_exclaim = matches!(p, '？' | '！') && t.chars[a..i] == ['\u{3000}'];
+        // Spaces that set off a menu path ("設定 → ショートカット の") are
+        // the writer's way of quoting UI labels.
+        let window: String = t.chars[a.saturating_sub(12)..(i + 12).min(n)]
+            .iter()
+            .collect();
+        if window.contains(" → ") || window.contains(" > ") || window.contains(" ＞ ") {
+            continue;
+        }
         let bracket =
             matches!(p, '「' | '『' | '（' | '【') || matches!(q, '」' | '』' | '）' | '】');
         if !after_exclaim && ((is_ja(p) && is_ja(q)) || (bracket && (is_ja(p) || is_ja(q)))) {
@@ -325,7 +334,11 @@ fn single_leader(t: &Text, ctx: &Ctx, out: &mut Out) {
     }
     for i in 0..t.len() {
         let c = t.chars[i];
-        if matches!(c, '…' | '―') && t.before(i) != Some(c) && t.at(i + 1) != Some(c) {
+        // Only inside a sentence: a lone … after a menu command ("編集…")
+        // is the UI's label.
+        let inside = t.before(i).is_some_and(is_cjk) && t.at(i + 1).is_some_and(is_cjk);
+        if matches!(c, '…' | '―') && t.before(i) != Some(c) && t.at(i + 1) != Some(c) && inside
+        {
             out.fix(
                 "ja.punct.single-leader",
                 i,
@@ -420,7 +433,15 @@ fn no_repeat(t: &Text, _ctx: &Ctx, out: &mut Out) {
                 '、' | '。' | '，' | '．' | '！' | '？' | '「' | '」'
             )
         {
-            let count = t.chars[start..i].iter().filter(|&&c| c == 'の').count();
+            // The particle の follows a noun: not the の of その, この,
+            // どの, もの (after hiragana).
+            let count = (start..i)
+                .filter(|&k| {
+                    t.chars[k] == 'の'
+                        && k > 0
+                        && !matches!(t.chars[k - 1], '\u{3041}'..='\u{309F}')
+                })
+                .count();
             if count >= 3 {
                 out.flag(
                     "ja.style.no-repeat",
@@ -713,13 +734,27 @@ mod tests {
 
     #[test]
     fn spaces_are_removed_never_added() {
+        // Automatic: a stray space in an unspaced document goes...
         assert_eq!(
-            fixed("ja.space.typed", J, None, "新しい API を使う"),
-            "新しいAPIを使う"
+            fixed(
+                "ja.space.typed",
+                J,
+                None,
+                "新しいAPIを使う。古いURLとJSONも消す。新しい API を使う"
+            ),
+            "新しいAPIを使う。古いURLとJSONも消す。新しいAPIを使う"
         );
-        // A space inside a Latin phrase is not a boundary.
+        // ...but a document that spaces its Latin terms keeps them.
+        assert!(hits("ja.space.typed", J, None, "新しい API を使う").is_empty());
+        // A chosen profile removes them; a space inside a Latin phrase is
+        // not a boundary.
         assert_eq!(
-            fixed("ja.space.typed", J, None, "Visual Studio Code を使う"),
+            fixed(
+                "ja.space.typed",
+                J,
+                Some("ja/jtf"),
+                "Visual Studio Code を使う"
+            ),
             "Visual Studio Codeを使う"
         );
         // A missing space is never flagged.
@@ -728,6 +763,13 @@ mod tests {
             fixed("ja.space.fullwidth", J, None, "これは 本です。「 はい 」"),
             "これは本です。「はい」"
         );
+        assert!(hits(
+            "ja.space.fullwidth",
+            J,
+            None,
+            "変更は 設定 → ショートカット の設定が優先されます"
+        )
+        .is_empty());
         // The full-width space after ！ stays.
         assert!(hits("ja.space.fullwidth", J, None, "本当ですか！\u{3000}すごい").is_empty());
         assert_eq!(
@@ -764,10 +806,23 @@ mod tests {
         );
         assert!(hits("ja.punct.dots-dash", J, None, "えーーと、そうですね").is_empty());
         assert_eq!(
-            fixed("ja.punct.single-leader", J, None, "待って…"),
-            "待って……"
+            fixed("ja.punct.single-leader", J, None, "待って…それで"),
+            "待って……それで"
         );
-        assert!(hits("ja.punct.single-leader", J, Some("ja/koyobun"), "待って…").is_empty());
+        assert!(hits(
+            "ja.punct.single-leader",
+            J,
+            None,
+            "メニューの「編集…」を選ぶ"
+        )
+        .is_empty());
+        assert!(hits(
+            "ja.punct.single-leader",
+            J,
+            Some("ja/koyobun"),
+            "待って…それで"
+        )
+        .is_empty());
         assert_eq!(
             fixed("ja.num.kanji-digit", J, None, "5千人と3百円、1万円"),
             "5,000人と300円、1万円"
@@ -792,6 +847,13 @@ mod tests {
             hits("ja.style.no-repeat", J, None, "東京の会社の社長の娘。").len(),
             1
         );
+        assert!(hits(
+            "ja.style.no-repeat",
+            J,
+            None,
+            "そのプロジェクトのものがこの方法のもの。"
+        )
+        .is_empty());
         assert_eq!(
             hits(
                 "ja.style.double-negative",

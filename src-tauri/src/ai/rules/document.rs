@@ -207,6 +207,68 @@ fn parse(markdown: &str) -> Parsed {
     parsed
 }
 
+/// Which script family a text is written in, by its letters.
+fn script_family(text: &str) -> Option<u8> {
+    let (mut cjk, mut hangul, mut cyr, mut latin) = (0, 0, 0, 0);
+    for c in text.chars() {
+        if super::text::is_cjk(c) {
+            cjk += 1;
+        } else if super::text::is_hangul(c) {
+            hangul += 1;
+        } else if super::text::is_cyrillic(c) {
+            cyr += 1;
+        } else if super::text::is_latin_letter(c) {
+            latin += 1;
+        }
+    }
+    // CJK characters carry about a word each, Latin letters a fifth.
+    let scores = [(0u8, cjk * 5), (1, hangul * 3), (2, cyr), (3, latin)];
+    let (family, score) = scores.into_iter().max_by_key(|x| x.1)?;
+    (score > 0).then_some(family)
+}
+
+/// A block's language: its own when it says so clearly, else the
+/// document's. A short block in the document's script is the document's
+/// language (a Japanese heading of kanji isn't Chinese, an English
+/// document's two-word line isn't French); kana makes Chinese text
+/// Japanese only when there is enough of it.
+fn block_language(text: &str, doc_lang: Option<Lang>) -> Option<Lang> {
+    let letters = text.chars().filter(|c| c.is_alphabetic()).count();
+    let own = detect::detect(text);
+    let Some(doc) = doc_lang else {
+        return own.or_else(|| detect::guess(text));
+    };
+    let cjk_family = |l: Lang| matches!(l, Lang::ZhHans | Lang::ZhHant | Lang::Ja);
+    match own {
+        Some(l) if l == doc => Some(l),
+        // Chinese and Japanese share ideographs: a block the detector calls
+        // Chinese in a Japanese document (or the other script in a Chinese
+        // one) is the document's language.
+        Some(l) if cjk_family(l) && cjk_family(doc) && (l.is_chinese() || doc == Lang::Ja) => {
+            Some(doc)
+        }
+        Some(l) if letters >= 40 || script_family(text) != script_family(&doc_sample(doc)) => {
+            Some(l)
+        }
+        Some(_) => Some(doc),
+        None => match script_family(text) {
+            Some(f) if Some(f) != script_family(&doc_sample(doc)) => detect::guess(text),
+            _ => Some(doc),
+        },
+    }
+}
+
+/// A word in the language's script, for comparing script families.
+fn doc_sample(lang: Lang) -> String {
+    match lang {
+        Lang::ZhHans | Lang::ZhHant | Lang::Ja => "中",
+        Lang::Ko => "한",
+        Lang::Ru => "я",
+        _ => "a",
+    }
+    .to_string()
+}
+
 /// What check_document found, and under which conventions.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -251,18 +313,7 @@ pub(crate) fn check_document_with(
     let block_langs: Vec<Option<Lang>> = parsed
         .blocks
         .iter()
-        .map(|b| match detect::detect(&b.text) {
-            // A Chinese document's English-only line is English; a short
-            // block that can't tell is the document's language.
-            Some(l) => Some(
-                if l.is_chinese() && doc_lang.is_some_and(Lang::is_chinese) {
-                    doc_lang.unwrap()
-                } else {
-                    l
-                },
-            ),
-            None => doc_lang.or_else(|| detect::guess(&b.text)),
-        })
+        .map(|b| block_language(&b.text, doc_lang))
         .collect();
     let texts: Vec<Text> = parsed.blocks.iter().map(|b| Text::new(&b.text)).collect();
     let mut stats: BTreeMap<Lang, Stats> = BTreeMap::new();
@@ -303,6 +354,11 @@ pub(crate) fn check_document_with(
             let (s, e) = (map[f.start], map[f.end - 1] + 1);
             let source: String = src[s.min(src.len())..e.min(src.len())].iter().collect();
             if source != f.original {
+                // A space beside Markdown syntax (`**粗体** 和`) is how
+                // CJK emphasis is made to parse, not a spacing choice.
+                if f.info().category == super::registry::Category::Spacing {
+                    continue;
+                }
                 f.suggestion = None;
                 f.fix = Fix::None;
             }
@@ -568,21 +624,52 @@ mod tests {
 
     #[test]
     fn a_suggestion_across_markup_becomes_a_flag() {
-        let doc = "我用 React 写，他用 Vue 写，她用 Go 写，你用**Rust**写。\n";
+        let doc = "我们买了苹果、香蕉……**等**水果，讨论了价格。\n";
         let report = check_document(doc, &Conventions::default(), Level::Standard, &[]);
         let f: Vec<_> = report
             .findings
             .iter()
-            .filter(|f| f.rule == "zh.space.cjk-latin")
+            .filter(|f| f.rule == "zh.punct.ellipsis-deng")
             .collect();
-        assert!(!f.is_empty());
-        assert!(f.iter().all(|f| f.suggestion.is_none()
-            || doc
-                .chars()
-                .skip(f.start)
-                .take(f.end - f.start)
-                .collect::<String>()
-                == f.original));
+        assert_eq!(f.len(), 1, "{:?}", report.findings);
+        assert_eq!(f[0].original, "……**等");
+        assert_eq!((f[0].suggestion.as_deref(), f[0].fix), (None, Fix::None));
+    }
+
+    #[test]
+    fn short_blocks_take_the_documents_language() {
+        assert_eq!(
+            block_language("続き書き(補完)", Some(Lang::Ja)),
+            Some(Lang::Ja)
+        );
+        assert_eq!(block_language("Une phrase", Some(Lang::En)), Some(Lang::En));
+        assert_eq!(
+            block_language("这是一段中文，讨论了三个问题。", Some(Lang::En)),
+            Some(Lang::ZhHans)
+        );
+        assert_eq!(
+            block_language("這是", Some(Lang::ZhHans)),
+            Some(Lang::ZhHans)
+        );
+        // A long block says what it is.
+        let fr = "Les entretiens ont duré deux mois et nous avons rencontré des habitants dans trois quartiers.";
+        assert_eq!(block_language(fr, Some(Lang::En)), Some(Lang::Fr));
+        // A Japanese heading of kanji in a Japanese document is checked as
+        // Japanese: no Chinese parenthesis rule.
+        let doc = "# 概要\n\nこの文書では三つの機能を紹介します。\n\n### 1. 続き書き(補完)\n";
+        let report = check_document(doc, &Conventions::default(), Level::Standard, &[]);
+        assert!(
+            report.findings.iter().all(|f| !f.rule.starts_with("zh.")),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    #[test]
+    fn spaces_beside_emphasis_markers_are_not_flagged() {
+        let doc = "这是一段说明文字。**项目文件夹就是工作的文件夹。** 默认是文档所在的文件夹。\n\n日本語の文書では **太字** や記号を使います。\n";
+        let report = check_document(doc, &Conventions::default(), Level::Standard, &[]);
+        assert!(report.findings.is_empty(), "{:?}", report.findings);
     }
 
     #[test]

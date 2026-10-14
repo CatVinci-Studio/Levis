@@ -108,7 +108,7 @@ static KO_FORMAL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:습니다|ㅂ니다|십시오|습니까|입니다|합니다|됩니다)[.?!]").unwrap()
 });
 static KO_POLITE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\p{Hangul}(?:요|죠)[.?!]").unwrap());
+    LazyLock::new(|| Regex::new(r"[\p{Hangul}&&[^세]](?:요|죠)[.?!]").unwrap());
 
 /// US/UK spelling pairs (one family per pair). Proper nouns are skipped
 /// by the rule; the count only sees lower-case words.

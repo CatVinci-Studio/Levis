@@ -84,7 +84,25 @@ static REPORT_PERIOD: LazyLock<Regex> =
 /// and the quote's own full stop goes: „Komm her.“, sagte er.
 fn reporting_comma(t: &Text, _ctx: &Ctx, out: &mut Out) {
     for caps in t.captures(&REPORT_NO_COMMA) {
-        let Some((q, _)) = caps[1] else { continue };
+        let (Some((q, _)), Some((_, end))) = (caps[1], caps[0]) else {
+            continue;
+        };
+        // Direct speech is followed by who said it ("sagte er", "rief
+        // Anna"); „Unterhaltungen“ meint im Folgenden... is a quoted word.
+        let speaker = t.slice(end, t.len());
+        let next = speaker.split_whitespace().next().unwrap_or("");
+        const WHO: [&str; 12] = [
+            "er", "sie", "es", "ich", "wir", "ihr", "du", "man", "der", "die", "das", "mein",
+        ];
+        let is_speaker = WHO.contains(
+            &next
+                .trim_matches(|c: char| !c.is_alphabetic())
+                .to_lowercase()
+                .as_str(),
+        ) || next.chars().next().is_some_and(char::is_uppercase);
+        if !is_speaker {
+            continue;
+        }
         out.fix(
             "de.quote.reporting-comma",
             q,
@@ -400,6 +418,8 @@ mod tests {
             fixed("de.quote.reporting-comma", D, None, "„Komm her“ sagte er."),
             "„Komm her“, sagte er."
         );
+        let quoted_word = "„Unterhaltungen“ meint im Folgenden den KI-Bereich.";
+        assert!(hits("de.quote.reporting-comma", D, None, quoted_word).is_empty());
         assert_eq!(
             fixed(
                 "de.quote.reporting-comma",
