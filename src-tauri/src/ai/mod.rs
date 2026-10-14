@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod builtin;
 pub mod cancel;
 pub mod catalog;
 pub mod client;
