@@ -145,6 +145,11 @@ export function createMermaidPreviewPlugin(options: {
     let lastWidth = 0;
     // And the appearance and face it was drawn in (see configureMermaid).
     let lastStyle = "";
+    // Bumped whenever a pass draws every diagram afresh (a new width or
+    // appearance). Part of each widget's key: with the source alone as the
+    // key, ProseMirror kept the old widget DOM, so a switch to dark redrew
+    // the diagrams and still showed the light ones.
+    let renderGeneration = 0;
 
     function buildDecorations(state: EditorState): RevealState {
       if (!options.enabled()) return emptyReveal;
@@ -192,7 +197,10 @@ export function createMermaidPreviewPlugin(options: {
             // position is not - typing above a diagram moves it, and a key
             // that moved with it rebuilt the SVG on every keystroke. Which
             // repeat of an identical source it is tells copies apart.
-            { side: 1, key: `mermaid-${hashCode(code)}-${nth}` },
+            {
+              side: 1,
+              key: `mermaid-${hashCode(code)}-${nth}-${renderGeneration}`,
+            },
           ),
         );
       }
@@ -285,6 +293,7 @@ export function createMermaidPreviewPlugin(options: {
             style === lastStyle &&
             rendered.size === lastRenders.size &&
             [...rendered].every(([code, svg]) => lastRenders.get(code) === svg);
+          if (width !== lastWidth || style !== lastStyle) renderGeneration++;
           lastRenders = rendered;
           lastWidth = width;
           lastStyle = style;

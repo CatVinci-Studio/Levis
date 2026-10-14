@@ -191,6 +191,23 @@ test("a broken diagram leaves no mermaid node in the page", async ({
   ).toBe(0);
 });
 
+test("a diagram is redrawn in the new colours when the appearance switches", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, "```mermaid\ngraph TD\n  A-->B\n```\n\nEnd.");
+  const svg = page.locator(".mermaid-preview svg");
+  await expect(svg).toHaveCount(1, { timeout: 10_000 });
+  const firstId = await svg.getAttribute("id");
+  await page.emulateMedia({ colorScheme: "dark" });
+  // A fresh render, not the light one kept on screen.
+  await expect
+    .poll(async () => svg.getAttribute("id"), { timeout: 10_000 })
+    .not.toBe(firstId);
+  await expect(svg).toHaveCount(1);
+});
+
 test("the outline marks the section being read", async ({ page }) => {
   await openApp(page, { settings: { language: "en" } });
   await pasteMarkdown(

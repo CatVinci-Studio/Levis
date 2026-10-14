@@ -149,26 +149,51 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
         if (!opts.onboardingShown) opts.markOnboardingShown();
         return;
       }
+      // A document whose unsaved edits were just recovered opens once, with
+      // those edits - not once as saved and again as a recovered tab (the
+      // session reopens the files a crash left open, drafts and all).
+      const recoveredFor = (path: string) =>
+        restored.find((tab) => tab.path === path);
+      const loadRecoveredIntoInitialTab = (recovered: DocTab) => {
+        loadIntoInitialTab({
+          path: recovered.path,
+          content: recovered.content,
+          savedContent: recovered.savedContent,
+          diskMtime: recovered.diskMtime,
+        });
+        opts.setTabs((prev) => prev.filter((tab) => tab.id !== recovered.id));
+      };
       if (opts.newDocumentMode === "tab") {
         const paths = await windowIpc.takePendingOpenPaths();
         if (paths.length > 0) {
           opts.stopTutorial();
           const [first, ...rest] = paths;
-          const { content: text, diskMtime } = await readDocFromDisk(first);
-          loadIntoInitialTab({
-            path: first,
-            content: text,
-            savedContent: text,
-            diskMtime,
-          });
-          for (const p of rest) await opts.openPathInTab(p);
+          const recovered = recoveredFor(first);
+          if (recovered) {
+            loadRecoveredIntoInitialTab(recovered);
+          } else {
+            const { content: text, diskMtime } = await readDocFromDisk(first);
+            loadIntoInitialTab({
+              path: first,
+              content: text,
+              savedContent: text,
+              diskMtime,
+            });
+          }
+          for (const p of rest) {
+            // Its recovered tab is already open: that is this document.
+            if (recoveredFor(p)) continue;
+            await opts.openPathInTab(p);
+          }
           return;
         }
       } else {
         const pending = await windowIpc.takePendingOpenPath();
         if (pending) {
           opts.stopTutorial();
-          await opts.openFile(pending);
+          const recovered = recoveredFor(pending);
+          if (recovered) loadRecoveredIntoInitialTab(recovered);
+          else await opts.openFile(pending);
           return;
         }
       }
@@ -177,15 +202,9 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       // Its unsaved edits were just recovered into a tab of their own: that
       // tab takes the initial one's place rather than the document opening
       // twice, once as saved and once as recovered.
-      const recovered = restored.find((tab) => tab.path === last);
-      if (last && recovered) {
-        loadIntoInitialTab({
-          path: recovered.path,
-          content: recovered.content,
-          savedContent: recovered.savedContent,
-          diskMtime: recovered.diskMtime,
-        });
-        opts.setTabs((prev) => prev.filter((tab) => tab.id !== recovered.id));
+      const recovered = last ? recoveredFor(last) : undefined;
+      if (recovered) {
+        loadRecoveredIntoInitialTab(recovered);
         return;
       }
       if (last) {
