@@ -7,11 +7,19 @@
 #   placeholder icons; ours are in icons/ios (opaque, full-bleed - iOS cuts
 #   the rounded corners itself).
 # - PrivacyInfo.xcprivacy: the privacy manifest App Store Connect requires
-#   (see the comment in the file). Everything in levis_iOS/ is a source of
-#   the app target, so the file lands in the bundle; xcodegen re-reads the
-#   folder so the project lists it.
+#   (see the comment in the file). Everything in the <name>_iOS/ folder is
+#   a source of the app target, so the file lands in the bundle; xcodegen
+#   re-reads the folder so the project lists it.
 set -eu
 cd "$(dirname "$0")/../src-tauri"
 cp icons/ios/*.png gen/apple/Assets.xcassets/AppIcon.appiconset/
-cp PrivacyInfo.ios.xcprivacy gen/apple/levis_iOS/PrivacyInfo.xcprivacy
+# The folder is named after the crate (levis_iOS today), so it is found
+# rather than spelled out: a rename must not quietly ship without the
+# manifest.
+set -- gen/apple/*_iOS/
+if [ "$#" -ne 1 ] || [ ! -d "$1" ]; then
+  echo "ios-prepare.sh: expected exactly one gen/apple/*_iOS folder, found: $*" >&2
+  exit 1
+fi
+cp PrivacyInfo.ios.xcprivacy "$1PrivacyInfo.xcprivacy"
 (cd gen/apple && xcodegen generate --spec project.yml --quiet)

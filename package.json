@@ -14,7 +14,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run format:check && node scripts/check-readmes.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run format:check && node scripts/check-readmes.mjs && node scripts/check-versions.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "sync-models": "node scripts/sync-models.mjs"

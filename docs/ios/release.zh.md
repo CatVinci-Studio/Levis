@@ -8,7 +8,7 @@
 
 [Apple Developer › Identifiers](https://developer.apple.com/account/resources/identifiers/list)：
 
-- iOS 版和 macOS 版用同一个套装 ID `com.chengaoshen.levis`（`tauri.conf.json` 的 `identifier`）。App ID 不区分平台；macOS 版用 Developer ID 签名、不走 App Store，所以这里可能还没有注册过，没有就新注册一个。共用同一个 ID，将来 macOS 版上 Mac App Store 时，可以和 iOS 版合并成同一个商品（Universal Purchase）。
+- iOS 版和 macOS 版用同一个套装 ID `com.chengaoshen.levis`（`tauri.conf.json` 的 `identifier`）。这个 ID 会在改名 Textus（1.0.0）时换成 `com.catvinci.textus`，届时要在这里注册新的 App ID，并在 App Store Connect 新建对应的 App；在那之前不要改它。App ID 不区分平台；macOS 版用 Developer ID 签名、不走 App Store，所以这里可能还没有注册过，没有就新注册一个。共用同一个 ID，将来 macOS 版上 Mac App Store 时，可以和 iOS 版合并成同一个商品（Universal Purchase）。
 - Capabilities 不需要额外开启。以后要用 iCloud 容器时再加 iCloud。
 
 ### 2. 在 App Store Connect 新建 App
@@ -16,9 +16,9 @@
 [App Store Connect › 我的 App](https://appstoreconnect.apple.com/apps) › ＋ › 新建 App：
 
 - 平台：iOS
-- 名称：Levis（如果已被占用，可以用"Levis - Markdown 编辑器"等）
-- 主要语言：简体中文（或英文）
-- 套装 ID：`com.chengaoshen.levis`
+- 名称：Levis - Markdown Editor（"Levis"已被占用；中文本地化名称另填）
+- 主要语言：英文（另加简体中文本地化）
+- 套装 ID：`com.chengaoshen.levis`（改名 Textus 时换成 `com.catvinci.textus`，见上）
 - SKU：例如 `levis-ios`
 - 创建后在 App › 价格与销售范围里，取消"在 Apple 芯片 Mac 上提供"：Mac 上已经有原生的 macOS 版，不要让 iPad 版在 Mac App Store 里重复出现。
 
@@ -58,11 +58,11 @@ GitHub 仓库 › Settings › Secrets and variables › Actions，新增：
    sh scripts/ios-prepare.sh # 紧接着 init：加入隐私清单（PrivacyInfo.xcprivacy）
    npx tauri ios dev         # 模拟器或真机
    ```
-2. 打标签上传：
+2. 打标签上传。标签里的版本号必须和 `package.json` 等文件里的版本一致（工作流先跑 `scripts/check-versions.mjs`，不一致就停下），比如应用是 0.9.6：
    ```sh
-   git tag ios-v0.9.2 && git push origin ios-v0.9.2
+   git tag ios-v0.9.6 && git push origin ios-v0.9.6
    ```
-   约 20 分钟后，构建出现在 App Store Connect › TestFlight（苹果处理还需要几分钟到半小时）。
+   构建号由工作流自动生成（运行序号 × 10 + 重试次数），重跑失败的运行也不会和已上传的构建撞号。约 20 分钟后，构建出现在 App Store Connect › TestFlight（苹果处理还需要几分钟到半小时）。
 3. 在 TestFlight 里装到自己的 iPhone 和 iPad 上试用。可以先加内部测试员，无需审核。
 4. App Store Connect › 你的 App › iOS App › ＋版本，选择这个构建，填写下面的资料，提交审核。
 

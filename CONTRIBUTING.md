@@ -11,7 +11,7 @@ npm install
 npm run tauri dev
 ```
 
-You need a stable Rust toolchain and Node 20+. Linux also needs
+You need a stable Rust toolchain and Node 22+. Linux also needs
 `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`.
 
 `npm run dev` alone serves the frontend at <http://localhost:1420> in a plain
@@ -143,11 +143,16 @@ separately, from an `ios-v*` tag through `.github/workflows/ios-release.yml`
 to TestFlight - see `docs/ios/release.zh.md`. `docs/README.md` indexes the
 rest of the documentation.
 
-1. Bump the version in **three** files - `package.json`,
-   `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` - and let
-   `Cargo.lock` update.
-2. Commit as `chore: bump version to X.Y.Z`.
-3. Tag `vX.Y.Z` and push the tag. `.github/workflows/release.yml` builds,
+1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and
+   `src-tauri/tauri.conf.json`, then run `npm install --package-lock-only`
+   and `cargo check` (in `src-tauri/`) so `package-lock.json` (both of its
+   version fields) and `Cargo.lock` follow. `node scripts/check-versions.mjs`
+   (part of `npm run check`) fails until all five files agree.
+2. Write the release notes in `docs/releases/X.Y.Z.md` - the release
+   workflow refuses a stable tag without them.
+3. Commit as `chore: bump version to X.Y.Z`.
+4. Tag `vX.Y.Z` and push the tag. `.github/workflows/release.yml` checks
+   that the tag matches the version in those files, then builds,
    signs and notarizes for macOS/Windows/Linux, publishes the GitHub release,
    points the Homebrew cask at it, and sends the tested `levis-bin` package
    to the `[catvinci]` pacman repository in `CatVinci-Studio/arch-repo` (see
@@ -158,6 +163,11 @@ is published as a GitHub pre-release. It skips the Homebrew cask and the
 `[catvinci]` pacman repository, so it reaches nobody who did not
 go looking for it - the in-app updater reads `releases/latest`, which
 excludes pre-releases.
+
+**Rebuilds**: running the Release workflow by hand on an existing tag
+rebuilds and republishes that release. The Homebrew cask and the pacman
+repository only move when the tag is the newest stable one, so rebuilding
+an old tag never downgrades anyone.
 
 Windows ships only the **NSIS** installer (`-setup.exe`), for stable and
 pre-release tags alike - the target list lives in

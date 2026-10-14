@@ -13,17 +13,88 @@ on:
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  # The one place the product's name is spelled for this workflow: the
+  # release title and the DMG the Homebrew cask points at.
+  PRODUCT_NAME: Levis
 
 permissions:
   contents: write
 
+# One run per tag at a time: a rebuild started while the tag's first run is
+# still uploading would race it for the same draft's assets.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  # Cheap checks on a Linux runner before any macOS/Windows minutes are
+  # spent: the tag must name the version the app's files carry, a stable
+  # tag needs its release notes, and only the newest stable tag may move
+  # the Homebrew cask and the pacman repository.
+  preflight:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      newest-stable: ${{ steps.newest.outputs.newest-stable }}
+    steps:
+      - name: Validate version tag
+        run: '[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]'
+
+      # The checks come from the commit this workflow runs at (so a rebuild
+      # of a tag older than scripts/check-versions.mjs still gets them);
+      # what they check is the tag.
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          path: tagged
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tag matches the app version
+        run: node scripts/check-versions.mjs --root tagged --tag "$RELEASE_TAG"
+
+      # Required for a newly pushed stable tag. A rebuild of a tag from
+      # before release notes were kept (0.8.10 and older) only warns.
+      - name: Release notes exist for a stable tag
+        if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+        run: |
+          notes="docs/releases/${RELEASE_TAG#v}.md"
+          if [ -s "tagged/$notes" ]; then exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            echo "::error::$notes is missing at $RELEASE_TAG - write the release notes before tagging."
+            exit 1
+          fi
+          echo "::warning::$notes is missing at $RELEASE_TAG; the release keeps its current notes."
+
+      # A workflow_dispatch rebuild of an old tag republishes that release,
+      # but pointing the cask or arch-repo at it would downgrade everyone.
+      - name: Is this the newest stable tag?
+        id: newest
+        run: |
+          newest=$(git ls-remote --tags --refs origin 'v*.*.*' \
+            | sed 's|.*refs/tags/||' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n1)
+          echo "Newest stable tag: ${newest:-none}"
+          if [ "$newest" = "$RELEASE_TAG" ]; then
+            echo "newest-stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "newest-stable=false" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
+    needs: preflight
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
+          # macos-26 is what macos-latest points at today (same arm64
+          # pool); pinned so the next image switch is a deliberate change.
+          - platform: macos-26
             args: --target aarch64-apple-darwin
           - platform: ubuntu-22.04
             args: ""
@@ -44,10 +115,6 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Validate version tag
-        shell: bash
-        run: '[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]'
-
       # Older tags predate .gitattributes. Match the source blobs on Windows
       # too, so a rebuild does not fail Prettier after an automatic CRLF checkout.
       - name: Preserve source line endings
@@ -60,7 +127,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-26' && 'aarch64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -76,7 +143,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install frontend dependencies
         run: npm ci
@@ -88,7 +155,9 @@ jobs:
         run: cargo test --workspace --manifest-path src-tauri/Cargo.toml
 
       - name: Build and release
-        uses: tauri-apps/tauri-action@v0
+        # Pinned to the commit of v0.6.2 (what @v0 resolved to): a moving
+        # major tag could change how the release is built between two tags.
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signs the updater artifacts (latest.json + .sig files) so
@@ -110,7 +179,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: "Levis ${{ env.RELEASE_TAG }}"
+          releaseName: "${{ env.PRODUCT_NAME }} ${{ env.RELEASE_TAG }}"
           # Keep partial matrix builds away from the updater. The publish
           # job exposes the release only after all three platforms succeed.
           releaseDraft: true
@@ -151,46 +220,84 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [release, arch-package]
+    needs: [preflight, release, arch-package]
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
+
+      # The updater reads latest.json from the newest release the moment it
+      # is published. Each platform's build merges its entry into the
+      # draft's copy; one that silently failed to (a race, an upload error)
+      # would leave every user of that platform without the update.
+      - name: Check the draft's updater manifest
+        run: |
+          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP"
+          manifest="$RUNNER_TEMP/latest.json"
+          jq '{version, platforms: (.platforms | keys)}' "$manifest"
+          version=$(jq -r .version "$manifest")
+          if [ "$version" != "${RELEASE_TAG#v}" ]; then
+            echo "::error::latest.json says $version, the tag is $RELEASE_TAG"
+            exit 1
+          fi
+          for platform in darwin-aarch64 windows-x86_64 linux-x86_64; do
+            if ! jq -e --arg p "$platform" \
+              '.platforms[$p] | (.url | length > 0) and (.signature | length > 0)' \
+              "$manifest" >/dev/null; then
+              echo "::error::latest.json has no signed $platform entry"
+              exit 1
+            fi
+          done
+
+      # A rebuilt older tag must not become GitHub's "Latest" release: the
+      # updater and the website's download links follow releases/latest.
       - name: Publish completed release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEWEST_STABLE: ${{ needs.preflight.outputs.newest-stable }}
         run: |
           NOTES="docs/releases/${RELEASE_TAG#v}.md"
           if [ -f "$NOTES" ]; then
             gh release edit "$RELEASE_TAG" --notes-file "$NOTES"
           fi
-          gh release edit "$RELEASE_TAG" --draft=false
+          if [ "$NEWEST_STABLE" = true ]; then
+            gh release edit "$RELEASE_TAG" --draft=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          fi
 
   # Points the Homebrew cask (CatVinci-Studio/homebrew-tap) at the DMG this
   # release just published, so `brew install --cask catvinci-studio/tap/levis`
   # always serves the newest version. Pushes via a write deploy key on the
   # tap repo (GITHUB_TOKEN can't push to another repository).
   #
-  # Skipped for pre-releases: the cask has no channel of its own, so pointing
-  # it at an rc would hand that build to every `brew upgrade` - the same
-  # mistake marking the GitHub release as a pre-release exists to prevent.
+  # Only for the newest stable tag. Pre-releases: the cask has no channel of
+  # its own, so pointing it at an rc would hand that build to every `brew
+  # upgrade` - the same mistake marking the GitHub release as a pre-release
+  # exists to prevent. Rebuilds of an older tag: that would downgrade.
   update-homebrew-tap:
-    needs: publish
-    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    needs: [preflight, publish]
+    if: ${{ needs.preflight.outputs.newest-stable == 'true' }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - name: Update cask version and sha256
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
         run: |
+          # Loudly: a quietly skipped tap update leaves brew users on the
+          # old version with nobody noticing.
           if [ -z "$TAP_DEPLOY_KEY" ]; then
-            echo "TAP_DEPLOY_KEY not set - skipping tap update"
-            exit 0
+            echo "::error::TAP_DEPLOY_KEY is not set - the Homebrew cask was not updated"
+            exit 1
           fi
           VERSION="${RELEASE_TAG#v}"
-          curl -fsSL -o levis.dmg \
-            "https://github.com/CatVinci-Studio/Levis/releases/download/${RELEASE_TAG}/Levis_${VERSION}_aarch64.dmg"
+          # The release was published seconds ago; let the CDN catch up.
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o levis.dmg \
+            "https://github.com/CatVinci-Studio/Levis/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
           SHA=$(sha256sum levis.dmg | cut -d' ' -f1)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -201,6 +308,11 @@ jobs:
           cd homebrew-tap
           sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/levis.rb
           sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/levis.rb
+          # A rerun after a successful push has nothing to commit.
+          if git diff --quiet; then
+            echo "The cask already serves ${VERSION}"
+            exit 0
+          fi
           git -c user.name="github-actions[bot]" \
               -c user.email="github-actions[bot]@users.noreply.github.com" \
               commit -am "levis ${VERSION}"
@@ -208,11 +320,11 @@ jobs:
 
   # Asks the [catvinci] pacman repository (CatVinci-Studio/arch-repo) to
   # serve the levis-bin this release carries (see update-arch-repo.yml).
-  # Skipped for pre-releases, like the Homebrew cask: pacman sorts
-  # 0.9.0_rc.1 above 0.9.0.
+  # Only for the newest stable tag, like the Homebrew cask: pacman sorts
+  # 0.9.0_rc.1 above 0.9.0, and an older tag would downgrade.
   update-arch-repo:
-    needs: publish
-    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    needs: [preflight, publish]
+    if: ${{ needs.preflight.outputs.newest-stable == 'true' }}
     uses: ./.github/workflows/update-arch-repo.yml
     with:
       tag: ${{ inputs.tag || github.ref_name }}
