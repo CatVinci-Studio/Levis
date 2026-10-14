@@ -196,7 +196,10 @@ function DrawnSelect({
   // the page moves under it (the list is placed once, from the trigger).
   useEffect(() => {
     if (!open) return;
-    listRef.current?.focus();
+    // Without preventScroll the browser may scroll the page's own scroll
+    // areas to bring the list into view before it is placed (a Settings
+    // page still settling in moved, and the scroll closed the list).
+    listRef.current?.focus({ preventScroll: true });
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
@@ -222,11 +225,19 @@ function DrawnSelect({
     };
   }, [open]);
 
+  // The highlighted option stays in view by scrolling the list alone:
+  // scrollIntoView would scroll every area around it too.
   useEffect(() => {
-    if (!open) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
-      ?.scrollIntoView?.({ block: "nearest" });
+    const list = listRef.current;
+    if (!open || !list) return;
+    const item = list.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    if (!item) return;
+    if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop;
+    else if (
+      item.offsetTop + item.offsetHeight >
+      list.scrollTop + list.clientHeight
+    )
+      list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight;
   }, [open, active]);
 
   function step(from: number, delta: number) {
