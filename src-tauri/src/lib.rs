@@ -96,6 +96,17 @@ static UI_READY: AtomicBool = AtomicBool::new(false);
 #[cfg(desktop)]
 pub(crate) static PENDING_SHOW_HELP: Mutex<Option<String>> = Mutex::new(None);
 
+/// macOS: the files a Finder open launched the app with. AppKit hands them
+/// over (RunEvent::Opened) before setup has run - between will- and
+/// didFinishLaunching - when there are no settings yet to say tab or
+/// window. Routed then, two files opened a second window without a boot
+/// script (unstyled, with the language picker), and a file that was also in
+/// the last session opened in two tabs. They wait here instead, and
+/// desktop_setup opens them the way Windows and Linux open argv paths.
+/// `None` once setup has taken them: later opens are routed at once.
+#[cfg(target_os = "macos")]
+static LAUNCH_OPENED: Mutex<Option<Vec<String>>> = Mutex::new(Some(Vec::new()));
+
 #[cfg(desktop)]
 #[tauri::command]
 fn take_pending_show_help() -> Option<String> {
@@ -421,15 +432,19 @@ fn desktop_setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     #[cfg(target_os = "linux")]
     detect_wayland();
     // Windows/Linux hand an associated file over as a plain argv
-    // path (macOS uses the Opened run-event instead, handled below).
-    // With no file to open, fall back to restoring last session's
-    // documents (unless the user turned that off in Settings) -
-    // this is also what makes an app-update relaunch (which passes
-    // no args at all) reopen whatever was open before the update.
-    let arg_paths = paths_from_argv(
+    // path; macOS hands the files it launched the app with to the Opened
+    // run-event, which parks them in LAUNCH_OPENED until now. With no file
+    // to open, fall back to restoring last session's documents (unless the
+    // user turned that off in Settings) - this is also what makes an
+    // app-update relaunch (which passes no args at all) reopen whatever
+    // was open before the update.
+    #[allow(unused_mut)]
+    let mut arg_paths = paths_from_argv(
         std::env::args(),
         &std::env::current_dir().unwrap_or_default(),
     );
+    #[cfg(target_os = "macos")]
+    arg_paths.extend(LAUNCH_OPENED.lock().unwrap().take().unwrap_or_default());
     let startup_paths = if !arg_paths.is_empty() {
         arg_paths
     } else if commands::prefs::read_restore_session_on_startup(app.handle()) {
@@ -732,6 +747,15 @@ pub fn run() {
                     .filter_map(|url| url.to_file_path().ok())
                     .map(|p| p.to_string_lossy().to_string())
                     .collect();
+                // Still launching: setup opens them (LAUNCH_OPENED).
+                #[cfg(target_os = "macos")]
+                let paths = match LAUNCH_OPENED.lock().unwrap().as_mut() {
+                    Some(early) => {
+                        early.extend(paths);
+                        Vec::new()
+                    }
+                    None => paths,
+                };
                 queue_paths_to_open(app_handle, paths);
             }
             #[cfg(not(any(target_os = "macos", target_os = "ios")))]
