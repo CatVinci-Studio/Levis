@@ -122,7 +122,7 @@ sequenceDiagram
 
 Cole uma imagem direto da área de transferência: o Levis a salva em uma pasta `assets/` ao lado do documento e insere a referência. Ou escreva à mão:
 
-Em **Ajustes → Editor e aparência → Imagens**, você pode enviar as próximas imagens coladas para o seu próprio serviço de hospedagem de imagens. O endpoint recebe `multipart/form-data` com um campo `file` e pode devolver a URL pública como texto simples ou em um campo JSON configurável. Os arquivos enviados podem ser renomeados automaticamente, manter o nome original ou pedir um nome antes de cada envio. As referências a imagens que já existem nunca mudam quando você troca o modo de armazenamento.
+Em **Ajustes → Editor e aparência → Imagens**, você pode, em vez disso, enviar as imagens que colar para o seu próprio serviço de hospedagem de imagens. O endpoint recebe `multipart/form-data` com um campo `file` e pode devolver a URL pública como texto simples ou em um campo JSON configurável. Os arquivos enviados podem ser renomeados automaticamente, manter o nome original ou pedir um nome antes de cada envio. As referências a imagens que já existem nunca mudam quando você troca o modo de armazenamento.
 
 ```markdown
 ![texto alternativo](assets/screenshot.png)

@@ -6,7 +6,7 @@ O Levis tem uma IA integrada feita para a escrita, a Levis AI: autocompletar, ve
 
 1. Abra **Ajustes > Levis AI** e escolha o serviço que você quer em **Conexão > Provedor**.
 2. Expanda **Login e credenciais** e entre na sua conta ou digite uma chave de API, conforme o que o serviço oferece.
-3. Para um **Endpoint personalizado** (qualquer servidor compatível com a OpenAI: modelos locais, proxies), digite a URL base, uma chave se ele exigir e o nome do modelo, e salve.
+3. Para um **Endpoint personalizado** (qualquer servidor compatível com a API da OpenAI: modelos locais, proxies), digite a URL base, uma chave se ele exigir e o nome do modelo, e salve.
 4. Escolha o modelo auxiliar em **Assistência de escrita** e o modelo do chat em **Chat da Levis AI**.
 
 O login acontece no seu navegador. O suporte a imagens, busca na web e edições no documento depende do serviço e do modelo escolhidos.
@@ -33,7 +33,7 @@ Possíveis problemas aparecem sublinhados. Passe o ponteiro sobre um deles, ou l
 
 A conversa completa fica em um painel no lado direito do editor. Abra ou feche o painel com o botão de chat na ponta direita da barra da janela ou com <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
 
-- **Uma conversa por documento**: cada aba tem a sua conversa, e trocar de aba troca o painel junto. **Nova conversa**, no cabeçalho do painel, recomeça do zero (se ainda houver edições sem decisão, ele pergunta antes).
+- **Uma conversa por documento**: cada aba tem a sua conversa, e trocar de aba troca o painel junto. **Nova conversa**, no cabeçalho do painel, recomeça do zero (se ainda houver edições sem decisão, o app pergunta antes).
 - **Modos**: o campo de mensagem tem **Perguntar**, **Editar** e **Planejar**. O painel começa no modo definido em **Ajustes > Levis AI > Chat da Levis AI > Modo padrão**.
 - **Menções com @**: digite `@` no campo para escolher um arquivo de texto da pasta do projeto; ele é anexado à mensagem.
 - **Anexar arquivos**: o botão **+** à esquerda do campo anexa à mensagem um PDF, um documento do Word, uma apresentação do PowerPoint, uma planilha, uma imagem ou um arquivo de texto simples. Tudo, menos as imagens, é convertido em texto no seu computador e vai dentro da mensagem; as imagens são enviadas como imagens de verdade aos provedores que conseguem vê-las (os que não conseguem avisam na hora, em vez de descartá-las sem dizer nada). Um arquivo longo é enviado só em parte, e o anexo mostra “(parcial)” quando isso acontece.
@@ -47,7 +47,7 @@ A conversa completa fica em um painel no lado direito do editor. Abra ou feche o
 
 Pressione <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (ou clique com o botão direito > Perguntar à IA…) para abrir uma pequena barra de chat logo abaixo do parágrafo em que você está. Ela fica dentro do documento e empurra o texto seguinte para baixo, em vez de cobri-lo. Se havia texto selecionado quando você a abriu, a seleção vai junto. A Pergunta rápida abre no modo **Editar**, porque normalmente é aberta sobre um trecho que você quer mudar (“encurte isto”); o modo Perguntar está a um clique, no seletor de modo.
 
-- **O atalho de novo**: pressionar <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> com a barra aberta leva o cursor para o campo dela; pressionar mais uma vez, a partir do campo, fecha a barra. <kbd>Esc</kbd> em qualquer ponto da barra também a fecha, e o cursor volta ao documento. Se ainda houver edições sem decisão, fechar (ou começar uma nova conversa) pergunta antes.
+- **O atalho de novo**: pressionar <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> com a barra aberta leva o cursor para o campo dela; pressionar mais uma vez, a partir do campo, fecha a barra. <kbd>Esc</kbd> em qualquer ponto da barra também a fecha, e o cursor volta ao documento. Se ainda houver edições sem decisão, o app pergunta antes de fechar a barra (ou de começar uma nova conversa).
 - A Pergunta rápida tem a sua própria conversa curta, separada da do painel e não salva no histórico. Ela abre mesmo com o painel aberto. **Continuar na conversa completa** (o botão no canto dela) passa a conversa para o painel de IA, onde ela segue e fica salva. Ative **Ajustes > Levis AI > Avançado > Abrir conversas completas em uma janela separada** para mandá-la a uma janela separada.
 
 ### 5. Edições no documento
@@ -113,7 +113,7 @@ Tudo o que a Levis AI lê precisa estar dentro da pasta do projeto: `..`, caminh
 
 Há duas maneiras de criar um, ambas no menu do projeto:
 
-- **Aprender meu estilo com amostras…**: escolha alguns arquivos com textos seus (até oito). A Levis AI estuda esses textos e faz um rascunho do perfil (voz e tom, frases e ritmo, escolha de palavras, pontuação, estrutura, o que você nunca faz e algumas citações curtas como exemplos), que abre em uma nova aba. Leia, corrija, complete: o perfil é seu. Se você aprender de novo, o perfil anterior fica guardado como `style.previous.md`.
+- **Aprender meu estilo com amostras…**: escolha alguns arquivos com textos seus (até oito). A Levis AI estuda esses textos e faz um rascunho do perfil (voz e tom, frases e ritmo, escolha de palavras, pontuação, estrutura, o que você nunca faz e algumas citações curtas como exemplos), que abre em uma nova aba. Leia, corrija, complete: o perfil é seu. Ao aprender de novo, a Levis AI guarda o perfil anterior como `style.previous.md`.
 - **Criar perfil de estilo**: comece de um esboço vazio e escreva tudo você mesmo.
 
 Quando já existe um perfil, o botão **Estilo**, ao lado do nome da pasta, abre o arquivo.
@@ -211,9 +211,9 @@ Não existe perfil de estilo nem biblioteca global: eles descrevem uma obra espe
 | Habilidades | ✓ | | |
 | Tom do autocompletar (Ajustes) | | ✓ | |
 
-- **Primeiro a global, depois a do projeto.** As instruções de escrita dos dois níveis são enviadas, as do projeto por último, e as do projeto vencem em caso de conflito. Uma habilidade do projeto substitui uma global com o mesmo nome.
+- **Global primeiro, projeto depois.** As instruções de escrita dos dois níveis são enviadas, as do projeto por último, e as do projeto vencem em caso de conflito. Uma habilidade do projeto substitui uma global com o mesmo nome.
 - **Uma pasta de projeto por vez.** Só a `.levis/` dela conta: quando você escolhe uma pasta de projeto, uma `.levis/` ao lado do documento não é lida.
-- **Sem reiniciar.** Edite qualquer um desses arquivos e a próxima solicitação já usa a nova versão (no autocompletar, em cerca de dez segundos).
+- **Não é preciso reiniciar.** Edite qualquer um desses arquivos e a próxima solicitação já usa a nova versão (no autocompletar, em cerca de dez segundos).
 
 ### Qual arquivo para quê?
 
