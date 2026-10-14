@@ -26,6 +26,7 @@ import {
 import { undoCommand, redoCommand } from "@milkdown/kit/plugin/history";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
+import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { registerEditorFlush } from "./editor-flush";
 import {
@@ -209,6 +210,29 @@ export function MilkdownEditor({
   // editor-flush.ts.
   const reportedDocRef = useRef<ProseNode | null>(null);
   const reportedMarkdownRef = useRef<string | null>(null);
+  // The file as it was opened, and what the editor would write for the doc
+  // it parsed that into (computed the first time it is needed). A change
+  // that serializes back to that same text - a plugin touching node attrs
+  // on mount, an edit undone - is not an edit: the tab reports the file's
+  // own text, so it stays clean and a save leaves the file byte-for-byte
+  // as it was instead of rewriting it in the serializer's house style.
+  const openedValueRef = useRef(initialValue);
+  const mountDocRef = useRef<ProseNode | null>(null);
+  const mountMarkdownRef = useRef<string | null>(null);
+  const reportMarkdown = useCallback(
+    (ctx: Ctx, markdown: string) => {
+      const mountDoc = mountDocRef.current;
+      if (mountDoc && mountMarkdownRef.current === null)
+        mountMarkdownRef.current = ctx.get(serializerCtx)(mountDoc);
+      const value =
+        markdown === mountMarkdownRef.current
+          ? openedValueRef.current
+          : markdown;
+      reportedMarkdownRef.current = value;
+      onChangeRef.current(value);
+    },
+    [onChangeRef],
+  );
 
   // The pending-edit plugin's callbacks need to exist at chain-construction
   // time below, but the real accept/reject/sync functions come from
@@ -269,15 +293,16 @@ export function MilkdownEditor({
           ctx
             .get(listenerCtx)
             .mounted((ctx) => {
-              reportedDocRef.current = ctx.get(editorViewCtx).state.doc;
+              const { doc } = ctx.get(editorViewCtx).state;
+              reportedDocRef.current = doc;
+              mountDocRef.current = doc;
             })
             // Fires just before markdownUpdated, from the same debounce.
             .updated((_ctx, doc) => {
               reportedDocRef.current = doc;
             })
-            .markdownUpdated((_ctx, markdown) => {
-              reportedMarkdownRef.current = markdown;
-              onChangeRef.current(markdown);
+            .markdownUpdated((ctx, markdown) => {
+              reportMarkdown(ctx, markdown);
             })
             // Every new selection has to reach the detached chat window as a
             // fresh selection chip - that surface is defined by following
@@ -327,14 +352,12 @@ export function MilkdownEditor({
             const reported = reportedDocRef.current;
             if (reported && !doc.eq(reported)) {
               reportedDocRef.current = doc;
-              const markdown = ctx.get(serializerCtx)(doc);
-              reportedMarkdownRef.current = markdown;
-              onChangeRef.current(markdown);
+              reportMarkdown(ctx, ctx.get(serializerCtx)(doc));
             }
             return reportedMarkdownRef.current;
           }) ?? null,
       ),
-    [tabId, run, onChangeRef],
+    [tabId, run, reportMarkdown],
   );
 
   // Transient, self-dismissing notice for on-demand AI triggers ("no issues

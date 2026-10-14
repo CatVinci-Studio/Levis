@@ -184,10 +184,13 @@ export const mdCodeSpanSchema = $nodeSchema("md_code_span", () => ({
   ],
   parseMarkdown: {
     match: (node) => node.type === "inlineCode",
+    // Added whole rather than opened and closed: the text stays unmarked
+    // (code is verbatim) while a link around it - `[`code`](url)` - lands
+    // on the node itself and is written back out around the backticks.
+    // closeNode would also drop the link for the text after it.
     runner: (state, node, type) => {
-      state.openNode(type);
-      if (node.value) state.addText(node.value as string);
-      state.closeNode();
+      const value = node.value as string | undefined;
+      state.addNode(type, undefined, value ? [state.schema.text(value)] : []);
     },
   },
   toMarkdown: {

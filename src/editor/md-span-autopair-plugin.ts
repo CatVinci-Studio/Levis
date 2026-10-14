@@ -1,6 +1,7 @@
 import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import {
   caretAt,
   findRunClose,
@@ -31,6 +32,45 @@ const SPECS: SpanSpec[] = [
   { char: "=", nodeType: "md_span", minRung: 2, maxRung: 2 },
   { char: "`", nodeType: "md_code_span", minRung: 1, maxRung: 1 },
 ];
+
+/**
+ * After a typed delimiter steps the caret out of a filled span, the rest of
+ * that span's closing run is still on its way: someone typing "**bold**" by
+ * hand presses "*" twice at the end, and the second one must be swallowed
+ * too, not open a fresh italic shell (or, for "~~", land as a literal "~").
+ * Remembered per view until the next keystroke that isn't that delimiter at
+ * that spot in that same document.
+ */
+interface PendingCloser {
+  doc: ProseNode;
+  pos: number;
+  char: string;
+  remaining: number;
+}
+const pendingClosers = new WeakMap<EditorView, PendingCloser>();
+
+function swallowPendingCloser(
+  view: EditorView,
+  from: number,
+  text: string,
+): boolean {
+  const pending = pendingClosers.get(view);
+  if (!pending) return false;
+  pendingClosers.delete(view);
+  if (
+    pending.doc !== view.state.doc ||
+    pending.pos !== from ||
+    pending.char !== text ||
+    pending.remaining <= 0
+  )
+    return false;
+  if (pending.remaining > 1)
+    pendingClosers.set(view, { ...pending, remaining: pending.remaining - 1 });
+  // Nothing to change, but the caret may have been normalized elsewhere.
+  if (view.state.selection.from !== from)
+    view.dispatch(caretAt(view.state.tr, from));
+  return true;
+}
 
 function isOurNode(name: string): boolean {
   return name === "md_span" || name === "md_code_span";
@@ -85,6 +125,7 @@ export const mdSpanAutopairPlugin = $prose(
           if (view.composing) return false; // dispatching mid-composition aborts the IME preedit
           if (from !== to) return false;
           if (redirectMisattributedInput(view, from, to, text)) return true;
+          if (swallowPendingCloser(view, from, text)) return true;
 
           const spec = SPECS.find((s) => s.char === text);
           if (!spec) return false;
@@ -117,8 +158,20 @@ export const mdSpanAutopairPlugin = $prose(
               return false; // already at max rung (or a code span) - literal char as content
             }
 
-            // Non-empty - already a valid node, just step past it.
+            // Non-empty - already a valid node, just step past it, and
+            // expect the rest of a hand-typed closing run to follow.
             view.dispatch(caretAt(state.tr, nodeEnd));
+            const rung =
+              spec.nodeType === "md_span"
+                ? ((parent.attrs.rung as number) ?? spec.minRung)
+                : 1;
+            if (rung > 1)
+              pendingClosers.set(view, {
+                doc: view.state.doc,
+                pos: nodeEnd,
+                char: spec.char,
+                remaining: rung - 1,
+              });
             return true;
           }
 

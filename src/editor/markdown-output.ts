@@ -1,5 +1,7 @@
 import type { Ctx } from "@milkdown/kit/ctx";
 import { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { linkSchema } from "@milkdown/kit/preset/commonmark";
+import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { defaultHandlers, type Handle } from "mdast-util-to-markdown";
 
 // How the editor writes markdown back out. Every rule here exists to keep a
@@ -42,10 +44,42 @@ const list: Handle = (node, parent, state, info) => {
   return defaultHandlers.list(node, parent, state, info);
 };
 
+/**
+ * Milkdown's parser forgets every open mark whenever it closes a node, so
+ * in `[see **this** here](url)` the link only covered "see " and "this":
+ * " here" came back as plain text and the URL fell off it on the next save.
+ * Re-opening the link before each child keeps it on all of them, whatever
+ * node the previous child closed. (Inline code, which keeps its own text
+ * unmarked, carries the link on itself - md-span-schema.ts.)
+ */
+function keepLinkAcrossInlineNodes(ctx: Ctx): void {
+  ctx.update(linkSchema.key, (prev) => (innerCtx) => {
+    const schema = prev(innerCtx);
+    return {
+      ...schema,
+      parseMarkdown: {
+        match: schema.parseMarkdown.match,
+        runner: (state, node, markType) => {
+          const attrs = {
+            href: node.url as string,
+            title: node.title as string,
+          };
+          for (const child of (node.children ?? []) as MarkdownNode[]) {
+            state.openMark(markType, attrs);
+            state.next(child);
+            state.closeMark(markType);
+          }
+        },
+      },
+    };
+  });
+}
+
 /** Installs the rules above. `update`, not `set`: the slice already carries
  *  Milkdown's own text/strong/emphasis handlers, and replacing it wholesale
  *  would drop them. */
 export function configureMarkdownOutput(ctx: Ctx): void {
+  keepLinkAcrossInlineNodes(ctx);
   ctx.update(remarkStringifyOptionsCtx, (options) => ({
     ...options,
     handlers: {

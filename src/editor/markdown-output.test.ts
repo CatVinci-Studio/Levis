@@ -32,8 +32,27 @@ describe("saved markdown stays as written", () => {
       "a <br> in a table cell",
       "| a      | b |\n| ------ | - |\n| x<br>y | z |\n",
     ],
+    ["a link around inline code", "Via [`[catvinci]`](https://x.org/r) repo\n"],
+    ["a link with code inside", "[see `code` here](u) after\n"],
+    ["a link with math inside", "[see $x$ here](u) after\n"],
+    ["inline math", "$x$ and $y_1$\n"],
   ])("keeps %s", async (_name, markdown) => {
     expect(await roundTrip(markdown)).toBe(markdown);
+  });
+
+  it("keeps a link on a bold word inside it", async () => {
+    expect(await roundTrip("[**bold** text](u) after\n")).toContain("](u)");
+    expect(await roundTrip("[**bold** text](u) after\n")).toContain(
+      "[text](u)",
+    );
+  });
+
+  it("reads dollar amounts as text, not math (Pandoc's rule)", async () => {
+    expect(await roundTrip("about $4) and round's $19 ok\n")).toBe(
+      "about \\$4) and round's \\$19 ok\n",
+    );
+    expect(await roundTrip("costs $5 and $6\n")).toBe("costs \\$5 and \\$6\n");
+    expect(await roundTrip("a $ x$ b\n")).toBe("a \\$ x\\$ b\n");
   });
 
   it("writes a thematic break as '---', but '***' as the first block", async () => {

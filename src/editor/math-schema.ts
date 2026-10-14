@@ -2,7 +2,54 @@ import { $nodeSchema, $remark, $inputRule } from "@milkdown/kit/utils";
 import { InputRule } from "@milkdown/kit/prose/inputrules";
 import remarkMath from "remark-math";
 
-export const remarkMathPlugin = $remark("remark-math", () => remarkMath);
+interface MdastNode {
+  type: string;
+  value?: string;
+  children?: MdastNode[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+}
+
+/**
+ * Pandoc's rule for single-dollar math, on top of remark-math (which pairs
+ * any two dollars): the opening `$` needs a non-space right after it, the
+ * closing one a non-space right before it and no digit right after it. So
+ * "about $4) and round's $19" and "$5 and $6" stay prices, as they do in
+ * Pandoc, Typora and GitHub, instead of one long italic formula. A pair
+ * that breaks the rule goes back to the text it was written as.
+ */
+export function revertCurrencyDollars(tree: MdastNode, source: string): void {
+  const walk = (node: MdastNode) => {
+    if (!node.children) return;
+    node.children = node.children.map((child) => {
+      walk(child);
+      if (child.type !== "inlineMath") return child;
+      const start = child.position?.start.offset;
+      const end = child.position?.end.offset;
+      if (start === undefined || end === undefined) return child;
+      const raw = source.slice(start, end);
+      if (!raw.startsWith("$") || raw.startsWith("$$")) return child;
+      const inner = raw.slice(1, -1);
+      const breaksRule =
+        /^\s/.test(inner) || /\s$/.test(inner) || /^\d/.test(source[end] ?? "");
+      return breaksRule ? { type: "text", value: raw } : child;
+    });
+  };
+  walk(tree);
+}
+
+function remarkMathWithPandocDollars(
+  this: unknown,
+  ...args: Parameters<typeof remarkMath>
+) {
+  (remarkMath as (...a: unknown[]) => void).apply(this, args);
+  return (tree: MdastNode, file: { value: unknown }) =>
+    revertCurrencyDollars(tree, String(file.value));
+}
+
+export const remarkMathPlugin = $remark(
+  "remark-math",
+  () => remarkMathWithPandocDollars as unknown as typeof remarkMath,
+);
 
 export const mathInlineSchema = $nodeSchema("math_inline", () => ({
   content: "text*",
@@ -18,10 +65,11 @@ export const mathInlineSchema = $nodeSchema("math_inline", () => ({
   ],
   parseMarkdown: {
     match: (node) => node.type === "inlineMath",
+    // Added whole, like inline code (md-span-schema.ts): closeNode would
+    // drop a surrounding link for the text after the formula.
     runner: (state, node, type) => {
-      state.openNode(type);
-      if (node.value) state.addText(node.value as string);
-      state.closeNode();
+      const value = node.value as string | undefined;
+      state.addNode(type, undefined, value ? [state.schema.text(value)] : []);
     },
   },
   toMarkdown: {
