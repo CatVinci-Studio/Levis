@@ -13,6 +13,8 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "Levis",
         "width": 800,
         "height": 600,

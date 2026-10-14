@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { getUiState, setUiState } from "../../storage/ui-state";
 import "./agent-panel.css";
 import "./inline-chat.css";
 
@@ -39,27 +40,9 @@ export function useAgentPanel(): AgentPanelFrame {
   return useContext(AgentPanelContext);
 }
 
-const OPEN_KEY = "levis-agent-panel-open";
-const WIDTH_KEY = "levis-agent-panel-width";
 const AGENT_PANEL_MIN_WIDTH = 300;
 const AGENT_PANEL_MAX_WIDTH = 720;
 const DEFAULT_WIDTH = 380;
-
-function readStored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStored(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Unavailable storage: the panel still works, it just won't remember.
-  }
-}
 
 function clampWidth(width: number): number {
   return Math.min(
@@ -70,21 +53,23 @@ function clampWidth(width: number): number {
 
 /** The panel's open state and width, remembered across launches. */
 export function useAgentPanelState() {
-  const [open, setOpenState] = useState(() => readStored(OPEN_KEY) === "1");
+  const [open, setOpenState] = useState(
+    () => getUiState("agentPanelOpen") === true,
+  );
   const [width, setWidthState] = useState(() => {
-    const stored = Number(readStored(WIDTH_KEY));
-    return Number.isFinite(stored) && stored > 0
+    const stored = getUiState("agentPanelWidth");
+    return typeof stored === "number" && Number.isFinite(stored) && stored > 0
       ? clampWidth(stored)
       : DEFAULT_WIDTH;
   });
   const setOpen = useCallback((next: boolean) => {
     setOpenState(next);
-    writeStored(OPEN_KEY, next ? "1" : "0");
+    setUiState("agentPanelOpen", next);
   }, []);
   const setWidth = useCallback((next: number) => {
     const clamped = clampWidth(next);
     setWidthState(clamped);
-    writeStored(WIDTH_KEY, String(Math.round(clamped)));
+    setUiState("agentPanelWidth", Math.round(clamped));
   }, []);
   const toggle = useCallback(() => setOpen(!open), [open, setOpen]);
   return { open, setOpen, toggle, width, setWidth };

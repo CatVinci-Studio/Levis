@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { documentDir, join } from "@tauri-apps/api/path";
 import type { DirEntryInfo } from "../sidebar/types";
 import { isIOSApp } from "./capabilities";
+import { getUiState, setUiState, uiStateReady } from "../storage/ui-state";
 
 /**
  * iOS document access (src-tauri/plugins/levis-files). A file or folder the
@@ -155,7 +156,6 @@ export async function newDocumentPath(
   }
 }
 
-const RECENT_DOCUMENTS_KEY = "levis-ios-recent-documents";
 /** The document list keeps this many; the phone menu shows the first few. */
 const RECENT_LIMIT = 30;
 /** Prefix for a path stored relative to Documents: the app's container
@@ -163,17 +163,15 @@ const RECENT_LIMIT = 30;
  *  it would be stale by the next version. */
 const IN_DOCUMENTS = "documents:";
 
-function readRecents(): string[] {
-  try {
-    const list: unknown = JSON.parse(
-      localStorage.getItem(RECENT_DOCUMENTS_KEY) ?? "[]",
-    );
-    return Array.isArray(list)
-      ? list.filter((p): p is string => typeof p === "string")
-      : [];
-  } catch {
-    return [];
-  }
+/** The stored list (ui-state.json; see storage/ui-state.ts). Waits for the
+ *  live copy: a reload replays the boot snapshot, and a read-modify-write
+ *  built on that would drop whatever was opened since the window was made. */
+async function readRecents(): Promise<string[]> {
+  await uiStateReady();
+  const list = getUiState("iosRecentDocuments");
+  return Array.isArray(list)
+    ? list.filter((p): p is string => typeof p === "string")
+    : [];
 }
 
 /**
@@ -185,7 +183,7 @@ function readRecents(): string[] {
 export async function recentIOSDocuments(): Promise<string[]> {
   const docs = await documentDir();
   return Promise.all(
-    readRecents().map((stored) =>
+    (await readRecents()).map((stored) =>
       stored.startsWith(IN_DOCUMENTS)
         ? join(docs, stored.slice(IN_DOCUMENTS.length))
         : Promise.resolve(stored),
@@ -205,29 +203,18 @@ export async function rememberIOSDocument(path: string | null): Promise<void> {
   const stored = path.startsWith(docs)
     ? IN_DOCUMENTS + path.slice(docs.length)
     : path;
-  const list = [stored, ...readRecents().filter((p) => p !== stored)];
-  try {
-    localStorage.setItem(
-      RECENT_DOCUMENTS_KEY,
-      JSON.stringify(list.slice(0, RECENT_LIMIT)),
-    );
-  } catch {
-    // Storage unavailable: the next launch just starts blank.
-  }
+  const list = [stored, ...(await readRecents()).filter((p) => p !== stored)];
+  setUiState("iosRecentDocuments", list.slice(0, RECENT_LIMIT));
 }
 
 /** Drops an entry that no longer opens (moved or deleted in Files). */
 export async function forgetIOSDocument(path: string): Promise<void> {
   const resolved = await recentIOSDocuments();
-  const stored = readRecents();
-  try {
-    localStorage.setItem(
-      RECENT_DOCUMENTS_KEY,
-      JSON.stringify(stored.filter((_, i) => resolved[i] !== path)),
-    );
-  } catch {
-    // Nothing to do.
-  }
+  const stored = await readRecents();
+  setUiState(
+    "iosRecentDocuments",
+    stored.filter((_, i) => resolved[i] !== path),
+  );
 }
 
 /** Where a recent document lives: in the app's own Documents folder (which
@@ -250,14 +237,10 @@ export async function renameIOSDocument(
   const docs = (await documentDir()).replace(/\/+$/, "") + "/";
   const before = IN_DOCUMENTS + path.slice(docs.length);
   const after = IN_DOCUMENTS + renamed.slice(docs.length);
-  try {
-    localStorage.setItem(
-      RECENT_DOCUMENTS_KEY,
-      JSON.stringify(readRecents().map((p) => (p === before ? after : p))),
-    );
-  } catch {
-    // The list just loses the entry's old name.
-  }
+  setUiState(
+    "iosRecentDocuments",
+    (await readRecents()).map((p) => (p === before ? after : p)),
+  );
   return renamed;
 }
 

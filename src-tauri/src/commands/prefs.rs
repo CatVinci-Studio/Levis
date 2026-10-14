@@ -1,12 +1,13 @@
-//! A tiny Rust-readable mirror of a couple of frontend settings whose
-//! effect happens in Rust before any webview (let alone its localStorage)
-//! exists: whether opening several documents at once (Finder "Open With"
-//! multi-select, `levis a.md b.md`) should spawn one OS window per file or
-//! batch them into tabs in a single window, and whether startup should
-//! restore last session's documents. Settings otherwise live only in the
-//! frontend's localStorage (see SettingsContext.tsx); these two get mirrored
-//! here whenever the frontend changes them. The last editor window size is
-//! kept here too, written by Rust itself on close.
+//! prefs.json: the last editor window size, written by Rust itself on close.
+//!
+//! Up to 0.9.6 this file also mirrored two frontend settings that take
+//! effect in Rust before any webview exists - whether opening several
+//! documents at once (Finder "Open With" multi-select, `levis a.md b.md`)
+//! spawns one OS window per file or batches them into tabs in a single
+//! window, and whether startup restores last session's documents. Settings
+//! now live in a file Rust owns (settings.rs), so both are read from there;
+//! the old keys here are read once, on the first launch after the move, and
+//! left in place for a downgrade.
 
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -29,7 +30,7 @@ fn read_prefs(app: &AppHandle) -> serde_json::Value {
 }
 
 /// Merges `value` into the existing prefs.json under `key` instead of
-/// overwriting the whole file, since more than one pref lives here now.
+/// overwriting the whole file, which still holds the old mirrored keys.
 fn write_pref(app: &AppHandle, key: &str, value: serde_json::Value) -> Result<(), String> {
     let path = prefs_path(app)?;
     if let Some(dir) = path.parent() {
@@ -41,11 +42,11 @@ fn write_pref(app: &AppHandle, key: &str, value: serde_json::Value) -> Result<()
 }
 
 /// Internal helper for lib.rs's window-spawning decisions. Defaults to
-/// "window" (the default) on any missing/unreadable/malformed
-/// file, same "safe default" precedent as commands::cli.
+/// "window" on anything but an explicit "tab", same "safe default"
+/// precedent as commands::cli.
 pub fn read_new_document_mode(app: &AppHandle) -> String {
-    match read_prefs(app)
-        .get("new_document_mode")
+    match crate::settings::read_setting(app, "newDocumentMode")
+        .as_ref()
         .and_then(|v| v.as_str())
     {
         Some("tab") => "tab".to_string(),
@@ -53,28 +54,12 @@ pub fn read_new_document_mode(app: &AppHandle) -> String {
     }
 }
 
-#[tauri::command]
-pub fn set_new_document_mode(app: AppHandle, mode: String) -> Result<(), String> {
-    write_pref(&app, "new_document_mode", serde_json::json!(mode))
-}
-
 /// Internal helper for lib.rs's startup path-collection: whether to reopen
-/// last session's documents (default) or start blank. Same "safe default"
-/// precedent - missing/unreadable/malformed prefs.json means restore.
+/// last session's documents (default) or start blank.
 pub fn read_restore_session_on_startup(app: &AppHandle) -> bool {
-    read_prefs(app)
-        .get("restore_session_on_startup")
+    crate::settings::read_setting(app, "restoreSessionOnStartup")
         .and_then(|v| v.as_bool())
         .unwrap_or(true)
-}
-
-#[tauri::command]
-pub fn set_restore_session_on_startup(app: AppHandle, enabled: bool) -> Result<(), String> {
-    write_pref(
-        &app,
-        "restore_session_on_startup",
-        serde_json::json!(enabled),
-    )
 }
 
 /// The inner size (logical px) the last closed editor window had, for the

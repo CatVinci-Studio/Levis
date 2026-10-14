@@ -18,6 +18,7 @@ mod commands;
 mod distribution;
 #[cfg(desktop)]
 mod menu;
+mod settings;
 #[cfg(desktop)]
 mod tab_drag;
 
@@ -52,8 +53,6 @@ use commands::cli::{cli_command_status, install_cli_command};
 use commands::export::{
     detect_pandoc, export_pdf_native, export_via_pandoc, open_pandoc_install_page, reveal_in_dir,
 };
-#[cfg(desktop)]
-use commands::prefs::{set_new_document_mode, set_restore_session_on_startup};
 #[cfg(desktop)]
 use commands::session::{cancel_session_quit, update_session_paths, SessionTabsState};
 #[cfg(desktop)]
@@ -317,7 +316,7 @@ pub(crate) fn build_window(
         .title(app_identity::APP_NAME)
         .inner_size(width, height)
         .min_inner_size(EDITOR_MIN_SIZE.0, EDITOR_MIN_SIZE.1);
-    build_with_app_chrome(builder, position)?;
+    build_with_app_chrome(settings::with_boot(builder, app, label), position)?;
     Ok(())
 }
 
@@ -403,53 +402,76 @@ fn desktop_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri:
                 commands::prefs::remember_editor_window_size(app, window);
             }
         })
-        .setup(|app| {
-            #[cfg(target_os = "linux")]
-            detect_wayland();
-            // Windows/Linux hand an associated file over as a plain argv
-            // path (macOS uses the Opened run-event instead, handled below).
-            // With no file to open, fall back to restoring last session's
-            // documents (unless the user turned that off in Settings) -
-            // this is also what makes an app-update relaunch (which passes
-            // no args at all) reopen whatever was open before the update.
-            let arg_paths = paths_from_argv(
-                std::env::args(),
-                &std::env::current_dir().unwrap_or_default(),
-            );
-            let startup_paths = if !arg_paths.is_empty() {
-                arg_paths
-            } else if commands::prefs::read_restore_session_on_startup(app.handle()) {
-                commands::session::read_session_paths(app.handle())
-            } else {
-                Vec::new()
-            };
-            queue_paths_to_open(app.handle(), startup_paths);
+}
 
-            commands::cli::try_silent_install();
+/// The desktop half of startup, run from the shared setup in `run` once the
+/// main window exists.
+#[cfg(desktop)]
+fn desktop_setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(target_os = "linux")]
+    detect_wayland();
+    // Windows/Linux hand an associated file over as a plain argv
+    // path (macOS uses the Opened run-event instead, handled below).
+    // With no file to open, fall back to restoring last session's
+    // documents (unless the user turned that off in Settings) -
+    // this is also what makes an app-update relaunch (which passes
+    // no args at all) reopen whatever was open before the update.
+    let arg_paths = paths_from_argv(
+        std::env::args(),
+        &std::env::current_dir().unwrap_or_default(),
+    );
+    let startup_paths = if !arg_paths.is_empty() {
+        arg_paths
+    } else if commands::prefs::read_restore_session_on_startup(app.handle()) {
+        commands::session::read_session_paths(app.handle())
+    } else {
+        Vec::new()
+    };
+    queue_paths_to_open(app.handle(), startup_paths);
 
-            menu::install(app)?;
+    commands::cli::try_silent_install();
 
-            // Every window that already exists got its menu bar from the
-            // set_menu inside install() just now, which is AFTER the point
-            // build_with_app_chrome had to hide it: the config window never
-            // goes through that helper at all, and the startup windows
-            // queue_paths_to_open opened above did, back when there was no
-            // menu yet to hide. One sweep here covers both.
-            for (_, window) in app.webview_windows() {
-                hide_native_menu_bar(&window);
-            }
+    menu::install(app)?;
 
-            // The config window is built before setup runs, so it can only
-            // be resized after the fact; build_window covers the rest.
-            if let (Some(main), Some((width, height))) = (
-                app.get_webview_window("main"),
-                commands::prefs::read_editor_window_size(app.handle()),
-            ) {
-                let _ = main.set_size(tauri::LogicalSize::new(width, height));
-            }
+    // Every window that already exists got its menu bar from the
+    // set_menu inside install() just now, which is AFTER the point
+    // build_with_app_chrome had to hide it: the main window never
+    // goes through that helper at all, and the startup windows
+    // queue_paths_to_open opened above did, back when there was no
+    // menu yet to hide. One sweep here covers both.
+    for (_, window) in app.webview_windows() {
+        hide_native_menu_bar(&window);
+    }
 
-            Ok(())
-        })
+    Ok(())
+}
+
+/// Builds the window tauri.conf.json declares. It is declared with
+/// `"create": false` (in every platform override with a `windows` array
+/// too - Tauri merges those over the base config by replacing the array
+/// whole) because Tauri builds config windows BEFORE setup runs, and this
+/// one needs two things that only exist after: the settings store, for its
+/// boot script, and the remembered editor size. Everything else - size
+/// limits, title bar style, decorations - still comes from the config.
+fn build_main_window(app: &tauri::App) -> tauri::Result<()> {
+    let Some(config) = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .cloned()
+    else {
+        return Ok(());
+    };
+    let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    #[cfg(desktop)]
+    let builder = match commands::prefs::read_editor_window_size(app.handle()) {
+        Some((width, height)) => builder.inner_size(width, height),
+        None => builder,
+    };
+    settings::with_boot(builder, app.handle(), "main").build()?;
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -484,6 +506,14 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = desktop_builder(builder);
     builder
+        .setup(|app| {
+            // Before any window: every window's boot script is made from it.
+            settings::init(app.handle());
+            build_main_window(app)?;
+            #[cfg(desktop)]
+            desktop_setup(app)?;
+            Ok(())
+        })
         // One handler list for both targets. Desktop-only commands carry
         // #[cfg(desktop)] and are simply not registered on iOS - the
         // frontend never calls them there (src/platform/capabilities.ts and
@@ -492,6 +522,15 @@ pub fn run() {
             // Shared: desktop and iOS.
             take_pending_open_path,
             take_pending_open_paths,
+            settings::settings_get,
+            settings::settings_patch,
+            settings::settings_import_legacy,
+            settings::ui_state_get,
+            settings::ui_state_patch,
+            settings::history_list,
+            settings::history_upsert,
+            settings::history_remove,
+            settings::history_clear,
             commands::recents::add_recent_file,
             open_file_dialog,
             open_css_file_dialog,
@@ -549,7 +588,7 @@ pub fn run() {
             #[cfg(mobile)]
             commands::documents::delete_entry,
             // Desktop only: menus, windows, tab drag, detached chat, session
-            // restore, the window-mode prefs mirror, the terminal command,
+            // restore, the terminal command,
             // pandoc/PDF export, folder pickers and file-manager reveals.
             #[cfg(desktop)]
             take_pending_show_help,
@@ -576,10 +615,6 @@ pub fn run() {
             #[cfg(desktop)]
             commands::chat_window::current_chat_window,
             #[cfg(desktop)]
-            set_new_document_mode,
-            #[cfg(desktop)]
-            set_restore_session_on_startup,
-            #[cfg(desktop)]
             update_session_paths,
             #[cfg(desktop)]
             cancel_session_quit,
@@ -605,6 +640,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
+            // Whatever is still waiting on its debounce (settings.rs).
+            if let tauri::RunEvent::Exit = event {
+                settings::flush_all(app_handle);
+            }
             // Finder "Open With"/double-click on an associated .md lands
             // here as an Apple open-documents event (macOS never passes
             // opened files via argv). iOS delivers "Open in Levis" from the
@@ -629,6 +668,6 @@ pub fn run() {
                 queue_paths_to_open(app_handle, paths);
             }
             #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-            let _ = (app_handle, event);
+            let _ = event;
         });
 }
