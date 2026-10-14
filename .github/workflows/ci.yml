@@ -2,8 +2,10 @@ name: CI
 
 on:
   pull_request:
+  # dev is the integration branch: each round's work lands there in one
+  # push, so CI runs on it directly instead of on one PR per change.
   push:
-    branches: [main]
+    branches: [main, dev]
 
 permissions:
   contents: read
