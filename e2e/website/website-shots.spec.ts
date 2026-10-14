@@ -17,7 +17,7 @@
  *             live preview under the caret
  *   markdown  the Markdown tour: headings, bold, italic, underline,
  *             strikethrough, highlight, inline code, a link, the three
- *             kinds of list, a quote, a GitHub alert, a footnote, a
+ *             kinds of list, a quote, a GitHub alert, a
  *             highlighted code block and a rule, all rendered at once (the
  *             document zoomed out a step, so it fits one screen)
  *   settings  Settings, the AI page, its list of providers open
@@ -205,7 +205,7 @@ mindmap
 
 ### Reading notes
 
-The speech turns on **one choice**, *to suffer* or *to take arms*, and ==the dread of something after death== settles it. Not ~~despair~~ but <u>conscience</u> makes cowards of us all.[^1] Search the play for \`sea of troubles\`, or read it at [Folger Shakespeare](https://www.folger.edu/explore/shakespeares-works/hamlet/).
+The speech turns on **one choice**, *to suffer* or *to take arms*, and ==the dread of something after death== settles it. Not ~~despair~~ but <u>conscience</u> makes cowards of us all. Search the play for \`sea of troubles\`, or read it at [Folger Shakespeare](https://www.folger.edu/explore/shakespeares-works/hamlet/).
 
 > [!NOTE]
 > Claudius and Polonius are hiding nearby, listening.
@@ -225,8 +225,6 @@ print(speech.count("?"), "questions")
 \`\`\`
 
 ---
-
-[^1]: In the First Quarto (1603) the speech comes earlier in the play.
 `,
     tourCaret: "The speech turns on",
   },
@@ -302,7 +300,7 @@ mindmap
 
 ### 读书笔记
 
-开卷先交代**写作缘由**：作者把*真事*隐去，借“通灵”之说写成此书。第一回不是~~闲笔~~，==而是全书的总纲==。<u>甄士隐</u>即“真事隐”，<u>贾雨村</u>即“假语存”。[^1] 全文搜索 \`通灵\` 可以找到伏笔，原文见[维基文库](https://zh.wikisource.org/wiki/紅樓夢)。
+开卷先交代**写作缘由**：作者把*真事*隐去，借“通灵”之说写成此书。第一回不是~~闲笔~~，==而是全书的总纲==。<u>甄士隐</u>即“真事隐”，<u>贾雨村</u>即“假语存”。全文搜索 \`通灵\` 可以找到伏笔，原文见[维基文库](https://zh.wikisource.org/wiki/紅樓夢)。
 
 > [!NOTE]
 > 第一回提到的书名还有《情僧录》《风月宝鉴》《金陵十二钗》。
@@ -322,8 +320,6 @@ for name, pun in names.items(): print(name, "→", pun)
 \`\`\`
 
 ---
-
-[^1]: 脂砚斋评：“能解者方有辛酸之泪，哭成此书。”
 `,
     tourCaret: "开卷先",
   },
@@ -401,7 +397,7 @@ mindmap
 
 ### 読書メモ
 
-語り手は**猫**で、しかも*名前がない*。==人間を外から眺める視点==が、この一文で決まる。主人の<u>苦沙弥</u>先生は英語教師で、~~悠々自適~~胃弱に悩んでいる。[^1] 本文で \`書生\` を検索するとよい。全文は[青空文庫](https://www.aozora.gr.jp/cards/000148/card789.html)で読める。
+語り手は**猫**で、しかも*名前がない*。==人間を外から眺める視点==が、この一文で決まる。主人の<u>苦沙弥</u>先生は英語教師で、~~悠々自適~~胃弱に悩んでいる。本文で \`書生\` を検索するとよい。全文は[青空文庫](https://www.aozora.gr.jp/cards/000148/card789.html)で読める。
 
 > [!NOTE]
 > 1905年に『ホトトギス』で連載が始まった、漱石の最初の長編小説。
@@ -421,8 +417,6 @@ for name, role in cast.items(): print(name, role)
 \`\`\`
 
 ---
-
-[^1]: 苦沙弥のモデルは漱石自身だといわれる。
 `,
     tourCaret: "語り手",
   },
