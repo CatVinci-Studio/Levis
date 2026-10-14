@@ -14,6 +14,9 @@ const DEBOUNCE_MS = 1500;
 const MIN_PARAGRAPH_CHARS = 12;
 
 export interface GrammarIssue {
+  /** The writing-rules engine's rule id, when the issue came from it
+   *  rather than the model (ai::rules). */
+  rule?: string;
   /** Unicode-scalar offsets into the checked paragraph (backend-verified). */
   start: number;
   end: number;
@@ -53,6 +56,11 @@ export async function triggerGrammarCheckNow(
   provider: string,
   strictness: string,
   model: string | null,
+  /** The document's project, whose writing conventions the check follows. */
+  project: { docPath: string | null; workspaceRoot: string | null } = {
+    docPath: null,
+    workspaceRoot: null,
+  },
 ): Promise<void> {
   const { $from } = view.state.selection;
   const para = $from.parent;
@@ -62,7 +70,13 @@ export async function triggerGrammarCheckNow(
   if (!text.trim()) throw new AiNoticeError("grammar-empty-paragraph");
 
   const contentStart = $from.start($from.depth);
-  const issues = await ai.grammarCheck(provider, text, strictness, model);
+  const issues = await ai.grammarCheck(
+    provider,
+    text,
+    strictness,
+    model,
+    project,
+  );
   if (!paragraphUnchanged(view, contentStart, text)) {
     throw new AiNoticeError("grammar-paragraph-changed");
   }
@@ -228,6 +242,9 @@ export function createGrammarCheckPlugin(options: {
   provider: () => string;
   model: () => string | null;
   strictness: () => string;
+  /** The document's project folder, for its writing conventions profile
+   *  (style.md front matter) and library names. */
+  project?: () => { docPath: string | null; workspaceRoot: string | null };
 }) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
 
@@ -323,6 +340,7 @@ export function createGrammarCheckPlugin(options: {
                     text,
                     options.strictness(),
                     options.model(),
+                    options.project?.(),
                   );
                 } catch (err) {
                   // Not logged in, offline, or bad model output - stays quiet in

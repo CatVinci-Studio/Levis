@@ -129,7 +129,7 @@ pub fn check_lang(text: &str, expected: Lang) -> Result<(), String> {
 pub fn simplified_only(text: &str) -> Vec<char> {
     let mut found = Vec::new();
     for ch in text.chars() {
-        let hans_only = HANS_HANT
+        let hans_only = crate::ai::rules::detect::HANS_HANT
             .iter()
             .any(|&(s, t)| s == ch && s != t && !matches!(s, '后' | '里' | '划'));
         if hans_only && !found.contains(&ch) {

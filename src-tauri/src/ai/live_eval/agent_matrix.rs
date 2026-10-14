@@ -1413,11 +1413,21 @@ pub fn run_case(auth: &AnthropicAuth, case: &AgentCase, model: &str) -> Record {
             .script
             .iter()
             .map(|t| UserTurn {
-                message: resolve_skill_message(
+                // As ai_agent_message: the packs filtered by the profile the
+                // case's style.md chose (no Settings in the eval).
+                message: crate::ai::builtin::expand_message_with(
                     &t.message,
                     &ws.skills,
                     &case.doc,
                     case.lang.ui_code(),
+                    crate::ai::builtin::chosen_profile(
+                        &crate::ai::rules::Conventions {
+                            setting: None,
+                            project: ws.conventions.clone(),
+                        },
+                        &case.doc,
+                    )
+                    .as_deref(),
                 ),
                 ..t.clone()
             })

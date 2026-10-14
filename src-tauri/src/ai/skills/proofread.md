@@ -33,7 +33,7 @@ metadata:
 - Proofreading is not polishing: fix errors, never rewrite for style.
 
 ## Steps
-1. If a check_conventions tool is available, run it on the scope first and use its findings (rule, span, suggested fix).
+1. Run check_conventions on the scope first (`heading`, or `start_line`/`end_line`; nothing for the whole document) and use its findings (rule, line, suggested fix): a "fix" finding is certain, a "suggest" one needs your judgement in context, a "check" one only flags.
 2. Read the text for what mechanical checks can't see: wrong characters and words in context (的/地/得, 截至/截止, homophones), agreement, case, tense, particles, missing or doubled words, wrong idioms, inconsistent terms and names, possible factual slips.
 3. Check punctuation, numbers and typography against the attached conventions for the document's language and profile.
 

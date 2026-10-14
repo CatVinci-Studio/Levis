@@ -18,9 +18,9 @@ export const BUILTIN_SKILLS = [
   { name: "describe", category: "write", invocation: "both" },
   { name: "dialogue", category: "write", invocation: "both" },
   { name: "imitate-style", category: "write", invocation: "both" },
-  { name: "expand", category: "revise", invocation: "user-only" },
-  { name: "tighten", category: "revise", invocation: "user-only" },
-  { name: "change-tone", category: "revise", invocation: "user-only" },
+  { name: "expand", category: "revise", invocation: "userOnly" },
+  { name: "tighten", category: "revise", invocation: "userOnly" },
+  { name: "change-tone", category: "revise", invocation: "userOnly" },
   { name: "de-ai", category: "revise", invocation: "both" },
   { name: "translate", category: "revise", invocation: "both" },
   { name: "proofread", category: "check", invocation: "both" },
@@ -31,11 +31,11 @@ export const BUILTIN_SKILLS = [
   { name: "academic-polish", category: "format", invocation: "both" },
   { name: "social-post", category: "format", invocation: "both" },
   { name: "headline", category: "format", invocation: "both" },
-  { name: "summarize", category: "format", invocation: "user-only" },
+  { name: "summarize", category: "format", invocation: "userOnly" },
 ] as const satisfies readonly {
   name: string;
   category: SkillCategory;
-  invocation: "both" | "user-only";
+  invocation: "both" | "userOnly";
 }[];
 
 export type BuiltinSkillName = (typeof BUILTIN_SKILLS)[number]["name"];

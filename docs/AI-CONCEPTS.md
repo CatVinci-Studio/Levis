@@ -26,6 +26,8 @@ Grammar check uses only the writing conventions and the library's names.
 | Writing instructions | 写作要求         | 執筆の指示               | Standing rules sent with every conversation, in `agent.md`.                            |
 | Skills               | 技能             | スキル                   | Named, reusable instructions, called with `/name`.                                     |
 | Global config folder | 全局配置文件夹   | グローバル設定フォルダー | The app's folder for the writing instructions and skills that apply to every document. |
+| Built-in skills      | 内置技能         | 組み込みスキル           | The 18 skills that come with the app; each can be turned off, customized or reset.     |
+| Writing conventions  | 写作规范         | 表記ルール               | The punctuation, spacing and number norms followed, per document language.             |
 
 ### Project folder
 
@@ -167,8 +169,9 @@ document language: a profile such as `zh-Hans-CN/fiction`, `en-GB/govuk` or
 `fr-CA`, or Automatic.**
 
 - **On disk:** global: the `writingConventions` setting in `settings.json`
-  (`"automatic"`, or an object from language to profile, with an optional
-  `options` object); project: the `conventions:` key (one profile, or
+  (`"automatic"`; one profile as a string, which is what the Settings row
+  stores and applies to documents in that profile's language; or an object
+  from language to profile, with an optional `options` object); project: the `conventions:` key (one profile, or
   several separated by commas, one per language) and option keys such as
   `cjk-latin-space: on` in the front matter of `.levis/style.md`. The
   profiles and option keys are listed in

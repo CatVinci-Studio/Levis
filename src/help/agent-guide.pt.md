@@ -187,6 +187,24 @@ Há duas maneiras de usar uma habilidade:
 
 As habilidades ficam nos mesmos dois níveis que as instruções de escrita: as globais na pasta `skills/` da pasta de configuração global (**Ajustes > Levis AI > Habilidades > Importar Habilidade…** copia um arquivo de habilidade para lá) e as do projeto em `.levis/skills/` (uma pasta oculta; no Finder do macOS, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> a mostra). Uma habilidade do projeto com o mesmo nome de uma global substitui a global.
 
+### Habilidades integradas
+
+O Levis traz 18 habilidades para as tarefas de escrita mais comuns. O menu `/` as agrupa em **Escrever** (continuar a história, descrever personagem ou cena, polir diálogos, imitar um estilo), **Reescrever** (expandir, enxugar, mudar o tom, tirar o tom de IA, traduzir e polir), **Verificar** (revisar, verificar continuidade) e **Formatos** (escrever e-mail, aviso ou documento oficial, ata de reunião, revisão acadêmica, post para redes sociais, título, resumir). Digite `/` e escolha uma, ou digite o nome dela em qualquer idioma do app: `/proofread`, `/revisar` e `/校对` chamam a mesma habilidade. O Levis AI também escolhe sozinho a maioria delas quando o seu pedido combina com uma; **Expandir**, **Enxugar**, **Mudar o tom** e **Resumir** só rodam quando você as chama.
+
+**Ajustes > Levis AI > Habilidades integradas** mostra todas. O botão desativa uma: ela some do menu `/` e o Levis AI deixa de usá-la. **Personalizar…** copia a habilidade para a pasta `skills/` da pasta de configuração global e abre a cópia para você mudar as instruções; dali em diante, é a sua cópia que roda. **Restaurar** apaga a cópia e traz de volta a versão integrada. Uma habilidade sua com o nome de uma integrada a substitui.
+
+### Normas de escrita
+
+**Ajustes > Levis AI > Assistência de escrita > Normas de escrita** define quais regras de pontuação, espaços e números o Levis AI e a verificação gramatical seguem. **Automático** aplica a norma nacional quando o idioma tem uma (para o português, a norma brasileira; para o japonês, a JTF); nos outros casos, segue o que o seu documento já faz com mais frequência e aponta só as inconsistências. Ao escolher um perfil, como **Portugal** ou **Brasil · Documentos oficiais**, os documentos nesse idioma passam a seguir esse perfil.
+
+Um projeto pode ter a própria escolha: adicione uma linha `conventions:` entre as duas linhas `---` no início do perfil de estilo (`.levis/style.md`). Nos documentos desse projeto, ela vale mais que o ajuste.
+
+```markdown
+---
+conventions: zh-Hans-CN/fiction, en-GB/govuk
+---
+```
+
 ### A pasta de configuração global
 
 **A pasta de configuração global guarda o que vale para todos os documentos**: o seu `agent.md` global e as suas habilidades globais. Ela pertence ao app, não a um projeto; **Ajustes > Levis AI > Pasta de configuração global > Abrir Pasta** a mostra.

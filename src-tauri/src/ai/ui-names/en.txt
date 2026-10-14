@@ -31,6 +31,10 @@ Writing Instructions (agent.md)
 Edit agent.md
 Skills (Settings row)
 Import Skill…
+Built-in skills (Settings, under Skills)
+Customize… (a built-in skill)
+Reset (a customized built-in skill)
+Writing conventions (Settings row)
 Ask
 Edit
 Plan

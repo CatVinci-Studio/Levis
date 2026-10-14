@@ -29,7 +29,7 @@ metadata:
 
 ## Scope
 - The selection; else the dialogue the user names; else the dialogue in the current scene.
-- If a check_conventions tool is available, run it on the passage first and use its dialogue findings.
+- Run check_conventions on the passage first (`heading` or `start_line`/`end_line`) and use its dialogue findings; run it on your draft (`text`) before proposing.
 
 ## Two jobs, by request
 - **Punctuation** ("fix the punctuation", "只改标点"): normalise to the project's dialogue style, or to the document's majority style when none is set. Every change is mechanical; say which rule in the proposal's reason. Change nothing but punctuation and spacing.

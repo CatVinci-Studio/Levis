@@ -71,15 +71,20 @@ const ORDER = new Map<string, number>(
 export function listFromWorkspace(skills: AgentSkill[]): SkillListItem[] {
   return skills.map((skill) => {
     const builtin = BUILTIN_SKILLS.find((b) => b.name === skill.name);
+    const category = skill.category ?? builtin?.category ?? null;
     return {
       name: skill.name,
       description: skill.description || skill.prompt,
-      category: builtin?.category ?? "write",
-      invocation: builtin?.invocation ?? "both",
-      source: "global",
-      overridesBuiltin: false,
-      enabled: true,
-      aliases: {},
+      prompt: skill.prompt,
+      category: (SKILL_CATEGORIES as readonly string[]).includes(category ?? "")
+        ? (category as SkillCategory)
+        : null,
+      invocation: skill.invocation ?? builtin?.invocation ?? "both",
+      source: skill.source ?? "global",
+      overridesBuiltin: skill.overridesBuiltin ?? false,
+      enabled: skill.enabled ?? true,
+      aliases: skill.aliases ?? {},
+      basedOn: skill.basedOn ?? null,
     };
   });
 }
@@ -96,7 +101,13 @@ export function pickerSkills(
         item.enabled !== false && (item.invocation as string) !== "hidden",
     )
     .map((item) => {
-      const builtin = isBuiltinSkillName(item.name) ? item.name : null;
+      // A built-in, or a copy of one made by Customize…; a skill the user
+      // wrote with a built-in's name is theirs, shown by its /name.
+      const builtin =
+        isBuiltinSkillName(item.name) &&
+        (item.source === "builtin" || !!item.basedOn || !item.overridesBuiltin)
+          ? item.name
+          : null;
       const local = builtin ? SKILL_TEXTS[lang][builtin] : null;
       const english = builtin ? SKILL_TEXTS.en[builtin] : null;
       const backend = item.aliases ?? {};

@@ -622,6 +622,7 @@ pub fn run() {
             crate::ai::conventions::measure_text,
             crate::ai::workspace::ensure_global_agent_md,
             crate::ai::workspace::import_agent_skill,
+            crate::ai::workspace::list_skills,
             crate::ai::workspace::customize_builtin_skill,
             crate::ai::workspace::reset_builtin_skill,
             crate::ai::workspace::set_builtin_skill_enabled,

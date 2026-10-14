@@ -235,183 +235,23 @@ pub(crate) fn document_language(
         .map(|(code, _, _)| (*code, LanguageSource::UiLanguage))
 }
 
-/// Characters found in only one of the two Chinese scripts, as (simplified,
-/// traditional) pairs - common enough that a real paragraph has a few.
-const HANS_HANT: &[(char, char)] = &[
-    ('们', '們'),
-    ('这', '這'),
-    ('个', '個'),
-    ('说', '說'),
-    ('为', '為'),
-    ('学', '學'),
-    ('国', '國'),
-    ('时', '時'),
-    ('会', '會'),
-    ('来', '來'),
-    ('对', '對'),
-    ('发', '發'),
-    ('经', '經'),
-    ('过', '過'),
-    ('还', '還'),
-    ('见', '見'),
-    ('长', '長'),
-    ('门', '門'),
-    ('问', '問'),
-    ('开', '開'),
-    ('关', '關'),
-    ('车', '車'),
-    ('电', '電'),
-    ('话', '話'),
-    ('点', '點'),
-    ('让', '讓'),
-    ('从', '從'),
-    ('后', '後'),
-    ('里', '裡'),
-    ('实', '實'),
-    ('现', '現'),
-    ('样', '樣'),
-    ('间', '間'),
-    ('题', '題'),
-    ('书', '書'),
-    ('写', '寫'),
-    ('读', '讀'),
-    ('业', '業'),
-    ('网', '網'),
-    ('报', '報'),
-];
-
-/// Frequent words that tell the Latin-script languages apart.
-const LATIN_WORDS: &[(&str, &[&str])] = &[
-    (
-        "en",
-        &[
-            "the", "and", "of", "to", "is", "that", "it", "with", "for", "this", "are", "was",
-            "be", "on", "not", "you", "have", "we", "they", "which", "will", "from", "but",
-        ],
-    ),
-    (
-        "es",
-        &[
-            "el", "los", "las", "y", "del", "una", "es", "con", "se", "más", "pero", "muy",
-            "también", "está", "están", "sus", "hay", "fue", "este", "la", "lo", "por", "su", "al",
-            "como",
-        ],
-    ),
-    (
-        "fr",
-        &[
-            "le", "les", "des", "et", "est", "une", "pour", "dans", "pas", "sur", "du", "avec",
-            "au", "ce", "qui", "nous", "vous", "sont", "mais", "plus", "être", "cette", "aux",
-            "la", "je", "il", "elle", "très", "sans",
-        ],
-    ),
-    (
-        "de",
-        &[
-            "der", "die", "das", "und", "ist", "nicht", "ein", "eine", "zu", "mit", "den", "von",
-            "auf", "für", "sich", "dem", "auch", "wir", "es", "sind", "wird", "werden",
-        ],
-    ),
-    (
-        "pt",
-        &[
-            "os", "do", "da", "em", "um", "uma", "não", "é", "com", "dos", "das", "mais", "mas",
-            "como", "também", "são", "está", "foi", "pelo", "pela", "nos", "ao", "seu", "e", "o",
-            "na", "você", "muito", "ainda",
-        ],
-    ),
-];
-
 /// Best guess at a document's pack language, from its prose (code, URLs
 /// and Markdown markup left out); None when there is too little to tell.
-/// A compact version of live_eval's checks::detect.
+/// The rules engine's detector (rules::detect), as a pack code.
 pub(crate) fn detect(text: &str) -> Option<&'static str> {
-    let mut prose = String::new();
-    let mut in_fence = false;
-    for line in text.lines().take(400) {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
-            continue;
-        }
-        for (i, part) in line.split('`').enumerate() {
-            if i % 2 == 0 {
-                for word in part.split_whitespace().filter(|w| !w.contains("://")) {
-                    prose.push_str(word);
-                    prose.push(' ');
-                }
-            }
-        }
-        prose.push('\n');
-    }
-    let (mut han, mut kana, mut hangul, mut cyrillic, mut latin) = (0, 0, 0, 0, 0);
-    for ch in prose.chars() {
-        match ch {
-            '\u{4e00}'..='\u{9fff}' | '\u{3400}'..='\u{4dbf}' => han += 1,
-            '\u{3040}'..='\u{30ff}' => kana += 1,
-            '\u{ac00}'..='\u{d7af}' | '\u{1100}'..='\u{11ff}' => hangul += 1,
-            '\u{0400}'..='\u{04ff}' => cyrillic += 1,
-            c if c.is_alphabetic() && (c.is_ascii() || ('\u{00c0}'..='\u{024f}').contains(&c)) => {
-                latin += 1
-            }
-            _ => {}
-        }
-    }
-    let cjk = han + kana;
-    let total = cjk + hangul + cyrillic + latin;
-    if total < 6 {
-        return None;
-    }
-    if hangul * 3 > total {
-        return Some("ko");
-    }
-    if kana >= 3 && kana * 8 > cjk {
-        return Some("ja");
-    }
-    // A CJK character carries about a word, a Latin letter a fifth of one.
-    if cjk * 5 >= latin && cjk >= 4 {
-        let hans = prose
-            .chars()
-            .filter(|c| HANS_HANT.iter().any(|&(s, _)| s == *c))
-            .count();
-        let hant = prose
-            .chars()
-            .filter(|c| HANS_HANT.iter().any(|&(_, t)| t == *c))
-            .count();
-        return Some(if hant > hans { "zh-hant" } else { "zh-hans" });
-    }
-    if cyrillic > latin {
-        return Some("ru");
-    }
-    let lower = prose.to_lowercase();
-    let words: Vec<&str> = lower
-        .split(|c: char| !c.is_alphabetic())
-        .filter(|w| !w.is_empty())
-        .collect();
-    let mut best = ("", 0.0f64);
-    let mut tied = false;
-    for (code, list) in LATIN_WORDS {
-        let mut score = words.iter().filter(|w| list.contains(w)).count() as f64;
-        score += match *code {
-            "es" => lower.matches(['ñ', '¿', '¡']).count() as f64 * 2.0,
-            "pt" => {
-                lower.matches(['ã', 'õ']).count() as f64 * 2.0 + lower.matches("ção").count() as f64
-            }
-            "de" => lower.matches(['ß', 'ä', 'ö', 'ü']).count() as f64 * 1.5,
-            "fr" => lower.matches(['è', 'ê', 'à', 'œ', 'ù', 'û']).count() as f64 * 1.5,
-            _ => 0.0,
-        };
-        if score > best.1 {
-            best = (code, score);
-            tied = false;
-        } else if score > 0.0 && score == best.1 {
-            tied = true;
-        }
-    }
-    (best.1 > 0.0 && !tied).then_some(best.0)
+    use crate::ai::rules::Lang;
+    Some(match crate::ai::rules::detect::detect(text)? {
+        Lang::ZhHans => "zh-hans",
+        Lang::ZhHant => "zh-hant",
+        Lang::En => "en",
+        Lang::Ja => "ja",
+        Lang::Ko => "ko",
+        Lang::Es => "es",
+        Lang::Fr => "fr",
+        Lang::De => "de",
+        Lang::Ru => "ru",
+        Lang::Pt => "pt",
+    })
 }
 
 /// Names of the pack languages in the ten UI languages, lowercase, for
@@ -744,7 +584,7 @@ pub(crate) fn section_for_model(text: &str, profile: Option<&str>) -> String {
 fn conventions_header(language: Option<(&str, LanguageSource)>, profile: Option<&str>) -> String {
     match (profile, language) {
         (Some(profile), _) => format!(
-            "Conventions for this document: {profile} (from the project's writing conventions). Rules tagged for other profiles are left out."
+            "Conventions for this document: {profile} (the writing conventions chosen for this project or in Settings). Rules tagged for other profiles are left out."
         ),
         (None, Some((code, source))) => {
             let how = match source {
@@ -929,11 +769,36 @@ fn skill_block(name: &str, instructions: &str) -> String {
 /// same text use_skill would return, so `/name` needs no extra round trip.
 /// The name may be an alias. Anything else - an unknown or turned-off
 /// skill, no skill at all - comes back unchanged.
+#[cfg(test)]
 pub(crate) fn expand_message(
     message: &str,
     skills: &[AgentSkill],
     document: &str,
     ui_language: &str,
+) -> String {
+    expand_message_with(message, skills, document, ui_language, None)
+}
+
+/// The writing-conventions profile a skill's packs are filtered by: the
+/// one the user chose (project style.md, then Settings) for the document's
+/// language. None under Automatic, where every variant stays and the model
+/// follows the document's own majority.
+pub(crate) fn chosen_profile(
+    conventions: &crate::ai::rules::Conventions,
+    document: &str,
+) -> Option<String> {
+    let lang = crate::ai::rules::detect::detect(document)?;
+    let profile = conventions.profile_for(lang);
+    profile.explicit.then_some(profile.id)
+}
+
+/// expand_message, with the packs filtered by `profile` (chosen_profile).
+pub(crate) fn expand_message_with(
+    message: &str,
+    skills: &[AgentSkill],
+    document: &str,
+    ui_language: &str,
+    profile: Option<&str>,
 ) -> String {
     const OPEN: &str = "<skill name=\"";
     if let Some(start) = message.find(OPEN) {
@@ -952,11 +817,14 @@ pub(crate) fn expand_message(
             return message.to_string();
         };
         let rest = &message[close + "</skill>".len()..];
-        let expanded = expand_skill(skill, document, ui_language, rest.trim(), None);
+        let expanded = expand_skill(skill, document, ui_language, rest.trim(), profile);
+        // Other attributes (`typed="/续写"`: what the user typed, which the
+        // transcript shows) stay as they were.
+        let attrs = &message[name_start + name_len + 1..open_end - 1];
         return format!(
-            "{}{}{rest}",
+            "{}<skill name=\"{}\"{attrs}>\n{expanded}\n</skill>{rest}",
             &message[..start],
-            skill_block(&skill.name, &expanded)
+            skill.name,
         );
     }
     let Some(rest) = message
@@ -973,7 +841,7 @@ pub(crate) fn expand_message(
     };
     let block = skill_block(
         &skill.name,
-        &expand_skill(skill, document, ui_language, tail, None),
+        &expand_skill(skill, document, ui_language, tail, profile),
     );
     if tail.is_empty() {
         block
@@ -1523,6 +1391,20 @@ mod tests {
         assert_eq!(expand_message(&expanded, &skills, doc_zh(), "zh"), expanded);
         let empty = "<skill name=\"proofread\"></skill>\n\n第二段";
         assert_eq!(expand_message(empty, &skills, doc_zh(), "zh"), want);
+        // The composer's typed alias survives, for the transcript.
+        let typed = "<skill name=\"proofread\" typed=\"/校对\"></skill>\n\n第二段";
+        assert_eq!(
+            expand_message(typed, &skills, doc_zh(), "zh"),
+            want.replace("name=\"proofread\">", "name=\"proofread\" typed=\"/校对\">")
+        );
+        // A chosen profile filters the packs; Automatic keeps every variant.
+        let mut conv = crate::ai::rules::Conventions::default();
+        assert_eq!(chosen_profile(&conv, doc_zh()), None);
+        conv.setting = Some(serde_json::json!("zh-Hans-CN/fiction"));
+        assert_eq!(
+            chosen_profile(&conv, doc_zh()).as_deref(),
+            Some("zh-Hans-CN/fiction")
+        );
         // Unknown, turned off, or not a skill call: unchanged.
         assert_eq!(
             expand_message("/nope x", &skills, doc_zh(), "zh"),

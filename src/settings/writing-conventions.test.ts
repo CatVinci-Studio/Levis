@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LANGS, resolveStrings } from "../i18n/strings";
+import { WRITING_CONVENTIONS } from "../ipc";
 import {
   CONVENTION_PROFILES,
   conventionsLanguageName,
@@ -15,6 +16,14 @@ describe("writing conventions", () => {
     expect(isConventionsValue("xx-YY")).toBe(false);
     const all = CONVENTION_PROFILES.flatMap((g) => g.profiles);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("offers exactly the profiles Rust accepts (rules::profile)", () => {
+    const ours = CONVENTION_PROFILES.flatMap((g) => g.profiles).sort();
+    const rust = Object.values(WRITING_CONVENTIONS)
+      .flatMap((l) => l.profiles)
+      .sort();
+    expect(ours).toEqual(rust);
   });
 
   it("names each profile by region and variant", () => {

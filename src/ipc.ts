@@ -551,12 +551,15 @@ export const WRITING_CONVENTIONS: Record<
 };
 
 /**
- * The stored setting: "automatic", or a profile per language (a language
- * left out, or set to "automatic", stays Automatic), with optional option
- * keys (`cjk-latin-space`, `quotes`, `fr.spacing`...).
+ * The stored setting: "automatic", one profile (what the Settings row
+ * stores - it applies to documents in that profile's language), or a
+ * profile per language (a language left out, or set to "automatic", stays
+ * Automatic), with optional option keys (`cjk-latin-space`, `quotes`,
+ * `fr.spacing`...).
  */
 export type WritingConventionsSetting =
   | typeof WRITING_CONVENTIONS_AUTOMATIC
+  | string
   | ({ [lang in ConventionsLang]?: string } & {
       options?: Record<string, string>;
     });
@@ -632,29 +635,42 @@ export interface TextMeasure {
 }
 
 /**
- * One skill as the `/` menu and Settings list it (ai::workspace's skill
- * list): the built-ins, the global config folder's skills/ and the
- * project's .levis/skills/, each layer replacing same-named skills of the
- * layers before it.
+ * One skill as the `/` menu and Settings list it (ai::workspace::AgentSkill,
+ * from `list_skills`): the built-ins, the global config folder's skills/
+ * and the project's .levis/skills/, each layer replacing same-named skills
+ * of the layers before it. Hidden skills are never listed.
  */
 export interface SkillListItem {
   /** Canonical, ASCII kebab-case for a built-in; what follows the `/`. */
   name: string;
   description: string;
-  /** The `/` menu's group. */
-  category: SkillCategory;
-  /** "user-only": offered in the `/` menu but never picked up by the model
+  /** The body sent to the model (comments stripped, packs not in it). */
+  prompt?: string;
+  /** The `/` menu's group; null for a user skill that doesn't say. */
+  category: SkillCategory | null;
+  /** "userOnly": offered in the `/` menu but never picked up by the model
    *  on its own. */
-  invocation: "both" | "user-only";
+  invocation: "both" | "userOnly" | "hidden";
   source: "builtin" | "global" | "project";
   /** A global or project skill with a built-in's name - a copy made by
-   *  Customize…, or the user's own skill that happens to share it. */
+   *  Customize… (`basedOn` set), or the user's own skill that happens to
+   *  share it. */
   overridesBuiltin: boolean;
-  /** False for a built-in turned off in Settings (it stays listed so
-   *  Settings can turn it back on; the `/` menu leaves it out). */
+  /** False for a built-in turned off in Settings, and for a copy of one
+   *  made by Customize… (it stays listed so Settings can turn it back on;
+   *  the `/` menu leaves it out). */
   enabled: boolean;
   /** Extra words typed after `/` for it, by UI language code. */
   aliases: Record<string, string[]>;
+  /** Reference-pack sections Rust appends when it is used. */
+  packs?: string[];
+  /** A built-in's `levis-version`. */
+  version?: string | null;
+  /** "tighten@1" on a copy made by Customize… - only then can Reset
+   *  delete it. */
+  basedOn?: string | null;
+  /** That copy is older than the bundled built-in. */
+  builtinUpdated?: boolean;
 }
 
 export const ai = {
@@ -836,7 +852,7 @@ export const ai = {
   resetBuiltinSkill: (name: string) =>
     call<void>("reset_builtin_skill", { name }),
   setBuiltinSkillEnabled: (name: string, enabled: boolean) =>
-    call<void>("set_builtin_skill_enabled", { name, enabled }),
+    call<string[]>("set_builtin_skill_enabled", { name, enabled }),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),
 };
 

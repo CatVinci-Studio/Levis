@@ -45,7 +45,9 @@ marked †, so a development build never rewrites an installed app's settings
 
 `settings.json`'s `writingConventions` is also read by Rust
 (`ai::conventions`), which owns its meaning: `"automatic"` (the default; a
-missing field means the same), or `{ "zh-Hans": "zh-Hans-CN/tech", "en":
+missing field means the same), one profile such as `"en-GB/govuk"` (what
+Settings > Levis AI > Writing conventions stores; it applies to documents in
+that profile's language, the others stay Automatic), or `{ "zh-Hans": "zh-Hans-CN/tech", "en":
 "en-GB/govuk", "options": { "cjk-latin-space": "on" } }` - one profile per
 language key, `"automatic"` or a missing language meaning Automatic. The
 allowed values are `writing_conventions_options` (`src/ipc.ts`:

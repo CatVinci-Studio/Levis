@@ -40,7 +40,7 @@ metadata:
   - GOV.UK-style summary: at most 160 characters, ending with a full stop.
   - Executive summary: the bottom line first, then the decisions needed.
   - Abstract: APA style is one paragraph, typically at most 250 words, with 3–5 keywords when asked; Chinese abstracts about 400/300/150 characters by type, 3–8 keywords, no figure or reference numbers, abbreviations defined.
-- Match the length the user asks for; count with measure_text when a limit is given and that tool is available.
+- Match the length the user asks for; when a limit is given, count with measure_text (`chars`, `cjk_chars` or `words`) instead of estimating.
 - Write in the user's language when answering in the reply, and in the document's language when inserting into it.
 
 ## Don't

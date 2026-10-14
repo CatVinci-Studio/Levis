@@ -76,14 +76,51 @@ pub trait Engine: Sync {
     fn check(&self, text: &str, lang: &str, profile: &str, level: Level) -> Vec<Finding>;
 }
 
-/// The rules engine, when the build has one.
-///
-/// INTEGRATION (feat/rules-engine): implement [`Engine`] for a unit struct
-/// that forwards to `crate::ai::rules::check`, converting its `Finding`,
-/// severity, fix and level types into the ones above, and return
-/// `Some(&THAT_STRUCT)` here. Nothing else in the eval changes.
+/// The real rules engine (crate::ai::rules), behind the adapter: the
+/// paragraph is checked in the language the case names, under exactly the
+/// profile it names (as if chosen in Settings), with no library names.
+struct RulesEngine;
+
+impl Engine for RulesEngine {
+    fn check(&self, text: &str, lang: &str, profile: &str, level: Level) -> Vec<Finding> {
+        use crate::ai::rules;
+        let conv = rules::Conventions {
+            setting: Some(serde_json::Value::String(profile.to_string())),
+            project: rules::ProjectConventions::default(),
+        };
+        let level = match level {
+            Level::Typos => rules::Level::Typos,
+            Level::Standard => rules::Level::Standard,
+            Level::Strict => rules::Level::Strict,
+        };
+        let lang = rules::Lang::from_code(lang).or_else(|| rules::detect::guess(text));
+        rules::check_as(text, lang, &conv, level, &[], rules::registry::GC)
+            .into_iter()
+            .map(|f| Finding {
+                rule: f.rule.to_string(),
+                start: f.start,
+                end: f.end,
+                original: f.original,
+                suggestion: f.suggestion,
+                severity: match f.severity {
+                    rules::Severity::Error => Severity::Error,
+                    rules::Severity::Warning => Severity::Warning,
+                    rules::Severity::Info => Severity::Info,
+                },
+                fix: match f.fix {
+                    rules::Fix::Safe => Fix::Safe,
+                    rules::Fix::Suggest => Fix::Suggest,
+                    rules::Fix::None => Fix::None,
+                },
+                message: f.message,
+            })
+            .collect()
+    }
+}
+
+/// The rules engine the check runs.
 pub fn engine() -> Option<&'static dyn Engine> {
-    None
+    Some(&RulesEngine)
 }
 
 /// The language code the engine takes, from a conventions profile:
@@ -377,6 +414,37 @@ mod tests {
         assert_eq!(check_name("fr-FR", true), "conventions clean (fr-FR)");
         if engine().is_none() {
             assert!(clean_edit("a", "b,", "zh-Hans-CN", Level::Standard).is_ok());
+        }
+    }
+
+    #[test]
+    fn the_real_engine_is_wired_in() {
+        assert!(engine().is_some());
+        let before = "# 周报\n\n本周完成了三项工作。";
+        let clean = "# 周报\n\n本周完成了三项工作，进展顺利。";
+        assert!(clean_edit(before, clean, "zh-Hans-CN", Level::Standard).is_ok());
+        let err = clean_edit(
+            before,
+            "# 周报\n\n本周完成了三项工作,进展顺利。",
+            "zh-Hans-CN",
+            Level::Standard,
+        )
+        .unwrap_err();
+        assert!(err.contains("zh.punct.halfwidth"), "{err}");
+        // Each profile the suite uses reaches the engine as a valid choice.
+        for profile in [
+            "zh-Hans-CN/fiction",
+            "zh-Hans-CN",
+            "zh-Hant-TW/gongwen",
+            "en-US/general",
+            "de-DE",
+            "fr-FR",
+            "ko",
+        ] {
+            assert!(
+                crate::ai::rules::Profile::parse(profile).is_some(),
+                "{profile}"
+            );
         }
     }
 }

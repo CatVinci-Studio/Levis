@@ -192,7 +192,7 @@ describe("listFromWorkspace", () => {
     ]);
     expect(list[0]).toMatchObject({
       category: "revise",
-      invocation: "user-only",
+      invocation: "userOnly",
     });
     expect(list[1]).toMatchObject({ source: "global", description: "Mine" });
   });

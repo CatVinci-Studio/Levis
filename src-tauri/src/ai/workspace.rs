@@ -707,6 +707,15 @@ pub(crate) fn load_layers(
         }
     }
 
+    // A copy made by Customize… is still that built-in as far as the
+    // switch in Settings goes: turning the built-in off turns the copy off.
+    // A skill the user wrote by hand with the same name is theirs and stays.
+    for skill in &mut ws.skills {
+        if skill.based_on.is_some() && disabled.contains(&skill.name) {
+            skill.enabled = false;
+        }
+    }
+
     ws
 }
 
@@ -725,6 +734,31 @@ pub async fn load_agent_workspace(
     })
     .await
     .unwrap_or_default()
+}
+
+/// Every skill for a document as the `/` menu and Settings list it:
+/// built-ins (turned-off ones too, with `enabled: false`), then the global
+/// folder's, then the project's, each replacing same-named ones. Hidden
+/// skills are left out. Both arguments None (Settings) gives the built-ins
+/// and the global skills.
+#[tauri::command]
+pub async fn list_skills(
+    app: AppHandle,
+    doc_path: Option<String>,
+    workspace_root: Option<String>,
+) -> Vec<AgentSkill> {
+    tauri::async_runtime::spawn_blocking(move || {
+        listed(load(&app, doc_path.as_deref(), workspace_root.as_deref()).skills)
+    })
+    .await
+    .unwrap_or_default()
+}
+
+fn listed(skills: Vec<AgentSkill>) -> Vec<AgentSkill> {
+    skills
+        .into_iter()
+        .filter(|s| s.invocation != Invocation::Hidden)
+        .collect()
 }
 
 /// Folder picker behind "Choose project folder…" (the project bar's menu
@@ -1250,6 +1284,11 @@ mod tests {
         let ws = load_layers(Some(&global), doc.to_str(), None, &["tighten".to_string()]);
         let tighten = ws.skills.iter().find(|s| s.name == "tighten").unwrap();
         assert!(tighten.enabled && tighten.source == SkillSource::Global);
+        // ...but a copy made by Customize… follows the built-in's switch.
+        customize_in(&global.join("skills"), "email").unwrap();
+        let ws = load_layers(Some(&global), doc.to_str(), None, &["email".to_string()]);
+        let email = ws.skills.iter().find(|s| s.name == "email").unwrap();
+        assert!(email.based_on.is_some() && !email.enabled);
         std::fs::remove_dir_all(&root).ok();
     }
 
@@ -1351,5 +1390,22 @@ mod tests {
         // picker and use_skill lookups agree on one token.
         let skill = parse_skill_file("x", "---\nname: fix my prose\n---\nbody");
         assert_eq!(skill.name, "fix-my-prose");
+    }
+
+    #[test]
+    fn the_skill_list_keeps_turned_off_built_ins_and_drops_hidden_ones() {
+        let ws = load_layers(None, None, None, &["describe".to_string()]);
+        let mut skills = ws.skills.clone();
+        skills.push(AgentSkill {
+            name: "secret".into(),
+            invocation: Invocation::Hidden,
+            ..Default::default()
+        });
+        let list = listed(skills);
+        assert_eq!(list.len(), 18);
+        let describe = list.iter().find(|s| s.name == "describe").unwrap();
+        assert!(!describe.enabled && describe.source == SkillSource::Builtin);
+        let json = serde_json::to_value(&list[0]).unwrap();
+        assert!(json.get("overridesBuiltin").is_some() && json.get("invocation").is_some());
     }
 }

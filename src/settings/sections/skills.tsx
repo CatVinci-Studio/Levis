@@ -84,7 +84,8 @@ export function AgentSkillsSection({ t }: { t: Strings }) {
     shadows: boolean;
   }[] = list
     ? list
-        .filter((item) => item.source !== "builtin")
+        // Copies made by Customize… show under Built-in skills instead.
+        .filter((item) => item.source !== "builtin" && !item.basedOn)
         .map((item) => ({
           name: item.name,
           description: item.description,
@@ -156,12 +157,15 @@ export function BuiltinSkillsSection({
   const { list, setList } = useSkillList();
   const [error, setError] = useState<string | null>(null);
 
-  const builtinItem = (name: string) =>
-    list?.find((item) => item.name === name && item.source === "builtin");
-  const override = (name: string) =>
-    list?.find((item) => item.name === name && item.source !== "builtin");
-  const enabled = (name: string) =>
-    builtinItem(name)?.enabled ?? override(name)?.enabled ?? true;
+  // One item per name (ai::workspace::list_skills): the built-in itself,
+  // a copy made by Customize… (`basedOn`, which follows the switch), or a
+  // skill the user wrote with that name, which replaces it outright.
+  const item = (name: string) => list?.find((i) => i.name === name);
+  const isCopy = (i: SkillListItem | undefined) =>
+    !!i && i.source !== "builtin" && !!i.basedOn;
+  const isOwn = (i: SkillListItem | undefined) =>
+    !!i && i.source !== "builtin" && !i.basedOn;
+  const enabled = (name: string) => item(name)?.enabled ?? true;
   const onCount = BUILTIN_SKILLS.filter((s) => enabled(s.name)).length;
 
   async function setEnabled(name: string, on: boolean) {
@@ -169,10 +173,8 @@ export function BuiltinSkillsSection({
     const before = list;
     // At once on screen; put back if the backend says no.
     setList(
-      (list ?? []).map((item) =>
-        item.name === name && item.source === "builtin"
-          ? { ...item, enabled: on }
-          : item,
+      (list ?? []).map((i) =>
+        i.name === name && !isOwn(i) ? { ...i, enabled: on } : i,
       ),
     );
     try {
@@ -242,7 +244,9 @@ export function BuiltinSkillsSection({
             {BUILTIN_SKILLS.filter((s) => s.category === category).map(
               ({ name }) => {
                 const text = skillText(lang, name);
-                const customized = !!override(name);
+                const current = item(name);
+                const customized = isCopy(current);
+                const own = isOwn(current);
                 const on = enabled(name);
                 return (
                   <div
@@ -254,9 +258,11 @@ export function BuiltinSkillsSection({
                     <div className="settings-row-text">
                       <div className="settings-row-label">
                         {text.label}
-                        {customized && (
+                        {(customized || own) && (
                           <span className="settings-skill-tag">
-                            {t.agentSkillsCustomized}
+                            {customized
+                              ? t.agentSkillsCustomized
+                              : t.agentSkillsShadows}
                           </span>
                         )}
                       </div>
@@ -270,7 +276,15 @@ export function BuiltinSkillsSection({
                     </div>
                     <div className="settings-row-control">
                       <span className="settings-skill-actions">
-                        {customized ? (
+                        {own ? (
+                          <button
+                            className="settings-skill-action"
+                            aria-label={`${t.agentSkillsOpen}: ${text.label}`}
+                            onClick={() => openCopy(name)}
+                          >
+                            {t.agentSkillsOpen}
+                          </button>
+                        ) : customized ? (
                           <>
                             <button
                               className="settings-skill-action"
@@ -301,6 +315,9 @@ export function BuiltinSkillsSection({
                         type="checkbox"
                         aria-label={text.label}
                         checked={on}
+                        // The user's own skill of this name isn't the
+                        // built-in's to turn off.
+                        disabled={own}
                         onChange={(e) => setEnabled(name, e.target.checked)}
                       />
                     </div>

@@ -33,7 +33,7 @@ metadata:
 
 ## Do
 - Hook first: the point in the first line (LinkedIn folds at about 140–210 characters, 微博 at 140). One idea per post. Concrete over hype.
-- Stay within the platform's limit and counting from the attached platform table (X counts CJK characters and emoji double and every URL as 23). Check each version with measure_text when that tool is available; otherwise count carefully and say the count is approximate.
+- Stay within the platform's limit and counting from the attached platform table (X counts CJK characters and emoji double and every URL as 23). Check each version with measure_text before proposing it (`x_weighted`, `bluesky`, `threads`, `instagram`, `mastodon`, `linkedin`, `wechat_title`, `wechat_digest`, `xhs_title`, `xhs_body`, `weibo`) and state the count in the reply ("X: 247/280").
 - Hashtags by platform habit: Instagram at most 5, Bluesky at most 8, a few at the end elsewhere; none mid-sentence unless the platform's style uses them.
 - Keep every figure, name, link and claim from the source.
 - Disclosure: when the post promotes something for a business or is sponsored, add the disclosure the attached conventions require for the language and market, up front, not only in hashtags or behind "more".

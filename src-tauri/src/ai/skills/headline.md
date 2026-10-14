@@ -32,7 +32,7 @@ metadata:
 
 ## Do
 - Accurate: promise only what the text delivers. Specific: use the concrete nouns and numbers the text gives, with the key words first.
-- Length by target: web page title at most 65 characters; 公众号 title at most 32 characters; 小红书 title about 20 (unverified, warn only); Chinese academic title at most 25 characters with no hype; email subject about 5–8 words. Check lengths with measure_text when that tool is available.
+- Length by target: web page title at most 65 characters; 公众号 title at most 32 characters; 小红书 title about 20 (unverified, warn only); Chinese academic title at most 25 characters with no hype; email subject about 5–8 words. Check every candidate with measure_text before proposing it (`chars`, `wechat_title`, `xhs_title`, `govuk_title`, `zh_academic_title`).
 - Case and punctuation: sentence case by default in English, title case only when the document or project uses a style that asks for it (Chicago, AP, APA, MLA); no final period; Chinese headings never end with 。，、；：; Japanese official titles state the subject and the document type; GOV.UK titles use no question, dash or slash.
 - Match the document's language and register.
 

@@ -33,7 +33,7 @@ metadata:
 - Sources of truth: the library entries sent with the request, the current document, and with a project folder, other chapters.
 
 ## Steps
-1. If a check_conventions tool is available, run it for near-miss spellings of library names and aliases.
+1. Run check_conventions on the scope for near-miss spellings of library names and aliases (its library findings).
 2. With a project folder: search_files for each main character or place named in the scope (at most five searches), and read_file for at most three of the hits. Without one, compare with the library and the current document only.
 3. Compare the facts below and note every conflict with where the other version is.
 

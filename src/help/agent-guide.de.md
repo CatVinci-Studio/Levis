@@ -187,6 +187,24 @@ Einen Skill kannst du auf zwei Arten verwenden:
 
 Skills gibt es auf denselben zwei Ebenen wie Schreibanweisungen: globale Skills im Ordner `skills/` des globalen Konfigurationsordners (**Einstellungen > Levis AI > Skills > Skill importieren…** kopiert eine Skill-Datei dorthin), Projekt-Skills in `.levis/skills/` (ein versteckter Ordner – im Finder von macOS blendet <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> ihn ein). Ein Projekt-Skill mit demselben Namen wie ein globaler ersetzt diesen.
 
+### Integrierte Skills
+
+Levis bringt 18 Skills für typische Schreibaufgaben mit. Das `/`-Menü ordnet sie in **Schreiben** (Geschichte fortsetzen, Figur oder Szene beschreiben, Dialoge überarbeiten, Stil nachahmen), **Überarbeiten** (Ausbauen, Straffen, Ton ändern, KI-Ton entfernen, Übersetzen und glätten), **Prüfen** (Korrektur lesen, Kontinuität prüfen) und **Textsorten** (E-Mail schreiben, Bekanntmachung oder Amtsschreiben, Protokoll, wissenschaftlich überarbeiten, Social-Media-Beitrag, Überschrift, Zusammenfassen). Tipp `/` und wähl einen aus, oder gib seinen Namen in einer beliebigen Sprache der App ein: `/proofread`, `/korrektur` und `/校对` rufen denselben Skill auf. Die meisten wählt Levis AI auch selbst, wenn deine Anfrage dazu passt; **Ausbauen**, **Straffen**, **Ton ändern** und **Zusammenfassen** laufen nur, wenn du sie aufrufst.
+
+**Einstellungen > Levis AI > Integrierte Skills** listet alle auf. Mit dem Schalter schaltest du einen aus: Er verschwindet aus dem `/`-Menü, und Levis AI nutzt ihn nicht mehr. **Anpassen…** kopiert den Skill in den Ordner `skills/` des globalen Konfigurationsordners und öffnet die Kopie, damit du seine Anweisungen ändern kannst; ab dann läuft deine Kopie. **Zurücksetzen** löscht die Kopie und stellt die integrierte Fassung wieder her. Ein eigener Skill mit dem Namen eines integrierten ersetzt diesen.
+
+### Schreibkonventionen
+
+**Einstellungen > Levis AI > Schreibassistenz > Schreibkonventionen** legt fest, welchen Regeln für Zeichensetzung, Leerzeichen und Zahlen Levis AI und die Grammatikprüfung folgen. **Automatisch** wendet die nationale Norm an, wo eine Sprache eine hat (etwa GB/T für vereinfachtes Chinesisch oder JTF für Japanisch); sonst folgt es dem, was dein Dokument schon überwiegend tut, und weist nur auf Uneinheitliches hin. Wählst du ein Profil, zum Beispiel **Deutschland · DIN 5008** oder **Schweiz**, werden Dokumente in dieser Sprache danach geprüft.
+
+Ein Projekt kann ein eigenes festlegen: Füg im Stilprofil (`.levis/style.md`) zwischen den beiden `---`-Zeilen am Anfang eine Zeile `conventions:` ein. Für die Dokumente dieses Projekts hat sie Vorrang vor der Einstellung.
+
+```markdown
+---
+conventions: zh-Hans-CN/fiction, en-GB/govuk
+---
+```
+
 ### Der globale Konfigurationsordner
 
 **Der globale Konfigurationsordner enthält, was für jedes Dokument gilt**: deine globale `agent.md` und deine globalen Skills. Er gehört zur App, nicht zu einem Projekt; **Einstellungen > Levis AI > Globaler Konfigurationsordner > Ordner öffnen** zeigt ihn.

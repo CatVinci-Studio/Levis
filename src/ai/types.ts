@@ -48,6 +48,18 @@ export interface AgentSkill {
   name: string;
   description: string;
   prompt: string;
+  /** The rest of ai::workspace::AgentSkill (see SkillListItem in ipc.ts);
+   *  optional so a minimal skill still type-checks. */
+  category?: string | null;
+  invocation?: "both" | "userOnly" | "hidden";
+  source?: "builtin" | "global" | "project";
+  overridesBuiltin?: boolean;
+  enabled?: boolean;
+  aliases?: Record<string, string[]>;
+  packs?: string[];
+  version?: string | null;
+  basedOn?: string | null;
+  builtinUpdated?: boolean;
 }
 
 /**

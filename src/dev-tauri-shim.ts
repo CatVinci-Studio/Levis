@@ -40,14 +40,14 @@ const DEV_BUILTIN_SKILLS: [string, string, string, string][] = [
   [
     "expand",
     "revise",
-    "user-only",
+    "userOnly",
     "Makes a passage fuller without adding facts.",
   ],
-  ["tighten", "revise", "user-only", "Cuts wordiness and keeps every fact."],
+  ["tighten", "revise", "userOnly", "Cuts wordiness and keeps every fact."],
   [
     "change-tone",
     "revise",
-    "user-only",
+    "userOnly",
     "Makes text more formal, plain, warm or firm.",
   ],
   [
@@ -108,7 +108,7 @@ const DEV_BUILTIN_SKILLS: [string, string, string, string][] = [
   [
     "summarize",
     "format",
-    "user-only",
+    "userOnly",
     "Summarizes faithfully at the length asked for.",
   ],
 ];
@@ -318,44 +318,61 @@ export function installDevTauriShim(): void {
     const name = String(args.name ?? "");
     switch (cmd) {
       case "list_skills": {
+        // As ai::workspace::list_skills: one item per name - a copy made by
+        // Customize… replaces its built-in (and follows its switch).
+        const base = {
+          prompt: "",
+          packs: [] as string[],
+          version: null as string | null,
+          basedOn: null as string | null,
+          builtinUpdated: false,
+          aliases: {},
+        };
         const builtins = DEV_BUILTIN_SKILLS.map(
-          ([skill, category, invocation, description]) => ({
-            name: skill,
-            description,
-            category,
-            invocation,
-            source: "builtin",
-            overridesBuiltin: false,
-            enabled: !skills.disabled.has(skill),
-            aliases: {},
-          }),
+          ([skill, category, invocation, description]) => {
+            const enabled = !skills.disabled.has(skill);
+            return skills.customized.has(skill)
+              ? {
+                  ...base,
+                  name: skill,
+                  description,
+                  category,
+                  invocation,
+                  source: "global",
+                  overridesBuiltin: true,
+                  enabled,
+                  basedOn: `${skill}@1`,
+                }
+              : {
+                  ...base,
+                  name: skill,
+                  description,
+                  category,
+                  invocation,
+                  source: "builtin",
+                  overridesBuiltin: false,
+                  enabled,
+                  version: "1",
+                };
+          },
         );
-        const copies = [...skills.customized].map((skill) => {
-          const builtin = builtins.find((b) => b.name === skill)!;
-          return {
-            ...builtin,
-            source: "global",
-            overridesBuiltin: true,
-            enabled: true,
-          };
-        });
         const own = {
+          ...base,
           name: "house-style",
           description: "Apply our house style guide to the selection",
-          category: "revise",
+          category: null,
           invocation: "both",
           source: "global",
           overridesBuiltin: false,
           enabled: true,
-          aliases: {},
         };
-        return Promise.resolve([...builtins, ...copies, own]);
+        return Promise.resolve([...builtins, own]);
       }
       case "set_builtin_skill_enabled":
         skills.log.push(`${cmd}:${name}:${args.enabled}`);
         if (args.enabled) skills.disabled.delete(name);
         else skills.disabled.add(name);
-        return Promise.resolve(null);
+        return Promise.resolve([...skills.disabled].sort());
       case "customize_builtin_skill": {
         skills.log.push(`${cmd}:${name}`);
         const path = skillCopyPath(name);

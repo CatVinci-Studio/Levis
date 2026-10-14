@@ -408,7 +408,13 @@ fn use_skill(ctx: &ToolContext, arguments: &str) -> String {
         ),
         Some(skill) => format!(
             "Instructions for skill `{name}` - follow them for this request:\n\n{}",
-            builtin::expand_skill(skill, ctx.document, ctx.ui_language, "", None)
+            builtin::expand_skill(
+                skill,
+                ctx.document,
+                ctx.ui_language,
+                "",
+                builtin::chosen_profile(ctx.conventions, ctx.document).as_deref(),
+            )
         ),
         None => match builtin::load_reference(&name, ctx.document, ctx.ui_language) {
             Some(text) => format!("Reference `{name}` - apply it to this request:\n\n{text}"),

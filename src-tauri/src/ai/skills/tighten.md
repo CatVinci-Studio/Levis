@@ -47,4 +47,4 @@ metadata:
 ## Deliver
 - Edit mode: one replace per paragraph.
 - Ask mode: the tightened text in the reply.
-- Reply in one line with the word or character count before and after. Count with measure_text when that tool is available; otherwise count carefully and say the figures are approximate.
+- Reply in one line with the word or character count before and after, counted with measure_text (`words`, or `cjk_chars` for Chinese and Japanese), not estimated.

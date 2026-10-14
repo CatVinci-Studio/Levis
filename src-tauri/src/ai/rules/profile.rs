@@ -9,7 +9,9 @@
 //!    value or several separated by commas, plus option keys such as
 //!    `cjk-latin-space: on`) - [`ProjectConventions::from_style`];
 //! 2. the global setting `writingConventions` in settings.json - either
-//!    `"automatic"` (the default) or an object from language key to profile,
+//!    `"automatic"` (the default), one profile as a string (what the
+//!    Settings row stores: `"en-GB/govuk"`, for that language only), or an
+//!    object from language key to profile,
 //!    `{ "zh-Hans": "zh-Hans-CN/tech", "en": "en-GB/govuk" }`, optionally with
 //!    an `"options"` object of the same option keys;
 //! 3. Automatic: the national norm for the language where one exists (GB/T
@@ -329,6 +331,17 @@ impl Conventions {
     }
 
     fn setting_profile(&self, lang: Lang) -> Option<Profile> {
+        // The Settings row stores one profile as a string ("en-GB/govuk"):
+        // it applies to documents in its own language, and the others stay
+        // Automatic. Several separated by commas work too, as in style.md.
+        if let Some(Value::String(s)) = &self.setting {
+            return s
+                .split(',')
+                .map(str::trim)
+                .filter(|v| *v != AUTOMATIC)
+                .filter_map(Profile::parse)
+                .find(|p| p.lang == lang);
+        }
         let Some(Value::Object(map)) = &self.setting else {
             return None;
         };
@@ -495,6 +508,14 @@ mod tests {
 
         c.setting = Some(json!("automatic"));
         assert!(!c.profile_for(Lang::Fr).explicit);
+        // The Settings row's single profile: its language only.
+        c.setting = Some(json!("en-GB/govuk"));
+        let en = c.profile_for(Lang::En);
+        assert_eq!(
+            (en.id.as_str(), en.source),
+            ("en-GB/govuk", Source::Settings)
+        );
+        assert!(!c.profile_for(Lang::ZhHans).explicit);
         c.setting = Some(
             json!({ "zh": "zh-Hans-CN/tech", "fr": "fr-CA", "en": "automatic", "options": { "quotes": "corner", "bogus": "x" } }),
         );
