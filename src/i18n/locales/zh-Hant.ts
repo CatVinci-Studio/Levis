@@ -19,7 +19,7 @@ export default {
   aiWorkingGrammar: "正在檢查這個段落…",
   noticeCompletionNeedsCaret: "將游標放在要續寫的位置。",
   noticeCompletionNeedsParagraphEnd: "先將游標移到段落結尾。",
-  noticeCompletionEmpty: "這裡沒有可續寫的內容。",
+  noticeCompletionEmpty: "這裡沒有可以補充的內容。",
   noticeGrammarNeedsParagraph: "先將游標放在段落中。",
   noticeGrammarEmpty: "這個段落是空的。",
   noticeGrammarChanged: "檢查期間段落有變動，再試一次。",
