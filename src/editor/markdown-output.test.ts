@@ -39,8 +39,18 @@ describe("saved markdown stays as written", () => {
     ["a link with code inside", "[see `code` here](u) after\n"],
     ["a link with math inside", "[see $x$ here](u) after\n"],
     ["inline math", "$x$ and $y_1$\n"],
+    ["a GitHub alert", "> [!NOTE]\n> 提示\n"],
+    ["a highlight", "一段==高亮==文字\n"],
+    ["a footnote", "正文[^1]\n\n[^1]: 脚注\n"],
+    ["an image width", '![图](a.png "{textus-width=30%}")\n'],
   ])("keeps %s", async (_name, markdown) => {
     expect(await roundTrip(markdown)).toBe(markdown);
+  });
+
+  it("escapes an alert marker that doesn't open a quote", async () => {
+    expect(await roundTrip("text [!NOTE] here\n")).toBe(
+      "text \\[!NOTE] here\n",
+    );
   });
 
   it("keeps a link on a bold word inside it", async () => {

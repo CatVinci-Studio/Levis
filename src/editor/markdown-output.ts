@@ -89,6 +89,25 @@ export function documentBullet(markdown: string): "-" | "*" | "+" | null {
   return count > 0 ? (best as "-" | "*" | "+") : null;
 }
 
+/**
+ * A GitHub alert's marker - `> [!NOTE]` and its kin, opening a quote - is
+ * written as it was typed. remark escapes the bracket ("\\[!NOTE]") in case
+ * it starts a reference link, which Textus still reads as an alert
+ * (github-alert-plugin.ts) but GitHub and every other tool no longer do.
+ */
+const ALERT_MARKER = /^\\\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/;
+
+function keepAlertMarker(text: Handle): Handle {
+  return (node, parent, state, info) => {
+    const out = text(node, parent, state, info);
+    const opensQuote =
+      parent?.type === "paragraph" &&
+      parent.children[0] === node &&
+      state.stack.includes("blockquote");
+    return opensQuote ? out.replace(ALERT_MARKER, "[!$1]") : out;
+  };
+}
+
 /** Installs the rules above. `update`, not `set`: the slice already carries
  *  Milkdown's own text/strong/emphasis handlers, and replacing it wholesale
  *  would drop them. */
@@ -104,6 +123,9 @@ export function configureMarkdownOutput(ctx: Ctx): void {
       ...options.handlers,
       thematicBreak,
       list,
+      text: keepAlertMarker(
+        (options.handlers?.text as Handle | undefined) ?? defaultHandlers.text,
+      ),
     },
   }));
 }
