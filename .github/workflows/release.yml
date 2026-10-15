@@ -313,6 +313,12 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
+      # packaging/homebrew/textus.rb, for the first release's rename.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          path: app
+
       - name: Update cask version and sha256
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
@@ -335,10 +341,23 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key"
           git clone git@github.com:CatVinci-Studio/homebrew-tap.git
           cd homebrew-tap
+          # The first Textus release renames the levis cask (Levis is
+          # Textus's name before 1.0.0) in this same commit, so the tap
+          # never has a textus cask pointing at an unpublished DMG, and
+          # cask_renames.json moves `brew upgrade` users from levis to
+          # textus. See packaging/homebrew/README.md.
+          if [ ! -f Casks/textus.rb ]; then
+            cp ../app/packaging/homebrew/textus.rb Casks/textus.rb
+            if [ -f Casks/levis.rb ]; then git rm -q Casks/levis.rb; fi
+            [ -f cask_renames.json ] || echo '{}' > cask_renames.json
+            jq --indent 2 '. + {"levis": "textus"}' cask_renames.json > cask_renames.json.new
+            mv cask_renames.json.new cask_renames.json
+            git add Casks/textus.rb cask_renames.json
+          fi
           sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/textus.rb
           sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/textus.rb
           # A rerun after a successful push has nothing to commit.
-          if git diff --quiet; then
+          if git diff HEAD --quiet; then
             echo "The cask already serves ${VERSION}"
             exit 0
           fi
