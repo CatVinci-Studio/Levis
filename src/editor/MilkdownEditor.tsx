@@ -25,7 +25,9 @@ import {
 } from "@milkdown/kit/preset/commonmark";
 import { undoCommand, redoCommand } from "@milkdown/kit/plugin/history";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
+import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { registerEditorFlush } from "./editor-flush";
 import {
@@ -62,6 +64,11 @@ import {
 import { chatLabels } from "../ai/chat/chat-labels";
 import { useDetachedChat } from "../ai/chat/useDetachedChat";
 import { canDetachChat, isIOSApp } from "../platform/capabilities";
+import {
+  editorFocusedBeforeAction,
+  PRESS_WINDOW_MS,
+  refocusAfterReview,
+} from "./review-focus";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
 import { ActionSheet } from "../mobile/ActionSheet";
@@ -70,6 +77,9 @@ import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { useFindReplace } from "./useFindReplace";
+import { Presence, PresenceDiv } from "../ui/usePresence";
+import { SparkleIcon } from "../ui/icons";
+import { revealPosition } from "./reveal-position";
 import {
   applyEditorCaret,
   readEditorCaret,
@@ -95,6 +105,7 @@ import {
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
+import { isRefusal } from "../ai/proposal-status";
 import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
@@ -158,6 +169,19 @@ interface MilkdownEditorProps {
   tutorialMock?: boolean;
 }
 
+/** Whether document position `pos` shows inside its editor's scroller. */
+function previewOnScreen(view: EditorView, pos: number): boolean {
+  const scroller = view.dom.closest(".editor-scroll");
+  if (!scroller) return false;
+  try {
+    const at = view.coordsAtPos(Math.min(pos + 1, view.state.doc.content.size));
+    const box = scroller.getBoundingClientRect();
+    return at.top >= box.top && at.bottom <= box.bottom;
+  } catch {
+    return false;
+  }
+}
+
 export function MilkdownEditor({
   tabId,
   filePath,
@@ -202,6 +226,29 @@ export function MilkdownEditor({
   // editor-flush.ts.
   const reportedDocRef = useRef<ProseNode | null>(null);
   const reportedMarkdownRef = useRef<string | null>(null);
+  // The file as it was opened, and what the editor would write for the doc
+  // it parsed that into (computed the first time it is needed). A change
+  // that serializes back to that same text - a plugin touching node attrs
+  // on mount, an edit undone - is not an edit: the tab reports the file's
+  // own text, so it stays clean and a save leaves the file byte-for-byte
+  // as it was instead of rewriting it in the serializer's house style.
+  const openedValueRef = useRef(initialValue);
+  const mountDocRef = useRef<ProseNode | null>(null);
+  const mountMarkdownRef = useRef<string | null>(null);
+  const reportMarkdown = useCallback(
+    (ctx: Ctx, markdown: string) => {
+      const mountDoc = mountDocRef.current;
+      if (mountDoc && mountMarkdownRef.current === null)
+        mountMarkdownRef.current = ctx.get(serializerCtx)(mountDoc);
+      const value =
+        markdown === mountMarkdownRef.current
+          ? openedValueRef.current
+          : markdown;
+      reportedMarkdownRef.current = value;
+      onChangeRef.current(value);
+    },
+    [onChangeRef],
+  );
 
   // The pending-edit plugin's callbacks need to exist at chain-construction
   // time below, but the real accept/reject/sync functions come from
@@ -262,15 +309,16 @@ export function MilkdownEditor({
           ctx
             .get(listenerCtx)
             .mounted((ctx) => {
-              reportedDocRef.current = ctx.get(editorViewCtx).state.doc;
+              const { doc } = ctx.get(editorViewCtx).state;
+              reportedDocRef.current = doc;
+              mountDocRef.current = doc;
             })
             // Fires just before markdownUpdated, from the same debounce.
             .updated((_ctx, doc) => {
               reportedDocRef.current = doc;
             })
-            .markdownUpdated((_ctx, markdown) => {
-              reportedMarkdownRef.current = markdown;
-              onChangeRef.current(markdown);
+            .markdownUpdated((ctx, markdown) => {
+              reportMarkdown(ctx, markdown);
             })
             // Every new selection has to reach the detached chat window as a
             // fresh selection chip - that surface is defined by following
@@ -320,14 +368,12 @@ export function MilkdownEditor({
             const reported = reportedDocRef.current;
             if (reported && !doc.eq(reported)) {
               reportedDocRef.current = doc;
-              const markdown = ctx.get(serializerCtx)(doc);
-              reportedMarkdownRef.current = markdown;
-              onChangeRef.current(markdown);
+              reportMarkdown(ctx, ctx.get(serializerCtx)(doc));
             }
             return reportedMarkdownRef.current;
           }) ?? null,
       ),
-    [tabId, run, onChangeRef],
+    [tabId, run, reportMarkdown],
   );
 
   // Transient, self-dismissing notice for on-demand AI triggers ("no issues
@@ -336,13 +382,23 @@ export function MilkdownEditor({
   // that are often benign.
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
+  // When it goes, so a pointer resting on it can hold it (and give back
+  // what was left of its time when it moves off).
+  const noticeDeadline = useRef(0);
   const showAiNotice = useCallback((message: string | null) => {
     setAiNotice(message);
     window.clearTimeout(noticeTimer.current);
-    if (message)
-      noticeTimer.current = window.setTimeout(() => setAiNotice(null), 4000);
+    if (!message) return;
+    noticeDeadline.current = Date.now() + 4000;
+    noticeTimer.current = window.setTimeout(() => setAiNotice(null), 4000);
   }, []);
   useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
+  const holdAiNotice = () => window.clearTimeout(noticeTimer.current);
+  const releaseAiNotice = () => {
+    const left = Math.max(1500, noticeDeadline.current - Date.now());
+    noticeDeadline.current = Date.now() + left;
+    noticeTimer.current = window.setTimeout(() => setAiNotice(null), left);
+  };
 
   const { triggerCompletion, triggerGrammarCheck } = useAiActions(
     run,
@@ -459,6 +515,11 @@ export function MilkdownEditor({
   // ProposalStream machine (proposal-stream.ts); this component only wires
   // its effects to the editor. Gated on the animation setting: off means
   // previews appear complete, at once.
+  // propose_edit call ids awaiting their tool result, and what a refused
+  // one does: the preview goes (reject is stable per editor; the model
+  // never hears this status - annotateProposalStatuses skips refusals).
+  const proposalCallIds = useRef(new Set<string>());
+  const discardRefused = pendingEdits.reject;
   const proposalStream = useMemo(
     () =>
       new ProposalStream({
@@ -478,6 +539,25 @@ export function MilkdownEditor({
   );
   const handleStreamEvent = useCallback(
     (event: StreamEvent) => {
+      // A propose_edit the backend refused (tools.rs: a cut-off `text`)
+      // may already be on screen - streamed, or placed from its call turn
+      // a moment before this result arrived. The model resends it; this
+      // copy must go, with or without animation.
+      if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolCall" &&
+        event.turn.name === "propose_edit"
+      )
+        proposalCallIds.current.add(event.turn.call_id);
+      if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolResult" &&
+        proposalCallIds.current.has(event.turn.call_id)
+      ) {
+        proposalCallIds.current.delete(event.turn.call_id);
+        if (isRefusal(event.turn.output)) discardRefused(event.turn.call_id);
+        return;
+      }
       // Reduced motion renders widgets instantly, so streamed drafts would
       // create animation entries nothing ever reveals (or settles).
       if (!settingsRef.current.enableEditAnimation || prefersReducedMotion())
@@ -495,7 +575,7 @@ export function MilkdownEditor({
     },
     // settingsRef is a stable ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [proposalStream],
+    [proposalStream, discardRefused],
   );
   // Owned here rather than by the popup so a completed exchange can be saved
   // to history when the popup closes. Every ordinary NEW open resets it;
@@ -781,21 +861,57 @@ export function MilkdownEditor({
       pushChatStatuses(pendingEdits.allStatuses);
   }, [detachedChatLabel, isActive, pushChatStatuses, pendingEdits.allStatuses]);
 
+  /** iPad: whether the editor had focus at the last press anywhere in the
+   *  page - see editorFocusedBeforeAction. */
+  const focusAtPress = useRef<{ focused: boolean; at: number } | null>(null);
+  const editorHasFocus = useCallback(
+    () => run((ctx) => ctx.get(editorViewCtx).hasFocus()) === true,
+    [run],
+  );
+  useEffect(() => {
+    // The active tab's editor only: the others take no review steps.
+    if (!isIOSApp || phone || !isActive) return;
+    const record = () => {
+      focusAtPress.current = { focused: editorHasFocus(), at: Date.now() };
+    };
+    // Capture, so it runs before the press can move the focus anywhere.
+    window.addEventListener("pointerdown", record, true);
+    return () => window.removeEventListener("pointerdown", record, true);
+  }, [phone, isActive, editorHasFocus]);
+  function editorHadFocusBeforeAction(): boolean {
+    return editorFocusedBeforeAction(
+      editorHasFocus(),
+      focusAtPress.current,
+      Date.now(),
+    );
+  }
+
   /** Scrolls to a pending edit and, while Quick Ask is the active surface,
    *  moves its zone widget to follow - the direct, synchronous result of a
    *  nav-bar click (Next/Previous/Accept/Reject), never a background
-   *  reaction to something else changing (see the call sites below). */
-  function revealPreview(preview: PendingPreview) {
+   *  reaction to something else changing (see the call sites below).
+   *  `editorHadFocus`: whether the editor had focus when the step began
+   *  (by default: now, or at the press that started it). */
+  function revealPreview(
+    preview: PendingPreview,
+    editorHadFocus = editorHadFocusBeforeAction(),
+    arriving = false,
+  ) {
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       const { doc } = view.state;
+      // Edits arriving mid-answer, the first already on screen: the panel
+      // stays where it is. Moved to the edit's block, it jumped from under
+      // the selection to above it in one frame and pushed the text down.
+      const stay = arriving && !phone && previewOnScreen(view, preview.from);
       // near(), not create(): an anchored proposal's `from` is the position
       // BEFORE a block node, which is not a valid text position - create()
       // throws there. near() snaps to the closest one it can select.
-      let tr = view.state.tr
-        .setSelection(TextSelection.near(doc.resolve(preview.from)))
-        .scrollIntoView();
-      if (inlineChat.visible && !phone) {
+      let tr = view.state.tr.setSelection(
+        TextSelection.near(doc.resolve(preview.from)),
+      );
+      if (!stay) tr = tr.scrollIntoView();
+      if (inlineChat.visible && !phone && !stay) {
         tr = setQuickAskWidget(tr, blockPositionAfter(doc, preview.from));
       }
       view.dispatch(tr);
@@ -804,18 +920,18 @@ export function MilkdownEditor({
       if (inlineChat.visible && phone) {
         requestAnimationFrame(() => keepClearOfDock(view, preview.from, true));
       }
-      // Never pull focus out of a text field: when an edit arrives while the
-      // user is typing a follow-up, the rest of their message used to land
-      // in the document (and invalidate the very preview it jumped to).
-      // On a phone a tapped button never holds focus, so that check alone
-      // let every Next/Previous raise the keyboard over the AI sheet.
+      // Back into the document, except out of a text field, on a phone, or
+      // on an iPad whose user wasn't typing in it (review-focus.ts).
       const active = document.activeElement;
       if (
-        !isIOSApp &&
-        !(
-          active instanceof HTMLTextAreaElement ||
-          active instanceof HTMLInputElement
-        )
+        refocusAfterReview({
+          phone,
+          ios: isIOSApp,
+          editorHadFocus,
+          textFieldFocused:
+            active instanceof HTMLTextAreaElement ||
+            active instanceof HTMLInputElement,
+        })
       )
         view.focus();
     });
@@ -842,26 +958,56 @@ export function MilkdownEditor({
   // click Next first - after that, only an explicit nav/decide action moves
   // the panel again (see [[ui-no-auto-jump-preference]]).
   const revealArmed = useRef(false);
+  /** Whether the editor had focus when the Accept/Reject that armed the
+   *  reveal was pressed - by the time the reveal runs, a render later, that
+   *  is history - and when. Null when edits arriving armed it. */
+  const revealArmedFocus = useRef<{ focused: boolean; at: number } | null>(
+    null,
+  );
   const hadPendingRef = useRef(false);
   useEffect(() => {
     const hasPending = pendingEdits.decidable.length > 0;
-    if (hasPending && !hadPendingRef.current) revealArmed.current = true;
+    if (hasPending && !hadPendingRef.current) {
+      revealArmed.current = true;
+      revealArmedFocus.current = null;
+    }
     hadPendingRef.current = hasPending;
   }, [pendingEdits.decidable.length]);
   useEffect(() => {
     if (!revealArmed.current) return;
     revealArmed.current = false;
-    if (pendingEdits.focusedPreview) revealPreview(pendingEdits.focusedPreview);
+    const armed = revealArmedFocus.current;
+    revealArmedFocus.current = null;
+    if (pendingEdits.focusedPreview)
+      revealPreview(
+        pendingEdits.focusedPreview,
+        // The press that armed it, if it was just now; otherwise (edits
+        // arriving, or an arming that never led to a reveal until much
+        // later) nobody pressed anything for this reveal - only whether
+        // the editor has focus now counts.
+        armed && Date.now() - armed.at < PRESS_WINDOW_MS
+          ? armed.focused
+          : editorHasFocus(),
+        armed === null,
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingEdits.focusedPreview]);
 
-  function handleAcceptFocused() {
+  function armReveal() {
     revealArmed.current = true;
+    revealArmedFocus.current = {
+      focused: editorHadFocusBeforeAction(),
+      at: Date.now(),
+    };
+  }
+
+  function handleAcceptFocused() {
+    armReveal();
     pendingEdits.acceptFocused();
   }
 
   function handleRejectFocused() {
-    revealArmed.current = true;
+    armReveal();
     pendingEdits.rejectFocused();
   }
 
@@ -1283,10 +1429,10 @@ export function MilkdownEditor({
 
   // Quick Ask's "continue in the panel": its exchange becomes the full
   // conversation - in the docked panel, or the detached window when the
-  // user prefers it there (Settings > Agent) - and from then on is saved to
-  // History like any other. The panel's previous conversation is already
-  // in History. Not while either side is mid-reply: the turns would be
-  // incomplete.
+  // user prefers it there (Settings > Levis AI > Advanced) - and from then
+  // on is saved to History like any other. The panel's previous
+  // conversation is already in History. Not while either side is
+  // mid-reply: the turns would be incomplete.
   function expandQuickAsk() {
     if (quickConversation.busy || conversation.busy) return;
     if (quickConversation.history.length > 0) {
@@ -1326,13 +1472,12 @@ export function MilkdownEditor({
         return;
       }
       view.dispatch(
-        view.state.tr
-          .setSelection(
-            TextSelection.create(view.state.doc, range.from, range.to),
-          )
-          .scrollIntoView(),
+        view.state.tr.setSelection(
+          TextSelection.create(view.state.doc, range.from, range.to),
+        ),
       );
       view.focus();
+      revealPosition(view, range.from);
     });
   }
 
@@ -1369,114 +1514,133 @@ export function MilkdownEditor({
       onPointerUp={() => (lastTouchRef.current = Date.now())}
     >
       <Milkdown />
-      {findReplace.open && (
-        <FindReplaceBar findReplace={findReplace} labels={t} />
-      )}
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={(menu.phone ? buildPhoneMoreItems : buildContextMenuItems)(
-            run,
-            {
-              t,
-              imagePos: menu.imagePos,
-              // Each AI item is only offered while its feature is enabled in
-              // Settings. The provider-free newcomer guide always exposes Ask
-              // AI so its real right-click entry point remains available even
-              // if the user previously disabled Agent chat before replaying
-              // the guide from Help. The phone's "More" leaves it to the
-              // toolbar's own button.
-              aiItems: [
-                ...((settings.enableAskAi || tutorialMock) && !menu.phone
-                  ? [{ label: t.askAi, onSelect: openAgentConversation }]
-                  : []),
-                ...(settings.enableCompletion
-                  ? [
-                      {
-                        label: t.triggerCompletion,
-                        onSelect: triggerCompletion,
-                      },
-                    ]
-                  : []),
-                ...(settings.enableGrammarCheck
-                  ? [
-                      {
-                        label: t.triggerGrammarCheck,
-                        onSelect: triggerGrammarCheck,
-                      },
-                    ]
-                  : []),
-              ],
-              copyOrCut,
-              paste,
-              selectAll,
-              toggleFindReplace: findReplace.toggle,
-              openTableDialog: () => setTableDialogOpen(true),
-            },
-          )}
-          onClose={() => setMenu(null)}
-        />
-      )}
-      {aiNotice && (
-        <div className="ai-notice floating-surface" role="status">
-          {aiNotice}
-        </div>
-      )}
-      {tableDialogOpen && (
-        <InsertTableDialog
-          title={t.insertTable}
-          rowsLabel={t.insertTableRowsLabel}
-          columnsLabel={t.insertTableColumnsLabel}
-          confirmLabel={t.insertTableConfirm}
-          cancelLabel={t.closePromptCancel}
-          onInsert={(rows, cols) => insertTable(run, rows, cols)}
-          onClose={() => setTableDialogOpen(false)}
-        />
-      )}
-      {imageNameRequest && (
-        <ImageNameDialog
-          request={imageNameRequest}
-          title={t.imageNameDialogTitle}
-          label={t.imageNameDialogLabel}
-          invalidLabel={t.imageNameDialogInvalid}
-          uploadLabel={t.imageNameDialogUpload}
-          cancelLabel={t.closePromptCancel}
-          onClose={closeImageNameDialog}
-        />
-      )}
-      {grammar.popover && phone && (
-        // The phone's form: the explanation heads a sheet whose action is
-        // the suggested text itself, as iOS offers a spelling replacement.
-        // A fix that no longer fits the text says so in the notice, the
-        // sheet having closed on the tap.
-        <ActionSheet
-          title={grammar.popover.issue}
-          items={[
-            {
-              // A fix that deletes has no text to show.
-              label: grammar.popover.suggestion || t.grammarApply,
-              onSelect: () => {
-                if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
+      <Presence show={findReplace.open} exitMs={120}>
+        {findReplace.open && (
+          <FindReplaceBar findReplace={findReplace} labels={t} />
+        )}
+      </Presence>
+      <Presence show={!!menu} exitMs={250}>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={(menu.phone ? buildPhoneMoreItems : buildContextMenuItems)(
+              run,
+              {
+                t,
+                imagePos: menu.imagePos,
+                // Each AI item is only offered while its feature is enabled in
+                // Settings. The provider-free newcomer guide always exposes Ask
+                // AI so its real right-click entry point remains available even
+                // if the user previously disabled Agent chat before replaying
+                // the guide from Help. The phone's "More" leaves it to the
+                // toolbar's own button.
+                aiItems: [
+                  ...((settings.enableAskAi || tutorialMock) && !menu.phone
+                    ? [{ label: t.askAi, onSelect: openAgentConversation }]
+                    : []),
+                  ...(settings.enableCompletion
+                    ? [
+                        {
+                          label: t.triggerCompletion,
+                          onSelect: triggerCompletion,
+                        },
+                      ]
+                    : []),
+                  ...(settings.enableGrammarCheck
+                    ? [
+                        {
+                          label: t.triggerGrammarCheck,
+                          onSelect: triggerGrammarCheck,
+                        },
+                      ]
+                    : []),
+                ],
+                copyOrCut,
+                paste,
+                selectAll,
+                toggleFindReplace: findReplace.toggle,
+                openTableDialog: () => setTableDialogOpen(true),
               },
-            },
-            { label: t.grammarIgnore, onSelect: grammar.ignore },
-          ]}
-          onClose={grammar.hide}
-        />
-      )}
-      {grammar.popover && !phone && (
-        <GrammarPopover
-          info={grammar.popover}
-          applyLabel={t.grammarApply}
-          ignoreLabel={t.grammarIgnore}
-          error={grammar.applyError}
-          onApply={grammar.applyFix}
-          onIgnore={grammar.ignore}
-          onMouseEnter={grammar.cancelHide}
-          onMouseLeave={grammar.hide}
-        />
-      )}
+            )}
+            onClose={() => setMenu(null)}
+          />
+        )}
+      </Presence>
+      <Presence show={!!aiNotice} exitMs={120}>
+        {aiNotice && (
+          <PresenceDiv
+            className="ai-notice floating-surface"
+            role="status"
+            onMouseEnter={holdAiNotice}
+            onMouseLeave={releaseAiNotice}
+          >
+            {aiNotice}
+          </PresenceDiv>
+        )}
+      </Presence>
+      <Presence show={tableDialogOpen} exitMs={120}>
+        {tableDialogOpen && (
+          <InsertTableDialog
+            title={t.insertTable}
+            rowsLabel={t.insertTableRowsLabel}
+            columnsLabel={t.insertTableColumnsLabel}
+            confirmLabel={t.insertTableConfirm}
+            cancelLabel={t.closePromptCancel}
+            onInsert={(rows, cols) => insertTable(run, rows, cols)}
+            onClose={() => setTableDialogOpen(false)}
+          />
+        )}
+      </Presence>
+      <Presence show={!!imageNameRequest} exitMs={120}>
+        {imageNameRequest && (
+          <ImageNameDialog
+            request={imageNameRequest}
+            title={t.imageNameDialogTitle}
+            label={t.imageNameDialogLabel}
+            invalidLabel={t.imageNameDialogInvalid}
+            uploadLabel={t.imageNameDialogUpload}
+            cancelLabel={t.closePromptCancel}
+            onClose={closeImageNameDialog}
+          />
+        )}
+      </Presence>
+      <Presence show={!!grammar.popover && phone} exitMs={250}>
+        {grammar.popover && phone && (
+          // The phone's form: the explanation heads a sheet whose action is
+          // the suggested text itself, as iOS offers a spelling replacement.
+          // A fix that no longer fits the text says so in the notice, the
+          // sheet having closed on the tap.
+          <ActionSheet
+            title={grammar.popover.issue}
+            items={[
+              {
+                // A fix that deletes has no text to show.
+                label: grammar.popover.suggestion || t.grammarApply,
+                onSelect: () => {
+                  if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
+                },
+              },
+              { label: t.grammarIgnore, onSelect: grammar.ignore },
+            ]}
+            onClose={grammar.hide}
+          />
+        )}
+      </Presence>
+      <Presence show={!!grammar.popover && !phone} exitMs={120}>
+        {grammar.popover && !phone && (
+          <GrammarPopover
+            info={grammar.popover}
+            applyLabel={t.grammarApply}
+            ignoreLabel={t.grammarIgnore}
+            error={grammar.applyError}
+            onApply={grammar.applyFix}
+            onIgnore={grammar.ignore}
+            onMouseEnter={grammar.cancelHide}
+            onMouseLeave={grammar.hide}
+          />
+        )}
+      </Presence>
       {panelContainer &&
         createPortal(
           <AgentPanelView
@@ -1492,11 +1656,16 @@ export function MilkdownEditor({
             headerExtra={<ProjectBar docPath={filePath} />}
           >
             {conversation.history.length === 0 && !conversation.busy && (
-              <p className="agent-panel-empty">
-                {/* No selecting-then-asking on a phone: the system's
-                    own text menu takes the long press. */}
-                {isIOSApp ? t.agentPanelEmptyPhone : t.agentPanelEmpty}
-              </p>
+              <div className="agent-panel-empty">
+                <span className="agent-panel-empty-mark" aria-hidden="true">
+                  <SparkleIcon />
+                </span>
+                <p className="agent-panel-empty-text">
+                  {/* No selecting-then-asking on a phone: the system's
+                      own text menu takes the long press. */}
+                  {isIOSApp ? t.agentPanelEmptyPhone : t.agentPanelEmpty}
+                </p>
+              </div>
             )}
             <ChatBody
               document=""
@@ -1508,7 +1677,7 @@ export function MilkdownEditor({
               defaultMode={settings.agentDefaultMode}
               defaultWebSearch={settings.enableWebSearch}
               tutorialMock={tutorialMock}
-              labels={chatLabels(t)}
+              labels={chatLabels(t, settings.language)}
               proposalStatus={pendingEdits.status}
               pendingCount={pendingEdits.decidable.length}
               fillHeight
@@ -1524,7 +1693,7 @@ export function MilkdownEditor({
               footer={
                 panelGuard && (
                   <CloseConfirmBar
-                    labels={chatLabels(t)}
+                    labels={chatLabels(t, settings.language)}
                     pendingCount={pendingEdits.decidable.length}
                     onAcceptAll={pendingEdits.acceptAll}
                     onRejectAll={pendingEdits.rejectAll}
@@ -1563,7 +1732,7 @@ export function MilkdownEditor({
             defaultMode="edit"
             defaultWebSearch={settings.enableWebSearch}
             tutorialMock={tutorialMock}
-            labels={chatLabels(t)}
+            labels={chatLabels(t, settings.language)}
             onProposals={showProposals}
             proposalStatus={pendingEdits.status}
             onAcceptProposal={pendingEdits.accept}

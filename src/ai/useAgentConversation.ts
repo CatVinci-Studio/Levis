@@ -7,7 +7,7 @@ import type { AgentTurn, ImageAttachment } from "./types";
 import type { PendingStatus } from "./usePendingEdits";
 import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../ipc";
 import { useLatest } from "../utils/useLatest";
-import type { AgentMode } from "../settings/SettingsContext";
+import { useSettings, type AgentMode } from "../settings/SettingsContext";
 
 export interface AgentRequestOptions {
   mode: AgentMode;
@@ -53,9 +53,9 @@ export type MockAgentReply = (message: string) => string | AgentTurn[];
 /// is passed per send, so each message can use the latest captured context.
 export function useAgentConversation(
   docPath: string | null,
-  /** Settings > Agent's explicit workspace root, or null for the default
-   *  (the document's folder). Decides where `.levis/` is read from and how
-   *  far the agent's file tools may reach - see ai/workspace.rs. */
+  /** The chosen project folder, or null for the default (the document's
+   *  folder). Decides where `.levis/` is read from and how far the agent's
+   *  file tools may reach - see ai/workspace.rs. */
   workspaceRoot: string | null,
   provider: string,
   webSearch: boolean,
@@ -96,6 +96,8 @@ export function useAgentConversation(
   };
   const [busy, setBusy] = useState(false);
   const onStreamEventRef = useLatest(onStreamEvent);
+  // The agent is told the UI's names for things in this language.
+  const uiLanguage = useLatest(useSettings().settings.language);
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState<RetryableSend | null>(null);
   const [lastMode, setLastMode] = useState<AgentMode | null>(null);
@@ -179,6 +181,7 @@ export function useAgentConversation(
             webSearch: options.webSearch,
             mode: options.mode,
             focusHeading: options.focusHeading ?? null,
+            uiLanguage: uiLanguage.current,
             model: model || null,
             requestId,
             onEvent: (event) => {
@@ -322,11 +325,12 @@ export type AgentConversation = ReturnType<typeof useAgentConversation>;
  * displays (name and type).
  *
  * Attached images are REQUEST data: base64 inflates a file by 4/3, and chat
- * history lives in localStorage under a ~5-10 MB quota that `store()`
- * deliberately swallows the overflow error of. Persisting one 6 MB screenshot
- * would therefore not just fail to save that conversation - it would silently
- * stop ALL conversation history from saving, with nothing on screen. A retry
- * still has the real payloads; they hang off `RetryableSend`, not off history.
+ * history is one JSON file (chat-history.json, see docs/STORAGE.md) that
+ * Rust rewrites on every save and every window keeps a copy of. A few
+ * screenshots would turn each save into megabytes of writing and IPC. (Under
+ * localStorage, where history used to live, one 6 MB screenshot overflowed
+ * the quota and silently stopped ALL history from saving.) A retry still has
+ * the real payloads; they hang off `RetryableSend`, not off history.
  */
 function withoutImageData(turn: AgentTurn): AgentTurn {
   if (turn.kind !== "User" || !turn.images?.length) return turn;

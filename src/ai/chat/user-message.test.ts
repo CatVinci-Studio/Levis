@@ -3,6 +3,7 @@ import {
   attachedFileBlock,
   parseUserMessage,
   selectedTextBlock,
+  skillBlock,
   userMessageBody,
 } from "./user-message";
 
@@ -65,6 +66,33 @@ describe("the wire format's writer and reader agree", () => {
     expect(parsed.attachments).toEqual(["notes.md"]);
     expect(parsed.selection).toBe("the **selected** passage");
     expect(parsed.body).toBe("tighten this");
+  });
+
+  it("shows a skill the user called as the /name they typed", () => {
+    const text = `${selectedTextBlock("y")}\n\n${skillBlock("tighten", "Cut filler.\nKeep every claim.")}\n\nthe Method paragraph`;
+    expect(parseUserMessage(text)).toEqual({
+      body: "/tighten the Method paragraph",
+      selection: "y",
+      attachments: [],
+    });
+    expect(userMessageBody(skillBlock("tighten", "Cut filler."))).toBe(
+      "/tighten",
+    );
+  });
+
+  it("shows an alias the way it was typed", () => {
+    expect(
+      userMessageBody(
+        `${skillBlock("continue-story", "", "/续写")}\n\n林晚走进书店`,
+      ),
+    ).toBe("/续写 林晚走进书店");
+    expect(userMessageBody(skillBlock("tighten", "Cut.", '/"odd"<name>'))).toBe(
+      '/"odd"<name>',
+    );
+    // The canonical name typed as-is carries no `typed`.
+    expect(skillBlock("tighten", "Cut.", "/tighten")).toBe(
+      '<skill name="tighten">\nCut.\n</skill>',
+    );
   });
 
   it("strips every block for a display-only body", () => {

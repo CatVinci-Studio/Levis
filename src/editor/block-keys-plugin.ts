@@ -14,7 +14,7 @@ import {
 } from "@milkdown/kit/prose/tables";
 import { $prose } from "@milkdown/kit/utils";
 import { isImeKeyEvent, stateWithLiveSelection } from "./enclosure";
-import { isMacPlatform } from "../utils/platform";
+import { modIsMeta } from "../utils/platform";
 
 /**
  * Enter and Mod+Enter across Levis's container blocks, decided in one
@@ -226,8 +226,9 @@ export const blockKeysPlugin = $prose(
         handleKeyDown(view, event) {
           if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
           if (event.shiftKey || event.altKey) return false;
-          const mod = isMacPlatform() ? event.metaKey : event.ctrlKey;
-          const other = isMacPlatform() ? event.ctrlKey : event.metaKey;
+          const mac = modIsMeta();
+          const mod = mac ? event.metaKey : event.ctrlKey;
+          const other = mac ? event.ctrlKey : event.metaKey;
           if (other) return false;
           const commands = mod ? onModEnter : onEnter;
           const state = stateWithLiveSelection(view);

@@ -1,4 +1,4 @@
-import type { EditorState } from "@milkdown/kit/prose/state";
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
@@ -70,11 +70,18 @@ interface InsertAnimation {
   view: EditorView | null;
   /** The settle meta was dispatched - never dispatch it twice. */
   settled: boolean;
+  /** Once the whole text is known, when its reveal must be over (see
+   *  REVEAL_MAX_MS). Null while it streams. */
+  finishBy?: number | null;
 }
 
 const animations = new Map<string, InsertAnimation>();
 
 const TICK_MS = 30;
+
+/** The reveal is decoration - it shows where the edit lands - so once the
+ *  text is complete it never takes longer than this, however long it is. */
+const REVEAL_MAX_MS = 600;
 
 /** Whether the callId's text is still being revealed (or may still grow) -
  *  while true, the preview must stay in the un-decidable "streaming" state
@@ -82,12 +89,17 @@ const TICK_MS = 30;
 function stillRevealing(callId: string): boolean {
   const anim = animations.get(callId);
   if (!anim) return false;
-  // Nothing to type out - a `delete` proposes no text, so no green insert
-  // widget is ever drawn for it and no reveal can ever complete. Reporting
-  // "still revealing" here would strand the preview in `streaming` for good
-  // (settle can only be dispatched by a widget that doesn't exist), and a
-  // preview that never becomes decidable never gets an accept/reject bar.
-  if (anim.target.length === 0) return false;
+  // Nothing to type out - once the arguments are final. A `delete` proposes
+  // no text, so no green insert widget is ever drawn for it and no reveal
+  // can ever complete: reporting "still revealing" after its final feed
+  // would strand the preview in `streaming` for good (settle can only be
+  // dispatched by a widget that doesn't exist), and a preview that never
+  // becomes decidable never gets an accept/reject bar. While the stream is
+  // still open, though, an empty text only means its first characters
+  // haven't arrived: a draft placed right after `"text": "` used to settle
+  // there and then, became decidable mid-stream, and - settling only once -
+  // stayed "Writing…" forever when the final proposal landed mid-reveal.
+  if (anim.target.length === 0) return !anim.done;
   return !anim.done || anim.shown < anim.target.length;
 }
 
@@ -152,10 +164,20 @@ function ensureTicking(anim: InsertAnimation) {
   }
   anim.timer = window.setInterval(() => {
     const remaining = anim.target.length - anim.shown;
+    if (!anim.done) anim.finishBy = null;
+    else anim.finishBy ??= Date.now() + REVEAL_MAX_MS;
     if (remaining > 0) {
+      const ticksLeft = anim.finishBy
+        ? Math.max(1, Math.floor((anim.finishBy - Date.now()) / TICK_MS))
+        : Infinity;
       anim.shown = Math.min(
         anim.target.length,
-        anim.shown + Math.max(2, Math.ceil(remaining / 15)),
+        anim.shown +
+          Math.max(
+            2,
+            Math.ceil(remaining / 15),
+            Math.ceil(remaining / ticksLeft),
+          ),
       );
     }
     renderAnimation(anim);
@@ -351,6 +373,46 @@ function buildDecorations(
 }
 
 /**
+ * The previews carried through a document change: each range (strike
+ * included) mapped through the transaction, and any whose mapped range no
+ * longer holds the text it was resolved against dropped - an edit inside
+ * or around a pending change invalidates it rather than risk applying it
+ * to the wrong text later. `changed` says whether anything moved or went.
+ */
+function mapPreviews(
+  previews: PendingPreview[],
+  tr: Transaction,
+): { survivors: PendingPreview[]; changed: boolean } {
+  let changed = false;
+  const survivors: PendingPreview[] = [];
+  for (const p of previews) {
+    const from = tr.mapping.map(p.from, -1);
+    const to = tr.mapping.map(p.to, 1);
+    if (from > to || tr.doc.textBetween(from, to, " ") !== p.expectedText) {
+      changed = true;
+      continue;
+    }
+    if (from === p.from && to === p.to) {
+      survivors.push(p);
+      continue;
+    }
+    changed = true;
+    survivors.push({
+      ...p,
+      from,
+      to,
+      strikeFrom:
+        p.strikeFrom === undefined
+          ? undefined
+          : tr.mapping.map(p.strikeFrom, -1),
+      strikeTo:
+        p.strikeTo === undefined ? undefined : tr.mapping.map(p.strikeTo, 1),
+    });
+  }
+  return { survivors, changed };
+}
+
+/**
  * Shows agent propose_edit proposals as live decorations in the document
  * instead of only a chat-panel diff card - the pending-insert/pending-delete
  * pair is this plugin's whole job; the actual document mutation on accept
@@ -443,9 +505,17 @@ export function createPendingEditPlugin(options: {
               };
             }
             if (meta?.type === "remove") {
-              const previews = prev.previews.filter(
+              const rest = prev.previews.filter(
                 (p) => p.callId !== meta.callId,
               );
+              // Accepting a proposal applies it and removes its preview in
+              // one transaction (usePendingEdits.ts): the others still have
+              // to be mapped through that edit. Left at their old positions,
+              // every preview below a grown or shrunk block drifted off its
+              // text, and its Accept then refused.
+              const previews = tr.docChanged
+                ? mapPreviews(rest, tr).survivors
+                : rest;
               dropRemovedAnimations(prev.previews, previews);
               return {
                 previews,
@@ -459,23 +529,7 @@ export function createPendingEditPlugin(options: {
                 : { previews: [], decoration: DecorationSet.empty };
             }
             if (tr.docChanged && prev.previews.length > 0) {
-              let changed = false;
-              const survivors: PendingPreview[] = [];
-              for (const p of prev.previews) {
-                const from = tr.mapping.map(p.from, -1);
-                const to = tr.mapping.map(p.to, 1);
-                if (
-                  from > to ||
-                  tr.doc.textBetween(from, to, " ") !== p.expectedText
-                ) {
-                  changed = true;
-                  continue;
-                }
-                if (from !== p.from || to !== p.to) changed = true;
-                survivors.push(
-                  from === p.from && to === p.to ? p : { ...p, from, to },
-                );
-              }
+              const { survivors, changed } = mapPreviews(prev.previews, tr);
               if (!changed) {
                 // Typing below the last pending edit - the common case while
                 // a preview sits mid-document. Keeping the ARRAY's identity

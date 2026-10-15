@@ -1,0 +1,45 @@
+# The names the AI is told the app gives its concepts and controls, as the
+# English UI shows them (src/i18n/locales/en.ts and src/help/agent-guide.en.md;
+# agent.rs's workspace_section describes the app with them). A note in
+# parentheses says which of two same-named things is meant and is not part
+# of the name.
+#
+# Every other language has a file of its own here, <code>.txt, that gives
+# each of these lines as "<the English name> = <the name in that UI>" - or
+# nothing, until that UI is translated, and the AI then names everything in
+# English. Only the user's UI language is sent with a request.
+project folder
+project menu
+writing instructions
+global config folder
+skills
+library
+style profile
+Learn my style
+completion
+Choose project folder…
+Use the document's folder
+Learn my style from samples…
+Create style profile
+Open style profile
+Style (the chip)
+New library entry…
+Edit project writing instructions
+Settings
+Project Folder (Settings row)
+Writing Instructions (agent.md)
+Edit agent.md
+Skills (Settings row)
+Import Skill…
+Built-in skills (Settings, under Skills)
+Customize… (a built-in skill)
+Reset (a customized built-in skill)
+Writing conventions (Settings row)
+Writing Assistance (Settings section)
+Enable AI completion
+Completion tone
+Ask
+Edit
+Plan
+Accept
+Reject

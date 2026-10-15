@@ -36,6 +36,42 @@ export function attachedFileBlock(name: string, content: string): string {
   return `<attached-file name="${name}">\n${content}\n</attached-file>`;
 }
 
+/** Wraps a skill the user called with /name: its instructions, marked as
+ *  already loaded (agent.rs's skill index tells the model not to load it
+ *  again with use_skill). Mirrored by live_eval's resolve_skill_message.
+ *
+ *  `typed` is what the user typed when it wasn't `/name` itself - an alias
+ *  such as `/续写` - so the transcript shows their word, not the canonical
+ *  name. With no prompt (a built-in the backend expands itself) the block
+ *  is empty. */
+export function skillBlock(
+  name: string,
+  prompt: string,
+  typed?: string,
+): string {
+  const attr =
+    typed && typed !== `/${name}` ? ` typed="${escapeAttr(typed)}"` : "";
+  return prompt
+    ? `<skill name="${name}"${attr}>\n${prompt}\n</skill>`
+    : `<skill name="${name}"${attr}></skill>`;
+}
+
+function escapeAttr(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function unescapeAttr(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
 /** The message with every context block stripped and nothing parsed out -
  *  for callers that only want the prose, like the history list's title. */
 export function userMessageBody(text: string): string {
@@ -43,7 +79,8 @@ export function userMessageBody(text: string): string {
 }
 
 export interface ParsedUserMessage {
-  /** What the user actually typed, with the context blocks removed. */
+  /** What the user actually typed, with the context blocks removed - a
+   *  skill's expanded instructions folded back into the /name they typed. */
   body: string;
   /** The <selected-text> block's content, if the message carried one. */
   selection: string | null;
@@ -55,6 +92,8 @@ const SELECTED_TEXT = /<selected-text>\n?([\s\S]*?)\n?<\/selected-text>\n*/;
 const CURSOR = /<cursor>\n?[\s\S]*?\n?<\/cursor>\n*/;
 const ATTACHED_FILE =
   /<attached-file name="([^"]*)">\n?[\s\S]*?\n?<\/attached-file>\n*/g;
+const SKILL =
+  /<skill name="([^"]*)"(?: typed="([^"]*)")?>(?:\n?[\s\S]*?\n?)?<\/skill>\n*/;
 
 export function parseUserMessage(text: string): ParsedUserMessage {
   const attachments: string[] = [];
@@ -64,6 +103,12 @@ export function parseUserMessage(text: string): ParsedUserMessage {
   });
 
   body = body.replace(CURSOR, "");
+  // A /name skill went out with its whole prompt; the user typed the name.
+  body = body.replace(
+    SKILL,
+    (_full, name: string, typed: string | undefined) =>
+      `${typed ? unescapeAttr(typed) : `/${name}`} `,
+  );
 
   let selection: string | null = null;
   const selectionMatch = SELECTED_TEXT.exec(body);

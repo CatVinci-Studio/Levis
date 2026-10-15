@@ -38,22 +38,24 @@ export function useViewportClamp(
     if (!el) return;
 
     const clamp = () => {
+      // Layout size, not the on-screen box: an entrance scaling the popup
+      // up from 96% would otherwise have it measured short and placed
+      // over the edge it is being kept off.
       const rect = el.getBoundingClientRect();
+      const width = el.offsetWidth || rect.width;
+      const height = el.offsetHeight || rect.height;
       const desiredTop =
         grow === "up" && bottomAnchor.current !== null
-          ? bottomAnchor.current - rect.height
+          ? bottomAnchor.current - height
           : y;
       const top = Math.max(
         margin,
-        Math.min(desiredTop, window.innerHeight - rect.height - margin),
+        Math.min(desiredTop, window.innerHeight - height - margin),
       );
       if (grow === "up" && bottomAnchor.current === null)
-        bottomAnchor.current = top + rect.height;
+        bottomAnchor.current = top + height;
       setPos({
-        left: Math.max(
-          margin,
-          Math.min(x, window.innerWidth - rect.width - margin),
-        ),
+        left: Math.max(margin, Math.min(x, window.innerWidth - width - margin)),
         top,
       });
     };

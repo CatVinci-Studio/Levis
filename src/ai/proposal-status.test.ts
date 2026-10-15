@@ -1,6 +1,56 @@
 import { describe, expect, it } from "vitest";
-import { annotateProposalStatuses } from "./proposal-status";
+import {
+  annotateProposalStatuses,
+  refusedProposalIds,
+} from "./proposal-status";
+import { STOPPED_TOOL_RESULT } from "./cancelled-turns";
 import type { AgentTurn } from "./types";
+
+describe("refusedProposalIds", () => {
+  const turns: AgentTurn[] = [
+    {
+      kind: "ToolCall",
+      call_id: "ok",
+      name: "propose_edit",
+      arguments: '{"action":"replace","anchor":"a","text":"b"}',
+    },
+    { kind: "ToolResult", call_id: "ok", output: "Edit proposed." },
+    {
+      kind: "ToolCall",
+      call_id: "cut",
+      name: "propose_edit",
+      arguments: '{"action":"replace","anchor":"a","text":"due"}',
+    },
+    {
+      kind: "ToolResult",
+      call_id: "cut",
+      output: 'Not proposed: `text` is only "due".',
+    },
+    {
+      kind: "ToolCall",
+      call_id: "stopped",
+      name: "propose_edit",
+      arguments: '{"action":"replace","anchor":"a","text":"b"}',
+    },
+    { kind: "ToolResult", call_id: "stopped", output: STOPPED_TOOL_RESULT },
+    {
+      kind: "ToolCall",
+      call_id: "read",
+      name: "read_document",
+      arguments: "{}",
+    },
+    { kind: "ToolResult", call_id: "read", output: "# Title" },
+  ];
+
+  it("names only propose_edit calls whose result refused them", () => {
+    expect([...refusedProposalIds(turns)]).toEqual(["cut"]);
+  });
+
+  it("never stamps a status onto a refusal", () => {
+    const out = annotateProposalStatuses(turns, { cut: "rejected" });
+    expect(out[3]).toBe(turns[3]);
+  });
+});
 
 const history: AgentTurn[] = [
   { kind: "User", text: "tighten the intro" },

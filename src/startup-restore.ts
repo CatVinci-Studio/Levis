@@ -26,7 +26,6 @@ export interface StartupRestoreOptions {
   newDocumentMode: NewDocumentMode;
   language: string;
   onboardingShown: boolean;
-  updateTab: (id: string, patch: Partial<DocTab>) => void;
   setTabs: (updater: (prev: DocTab[]) => DocTab[]) => void;
   setDraftsRestoredCount: (n: number) => void;
   markOnboardingShown: () => void;
@@ -51,6 +50,23 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
   useEffect(() => {
     if (drained) return;
     drained = true;
+    // Puts a document into the initial blank tab. Its editor may well have
+    // mounted already (it is lazy-loaded, and everything below awaits IPC
+    // first), and an editor reads its content once, at mount - so without
+    // a remount it went on showing the blank tab's empty document while the
+    // tab held the file: the word count right, the page empty, and typing
+    // there would have replaced the file's text on the next save. Moving
+    // reloadKey on remounts it on the new content, as App.tsx's
+    // replaceTabWithFile does; before the editor has mounted it costs
+    // nothing.
+    const loadIntoInitialTab = (doc: Partial<DocTab>) =>
+      opts.setTabs((prev) =>
+        prev.map((tab) =>
+          tab.id === opts.activeTabId
+            ? { ...tab, ...doc, reloadKey: tab.reloadKey + 1 }
+            : tab,
+        ),
+      );
     void (async () => {
       // A tab dragged out of another window's tab bar (see TabBar.tsx /
       // detachTab). Checked FIRST, ahead of draft recovery: this window was
@@ -64,7 +80,7 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       const detached = canUseWindows ? await windowIpc.takeDetachedTab() : null;
       if (detached) {
         opts.stopTutorial();
-        opts.updateTab(opts.activeTabId, detached);
+        loadIntoInitialTab(detached);
         return;
       }
       // Recovered drafts (2.4): content a previous run snapshotted but never
@@ -121,7 +137,7 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
         // of the guide (nor treat the guide's bundled text as practice).
         opts.stopTutorial();
         const content = helpDocContent(helpDoc as HelpDoc, opts.language);
-        opts.updateTab(opts.activeTabId, {
+        loadIntoInitialTab({
           content,
           savedContent: content,
           helpDoc: helpDoc as HelpDoc,
@@ -133,26 +149,51 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
         if (!opts.onboardingShown) opts.markOnboardingShown();
         return;
       }
+      // A document whose unsaved edits were just recovered opens once, with
+      // those edits - not once as saved and again as a recovered tab (the
+      // session reopens the files a crash left open, drafts and all).
+      const recoveredFor = (path: string) =>
+        restored.find((tab) => tab.path === path);
+      const loadRecoveredIntoInitialTab = (recovered: DocTab) => {
+        loadIntoInitialTab({
+          path: recovered.path,
+          content: recovered.content,
+          savedContent: recovered.savedContent,
+          diskMtime: recovered.diskMtime,
+        });
+        opts.setTabs((prev) => prev.filter((tab) => tab.id !== recovered.id));
+      };
       if (opts.newDocumentMode === "tab") {
         const paths = await windowIpc.takePendingOpenPaths();
         if (paths.length > 0) {
           opts.stopTutorial();
           const [first, ...rest] = paths;
-          const { content: text, diskMtime } = await readDocFromDisk(first);
-          opts.updateTab(opts.activeTabId, {
-            path: first,
-            content: text,
-            savedContent: text,
-            diskMtime,
-          });
-          for (const p of rest) await opts.openPathInTab(p);
+          const recovered = recoveredFor(first);
+          if (recovered) {
+            loadRecoveredIntoInitialTab(recovered);
+          } else {
+            const { content: text, diskMtime } = await readDocFromDisk(first);
+            loadIntoInitialTab({
+              path: first,
+              content: text,
+              savedContent: text,
+              diskMtime,
+            });
+          }
+          for (const p of rest) {
+            // Its recovered tab is already open: that is this document.
+            if (recoveredFor(p)) continue;
+            await opts.openPathInTab(p);
+          }
           return;
         }
       } else {
         const pending = await windowIpc.takePendingOpenPath();
         if (pending) {
           opts.stopTutorial();
-          await opts.openFile(pending);
+          const recovered = recoveredFor(pending);
+          if (recovered) loadRecoveredIntoInitialTab(recovered);
+          else await opts.openFile(pending);
           return;
         }
       }
@@ -161,21 +202,15 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
       // Its unsaved edits were just recovered into a tab of their own: that
       // tab takes the initial one's place rather than the document opening
       // twice, once as saved and once as recovered.
-      const recovered = restored.find((tab) => tab.path === last);
-      if (last && recovered) {
-        opts.updateTab(opts.activeTabId, {
-          path: recovered.path,
-          content: recovered.content,
-          savedContent: recovered.savedContent,
-          diskMtime: recovered.diskMtime,
-        });
-        opts.setTabs((prev) => prev.filter((tab) => tab.id !== recovered.id));
+      const recovered = last ? recoveredFor(last) : undefined;
+      if (recovered) {
+        loadRecoveredIntoInitialTab(recovered);
         return;
       }
       if (last) {
         try {
           const { content: text, diskMtime } = await readDocFromDisk(last);
-          opts.updateTab(opts.activeTabId, {
+          loadIntoInitialTab({
             path: last,
             content: text,
             savedContent: text,

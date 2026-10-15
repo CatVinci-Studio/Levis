@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState, type SetStateAction } from "react";
 import { TUTORIAL_STEPS } from "./tutorial-steps";
 import type { TutorialStepId } from "./tutorial-steps";
+import { getUiState, setUiState } from "../storage/ui-state";
 import {
   AI_MESSAGE_SENT_EVENT,
   TUTORIAL_AGENT_PROPOSAL_EVENT,
 } from "../utils/events";
-
-const STORAGE_KEY = "levis-tutorial-progress";
 
 interface TutorialProgress {
   active: boolean;
@@ -25,15 +24,19 @@ const IDLE_PROGRESS: TutorialProgress = {
 
 function loadProgress(): TutorialProgress {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return IDLE_PROGRESS;
-    const parsed = JSON.parse(raw);
+    const parsed = getUiState("tutorialProgress") as Record<
+      string,
+      unknown
+    > | null;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
       return IDLE_PROGRESS;
     const stepIndex = Math.min(
       Math.max(
         0,
-        Number.isFinite(parsed.stepIndex) ? Math.trunc(parsed.stepIndex) : 0,
+        typeof parsed.stepIndex === "number" &&
+          Number.isFinite(parsed.stepIndex)
+          ? Math.trunc(parsed.stepIndex)
+          : 0,
       ),
       TUTORIAL_STEPS.length - 1,
     );
@@ -48,8 +51,9 @@ function loadProgress(): TutorialProgress {
 }
 
 /**
- * The onboarding tour's state machine. `stepIndex` is persisted to
- * localStorage so quitting mid-tour resumes at the same step on relaunch;
+ * The onboarding tour's state machine. `stepIndex` is persisted (UI state,
+ * storage/ui-state.ts) so quitting mid-tour resumes at the same step on
+ * relaunch;
  * `phase` is the current step's internal progress and deliberately is NOT
  * persisted - a resumed step restarts from its beginning, which is always
  * safe because phases only ever gate hint text and mock triggers. Every
@@ -75,12 +79,7 @@ export function useTutorial() {
   );
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-    } catch {
-      // Storage unavailable - the tutorial still works for this session,
-      // it just won't resume after a restart.
-    }
+    setUiState("tutorialProgress", progress);
   }, [progress]);
 
   const start = useCallback((tabId: string) => {

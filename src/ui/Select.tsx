@@ -14,6 +14,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { isIOSApp } from "../platform/capabilities";
+import { useMergedRef, usePresence } from "./usePresence";
 import "./Select.css";
 
 /**
@@ -37,6 +38,8 @@ interface OptionItem {
   value: string;
   label: ReactNode;
   disabled: boolean;
+  /** The `<optgroup label>` it sits in, if any. */
+  group?: string;
 }
 
 export interface SelectProps {
@@ -49,23 +52,55 @@ export interface SelectProps {
   title?: string;
 }
 
-function collectOptions(children: ReactNode, out: OptionItem[] = []) {
+function collectOptions(
+  children: ReactNode,
+  out: OptionItem[] = [],
+  group?: string,
+) {
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
     const element = child as ReactElement<{
       value?: string;
       children?: ReactNode;
       disabled?: boolean;
+      label?: string;
     }>;
     if (element.type === Fragment) {
-      collectOptions(element.props.children, out);
+      collectOptions(element.props.children, out, group);
+    } else if (element.type === "optgroup") {
+      collectOptions(element.props.children, out, element.props.label);
     } else if (element.type === "option") {
       out.push({
         value: String(element.props.value ?? ""),
         label: element.props.children,
         disabled: !!element.props.disabled,
+        group,
       });
     }
+  });
+  return out;
+}
+
+/** What the closed control shows for an option: inside a group the
+ *  option's own label may not say enough ("Fiction" - in which language?),
+ *  so the group's name comes first. */
+function closedLabel(option: OptionItem | undefined): ReactNode {
+  if (!option) return "";
+  return option.group
+    ? `${option.group} · ${textOf(option.label)}`
+    : option.label;
+}
+
+/** The options split into runs that share a group, in order. */
+function runs(options: OptionItem[]) {
+  const out: {
+    group?: string;
+    items: { option: OptionItem; index: number }[];
+  }[] = [];
+  options.forEach((option, index) => {
+    const last = out[out.length - 1];
+    if (last && last.group === option.group) last.items.push({ option, index });
+    else out.push({ group: option.group, items: [{ option, index }] });
   });
   return out;
 }
@@ -105,7 +140,7 @@ function NativeSelect({
       aria-disabled={disabled || undefined}
     >
       <span className="ui-select-value" aria-hidden="true">
-        {current?.label ?? ""}
+        {closedLabel(current)}
       </span>
       <select
         className="ui-select-native"
@@ -115,15 +150,24 @@ function NativeSelect({
         title={title}
         onChange={(e) => onChange({ target: { value: e.target.value } })}
       >
-        {options.map((option, index) => (
-          <option
-            key={`${option.value}-${index}`}
-            value={option.value}
-            disabled={option.disabled}
-          >
-            {textOf(option.label)}
-          </option>
-        ))}
+        {runs(options).map((run, r) => {
+          const items = run.items.map(({ option, index }) => (
+            <option
+              key={`${option.value}-${index}`}
+              value={option.value}
+              disabled={option.disabled}
+            >
+              {textOf(option.label)}
+            </option>
+          ));
+          return run.group === undefined ? (
+            <Fragment key={`run-${r}`}>{items}</Fragment>
+          ) : (
+            <optgroup key={`run-${r}`} label={run.group}>
+              {items}
+            </optgroup>
+          );
+        })}
       </select>
     </span>
   );
@@ -146,6 +190,10 @@ function DrawnSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
+  // The list stays a moment after it closes, shrinking back into the
+  // trigger; the choice has already gone through by then.
+  const presence = usePresence(open, { exitMs: 120 });
+  const presenceRef = useMergedRef(listRef, presence.ref);
 
   function openMenu() {
     if (disabled || options.length === 0) return;
@@ -180,6 +228,10 @@ function DrawnSelect({
       ...(up
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }),
+      // It grows out of the edge that touches the trigger.
+      ...({
+        "--transform-origin": up ? "bottom left" : "top left",
+      } as CSSProperties),
     });
   }, [open]);
 
@@ -187,7 +239,10 @@ function DrawnSelect({
   // the page moves under it (the list is placed once, from the trigger).
   useEffect(() => {
     if (!open) return;
-    listRef.current?.focus();
+    // Without preventScroll the browser may scroll the page's own scroll
+    // areas to bring the list into view before it is placed (a Settings
+    // page still settling in moved, and the scroll closed the list).
+    listRef.current?.focus({ preventScroll: true });
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
@@ -213,11 +268,19 @@ function DrawnSelect({
     };
   }, [open]);
 
+  // The highlighted option stays in view by scrolling the list alone:
+  // scrollIntoView would scroll every area around it too.
   useEffect(() => {
-    if (!open) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
-      ?.scrollIntoView?.({ block: "nearest" });
+    const list = listRef.current;
+    if (!open || !list) return;
+    const item = list.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    if (!item) return;
+    if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop;
+    else if (
+      item.offsetTop + item.offsetHeight >
+      list.scrollTop + list.clientHeight
+    )
+      list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight;
   }, [open, active]);
 
   function step(from: number, delta: number) {
@@ -284,13 +347,15 @@ function DrawnSelect({
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onTriggerKey}
       >
-        <span className="ui-select-value">{current?.label ?? ""}</span>
+        <span className="ui-select-value">{closedLabel(current)}</span>
       </button>
-      {open &&
+      {presence.mounted &&
         createPortal(
           <ul
-            ref={listRef}
+            ref={presenceRef}
             id={listId}
+            data-state={presence.state}
+            inert={presence.state === "closing" || undefined}
             className="ui-select-menu floating-surface"
             role="listbox"
             aria-label={ariaLabel}
@@ -300,21 +365,30 @@ function DrawnSelect({
             data-floating-select=""
             onKeyDown={onListKey}
           >
-            {options.map((option, index) => (
-              <li
-                key={`${option.value}-${index}`}
-                id={`${listId}-${index}`}
-                data-index={index}
-                role="option"
-                aria-selected={index === selectedIndex}
-                aria-disabled={option.disabled || undefined}
-                className={`ui-select-option${index === active ? " is-active" : ""}`}
-                onMouseEnter={() => !option.disabled && setActive(index)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => choose(index)}
-              >
-                {option.label}
-              </li>
+            {runs(options).map((run, r) => (
+              <Fragment key={`run-${r}`}>
+                {run.group !== undefined && (
+                  <li role="presentation" className="ui-select-group">
+                    {run.group}
+                  </li>
+                )}
+                {run.items.map(({ option, index }) => (
+                  <li
+                    key={`${option.value}-${index}`}
+                    id={`${listId}-${index}`}
+                    data-index={index}
+                    role="option"
+                    aria-selected={index === selectedIndex}
+                    aria-disabled={option.disabled || undefined}
+                    className={`ui-select-option${index === active ? " is-active" : ""}`}
+                    onMouseEnter={() => !option.disabled && setActive(index)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => choose(index)}
+                  >
+                    {option.label}
+                  </li>
+                ))}
+              </Fragment>
             ))}
           </ul>,
           document.body,

@@ -98,7 +98,15 @@ function collectDecorations(
     const markerFrom = pos + 2; // +1 into the blockquote, +1 into its first paragraph
     const hideLen =
       match[0].length + (/^[ \t]*\n?/.exec(rest)?.[0].length ?? 0);
-    const markerTo = markerFrom + hideLen;
+    // The marker line's soft break, when it is a node of its own (an
+    // inline hardbreak, drawn as a space): hidden with the marker, it
+    // started the body one space in from the lines under it.
+    const next = para.childCount > 1 ? para.child(1) : null;
+    const breakAfter =
+      hideLen === firstText.text.length && next?.type.name === "hardbreak"
+        ? next.nodeSize
+        : 0;
+    const markerTo = markerFrom + hideLen + breakAfter;
     if (touches(markerFrom, markerFrom + match[0].length)) return;
 
     decorations.push(

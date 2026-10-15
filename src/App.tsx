@@ -2,9 +2,11 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { AppDialogHost, showConfirm, showMessage } from "./ui/app-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -39,6 +41,7 @@ import { DocumentList } from "./mobile/DocumentList";
 import { KeyboardToolbar } from "./mobile/KeyboardToolbar";
 import { ActionSheet } from "./mobile/ActionSheet";
 import { usePhoneLayout } from "./mobile/usePhoneLayout";
+import { keyboardUp, whenKeyboardDown } from "./mobile/keyboard";
 import { useSettings } from "./settings/SettingsContext";
 import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
@@ -75,11 +78,14 @@ import { useTabDragMerge } from "./useTabDragMerge";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 import { useExternalChangeReload } from "./useExternalChangeReload";
 import { useDraftAutosave } from "./draft-autosave";
-import { useMenuBridge } from "./menu-bridge";
+import { useMenuBridge, useNativeMenuChecks } from "./menu-bridge";
 import { useStartupRestore } from "./startup-restore";
 import { drafts, fs, session } from "./ipc";
+import { flushPendingWrites } from "./storage/pending-writes";
 import { defaultMarkdownFilename } from "./save-default-name";
 import { useModalDialog } from "./ui/useModalDialog";
+import { Presence, PresenceDiv, usePresence } from "./ui/usePresence";
+import { FlipOnChange } from "./ui/flip";
 import { SplitView } from "./editor/SplitView";
 import { SourceTextarea } from "./editor/SourceTextarea";
 import { useWindowEvent } from "./utils/useWindowEvent";
@@ -109,6 +115,16 @@ type PendingClose =
 // guard; see startup-restore.ts's `drained`.)
 let tutorialTabRecoveryDone = false;
 
+/** The sidebar's width (App.css .sidebar) and the narrowest text column
+ *  the docked panel may leave beside it. */
+const SIDEBAR_WIDTH = 240;
+const MIN_TEXT_COLUMN = 420;
+
+function subscribeWindowResize(onChange: () => void) {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+}
+
 function App() {
   const { t, settings, setSettings } = useSettings();
   const [tabs, setTabs] = useState<DocTab[]>(() => [makeBlankTab()]);
@@ -123,18 +139,71 @@ function App() {
   // The docked Agent panel on the right (ai/chat/agent-panel.tsx). App owns
   // the frame; the active tab's editor renders its conversation into it.
   const agentPanel = useAgentPanelState();
+  // With the sidebar and the docked panel both open, a small window left
+  // the text column ~120px wide - a word a line. Below this much room for
+  // the text the panel lies over the page instead, as it does on a narrow
+  // window (agent-panel.css).
+  const windowWidth = useSyncExternalStore(subscribeWindowResize, () =>
+    typeof window === "undefined" ? 0 : window.innerWidth,
+  );
+  const agentOverlays =
+    !isIOSApp &&
+    panelOpen &&
+    windowWidth - SIDEBAR_WIDTH - agentPanel.width < MIN_TEXT_COLUMN;
   const [agentPanelEl, setAgentPanelEl] = useState<HTMLElement | null>(null);
   // On a phone, opening the sheet puts the keyboard away in one movement:
   // the document gives up focus here and the sheet's input doesn't take it
   // (ChatComposer's focusOnOpen), where handing focus from one to the other
   // dropped the keyboard and raised it again.
+  // And with the keyboard up, the sheet rises once it has gone: laid out
+  // in a web view still growing back to full height under it, the sheet's
+  // top jumped and its composer arrived late from below.
+  const pendingAgentOpen = useRef<(() => void) | null>(null);
   const toggleAgentPanel = useCallback(() => {
+    if (pendingAgentOpen.current) {
+      // A second tap while it waits: it stays closed.
+      pendingAgentOpen.current();
+      pendingAgentOpen.current = null;
+      return;
+    }
     if (isIOSApp && !agentPanel.open) {
       const active = document.activeElement;
       if (active instanceof HTMLElement) active.blur();
+      if (keyboardUp()) {
+        pendingAgentOpen.current = whenKeyboardDown(() => {
+          pendingAgentOpen.current = null;
+          agentPanel.setOpen(true);
+        });
+        return;
+      }
     }
     agentPanel.toggle();
   }, [agentPanel]);
+  // Both side panels play their way out before their contents go: the
+  // sidebar slides back over the editor, the AI panel fades off its edge.
+  // The editor makes its room (or takes it back) at once, gliding there
+  // (FlipOnChange below) rather than reflowing on every frame.
+  const sidebarPresence = usePresence(panelOpen, { exitMs: 250 });
+  const sidebarClosing = sidebarPresence.state === "closing";
+  const agentPresence = usePresence(agentPanel.open, { exitMs: 250 });
+  const agentClosing = agentPresence.state === "closing";
+  // The phone's AI sheet leaves where it stood: closing with the keyboard
+  // up, the web view grew back under it as the keyboard went and its
+  // height (a share of the view) jumped the top up ~170pt in one frame.
+  useLayoutEffect(() => {
+    const sheet = document.querySelector<HTMLElement>("aside.agent-panel");
+    if (!isIOSApp || !sheet) return;
+    if (!agentClosing) {
+      for (const prop of ["top", "bottom", "height"])
+        sheet.style.removeProperty(prop);
+      return;
+    }
+    if (getComputedStyle(sheet).position !== "fixed") return;
+    const box = sheet.getBoundingClientRect();
+    sheet.style.top = `${box.top}px`;
+    sheet.style.bottom = "auto";
+    sheet.style.height = `${box.height}px`;
+  }, [agentClosing]);
   // iPhone: whether the AI bottom sheet is pulled up to full height.
   const [sheetFull, setSheetFull] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("tree");
@@ -498,30 +567,43 @@ function App() {
     [updateTab, liveTabs, saveTabAs, t],
   );
 
+  // Back to the rich editor, from plain source mode or split view alike.
+  const leaveSourceMode = useCallback(
+    (tab: DocTab) => {
+      // Keep the user's place across the switch (editor/mode-switch.ts): the
+      // view being left records its caret, the one being entered places it.
+      const textarea = document.querySelector<HTMLTextAreaElement>(
+        '[data-active-tab="true"] textarea.source-view',
+      );
+      setPendingCaret(textarea ? readTextareaCaret(textarea) : null);
+      // Force the WYSIWYG editor to remount so it picks up whatever was
+      // typed as raw text.
+      updateTab(tab.id, {
+        sourceMode: false,
+        splitView: false,
+        reloadKey: tab.reloadKey + 1,
+      });
+    },
+    [updateTab],
+  );
+
   const toggleSourceMode = useCallback(() => {
     // Live content: entering source mode unmounts the editor, and with it
     // any edit its debounce still holds.
     const tab = liveTabs().find((tb) => tb.id === activeTabId);
     if (!tab) return;
-    // Keep the user's place across the switch (editor/mode-switch.ts): the
-    // view being left records its caret, the one being entered places it.
-    if (tab.sourceMode) {
-      const textarea = document.querySelector<HTMLTextAreaElement>(
-        '[data-active-tab="true"] textarea.source-view',
-      );
-      setPendingCaret(textarea ? readTextareaCaret(textarea) : null);
-      // Leaving source mode: force the WYSIWYG editor to remount so it
-      // picks up whatever was typed as raw text.
-      updateTab(activeTabId, {
-        sourceMode: false,
-        splitView: false,
-        reloadKey: tab.reloadKey + 1,
-      });
+    if (tab.sourceMode && tab.splitView) {
+      // Split view shows Source Mode as off - the menu check and the switch
+      // in Settings both say so - so turning it on from there means plain
+      // source mode: the preview goes, the source stays.
+      updateTab(activeTabId, { splitView: false });
+    } else if (tab.sourceMode) {
+      leaveSourceMode(tab);
     } else {
       setPendingCaret(captureEditorCaret(tab.content));
       updateTab(activeTabId, { content: tab.content, sourceMode: true });
     }
-  }, [activeTabId, updateTab, liveTabs]);
+  }, [activeTabId, updateTab, liveTabs, leaveSourceMode]);
 
   // Split view = source mode with a live preview beside it. From the rich
   // editor it enters source mode the same way (caret carried across); from
@@ -531,7 +613,7 @@ function App() {
     const tab = liveTabs().find((tb) => tb.id === activeTabId);
     if (!tab) return;
     if (tab.sourceMode && tab.splitView) {
-      toggleSourceMode();
+      leaveSourceMode(tab);
     } else if (tab.sourceMode) {
       updateTab(activeTabId, { splitView: true });
     } else {
@@ -542,15 +624,19 @@ function App() {
         splitView: true,
       });
     }
-  }, [activeTabId, updateTab, liveTabs, toggleSourceMode]);
+  }, [activeTabId, updateTab, liveTabs, leaveSourceMode]);
 
   // Zen mode: only the text. Sidebar, tab bar, AI panel and window-bar
   // readouts go away, the window goes fullscreen, and every paragraph but
   // the one being written dims (editor/zen-focus-plugin.ts). Esc leaves.
   const [zenMode, setZenMode] = useState(false);
   const toggleZenMode = useCallback(() => setZenMode((on) => !on), []);
-  useEffect(() => {
+  // In the commit itself, before paint: the text column's glide
+  // (FlipOnChange) measures the layout this class makes.
+  useLayoutEffect(() => {
     document.documentElement.classList.toggle("zen", zenMode);
+  }, [zenMode]);
+  useEffect(() => {
     window.dispatchEvent(new CustomEvent(ZEN_MODE_EVENT, { detail: zenMode }));
     if (!zenMode || !canToggleFullscreen) return;
     const win = getCurrentWindow();
@@ -579,7 +665,7 @@ function App() {
       if (e.isComposing || e.keyCode === 229) return;
       if (
         document.querySelector(
-          '[role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu',
+          ':is([role="dialog"], [role="menu"], .inline-chat, .find-replace-bar, .context-menu):not([data-state="closing"] *, [data-state="closing"])',
         )
       )
         return;
@@ -619,10 +705,12 @@ function App() {
           // cleanup effect (which clears a departed tab's snapshot) never gets
           // another run - without the explicit clear here, a dirty tab closed
           // via "Don't Save" comes back as a recovered draft on next launch.
+          // Storage writes still on their way go first, like every close.
           cancelDraftFlushes();
-          void drafts
-            .clearDraftSnapshot(id)
-            .finally(() => void getCurrentWindow().destroy());
+          void Promise.allSettled([
+            drafts.clearDraftSnapshot(id),
+            flushPendingWrites(),
+          ]).then(() => void getCurrentWindow().destroy());
           return prev;
         }
         return next;
@@ -706,7 +794,6 @@ function App() {
     newDocumentMode: settings.newDocumentMode,
     language: settings.language,
     onboardingShown: settings.onboardingShown,
-    updateTab,
     setTabs,
     setDraftsRestoredCount,
     markOnboardingShown: () => setSettings({ onboardingShown: true }),
@@ -736,11 +823,21 @@ function App() {
   // needs a decision, not just the active one). Registered once; reads
   // dirtiness through liveTabs so the listener doesn't churn on every
   // keystroke, and so an edit typed just before closing still counts.
+  // Every way of closing a window lands here - its close button, File >
+  // Close Window, Quit (Cmd+Q closes each window in turn), Alt+F4 - and the
+  // Tauri API destroys the window once this handler resolves, unless it
+  // prevented the close. So with nothing to ask, it first waits for the
+  // storage writes still on their way to Rust (a setting typed a moment
+  // ago) or held back (the resting zoom); the prompt's Save / Don't Save do the same before they
+  // destroy the window themselves.
   useEffect(() => {
-    const unlisten = getCurrentWindow().onCloseRequested((event) => {
-      if (!liveTabs().some(tabIsDirty)) return;
-      event.preventDefault();
-      setPendingClose({ kind: "window" });
+    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
+      if (liveTabs().some(tabIsDirty)) {
+        event.preventDefault();
+        setPendingClose({ kind: "window" });
+        return;
+      }
+      await flushPendingWrites();
     });
     return unlistenAll(unlisten);
   }, [liveTabs]);
@@ -776,6 +873,27 @@ function App() {
       ),
     );
   }, []);
+  // Settings > Skills > Reset deleted a customized skill's file. A tab
+  // still showing it must not write it back on the next save: an unedited
+  // one closes (the window's only tab becomes a blank one instead of
+  // closing the window), an edited one keeps its text as an unsaved draft.
+  const skillFilesDeleted = useCallback(
+    (paths: string[]) => {
+      for (const tab of tabsRef.current) {
+        if (!tab.path || !paths.includes(tab.path)) continue;
+        if (tabIsDirty(tab)) {
+          documentDeleted(tab.path);
+        } else if (tabsRef.current.length > 1) {
+          removeTab(tab.id);
+        } else {
+          const blank = makeBlankTab();
+          setTabs([blank]);
+          setActiveTabId(blank.id);
+        }
+      }
+    },
+    [documentDeleted, removeTab],
+  );
 
   // iPhone menu > Share: the share sheet needs a file, so an unsaved or
   // never-saved document is saved first (into Documents, if it is new).
@@ -788,6 +906,18 @@ function App() {
     const path = tabsRef.current.find((tb) => tb.id === tab.id)?.path;
     if (path) await iosFiles.share(path).catch(() => {});
   }, [activeTabId, liveTabs, saveTab]);
+
+  // Which View items are on: the check marks in the app-drawn menu and in
+  // the macOS menu bar.
+  const menuChecks = {
+    sidebar: panelOpen,
+    agentPanel: agentPanel.open,
+    sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+    splitView: !!activeTab.sourceMode && !!activeTab.splitView,
+    typewriter: settings.typewriterMode,
+    zen: zenMode,
+  };
+  useNativeMenuChecks(menuChecks);
 
   useMenuBridge({
     activeTabId,
@@ -846,6 +976,7 @@ function App() {
       // The just-saved tabs' snapshot cleanup would race destroy() below
       // (it runs on a later effect tick) - do it synchronously instead.
       await clearWindowDrafts();
+      await flushPendingWrites();
       await getCurrentWindow().destroy();
     } else if (action.kind === "tab") {
       if (!(await saveTab(action.tabId))) return;
@@ -871,6 +1002,7 @@ function App() {
       // "Don't Save" is a decision - the discarded content must not come
       // back as a recovered draft on the next launch.
       await clearWindowDrafts();
+      await flushPendingWrites();
       await getCurrentWindow().destroy();
     } else if (action.kind === "tab") removeTab(action.tabId);
     else await replaceTabWithFile(action.tabId, action.path);
@@ -904,11 +1036,32 @@ function App() {
 
   return (
     <AgentPanelProvider
-      open={agentPanel.open}
+      // The conversation stays in the panel while it plays its exit.
+      open={agentPresence.mounted}
       setOpen={agentPanel.setOpen}
       container={agentPanelEl}
     >
-      <div className="app-shell">
+      <FlipOnChange
+        watch={`${panelOpen} ${agentPresence.mounted} ${zenMode}`}
+        targets={() =>
+          document.querySelectorAll(
+            '[data-active-tab="true"] > .editor-scroll > .editor-content, [data-active-tab="true"] > .source-view, .tab-bar > [data-flip-id]',
+          )
+        }
+        duration="--dur-slow"
+        easing="--ease-spring"
+      />
+      <div
+        className="app-shell"
+        style={
+          {
+            "--docked-panel-width":
+              agentPresence.mounted && !agentOverlays && !isIOSApp
+                ? `${agentPanel.width}px`
+                : "0px",
+          } as React.CSSProperties
+        }
+      >
         {/* The window's one top strip: traffic-light room, which document this
           is, and its status. A real row in the layout, not an overlay - the
           overlay title bar hides the native drag area behind the webview, so
@@ -922,21 +1075,17 @@ function App() {
           below render nothing anywhere else, so this stays one strip on
           every platform. See ui/window-chrome.ts. */}
         <header className="window-bar" data-tauri-drag-region>
-          <AppMenuButton
-            checks={{
-              sidebar: panelOpen,
-              agentPanel: agentPanel.open,
-              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
-              splitView: !!activeTab.sourceMode && !!activeTab.splitView,
-              typewriter: settings.typewriterMode,
-              zen: zenMode,
-            }}
-          />
-          <span className="window-bar-title">{activeTitle}</span>
-          <div className="window-bar-status">
+          <AppMenuButton checks={menuChecks} />
+          {/* The unsaved dot leads the title, as a native edited-document
+            title does - in the status group it sat on top of a long title
+            on a narrow window. */}
+          <span className="window-bar-title">
             {activeDirty && (
               <span className="unsaved-dot" title={t.unsavedIndicator} />
             )}
+            <span className="window-bar-title-text">{activeTitle}</span>
+          </span>
+          <div className="window-bar-status">
             {isLargeDoc && (
               <span className="large-doc-badge" title={t.largeDocHint}>
                 {t.largeDocBadge}
@@ -962,19 +1111,26 @@ function App() {
         </header>
         {/* iPhone: the sidebar is a drawer over the page (mobile/styles),
           and a tap beside it closes it. */}
-        {isIOSApp && panelOpen && (
-          <div className="sidebar-scrim" onClick={toggleSidebar} />
-        )}
+        <Presence show={isIOSApp && panelOpen} exitMs={250}>
+          {isIOSApp && panelOpen && (
+            <PresenceDiv className="sidebar-scrim" onClick={toggleSidebar} />
+          )}
+        </Presence>
         <aside
+          ref={sidebarPresence.ref}
           className={`sidebar ${panelOpen ? "" : "sidebar-collapsed"} ${sidebarLesson ? "tutorial-spotlight" : ""}`}
         >
-          {/* Contents only render while open - a collapsed sidebar is just
-            shifted out of view via margin, not unmounted, so without this
-            its buttons/tree would stay in the tab order and Tab could land
-            focus on them from the editor. */}
-          {panelOpen && (
+          {/* Contents only render while open (and inert while the sidebar
+            slides away) - a collapsed sidebar is just moved out of view,
+            not unmounted, so without this its buttons/tree would stay in
+            the tab order and Tab could land focus on them from the
+            editor. */}
+          {sidebarPresence.mounted && (
             <>
-              <div className="sidebar-header">
+              <div
+                className="sidebar-header"
+                inert={sidebarClosing || undefined}
+              >
                 <div className="sidebar-tabs">
                   <button
                     className={`sidebar-tab ${panelMode === "tree" ? "sidebar-tab-active" : ""}`}
@@ -1010,7 +1166,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div className="sidebar-body">
+              <div className="sidebar-body" inert={sidebarClosing || undefined}>
                 {panelMode === "tree" &&
                   (rootPath ? (
                     <FileTree
@@ -1103,9 +1259,12 @@ function App() {
           ))}
         </div>
 
-        {agentPanel.open && (
+        {agentPresence.mounted && (
           <aside
-            className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}`}
+            ref={agentPresence.ref}
+            data-state={agentPresence.state}
+            inert={agentClosing || undefined}
+            className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}${agentOverlays ? " agent-panel-overlay" : ""}`}
             style={{ width: agentPanel.width }}
           >
             {/* Phone widths: the panel is a bottom sheet (mobile/styles)
@@ -1142,81 +1301,94 @@ function App() {
           </aside>
         )}
 
-        {settingsOpen && (
-          <SettingsPanel
-            onClose={() => setSettingsOpen(false)}
-            onOpenFile={(path) => void openFile(path)}
-            viewChecks={{
-              sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
-              zen: zenMode,
-            }}
-          />
-        )}
+        {/* The longest exit is the phone's: the page going back down. */}
+        <Presence show={settingsOpen} exitMs={320}>
+          {settingsOpen && (
+            <SettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onOpenFile={(path) => void openFile(path)}
+              onFilesDeleted={skillFilesDeleted}
+              viewChecks={{
+                sourceMode: !!activeTab.sourceMode && !activeTab.splitView,
+                zen: zenMode,
+              }}
+            />
+          )}
+        </Presence>
 
-        {pendingClose && phone && (
-          // The iPhone asks what to do with an edited document from the
-          // bottom of the screen, as Notes and Pages do. The sheet runs its
-          // onClose before the chosen action: cancelClose's quit-cancel is
-          // a desktop-only call (a no-op here), and the two handlers still
-          // hold the pending close they were rendered with.
-          <ActionSheet
-            title={t.closePromptMessage}
-            items={[
-              { label: t.closePromptSave, onSelect: () => void closeSaving() },
-              {
-                label: t.closePromptDiscard,
-                danger: true,
-                onSelect: () => void closeDiscarding(),
-              },
-            ]}
-            onClose={cancelClose}
-          />
-        )}
-        {pendingClose && !phone && (
-          <div className="close-prompt-overlay">
-            <div
-              className="close-prompt"
-              {...closePrompt}
-              role="dialog"
-              aria-modal="true"
-              aria-label={t.closePromptMessage}
-            >
-              <p>{t.closePromptMessage}</p>
-              <div className="close-prompt-buttons">
-                <button
-                  className="close-prompt-discard"
-                  onClick={() => void closeDiscarding()}
-                >
-                  {t.closePromptDiscard}
-                </button>
-                <div className="close-prompt-spacer" />
-                <button onClick={cancelClose}>{t.closePromptCancel}</button>
-                <button
-                  className="close-prompt-primary"
-                  autoFocus
-                  onClick={() => void closeSaving()}
-                >
-                  {t.closePromptSave}
-                </button>
+        <Presence show={!!pendingClose && phone} exitMs={250}>
+          {pendingClose && phone && (
+            // The iPhone asks what to do with an edited document from the
+            // bottom of the screen, as Notes and Pages do. The sheet runs its
+            // onClose before the chosen action: cancelClose's quit-cancel is
+            // a desktop-only call (a no-op here), and the two handlers still
+            // hold the pending close they were rendered with.
+            <ActionSheet
+              title={t.closePromptMessage}
+              items={[
+                {
+                  label: t.closePromptSave,
+                  onSelect: () => void closeSaving(),
+                },
+                {
+                  label: t.closePromptDiscard,
+                  danger: true,
+                  onSelect: () => void closeDiscarding(),
+                },
+              ]}
+              onClose={cancelClose}
+            />
+          )}
+        </Presence>
+        <Presence show={!!pendingClose && !phone} exitMs={120}>
+          {pendingClose && !phone && (
+            <PresenceDiv className="close-prompt-overlay">
+              <div
+                className="close-prompt"
+                {...closePrompt}
+                role="dialog"
+                aria-modal="true"
+                aria-label={t.closePromptMessage}
+              >
+                <p>{t.closePromptMessage}</p>
+                <div className="close-prompt-buttons">
+                  <button
+                    className="close-prompt-discard"
+                    onClick={() => void closeDiscarding()}
+                  >
+                    {t.closePromptDiscard}
+                  </button>
+                  <div className="close-prompt-spacer" />
+                  <button onClick={cancelClose}>{t.closePromptCancel}</button>
+                  <button
+                    className="close-prompt-primary"
+                    autoFocus
+                    onClick={() => void closeSaving()}
+                  >
+                    {t.closePromptSave}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </PresenceDiv>
+          )}
+        </Presence>
 
         {isIOSApp && <KeyboardToolbar />}
-        {isIOSApp && documentsOpen && (
-          <DocumentList
-            activePath={activeTab.path}
-            onClose={() => setDocumentsOpen(false)}
-            onOpen={openFromDocuments}
-            onRenamed={documentRenamed}
-            onDeleted={documentDeleted}
-            onOpenOther={() => {
-              setDocumentsOpen(false);
-              void openFileDialog();
-            }}
-          />
-        )}
+        <Presence show={isIOSApp && documentsOpen} exitMs={320}>
+          {isIOSApp && documentsOpen && (
+            <DocumentList
+              activePath={activeTab.path}
+              onClose={() => setDocumentsOpen(false)}
+              onOpen={openFromDocuments}
+              onRenamed={documentRenamed}
+              onDeleted={documentDeleted}
+              onOpenOther={() => {
+                setDocumentsOpen(false);
+                void openFileDialog();
+              }}
+            />
+          )}
+        </Presence>
         <AppDialogHost okLabel={t.dialogOk} />
 
         {zenMode &&
@@ -1236,61 +1408,65 @@ function App() {
             </div>
           ))}
 
-        {draftsRestoredCount > 0 && (
-          <div className="draft-restored-toast">
-            <span>{t.draftRestoredMessage}</span>
-            <button
-              className="update-toast-secondary"
-              onClick={() => setDraftsRestoredCount(0)}
-            >
-              {t.draftRestoredDismiss}
-            </button>
-          </div>
-        )}
+        <Presence show={draftsRestoredCount > 0} exitMs={120}>
+          {draftsRestoredCount > 0 && (
+            <PresenceDiv className="draft-restored-toast">
+              <span>{t.draftRestoredMessage}</span>
+              <button
+                className="update-toast-secondary"
+                onClick={() => setDraftsRestoredCount(0)}
+              >
+                {t.draftRestoredDismiss}
+              </button>
+            </PresenceDiv>
+          )}
+        </Presence>
 
-        {appUpdate.status !== "idle" && (
-          <div className="update-toast">
-            {appUpdate.status === "available" && (
-              <>
-                <span>
-                  {t.updateAvailable} v{appUpdate.version}
-                </span>
-                {appUpdate.selfUpdate ? (
+        <Presence show={appUpdate.status !== "idle"} exitMs={120}>
+          {appUpdate.status !== "idle" && (
+            <PresenceDiv className="update-toast">
+              {appUpdate.status === "available" && (
+                <>
+                  <span>
+                    {t.updateAvailable} v{appUpdate.version}
+                  </span>
+                  {appUpdate.selfUpdate ? (
+                    <button
+                      className="update-toast-primary"
+                      onClick={() => void appUpdate.install()}
+                    >
+                      {t.updateInstall}
+                    </button>
+                  ) : (
+                    <span>{t.updateViaPackageManager}</span>
+                  )}
                   <button
-                    className="update-toast-primary"
-                    onClick={() => void appUpdate.install()}
+                    className="update-toast-secondary"
+                    onClick={appUpdate.dismiss}
                   >
-                    {t.updateInstall}
+                    {t.updateLater}
                   </button>
-                ) : (
-                  <span>{t.updateViaPackageManager}</span>
-                )}
-                <button
-                  className="update-toast-secondary"
-                  onClick={appUpdate.dismiss}
-                >
-                  {t.updateLater}
-                </button>
-              </>
-            )}
-            {appUpdate.status === "downloading" && (
-              <span>{t.updateDownloading}</span>
-            )}
-            {appUpdate.status === "error" && (
-              <>
-                <span>
-                  {t.updateFailed} {appUpdate.error}
-                </span>
-                <button
-                  className="update-toast-secondary"
-                  onClick={appUpdate.dismiss}
-                >
-                  {t.updateLater}
-                </button>
-              </>
-            )}
-          </div>
-        )}
+                </>
+              )}
+              {appUpdate.status === "downloading" && (
+                <span>{t.updateDownloading}</span>
+              )}
+              {appUpdate.status === "error" && (
+                <>
+                  <span>
+                    {t.updateFailed} {appUpdate.error}
+                  </span>
+                  <button
+                    className="update-toast-secondary"
+                    onClick={appUpdate.dismiss}
+                  >
+                    {t.updateLater}
+                  </button>
+                </>
+              )}
+            </PresenceDiv>
+          )}
+        </Presence>
 
         {tutorial.active && settings.languageChosen && (
           <TutorialExperience
@@ -1304,13 +1480,15 @@ function App() {
             }}
           />
         )}
-        {!settings.languageChosen && (
-          <LanguageWelcome
-            language={settings.language}
-            onLanguage={(language) => setSettings({ language })}
-            onContinue={() => setSettings({ languageChosen: true })}
-          />
-        )}
+        <Presence show={!settings.languageChosen} exitMs={200}>
+          {!settings.languageChosen && (
+            <LanguageWelcome
+              language={settings.language}
+              onLanguage={(language) => setSettings({ language })}
+              onContinue={() => setSettings({ languageChosen: true })}
+            />
+          )}
+        </Presence>
       </div>
     </AgentPanelProvider>
   );

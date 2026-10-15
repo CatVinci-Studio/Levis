@@ -10,24 +10,73 @@
      nothing here, hence the !important over the inline style. */
   :root[data-window-chrome="mobile"] .agent-panel {
     position: fixed;
-    top: auto;
+    /* The half stop - 55% of the screen, SHEET_HALF in agent-panel.tsx -
+       set by where its top sits, not by a height. Raising the keyboard
+       moved the sheet's bottom up with it a frame or two before the web
+       view had shrunk (KeyboardFit.swift): a height then kept its old
+       value and shot the top ~150pt up the screen and back. A top keeps
+       its place until the new size lands. */
+    top: 45%;
     right: 0;
     bottom: 0;
     left: 0;
     z-index: 40;
     width: auto !important;
     max-width: none;
-    height: 55%;
+    height: auto;
     padding-top: 0;
     border-left: none;
     border-top: 1px solid var(--border-color);
-    border-radius: 14px 14px 0 0;
-    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: var(--shadow-sheet);
     flex-direction: column;
     /* Whatever the conversation's length, the composer stays on screen:
        the message list scrolls inside the sheet instead. */
     overflow: hidden;
-    transition: height 0.2s ease;
+    /* Up from the bottom edge on a spring; closed, back down. */
+    animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
+  }
+
+  /* Once it has been carried, it has entered: the entrance must not
+     start over when the drag hands it back to its stop (agent-panel.tsx,
+     setSheetDown). Closing, below, still animates. */
+  :root[data-window-chrome="mobile"] .agent-panel[data-settled] {
+    animation: none;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel[data-state="closing"] {
+    animation: motion-sheet-out var(--dur-sheet-exit) var(--ease-in) forwards;
+  }
+
+  /* Let go below its lowest stop, it has already gone down off the screen
+     under the finger. */
+  :root[data-window-chrome="mobile"] .agent-panel[data-dismissed] {
+    animation: none;
+  }
+
+  /* Carried - under a finger, or settling where it was let go - the sheet
+     is laid out at full height and moved by its transform alone, never
+     by its height (AgentPanelSheetGrip). The composer and the bars over
+     it are lifted by as much as the sheet is lowered, so they stay on the
+     screen's bottom edge, and are opaque, as the message list now runs on
+     under them. A shadow the sheet's colour fills in below its edge while
+     it is pulled past the top stop. */
+  :root[data-window-chrome="mobile"] .agent-panel[data-carried] {
+    /* Its inline height lays it out from the bottom edge up. */
+    top: auto;
+    animation: none;
+    box-shadow:
+      var(--shadow-sheet),
+      0 200px 0 var(--editor-bg, var(--bg));
+    will-change: transform;
+  }
+
+  :root[data-window-chrome="mobile"]
+    .agent-panel[data-carried]
+    .agent-panel-body
+    > :not(.agent-panel-empty, .inline-chat-messages) {
+    transform: translateY(var(--sheet-lift, 0px));
+    background-color: var(--editor-bg, var(--bg));
   }
 
   :root[data-window-chrome="mobile"] .agent-panel .inline-chat-messages {
@@ -35,7 +84,7 @@
   }
 
   :root[data-window-chrome="mobile"] .agent-panel-sheet-full {
-    height: calc(100% - var(--mobile-bar));
+    top: var(--mobile-bar);
   }
 
   :root[data-window-chrome="mobile"] .agent-panel-resizer {
@@ -106,6 +155,6 @@
 :root[data-window-chrome="mobile"] .agent-panel-grip span {
   width: 36px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--editor-text) 25%, transparent);
 }

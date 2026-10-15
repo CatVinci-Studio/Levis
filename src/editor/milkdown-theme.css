@@ -13,28 +13,24 @@
    Margins still collapse between siblings, so two boxed blocks in a row
    are --md-gap-box apart, not double.
 
-   The type size follows the column: the classic 16.5px at the 760px
-   standard measure, growing to 18px as the adaptive column widens
-   (App.css --content-width), so a wide column doesn't read as small
-   print. cqi is the column's zoomed width, hence the divide. */
+   The document's face, size, leading and colour are look, not function:
+   they live in content-base.css's layer, where a theme or the user's CSS
+   can set them. */
 .milkdown {
   --md-gap: 0.8em;
   --md-gap-box: 1.1em;
-  --md-radius: 8px;
-  --md-radius-sm: 4px;
-  font-family: var(--editor-font, var(--font-sans));
-  font-size: clamp(
-    16.5px,
-    calc(12.94px + 0.46875cqi / var(--content-zoom, 1)),
-    18px
-  );
-  line-height: 1.8;
-  color: var(--editor-text);
+  --md-radius: var(--radius-block);
+  --md-radius-sm: var(--radius-small);
 }
 
+/* A click anywhere below the text still lands in it: the page's height,
+   less the column's padding above and below it (App.css .editor-content,
+   3rem + 6rem) - with only 6rem off, an empty document scrolled by 48px
+   and showed a scrollbar. Divided by the zoom, which scales this node's
+   lengths (useZoom.ts). */
 .milkdown .ProseMirror {
   outline: none;
-  min-height: calc(100vh - 6rem);
+  min-height: calc((100vh - 9rem) / var(--content-zoom, 1));
 }
 
 @media print {
@@ -82,6 +78,13 @@
   opacity: 0.65;
   font-style: italic;
   white-space: pre-wrap;
+}
+
+/* A suggestion's first appearance fades in; the rest of one already on
+   show (ghost-text-plugin.ts's `fresh`) and its removal are instant -
+   nothing on the typing path moves. */
+.ghost-text-enter::after {
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
 }
 
 /* While the caret sits exactly where a suggestion is showing, WKWebView's
@@ -132,12 +135,12 @@
    or discards them, never direct typing on the decoration itself. */
 .pending-delete {
   text-decoration: line-through;
-  text-decoration-color: rgba(220, 38, 38, 0.6);
-  background: rgba(220, 38, 38, 0.12);
+  text-decoration-color: var(--diff-delete-line);
+  background: var(--diff-delete-bg);
 }
 
 .pending-insert {
-  background: rgba(22, 163, 74, 0.14);
+  background: var(--diff-insert-bg);
   border-radius: var(--md-radius-sm);
   padding: 0 2px;
   /* Renders real markdown (renderMarkdownInlineHtml), not source text - the
@@ -148,7 +151,7 @@
      reason. */
   white-space: normal;
   user-select: none;
-  animation: pending-insert-fade 0.25s ease-out;
+  animation: motion-fade-in var(--dur-base) var(--ease-out);
 }
 
 .pending-insert code {
@@ -156,28 +159,26 @@
   font-size: 0.9em;
 }
 
-@keyframes pending-insert-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* While the typewriter is still revealing text (pending-edit-plugin's
    animation queue), a blinking caret marks the growth point - same
    blink cadence as the ghost-text caret above. */
 .pending-insert-typing::after {
   content: "\200b";
-  border-left: 1.5px solid rgba(22, 163, 74, 0.9);
+  border-left: 1.5px solid var(--diff-caret);
   margin-left: 1px;
   animation: ghost-caret-blink 1.1s step-end infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pending-insert {
-    animation: none;
+/* "Show in document" (reveal-position.ts): the block a comment is about
+   flashes the accent once and lets it go - long enough to be found, and
+   gone before it reads as a mark. */
+.milkdown .ProseMirror > .reveal-pulse {
+  animation: reveal-pulse calc(var(--dur-base) * 4) var(--ease-out);
+}
+
+@keyframes reveal-pulse {
+  from {
+    background-color: color-mix(in srgb, var(--editor-accent) 20%, transparent);
   }
 }
 
@@ -381,7 +382,7 @@
   box-shadow: 0 0 0 2px var(--editor-bg, var(--bg));
   cursor: ew-resize;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--dur-fast) var(--ease-standard);
   touch-action: none;
 }
 
@@ -451,8 +452,16 @@
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-surface);
   background: var(--bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--shadow-popover);
   pointer-events: none;
+  /* Plays each time it is shown (display: none in between); typing in the
+     formula re-renders it without moving it. */
+  transform-origin: var(--transform-origin, top left);
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.math-float-preview[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .math-inline-rendered {
@@ -467,32 +476,10 @@
 }
 
 /* md_span covers bold/italic/bold+italic/strikethrough/highlight - all real,
-   always-editable nodes (see md-span-schema.ts). The styling here always
-   applies regardless of cursor position; only the delimiter reveal below is
+   always-editable nodes (see md-span-schema.ts). How they look (weight,
+   slant, strike, highlight) is in content-base.css's layer, so a theme's
+   or the user's plain `strong {}` wins; only the delimiter reveal below is
    cursor-dependent. */
-.md-span[data-delim="*"][data-rung="1"] {
-  font-style: italic;
-}
-
-.md-span[data-delim="*"][data-rung="2"] {
-  font-weight: 650;
-}
-
-.md-span[data-delim="*"][data-rung="3"] {
-  font-weight: 650;
-  font-style: italic;
-}
-
-.md-span[data-delim="~"] {
-  text-decoration: line-through;
-  opacity: 0.75;
-}
-
-.md-span[data-delim="="] {
-  background: var(--editor-highlight-bg);
-  border-radius: var(--md-radius-sm);
-  padding: 0 0.15em;
-}
 
 /* No border/box here on purpose - at rest a formula should read as part of
    the document, not as a distinct UI card. The panel look only appears
@@ -575,7 +562,7 @@
   padding-top: 2px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-fast) var(--ease-standard);
 }
 
 .code-block-wrapper:hover .code-block-header,
@@ -590,7 +577,7 @@
   /* Opaque: it can overlap the text right below the block. */
   background: var(--editor-bg, var(--bg));
   border: 1px solid var(--editor-border);
-  border-radius: var(--md-radius-sm);
+  border-radius: var(--radius-control);
   padding: 0.1em 0.3em;
   cursor: pointer;
 }
@@ -688,6 +675,25 @@
   --md-alert-important: #ab7df8;
   --md-alert-warning: #d29922;
   --md-alert-caution: #f85149;
+}
+
+/* A one-design imported theme keeps its light page in the dark appearance
+   (SettingsContext sets data-light-page): the dark tokens above would be
+   pale on that white page. */
+:root[data-light-page] {
+  --token-string: #5f8b4c;
+  --token-number: #b0742d;
+  --token-keyword: #a15bbf;
+  --token-function: #3a6bd6;
+  --token-tag: #c1495a;
+}
+
+:root[data-light-page] .milkdown {
+  --md-alert-note: #0969da;
+  --md-alert-tip: #1a7f37;
+  --md-alert-important: #8250df;
+  --md-alert-warning: #9a6700;
+  --md-alert-caution: #cf222e;
 }
 
 /* List markers are drawn as an out-of-flow ::before instead of the native
@@ -889,9 +895,9 @@
   opacity: 0;
   pointer-events: none;
   transition:
-    opacity 0.12s ease,
-    color 0.12s ease,
-    border-color 0.12s ease;
+    opacity var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
 }
 
 .table-wrapper:hover .table-add-row-btn,
@@ -925,11 +931,11 @@
 }
 
 /* Zen mode's focus (zen-focus-plugin.ts): everything but the block being
-   written recedes. */
-.zen .milkdown .ProseMirror > * {
-  transition: opacity 0.25s ease;
-}
-
-.zen .milkdown .ProseMirror > :not(.zen-current) {
+   written recedes. It changes only when the caret changes block, never per
+   keystroke. Only once there is a current block: with the caret outside
+   the text, every paragraph at a third read as broken. The fade itself is
+   in content-base.css's layer, outside .zen so leaving zen fades back too,
+   and below a theme's own transitions. */
+.zen .milkdown .ProseMirror:has(> .zen-current) > :not(.zen-current) {
   opacity: 0.32;
 }

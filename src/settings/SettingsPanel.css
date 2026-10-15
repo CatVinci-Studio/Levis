@@ -33,10 +33,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border-color);
-  font-size: 15px;
-  font-weight: 650;
+  font-size: var(--text-xl);
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -54,8 +54,12 @@
   min-height: 0;
 }
 
+/* As wide as the longest category name needs, within bounds: a German or
+   Russian "Editor & Appearance" gets room for one line, and a name longer
+   still wraps (hyphenated where the language allows) inside the cap. */
 .settings-nav {
-  width: 176px;
+  min-width: 176px;
+  max-width: 232px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -76,6 +80,8 @@
   background: transparent;
   color: var(--sidebar-text, var(--editor-muted));
   cursor: pointer;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .settings-nav-item:hover {
@@ -85,10 +91,13 @@
 .settings-nav-item-active {
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
-  font-weight: 550;
+  font-weight: 500;
 }
 
+/* A new page fades in where the last one was; the nav's highlight moves
+   at once. */
 .settings-content {
+  animation: motion-settle-in var(--dur-fast) var(--ease-out);
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   flex: 1;
@@ -139,7 +148,7 @@
   border-left: 4px solid currentColor;
   border-top: 3.5px solid transparent;
   border-bottom: 3.5px solid transparent;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .settings-advanced[open] > summary::before {
@@ -269,6 +278,9 @@ button.settings-danger-button {
 /* Toggles render as switches, not native checkboxes - the single clearest
    "this is a settings panel" affordance, and it reads at a glance. */
 .settings-row input[type="checkbox"] {
+  /* The thumb, and how far it travels (the phone's are UIKit's sizes). */
+  --switch-thumb: 17px;
+  --switch-travel: 15px;
   appearance: none;
   -webkit-appearance: none;
   flex-shrink: 0;
@@ -280,28 +292,46 @@ button.settings-danger-button {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--editor-muted) 38%, var(--bg));
   cursor: pointer;
-  transition: background 160ms ease;
+  transition: background-color var(--dur-base) var(--ease-standard);
 }
 
+/* The thumb lands with UISwitch's slight overshoot. Reduced motion: it
+   jumps (a travel of 0), and only the track's colour fades. */
 .settings-row input[type="checkbox"]::after {
   content: "";
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 17px;
-  height: 17px;
+  width: var(--switch-thumb);
+  height: var(--switch-thumb);
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 160ms ease;
+  box-shadow: var(--shadow-thumb);
+  transform-origin: left center;
+  transition: transform calc(var(--dur-medium) * var(--motion-travel))
+    var(--ease-spring-bouncy);
 }
 
+/* The accent's solid fill: in dark mode the editor accent is a pale blue
+   the white thumb hardly stands out from. */
 .settings-row input[type="checkbox"]:checked {
-  background: var(--editor-accent);
+  background: var(--chrome-primary);
 }
 
 .settings-row input[type="checkbox"]:checked::after {
-  transform: translateX(15px);
+  transform: translateX(var(--switch-travel));
+}
+
+/* Held down, the thumb stretches toward the side it would go to, as
+   UISwitch's does, and springs back when let go. */
+.settings-row input[type="checkbox"]:active::after {
+  transform: scaleX(1.2);
+  transition-duration: calc(var(--dur-fast) * var(--motion-travel));
+}
+
+.settings-row input[type="checkbox"]:checked:active::after {
+  transform: translateX(calc(var(--switch-travel) - var(--switch-thumb) * 0.2))
+    scaleX(1.2);
 }
 
 .settings-row input[type="checkbox"]:focus-visible {
@@ -326,16 +356,8 @@ button.settings-inline-button {
   flex-shrink: 0;
 }
 
-/* The resolved workspace folder. A path is long and matters exactly, so it
+/* The resolved project folder. A path is long and matters exactly, so it
    gets its own line in a mono face rather than being squeezed into the hint. */
-.settings-workspace-root {
-  margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--editor-text);
-  overflow-wrap: anywhere;
-}
-
 .shortcut-row-controls {
   display: flex;
   align-items: center;
@@ -493,7 +515,7 @@ button.settings-inline-button {
   flex-shrink: 0;
   color: var(--editor-muted);
   transform: rotate(90deg);
-  transition: transform 140ms ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .combobox-caret-open {
@@ -510,7 +532,7 @@ button.settings-inline-button {
   flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   box-shadow: var(--shadow-popover);
   overflow: hidden;
 }
@@ -541,7 +563,7 @@ button.settings-inline-button {
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: none;
   color: inherit;
   font: inherit;
@@ -636,7 +658,7 @@ button.settings-inline-button {
 .auth-tab-active {
   background: var(--bg);
   color: var(--editor-text);
-  font-weight: 550;
+  font-weight: 500;
   box-shadow: none;
 }
 
@@ -652,16 +674,6 @@ button.settings-inline-button {
 
 /* Label on top, then the controls, then their note - for a field whose
    controls (a model picker and its fetch button) need the row's width. */
-.settings-field-stacked {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.settings-field-stacked > .settings-row-hint {
-  margin-top: -2px;
-}
-
 .settings-field-label {
   font-size: var(--text-md);
   color: var(--editor-text);
@@ -728,6 +740,93 @@ button.settings-inline-button {
   text-overflow: ellipsis;
 }
 
+/* "Replaces a built-in skill", "This project", "Customized": a quiet pill
+   after the name. */
+.settings-skill-tag {
+  flex-shrink: 0;
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--editor-muted) 14%, transparent);
+  color: var(--editor-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 18px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+/* "Built-in updated": a customized copy older than the bundled skill -
+   the one tag that asks for a look, so it takes the accent. */
+.settings-skill-tag-notice {
+  background: color-mix(in srgb, var(--editor-accent) 14%, transparent);
+  color: var(--editor-accent);
+}
+
+/* The built-in skills: a disclosure like Advanced, its count of those
+   switched on at the right of the title. */
+.settings-builtin-skills-count {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.settings-builtin-category-title {
+  padding: 12px 0 2px;
+  color: var(--editor-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.settings-builtin-category > .settings-row + .settings-row {
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.settings-builtin-skill-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.settings-builtin-skill .settings-row-control {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+/* Customize… / Open / Reset: words, not boxed buttons - eighteen rows of
+   boxes outweighed the skills they belong to. */
+button.settings-skill-action {
+  width: auto;
+  margin: 0;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--editor-accent);
+  font: inherit;
+  font-size: var(--text-md);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-skill-actions {
+  display: flex;
+  gap: 2px;
+}
+
+button.settings-skill-action:hover {
+  background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
+}
+
+button.settings-skill-action:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+
+.settings-builtin-skill input[type="checkbox"] {
+  margin-left: 6px;
+}
+
 /* The skills list continues its header row - no hairline between them. */
 .settings-group-body > .settings-skill-list {
   border-top: none;
@@ -741,11 +840,6 @@ button.settings-inline-button {
 
 /* The agent-workspace explainer needs room to wrap - it's a paragraph, not
    a one-line hint. */
-.settings-workspace-hint {
-  max-width: 420px;
-  line-height: 1.5;
-}
-
 .custom-model-row {
   display: flex;
   align-items: center;
@@ -778,6 +872,8 @@ button.settings-inline-button {
      second line when the labels don't fit (narrow windows, the iPhone). */
   .settings-nav {
     width: auto;
+    min-width: 0;
+    max-width: none;
     flex-direction: row;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -852,15 +948,10 @@ button.settings-inline-button {
 
 .settings-category-title {
   margin: 0 0 20px;
-  font-size: 20px;
-  font-weight: 650;
+  font-size: var(--text-2xl);
+  font-weight: 600;
   line-height: 1.3;
   color: var(--editor-text);
-}
-
-.settings-panel :is(button, input, select, textarea, summary):focus-visible {
-  outline: 2px solid var(--editor-accent);
-  outline-offset: 3px;
 }
 
 .shortcut-setting {
@@ -869,13 +960,6 @@ button.settings-inline-button {
 
 .shortcut-setting .settings-error {
   margin-top: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settings-panel *,
-  .settings-panel *::after {
-    transition: none;
-  }
 }
 
 .appearance-options {
@@ -971,7 +1055,7 @@ button.settings-inline-button {
   border-top: 3.5px solid transparent;
   border-bottom: 3.5px solid transparent;
   opacity: 0.6;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .settings-disclosure[open] > .settings-disclosure-summary::before {

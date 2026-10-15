@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { strings } from "../i18n/strings";
+import { LANGS, resolveStrings } from "../i18n/strings";
 import { installTestLocalStorage } from "../test-local-storage";
 import { useTutorial } from "./useTutorial";
 import { useTutorialDocumentEvaluation } from "./useTutorialDocumentEvaluation";
@@ -10,7 +10,7 @@ beforeAll(installTestLocalStorage);
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 describe("localized editing exercises", () => {
-  it.each(["zh", "en", "ja"] as const)(
+  it.each(LANGS)(
     "recognizes the displayed source and revision in %s",
     (lang) => {
       localStorage.setItem(
@@ -21,7 +21,7 @@ describe("localized editing exercises", () => {
           tabId: "practice",
         }),
       );
-      const copy = strings[lang];
+      const copy = resolveStrings(lang);
       const { result } = renderHook(() => {
         const tutorial = useTutorial();
         const evaluate = useTutorialDocumentEvaluation(tutorial, copy);

@@ -61,7 +61,7 @@
   background: none;
   color: var(--editor-muted);
   cursor: pointer;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   /* Off reads as "available but not doing anything"; on has to be obvious at
      a glance, since the whole point is that the window then behaves
      differently. Colour carries that, so the icon itself never changes. */
@@ -96,7 +96,12 @@
 .chat-window-body .inline-chat-bar,
 .chat-window-body .inline-chat-skill-menu {
   flex: 0 0 auto;
-  border-top: 1px solid var(--editor-border);
+}
+
+/* The composer is a box of its own (inline-chat.css); the / and @ lists
+   above it keep their rule. */
+.chat-window-body .inline-chat-skill-menu {
+  border-top: 1px solid var(--chat-hairline, var(--editor-border));
 }
 
 /* Both now sit UNDER the header rather than replacing the whole window (the

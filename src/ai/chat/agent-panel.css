@@ -13,6 +13,17 @@
   background: var(--editor-bg, var(--bg));
   border-left: 1px solid var(--border-color);
   color: var(--editor-text);
+  /* It takes its full width at once - the editor glides aside (App.tsx's
+     FlipOnChange) - and slides into it from just beside it. Never a width
+     animation: that reflowed the whole document on every frame. */
+  animation: motion-nudge-in-end var(--dur-slow) var(--ease-out);
+}
+
+/* It leaves the way it came, in its own place; the editor takes the room
+   back once it has gone, rather than sliding in under it while it still
+   shows. */
+.agent-panel[data-state="closing"] {
+  animation: motion-nudge-out-end var(--dur-base) var(--ease-in) forwards;
 }
 
 .agent-panel-mount {
@@ -26,6 +37,8 @@
   flex-direction: column;
 }
 
+/* Under a drag the width follows the pointer with no transition - the
+   panel is in the hand; only the handle's own colour fades. */
 .agent-panel-resizer {
   position: absolute;
   top: 28px;
@@ -34,6 +47,7 @@
   width: 6px;
   cursor: col-resize;
   z-index: 5;
+  transition: background-color var(--dur-fast) var(--ease-standard);
 }
 
 .agent-panel-resizer:hover,
@@ -55,8 +69,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 8px 8px 12px;
-  border-bottom: 1px solid var(--editor-border, var(--border-color));
+  min-height: 40px;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--chat-hairline, var(--border-color));
 }
 
 .agent-panel-heading {
@@ -68,7 +83,8 @@
 
 .agent-panel-title {
   font-size: var(--text-md);
-  font-weight: 650;
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 .agent-panel-actions {
@@ -90,20 +106,120 @@
   max-height: none;
 }
 
-.agent-panel-body .inline-chat-bar,
-.agent-panel-body .inline-chat-skill-menu {
+/* The composer is a box of its own on the panel's foot (inline-chat.css's
+   .inline-chat-field), so no rule across the panel above it; the / and @
+   lists, which open in the flow above it, keep theirs. */
+.agent-panel-body .inline-chat-bar {
   flex: 0 0 auto;
-  border-top: 1px solid var(--editor-border, var(--border-color));
 }
 
+/* Short of room - the keyboard up under a phone's half sheet - the list
+   gives way and scrolls inside, after the empty state below has gone: it
+   ran up over the sheet's handle, its close button and its first row. */
+.agent-panel-body .inline-chat-skill-menu {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.agent-panel-body .inline-chat-skill-menu {
+  border-top: 1px solid var(--chat-hairline, var(--border-color));
+}
+
+.agent-panel-body .inline-chat-bar {
+  padding: 8px 10px 10px;
+}
+
+/* Nothing said yet: the spark and what to do, in the middle of the
+   panel's empty height rather than as a line in its top corner. */
 .agent-panel-empty {
-  margin: 16px 14px 0;
-  font-size: var(--text-md);
-  color: var(--editor-muted);
+  /* Of everything over the composer, it gives up its room first. */
+  flex: 1 100 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 12px;
+  min-height: 0;
+  margin: 0;
+  /* No padding top or bottom: padding is the one part of a box that never
+     gives way, and with the keyboard up it held 64px the / list needed. */
+  padding: 0 28px;
+  /* Short of room (the / list or the keyboard up on a phone) it is cut,
+     never squashed - and it drops what no longer fits whole (below), so
+     the cut never runs through the hint's line. */
+  overflow: hidden;
+  container: agent-empty / size;
+  text-align: center;
+  animation: motion-fade-in var(--dur-slow) var(--ease-out);
 }
 
-/* Narrow windows: the editor keeps priority; the panel overlays it instead
-   of squeezing the text column to nothing. */
+/* The (empty) message list after it gives it the room - its padding too,
+   over the panel's (inline-chat.css), which held 30px of nothing there. */
+.agent-panel-body .agent-panel-empty + .inline-chat-messages {
+  flex: 0 0 auto;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.agent-panel-empty-mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--editor-accent) 12%, transparent);
+  color: var(--editor-accent);
+}
+
+.agent-panel-empty-mark svg {
+  width: 22px;
+  height: 22px;
+}
+
+.agent-panel-empty-text {
+  max-width: 26em;
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: 1.55;
+  color: var(--editor-muted);
+  text-wrap: pretty;
+}
+
+/* Short of room the spark goes first, then the hint once even its line
+   has none (spark, gap and line take about 82px; some air around them). */
+@container agent-empty (height < 110px) {
+  .agent-panel-empty-mark {
+    display: none;
+  }
+}
+
+@container agent-empty (height < 28px) {
+  .agent-panel-empty-text {
+    display: none;
+  }
+}
+
+/* Narrow windows - or a small one with the sidebar open too (App.tsx's
+   agentOverlays): the editor keeps priority; the panel overlays it instead
+   of squeezing the text column to nothing - in from the window's edge on
+   a spring, and back out. */
+.agent-panel.agent-panel-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  max-width: 92vw;
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+  animation: motion-edge-in-end var(--dur-slow) var(--ease-spring);
+}
+
+.agent-panel.agent-panel-overlay[data-state="closing"] {
+  animation: motion-edge-out-end var(--dur-base) var(--ease-in) forwards;
+}
+
 @media (max-width: 760px) {
   .agent-panel {
     position: absolute;
@@ -113,6 +229,11 @@
     z-index: 40;
     max-width: 92vw;
     box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+    animation: motion-edge-in-end var(--dur-slow) var(--ease-spring);
+  }
+
+  .agent-panel[data-state="closing"] {
+    animation: motion-edge-out-end var(--dur-base) var(--ease-in) forwards;
   }
 }
 
@@ -125,8 +246,8 @@
 /* The project bar (ProjectBar.tsx): which folder the agent works in, and
    the style profile / library kept in it. */
 .project-bar {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--editor-border, var(--border-color));
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--chat-hairline, var(--border-color));
   font-size: var(--text-sm);
 }
 
@@ -150,7 +271,7 @@
   max-width: 60%;
   padding: 3px 6px;
   border: none;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: none;
   color: inherit;
   font: inherit;
@@ -203,6 +324,12 @@
   display: flex;
   flex-direction: column;
   min-width: 220px;
+  transform-origin: top left;
+  animation: motion-pop-in var(--dur-base) var(--ease-out);
+}
+
+.project-bar-menu[data-state="closing"] {
+  animation: motion-pop-out var(--dur-fast) var(--ease-in) forwards;
 }
 
 .project-bar-naming {
@@ -216,7 +343,7 @@
   min-width: 0;
   padding: 4px 8px;
   border: 1px solid var(--editor-border, var(--border-color));
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   background: var(--editor-bg, var(--bg));
   color: inherit;
   font: inherit;

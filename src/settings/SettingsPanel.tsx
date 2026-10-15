@@ -10,8 +10,13 @@ import {
   type ContentWidth,
   type ProxyType,
 } from "./SettingsContext";
-import type { Lang, Strings } from "../i18n/strings";
-import { SettingRow, ToggleRow, ShortcutRow } from "./sections/controls";
+import { LANGS, LANG_NAMES, type Lang, type TextKey } from "../i18n/strings";
+import {
+  SettingRow,
+  ToggleRow,
+  ShortcutRow,
+  VERBATIM_INPUT,
+} from "./sections/controls";
 import { ChevronIcon, CloseIcon } from "../ui/icons";
 import { UpdateSection, CliCommandSection } from "./sections/general";
 import { ThemeSection } from "./sections/theme";
@@ -23,12 +28,17 @@ import {
   AgentWorkspaceRootSection,
   AgentWorkspaceSection,
   AgentSystemPromptSection,
-  AgentSkillsSection,
 } from "./sections/agent";
+import {
+  AgentSkillsSection,
+  BuiltinSkillsSection,
+  WritingConventionsRow,
+} from "./sections/skills";
 import { PrivacySection } from "./sections/privacy";
 import { ImageStorageSection } from "./sections/images";
 import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
+import { usePresenceProps } from "../ui/usePresence";
 import { Select } from "../ui/Select";
 import { emitMenuEvent } from "../ui/app-menu-actions";
 import type { MenuChecks } from "../ui/app-menu-model";
@@ -55,12 +65,14 @@ interface SettingsPanelProps {
   onClose: () => void;
   /** Opens a document in the editor - the agent.md "edit" button uses it. */
   onOpenFile: (path: string) => void;
+  /** Files a settings action deleted (Reset on a customized skill), for
+   *  the editor to close their tabs. */
+  onFilesDeleted?: (paths: string[]) => void;
   /** Which of the window's view modes are on, for Editor > View. */
   viewChecks?: Pick<MenuChecks, "sourceMode" | "zen">;
 }
 
-export type Category =
-  "general" | "editor" | "ai" | "agent" | "shortcuts" | "privacy";
+export type Category = "general" | "editor" | "ai" | "shortcuts" | "privacy";
 
 function SettingsGroup({
   title,
@@ -94,11 +106,16 @@ function HelpRow({ label, onOpen }: { label: string; onOpen: () => void }) {
 export function SettingsPanel({
   onClose,
   onOpenFile,
+  onFilesDeleted,
   viewChecks = {},
 }: SettingsPanelProps) {
   const { settings, setSettings, t } = useSettings();
   const [category, setCategory] = useState<Category>("general");
-  const modal = useModalDialog(onClose);
+  // Closing Settings on a phone leaves the keyboard down: the user is
+  // going back to the page, not necessarily to typing.
+  const modal = useModalDialog(onClose, true, undefined, false);
+  // Rendered inside a Presence (App.tsx): it goes the way it came.
+  const presence = usePresenceProps<HTMLDivElement>();
 
   // The guides open as documents, behind this panel - so it gives way.
   const openHelp = (doc: "markdown" | "agent") => {
@@ -110,7 +127,6 @@ export function SettingsPanel({
     { id: "general", label: t.navGeneral },
     { id: "editor", label: t.navEditor },
     { id: "ai", label: t.navAi },
-    { id: "agent", label: t.navAgent },
     // A phone has no keyboard to bind shortcuts on.
     ...(isIOSApp ? [] : [{ id: "shortcuts" as const, label: t.navShortcuts }]),
     { id: "privacy", label: t.navPrivacy },
@@ -130,9 +146,13 @@ export function SettingsPanel({
                   setSettings({ language: e.target.value as Lang })
                 }
               >
-                <option value="en">English</option>
-                <option value="zh">中文</option>
-                <option value="ja">日本語</option>
+                {/* Each in its own language, so a user who can't read the
+                    current one still finds theirs. */}
+                {LANGS.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {LANG_NAMES[lang]}
+                  </option>
+                ))}
               </Select>
             </SettingRow>
             {canUseWindows && (
@@ -241,6 +261,9 @@ export function SettingsPanel({
         </>
       )}
 
+      {/* One page for the AI, connect first and then the features, each
+          model beside the feature it drives. The model list is fetched
+          once, under Connection, for both pickers. */}
       {c === "ai" && (
         <>
           <SettingsGroup title={t.aiAccountLabel}>
@@ -264,6 +287,8 @@ export function SettingsPanel({
               <div className="settings-proxy-row">
                 <input
                   type="text"
+                  inputMode="url"
+                  {...VERBATIM_INPUT}
                   className="settings-text-input settings-proxy-host"
                   placeholder={t.proxyHostPlaceholder}
                   aria-label={t.proxyHostPlaceholder}
@@ -272,6 +297,8 @@ export function SettingsPanel({
                 />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  {...VERBATIM_INPUT}
                   className="settings-text-input settings-proxy-port"
                   placeholder={t.proxyPortPlaceholder}
                   aria-label={t.proxyPortPlaceholder}
@@ -280,18 +307,13 @@ export function SettingsPanel({
                 />
               </div>
             )}
-          </SettingsGroup>
-          {/* Both pickers together, under one fetch of the provider's
-              list - they used to sit on two pages, each with its own. */}
-          <SettingsGroup title={t.settingsModelsGroup}>
-            <WritingModelSection t={t} />
-            <AgentModelSection t={t} />
             <ModelListRow t={t} />
           </SettingsGroup>
+
           <SettingsGroup title={t.writingFeaturesLabel}>
+            <WritingModelSection t={t} />
             <ToggleRow
               label={t.aiCompletionLabel}
-              hint={isIOSApp ? t.aiCompletionHintTouch : t.aiCompletionHint}
               checked={settings.enableCompletion}
               onChange={(v) => setSettings({ enableCompletion: v })}
             />
@@ -309,7 +331,7 @@ export function SettingsPanel({
                 >
                   {COMPLETION_TONES.map((tone) => (
                     <option key={tone} value={tone}>
-                      {t[`completionTone_${tone}` as keyof Strings]}
+                      {t[`completionTone_${tone}` as TextKey]}
                     </option>
                   ))}
                 </Select>
@@ -340,20 +362,18 @@ export function SettingsPanel({
                 </Select>
               </SettingRow>
             )}
+            <WritingConventionsRow t={t} />
           </SettingsGroup>
-        </>
-      )}
 
-      {c === "agent" && (
-        <>
-          <SettingsGroup title={t.navAgent}>
+          <SettingsGroup title={t.aiAskLabel}>
             <ToggleRow
-              label={t.aiAskLabel}
+              label={t.aiAskToggleLabel}
               checked={settings.enableAskAi}
               onChange={(v) => setSettings({ enableAskAi: v })}
             />
             {settings.enableAskAi && (
               <>
+                <AgentModelSection t={t} />
                 <SettingRow label={t.agentDefaultModeLabel}>
                   <Select
                     className="settings-select"
@@ -372,6 +392,7 @@ export function SettingsPanel({
                 </SettingRow>
                 <ToggleRow
                   label={t.webSearchLabel}
+                  hint={t.webSearchHint}
                   checked={settings.enableWebSearch}
                   onChange={(v) => setSettings({ enableWebSearch: v })}
                 />
@@ -379,6 +400,10 @@ export function SettingsPanel({
             )}
           </SettingsGroup>
 
+          {/* Project files, writing instructions and skills only reach
+              conversations, so with chat off there is nothing here to set.
+              (Completion still follows the project's style profile and
+              library - see docs/AI-CONCEPTS.md.) */}
           {settings.enableAskAi && (
             <>
               <SettingsGroup title={t.agentPersonalizationGroupLabel}>
@@ -391,6 +416,13 @@ export function SettingsPanel({
                 <AgentSkillsSection t={t} />
                 {canRevealInFileManager && <AgentWorkspaceSection t={t} />}
               </SettingsGroup>
+
+              <BuiltinSkillsSection
+                t={t}
+                onOpenFile={onOpenFile}
+                onFilesDeleted={onFilesDeleted}
+                onClose={onClose}
+              />
 
               <details className="settings-advanced">
                 <summary>{t.agentAdvancedGroupLabel}</summary>
@@ -498,7 +530,7 @@ export function SettingsPanel({
   );
 
   return (
-    <div className="settings-backdrop" onClick={onClose}>
+    <div {...presence} className="settings-backdrop" onClick={onClose}>
       <div
         {...modal}
         role="dialog"
@@ -535,7 +567,16 @@ export function SettingsPanel({
                 key={c.id}
                 aria-current={category === c.id ? "page" : undefined}
                 className={`settings-nav-item ${category === c.id ? "settings-nav-item-active" : ""}`}
-                onClick={() => setCategory(c.id)}
+                onClick={(e) => {
+                  setCategory(c.id);
+                  // On a phone the tabs are one row that scrolls sideways;
+                  // in a long language the chosen one can be half out of
+                  // view.
+                  e.currentTarget.scrollIntoView?.({
+                    block: "nearest",
+                    inline: "nearest",
+                  });
+                }}
               >
                 {c.label}
               </button>

@@ -39,8 +39,8 @@ export interface EditProposal {
 }
 
 /**
- * One skill from the agent workspace (global dir or the document folder's
- * .levis/skills/*.md files) - see src-tauri/src/ai/workspace.rs. The
+ * One skill, from the global config folder's skills/ or the project's
+ * .levis/skills/*.md files - see src-tauri/src/ai/workspace.rs. The
  * frontend only needs name/description for the /name picker; the prompt is
  * used when the user forces a skill manually.
  */
@@ -48,6 +48,18 @@ export interface AgentSkill {
   name: string;
   description: string;
   prompt: string;
+  /** The rest of ai::workspace::AgentSkill (see SkillListItem in ipc.ts);
+   *  optional so a minimal skill still type-checks. */
+  category?: string | null;
+  invocation?: "both" | "userOnly" | "hidden";
+  source?: "builtin" | "global" | "project";
+  overridesBuiltin?: boolean;
+  enabled?: boolean;
+  aliases?: Record<string, string[]>;
+  packs?: string[];
+  version?: string | null;
+  basedOn?: string | null;
+  builtinUpdated?: boolean;
 }
 
 /**

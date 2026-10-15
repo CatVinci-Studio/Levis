@@ -1,6 +1,7 @@
-//! The project folder: the agent workspace root seen as writing material.
-//! One place for walking it, reading from it safely, searching it, and the
-//! two writing aids that live in its `.levis/` directory:
+//! The project folder (in code, the workspace root) seen as writing
+//! material - see docs/AI-CONCEPTS.md. One place for walking it, reading
+//! from it safely, searching it, and the two writing aids that live in its
+//! `.levis/` directory:
 //!
 //! ```text
 //! my-novel/
@@ -25,9 +26,11 @@
 //!
 //! Entries go to the model only when they matter: `always`, or `detected` -
 //! the name or an alias appears in what the request is about. Undetected
-//! entries cost nothing, so a large library stays cheap.
+//! entries cost nothing, so a large library stays cheap. As in agent.md,
+//! `<!-- -->` comments in the style profile and in entries are notes to
+//! self and never reach the model.
 
-use crate::ai::workspace::WORKSPACE_DIR_NAME;
+use crate::ai::workspace::{strip_html_comments, WORKSPACE_DIR_NAME};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -231,7 +234,7 @@ pub fn parse_library_entry(file: &str, stem: &str, content: &str) -> LibraryEntr
         aliases: Vec::new(),
         include: LibraryInclude::Detected,
         file: file.to_string(),
-        body: content.trim().to_string(),
+        body: strip_html_comments(content).trim().to_string(),
     };
     if let Some(rest) = content.strip_prefix("---") {
         if let Some(end) = rest.find("\n---") {
@@ -255,7 +258,7 @@ pub fn parse_library_entry(file: &str, stem: &str, content: &str) -> LibraryEntr
                     _ => {}
                 }
             }
-            entry.body = rest[end + 4..].trim().to_string();
+            entry.body = strip_html_comments(&rest[end + 4..]).trim().to_string();
         }
     }
     entry
@@ -291,9 +294,19 @@ fn style_path(root: &Path) -> PathBuf {
 pub fn read_style(root: &Path) -> Option<String> {
     std::fs::read_to_string(style_path(root))
         .ok()
-        .map(|s| s.trim().to_string())
+        .map(|s| strip_html_comments(&s).trim().to_string())
         .filter(|s| !s.is_empty())
         .map(|s| s.chars().take(MAX_STYLE_CHARS).collect())
+}
+
+/// The writing conventions a style profile's front matter sets: a
+/// `conventions:` profile (or several, comma-separated, one per language)
+/// and option keys such as `cjk-latin-space: on` - see rules::profile. The
+/// front matter stays in the profile text the model reads.
+pub fn style_conventions(style: Option<&str>) -> crate::ai::rules::ProjectConventions {
+    style
+        .map(crate::ai::rules::ProjectConventions::from_style)
+        .unwrap_or_default()
 }
 
 /// The library entries a request should carry: `always` ones, plus
@@ -321,12 +334,17 @@ pub fn relevant_library<'a>(library: &'a [LibraryEntry], context: &str) -> Vec<&
 }
 
 /// The prompt section for the style profile and the relevant library
-/// entries - shared by the agent and the inline completion.
+/// entries - shared by the agent and the inline completion. Each header
+/// says what the material is and how it binds: in the round-2 eval the
+/// agent applied a profile's present tense to a plan for next year, split a
+/// sentence under a length rule so it no longer covered what it had, and
+/// shrank a requested expansion; and it recited a library entry's back
+/// story as exposition where a scene was asked for.
 pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(style) = style {
         parts.push(format!(
-            "---the author's style profile (follow it when writing for this project)---\n{style}"
+            "---the author's style profile (.levis/style.md: how this author writes, drafted from their own writing with \"Learn my style\" or written by them; follow it in all the text you write for this project's documents, whatever their language - it shapes that text, never the language you reply in. Its concrete limits - sentence length, words and punctuation to avoid - are rules; its habits apply where they read naturally and never override the request or the sense of the text: a habit of the present tense doesn't turn a plan into a fact, a habit of speaking to \"you\" doesn't turn the author's own account of what they did into the reader's, a length limit doesn't let a sentence drop what it covered, and an expansion still comes out longer)---\n{style}"
         ));
     }
     if !entries.is_empty() {
@@ -343,7 +361,7 @@ pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -
             .collect::<Vec<_>>()
             .join("\n\n");
         parts.push(format!(
-            "---project library: established facts about the people, places and terms mentioned here - stay consistent with them---\n{body}"
+            "---project library (.levis/library): established facts about the people, places and terms mentioned here - stay consistent with them, add nothing about them that neither this nor the text gives, and treat them as background: use them as constraints, not as text to recite---\n{body}"
         ));
     }
     (!parts.is_empty()).then(|| parts.join("\n\n"))
@@ -367,6 +385,66 @@ mod tests {
         let plain = parse_library_entry("f", "Harbour", "A port city.");
         assert_eq!(plain.name, "Harbour");
         assert_eq!(plain.include, LibraryInclude::Detected);
+    }
+
+    #[test]
+    fn learned_profiles_use_the_template_headings() {
+        // "Create style profile" writes projectStyleTemplate; "Learn my
+        // style" must head its profile the same way in each UI language.
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let instructions = style_instructions();
+        let mut checked = 0;
+        for language in crate::ai::ui_language::UI_LANGUAGES {
+            let code = language.code;
+            let strings =
+                std::fs::read_to_string(repo.join(format!("src/i18n/locales/{code}.ts"))).unwrap();
+            let Some(template) = strings
+                .lines()
+                .find(|l| l.trim_start().starts_with("projectStyleTemplate:"))
+            else {
+                // Not translated yet: the English starter, English headings.
+                continue;
+            };
+            let headings = language
+                .style_headings()
+                .unwrap_or_else(|| panic!("style-headings/{code}.txt is empty"));
+            assert_eq!(
+                headings.split(" / ").count(),
+                8,
+                "{code}: a title and seven sections"
+            );
+            assert!(instructions.contains(&format!("{}: {headings}\n", language.english)));
+            for part in template.split("\\n") {
+                let part = part.trim_start_matches(|c| c != '#');
+                if part.starts_with("# ") || part.starts_with("## ") {
+                    checked += 1;
+                    let heading = part.trim_end_matches(['`', ',']);
+                    assert!(
+                        headings.split(" / ").any(|h| h == heading),
+                        "{code}: {heading} is not in style-headings/{code}.txt"
+                    );
+                }
+            }
+        }
+        assert!(checked >= 15, "found {checked} headings");
+    }
+
+    #[test]
+    fn comments_in_library_entries_never_reach_the_model() {
+        // The "New library entry…" template explains itself in a comment;
+        // left untouched, the entry has no facts and is not an entry.
+        let fresh = parse_library_entry(
+            "f",
+            "lin",
+            "---\nname: Lin Wan\ninclude: detected\n---\n\n<!-- Facts to keep consistent. -->\n",
+        );
+        assert_eq!(fresh.body, "");
+        let noted = parse_library_entry(
+            "f",
+            "lin",
+            "---\nname: Lin Wan\n---\n<!-- note to self -->\nTeaches Chinese.",
+        );
+        assert_eq!(noted.body, "Teaches Chinese.");
     }
 
     #[test]
@@ -483,7 +561,7 @@ pub async fn ensure_project_file(
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
-            std::fs::write(&path, template).map_err(|e| e.to_string())?;
+            crate::atomic::write_sync(&path, template).map_err(|e| e.to_string())?;
         }
         Ok(path.to_string_lossy().into_owned())
     })
@@ -510,7 +588,54 @@ pub async fn pick_text_files(window: tauri::WebviewWindow) -> Vec<String> {
 const STYLE_SAMPLE_CHARS: usize = 20_000;
 const STYLE_TOTAL_CHARS: usize = 60_000;
 
-const STYLE_INSTRUCTIONS: &str = "You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write a style profile in Markdown, in the same language as the samples, with exactly these sections:\n\n# Style profile\n\n## Voice and tone\n## Sentences and rhythm\n## Word choice\n## Punctuation and formatting\n## Structure\n## Never\n## Examples\n\nUnder each heading give 3-6 short, concrete, checkable bullet points drawn from the samples (\"opens paragraphs with a concrete scene, then the claim\", \"average sentence 12-18 characters, many one-clause sentences\", \"uses full-width Chinese punctuation, no em dashes\") - not generic praise or advice. 'Never' lists things this author clearly avoids. 'Examples' quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples. Output only the profile.";
+/// The user turn of a "Learn my style" request: up to eight picked files,
+/// each cut to STYLE_SAMPLE_CHARS, until STYLE_TOTAL_CHARS - shared with the
+/// live eval, which feeds it the same files from a scratch folder.
+pub(crate) fn style_samples(files: &[String]) -> Result<String, String> {
+    let mut samples = String::new();
+    for file in files.iter().take(8) {
+        if samples.chars().count() >= STYLE_TOTAL_CHARS {
+            break;
+        }
+        let Ok(text) = std::fs::read_to_string(file) else {
+            continue;
+        };
+        let name = Path::new(file)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let excerpt: String = text.chars().take(STYLE_SAMPLE_CHARS).collect();
+        samples.push_str(&format!(
+            "<sample name=\"{name}\">\n{excerpt}\n</sample>\n\n"
+        ));
+    }
+    if samples.trim().is_empty() {
+        return Err("NO_SAMPLES".to_string());
+    }
+    Ok(samples)
+}
+
+/// "Learn my style": the prompt that drafts the style profile from samples.
+/// The profile is written in the samples' language, headings included:
+/// the author reviews and edits it in a tab right afterwards, and the
+/// app's own templates (projectStyleTemplate in src/i18n/locales/) use
+/// the same headings in each UI language. The round-2 eval found
+/// Chinese samples profiled in English bullets - the earlier prompt fixed
+/// English headings, gave only English examples and mentioned the language
+/// once, mid-sentence - and bullets that didn't hold for the samples
+/// ("about 6-8 paragraphs" for pieces of five and six, "no metaphors" next
+/// to a metaphor). The headings come from ui_language.rs, one line for
+/// each language that has its own (style-headings/<code>.txt).
+pub(crate) fn style_instructions() -> String {
+    let headings = crate::ai::ui_language::style_heading_lines();
+    format!("You analyse an author's writing so that an AI writing assistant can continue and revise their text in their own voice. You are given samples the author picked as representative. Write their style profile in Markdown.
+
+Write the whole profile in the language the samples are written in - headings, bullets and all: Chinese samples get a Chinese profile, Japanese samples a Japanese one, English samples an English one. The author reads and edits this file, and the assistant follows it. Use exactly these seven sections, in this order, with the headings in that language:
+
+{headings}
+
+Under each heading give 3-6 short, concrete, checkable bullet points drawn from the samples - \"opens paragraphs with a concrete scene, then the claim\", \"句子很短，多数不超过十五个字\", \"uses full-width Chinese punctuation, no em dashes\" - not generic praise or advice. Every bullet must hold for the samples as given: before writing one, check it against every sample - count instead of estimating, name a habit as \"every sample\" or \"always\" only if each sample shows it, and call something absent (metaphors, exclamation marks, a topic) only if no sample uses it. A habit of the samples' content - who they address, what they are about, their tense - is described as a habit, never as a rule for all writing (\"the pieces speak to the reader as 'you'\", not \"never uses I\"). The Never section lists only what no sample does and the author clearly avoids, and contradicts no other bullet. The Examples section quotes 2-3 short representative passages (1-3 sentences each) verbatim from the samples, without adding quotation marks around a passage that already contains them. Output only the profile, in the samples' language.")
+}
 
 /// "Learn my style": analyses the picked samples and writes the project's
 /// `.levis/style.md` (keeping the previous one as style.previous.md), which
@@ -528,26 +653,7 @@ pub async fn learn_style(
     let (root, samples) = {
         tauri::async_runtime::spawn_blocking(move || -> Result<(PathBuf, String), String> {
             let root = project_root(doc_path.as_deref(), workspace_root.as_deref())?;
-            let mut samples = String::new();
-            for file in files.iter().take(8) {
-                if samples.chars().count() >= STYLE_TOTAL_CHARS {
-                    break;
-                }
-                let Ok(text) = std::fs::read_to_string(file) else {
-                    continue;
-                };
-                let name = Path::new(file)
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-                let excerpt: String = text.chars().take(STYLE_SAMPLE_CHARS).collect();
-                samples.push_str(&format!(
-                    "<sample name=\"{name}\">\n{excerpt}\n</sample>\n\n"
-                ));
-            }
-            if samples.trim().is_empty() {
-                return Err("NO_SAMPLES".to_string());
-            }
+            let samples = style_samples(&files)?;
             Ok((root, samples))
         })
         .await
@@ -556,7 +662,7 @@ pub async fn learn_style(
     let profile = crate::ai::client::call(
         &app,
         &provider,
-        STYLE_INSTRUCTIONS.to_string(),
+        style_instructions(),
         samples,
         model.as_deref(),
     )
@@ -572,6 +678,8 @@ pub async fn learn_style(
     if path.exists() {
         let _ = std::fs::copy(&path, path.with_file_name("style.previous.md"));
     }
-    std::fs::write(&path, format!("{profile}\n")).map_err(|e| e.to_string())?;
+    crate::atomic::write(&path, format!("{profile}\n"))
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }

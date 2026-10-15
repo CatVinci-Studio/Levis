@@ -290,8 +290,9 @@ mod pdf_offscreen {
         output_path: String,
     ) -> Result<(), String> {
         let id = crate::next_window_id();
-        let page = std::env::temp_dir().join(format!("levis-pdf-export-{id}.html"));
-        std::fs::write(&page, html).map_err(|e| e.to_string())?;
+        // Removed when `page` drops, however this returns.
+        let page = crate::atomic::TempFile::create("levis-pdf-export-", ".html", html)
+            .map_err(|e| e.to_string())?;
         let label = format!("{}{id}", super::PDF_EXPORT_LABEL_PREFIX);
 
         let (tx, rx) = mpsc::channel::<Result<(), String>>();
@@ -299,7 +300,7 @@ mod pdf_offscreen {
         let built = {
             let tx = tx.clone();
             let output_path = output_path.clone();
-            asset_url(&page).and_then(|url| {
+            asset_url(page.path()).and_then(|url| {
                 WebviewWindowBuilder::new(&app, &label, url)
                     .title("PDF")
                     .visible(false)
@@ -338,7 +339,8 @@ mod pdf_offscreen {
         if let Some(window) = app.get_webview_window(&label) {
             let _ = window.destroy();
         }
-        let _ = std::fs::remove_file(&page);
+        // After the window that had it loaded is gone.
+        drop(page);
         result
     }
 

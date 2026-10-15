@@ -43,7 +43,7 @@
   .milkdown
   .ProseMirror-selectednode:not(.image-view) {
   outline: none;
-  border-radius: var(--radius-small, 4px);
+  border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--editor-accent) 10%, transparent);
 }
 

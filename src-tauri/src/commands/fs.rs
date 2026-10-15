@@ -11,8 +11,10 @@ pub struct DirEntryInfo {
 
 /// A native file dialog owned by the window that asked for it. Unowned, a
 /// Windows dialog isn't modal and can open behind the app, looking like the
-/// click did nothing. macOS is left alone: there an owned dialog becomes a
-/// sheet, which is a different interaction from the one it has today.
+/// click did nothing. On macOS the dialog is a sheet either way (rfd attaches
+/// an unowned one to the app's main window), but unowned it took the first
+/// window AppKit still lists whenever no window was main - a closed one,
+/// kept hidden, which came back on screen empty with the sheet on it.
 pub(crate) fn window_file_dialog(
     window: &tauri::WebviewWindow,
 ) -> tauri_plugin_dialog::FileDialogBuilder<tauri::Wry> {
@@ -20,7 +22,7 @@ pub(crate) fn window_file_dialog(
     let dialog = window.dialog().file();
     // set_parent is desktop-only API; iOS presents the picker modally over
     // its single window anyway.
-    #[cfg(all(desktop, not(target_os = "macos")))]
+    #[cfg(desktop)]
     let dialog = dialog.set_parent(window);
     dialog
 }
@@ -219,7 +221,11 @@ pub async fn save_pasted_image(
         n += 1;
     }
     let full = dir.join(&name);
-    fs::write(&full, bytes).await.map_err(|e| e.to_string())?;
+    // Through a temp file: a crash mid-write must not leave a truncated
+    // image that the document already links to.
+    crate::atomic::write(&full, bytes)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let src = if relative {
         format!("assets/{name}")

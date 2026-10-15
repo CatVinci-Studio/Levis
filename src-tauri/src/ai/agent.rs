@@ -1,14 +1,18 @@
 use crate::ai::cancel;
 use crate::ai::catalog;
 use crate::ai::route::{self, OpenaiAuth, NOT_CONFIGURED};
+use crate::ai::rules::Conventions;
 use crate::ai::tools::{self, ToolContext};
+use crate::ai::ui_language::{UiLanguage, UiNames};
 use crate::ai::workspace::{self, AgentWorkspace};
-use aicompat::agent::{run_agent_loop, AgentTurn, ImageAttachment, ProviderEvent};
+use aicompat::agent::{run_agent_loop, AgentTurn, ImageAttachment, ProviderEvent, StepResult};
 use aicompat::providers::{
     anthropic, custom, openai_api_key, openai_codex, openai_responses_compatible,
 };
 use serde::Serialize;
+use std::future::Future;
 use std::path::Path;
+use std::pin::Pin;
 use tauri::ipc::Channel;
 use tauri::AppHandle;
 
@@ -55,6 +59,72 @@ fn forward(channel: &Channel<StreamEvent>, event: ProviderEvent<'_>) {
     let _ = channel.send(event);
 }
 
+/// Proposal post-processing (rules::postfix, CATALOGUE.md §3.13): the
+/// `text` of each propose_edit call in a step, made to follow the P0
+/// conventions the document already follows (full-width punctuation in a
+/// Chinese document that uses it, attached Korean particles...). Done here,
+/// before the call reaches the tool, the history and the frontend - whose
+/// proposal card takes the completed call's arguments as authoritative -
+/// so the user sees the fixed text. Returns the rules applied (the live
+/// eval records them, so prompt regressions stay visible).
+pub(crate) fn postfix_step(
+    result: StepResult,
+    document: &str,
+    conventions: &Conventions,
+) -> (StepResult, Vec<&'static str>) {
+    let StepResult::ToolCalls(calls) = result else {
+        return (result, Vec::new());
+    };
+    let mut applied = Vec::new();
+    let calls = calls
+        .into_iter()
+        .map(|call| match call {
+            AgentTurn::ToolCall {
+                call_id,
+                name,
+                arguments,
+            } if name == tools::PROPOSE_EDIT_TOOL_NAME => {
+                let arguments = match crate::ai::rules::postfix::proposal_arguments(
+                    &arguments,
+                    document,
+                    conventions,
+                ) {
+                    Some((fixed, rules)) => {
+                        applied.extend(rules);
+                        fixed
+                    }
+                    None => arguments,
+                };
+                AgentTurn::ToolCall {
+                    call_id,
+                    name,
+                    arguments,
+                }
+            }
+            other => other,
+        })
+        .collect();
+    (StepResult::ToolCalls(calls), applied)
+}
+
+type StepFuture<'a> = Pin<Box<dyn Future<Output = Result<StepResult, String>> + Send + 'a>>;
+
+/// A provider step with [`postfix_step`] applied to what it returns.
+fn with_postfix<'a, S, F>(
+    mut step: S,
+    document: &'a str,
+    conventions: &'a Conventions,
+) -> impl FnMut(Vec<AgentTurn>) -> StepFuture<'a> + 'a
+where
+    S: FnMut(Vec<AgentTurn>) -> F + 'a,
+    F: Future<Output = Result<StepResult, String>> + Send + 'a,
+{
+    move |turns| {
+        let fut = step(turns);
+        Box::pin(async move { fut.await.map(|r| postfix_step(r, document, conventions).0) })
+    }
+}
+
 /// Skill loads, file reads, and web searches all consume steps, so a
 /// research-y request needs more headroom than the old chat-only loop did.
 pub(crate) const MAX_STEPS: usize = 12;
@@ -68,13 +138,109 @@ fn qwen_uses_responses_search(model: &str) -> bool {
         .any(|prefix| model.starts_with(prefix))
 }
 
-const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Levis, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (its current text comes with their latest message, above the message itself; earlier messages show what they wrote then, not the document). Reply in the same language the user writes in. Be concise and concrete - when giving feedback, point at specific passages instead of generalities. When you write or revise text for the document, keep the author's voice, terminology and formatting conventions, change only what the request calls for, and leave everything else exactly as it was. Avoid the tics that make text read as machine-written unless the author's own text uses them: inflated significance (pivotal, testament, crucial, underscore, delve, tapestry, landscape), \"serves as\" where \"is\" will do, \"not just X but Y\", reflexive lists of three, closing a sentence with a participle clause about its importance, and liberal em dashes or bold. Plain, specific wording beats impressive wording. Write any math formula with `$...$` for inline and `$$...$$` on its own line for block - never `\\(...\\)` or `\\[...\\]`, which this editor does not render.";
+/// The writing assistant's standing rules, one paragraph per concern. From
+/// the live eval (docs/AI-EVAL.md): round 1 found replies in the document's
+/// language instead of the user's, expansions with made-up specifics, and
+/// tightened paragraphs that quietly lost facts while the reply said they
+/// were all kept. Round 2 found the cost of the fixes: replies that listed
+/// every fact kept ("I added no new facts" even where that was untrue),
+/// narrated the routing ("this is a question, so I won't edit") and the
+/// tools (line numbers, "I read it in the same step"); "vivid" and
+/// "formal" requests that only shuffled words, and an expansion that came
+/// out shorter because feelings counted as invented facts; edits that
+/// spread to neighbouring paragraphs "for consistency" or, after "make it
+/// warmer", to the whole email; half-width punctuation in Chinese replies.
+const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Levis, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (its current text comes with their latest message, above the message itself; earlier messages show what they wrote then, not the document).
+
+Language: reply in the language of the user's own message - what they typed under ---the user's message--- - not the language of the document, and not the target language of a translation they asked for (asked in English to translate a paragraph into Spanish, you put Spanish in the document and reply in English; asked in Chinese to translate into English, you reply in Chinese); text you write into the document stays in the document's language unless they ask for another. A reply language set under ---user instructions--- overrides this; a style profile never does, whatever language it is written in. In Chinese and Japanese, use full-width punctuation (，。：；？！（）) and quote with “ ” or 「」 - never ASCII \" or ( ) - in replies as well as in the document.
+
+Replies: short and plain. Answer a question directly, usually in a sentence or two, and add a note only when it changes the answer; don't guess at why the author wrote something or at causes the document doesn't give. After proposing an edit, say in a sentence or two what you proposed and why - the user applies it, so it is a proposal, not something you already changed. Describe the change you actually made: what you cut, added or reworded - check each claim against the text you proposed (don't say you removed a word that is still there, merged sentences you didn't merge, or met a limit you didn't check). Don't list the facts you kept, don't quote the new text back, and don't reassure the user about facts (\"I added no new facts\", \"all the facts are still there\") - mention facts only when one had to go or you need one from the user. Give a count (characters, words, percent) only when measure_text or a tool result gave it to you, and never say you left comments, made an edit or measured something that you didn't do in this reply. Never mention your tools, steps, rules, notes from tool results or line numbers (the user sees the document, not line numbers), nor how many proposals you sent or how they fit together (\"two edits - apply both\"), and start with the answer itself or with what you proposed: the first words of a reply to a question are its answer, never a remark on what kind of request it was or how you will answer it. Little formatting: no headings, and bullets or bold only for genuinely separate points. When giving feedback, point at specific passages instead of generalities. The user works in the rendered document and never sees its markdown: in replies and comments, speak of bullets, checkboxes, bold or headings - never of list markers, asterisks, backslash escapes or other syntax.
+
+Editing: keep the author's voice, terminology, grammatical person and formatting conventions. Change the passage the request is about and nothing outside it - don't carry an edit into neighbouring text \"for consistency\"; offer that in your reply instead. Inside the passage, do what was asked in full: \"tighten\", \"more formal\", \"more vivid\" or \"more natural\" asks for different wording - cut filler and idioms in the wrong register, choose stronger verbs, restructure sentences - not for a few words moved around or swapped for words of the same length. When the passage already does what is asked (it is already tight, the dialogue already sounds natural), say so and make at most a light change, never a token one that weakens it. \"Cut the clichés\" replaces each cliché with plain wording; it doesn't delete the sentence around it. Turning prose into bullets or selling points means rewriting it into short, parallel items that each stand on their own (no \"It\" that points into another bullet), not putting a marker in front of each sentence. A summary condenses in your own words instead of copying sentences, one idea per point. A length the user gives (300 words, 五百字) is the length to write. Translating a passage replaces it, unless the user asks to keep the original. Add only the unit asked for: a paragraph is a paragraph, without a heading of its own. Before proposing, reread the new text with the text around it: don't repeat what a neighbouring paragraph already says, and remove any word or idea now said twice. A follow-up - \"make it warmer\", \"add that ...\", \"now shorter\" - works on the passage of the turn before, unless the user names another place. A limit on sentences or words is met by cutting content, never by joining sentences with semicolons, commas or \"and\". When a limit or rule applies - a length per sentence, a word count, words or punctuation to avoid, from the request, a skill, the style profile or the writing instructions - write the new text to meet it and check every sentence against it before you call propose_edit; never tell the user the text meets a limit you didn't check. When the user rejected a proposal and asks again with a change, keep what the rejected draft did well, change what they objected to, and say so if the draft already did what they ask.
+
+Facts: never add facts the author hasn't given - names, numbers, dates, events, causes, outcomes, plans, quotes. That doesn't freeze the wording: expanding, writing about feelings or making a scene vivid may render what the text already implies - the sights and sounds of an action already there, the feeling a situation plainly carries, the plain consequence of what is stated - as long as nothing new happens, and an expansion comes out longer than what it expands. When the user says not to invent, or the text is a true account (an essay, memoir, report or notes), read \"implies\" narrowly: no action, movement, object, sound or smell the text doesn't mention - make it vivid through sharper verbs, the concrete nouns it already has, rhythm and order. Never present your own idea as the author's plan, purpose or next step. If a request truly needs facts you don't have, ask for them in your reply rather than writing a placeholder into the document, unless the user wants one. In fiction, invented detail is fine when it is asked for, as long as it stays consistent with the text and the project's library; library facts shape what the characters do rather than being stated as backstory. When the user asks for something to happen in a scene (\"they talk for a while\", \"他们聊了一会儿\"), write it happening - the lines of dialogue themselves - not a sentence reporting that it happened. When shortening, cut words, not information - every fact, figure, time span and named thing survives - and keep the words that carry the author's stance or emphasis (only, as early as, forced to, 就, 才, 被迫).
+
+Style: avoid the tics that make text read as machine-written unless the author's own text uses them: inflated significance (pivotal, testament, crucial, underscore, delve, tapestry, landscape), \"serves as\" where \"is\" will do, \"not just X but Y\" (不是……而是……), reflexive lists of three, closing a sentence with a participle clause about its importance, and liberal em dashes or bold. Plain, specific wording beats impressive wording. Write any math formula with `$...$` for inline and `$$...$$` on its own line for block - never `\\(...\\)` or `\\[...\\]`, which this editor does not render.";
 
 /// Only appended for providers that actually run the tool loop; telling a
 /// tool-less provider to call tools would just confuse it.
-const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something specific in a long document, and read_document to see a whole section before you revise it - never guess at text you haven't seen. The document's folder may hold reference material - use list_files/read_file to consult it when the user's request depends on it. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, insert_at_cursor to add text where the user's cursor is (when their message carries a <cursor> block marking it - for \"write a transition here\"), delete to remove text, append to add text at the end of the document. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and use `-` or `1.` for list items (never `•`, `●` or other bullet symbols) and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. The user reviews and applies each proposal themselves, so your reply should only say briefly what you changed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided. Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change - for feedback on specific passages, pin each point to its passage with add_comment and keep the reply to a short summary. When a message is genuinely ambiguous, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it.";
+const AGENT_TOOL_INSTRUCTIONS: &str = "Use search_document to locate something specific in a long document, and read_document to see a whole section before you revise it - never guess at text you haven't seen. Read first, propose after: never send a propose_edit in the same step as the read it depends on. If what the user is asking for ends up as document content - a rewrite, a continuation, a new paragraph, section, list, or anything else meant to land in the document rather than just be talked about - it MUST go through propose_edit (once per distinct edit), never written out only in your chat reply. This applies just as much to brand-new content you are drafting (use append/insert_before/insert_after) as it does to editing something that is already there - 'continuing the draft' still means proposing the continuation, not narrating it. A plain-text reply is for discussion, feedback, or answering questions about the document - never for delivering content the user asked you to add or change. Pick the action that matches the intent: replace to swap existing text, replace_selection to swap the user's selected text (when their message carries a <selected-text> block and asks to rewrite/modify it - no anchor needed), insert_before/insert_after to add text next to existing text, insert_at_cursor to add text where the user's cursor is (when their message carries a <cursor> block marking it - for \"write a transition here\"), delete to remove text, append to add text at the end of the document. To add a table row or a list item, insert_after the whole neighbouring row or item line with just the new line(s) as `text`, a nested item keeping its indentation. Each proposal must target its own passage - for several changes inside one passage, send a single replace covering it, since overlapping proposals can't all be applied. The document you are shown is MARKDOWN SOURCE, and both fields work in that same markdown. `anchor` must be copied verbatim out of it - including any markdown syntax it contains, so a bold phrase is quoted as `**like this**`, a heading as `## Like This` - and must occur exactly once. When the text you need to target appears MORE than once in the document, keep `anchor` as the exact text being edited and additionally pass `context`: a longer quote copied verbatim from the document that contains the anchor and itself occurs exactly once - the edit lands on the anchor inside that context. `text` replaces it and must also be valid markdown: carry over whatever formatting the original had unless the user asked you to change it, and for list items use the marker the document's lists already use (`*`, `-` or `1.`; `-` in a new list), never `•`, `●` or other bullet symbols, and `#` for headings. Dropping a heading's `#`, a list item's `-`, or a phrase's `**` silently destroys that formatting in the user's document. Get the text right before you call propose_edit: a second proposal for the same passage in one reply overlaps the first and can't be applied. The user reviews and applies each proposal themselves, so your reply only says, in a sentence or two, what you proposed and why. In later requests, each earlier propose_edit tool result carries a bracketed status note saying what the user did with that proposal - accepted, rejected, or still undecided. Trust the note over any assumption: the document you are shown contains ONLY accepted edits, so an undecided or rejected proposal's text is not in it and must not be anchored to. Proposing new edits automatically replaces any still-undecided proposals in the editor, so never re-propose or try to retract an undecided one yourself. Judging which mode applies: an imperative instruction (rewrite, expand, shorten, translate, fix, delete, continue, add a section - in any language, phrased as a command rather than a question) is always propose_edit, even a short one like 'make this more concise' or 'continue'. A question, request for feedback, or discussion prompt (what do you think, why did I write this, is this clear, explain X) is always a plain-text reply with no propose_edit call, unless it explicitly also asks for a change - for feedback on specific passages, pin each point to its passage with add_comment and keep the reply to a short summary. A request for information about the document - summarize it, list its dates, explain a passage, count something - is answered in the reply even when it is phrased as a command, unless the user asks for the result to go into the document ('add a summary at the top'). When a message is genuinely ambiguous between changing the document and talking about it, prefer treating it as an edit instruction - most requests here are commands to act on the document, not questions about it. Never explain this choice in your reply: just answer, or propose.";
 
-const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. The document's folder may hold reference material - use list_files/read_file when the request depends on it. Use use_skill when an available skill matches. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
+/// The rules engine's two tools, in every mode (tools.rs).
+const RULES_TOOL_INSTRUCTIONS: &str = "check_conventions checks text against the document's writing conventions (punctuation, spacing, numbers, spelling lists, consistency with the rest of the document) with a deterministic rules engine: when you proofread or fix conventions, ground your changes in what it reports instead of guessing, change only what it flags or what you are certain of, and check a draft with its `text` argument before proposing it. Its \"check\" findings only point at something to look at. measure_text counts text exactly (characters, words, X and Bluesky limits, WeChat titles...): whenever a length limit matters, measure the exact text instead of estimating, and give the count in your reply.";
+
+const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
+
+/// What the assistant is called in the UI and what its Settings page is
+/// called: `AI_NAME` in src/i18n/names.ts ("Levis AI" until the Textus
+/// rename). A test keeps the two in step.
+pub(crate) const AI_NAME: &str = "Levis AI";
+
+/// Where the user changes the project folder. The project menu exists only
+/// while there is a project folder - ProjectBar shows nothing for an
+/// unsaved draft and only a notice for a folder too broad - so without one,
+/// only the Settings row is named: told about the menu, the agent sent users
+/// with an unsaved draft to a bar that wasn't there (round-2 integration).
+fn where_to_choose_the_project_folder(has_menu: bool) -> String {
+    let settings = format!("Settings > {AI_NAME} > Project Folder");
+    if has_menu {
+        format!("the project menu (click the folder name in the bar under the AI panel's header, then Choose project folder…) or {settings}")
+    } else {
+        settings
+    }
+}
+
+/// What the agent is told about its project folder (in code, the workspace
+/// root) - which one is in use and why - and about what the app calls the
+/// things that shape its work (docs/AI-CONCEPTS.md: project folder,
+/// `.levis/` folder, writing instructions, global config folder, skills,
+/// library, style profile, "Learn my style"), with the menu items, chips
+/// and Settings rows that make and open them, what reaches completion too,
+/// and the same names in the user's UI language (UiNames). Without
+/// it, the model made up its own names ("read-only mode"), told a user with
+/// an unsaved draft "I have no tool to open files" without saying why or
+/// what to do, and was told the document's folder held reference material
+/// even when no file tool was offered (docs/AI-EVAL.md, round 2). Labels it
+/// wasn't given never came up: users were told to write a hidden
+/// .levis/style.md by hand, and had no way back after choosing a folder.
+fn workspace_section(workspace: &AgentWorkspace, ui_language: &str) -> String {
+    use crate::ai::workspace::RootSource;
+    let one_folder = "There is one project folder at a time: for material in two places, the user chooses a folder that contains both.";
+    let folder = match (&workspace.root, workspace.root_source) {
+        (Some(root), RootSource::Chosen) => format!(
+            "Project folder: {root} - chosen by the user, in {}. You can read the text files in it with list_files, search_files and read_file, and nothing outside it. Use the document's folder, in the same menu or Settings row, goes back to the open document's own folder. {one_folder}",
+            where_to_choose_the_project_folder(true)
+        ),
+        (Some(root), _) => format!(
+            "Project folder: {root} - the open document's own folder, the default. You can read the text files in it with list_files, search_files and read_file, and nothing outside it; the user can choose another one in {}. {one_folder}",
+            where_to_choose_the_project_folder(true)
+        ),
+        (None, RootSource::TooBroad) => format!("Project folder: none - the document's folder is the user's home folder or a whole drive, which is too broad to open to you, so you can't read any files, and there is no project menu. If the user refers to a file, say so, ask them to paste what you need, and tell them they can choose a narrower project folder in {}.", where_to_choose_the_project_folder(false)),
+        (None, _) => format!("Project folder: none - the document isn't saved yet and no folder has been chosen, so you can't read any files, and the project bar and its menu don't appear until there is a project folder. If the user refers to a file, say that this is why, ask them to paste what you need, and tell them that saving the document next to their files, or choosing a project folder in {}, lets you read them.", where_to_choose_the_project_folder(false)),
+    };
+    let names = match UiNames::of(ui_language) {
+        Some(ui) => {
+            let rows = ui
+                .names
+                .iter()
+                .map(|(en, name)| format!("{en} | {name}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let UiLanguage {
+                english, native, ..
+            } = ui.language;
+            format!(
+                "\nThe same names in the {english} UI the user sees - use these when you reply in {english}, and never add a name from another language, in parentheses or otherwise (not \"style profile ({})\", not \"{} (library)\"); Settings paths keep their \" > \" and {AI_NAME}:\nEnglish | {native}\n{rows}",
+                ui.of_english("style profile"),
+                ui.of_english("library"),
+            )
+        }
+        None => String::new(),
+    };
+    format!(
+        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, or that you load when a request matches one, each one Markdown file - a name and a one-line description at the top, then the instructions. The app ships built-in skills, listed in Settings > {AI_NAME} > Built-in skills, where each has a switch to turn it off and Customize…, which copies it into the global config folder's skills/ and opens the copy to edit (Reset deletes the copy and brings the built-in back); the user's own skills go in .levis/skills/ or in the global config folder's skills/ (Settings > {AI_NAME} > Skills > Import Skill… copies a file there), and one with a built-in skill's name replaces it. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document (aliases go on an `aliases:` line at the top of the entry); New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. Writing conventions (Settings > {AI_NAME}, under Writing Assistance) picks the punctuation, spacing and number norms you, the grammar check and check_conventions follow - Automatic, or one profile such as en-GB/govuk for documents in that language; a `conventions:` line in the style profile's front matter overrides it for the project. The style profile and the library also shape completion, the grey suggestions as the user types; Enable AI completion in Settings > {AI_NAME}, under Writing Assistance, turns completion on or off, and Completion tone there sets its register. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - for a skill, first a built-in skill that already does it (named as their UI names it) and Customize… to adapt it, before writing one from scratch - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
+    )
+}
 
 /// Up to this many characters the document is embedded in full; past it,
 /// the prompt gets a line-numbered outline plus a head/tail excerpt, and the
@@ -159,9 +325,10 @@ fn document_section(document: &str, with_tools: bool, focus_heading: Option<&str
     )
 }
 
-/// The static half of the layering: role + workspace instructions + skill
-/// index + document go into the system prompt; skill bodies and workspace
-/// files stay out of it and are pulled in dynamically through tools.
+/// The static half of the layering: role + writing instructions + skill
+/// index (+ the document, tool-less) go into the system prompt; skill bodies
+/// and project files stay out of it and are pulled in dynamically through
+/// tools.
 pub(crate) fn build_instructions(
     workspace: &AgentWorkspace,
     document: &str,
@@ -170,13 +337,28 @@ pub(crate) fn build_instructions(
     // What the request is about (the user's message) - library entries are
     // picked by what it and the document mention.
     focus: &str,
+    // The language the app's UI is in (a code of src/i18n/langs.ts), whose
+    // names for things the agent is given beside the English ones.
+    ui_language: &str,
 ) -> String {
     let mut sections = vec![AGENT_ROLE.to_string()];
+    let ui = UiNames::of(ui_language);
 
     sections.push(match mode {
         "edit" => "---interaction mode: edit---\nCarry out the user's request. When document changes are needed, submit them through propose_edit so the user can review them before applying.".to_string(),
         "plan" => "---interaction mode: plan---\nProduce a concrete, structured writing plan only - an outline, a revision plan, or the steps to get the document where the user wants it. You may research and inspect context, but do not call propose_edit and do not modify the document. Wait for the user to approve the plan in a later request.".to_string(),
-        _ => "---interaction mode: ask---\nAnswer, explain, discuss, or research in read-only mode. Do not call propose_edit and do not modify the document.".to_string(),
+        // The UI's names for the modes: told "read-only mode", the model
+        // called it that and never said how to get the edit made.
+        _ => {
+            let (ask, edit) = match &ui {
+                Some(ui) => (
+                    format!(" ({} in their {} UI)", ui.of_english("Ask"), ui.language.english),
+                    format!(" ({})", ui.of_english("Edit")),
+                ),
+                None => (String::new(), String::new()),
+            };
+            format!("---interaction mode: ask---\nThe user is in Ask mode{ask}: answer, explain, discuss or research, and pin feedback to passages with add_comment; you can't change the document here. When they ask for a change anyway, give the new text in your reply and say that in Edit mode{edit} you can propose it for them to apply with one click.")
+        }
     });
 
     if with_tools {
@@ -188,25 +370,37 @@ pub(crate) fn build_instructions(
             }
             .to_string(),
         );
+        sections.push(RULES_TOOL_INSTRUCTIONS.to_string());
+        sections.push(workspace_section(workspace, ui_language));
     }
 
-    // agent.md layers (global, then the document folder's) - the user's own
-    // standing instructions: style, terminology, project background.
+    // The writing instructions (agent.md): global, then the project's - the
+    // user's own standing rules: reply language, terminology, project
+    // background. With both layers present the project's section says it
+    // wins a conflict (docs/AI-CONCEPTS.md); a single layer keeps the plain
+    // header the rest of the prompt refers to.
     for instructions in &workspace.instructions {
         sections.push(format!("---user instructions---\n{instructions}"));
+    }
+    if let Some(project) = &workspace.project_instructions {
+        sections.push(if workspace.instructions.is_empty() {
+            format!("---user instructions---\n{project}")
+        } else {
+            format!("---user instructions for this project (where they conflict with the ones above, follow these)---\n{project}")
+        });
     }
 
     // The skill index: names + descriptions only. Bodies load on demand via
     // use_skill, so a large skill library costs almost nothing per request.
-    if with_tools && !workspace.skills.is_empty() {
-        let index: Vec<String> = workspace
-            .skills
-            .iter()
-            .map(|s| format!("- {}: {}", s.name, s.description))
-            .collect();
+    // /name-only skills (and turned-off built-ins) aren't offered.
+    let index = skill_index(workspace, ui_language);
+    if with_tools && !index.is_empty() {
+        // A /name the user typed arrives already expanded in a <skill> block
+        // (builtin::expand_message); loading it again cost a round trip of
+        // 12-16 s in the live eval.
         sections.push(format!(
-            "---available skills---\n{}\nWhen a request matches a skill's description, load it with use_skill and follow it.",
-            index.join("\n")
+            "---available skills---\n{index}\nWhen a request matches a skill's description, load it with use_skill and follow it. When a skill marked (project) or (yours) and an unmarked built-in skill both match a request, use the marked one. A <skill name=\"...\"> block in the user's message is that skill already loaded - follow it without calling use_skill for it; its own rules for the result (length, form, what to say) override the general ones above.\nReference packs, loaded only when a skill asks for them: {}. Add #section to load one section, e.g. standards-fr#dialogue.",
+            crate::ai::builtin::reference_pack_names().join(", ")
         ));
     }
 
@@ -219,6 +413,81 @@ pub(crate) fn build_instructions(
         sections.push(request_context(workspace, document, false, focus, None));
     }
     sections.join("\n\n")
+}
+
+/// Longest description the skill index shows; a longer one (a user's
+/// skill) is cut with "…".
+const INDEX_DESCRIPTION_CHARS: usize = 500;
+
+/// The skill index the model sees: the skills it may load by description,
+/// the user's own first (marked "(project)" or "(yours)"), then the
+/// built-ins by menu category and name. A built-in carries the name the
+/// user's UI gives it (its first alias there): told only "continuity", the
+/// agent called it "the 连续性 skill" in a Chinese answer, a /name that
+/// doesn't exist (round 4, concept/zh/library). Depends only on the
+/// workspace and the UI language, so the system prompt stays byte-identical
+/// across a conversation.
+pub(crate) fn skill_index(workspace: &AgentWorkspace, ui_language: &str) -> String {
+    use crate::ai::workspace::SkillSource;
+    let mut offered: Vec<&crate::ai::workspace::AgentSkill> = workspace
+        .skills
+        .iter()
+        .filter(|s| s.offered_to_model())
+        .collect();
+    let rank = |s: &crate::ai::workspace::AgentSkill| {
+        let layer = match s.source {
+            SkillSource::Project => 0,
+            SkillSource::Global => 1,
+            SkillSource::Builtin => 2,
+        };
+        let category = s
+            .category
+            .as_deref()
+            .and_then(|c| {
+                crate::ai::builtin::CATEGORY_ORDER
+                    .iter()
+                    .position(|o| *o == c)
+            })
+            .unwrap_or(crate::ai::builtin::CATEGORY_ORDER.len());
+        (layer, category)
+    };
+    // Stable: the user's skills keep their file order.
+    offered.sort_by(|a, b| {
+        let (ra, rb) = (rank(a), rank(b));
+        ra.cmp(&rb).then_with(|| {
+            if ra.0 == 2 {
+                a.name.cmp(&b.name)
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+    });
+    offered
+        .iter()
+        .map(|s| {
+            let mark = match s.source {
+                SkillSource::Project => " (project)".to_string(),
+                SkillSource::Global => " (yours)".to_string(),
+                SkillSource::Builtin => match s.aliases.get(ui_language).and_then(|a| a.first()) {
+                    Some(label) if ui_language != "en" => format!(" [/{label} in their UI]"),
+                    _ => String::new(),
+                },
+            };
+            let description = if s.description.chars().count() > INDEX_DESCRIPTION_CHARS {
+                format!(
+                    "{}…",
+                    s.description
+                        .chars()
+                        .take(INDEX_DESCRIPTION_CHARS - 1)
+                        .collect::<String>()
+                )
+            } else {
+                s.description.clone()
+            };
+            format!("- {}{mark}: {description}", s.name)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// The per-request context: the project's style profile and the library
@@ -249,9 +518,54 @@ pub(crate) fn request_context(
 }
 
 /// The current user message as sent: the request context, then what the
-/// user wrote.
+/// user wrote - under a header that names the language they wrote it in,
+/// when that can be told. The rule "reply in the language of the user's
+/// message" alone lost to the document's language whenever a short English
+/// request came with a Chinese or Japanese document: the whole reply came
+/// back in the document's language (round 4: cross/en-asks-ja-doc, and
+/// Haiku replying in English to Chinese requests once a style profile was
+/// in the context). Said right above the message, per turn, it holds.
 pub(crate) fn request_user_text(context: &str, message: &str) -> String {
-    format!("{context}\n\n---the user's message---\n{message}")
+    match message_language(message) {
+        Some(language) => format!(
+            "{context}\n\n---the user's message (written in {language}: reply in {language}, unless the user instructions set a reply language)---\n{message}"
+        ),
+        None => format!("{context}\n\n---the user's message---\n{message}"),
+    }
+}
+
+/// The language of what the user typed, in English ("Chinese"), or None
+/// when there is too little of it to tell. Text the message carries but the
+/// user didn't write - a selection, the text around the cursor, attached
+/// files, an expanded skill's instructions - is left out.
+pub(crate) fn message_language(message: &str) -> Option<&'static str> {
+    let mut typed = message.to_string();
+    for (open, close) in [
+        ("<skill name=", "</skill>"),
+        ("<selected-text>", "</selected-text>"),
+        ("<cursor>", "</cursor>"),
+        ("<attached-file", "</attached-file>"),
+    ] {
+        while let Some(start) = typed.find(open) {
+            let Some(end) = typed[start..].find(close).map(|i| start + i + close.len()) else {
+                typed.truncate(start);
+                break;
+            };
+            typed.replace_range(start..end, " ");
+        }
+    }
+    let lang = crate::ai::rules::detect::guess(&typed)?;
+    // The script is part of the language: asked in Simplified to convert a
+    // report to Traditional, the reply came back in Traditional (round 4,
+    // builtin/translate/hans-hant/report).
+    if lang == crate::ai::rules::detect::Lang::ZhHans {
+        return Some("Simplified Chinese");
+    }
+    let code = lang.ui_code();
+    crate::ai::ui_language::UI_LANGUAGES
+        .iter()
+        .find(|l| l.code == code)
+        .map(|l| l.english)
 }
 
 /// Tool output from an earlier exchange longer than this is cut to a stub
@@ -264,6 +578,14 @@ const OLD_TOOL_OUTPUT_KEEP: usize = 400;
 /// oldest first, so a long session degrades into forgetting its beginning
 /// instead of failing every send once it no longer fits the context window.
 const HISTORY_BUDGET: usize = 150_000;
+/// Exchanges are dropped in blocks of at least this many characters, counted
+/// from the start of the conversation. Dropping just enough for each send
+/// moved the history's first message every turn once over budget, and with
+/// it every byte of the prompt cache; a block boundary depends only on the
+/// exchanges before it, so the start now stays put until the conversation
+/// has grown by another block. Never more than two blocks beyond what the
+/// budget needs, though (see compact_history).
+const HISTORY_DROP_STEP: usize = HISTORY_BUDGET / 3;
 
 fn turn_chars(turn: &AgentTurn) -> usize {
     match turn {
@@ -278,6 +600,13 @@ fn turn_chars(turn: &AgentTurn) -> usize {
 /// are never cut - they carry the accepted/rejected status notes the model
 /// relies on. Edits nothing the user sees: the frontend keeps the full
 /// history; only what goes to the provider is trimmed.
+///
+/// Both cuts are made the same way on every send, so a turn reads the same
+/// from the first request that replays it to the last: a tool result is cut
+/// to the same stub each time, and the oldest exchanges go in fixed blocks
+/// (HISTORY_DROP_STEP). That is what lets the provider's prompt cache cover
+/// the whole history (see anthropic.rs's cache breakpoints) - the only bytes
+/// that change are the current message's, which carries the document.
 pub(crate) fn compact_history(history: Vec<AgentTurn>) -> Vec<AgentTurn> {
     let tool_names: std::collections::HashMap<String, String> = history
         .iter()
@@ -304,19 +633,50 @@ pub(crate) fn compact_history(history: Vec<AgentTurn>) -> Vec<AgentTurn> {
         })
         .collect();
 
-    let mut total: usize = turns.iter().map(turn_chars).sum();
-    while total > HISTORY_BUDGET {
-        // One exchange: the leading user turn through the turn before the
-        // next user turn - dropping whole exchanges keeps every tool call
-        // paired with its result.
-        let next_user = turns
-            .iter()
-            .skip(1)
-            .position(|t| matches!(t, AgentTurn::User { .. }))
-            .map(|i| i + 1);
-        let Some(cut) = next_user else { break };
-        total -= turns.drain(..cut).map(|t| turn_chars(&t)).sum::<usize>();
+    let total: usize = turns.iter().map(turn_chars).sum();
+    if total <= HISTORY_BUDGET {
+        return turns;
     }
+    // Cut only where an exchange starts (at a user turn): dropping whole
+    // exchanges keeps every tool call paired with its result. Each start
+    // with the characters before it.
+    let mut starts = Vec::new();
+    let mut before = 0;
+    for (i, turn) in turns.iter().enumerate() {
+        if i > 0 && matches!(turn, AgentTurn::User { .. }) {
+            starts.push((i, before));
+        }
+        before += turn_chars(turn);
+    }
+    // The fewest exchanges that must go: up to the first start that leaves
+    // the rest within budget, else all but the newest, as large as it is.
+    let Some(&(needed, needed_before)) = starts
+        .iter()
+        .find(|&&(_, before)| total - before <= HISTORY_BUDGET)
+        .or(starts.last())
+    else {
+        return turns;
+    };
+    // Rounded up to the end of its block, which drops under two blocks more
+    // than must go while exchanges are small next to a block. One carrying
+    // a long attachment (inlined into its message) can be bigger than a
+    // block, and rounding past it would leave a fraction of the budget:
+    // then just what must go, the way it was before blocks.
+    let mut cut = needed;
+    let mut block_start = 0;
+    for &(i, before) in &starts {
+        if before - block_start < HISTORY_DROP_STEP {
+            continue;
+        }
+        block_start = before;
+        if i >= needed {
+            if before - needed_before <= 2 * HISTORY_DROP_STEP {
+                cut = i;
+            }
+            break;
+        }
+    }
+    turns.drain(..cut);
     turns
 }
 
@@ -332,8 +692,8 @@ pub(crate) fn compact_history(history: Vec<AgentTurn>) -> Vec<AgentTurn> {
 /// `flattened_chat_turn` on a hard failure, since not every compatible
 /// server actually implements `tools` correctly. A provider with no dialect
 /// at all falls straight to `flattened_chat_turn`, a single non-agentic
-/// completion (with the workspace's agent.md layers still in the system
-/// prompt; skills reach them via the frontend's /name injection instead of
+/// completion (with the writing instructions still in the system prompt;
+/// skills reach them via the frontend's /name injection instead of
 /// use_skill). The orchestration loop (`run_agent_loop`) and the tool
 /// implementations (`crate::ai::tools`) don't know which dialect is in play -
 /// adding tool-calling support for another provider is just wiring up its
@@ -353,8 +713,8 @@ pub async fn ai_agent_message(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Agent's explicit workspace override. None
-    // keeps the default - the document's own folder (see workspace::load).
+    // `workspace_root`: the chosen project folder. None keeps the default -
+    // the document's own folder (see workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -368,11 +728,15 @@ pub async fn ai_agent_message(
     request_id: String,
     // Heading of the section the user is working in (see request_context).
     focus_heading: Option<String>,
+    // The UI language (src/i18n/langs.ts), for the names the agent is told
+    // the app uses (UiNames). None - an older frontend - is English.
+    ui_language: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let cancel_rx = cancel::register(request_id.clone());
+    let ui_language = ui_language.unwrap_or_else(|| "en".to_string());
     let result = tokio::select! {
-        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, mode, model, focus_heading, on_event) => result,
+        result = ai_agent_message_inner(app, provider, document, doc_path, workspace_root, history, message, images, web_search, mode, model, focus_heading, ui_language, on_event) => result,
         _ = cancel_rx => Err(cancel::CANCELLED.to_string()),
     };
     cancel::unregister(&request_id);
@@ -385,8 +749,8 @@ async fn ai_agent_message_inner(
     provider: String,
     document: String,
     doc_path: Option<String>,
-    // `workspace_root`: Settings > Agent's explicit workspace override. None
-    // keeps the default - the document's own folder (see workspace::load).
+    // `workspace_root`: the chosen project folder. None keeps the default -
+    // the document's own folder (see workspace::load).
     workspace_root: Option<String>,
     history: Vec<AgentTurn>,
     message: String,
@@ -395,10 +759,25 @@ async fn ai_agent_message_inner(
     mode: String,
     model: Option<String>,
     focus_heading: Option<String>,
+    ui_language: String,
     on_event: Channel<StreamEvent>,
 ) -> Result<Vec<AgentTurn>, String> {
     let history = compact_history(history);
     let workspace = workspace::load(&app, doc_path.as_deref(), workspace_root.as_deref());
+    let conventions = crate::ai::conventions::for_workspace(&app, &workspace);
+    let library = crate::ai::conventions::library_names(&workspace);
+    // What the request is about, for picking library entries: the message
+    // as the user's side sent it, before the reference packs go in.
+    let focus = message.clone();
+    // A /name call gets the skill's instructions and reference packs filled
+    // in here, and history keeps the expanded message (see expand_message).
+    let message = crate::ai::builtin::expand_message_with(
+        &message,
+        &workspace.skills,
+        &document,
+        &ui_language,
+        crate::ai::builtin::chosen_profile(&conventions, &document).as_deref(),
+    );
     let entry = catalog::find(&provider).ok_or_else(|| format!("unknown provider: {provider}"))?;
 
     // Refuse rather than drop. Sending the images to a provider that can't
@@ -407,7 +786,7 @@ async fn ai_agent_message_inner(
     // providers, so reaching here means something got out of step.
     if !images.is_empty() && !entry.supports_vision {
         return Err(format!(
-            "{} can't read images. Remove the image, or switch provider in Settings.",
+            "{} can't read images. Remove the image, or switch provider in Settings > {AI_NAME}.",
             entry.label
         ));
     }
@@ -419,7 +798,7 @@ async fn ai_agent_message_inner(
                 &workspace,
                 &document,
                 true,
-                &message,
+                &focus,
                 focus_heading.as_deref(),
             ),
             &message,
@@ -430,9 +809,10 @@ async fn ai_agent_message_inner(
 
     let result = match entry.dialect {
         "openai-responses" => {
-            let instructions = build_instructions(&workspace, &document, true, &mode, &message);
+            let instructions =
+                build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
             let tools = tools::builtin_tools(
-                !workspace.skills.is_empty(),
+                workspace.has_usable_skills(),
                 workspace.root.is_some(),
                 mode == "edit",
             );
@@ -440,7 +820,11 @@ async fn ai_agent_message_inner(
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
+                ui_language: &ui_language,
                 root: workspace.root.as_deref().map(Path::new),
+                conventions: &conventions,
+                library: &library,
+                proposed: Default::default(),
             };
 
             match route::resolve_openai_auth(&app).await? {
@@ -480,6 +864,7 @@ async fn ai_agent_message_inner(
                             .await
                         }
                     };
+                    let step = with_postfix(step, &document, &conventions);
                     run_agent_loop(
                         history,
                         user_turn,
@@ -519,6 +904,7 @@ async fn ai_agent_message_inner(
                             .await
                         }
                     };
+                    let step = with_postfix(step, &document, &conventions);
                     run_agent_loop(
                         history,
                         user_turn,
@@ -534,10 +920,11 @@ async fn ai_agent_message_inner(
             }
         }
         "anthropic-messages" => {
-            let instructions = build_instructions(&workspace, &document, true, &mode, &message);
+            let instructions =
+                build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
             let auth = route::resolve_anthropic_auth(&app).await?;
             let tools = tools::builtin_tools(
-                !workspace.skills.is_empty(),
+                workspace.has_usable_skills(),
                 workspace.root.is_some(),
                 mode == "edit",
             );
@@ -545,7 +932,11 @@ async fn ai_agent_message_inner(
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
+                ui_language: &ui_language,
                 root: workspace.root.as_deref().map(Path::new),
+                conventions: &conventions,
+                library: &library,
+                proposed: Default::default(),
             };
 
             let agent_model = model.unwrap_or_else(|| {
@@ -575,6 +966,7 @@ async fn ai_agent_message_inner(
                 }
             };
 
+            let step = with_postfix(step, &document, &conventions);
             run_agent_loop(
                 history,
                 user_turn,
@@ -595,7 +987,7 @@ async fn ai_agent_message_inner(
                 .or(default_model)
                 .ok_or_else(|| NOT_CONFIGURED.to_string())?;
             let tools = tools::builtin_tools(
-                !workspace.skills.is_empty(),
+                workspace.has_usable_skills(),
                 workspace.root.is_some(),
                 mode == "edit",
             );
@@ -603,10 +995,14 @@ async fn ai_agent_message_inner(
             let tool_ctx = ToolContext {
                 document: &document,
                 skills: &workspace.skills,
+                ui_language: &ui_language,
                 root: workspace.root.as_deref().map(Path::new),
+                conventions: &conventions,
+                library: &library,
+                proposed: Default::default(),
             };
             let instructions_with_tools =
-                build_instructions(&workspace, &document, true, &mode, &message);
+                build_instructions(&workspace, &document, true, &mode, &focus, &ui_language);
 
             // These providers expose server-side search through their
             // current Chat Completions compatibility layer. Other providers
@@ -690,6 +1086,7 @@ async fn ai_agent_message_inner(
             // single tool-less completion instead of failing the request
             // outright. `history`/`message` are cloned so the fallback still
             // has them; `run_agent_loop` would otherwise have consumed them.
+            let step = with_postfix(step, &document, &conventions);
             match run_agent_loop(
                 history.clone(),
                 user_turn,
@@ -704,8 +1101,14 @@ async fn ai_agent_message_inner(
             {
                 Ok(turns) => Ok(turns),
                 Err(_) => {
-                    let instructions =
-                        build_instructions(&workspace, &document, false, &mode, &message);
+                    let instructions = build_instructions(
+                        &workspace,
+                        &document,
+                        false,
+                        &mode,
+                        &focus,
+                        &ui_language,
+                    );
                     flattened_chat_turn(
                         &app,
                         &provider,
@@ -719,7 +1122,8 @@ async fn ai_agent_message_inner(
             }
         }
         _ => {
-            let instructions = build_instructions(&workspace, &document, false, &mode, &message);
+            let instructions =
+                build_instructions(&workspace, &document, false, &mode, &focus, &ui_language);
             flattened_chat_turn(
                 &app,
                 &provider,
@@ -787,6 +1191,7 @@ async fn flattened_chat_turn(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ai::ui_language::{entries, UI_LANGUAGES};
 
     /// The whole tool path a writing request takes, with a scripted model:
     /// read the section it was asked about, propose an edit quoting it,
@@ -799,10 +1204,15 @@ mod tests {
 
         let document = "# Notes\n\n## Methods\n\nWe sampled ten sites.\n\n## Results\n\nAll good.";
         let tools = tools::builtin_tools(false, false, true);
+        let conventions = crate::ai::rules::Conventions::default();
         let ctx = ToolContext {
             document,
             skills: &[],
+            ui_language: "en",
             root: None,
+            conventions: &conventions,
+            library: &[],
+            proposed: Default::default(),
         };
         let call = |id: &str, name: &str, args: &str| AgentTurn::ToolCall {
             call_id: id.into(),
@@ -922,6 +1332,102 @@ mod tests {
         assert!(matches!(&out[0], AgentTurn::User { text, .. } if text == "recent"));
     }
 
+    /// One exchange of `chars` characters: a question, a file read, a reply.
+    fn exchange(n: usize, chars: usize) -> Vec<AgentTurn> {
+        vec![
+            AgentTurn::User {
+                text: format!("question {n}"),
+                images: Vec::new(),
+            },
+            AgentTurn::ToolCall {
+                call_id: format!("r{n}"),
+                name: "read_file".into(),
+                arguments: "{}".into(),
+            },
+            AgentTurn::ToolResult {
+                call_id: format!("r{n}"),
+                output: "z".repeat(2_000),
+            },
+            AgentTurn::Assistant {
+                text: "a".repeat(chars),
+            },
+        ]
+    }
+
+    fn debug(turns: &[AgentTurn]) -> String {
+        format!("{turns:?}")
+    }
+
+    /// What the prompt cache needs: a turn, once replayed, reads the same on
+    /// every later send - the old read cut to the same stub each time.
+    #[test]
+    fn compacted_history_is_the_same_on_every_send() {
+        let mut history = exchange(0, 100);
+        let first = compact_history(history.clone());
+        assert!(debug(&first).contains("omitted"));
+        for n in 1..5 {
+            history.extend(exchange(n, 100));
+            let later = compact_history(history.clone());
+            assert_eq!(debug(&later[..first.len()]), debug(&first));
+        }
+    }
+
+    /// Over budget, the history's first message moves once per block of
+    /// growth, not on every send - and between moves each send's history
+    /// starts with the previous one's, so the cached prefix survives.
+    #[test]
+    fn over_budget_the_oldest_exchanges_go_in_blocks() {
+        let mut history = Vec::new();
+        let mut previous: Option<Vec<AgentTurn>> = None;
+        let (mut sends, mut moves) = (0, 0);
+        for n in 0..60 {
+            history.extend(exchange(n, 9_000));
+            let out = compact_history(history.clone());
+            let kept: usize = out.iter().map(turn_chars).sum();
+            assert!(kept <= HISTORY_BUDGET, "{kept} chars kept");
+            if let Some(prev) = previous.filter(|_| n > 20) {
+                sends += 1;
+                if out.len() < prev.len() || debug(&out[..prev.len()]) != debug(&prev) {
+                    moves += 1;
+                    // A move drops a whole block and still keeps most of
+                    // the budget.
+                    assert!(kept >= HISTORY_BUDGET - HISTORY_DROP_STEP - 10_000);
+                }
+            }
+            previous = Some(out);
+        }
+        // Each exchange is ~9.4k characters; a block is 50k.
+        assert!(moves * 4 < sends, "{moves} moves in {sends} sends");
+        assert!(moves > 0);
+    }
+
+    /// An attached file inlined into a message can make one exchange bigger
+    /// than a block. Rounding the cut up to the next block end would then
+    /// drop it with everything before it, though the budget only needs the
+    /// oldest two exchanges gone - so it isn't rounded that far.
+    #[test]
+    fn over_budget_a_long_attachment_is_not_dropped_early() {
+        let mut history = Vec::new();
+        for n in 0..3 {
+            history.extend(exchange(n, 10_000));
+        }
+        history.extend([
+            AgentTurn::User {
+                text: format!("<attached-file>{}</attached-file>", "p".repeat(130_000)),
+                images: Vec::new(),
+            },
+            AgentTurn::Assistant {
+                text: "summary".into(),
+            },
+        ]);
+        history.extend(exchange(5, 5_000));
+        let out = compact_history(history);
+        let kept: usize = out.iter().map(turn_chars).sum();
+        assert!(kept <= HISTORY_BUDGET, "{kept} chars kept");
+        assert!(matches!(&out[0], AgentTurn::User { text, .. } if text == "question 2"));
+        assert!(debug(&out).contains("attached-file"));
+    }
+
     #[test]
     fn qwen_search_endpoint_tracks_model_generation() {
         assert!(qwen_uses_responses_search("qwen3.7-plus"));
@@ -929,6 +1435,36 @@ mod tests {
         assert!(qwen_uses_responses_search("qwen3-max"));
         assert!(!qwen_uses_responses_search("qwen-plus"));
         assert!(!qwen_uses_responses_search("qwen-flash"));
+    }
+
+    #[test]
+    fn the_message_header_names_the_language_the_user_typed() {
+        let cases = [
+            ("What was the most common complaint?", Some("English")),
+            ("把这段翻译成英文", Some("Simplified Chinese")),
+            ("把這段翻譯成英文", Some("Traditional Chinese")),
+            ("この段落を短くしてください", Some("Japanese")),
+            // A selection, the cursor's surroundings and an expanded skill
+            // are not what the user typed.
+            (
+                "<selected-text>\n图书馆每周日下午四点就闭馆了，很多读者抱怨。\n</selected-text>\n\nMake this more formal.",
+                Some("English"),
+            ),
+            (
+                "<skill name=\"tighten\" typed=\"/tighten\">\nTighten the passage. Keep every fact.\n</skill>\n\n帮我精简这一段",
+                Some("Simplified Chinese"),
+            ),
+            ("ok", None),
+        ];
+        for (message, expected) in cases {
+            assert_eq!(message_language(message), expected, "{message}");
+        }
+        let text = request_user_text("doc", "What was the most common complaint?");
+        assert!(
+            text.ends_with("---the user's message (written in English: reply in English, unless the user instructions set a reply language)---\nWhat was the most common complaint?"),
+            "{text}"
+        );
+        assert!(request_user_text("doc", "ok").ends_with("---the user's message---\nok"));
     }
 
     #[test]
@@ -1018,13 +1554,303 @@ mod tests {
     }
 
     #[test]
+    fn the_skill_index_offers_model_skills_and_prefers_the_users() {
+        use crate::ai::workspace::{AgentSkill, SkillSource};
+        let mut ws = crate::ai::workspace::load_layers(None, None, None, &["describe".to_string()]);
+        ws.skills.push(AgentSkill {
+            name: "house-headline".into(),
+            description: "Titles in the house style".into(),
+            prompt: "x".into(),
+            source: SkillSource::Project,
+            ..AgentSkill::default()
+        });
+        ws.skills.push(AgentSkill {
+            name: "my-tone".into(),
+            description: "d".repeat(700),
+            prompt: "x".into(),
+            source: SkillSource::Global,
+            ..AgentSkill::default()
+        });
+        let index = skill_index(&ws, "en");
+        let lines: Vec<&str> = index.lines().collect();
+        assert!(lines[0].starts_with("- house-headline (project): "));
+        assert!(lines[1].starts_with("- my-tone (yours): ") && lines[1].ends_with('…'));
+        assert!(lines[1].chars().count() < 540, "a long description is cut");
+        assert_eq!(
+            lines[2],
+            format!(
+                "- continue-story: {}",
+                crate::ai::builtin::find("continue-story")
+                    .unwrap()
+                    .description
+            )
+        );
+        // In another UI a built-in carries that UI's name for it.
+        let zh = skill_index(&ws, "zh");
+        assert!(
+            zh.contains("- continuity [/检查前后一致 in their UI]: "),
+            "{zh}"
+        );
+        assert!(zh.contains("- house-headline (project): "));
+        // /name-only skills and turned-off ones aren't offered.
+        for absent in ["tighten", "expand", "change-tone", "summarize", "describe"] {
+            assert!(!index.contains(&format!("- {absent}:")), "{absent}");
+        }
+        // Built-ins by menu category: write before revise before check
+        // before format.
+        let at = |name: &str| index.find(&format!("- {name}:")).unwrap();
+        assert!(
+            at("dialogue") < at("de-ai")
+                && at("de-ai") < at("proofread")
+                && at("proofread") < at("email")
+        );
+        // The system prompt carries it, the preference rule and the packs,
+        // the same whatever the document.
+        let a = build_instructions(&ws, "# One", true, "edit", "hi", "en");
+        let b = build_instructions(&ws, "# Two\n\nOther text.", true, "edit", "other", "en");
+        assert_eq!(a, b);
+        assert!(a.contains("When a skill marked (project) or (yours) and an unmarked built-in skill both match a request, use the marked one."));
+        assert!(a.contains("standards-zh-hant") && !a.contains("contract,"));
+        // Nothing to offer, no index.
+        let mut none = ws.clone();
+        none.skills.iter_mut().for_each(|s| s.enabled = false);
+        assert!(!build_instructions(&none, "", true, "edit", "", "en")
+            .contains("---available skills---"));
+    }
+
+    #[test]
+    fn the_workspace_section_says_which_folder_and_why() {
+        use crate::ai::workspace::{load_from, RootSource};
+        let doc_folder = load_from(None, Some("/tmp/novel/chapter-1.md"), None);
+        assert_eq!(doc_folder.root_source, RootSource::DocumentFolder);
+        let text = workspace_section(&doc_folder, "en");
+        assert!(text.contains("/tmp/novel") && text.contains("own folder"));
+        let tmp = std::env::temp_dir();
+        let chosen = load_from(None, Some("/tmp/novel/chapter-1.md"), tmp.to_str());
+        assert_eq!(chosen.root_source, RootSource::Chosen);
+        assert!(workspace_section(&chosen, "en").contains("chosen by the user"));
+        // An unsaved draft: no files, the reason, and the way out.
+        let unsaved = load_from(None, None, None);
+        assert_eq!(unsaved.root_source, RootSource::None);
+        let text = workspace_section(&unsaved, "en");
+        assert!(text.contains("isn't saved") && text.contains("Settings > Levis AI"));
+        assert!(!text.contains("list_files"));
+        // No project, no project bar: only the Settings row is offered.
+        assert!(!text.contains("click the folder name"));
+        assert!(workspace_section(&doc_folder, "en").contains("click the folder name"));
+        assert!(workspace_section(&chosen, "en").contains("Use the document's folder"));
+        let too_broad = AgentWorkspace {
+            root_source: RootSource::TooBroad,
+            ..AgentWorkspace::default()
+        };
+        let text = workspace_section(&too_broad, "en");
+        assert!(text.contains("too broad") && !text.contains("click the folder name"));
+        // The app's names, for every case: the English ones, and those of
+        // the user's UI language - only that one.
+        assert!(text.contains("Learn my style") && !text.contains("English |"));
+        let chinese = workspace_section(&too_broad, "zh");
+        assert!(chinese.contains("English | 中文\nproject folder | 项目文件夹\n"));
+        assert!(chinese.contains("not \"style profile (文风档案)\", not \"资料库 (library)\""));
+        assert!(!chinese.contains("日本語"));
+        // A language whose names aren't translated yet gets the English
+        // ones alone, and one the backend doesn't know of the same.
+        assert_eq!(workspace_section(&too_broad, "xx"), text);
+        // The tool-less fallback doesn't hear about file tools.
+        let prompt = build_instructions(&unsaved, "draft", false, "edit", "", "en");
+        assert!(!prompt.contains("---project---"));
+        let ask = build_instructions(&doc_folder, "draft", true, "ask", "", "en");
+        assert!(ask.contains("Ask mode:") && ask.contains("Edit mode you"));
+        let ask = build_instructions(&doc_folder, "draft", true, "ask", "", "ja");
+        assert!(
+            ask.contains("Ask mode (質問 in their Japanese UI)")
+                && ask.contains("Edit mode (編集)")
+        );
+    }
+
+    #[test]
+    fn the_prompt_names_things_exactly_as_the_ui_does() {
+        // Every UI label the agent is told about must be the one the user
+        // sees, in each language, or the agent sends people to menu items
+        // that don't exist. Read from the frontend's files, so a language
+        // still to be translated - no help guide of its own yet - is simply
+        // not there.
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let read = |path: &str| std::fs::read_to_string(repo.join(path)).unwrap_or_default();
+        let names_ts = read("src/i18n/names.ts");
+        assert!(
+            names_ts.contains(&format!("export const AI_NAME = \"{AI_NAME}\";")),
+            "AI_NAME differs from src/i18n/names.ts"
+        );
+        assert!(
+            names_ts.contains(&format!(
+                "export const APP_NAME = \"{}\";",
+                crate::app_identity::APP_NAME
+            )),
+            "APP_NAME differs from src/i18n/names.ts"
+        );
+        // The same languages as the UI offers, in the same order.
+        let langs_ts = read("src/i18n/langs.ts");
+        let list = langs_ts
+            .split("export const LANGS = [")
+            .nth(1)
+            .and_then(|rest| rest.split("] as const").next())
+            .expect("LANGS in src/i18n/langs.ts");
+        let codes: Vec<&str> = list.split('"').skip(1).step_by(2).collect();
+        assert_eq!(
+            codes,
+            UI_LANGUAGES.iter().map(|l| l.code).collect::<Vec<_>>()
+        );
+
+        // A chosen project folder: the case that names every label.
+        let chosen = AgentWorkspace {
+            root: Some("/tmp/novel".into()),
+            root_source: crate::ai::workspace::RootSource::Chosen,
+            ..AgentWorkspace::default()
+        };
+        let english: Vec<&str> = entries(UI_LANGUAGES[0].names).collect();
+        for language in UI_LANGUAGES {
+            let code = language.code;
+            let strings = read(&format!("src/i18n/locales/{code}.ts"));
+            let guide = read(&format!("src/help/agent-guide.{code}.md"));
+            // A name is the UI's, or, for the few that are no label -
+            // "project menu" - the help guide's. "Style (the chip)": the
+            // label is what precedes the note.
+            let known = |name: &str| {
+                let name = name.split(" (").next().unwrap();
+                strings.contains(name) || guide.to_lowercase().contains(&name.to_lowercase())
+            };
+            if code == "en" {
+                for name in &english {
+                    assert!(known(name), "neither the UI nor the guide says {name}");
+                }
+                continue;
+            }
+            let lines: Vec<&str> = entries(language.names).collect();
+            if lines.is_empty() {
+                continue;
+            }
+            let pairs: Vec<(&str, &str)> = lines
+                .iter()
+                .map(|line| {
+                    line.split_once(" = ")
+                        .unwrap_or_else(|| panic!("ui-names/{code}.txt: no \" = \" in {line}"))
+                })
+                .collect();
+            assert_eq!(
+                pairs.iter().map(|(en, _)| *en).collect::<Vec<_>>(),
+                english,
+                "ui-names/{code}.txt names every line of en.txt, in its order"
+            );
+            let prompt = build_instructions(&chosen, "draft", true, "ask", "", code);
+            assert!(prompt.contains(&format!("\nEnglish | {}\n", language.native)));
+            for (en, name) in &pairs {
+                assert!(
+                    prompt.contains(&format!("{en} | {name}")),
+                    "the prompt lacks {name}"
+                );
+                assert!(
+                    known(name),
+                    "{code}: neither the UI nor the guide says {name}"
+                );
+            }
+        }
+
+        // The labels the English description quotes, and those too short
+        // to look up on their own, are exactly the strings' entries.
+        let prompt = build_instructions(&chosen, "draft", true, "ask", "", "en");
+        let en_ts = read("src/i18n/locales/en.ts");
+        for label in [
+            "Choose project folder…",
+            "Use the document's folder",
+            "Learn my style from samples…",
+            "Create style profile",
+            "Open style profile",
+            "New library entry…",
+            "Edit project writing instructions",
+            "Writing Instructions (agent.md)",
+            "Edit agent.md",
+            "Import Skill…",
+        ] {
+            assert!(prompt.contains(label), "the prompt lacks {label}");
+            assert!(
+                en_ts.contains(&format!("\"{label}\"")),
+                "the UI has no {label}"
+            );
+        }
+        let (zh_ts, ja_ts) = (
+            read("src/i18n/locales/zh.ts"),
+            read("src/i18n/locales/ja.ts"),
+        );
+        for (strings, entry) in [
+            (&en_ts, "projectStyleChip: \"Style\""),
+            (&zh_ts, "projectStyleChip: \"文风\""),
+            (&ja_ts, "projectStyleChip: \"文体\""),
+            (&en_ts, "agentWorkspaceRootLabel: \"Project Folder\""),
+            (&zh_ts, "agentWorkspaceRootLabel: \"项目文件夹\""),
+            (
+                &ja_ts,
+                "agentWorkspaceRootLabel: \"プロジェクトフォルダー\"",
+            ),
+            (&zh_ts, "agentSkillsLabel: \"技能\""),
+            (&ja_ts, "agentSkillsLabel: \"スキル\""),
+            (&zh_ts, "settingsTitle: \"设置\""),
+            (&ja_ts, "settingsTitle: \"設定\""),
+            (&zh_ts, "tutorialCompletionTitle: \"续写\""),
+            (&ja_ts, "completionToneLabel: \"補完のトーン\""),
+            (&zh_ts, "proposalAccept: \"采纳\""),
+            (&ja_ts, "proposalAccept: \"承認\""),
+            (&zh_ts, "proposalReject: \"拒绝\""),
+            (&ja_ts, "proposalReject: \"却下\""),
+        ] {
+            assert!(strings.contains(entry), "the UI has no {entry}");
+        }
+        assert!(prompt.contains(&format!("Settings > {AI_NAME} > Project Folder")));
+        // The backend's own pointer to Settings names the same page.
+        assert!(crate::ai::route::NOT_CONFIGURED.contains(&format!("Settings > {AI_NAME}.")));
+    }
+
+    #[test]
     fn interaction_mode_is_explicit_in_the_system_instructions() {
         let workspace = AgentWorkspace::default();
-        let plan = build_instructions(&workspace, "draft", true, "plan", "");
+        let plan = build_instructions(&workspace, "draft", true, "plan", "", "en");
         assert!(plan.contains("interaction mode: plan"));
         assert!(plan.contains("do not call propose_edit"));
 
-        let edit = build_instructions(&workspace, "draft", true, "edit", "");
+        let edit = build_instructions(&workspace, "draft", true, "edit", "", "en");
         assert!(edit.contains("interaction mode: edit"));
+    }
+
+    #[test]
+    fn project_writing_instructions_follow_and_override_the_global_ones() {
+        let global = "Always reply in English.";
+        let project = "Reply in Chinese.";
+        let both = AgentWorkspace {
+            instructions: vec![global.into()],
+            project_instructions: Some(project.into()),
+            ..AgentWorkspace::default()
+        };
+        let prompt = build_instructions(&both, "draft", true, "edit", "", "en");
+        let global_at = prompt.find(global).unwrap();
+        let project_at = prompt.find(project).unwrap();
+        assert!(global_at < project_at, "global first, project after");
+        assert!(prompt.contains(
+            "---user instructions for this project (where they conflict with the ones above, follow these)---\nReply in Chinese."
+        ));
+
+        // One layer alone keeps the plain header, whichever layer it is.
+        for alone in [
+            AgentWorkspace {
+                instructions: vec![global.into()],
+                ..AgentWorkspace::default()
+            },
+            AgentWorkspace {
+                project_instructions: Some(global.into()),
+                ..AgentWorkspace::default()
+            },
+        ] {
+            let prompt = build_instructions(&alone, "draft", true, "edit", "", "en");
+            assert!(prompt.contains("---user instructions---\nAlways reply in English."));
+            assert!(!prompt.contains("---user instructions for this project"));
+        }
     }
 }

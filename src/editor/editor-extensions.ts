@@ -51,6 +51,7 @@ import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
 import { createImagePlugin } from "./image-plugin";
 import { createTypewriterPlugin } from "./typewriter-plugin";
 import { zenFocusPlugin } from "./zen-focus-plugin";
+import { keyboardRevealPlugin } from "./keyboard-reveal-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
 import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
 import { buildCompletionStyle } from "../ai/completion-style";
@@ -62,7 +63,7 @@ import {
 import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
 import { createQuickAskWidgetPlugin } from "../ai/quick-ask-widget-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
-import { strings } from "../i18n/strings";
+import { resolveStrings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
 
 export interface PendingEditCallbacks {
@@ -201,6 +202,7 @@ export function withEditorExtensions(
       .use(codeBlockIndentPlugin)
       .use(findReplacePlugin)
       .use(zenFocusPlugin)
+      .use(keyboardRevealPlugin)
       .use(
         createTypewriterPlugin({
           enabled: () => settings.current.typewriterMode,
@@ -208,7 +210,7 @@ export function withEditorExtensions(
       )
       .use(
         createPlaceholderPlugin(
-          () => strings[settings.current.language].emptyDocPlaceholder,
+          () => resolveStrings(settings.current.language).emptyDocPlaceholder,
         ),
       )
 
@@ -234,6 +236,10 @@ export function withEditorExtensions(
           model: () =>
             settings.current.writingModels[settings.current.aiProvider] || null,
           strictness: () => settings.current.grammarStrictness,
+          project: () => ({
+            docPath: docPath.current,
+            workspaceRoot: settings.current.agentWorkspaceRoot || null,
+          }),
         }),
       )
       .use(

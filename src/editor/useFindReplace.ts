@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { compileQuery, findReplaceKey } from "./find-replace-plugin";
+import { scrollBehavior } from "../ui/motion";
 import type { EditorRunner } from "./useEditorRunner";
 
 export interface FindReplaceStatus {
@@ -28,14 +29,14 @@ function readStatus(view: EditorView): FindReplaceStatus {
     : IDLE_STATUS;
 }
 
-function scrollToActive(view: EditorView) {
+function scrollToActive(view: EditorView, behavior = scrollBehavior()) {
   const s = findReplaceKey.getState(view.state);
   const match = s?.matches[s.activeIndex];
   if (!match) return;
   try {
     const dom = view.domAtPos(match.from).node;
     const el = dom instanceof Element ? dom : dom.parentElement;
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.scrollIntoView({ block: "center", behavior });
   } catch {
     // Position not representable in the DOM right now - not worth failing over.
   }
@@ -66,6 +67,9 @@ export function useFindReplace(run: EditorRunner) {
         }),
       );
       setStatus(readStatus(view));
+      // The counter says "1 / 12" - show that match while typing. Instant:
+      // a smooth scroll per keystroke would chase its own tail.
+      if (query) scrollToActive(view, "auto");
     });
   }, [open, query, caseSensitive, useRegex, run]);
 

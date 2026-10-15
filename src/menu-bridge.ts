@@ -1,4 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { menuIpc, windowIpc } from "./ipc";
+import { hasNativeMenuBar } from "./platform/capabilities";
+import {
+  nativeMenuChecks,
+  nativeMenuLabels,
+  type MenuChecks,
+} from "./ui/app-menu-model";
 import { listenToThisWindow, unlistenAll } from "./utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "./export-doc";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "./utils/events";
@@ -124,4 +131,46 @@ export function useMenuBridge(handlers: MenuBridgeHandlers): void {
       }),
     );
   }, []);
+
+  // The macOS menu bar is native and built in English: it takes the UI's
+  // language from these labels, sent by each window as it opens and again
+  // when the language changes (Rust rebuilds only on a change).
+  const { t } = handlers;
+  useEffect(() => {
+    if (hasNativeMenuBar) void menuIpc.setMenuLabels(nativeMenuLabels(t));
+  }, [t]);
+
+  // Settings… or Open… chosen from the macOS menu bar while no window was
+  // open: Rust opened this window to carry it out (menu.rs's
+  // emit_or_open_window). Asked once, on mount - the answer is taken, so no
+  // later window repeats it.
+  useEffect(() => {
+    windowIpc
+      .takePendingMenuEvent()
+      .then((event) => {
+        if (event === "menu-open-settings") latest.current.onOpenSettings();
+        else if (event === "menu-open-file")
+          void latest.current.openFileDialog();
+      })
+      .catch(() => {});
+  }, []);
+}
+
+/**
+ * The macOS menu bar's View check marks, from this window's state: sent on
+ * every change while the window has focus, and again whenever it gains
+ * focus - the bar is one for the whole app, so it shows the front window.
+ */
+export function useNativeMenuChecks(checks: MenuChecks) {
+  const key = JSON.stringify(nativeMenuChecks(checks));
+  useEffect(() => {
+    if (!hasNativeMenuBar) return;
+    const send = () =>
+      void menuIpc
+        .setMenuChecks(JSON.parse(key) as Record<string, boolean>)
+        .catch(() => {});
+    if (document.hasFocus()) send();
+    window.addEventListener("focus", send);
+    return () => window.removeEventListener("focus", send);
+  }, [key]);
 }

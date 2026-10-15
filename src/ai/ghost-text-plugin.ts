@@ -54,6 +54,10 @@ const BLOCK_NAMES: Record<string, string> = {
   blockquote: "blockquote",
   table_cell: "table cell",
   table_header: "table cell",
+  // Without it a code block went out as a "paragraph" and the model had to
+  // guess it was continuing code (the live eval scored the hinted case
+  // higher - docs/AI-EVAL.md).
+  code_block: "code block",
 };
 
 /**
@@ -125,6 +129,10 @@ function ghostDecoration(
   cursorPos: number,
   suggestion: string | string[],
   index = 0,
+  /** A suggestion appearing, rather than the rest of one already on show
+   *  (after Ctrl+Right) or its next alternative: only that fades in - a
+   *  continuing one stays put, it must not flash. */
+  fresh = true,
 ): GhostMeta {
   const candidates = Array.isArray(suggestion) ? suggestion : [suggestion];
   const shown = candidates[index] ?? "";
@@ -133,12 +141,16 @@ function ghostDecoration(
       cursorPos,
       () => {
         const span = document.createElement("span");
-        span.className = "ghost-text";
+        span.className = fresh ? "ghost-text ghost-text-enter" : "ghost-text";
         span.setAttribute("data-suggestion", shown);
         span.contentEditable = "false";
         return span;
       },
-      { side: 1, ignoreSelection: true, key: `ghost-${index}-${shown}` },
+      {
+        side: 1,
+        ignoreSelection: true,
+        key: `ghost-${index}-${fresh ? "new" : "kept"}-${shown}`,
+      },
     ),
   ];
   // With alternatives, a quiet "2/3 · Alt+]" after the text says there are
@@ -186,9 +198,11 @@ export function nextWordChunk(text: string): string {
 }
 
 /** The alternatives in a multi-candidate response (CANDIDATE_SEPARATOR in
- *  src-tauri ai/client.rs); a single continuation comes back as one. */
+ *  src-tauri ai/client.rs); a single continuation comes back as one. Only
+ *  whole lines go with the separator: a candidate's leading space is the
+ *  join the backend made onto the before-text ("quickly" + " grew"). */
 export function splitCandidates(raw: string): string[] {
-  return raw.split(/\n\s*<<<>>>\s*\n?/).filter((part) => part.trim());
+  return raw.split(/\n\s*<<<>>>(?:[ \t]*\n)*/).filter((part) => part.trim());
 }
 
 /// Runs a completion request right now at the cursor and shows it as ghost
@@ -391,6 +405,7 @@ export function createGhostTextPlugin(options: {
                     state.from,
                     state.candidates,
                     (state.index + step + n) % n,
+                    false,
                   ),
                 ),
               );
@@ -410,7 +425,13 @@ export function createGhostTextPlugin(options: {
               tr.setMeta(
                 ghostTextKey,
                 rest.trim()
-                  ? ghostDecoration(tr.doc, state.from + chunk.length, rest)
+                  ? ghostDecoration(
+                      tr.doc,
+                      state.from + chunk.length,
+                      rest,
+                      0,
+                      false,
+                    )
                   : { type: "clear" },
               );
               view.dispatch(tr);

@@ -9,7 +9,7 @@ npm run test:visual                    # Playwright: the UI in Chromium
 scripts/smoke-linux.sh --build         # the built Linux app and its .deb
 npm run screenshots:readme             # regenerate the README screenshots
 cd src-tauri && cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
-                                       # real Anthropic API (costs cents)
+                                       # real Anthropic API (costs money - docs/AI-EVAL.md)
 ```
 
 The first two run in CI, as do the Playwright flows with
@@ -59,17 +59,18 @@ pinned rather than trusted.
 
 ### 3. Backend rules (app crate)
 
-| Module                  | Catches                                                                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ai::agent`             | The scripted agent loop end to end, history compaction, where the document rides (current turn only), focus-section selection on long docs. |
-| `ai::tools`             | `propose_edit`/`add_comment` anchor validation, including near-miss matching.                                                               |
-| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.levis/style.md` and `.levis/library/` parsing and relevance.         |
-| `ai::workspace`         | Skill parsing, root resolution and the too-broad-folder guard.                                                                              |
-| `ai::client`            | Completion prompt assembly, candidate splitting, grammar-issue relocation (CJK offsets).                                                    |
-| `ai::catalog`           | Every pinned default model exists in the models.dev snapshot.                                                                               |
-| `commands::chat_window` | Which chat serves which editor, what a closed window frees.                                                                                 |
-| `commands::attachment`  | OOXML text extraction and truncation marking.                                                                                               |
-| `atomic`, `session`     | Secret files written 0600 and atomically, what a closing window leaves in the session.                                                      |
+| Module                  | Catches                                                                                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai::agent`             | The scripted agent loop end to end, history compaction, where the document rides (current turn only), focus-section selection on long docs.                                                                                                                             |
+| `ai::tools`             | `propose_edit`/`add_comment` anchor validation, including near-miss matching.                                                                                                                                                                                           |
+| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.levis/style.md` and `.levis/library/` parsing and relevance.                                                                                                                                     |
+| `ai::workspace`         | Skill parsing, root resolution and the too-broad-folder guard.                                                                                                                                                                                                          |
+| `ai::client`            | Completion prompt assembly, candidate splitting, grammar-issue relocation (CJK offsets), merging the rules engine's findings.                                                                                                                                           |
+| `ai::rules`             | The writing-rules engine: every rule per language with its guards and never-flag cases, profiles and settings, Markdown blocks, majority, fix idempotency, post-processing, platform counts, timing. `sweep` (ignored) runs it over the help guides and eval documents. |
+| `ai::catalog`           | Every pinned default model exists in the models.dev snapshot.                                                                                                                                                                                                           |
+| `commands::chat_window` | Which chat serves which editor, what a closed window frees.                                                                                                                                                                                                             |
+| `commands::attachment`  | OOXML text extraction and truncation marking.                                                                                                                                                                                                                           |
+| `atomic`, `session`     | Secret files written 0600 and atomically, what a closing window leaves in the session.                                                                                                                                                                                  |
 
 ### 4. Frontend state and rendering (vitest)
 
@@ -77,7 +78,8 @@ Settings migration (a rejected value must not discard the rest), the
 composer, streaming tool arguments, the proposal state machine
 (docs/AI-PROPOSALS.md), cancelled turns, AI error classification, the chat
 history grouping, the tutorial, the Windows-only window frame, menus and
-shortcuts, export pagination, themes.
+shortcuts, export pagination, themes, and the AI concept copy (the agent.md
+starters send nothing; templates name the menu items as the menus do).
 
 ### 5. Visual (Playwright, `e2e/`)
 
@@ -87,7 +89,10 @@ drives a flow and compares a screenshot: first run, the sidebar lesson, a
 document in light and dark (including the table-header regression, #15),
 split view, zen mode, the AI panel, an agent reply with a reasoned edit, the
 sentence picker and a comment (accepting only some sentences is checked in
-the document), Quick Ask, settings.
+the document), Quick Ask, settings. Other specs assert behaviour without a
+screenshot: the file-backed storage (the boot snapshot, a close that waits
+for settings still on their way), the CJK font stacks, the phone, and an
+iPad's keyboard shortcuts and review-step focus.
 
 Baselines are per platform. After an intended UI change:
 `npm run test:visual -- --update-snapshots`, then look at every changed
@@ -103,12 +108,26 @@ also needs the screen unlocked.
 
 ### 7. Live (`ai::live_eval`, ignored by default)
 
-Writing tasks through the app's own prompts against the real API, with
-automatic checks: completions (length, no echo, candidates), and agent tasks
-(shorten, insert inline and at the cursor, answer without editing, a section
-of a long document, review via comments, a library fact). The key comes from
-`$LEVIS_ANTHROPIC_KEY_FILE` or `.anthropic-api-key.local` (git-ignored);
-without one every test passes vacuously.
+An evaluation matrix for every AI feature, run through the app's own
+prompts, tools and agent loop against the real API: the agent (75 cases -
+eleven document languages, edits inside every Markdown construct, reviews,
+questions, plan mode, agent.md, style, library, skills, project files,
+multi-turn follow-ups, a long document), inline completion (43 - every tone,
+language and block type, the cursor mid-word, candidates) and the grammar
+check (26 - every strictness level, real mistakes and correct text). Each
+case gets automatic checks (edit vs answer, reply and edit language, bytes
+outside the target untouched, Markdown structure re-parsed and compared,
+tool use, completion spacing and length, grammar recall and false
+positives) and an Opus judge's 1-5 scores; model-comparison runs put the
+defaults side by side with the other current models. Results land in a
+`.jsonl` and `.md` per suite. `docs/AI-EVAL.md` has the matrix, how to run
+and filter it, and the latest before/after results.
+
+The key comes from `$LEVIS_ANTHROPIC_KEY_FILE` or `.anthropic-api-key.local`
+(git-ignored); without one every test passes vacuously. A full run costs
+real money - filter with `LEVIS_EVAL_FILTER` and skip the judge with
+`LEVIS_EVAL_JUDGE=0` while iterating. The checking code itself is
+unit-tested and runs with the normal `cargo test`.
 
 ## What is deliberately not covered
 

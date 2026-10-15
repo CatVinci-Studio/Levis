@@ -1,16 +1,19 @@
-import type { Strings } from "../../i18n/strings";
+import { plural, type Lang, type Strings } from "../../i18n/strings";
 import type { InlineChatLabels } from "./InlineChat";
+import { pickerLabels } from "./ComposerPicker";
 
 /**
  * The chat's user-facing strings, assembled once here rather than inline at
  * each mount point - the embedded Quick Ask bar (MilkdownEditor) and the
  * detached window (ChatWindowApp) render the same components and so need
  * exactly the same set, and a second hand-written copy would go stale the
- * first time a label was added.
+ * first time a label was added. `lang` is the language `t` is in, which
+ * picks the plural forms of the counts.
  */
-export function chatLabels(t: Strings): InlineChatLabels {
+export function chatLabels(t: Strings, lang: Lang): InlineChatLabels {
   return {
     placeholder: t.agentInputPlaceholder,
+    picker: pickerLabels(t, lang),
     send: t.agentSend,
     stop: t.agentStop,
     retry: t.agentRetry,
@@ -18,8 +21,8 @@ export function chatLabels(t: Strings): InlineChatLabels {
     attachFile: t.agentAttachFile,
     attachmentTruncated: t.chatAttachmentTruncated,
     attachmentNoVision: t.chatAttachmentNoVision,
-    selectedChars: t.chatSelectedChars,
-    selectionChip: t.chatSelectionChip,
+    selectedChars: (n) => plural(t.chatSelectedChars, n, lang),
+    selectionChip: (n) => plural(t.chatSelectionChip, n, lang),
     proposalTitle: t.agentProposalTitle,
     proposalStatus: {
       streaming: t.proposalStatusStreaming,
@@ -50,11 +53,16 @@ export function chatLabels(t: Strings): InlineChatLabels {
     toolActivity: {
       search_document: t.toolSearchDocument,
       read_document: t.toolReadDocument,
+      // No heading named: the whole document, not an empty quote.
+      "read_document:whole": t.toolReadWholeDocument,
       search_files: t.toolSearchFiles,
       list_files: t.toolListFiles,
       read_file: t.toolReadFile,
       use_skill: t.toolUseSkill,
       add_comment: t.toolAddComment,
+      // The edit being written, in words: Quick Ask's status line showed
+      // the raw "propose_edit…". The ellipsis is added after it.
+      propose_edit: t.proposalStatusStreaming.replace(/…$/, ""),
     },
     diffCollapse: t.diffCollapse,
     diffShow: t.diffShow,

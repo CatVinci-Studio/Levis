@@ -14,6 +14,9 @@ const DEBOUNCE_MS = 1500;
 const MIN_PARAGRAPH_CHARS = 12;
 
 export interface GrammarIssue {
+  /** The writing-rules engine's rule id, when the issue came from it
+   *  rather than the model (ai::rules). */
+  rule?: string;
   /** Unicode-scalar offsets into the checked paragraph (backend-verified). */
   start: number;
   end: number;
@@ -53,6 +56,11 @@ export async function triggerGrammarCheckNow(
   provider: string,
   strictness: string,
   model: string | null,
+  /** The document's project, whose writing conventions the check follows. */
+  project: { docPath: string | null; workspaceRoot: string | null } = {
+    docPath: null,
+    workspaceRoot: null,
+  },
 ): Promise<void> {
   const { $from } = view.state.selection;
   const para = $from.parent;
@@ -62,7 +70,13 @@ export async function triggerGrammarCheckNow(
   if (!text.trim()) throw new AiNoticeError("grammar-empty-paragraph");
 
   const contentStart = $from.start($from.depth);
-  const issues = await ai.grammarCheck(provider, text, strictness, model);
+  const issues = await ai.grammarCheck(
+    provider,
+    text,
+    strictness,
+    model,
+    project,
+  );
   if (!paragraphUnchanged(view, contentStart, text)) {
     throw new AiNoticeError("grammar-paragraph-changed");
   }
@@ -162,7 +176,22 @@ export interface GrammarDecorationSpec {
   original?: string;
 }
 
-function issuesToDecorations(
+/** Whether any text in [from, to) of the paragraph (positions relative to
+ *  its content) carries a code mark - inline code. */
+export function touchesCode(
+  para: ProseNode,
+  from: number,
+  to: number,
+): boolean {
+  let code = false;
+  para.nodesBetween(from, to, (node) => {
+    if (node.marks.some((mark) => mark.type.spec.code)) code = true;
+    return !code;
+  });
+  return code;
+}
+
+export function issuesToDecorations(
   para: ProseNode,
   issues: GrammarIssue[],
   contentStart: number,
@@ -177,6 +206,9 @@ function issuesToDecorations(
   for (const issue of ordered) {
     if (issue.start < lastEnd) continue;
     if (ignored.has(ignoreKey(issue.original, issue.suggestion))) continue;
+    // A "fix" that changes nothing (再三考虑 -> 再三考虑): an underline on
+    // correct text whose Apply does nothing.
+    if (issue.suggestion === issue.original) continue;
     // Backend offsets count Unicode scalars; JS strings (and ProseMirror
     // text offsets) count UTF-16 units.
     const start16 = scalarToUtf16Offset(text, issue.start);
@@ -189,6 +221,10 @@ function issuesToDecorations(
     const from = textOffsetToDocPos(para, contentStart, start16);
     const to = textOffsetToDocPos(para, contentStart, end16);
     if (from === null || to === null || from >= to) continue; // range the model made up - drop it
+    // The check sees the paragraph's plain text, where inline code has lost
+    // its backticks - so `npm instal` looks like a typo. Code is never the
+    // checker's to fix, whatever the prompt managed to keep out.
+    if (touchesCode(para, from - contentStart, to - contentStart)) continue;
     lastEnd = issue.end;
     decorations.push(
       Decoration.inline(from, to, { class: "grammar-issue" }, {
@@ -206,6 +242,9 @@ export function createGrammarCheckPlugin(options: {
   provider: () => string;
   model: () => string | null;
   strictness: () => string;
+  /** The document's project folder, for its writing conventions profile
+   *  (style.md front matter) and library names. */
+  project?: () => { docPath: string | null; workspaceRoot: string | null };
 }) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
 
@@ -301,6 +340,7 @@ export function createGrammarCheckPlugin(options: {
                     text,
                     options.strictness(),
                     options.model(),
+                    options.project?.(),
                   );
                 } catch (err) {
                   // Not logged in, offline, or bad model output - stays quiet in

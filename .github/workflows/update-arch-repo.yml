@@ -27,6 +27,7 @@ permissions:
 jobs:
   update-arch-repo:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       TAG: ${{ inputs.tag }}
     steps:
@@ -34,10 +35,15 @@ jobs:
         env:
           ARCH_REPO_DEPLOY_KEY: ${{ secrets.ARCH_REPO_DEPLOY_KEY }}
         run: |
+          if [ -z "$ARCH_REPO_DEPLOY_KEY" ]; then
+            echo "::error::ARCH_REPO_DEPLOY_KEY is not set - arch-repo was not updated"
+            exit 1
+          fi
           VERSION="${TAG#v}"
           FILE="levis-bin-${VERSION}-1-x86_64.pkg.tar.zst"
           URL="https://github.com/CatVinci-Studio/Levis/releases/download/${TAG}/${FILE}"
-          curl -fsSL -o "$FILE" "$URL"
+          # The release was published seconds ago; let the CDN catch up.
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o "$FILE" "$URL"
           SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts

@@ -1,0 +1,139 @@
+import { expect, test, type Page } from "@playwright/test";
+import { openApp } from "./helpers";
+
+// Han characters are drawn differently in Japanese, Simplified and
+// Traditional Chinese and Korean; the font stacks pick the faces for the
+// language <html lang> names (App.css), in the chrome and in the content
+// themes alike. What's checked is the stack each element resolves to - the
+// faces themselves aren't installed on a CI runner.
+
+/** The first CJK face in the font-family of `selector`, under `lang`. */
+async function firstCjkFace(page: Page, lang: string, selector: string) {
+  return page.evaluate(
+    ([lang, selector]) => {
+      document.documentElement.lang = lang;
+      const family = getComputedStyle(
+        document.querySelector(selector)!,
+      ).fontFamily;
+      const faces = family.split(",").map((f) => f.trim().replace(/"/g, ""));
+      return faces.find((f) =>
+        /PingFang|Hiragino|Apple|Songti|Noto|Source Han/.test(f),
+      );
+    },
+    [lang, selector],
+  );
+}
+
+test("the interface font follows the UI language's CJK faces", async ({
+  page,
+}) => {
+  await openApp(page);
+  expect(await firstCjkFace(page, "en", "body")).toBe("PingFang SC");
+  expect(await firstCjkFace(page, "zh-CN", "body")).toBe("PingFang SC");
+  expect(await firstCjkFace(page, "ja", "body")).toBe("Hiragino Sans");
+  expect(await firstCjkFace(page, "zh-Hant", "body")).toBe("PingFang TC");
+  expect(await firstCjkFace(page, "zh-TW", "body")).toBe("PingFang TC");
+  expect(await firstCjkFace(page, "ko", "body")).toBe("Apple SD Gothic Neo");
+});
+
+/** Every face in the font-family of `selector`, under `lang`. */
+async function faces(page: Page, lang: string, selector: string) {
+  return page.evaluate(
+    ([lang, selector]) => {
+      document.documentElement.lang = lang;
+      return getComputedStyle(document.querySelector(selector)!)
+        .fontFamily.split(",")
+        .map((f) => f.trim().replace(/"/g, ""));
+    },
+    [lang, selector],
+  );
+}
+
+test("a Latin face comes before the CJK ones outside Chinese, Japanese and Korean", async ({
+  page,
+}) => {
+  // A CJK face draws ’ full-width: with it ahead of system-ui on Linux,
+  // French "d’habitants" showed a gap after the apostrophe.
+  await openApp(page);
+  for (const selector of ["body", ".milkdown .ProseMirror"]) {
+    for (const lang of ["fr", "de", "ru", "en"]) {
+      const stack = await faces(page, lang, selector);
+      expect(stack.indexOf("system-ui"), `${lang} ${selector}`).toBeLessThan(
+        stack.indexOf("PingFang SC"),
+      );
+    }
+    for (const lang of ["zh-CN", "ja", "ko"]) {
+      const stack = await faces(page, lang, selector);
+      expect(stack.indexOf("system-ui"), `${lang} ${selector}`).toBeGreaterThan(
+        stack.findIndex((f) => /PingFang|Hiragino|Apple SD/.test(f)),
+      );
+    }
+  }
+});
+
+test("every language falls back to the Simplified Chinese faces last", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { themeId: "paper" } });
+  // A Linux machine with only WenQuanYi (or only Noto CJK SC) installed
+  // must still find a CJK face named in the stack, in every language - and
+  // after that language's own faces, never before them.
+  for (const [lang, last] of [
+    ["ja", "Meiryo"],
+    ["zh-Hant", "Microsoft JhengHei"],
+    ["ko", "Malgun Gothic"],
+  ]) {
+    const stack = await faces(page, lang, "body");
+    expect(stack).toContain("WenQuanYi Micro Hei");
+    expect(stack.indexOf(last)).toBeGreaterThan(0);
+    expect(stack.indexOf("Noto Sans CJK SC")).toBeGreaterThan(
+      stack.indexOf(last),
+    );
+  }
+  const editor = '[data-active-tab="true"] .ProseMirror';
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-content-theme",
+    "paper",
+  );
+  for (const [lang, last] of [
+    ["ja", "MS Mincho"],
+    ["zh-Hant", "PMingLiU"],
+    ["ko", "Batang"],
+  ]) {
+    const stack = await faces(page, lang, editor);
+    expect(stack.indexOf(last)).toBeGreaterThan(0);
+    expect(stack.indexOf("Noto Serif CJK SC")).toBeGreaterThan(
+      stack.indexOf(last),
+    );
+  }
+});
+
+test("the Paper theme's serif follows the language too", async ({ page }) => {
+  await openApp(page, { settings: { themeId: "paper" } });
+  const editor = '[data-active-tab="true"] .ProseMirror';
+  await expect(page.locator(editor)).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-content-theme",
+    "paper",
+  );
+  expect(await firstCjkFace(page, "zh-CN", editor)).toBe("Songti SC");
+  expect(await firstCjkFace(page, "ja", editor)).toBe("Hiragino Mincho ProN");
+  expect(await firstCjkFace(page, "zh-HK", editor)).toBe("Songti TC");
+  expect(await firstCjkFace(page, "ko", editor)).toBe("AppleMyungjo");
+});
+
+test("Korean UI text breaks at spaces, the document breaks as usual", async ({
+  page,
+}) => {
+  // keep-all is for the chrome's Korean; on the document it stopped Chinese
+  // paragraphs and table cells breaking anywhere but at punctuation.
+  await openApp(page, { settings: { language: "ko" } });
+  const wordBreak = (selector: string) =>
+    page.evaluate(
+      (selector) =>
+        getComputedStyle(document.querySelector(selector)!).wordBreak,
+      selector,
+    );
+  expect(await wordBreak(".window-bar-title")).toBe("keep-all");
+  expect(await wordBreak(".milkdown .ProseMirror p")).toBe("normal");
+});

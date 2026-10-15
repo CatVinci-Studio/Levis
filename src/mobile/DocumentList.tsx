@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "../settings/SettingsContext";
+import { localeOf, plural } from "../i18n/strings";
 import { ContextMenu, type ContextMenuItem } from "../editor/ContextMenu";
 import { showConfirm, showMessage, showPrompt } from "../ui/app-dialog";
 import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
+import { Presence, usePresenceProps } from "../ui/usePresence";
+import { animate } from "../ui/motion";
+import { ListMotion } from "../ui/flip";
 import { fs } from "../ipc";
+import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
 import { useLongPress } from "../utils/useLongPress";
 import {
@@ -37,14 +42,8 @@ interface Entry {
 }
 
 type View = "list" | "grid";
-const VIEW_KEY = "levis.documentListView";
-
 function loadView(): View {
-  try {
-    return localStorage.getItem(VIEW_KEY) === "grid" ? "grid" : "list";
-  } catch {
-    return "list";
-  }
+  return getUiState("documentListView") === "grid" ? "grid" : "list";
 }
 
 /** The first lines of a Markdown document with its syntax mostly gone -
@@ -57,6 +56,8 @@ export function previewText(markdown: string): string {
     .map((line) =>
       line
         .replace(/^\s{0,3}((#{1,6}|>|[-*+]|\d+[.)])(\s+|$))+/, "")
+        // A task's box: "[ ] Milk" read as raw syntax in the thumbnail.
+        .replace(/^\[[ xX]\]\s+/, "")
         .replace(/(^|[^\\])[*_`~]+/g, "$1")
         .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
         .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1"),
@@ -89,6 +90,8 @@ export function DocumentList({
   const { t, settings } = useSettings();
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [view, setView] = useState<View>(loadView);
+  // Rendered inside a Presence (App.tsx): it goes back down as it closes.
+  const presence = usePresenceProps<HTMLDivElement>();
 
   const reload = useCallback(async () => {
     const paths = await recentIOSDocuments();
@@ -104,19 +107,30 @@ export function DocumentList({
     );
   }, []);
 
+  // Switching between rows and tiles crossfades the body rather than
+  // moving each document from its row to its tile - too much at once.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Which documents the list already showed: one that turns up later (a
+  // rename's new name) appears by itself; the first load just shows.
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (entries) seen.current = new Set(entries.map((entry) => entry.path));
+  }, [entries]);
   function switchView(next: View) {
+    if (next === view) return;
     setView(next);
-    try {
-      localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // Remembering the choice is a convenience only.
-    }
+    setUiState("documentListView", next);
+    if (bodyRef.current)
+      animate(bodyRef.current, [{ opacity: 0 }, { opacity: 1 }], {
+        duration: "--dur-fast",
+        easing: "--ease-out",
+      });
   }
 
-  const dateFormat = new Intl.DateTimeFormat(settings.language, {
+  const dateFormat = new Intl.DateTimeFormat(localeOf(settings.language), {
     dateStyle: "medium",
   });
-  const timeFormat = new Intl.DateTimeFormat(settings.language, {
+  const timeFormat = new Intl.DateTimeFormat(localeOf(settings.language), {
     timeStyle: "short",
   });
   const when = (mtime: number | null) => {
@@ -197,7 +211,12 @@ export function DocumentList({
   }
 
   return (
-    <div className="document-list" role="dialog" aria-label={t.docListTitle}>
+    <div
+      {...presence}
+      className="document-list"
+      role="dialog"
+      aria-label={t.docListTitle}
+    >
       <header className="document-list-header">
         <button
           type="button"
@@ -219,12 +238,10 @@ export function DocumentList({
       <div className="document-list-toolbar">
         <span className="document-list-count">
           {entries && entries.length > 0
-            ? entries.length === 1
-              ? t.docCountOne
-              : t.docCount.replace("{n}", String(entries.length))
+            ? plural(t.docCount, entries.length, settings.language)
             : ""}
         </span>
-        <div className="document-list-views" role="radiogroup">
+        <div className="document-list-views" role="radiogroup" data-view={view}>
           {(
             [
               ["list", t.docViewList, <ListViewIcon key="l" />],
@@ -245,7 +262,16 @@ export function DocumentList({
           ))}
         </div>
       </div>
-      <div className={`document-list-body document-list-${view}`}>
+      <div ref={bodyRef} className={`document-list-body document-list-${view}`}>
+        {/* A deleted document fades out where it was while the rest move
+            up into its place. */}
+        <ListMotion
+          ids={entries?.map((entry) => entry.path) ?? []}
+          container={bodyRef}
+          ghostClass="document-item-ghost"
+          exitMs={150}
+          ghostsUnder={false}
+        />
         {entries !== null && entries.length === 0 && (
           <p className="document-list-empty">{t.docListEmpty}</p>
         )}
@@ -255,6 +281,7 @@ export function DocumentList({
             view={view}
             entry={entry}
             active={entry.path === activePath}
+            fresh={seen.current !== null && !seen.current.has(entry.path)}
             detail={[
               when(entry.mtime),
               entry.local ? "Levis" : basename(dirname(entry.path)),
@@ -276,6 +303,7 @@ function DocumentItem({
   view,
   entry,
   active,
+  fresh,
   detail,
   date,
   onOpen,
@@ -285,6 +313,8 @@ function DocumentItem({
   view: View;
   entry: Entry;
   active: boolean;
+  /** New since the list first loaded. */
+  fresh: boolean;
   /** Date and location, for a row. */
   detail: string;
   /** Date alone, under a thumbnail. */
@@ -304,7 +334,8 @@ function DocumentItem({
   );
   return (
     <div
-      className={`document-item document-item-${view}${active ? " document-item-active" : ""}`}
+      data-flip-id={entry.path}
+      className={`document-item document-item-${view}${active ? " document-item-active" : ""}${fresh ? " document-item-new" : ""}`}
     >
       <button
         type="button"
@@ -335,18 +366,20 @@ function DocumentItem({
           <MoreIcon />
         </button>
       )}
-      {at && (
-        <ContextMenu
-          x={at.x}
-          y={at.y}
-          title={name}
-          items={actions()}
-          onClose={() => {
-            setMenuAt(null);
-            press.close();
-          }}
-        />
-      )}
+      <Presence show={!!at} exitMs={250}>
+        {at && (
+          <ContextMenu
+            x={at.x}
+            y={at.y}
+            title={name}
+            items={actions()}
+            onClose={() => {
+              setMenuAt(null);
+              press.close();
+            }}
+          />
+        )}
+      </Presence>
     </div>
   );
 }

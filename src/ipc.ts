@@ -10,6 +10,7 @@ import type {
   ImageAttachment,
 } from "./ai/types";
 import type { GrammarIssue } from "./ai/grammar-check-plugin";
+import type { SkillCategory } from "./ai/skills/builtin";
 import { isDesktopApp, isIOSApp } from "./platform/capabilities";
 import { iosFiles, isScopedUrl, newDocumentPath } from "./platform/ios-files";
 
@@ -161,17 +162,50 @@ export const session = {
 };
 
 // ---------------------------------------------------------------------------
-// prefs (src-tauri/src/commands/prefs.rs) - the two frontend settings
-// mirrored into Rust because they're needed before any webview exists.
+// storage (src-tauri/src/settings.rs) - settings, UI state and the two
+// histories, held by Rust in plain JSON files (docs/STORAGE.md). Only called
+// when Rust booted this window (src/storage/boot.ts); without that, the
+// stores fall back to localStorage.
 // ---------------------------------------------------------------------------
 
-export const prefs = {
-  setNewDocumentMode: (mode: string) =>
-    desktopQuery<void>("set_new_document_mode", undefined, { mode }),
-  setRestoreSessionOnStartup: (enabled: boolean) =>
-    desktopQuery<void>("set_restore_session_on_startup", undefined, {
-      enabled,
+export interface StoredSnapshot {
+  value: Record<string, unknown>;
+  rev: number;
+}
+
+export type HistoryKind = "chat" | "clipboard";
+
+/** What one window read from localStorage at the first launch after the
+ *  move, handed over once (see settings_import_legacy). */
+export interface LegacyStorage {
+  settings: Record<string, unknown>;
+  uiState: Record<string, unknown>;
+  chatHistory: unknown[] | null;
+  clipboardHistory: unknown[] | null;
+}
+
+export const storage = {
+  settingsGet: () => call<StoredSnapshot>("settings_get"),
+  /** Top-level fields only; resolves to the new revision. */
+  settingsPatch: (patch: Record<string, unknown>) =>
+    call<number>("settings_patch", { patch }),
+  /** Stores the fields of `defaults` that aren't set yet - never over one
+   *  that is - and resolves to the live settings. */
+  settingsFillDefaults: (defaults: Record<string, unknown>) =>
+    call<StoredSnapshot>("settings_fill_defaults", { defaults }),
+  settingsImportLegacy: (payload: LegacyStorage) =>
+    call<StoredSnapshot & { accepted: boolean }>("settings_import_legacy", {
+      payload,
     }),
+  uiStateGet: () => call<Record<string, unknown>>("ui_state_get"),
+  uiStatePatch: (patch: Record<string, unknown>) =>
+    call<void>("ui_state_patch", { patch }),
+  historyList: (kind: HistoryKind) => call<unknown[]>("history_list", { kind }),
+  historyUpsert: (kind: HistoryKind, entry: unknown) =>
+    call<void>("history_upsert", { kind, entry }),
+  historyRemove: (kind: HistoryKind, key: string) =>
+    call<void>("history_remove", { kind, key }),
+  historyClear: (kind: HistoryKind) => call<void>("history_clear", { kind }),
 };
 
 // ---------------------------------------------------------------------------
@@ -211,6 +245,11 @@ export const windowIpc = {
     desktopQuery<boolean>("start_window_drag_tracking", false),
   takePendingShowHelp: () =>
     desktopQuery<string | null>("take_pending_show_help", null),
+  /** The menu event this window was opened to carry out (Settings… or
+   *  Open… chosen from the macOS menu bar with no window open), if any;
+   *  asks once - the answer is taken. */
+  takePendingMenuEvent: () =>
+    desktopQuery<string | null>("take_pending_menu_event", null),
   takePendingOpenPath: () => call<string | null>("take_pending_open_path"),
   takePendingOpenPaths: () => call<string[]>("take_pending_open_paths"),
   /** Pops the chat panel out into its own OS window; resolves to its label,
@@ -251,6 +290,14 @@ export const menuIpc = {
   /** Backs File > Open Recent, whose native submenu the app-drawn menu
    *  cannot read. */
   listRecentFiles: () => desktopQuery<string[]>("list_recent_files", []),
+  /** Rebuilds the native (macOS) menu bar with these labels, keyed as
+   *  ui/app-menu-model.ts's nativeMenuLabels keys them. */
+  setMenuLabels: (labels: Record<string, string>) =>
+    desktopQuery<void>("set_menu_labels", undefined, { labels }),
+  /** Sets the native (macOS) View items' check marks, keyed by menu id
+   *  (ui/app-menu-model.ts's nativeMenuChecks). */
+  setMenuChecks: (checks: Record<string, boolean>) =>
+    desktopQuery<void>("set_menu_checks", undefined, { checks }),
 };
 
 // ---------------------------------------------------------------------------
@@ -305,9 +352,15 @@ export interface OauthStatus {
   configured: boolean;
 }
 
+/** What custom_endpoint_status reports (src-tauri/src/auth/custom_endpoint.rs
+ *  CustomEndpointStatus). The key itself never comes back to the webview -
+ *  `api_key` is always null - only whether one is stored. */
 export interface CustomEndpointConfig {
   base_url: string;
   api_key: string | null;
+  /** A key is saved for `base_url`: saving or testing with the key field
+   *  left empty uses it (for that URL only), and Clear removes it. */
+  has_api_key: boolean;
   model: string;
 }
 
@@ -410,14 +463,218 @@ export interface LibraryEntry {
   body: string;
 }
 
+/** What shapes Levis AI for one document - see docs/AI-CONCEPTS.md. */
 export interface AgentWorkspaceInfo {
+  /** The global writing instructions (agent.md), comments stripped. */
   instructions: string[];
+  /** The project's writing instructions (.levis/agent.md), if any. */
+  project_instructions: string | null;
+  /** Global and project skills; a project skill replaces a global one of
+   *  the same name. */
   skills: AgentSkill[];
   /** The project folder; null for an unsaved draft or a folder too broad
    *  to expose (home, a drive root). */
   root: string | null;
   style: string | null;
   library: LibraryEntry[];
+  /** What the style profile's front matter sets for the writing
+   *  conventions (`conventions:` and option keys) - ai::rules::profile. */
+  conventions?: ProjectConventions;
+}
+
+// ---------------------------------------------------------------------------
+// Writing conventions (src-tauri/src/ai/rules/profile.rs)
+
+/** The settings.json key of the global writing conventions default. */
+export const WRITING_CONVENTIONS_KEY = "writingConventions";
+/** Its default value, and the per-language value meaning "no choice". */
+export const WRITING_CONVENTIONS_AUTOMATIC = "automatic";
+
+/** A document language as the rules engine names it. */
+export type ConventionsLang =
+  "zh-Hans" | "zh-Hant" | "en" | "ja" | "ko" | "es" | "fr" | "de" | "ru" | "pt";
+
+/**
+ * The profiles each language offers, the first entry being the one
+ * Automatic uses (null: no national norm - universal rules and consistency
+ * checks only). Mirrors LANGUAGE_PROFILES in src-tauri/src/ai/rules/profile.rs
+ * (a Rust test keeps them the same); `writingConventionsOptions()` returns
+ * the same data from Rust, with the option keys.
+ */
+export const WRITING_CONVENTIONS: Record<
+  ConventionsLang,
+  { automatic: string | null; profiles: string[] }
+> = {
+  "zh-Hans": {
+    automatic: "zh-Hans-CN",
+    profiles: [
+      "zh-Hans-CN",
+      "zh-Hans-CN/tech",
+      "zh-Hans-CN/gongwen",
+      "zh-Hans-CN/academic",
+      "zh-Hans-CN/fiction",
+      "zh-Hans-CN/newmedia",
+      "zh-Hant-CN",
+    ],
+  },
+  "zh-Hant": {
+    automatic: "zh-Hant-TW",
+    profiles: ["zh-Hant-TW", "zh-Hant-TW/gongwen", "zh-Hant-HK"],
+  },
+  en: {
+    automatic: null,
+    profiles: [
+      "en-US/general",
+      "en-US/news",
+      "en-US/tech-google",
+      "en-US/tech-microsoft",
+      "en-US/apa",
+      "en-US/mla",
+      "en-GB/govuk",
+      "en-GB/oxford",
+      "en-US/army",
+      "en-AU",
+    ],
+  },
+  ja: {
+    automatic: "ja/jtf",
+    profiles: ["ja/jtf", "ja/koyobun", "ja/fiction", "ja/tech"],
+  },
+  ko: { automatic: "ko", profiles: ["ko", "ko/official"] },
+  es: { automatic: null, profiles: ["es-ES", "es-419", "es/eu"] },
+  fr: { automatic: null, profiles: ["fr-FR", "fr-CA", "fr-CH", "fr/eu"] },
+  de: {
+    automatic: null,
+    profiles: ["de-DE", "de-DE/din5008", "de-AT", "de-CH", "de/eu"],
+  },
+  ru: { automatic: "ru", profiles: ["ru", "ru/gost"] },
+  pt: {
+    automatic: "pt-BR",
+    profiles: ["pt-BR", "pt-BR/official", "pt-PT", "pt/eu"],
+  },
+};
+
+/**
+ * The stored setting: "automatic", one profile (what the Settings row
+ * stores - it applies to documents in that profile's language), or a
+ * profile per language (a language left out, or set to "automatic", stays
+ * Automatic), with optional option keys (`cjk-latin-space`, `quotes`,
+ * `fr.spacing`...).
+ */
+export type WritingConventionsSetting =
+  | typeof WRITING_CONVENTIONS_AUTOMATIC
+  | string
+  | ({ [lang in ConventionsLang]?: string } & {
+      options?: Record<string, string>;
+    });
+
+/** `.levis/style.md` front matter, as Rust read it. */
+export interface ProjectConventions {
+  profiles: string[];
+  options: Record<string, string>;
+}
+
+/** A resolved profile (rules::Profile). */
+export interface ConventionsProfile {
+  id: string;
+  lang: ConventionsLang;
+  region: string | null;
+  preset: string | null;
+  /** Chosen by the user (settings or project) rather than Automatic. */
+  explicit: boolean;
+  source: "automatic" | "settings" | "project";
+  options: Record<string, string>;
+}
+
+export interface WritingConventionsOptions {
+  settingKey: string;
+  automatic: string;
+  languages: {
+    lang: ConventionsLang;
+    automaticProfile: string | null;
+    profiles: string[];
+  }[];
+  options: { key: string; values: string[] }[];
+}
+
+export interface EffectiveConventions {
+  lang: ConventionsLang | null;
+  profile: ConventionsProfile | null;
+  byLanguage: ConventionsProfile[];
+}
+
+/** One finding of the rules engine (rules::Finding). */
+export interface ConventionsFinding {
+  rule: string;
+  /** Unicode-scalar offsets into the checked Markdown. */
+  start: number;
+  end: number;
+  original: string;
+  /** Null when the finding only flags. */
+  suggestion: string | null;
+  severity: "error" | "warning" | "info";
+  /** "safe": fine to apply without review ("fix all"). */
+  fix: "safe" | "suggest" | "none";
+  priority: "P0" | "P1" | "P2";
+  /** In the language of the text it fired on. */
+  message: string;
+  /** 1-based line. */
+  line?: number;
+}
+
+export interface ConventionsReport {
+  lang: ConventionsLang | null;
+  profile: ConventionsProfile | null;
+  findings: ConventionsFinding[];
+}
+
+/** An exact platform count (rules::measure). */
+export interface TextMeasure {
+  metric: string;
+  count: number;
+  limit: number | null;
+  unit: string;
+  within: boolean;
+  notes: string[];
+}
+
+/**
+ * One skill as the `/` menu and Settings list it (ai::workspace::AgentSkill,
+ * from `list_skills`): the built-ins, the global config folder's skills/
+ * and the project's .levis/skills/, each layer replacing same-named skills
+ * of the layers before it. Hidden skills are never listed.
+ */
+export interface SkillListItem {
+  /** Canonical, ASCII kebab-case for a built-in; what follows the `/`. */
+  name: string;
+  description: string;
+  /** The body sent to the model (comments stripped, packs not in it). */
+  prompt?: string;
+  /** The `/` menu's group; null for a user skill that doesn't say. */
+  category: SkillCategory | null;
+  /** "userOnly": offered in the `/` menu but never picked up by the model
+   *  on its own. */
+  invocation: "both" | "userOnly" | "hidden";
+  source: "builtin" | "global" | "project";
+  /** A global or project skill with a built-in's name - a copy made by
+   *  Customize… (`basedOn` set), or the user's own skill that happens to
+   *  share it. */
+  overridesBuiltin: boolean;
+  /** False for a built-in turned off in Settings, and for a copy of one
+   *  made by Customize… (it stays listed so Settings can turn it back on;
+   *  the `/` menu leaves it out). */
+  enabled: boolean;
+  /** Extra words typed after `/` for it, by UI language code. */
+  aliases: Record<string, string[]>;
+  /** Reference-pack sections Rust appends when it is used. */
+  packs?: string[];
+  /** A built-in's `levis-version`. */
+  version?: string | null;
+  /** "tighten@1" on a copy made by Customize… - only then can Reset
+   *  delete it. */
+  basedOn?: string | null;
+  /** That copy is older than the bundled built-in. */
+  builtinUpdated?: boolean;
 }
 
 export const ai = {
@@ -454,12 +711,20 @@ export const ai = {
     paragraph: string,
     strictness: string | null,
     model: string | null,
+    /** The document's project, for its writing conventions profile and
+     *  library names; omitted, the check uses the global setting. */
+    project: { docPath: string | null; workspaceRoot: string | null } = {
+      docPath: null,
+      workspaceRoot: null,
+    },
   ) =>
     call<GrammarIssue[]>("ai_grammar_check", {
       provider,
       paragraph,
       strictness,
       model,
+      docPath: project.docPath,
+      workspaceRoot: project.workspaceRoot,
     }),
   agentMessage: ({
     onEvent,
@@ -468,9 +733,10 @@ export const ai = {
     provider: string;
     document: string;
     docPath: string | null;
-    /** Settings > Agent's explicit workspace root; null keeps the default
-     *  (the document's own folder). Decides where .levis/ is read from and
-     *  how far list_files/read_file may reach. */
+    /** The chosen project folder (Settings > Levis AI > Project Folder, or
+     *  the project bar); null keeps the default, the document's own folder.
+     *  Decides where .levis/ is read from and how far list_files/read_file
+     *  may reach. */
     workspaceRoot: string | null;
     history: AgentTurn[];
     message: string;
@@ -484,6 +750,9 @@ export const ai = {
     /** Heading of the section the cursor/selection is in - embedded in full
      *  when the document is too long to send whole (agent.rs). */
     focusHeading?: string | null;
+    /** The UI language: the agent is given that UI's names for the app's
+     *  concepts and controls (agent.rs, UiNames). */
+    uiLanguage?: string;
     /** Live fragments while the request runs - see StreamEvent. */
     onEvent?: (event: StreamEvent) => void;
   }) => {
@@ -499,6 +768,36 @@ export const ai = {
 
   loadAgentWorkspace: (docPath: string | null, rootOverride: string | null) =>
     call<AgentWorkspaceInfo>("load_agent_workspace", { docPath, rootOverride }),
+  /** The writing conventions setting's allowed values (ai::conventions). */
+  writingConventionsOptions: () =>
+    call<WritingConventionsOptions>("writing_conventions_options"),
+  /** The profile a document follows, and each language's in its project. */
+  writingConventionsEffective: (
+    docPath: string | null,
+    workspaceRoot: string | null,
+    document: string | null = null,
+  ) =>
+    call<EffectiveConventions>("writing_conventions_effective", {
+      docPath,
+      workspaceRoot,
+      document,
+    }),
+  /** Checks a document's writing conventions offline (no AI provider). */
+  checkConventions: (
+    document: string,
+    docPath: string | null,
+    workspaceRoot: string | null,
+    strictness: string | null = null,
+  ) =>
+    call<ConventionsReport>("conventions_check_document", {
+      document,
+      docPath,
+      workspaceRoot,
+      strictness,
+    }),
+  /** Exact platform counts: "x_weighted", "bluesky", "wechat_title"... */
+  measureText: (text: string, metric: string) =>
+    call<TextMeasure | null>("measure_text", { text, metric }),
   /** The project folder's text files, for @-mentions (ai::project). */
   listProjectFiles: (docPath: string | null, workspaceRoot: string | null) =>
     call<string[]>("list_project_files", { docPath, workspaceRoot }),
@@ -530,16 +829,35 @@ export const ai = {
     workspaceRoot: string | null;
     files: string[];
   }) => call<string>("learn_style", args),
-  /** Folder picker behind Settings > Agent's "switch workspace" button. */
+  /** Folder picker behind "Choose project folder…" (the project bar's menu
+   *  and Settings > Levis AI > Project Folder). */
   pickWorkspaceRoot: (): Promise<string | null> =>
     isIOSApp
       ? iosFiles.pickProjectFolder()
       : desktopQuery<string | null>("pick_workspace_root", null),
-  openGlobalAgentDir: (lang: string) =>
-    desktopAction<void>("open_global_agent_dir", { lang }),
-  ensureGlobalAgentMd: (lang: string) =>
-    call<string>("ensure_global_agent_md", { lang }),
+  /** Reveals the global config folder, creating it - with `template` as
+   *  its agent.md - on first use. */
+  openGlobalAgentDir: (template: string) =>
+    desktopAction<void>("open_global_agent_dir", { template }),
+  /** The global agent.md's path, created from `template` if missing. */
+  ensureGlobalAgentMd: (template: string) =>
+    call<string>("ensure_global_agent_md", { template }),
   importAgentSkill: () => call<AgentSkill[] | null>("import_agent_skill"),
+  /** Every skill for this document - built-in, global and project - with
+   *  the turned-off built-ins still in (`enabled: false`). Both null: the
+   *  built-ins and the global ones, as Settings shows them. */
+  listSkills: (docPath: string | null, workspaceRoot: string | null) =>
+    call<SkillListItem[]>("list_skills", { docPath, workspaceRoot }),
+  /** Copies a built-in into the global config folder's skills/ (or finds
+   *  the copy already there) and returns its path, to open in a tab. */
+  customizeBuiltinSkill: (name: string) =>
+    call<string>("customize_builtin_skill", { name }),
+  /** Deletes the copy Customize… made, so the built-in applies again;
+   *  returns the deleted files' paths (a tab showing one is closed). */
+  resetBuiltinSkill: (name: string) =>
+    call<string[]>("reset_builtin_skill", { name }),
+  setBuiltinSkillEnabled: (name: string, enabled: boolean) =>
+    call<string[]>("set_builtin_skill_enabled", { name, enabled }),
   pickAttachmentFile: () => call<ChatAttachment | null>("pick_attachment_file"),
 };
 

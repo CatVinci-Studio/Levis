@@ -17,7 +17,7 @@ import {
   type ContextMenuOptions,
 } from "./editor-menu";
 import type { EditorRunner } from "./useEditorRunner";
-import { strings } from "../i18n/strings";
+import { resolveStrings } from "../i18n/strings";
 
 // The node names commonmark/gfm register, with just enough spec for the
 // table and image commands.
@@ -84,7 +84,7 @@ doc.descendants((node, pos) => {
 const imageSelected = (state: EditorState) =>
   state.apply(state.tr.setSelection(NodeSelection.create(state.doc, imagePos)));
 
-const t = strings.en;
+const t = resolveStrings("en");
 const options = (pos: number | null): ContextMenuOptions => ({
   t,
   imagePos: pos,

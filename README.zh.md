@@ -55,9 +55,10 @@
 
 ### 你的项目，你的文风
 
-- 文档保存后，它所在的文件夹就是项目：AI 可以阅读和搜索其中的文本文件，输入 `@` 可以把某个文件带进对话。
-- **文风档案**（`.levis/style.md`）：从你挑选的范文生成，续写和修改都贴近你的写法。
+- **项目文件夹**：文档保存后，它所在的文件夹就是项目文件夹，也可以另选一个。AI 可以阅读和搜索其中的文本文件，输入 `@` 可以把某个文件带进对话。
+- **文风档案**（`.levis/style.md`）：用**学习我的文风**从你挑选的范文生成，续写和修改都贴近你的写法。
 - **资料库**（`.levis/library/`）：人物、地点、术语。一段文字提到哪些条目，就把哪些条目一起交给 AI，名字和设定前后一致。
+- **写作要求**（`agent.md`）和**技能**（`/名称`）：每次对话都遵守的常驻要求，以及按名字调用的可复用指令——可以对所有文档生效，也可以只用于一个项目。
 
 ### 服务商与隐私
 
@@ -90,7 +91,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 ## 快速上手
 
 1. 启动 Levis，直接进入空白草稿；保存时才需要文件。
-2. 打开 **设置 → AI 服务**，选择服务商，在**登录与凭据**中登录或填写密钥。
+2. 打开 **设置 → Levis AI**，选择服务商，在**登录与凭据**中登录或填写密钥。
 3. 开始写。停顿时续写会以灰色文字出现，按 Tab 采纳。
 4. 点窗口顶栏的对话按钮打开 AI 面板。其余功能见 **帮助 → AI 功能指南**。
 
@@ -123,7 +124,7 @@ npm run tauri build   # 打包 .dmg / -setup.exe（NSIS）/ .AppImage / .deb / .
 npm run build         # 仅前端：类型检查（tsc）+ vite build
 ```
 
-需要 [Node.js](https://nodejs.org) 20+、[Rust](https://rustup.rs)（stable），以及各平台的构建工具（macOS 上是 Xcode 命令行工具；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
+需要 [Node.js](https://nodejs.org) 22+、[Rust](https://rustup.rs)（stable），以及各平台的构建工具（macOS 上是 Xcode 命令行工具；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
 
 ## 参与贡献
 

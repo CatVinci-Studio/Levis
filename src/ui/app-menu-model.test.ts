@@ -7,9 +7,16 @@
 import { describe, expect, it } from "vitest";
 import type { Shortcuts } from "../settings/SettingsContext";
 import type { Strings } from "../i18n/strings";
-import { strings } from "../i18n/strings";
+import { APP_NAME, resolveStrings } from "../i18n/strings";
 import { formatCombo } from "../utils/shortcuts";
-import { buildAppMenu, type MenuNode } from "./app-menu-model";
+import { LANGS } from "../i18n/langs";
+import {
+  buildAppMenu,
+  buildMobileMenu,
+  nativeMenuChecks,
+  nativeMenuLabels,
+  type MenuNode,
+} from "./app-menu-model";
 
 /**
  * The app-drawn menu is the ONLY menu Windows users see, so the combos it
@@ -23,7 +30,7 @@ import { buildAppMenu, type MenuNode } from "./app-menu-model";
  * so the expectations don't depend on which platform runs the suite.
  */
 
-const t = strings.en as Strings;
+const t = resolveStrings("en") as Strings;
 
 const shortcuts: Shortcuts = {
   triggerCompletion: "mod+shift+space",
@@ -88,5 +95,95 @@ describe("the Windows app menu", () => {
     // the one step between the combos above and what the user reads.
     expect(formatCombo("f11")).toBe("F11");
     expect(formatCombo("alt+f4")).toContain("F4");
+  });
+});
+
+describe("the View menu's on/off items", () => {
+  // "Toggle Sidebar" beside "Zen Mode" read as two kinds of item. Each one
+  // is named by the thing it shows, in every language, and the check mark
+  // at the trailing edge says whether it is on.
+  const TOGGLE_WORDS =
+    /toggle|切换|切換|切り替え|전환|보기\/숨기기|ein\/aus|ein-\/ausblenden|alternar|basculer|переключ/i;
+
+  it.each(LANGS)(
+    "never say Toggle, and all carry a check state (%s)",
+    (lang) => {
+      const strings = resolveStrings(lang) as Strings;
+      const view = buildAppMenu(strings, shortcuts, []).find(
+        (node) => node !== "separator" && node.label === strings.menuView,
+      );
+      expect(view).toBeDefined();
+      const items = flatten(
+        view === undefined || view === "separator" ? [] : (view.submenu ?? []),
+      );
+      const onOff = items.filter((item) => item.checked !== undefined);
+      // Sidebar, AI Panel, Source Code Mode, Split View, Typewriter Mode,
+      // Zen Mode, Full Screen.
+      expect(onOff).toHaveLength(7);
+      for (const item of items) expect(item.label).not.toMatch(TOGGLE_WORDS);
+      const phone = flatten(buildMobileMenu(strings));
+      for (const item of phone) expect(item.label).not.toMatch(TOGGLE_WORDS);
+      expect(
+        phone.find((item) => item.label === strings.menuViewSidebar)?.checked,
+      ).toBe(false);
+    },
+  );
+
+  it("show what is on", () => {
+    const view = buildAppMenu(t, shortcuts, [], {
+      sidebar: true,
+      zen: true,
+      fullscreen: true,
+    });
+    const checked = flatten(view)
+      .filter((item) => item.checked)
+      .map((item) => item.label);
+    expect(checked).toEqual([
+      t.menuToggleSidebar,
+      t.menuToggleZenMode,
+      t.menuFullscreen,
+    ]);
+  });
+
+  it("send the macOS bar every native on/off item by id", () => {
+    const ids = flatten(buildAppMenu(t, shortcuts, []))
+      .filter((item) => item.checked !== undefined)
+      .flatMap((item) =>
+        item.action && "native" in item.action ? [item.action.native] : [],
+      );
+    expect(Object.keys(nativeMenuChecks({})).sort()).toEqual(ids.sort());
+    expect(nativeMenuChecks({ splitView: true })["toggle-split-view"]).toBe(
+      true,
+    );
+  });
+});
+
+describe("the macOS menu bar's labels", () => {
+  it("label every native item the app-drawn menu has, in the UI's language", () => {
+    const zh = resolveStrings("zh");
+    const labels = nativeMenuLabels(zh);
+    const ids: string[] = [];
+    const collect = (nodes: MenuNode[]) => {
+      for (const node of nodes) {
+        if (node === "separator") continue;
+        if (node.action && "native" in node.action)
+          ids.push(node.action.native);
+        if (node.submenu) collect(node.submenu);
+      }
+    };
+    collect(buildAppMenu(zh, shortcuts, []));
+    for (const id of ids) expect(labels[id], id).toBeTruthy();
+    expect(labels["insert-block:h2"]).toBe(
+      zh.menuHeadingTemplate.replace("{n}", "2"),
+    );
+    expect(labels["menu:edit"]).toBe(zh.menuEdit);
+    expect(labels["predefined:copy"]).toBe(zh.copy);
+  });
+
+  it("name the app where macOS does", () => {
+    const labels = nativeMenuLabels(t);
+    expect(labels.quit).toBe(`Quit ${APP_NAME}`);
+    expect(labels["predefined:about"]).toBe(`About ${APP_NAME}`);
+    expect(labels["predefined:hide"]).toBe(`Hide ${APP_NAME}`);
   });
 });

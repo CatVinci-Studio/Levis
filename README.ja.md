@@ -55,9 +55,10 @@
 
 ### あなたのプロジェクト、あなたの文体
 
-- 文書を保存すると、そのフォルダーがプロジェクトになります。AI はその中のテキストファイルを読み、検索でき、`@` でファイルを会話に加えられます。
-- **文体プロファイル**（`.levis/style.md`）：選んだ見本から作られ、続き書きも編集もあなたの書き方に沿います。
-- **資料**（`.levis/library/`）：人物、場所、用語。文章が触れている項目だけが AI に渡されるので、名前や設定がぶれません。
+- **プロジェクトフォルダー**：文書を保存すると、そのフォルダーがプロジェクトフォルダーになります（別のフォルダーも選べます）。AI はその中のテキストファイルを読み、検索でき、`@` でファイルを会話に加えられます。
+- **文体プロファイル**（`.levis/style.md`）：**文体を学習**で、選んだ見本から下書きされます。続き書きも編集もあなたの書き方に沿います。
+- **ライブラリ**（`.levis/library/`）：人物、場所、用語。文章が触れている項目だけが AI に渡されるので、名前や設定がぶれません。
+- **執筆の指示**（`agent.md`）と**スキル**（`/名前`）：毎回の会話で守らせる常設のルールと、名前で呼び出す再利用できる指示。すべての文書にも、1つのプロジェクトだけにも設定できます。
 
 ### サービスとプライバシー
 
@@ -90,7 +91,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 ## クイックスタート
 
 1. Levis を起動すると、空の下書きが開きます。ファイルが必要になるのは保存するときだけです。
-2. **設定 → AIサービス** でサービスを選び、**ログインと認証** でサインインするかキーを入力します。
+2. **設定 → Levis AI** でサービスを選び、**ログインと認証** でサインインするかキーを入力します。
 3. 書き始めます。手を止めると続き書きが灰色の文字で表示され、Tab で受け入れます。
 4. ウィンドウ上部のチャットボタンで AI パネルを開きます。そのほかは **ヘルプ → AI 機能ガイド** をご覧ください。
 
@@ -123,7 +124,7 @@ npm run tauri build   # .dmg / -setup.exe（NSIS）/ .AppImage / .deb / .rpm を
 npm run build         # フロントエンドのみ：型チェック（tsc）+ vite build
 ```
 
-[Node.js](https://nodejs.org) 20 以上、[Rust](https://rustup.rs)（stable）、各プラットフォームのビルドツール（macOS は Xcode コマンドラインツール、Linux は `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`、Windows は MSVC Build Tools）が必要です。
+[Node.js](https://nodejs.org) 22 以上、[Rust](https://rustup.rs)（stable）、各プラットフォームのビルドツール（macOS は Xcode コマンドラインツール、Linux は `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`、Windows は MSVC Build Tools）が必要です。
 
 ## コントリビュート
 

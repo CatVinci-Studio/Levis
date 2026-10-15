@@ -16,7 +16,7 @@ import { useLatest } from "../../utils/useLatest";
 import { Select } from "../../ui/Select";
 import { SettingRow } from "./controls";
 
-const CUSTOM_CSS_PLACEHOLDER = `#write p {
+const CUSTOM_CSS_PLACEHOLDER = `#write > p {
   text-indent: 2em;
   line-height: 2;
 }`;
@@ -47,12 +47,38 @@ async function exportThemeCss(t: Strings, customCss: string): Promise<void> {
   const style = getComputedStyle(document.documentElement);
   const write = document.querySelector("#write");
   const writeStyle = write ? getComputedStyle(write) : null;
+  // The Default theme leaves --editor-bg and --editor-font unset and falls
+  // back to the app's --bg and --font-sans; written out commented, the
+  // file pinned the text colour but not the page under it, and read dark
+  // on dark once imported. Their fallbacks are written instead.
+  const fallbacks: Record<string, string> = {
+    "--editor-bg": "--bg",
+    "--editor-font": "--font-sans",
+  };
+  const resolve = (name: string) =>
+    style.getPropertyValue(name).trim() ||
+    writeStyle?.getPropertyValue(name).trim() ||
+    "";
   const variables = THEME_VARIABLES.map((name) => {
     const value =
-      style.getPropertyValue(name).trim() ||
-      writeStyle?.getPropertyValue(name).trim();
+      resolve(name) || (fallbacks[name] ? resolve(fallbacks[name]) : "");
     return value ? `  ${name}: ${value};` : `  /* ${name}: ; */`;
   }).join("\n");
+  // An imported theme sets its own type (content-base.css), so the face,
+  // size and leading the document has now go into the file as well.
+  const milkdown = document.querySelector(".milkdown");
+  const type = milkdown ? getComputedStyle(milkdown) : null;
+  const fontSize = type ? parseFloat(type.fontSize) : NaN;
+  const lineHeight = type ? parseFloat(type.lineHeight) : NaN;
+  const typeRules = [
+    "  font-family: var(--editor-font);",
+    fontSize > 0 ? `  font-size: ${Math.round(fontSize * 10) / 10}px;` : "",
+    fontSize > 0 && lineHeight > 0
+      ? `  line-height: ${Math.round((lineHeight / fontSize) * 100) / 100};`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   const css = `/* Levis theme - exported from Settings > Theme.
    Edit it, then bring it back with Import Theme.
    #write is the document; .milkdown wraps it. */
@@ -63,8 +89,7 @@ ${variables}
 
 /* Body text */
 #write {
-  /* font-size: 17px; */
-  /* line-height: 1.8; */
+${typeRules}
   /* max-width: 860px; */
 }
 
@@ -102,6 +127,11 @@ export function ThemeSection({ t }: { t: Strings }) {
   const latest = useLatest(settings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Open when there is CSS to show, judged once: following the text would
+  // fold the box (and take the focus out of it) the moment it is emptied.
+  const [customCssOpen, setCustomCssOpen] = useState(
+    () => !!settings.customCss?.trim(),
+  );
 
   // One step: pick a CSS file and it's imported and selected right away,
   // named after the file. (A dark variant can still exist in the data model
@@ -242,7 +272,8 @@ export function ThemeSection({ t }: { t: Strings }) {
       {/* A tweak on top of the theme, folded away until wanted. */}
       <details
         className="settings-disclosure"
-        open={!!settings.customCss?.trim()}
+        open={customCssOpen}
+        onToggle={(e) => setCustomCssOpen(e.currentTarget.open)}
       >
         <summary className="settings-disclosure-summary">
           {t.customCssLabel}

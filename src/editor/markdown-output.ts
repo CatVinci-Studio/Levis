@@ -1,5 +1,7 @@
 import type { Ctx } from "@milkdown/kit/ctx";
-import { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { defaultValueCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { linkSchema } from "@milkdown/kit/preset/commonmark";
+import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { defaultHandlers, type Handle } from "mdast-util-to-markdown";
 
 // How the editor writes markdown back out. Every rule here exists to keep a
@@ -42,12 +44,62 @@ const list: Handle = (node, parent, state, info) => {
   return defaultHandlers.list(node, parent, state, info);
 };
 
+/**
+ * Milkdown's parser forgets every open mark whenever it closes a node, so
+ * in `[see **this** here](url)` the link only covered "see " and "this":
+ * " here" came back as plain text and the URL fell off it on the next save.
+ * Re-opening the link before each child keeps it on all of them, whatever
+ * node the previous child closed. (Inline code, which keeps its own text
+ * unmarked, carries the link on itself - md-span-schema.ts.)
+ */
+function keepLinkAcrossInlineNodes(ctx: Ctx): void {
+  ctx.update(linkSchema.key, (prev) => (innerCtx) => {
+    const schema = prev(innerCtx);
+    return {
+      ...schema,
+      parseMarkdown: {
+        match: schema.parseMarkdown.match,
+        runner: (state, node, markType) => {
+          const attrs = {
+            href: node.url as string,
+            title: node.title as string,
+          };
+          for (const child of (node.children ?? []) as MarkdownNode[]) {
+            state.openMark(markType, attrs);
+            state.next(child);
+            state.closeMark(markType);
+          }
+        },
+      },
+    };
+  });
+}
+
+/**
+ * The bullet the document's own lists use ("-", "*" or "+"), by majority,
+ * or null when it has none. remark writes "*" whatever the file had, so
+ * the first edit to a README written with "-" rewrote every bullet in it
+ * and the file's diff ran to hundreds of lines.
+ */
+export function documentBullet(markdown: string): "-" | "*" | "+" | null {
+  const counts = { "-": 0, "*": 0, "+": 0 };
+  for (const match of markdown.matchAll(/^[ \t]*([-*+])[ \t]+\S/gm))
+    counts[match[1] as keyof typeof counts]++;
+  const [best, count] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return count > 0 ? (best as "-" | "*" | "+") : null;
+}
+
 /** Installs the rules above. `update`, not `set`: the slice already carries
  *  Milkdown's own text/strong/emphasis handlers, and replacing it wholesale
  *  would drop them. */
 export function configureMarkdownOutput(ctx: Ctx): void {
+  keepLinkAcrossInlineNodes(ctx);
+  // The editor's opening text (MilkdownEditor sets it before this runs).
+  const initial = ctx.get(defaultValueCtx);
+  const bullet = typeof initial === "string" ? documentBullet(initial) : null;
   ctx.update(remarkStringifyOptionsCtx, (options) => ({
     ...options,
+    ...(bullet ? { bullet } : {}),
     handlers: {
       ...options.handlers,
       thematicBreak,

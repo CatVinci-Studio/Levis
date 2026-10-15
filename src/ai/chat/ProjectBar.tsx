@@ -7,9 +7,12 @@ import {
 import { useSettings } from "../../settings/SettingsContext";
 import { useActiveProvider } from "../provider-catalog";
 import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { errorText } from "../../utils/error-text";
 import { OPEN_FILE_IN_TAB_EVENT } from "../../utils/events";
 import { basename } from "../../utils/path";
+import { knownDocumentsDir } from "../../platform/documents-path";
+import { APP_NAME } from "../../i18n/names";
 import { ChevronIcon, FolderIcon } from "../../ui/icons";
 import { ActionSheet, type ActionSheetItem } from "../../mobile/ActionSheet";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
@@ -33,17 +36,23 @@ export function libraryFileName(name: string): string {
 }
 
 /**
- * The project the conversation works in, under the Agent panel's header:
- * which folder the agent may read (and search, and @-mention), plus the two
- * writing aids kept in it - the author's style profile and the library of
- * people, places and terms (src-tauri ai::project). The folder used to be a
- * setting three screens deep; this is where it actually matters.
+ * The project the conversation works in, under the AI panel's header: the
+ * project folder Levis AI may read (and search, and @-mention), and the
+ * project-level files kept in its .levis/ folder - the style profile, the
+ * library of people, places and terms (src-tauri ai::project) and the
+ * project's writing instructions (.levis/agent.md). The names follow
+ * docs/AI-CONCEPTS.md. The folder used to be a setting three screens deep;
+ * this is where it actually matters.
  */
 export function ProjectBar({ docPath }: { docPath: string | null }) {
   const { t, settings, setSettings } = useSettings();
   const provider = useActiveProvider();
   const workspaceRoot = settings.agentWorkspaceRoot || null;
-  const [info, setInfo] = useState<AgentWorkspaceInfo | null>(null);
+  // undefined until the first load answers: "no root" means unsaved or too
+  // broad, which mustn't be said before anyone has looked.
+  const [info, setInfo] = useState<AgentWorkspaceInfo | null | undefined>(
+    undefined,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [naming, setNaming] = useState(false);
   const [entryName, setEntryName] = useState("");
@@ -138,6 +147,18 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
       );
     });
 
+  const openInstructions = () =>
+    run(t.projectOpening, async () => {
+      openInTab(
+        await ai.ensureProjectFile(
+          docPath,
+          workspaceRoot,
+          "agent.md",
+          t.projectInstructionsTemplate,
+        ),
+      );
+    });
+
   const createEntry = (name: string) =>
     run(t.projectOpening, async () => {
       setNaming(false);
@@ -153,6 +174,10 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
       );
     });
 
+  // Still loading: say nothing. The answer takes one IPC round trip, long
+  // enough on an iPhone for "too broad" to flash every time the panel
+  // opened, or the app started with it open.
+  if (info === undefined) return null;
   // An unsaved draft simply has no project yet - nothing to say about it
   // up front. A folder too broad to read is worth saying, once.
   if (!root) {
@@ -205,8 +230,14 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
         setNaming(true);
       },
     },
+    { label: t.projectEditInstructions, onSelect: openInstructions },
   ];
-  const folderName = basename(root.replace(/[\\/]+$/, "")) || root;
+  // iOS: the app's own Documents folder is "Levis" in the Files app, and
+  // "Documents" was English in every language.
+  const trimmed = root.replace(/[\\/]+$/, "");
+  const documents = knownDocumentsDir()?.replace(/[\\/]+$/, "");
+  const folderName =
+    documents && trimmed === documents ? APP_NAME : basename(trimmed) || root;
 
   return (
     <div className="project-bar">
@@ -214,7 +245,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
         <button
           type="button"
           className="project-bar-folder"
-          title={root}
+          title={t.projectFolderTitle.replace("{path}", root)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen(!menuOpen)}
@@ -241,23 +272,34 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
             )}
           </span>
         )}
-        {menuOpen && !phone && (
-          <div className="project-bar-menu floating-surface" role="menu">
-            {menuItems.map((item, i) =>
-              item === "separator" ? (
-                <div key={i} className="project-bar-menu-sep" />
-              ) : (
-                <button key={i} role="menuitem" onClick={item.onSelect}>
-                  {item.label}
-                </button>
-              ),
-            )}
-          </div>
-        )}
+        <Presence show={menuOpen && !phone} exitMs={120}>
+          {menuOpen && !phone && (
+            <PresenceDiv
+              className="project-bar-menu floating-surface"
+              role="menu"
+            >
+              {menuItems.map((item, i) =>
+                item === "separator" ? (
+                  <div key={i} className="project-bar-menu-sep" />
+                ) : (
+                  <button key={i} role="menuitem" onClick={item.onSelect}>
+                    {item.label}
+                  </button>
+                ),
+              )}
+            </PresenceDiv>
+          )}
+        </Presence>
       </div>
-      {menuOpen && phone && (
-        <ActionSheet title={folderName} items={menuItems} onClose={closeMenu} />
-      )}
+      <Presence show={menuOpen && phone} exitMs={250}>
+        {menuOpen && phone && (
+          <ActionSheet
+            title={folderName}
+            items={menuItems}
+            onClose={closeMenu}
+          />
+        )}
+      </Presence>
       {naming && (
         <form
           className="project-bar-naming"

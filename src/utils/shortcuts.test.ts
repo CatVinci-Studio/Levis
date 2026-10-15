@@ -14,6 +14,15 @@ describe("platform shortcuts", () => {
     expect(combo("f", { ctrlKey: true, metaKey: true })).toBe("mod+ctrl+f");
     expect(formatCombo("ctrl+f")).toBe("⌃F");
   });
+  it.each(["iPad", "iPhone"])(
+    "reads Command as Mod on an %s keyboard, as the editor does",
+    (platform) => {
+      os(platform);
+      expect(combo("f", { metaKey: true })).toBe("mod+f");
+      expect(combo("f", { ctrlKey: true })).toBe("ctrl+f");
+      expect(formatCombo("mod+shift+f")).toBe("⌘⇧F");
+    },
+  );
   it.each(["Win32", "Linux x86_64"])("uses Control on %s", (platform) => {
     os(platform);
     expect(combo("f", { ctrlKey: true })).toBe("mod+f");

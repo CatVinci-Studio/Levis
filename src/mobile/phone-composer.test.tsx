@@ -15,6 +15,7 @@ vi.mock("../ai/provider-catalog", () => ({
 vi.mock("../ipc", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ai: {
+    listSkills: vi.fn().mockResolvedValue(null),
     loadAgentWorkspace: vi.fn().mockResolvedValue({
       skills: [{ name: "polish", description: "Tighten", prompt: "Polish" }],
     }),
@@ -30,7 +31,7 @@ beforeAll(() => {
 afterEach(cleanup);
 
 const { ChatComposer } = await import("../ai/chat/ChatComposer");
-const { tapKeepingFocus } = await import("./tap");
+const { pressKeepingFocus, tapKeepingFocus } = await import("./tap");
 
 const labels = {
   dropSelection: "Remove selection",
@@ -39,7 +40,7 @@ const labels = {
   send: "Send",
   stop: "Stop",
   attachFile: "Attach a file",
-  selectedChars: "{n} chars selected",
+  selectedChars: (n: number) => `${n} chars selected`,
   attachmentTruncated: "(shortened)",
   attachmentNoVision: "No images",
   modeAsk: "Ask",
@@ -148,6 +149,42 @@ describe("tapKeepingFocus", () => {
     const action = vi.fn();
     render(<button {...tapKeepingFocus(action)}>row</button>);
     expect(fireEvent.mouseDown(screen.getByText("row"))).toBe(false);
+    expect(action).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("pressKeepingFocus", () => {
+  function touch(moveTo: number) {
+    const action = vi.fn();
+    render(<button {...pressKeepingFocus(action)}>Delete table</button>);
+    const button = screen.getByText("Delete table");
+    fireEvent.touchStart(button, { touches: [{ clientX: 0, clientY: 0 }] });
+    const ended = fireEvent.touchEnd(button, {
+      changedTouches: [{ clientX: moveTo, clientY: 0 }],
+    });
+    return { action, cancelled: !ended };
+  }
+
+  it("runs on a tap", () => {
+    const { action, cancelled } = touch(4);
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(cancelled).toBe(true);
+  });
+
+  // The keyboard toolbar scrolls sideways under its delete buttons.
+  it("does not run when the finger swiped along the strip", () => {
+    const { action, cancelled } = touch(60);
+    expect(action).not.toHaveBeenCalled();
+    // Nor is a click left for WebKit to synthesise.
+    expect(cancelled).toBe(true);
+  });
+
+  it("runs on a click and keeps focus on pointerdown", () => {
+    const action = vi.fn();
+    render(<button {...pressKeepingFocus(action)}>Undo</button>);
+    const button = screen.getByText("Undo");
+    expect(fireEvent.pointerDown(button)).toBe(false);
+    fireEvent.click(button);
     expect(action).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,0 +1,6 @@
+# The headings of a style profile written in German, on one line and
+# separated by " / ": the title, then the seven sections in this order.
+# "Learn my style" is told to head a German profile with them (project.rs's
+# style_instructions); the starter profile's headings (projectStyleTemplate
+# in src/i18n/locales/) must be among them.
+Stilprofil / Stimme und Ton / Sätze und Rhythmus / Wortwahl / Zeichensetzung und Formatierung / Aufbau / Tabus / Beispiele

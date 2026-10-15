@@ -29,6 +29,13 @@ struct PickArgs: Decodable {
 }
 
 private let bookmarksKey = "levis.bookmarks"
+/// The bookmark keys, least recently picked or used first - what decides
+/// which bookmarks go once there are more than `maxBookmarks`.
+private let bookmarkOrderKey = "levis.bookmarks.order"
+/// Every bookmark is resolved on each read and write (scopeRoot), and
+/// UserDefaults is loaded whole at launch, so the list can't grow forever.
+/// Far more than anyone keeps open; the oldest unused ones go first.
+private let maxBookmarks = 200
 
 class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
   private var pending: Invoke?
@@ -45,8 +52,29 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
     UserDefaults.standard.dictionary(forKey: bookmarksKey) as? [String: Data] ?? [:]
   }
 
-  private func saveBookmarks(_ marks: [String: Data]) {
+  /// The keys of `marks`, oldest first. Bookmarks saved before the order
+  /// was kept count as the oldest.
+  private func bookmarkOrder(_ marks: [String: Data]) -> [String] {
+    let saved = UserDefaults.standard.stringArray(forKey: bookmarkOrderKey) ?? []
+    let known = Set(saved)
+    let unordered = marks.keys.filter { !known.contains($0) }.sorted()
+    return unordered + saved.filter { marks[$0] != nil }
+  }
+
+  /// Saves `marks`, moving `used` (when given) to the recent end and
+  /// dropping the oldest beyond `maxBookmarks`.
+  private func saveBookmarks(_ marks: [String: Data], used: String? = nil) {
+    var marks = marks
+    var order = bookmarkOrder(marks)
+    if let used, marks[used] != nil {
+      order.removeAll { $0 == used }
+      order.append(used)
+    }
+    while order.count > maxBookmarks {
+      marks[order.removeFirst()] = nil
+    }
     UserDefaults.standard.set(marks, forKey: bookmarksKey)
+    UserDefaults.standard.set(order, forKey: bookmarkOrderKey)
   }
 
   private func remember(_ url: URL) {
@@ -55,7 +83,16 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
     else { return }
     var marks = loadBookmarks()
     marks[url.absoluteString] = data
-    saveBookmarks(marks)
+    saveBookmarks(marks, used: url.absoluteString)
+  }
+
+  /// Whether a bookmark failed to resolve because its item is gone for
+  /// good (deleted), rather than for now - a file provider that is offline
+  /// or not yet running also fails, and forgetting those bookmarks would
+  /// cost the user access to folders that come back.
+  private func isGone(_ error: Error) -> Bool {
+    guard let code = (error as? CocoaError)?.code else { return false }
+    return code == .fileNoSuchFile || code == .fileReadNoSuchFile
   }
 
   /// The remembered root (file or folder) that grants access to `target`,
@@ -63,12 +100,19 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
   private func scopeRoot(for target: URL) -> URL? {
     let path = target.standardizedFileURL.path
     var marks = loadBookmarks()
-    var best: URL?
+    var best: (key: String, url: URL)?
+    // Iterates a copy: `marks` itself may change underneath.
     for (key, data) in marks {
       var stale = false
-      guard let url = try? URL(
-        resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
-      else { continue }
+      let url: URL
+      do {
+        url = try URL(
+          resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+      } catch {
+        // A deleted item's bookmark can never grant anything again.
+        if isGone(error) { marks[key] = nil }
+        continue
+      }
       if stale, let fresh = try? url.bookmarkData(
         options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
       {
@@ -76,11 +120,13 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
       }
       let root = url.standardizedFileURL.path
       if path == root || path.hasPrefix(root.hasSuffix("/") ? root : root + "/") {
-        if best == nil || root.count > best!.standardizedFileURL.path.count { best = url }
+        if best == nil || root.count > best!.url.standardizedFileURL.path.count {
+          best = (key, url)
+        }
       }
     }
-    saveBookmarks(marks)
-    return best
+    saveBookmarks(marks, used: best?.key)
+    return best?.url
   }
 
   /// Runs `body` with the security scope of whatever grants `url` open.

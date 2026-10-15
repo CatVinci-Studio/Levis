@@ -1,0 +1,15 @@
+# Messages for the shared writing rules (src-tauri/src/ai/rules/messages.rs).
+# One line per message: `rule.key = text`; {0}, {1} are filled in by the code.
+# Translators: keep every key and placeholder; see docs/TRANSLATING.md.
+shared.nfc.invisible = Invisible character: remove it.
+shared.nfc.compose = Decomposed accent: use the composed character.
+shared.space-before-punct = No space before this punctuation mark.
+shared.double-space = Two spaces between words: use one.
+shared.doubled-word = Word repeated: “{0}” appears twice in a row.
+shared.residue = Chatbot residue or a placeholder left in the text.
+shared.library-name = Possible misspelling of the library name “{0}”.
+shared.heading-structure.skip = Heading level skipped: level {0} follows level {1}.
+shared.heading-structure.depth = More than three heading levels: consider flattening the structure.
+shared.image-alt.empty = Image without alt text: describe it, unless it is purely decorative.
+shared.image-alt.long = Alt text over 155 characters: keep it short and put details in the text.
+shared.image-alt.redundant = Alt text needn’t start with “Image of” or “Picture of”.

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Strings } from "../i18n/strings";
 import type { FindReplace } from "./useFindReplace";
 import { ArrowUpIcon, ChevronIcon, CloseIcon } from "../ui/icons";
+import { usePresenceProps } from "../ui/usePresence";
 import "./FindReplaceBar.css";
 
 type FindReplaceBarLabels = Pick<
@@ -27,6 +28,7 @@ interface FindReplaceBarProps {
 export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
   const [replaceOpen, setReplaceOpen] = useState(false);
   const { query, replacement, caseSensitive, useRegex, status } = findReplace;
+  const presence = usePresenceProps<HTMLDivElement>();
 
   function onFindKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") {
@@ -63,7 +65,11 @@ export function FindReplaceBar({ findReplace, labels }: FindReplaceBarProps) {
       : "";
 
   return (
-    <div className="find-replace-bar floating-surface" onKeyDown={onBarKeyDown}>
+    <div
+      {...presence}
+      className="find-replace-bar floating-surface"
+      onKeyDown={onBarKeyDown}
+    >
       <div className="find-replace-row">
         <button
           type="button"

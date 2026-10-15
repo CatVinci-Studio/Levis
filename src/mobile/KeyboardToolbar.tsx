@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useSettings } from "../settings/SettingsContext";
 import type { TableAction } from "../editor/editor-menu";
 import {
@@ -21,6 +27,7 @@ import {
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_MARK_EVENT,
 } from "../utils/events";
+import { pressKeepingFocus } from "./tap";
 import "./KeyboardToolbar.css";
 
 /**
@@ -34,25 +41,14 @@ import "./KeyboardToolbar.css";
  * what the desktop keeps in menus and hover controls.
  *
  * The buttons keep the editor's focus, so the keyboard stays up and the
- * caret where it was: a touch runs the button on touchend and cancels the
+ * caret where it was: a tap runs the button on touchend and cancels the
  * default there, which is what would move focus to the button (and the
- * click that would follow). They reach the editor the
+ * click that would follow); a swipe along the row presses nothing
+ * (pressKeepingFocus in tap.ts). They reach the editor the
  * way the menus do, through window events (utils/events.ts).
  */
 const send = (event: string, detail?: string) =>
   window.dispatchEvent(new CustomEvent(event, { detail }));
-
-/** Props that run `action` without taking focus from the editor. */
-function keepFocus(action: () => void) {
-  return {
-    onPointerDown: (e: React.PointerEvent) => e.preventDefault(),
-    onTouchEnd: (e: React.TouchEvent) => {
-      e.preventDefault();
-      action();
-    },
-    onClick: action,
-  };
-}
 
 /** What the caret sits in, read off the editor's DOM: the heading level
  *  the H button shows, which block buttons are on, and whether the table
@@ -149,6 +145,40 @@ export function KeyboardToolbar() {
 
   useEffect(() => {
     document.documentElement.classList.toggle("has-keyboard-toolbar", editing);
+  }, [editing]);
+
+  // An iPad with the AI panel docked beside the text: the strip spans the
+  // text's column, not the screen - full width it covered the panel's
+  // composer (mode picker, +, search and Send). The phone's AI sheet
+  // (position: fixed) covers the strip itself, so it is not measured.
+  const [panelInset, setPanelInset] = useState(0);
+  useLayoutEffect(() => {
+    if (!editing) return;
+    let observed: HTMLElement | null = null;
+    const resize =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => measure());
+    function measure() {
+      const panel = document.querySelector<HTMLElement>(
+        '.agent-panel:not([data-state="closing"])',
+      );
+      if (panel !== observed) {
+        if (observed) resize?.unobserve(observed);
+        if (panel) resize?.observe(panel);
+        observed = panel;
+      }
+      const docked = !!panel && getComputedStyle(panel).position !== "fixed";
+      // Its laid-out width, not where it shows: it may still be sliding
+      // in from beside the screen. It always stands at the right edge.
+      setPanelInset(docked ? panel.offsetWidth : 0);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      resize?.disconnect();
+    };
   }, [editing]);
 
   if (!editing) return null;
@@ -282,6 +312,7 @@ export function KeyboardToolbar() {
       className="keyboard-toolbar"
       role="toolbar"
       aria-label={t.toolbarLabel}
+      style={panelInset ? { right: panelInset } : undefined}
     >
       <div className="keyboard-toolbar-format">
         {groups.map((group, g) => (
@@ -295,7 +326,7 @@ export function KeyboardToolbar() {
                 aria-pressed={b.on}
                 // Some edits leave the selection where it was (an image's
                 // new width), so no selectionchange re-reads the caret.
-                {...keepFocus(() => {
+                {...pressKeepingFocus(() => {
                   b.run();
                   update();
                 })}
@@ -311,7 +342,7 @@ export function KeyboardToolbar() {
         type="button"
         className="keyboard-toolbar-button"
         aria-label={t.toolbarMore}
-        {...keepFocus(() => send(EDITOR_MORE_EVENT))}
+        {...pressKeepingFocus(() => send(EDITOR_MORE_EVENT))}
       >
         <MoreIcon />
       </button>
@@ -320,7 +351,7 @@ export function KeyboardToolbar() {
           type="button"
           className="keyboard-toolbar-button keyboard-toolbar-ai"
           aria-label={t.askAi}
-          {...keepFocus(() => send(TOGGLE_FLOATING_CHAT_EVENT))}
+          {...pressKeepingFocus(() => send(TOGGLE_FLOATING_CHAT_EVENT))}
         >
           ✦ AI
         </button>

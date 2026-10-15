@@ -1,4 +1,4 @@
-import type { Strings } from "../i18n/strings";
+import { APP_NAME, type Strings } from "../i18n/strings";
 import type { Shortcuts } from "../settings/SettingsContext";
 import { basename } from "../utils/path";
 
@@ -81,8 +81,9 @@ export interface MenuEntry {
   action?: MenuAction;
   submenu?: MenuNode[];
   disabled?: boolean;
-  /** An on/off mode: a check mark shows when on. Leave unset for plain
-   *  actions. */
+  /** An on/off mode, named by the thing itself ("Sidebar", "Zen Mode" -
+   *  never "Toggle ..."): a check mark at the row's trailing edge shows
+   *  when it is on. Leave unset for plain actions. */
   checked?: boolean;
 }
 
@@ -94,9 +95,27 @@ export interface MenuChecks {
   splitView?: boolean;
   typewriter?: boolean;
   zen?: boolean;
+  fullscreen?: boolean;
 }
 
 export type MenuNode = MenuEntry | "separator";
+
+/**
+ * The same states for the macOS menu bar, keyed by native menu id, for
+ * menu.rs's set_menu_checks: there the View items are NSMenu check items,
+ * which draw AppKit's own mark. Full Screen is left out - AppKit names and
+ * marks its own fullscreen item.
+ */
+export function nativeMenuChecks(checks: MenuChecks): Record<string, boolean> {
+  return {
+    "toggle-sidebar": !!checks.sidebar,
+    "toggle-agent-panel": !!checks.agentPanel,
+    "toggle-source-mode": !!checks.sourceMode,
+    "toggle-split-view": !!checks.splitView,
+    "toggle-typewriter-mode": !!checks.typewriter,
+    "toggle-zen-mode": !!checks.zen,
+  };
+}
 
 /** Recent files are listed by name, with the full path on hover - a Windows
  *  home directory eats most of the width of `C:\Users\...\notes.md`, and two
@@ -301,6 +320,7 @@ export function buildAppMenu(
           label: t.menuFullscreen,
           accel: "f11",
           action: { local: "fullscreen" },
+          checked: !!checks.fullscreen,
         },
       ],
     },
@@ -358,4 +378,55 @@ export function buildMobileMenu(
     "separator",
     { label: t.menuSettings, action: { native: "settings" } },
   ];
+}
+
+/**
+ * The macOS menu bar's labels, for menu.rs's set_menu_labels: the bar is
+ * native there and built in Rust, in English unless sent these. Keyed by
+ * native menu id - the app-drawn menu's own labels for the same ids, so
+ * the two menus say the same thing - plus "menu:<name>" for each submenu
+ * and "predefined:<name>" for the items muda makes (menu.rs's build).
+ */
+export function nativeMenuLabels(t: Strings): Record<string, string> {
+  const labels: Record<string, string> = {};
+  const collect = (nodes: MenuNode[]) => {
+    for (const node of nodes) {
+      if (node === "separator") continue;
+      if (node.action && "native" in node.action)
+        labels[node.action.native] = node.label;
+      if (node.submenu) collect(node.submenu);
+    }
+  };
+  // Accelerators play no part in a label.
+  collect(buildAppMenu(t, {} as Shortcuts, []));
+  const named = (template: string) => template.replace("{name}", APP_NAME);
+  return {
+    ...labels,
+    // macOS says Quit where Windows says Exit.
+    quit: named(t.menuQuit),
+    "recent-none": t.menuRecentNone,
+    "recent-clear": t.menuRecentClear,
+    "menu:file": t.menuFile,
+    "menu:open-recent": t.menuOpenRecent,
+    "menu:export": t.menuExport,
+    "menu:edit": t.menuEdit,
+    "menu:format": t.menuFormat,
+    "menu:view": t.menuView,
+    "menu:window": t.menuWindow,
+    "menu:help": t.menuHelp,
+    "predefined:about": named(t.menuAbout),
+    "predefined:hide": named(t.menuHide),
+    "predefined:hide-others": t.menuHideOthers,
+    "predefined:show-all": t.menuShowAll,
+    "predefined:undo": t.menuUndo,
+    "predefined:redo": t.menuRedo,
+    "predefined:cut": t.cut,
+    "predefined:copy": t.copy,
+    "predefined:paste": t.paste,
+    "predefined:select-all": t.selectAll,
+    "predefined:fullscreen": t.menuFullscreen,
+    "predefined:minimize": t.windowMinimize,
+    "predefined:maximize": t.menuZoomWindow,
+    "predefined:bring-all-to-front": t.menuBringAllToFront,
+  };
 }

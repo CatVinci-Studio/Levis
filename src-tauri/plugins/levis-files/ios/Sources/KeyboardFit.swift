@@ -16,6 +16,7 @@ import WebKit
 final class KeyboardFit {
   private weak var webview: WKWebView?
   private var observers: [NSObjectProtocol] = []
+  private var offsetObservation: NSKeyValueObservation?
 
   init(webview: WKWebView) {
     self.webview = webview
@@ -24,6 +25,16 @@ final class KeyboardFit {
     webview.scrollView.isScrollEnabled = false
     webview.scrollView.bounces = false
     Self.hideFormAccessory(in: webview)
+    // The page never scrolls as a whole - everything that scrolls does so
+    // inside it - yet raising the keyboard still had WebKit move it: its
+    // scroll to the focused field shoved the app, title row and all, about
+    // 100pt down for a frame, and the frame animation below slid it back.
+    // So the page is held at its resting position whenever anything moves
+    // it, before that frame is drawn.
+    offsetObservation = webview.scrollView.observe(\.contentOffset) {
+      [weak self] scroll, _ in
+      self?.hold(scroll)
+    }
     let center = NotificationCenter.default
     observers.append(
       center.addObserver(
@@ -46,7 +57,19 @@ final class KeyboardFit {
   }
 
   deinit {
+    offsetObservation?.invalidate()
     observers.forEach(NotificationCenter.default.removeObserver)
+  }
+
+  /// Back to the resting position (pinToTop) if the page was moved from
+  /// it. A page pinch-zoomed in is left to pan.
+  private func hold(_ scroll: UIScrollView) {
+    guard scroll.zoomScale <= scroll.minimumZoomScale + 0.001 else { return }
+    let rest = CGPoint(x: 0, y: -scroll.adjustedContentInset.top)
+    let offset = scroll.contentOffset
+    if abs(offset.y - rest.y) > 0.5 || abs(offset.x - rest.x) > 0.5 {
+      scroll.contentOffset = rest
+    }
   }
 
   /// WebKit puts its form-assistant bar (previous / next field and Done)
@@ -99,7 +122,10 @@ final class KeyboardFit {
     let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
     UIView.animate(
       withDuration: duration,
-      animations: { webview.frame = frame },
+      animations: {
+        webview.frame = frame
+        self.pinToTop()
+      },
       completion: { [weak self] _ in self?.pinToTop() })
     pinToTop()
   }

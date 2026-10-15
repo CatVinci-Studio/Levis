@@ -1,4 +1,9 @@
-import { isLinuxPlatform, isWindowsPlatform } from "../utils/platform";
+import {
+  isIOSPlatform,
+  isLinuxPlatform,
+  isMacPlatform,
+  isWindowsPlatform,
+} from "../utils/platform";
 import { canUseWindows, hasAppMenu } from "../platform/capabilities";
 /**
  * How much of the window frame this app has to draw for itself.
@@ -51,6 +56,17 @@ export const ownsMenuAccelerators = isLinuxPlatform();
 export const drawsWindowEdges = isLinuxPlatform();
 
 /**
+ * Which platform's webview this is, for the stylesheet's `data-platform`.
+ * iOS first: an iPad says "MacIntel" like a Mac (see isIOSPlatform).
+ */
+export function platformName(): "macos" | "ios" | "windows" | "linux" {
+  if (isIOSPlatform()) return "ios";
+  if (isMacPlatform()) return "macos";
+  if (isWindowsPlatform()) return "windows";
+  return "linux";
+}
+
+/**
  * Publishes {@link appDrawsWindowFrame} to CSS as `data-window-chrome` on
  * <html>, so the stylesheet can drop the macOS traffic-light inset and make
  * room for the caption buttons without every rule needing a class threaded
@@ -59,6 +75,11 @@ export const drawsWindowEdges = isLinuxPlatform();
  *
  * "mobile" on iOS, where there is no window frame at all - nothing in the
  * stylesheet keys off it yet; it is the hook for the iOS layout.
+ *
+ * Also `data-platform` (platformName): effects that cost more on one
+ * engine than another key off it - translucent materials stay off on
+ * Linux, where WebKitGTK composites a blur on the main thread (and slower
+ * still without DMABUF, which main.rs turns off on NVIDIA).
  */
 export function publishWindowChrome(): void {
   if (typeof document === "undefined") return;
@@ -67,4 +88,5 @@ export function publishWindowChrome(): void {
     : appDrawsWindowFrame
       ? "app"
       : "native";
+  document.documentElement.dataset.platform = platformName();
 }

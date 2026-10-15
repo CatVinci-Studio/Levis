@@ -1,6 +1,6 @@
 [package]
 name = "levis"
-version = "0.9.6"
+version = "0.9.7"
 description = "Levis Markdown Editor"
 authors = ["CatVinci Studio"]
 edition = "2021"
@@ -48,6 +48,23 @@ pdf-extract = "0.12"
 calamine = "0.36"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 quick-xml = "0.41"
+
+# The writing-rules engine (src/ai/rules/, docs/AI-CONCEPTS.md): Markdown
+# parsed into prose blocks so code, math, front matter and link targets are
+# never "corrected"; NFC and compatibility ideographs; grapheme counts for
+# platform limits (Bluesky counts graphemes, X counts an emoji sequence as
+# one); regexes for the rule patterns. All pure Rust, and all but
+# unicode-segmentation already in the tree (regex via tauri-utils,
+# unicode-normalization via pdf-extract), so they cost little and build
+# for iOS. autocorrect and ferrous-opencc, which the plan proposed, were
+# measured and dropped: +3.3 MB / 54 crates (pest grammars, ignore,
+# serde_yaml) and +2.4 MB / 46 crates (rkyv, fst, OpenCC dictionaries)
+# for what a few hundred lines and a curated character table do here -
+# and autocorrect inserts the spaces Japanese and Korean must not get.
+pulldown-cmark = { version = "0.13", default-features = false }
+regex = "1"
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
 
 # Desktop only (Windows/macOS/Linux): neither plugin supports iOS or Android
 # (their platform-support metadata says "none"), and lib.rs registers them

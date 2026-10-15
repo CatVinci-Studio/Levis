@@ -15,7 +15,7 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-control);
   white-space: nowrap;
 }
 
@@ -40,7 +40,7 @@
 
 .chevron {
   flex-shrink: 0;
-  transition: transform 0.12s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
   opacity: 0.6;
 }
 

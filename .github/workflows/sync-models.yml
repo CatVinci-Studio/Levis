@@ -26,6 +26,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     env:
       BRANCH: chore/sync-models
       GH_TOKEN: ${{ github.token }}
@@ -36,7 +37,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Refresh snapshot and check pinned models
         id: sync

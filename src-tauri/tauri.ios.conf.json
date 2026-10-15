@@ -3,6 +3,8 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "Levis"
       }
     ]

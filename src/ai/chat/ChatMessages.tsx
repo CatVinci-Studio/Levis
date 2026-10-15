@@ -10,9 +10,18 @@ import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../usePendingEdits";
 import type { StreamingState } from "../useAgentConversation";
 import { parseProposal } from "./proposal";
+import { refusedProposalIds } from "../proposal-status";
 import { classifyAiError, type AiErrorKind } from "../error-messages";
 import { diffLines } from "./line-diff";
 import { composeSentences, diffSentences } from "./sentence-diff";
+import { FlipOnChange } from "../../ui/flip";
+
+/** The statuses a card reaches by being decided, which collapse it. */
+const DECIDED: ReadonlySet<PendingStatus> = new Set([
+  "accepted",
+  "rejected",
+  "invalid",
+]);
 
 /** An add_comment call's arguments (src-tauri ai/tools.rs). */
 function parseComment(
@@ -184,18 +193,48 @@ export function ChatMessages({
         map.set(turn.call_id, parseProposal(turn.arguments));
     return map;
   }, [shown]);
+  // A call the backend refused (tools.rs) was never a proposal: the model
+  // was told and resends it, so it gets no card - nor its result.
+  const refused = useMemo(() => refusedProposalIds(shown), [shown]);
+
+  // A decided card shrinks to its status line; whatever is under it moves
+  // up to meet it rather than jumping (FlipOnChange). Only decisions count:
+  // a card ARRIVING (streaming -> pending) must not set it off, or the
+  // "Thinking…" row below slides down through the new cards, drawn over
+  // their text and buttons while they fade in.
+  const decisions = shown
+    .flatMap((turn) => {
+      if (turn.kind !== "ToolCall" || turn.name !== "propose_edit") return [];
+      const status = proposalStatus(turn.call_id);
+      return DECIDED.has(status) ? [`${turn.call_id}:${status}`] : [];
+    })
+    .join(" ");
 
   return (
     <>
+      <FlipOnChange
+        watch={decisions}
+        targets={() =>
+          document.querySelectorAll(
+            ":is(.inline-chat-messages, .quick-ask-transcript) > *",
+          )
+        }
+      />
       {shown.map((turn, i) => {
         const reveal = i >= revealFrom.current;
         // A CSS custom property, not a standard style key - CSSProperties
-        // doesn't type these, hence the cast.
+        // doesn't type these, hence the cast. The stagger stops at the
+        // third turn: a long reply should not take a second to show.
         const style: CSSProperties | undefined = reveal
           ? ({
-              "--reveal-delay": `${Math.min(i - revealFrom.current, 6) * 90}ms`,
+              "--reveal-delay": `${Math.min(i - revealFrom.current, 3) * 40}ms`,
             } as CSSProperties)
           : undefined;
+        if (
+          (turn.kind === "ToolCall" || turn.kind === "ToolResult") &&
+          refused.has(turn.call_id)
+        )
+          return null;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
           const proposal = parsedProposals.get(turn.call_id);
           if (!proposal)
@@ -269,7 +308,7 @@ export function ChatMessages({
         );
       })}
       {streaming && streaming.text.length > 0 && (
-        <div className="turn-reveal">
+        <div className="turn-reveal agent-streaming">
           <AgentTurnView
             turn={{ kind: "Assistant", text: streaming.text }}
             labels={labels}
@@ -428,6 +467,7 @@ function ProposalCard({
   return (
     <div
       className={`agent-proposal${reveal ? " turn-reveal" : ""}`}
+      data-status={status}
       style={style}
     >
       <div className="agent-proposal-head">

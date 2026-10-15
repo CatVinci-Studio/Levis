@@ -62,15 +62,18 @@
   height: 44px;
   padding: 0 4px;
   border: none;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   background: none;
   color: var(--editor-text);
   font: inherit;
-  font-size: 17px;
+  font-size: var(--ios-body);
+  /* iOS's highlight: on at the touch, fading out after it. */
+  transition: background-color var(--dur-base) var(--ease-standard);
 }
 
 .keyboard-toolbar-button:active {
   background: color-mix(in srgb, var(--editor-text) 12%, transparent);
+  transition-duration: 0s;
 }
 
 /* A block toggle that is on where the caret is. */
@@ -95,7 +98,7 @@
 
 /* An image's widths, written out. */
 .kbt-text {
-  font-size: 15px;
+  font-size: var(--ios-subhead);
   white-space: nowrap;
 }
 
@@ -106,12 +109,16 @@
 
 .keyboard-toolbar-ai {
   color: var(--chrome-accent);
-  font-size: 15px;
+  font-size: var(--ios-subhead);
   font-weight: 600;
   white-space: nowrap;
 }
 
-/* The end of the document scrolls clear of the strip. */
+/* The document's scroller ends at the strip rather than running on under
+   it: the editor keeps the caret inside its scroller, so a line being
+   typed (and the one Return makes) stopped behind the strip, as far up as
+   the keyboard but not the 44pt above it. The end of the document scrolls
+   clear of it the same way. */
 :root.has-keyboard-toolbar .editor-scroll {
-  padding-bottom: 45px;
+  margin-bottom: 45px;
 }

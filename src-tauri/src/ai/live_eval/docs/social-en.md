@@ -1,0 +1,3 @@
+# Launch post draft
+
+After eighteen months of work, I'm incredibly excited and honestly a little nervous to share that Levis 1.0 is finally out today! It's a Markdown editor that works offline, syncs across your devices, and has an AI assistant that actually respects your writing instead of rewriting everything. Huge thanks to the 2,000 beta testers who sent us bug reports at 2 a.m. and to my co-founder Wen who kept us going. You can download it for free on macOS, Windows and Linux at levis.app, and I'd love to hear what you think!

@@ -8,8 +8,7 @@ import {
 } from "../../ai/model-info";
 import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../SettingsContext";
-import type { Strings } from "../../i18n/strings";
-import type { AgentSkill } from "../../ai/types";
+import { localeOf, type Strings } from "../../i18n/strings";
 import {
   OPENAI_OAUTH_AGENT_MODEL_PRESETS,
   OPENAI_OAUTH_WRITING_MODEL_PRESETS,
@@ -17,14 +16,16 @@ import {
 import { useActiveProvider } from "../../ai/provider-catalog";
 import { ai, auth } from "../../ipc";
 import { Select } from "../../ui/Select";
-import { SettingRow } from "./controls";
+import { SettingRow, VERBATIM_INPUT } from "./controls";
 
-// The Agent category's sections. The agent workspace itself is file-managed
-// (the .levis/ convention) - these sections mostly open folders/files rather
-// than embedding editors; the full write-up lives in Help > AI Agent Guide.
+// The AI category's model pickers, and the rows for the concepts in
+// docs/AI-CONCEPTS.md: the project folder, the global writing instructions
+// (agent.md), skills and the global config folder. Those are files, not
+// settings - these rows open folders and files rather than embedding
+// editors; Help > AI Features Guide explains them.
 
 /** Fired after a model list is fetched, so both pickers (writing and
- *  Agent) pick up the new list from the cache at once. */
+ *  chat) pick up the new list from the cache at once. */
 const MODELS_FETCHED_EVENT = "levis-models-fetched";
 
 /** Whether "sign in with ChatGPT" is the active OpenAI login - that OAuth
@@ -65,14 +66,14 @@ function useFetchedModels(provider: string) {
   return { models: cached?.models ?? [], at: cached?.at ?? null };
 }
 
-/// Model picker for writing (completion and grammar) or the Agent chat, for
+/// Model picker for writing (completion and grammar) or the chat, for
 /// whichever provider is active. Seeded from the catalog's `knownModels` (a
 /// small pre-supplied list, same idea as pi.dev's models.json) so the
 /// dropdown is never empty; ModelListRow adds any live-fetched extras on
 /// top. Where "sign in with ChatGPT" is active its presets (agent-models.ts)
 /// replace the catalog's. Custom endpoints keep their configured model as
 /// the fallback, while these two fields can optionally override it for
-/// writing and Agent independently.
+/// writing and chat independently.
 function ProviderModelRow({
   t,
   kind,
@@ -131,6 +132,11 @@ function ProviderModelRow({
   // retired. Still selectable (it may just be unlisted), but flagged.
   const currentMissing =
     !!current && fetched.length > 0 && !fetched.includes(current);
+  // A list to choose from, or only a name to type (a custom endpoint, whose
+  // models are never listed here). Decided before the saved name joins the
+  // options: counting it turned the text field into a one-option select at
+  // the first keystroke, so a model name could only ever be one character.
+  const hasList = knownAndFetched.length > 0;
   if (current && !knownAndFetched.includes(current)) {
     knownAndFetched.push(current);
   }
@@ -182,7 +188,7 @@ function ProviderModelRow({
       label={label}
       error={currentMissing ? t.modelMissingHint : null}
     >
-      {presetOptions.length > 0 ? (
+      {useCodexPresets || defaultModel || hasList ? (
         <Select
           className="settings-select settings-model-select"
           aria-label={label}
@@ -198,6 +204,7 @@ function ProviderModelRow({
       ) : (
         <input
           type="text"
+          {...VERBATIM_INPUT}
           className="settings-text-input"
           aria-label={label}
           placeholder={t.customModelPlaceholder}
@@ -229,6 +236,8 @@ export function ModelListRow({ t }: { t: Strings }) {
   const { at } = useFetchedModels(provider);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // A failed fetch belongs to the provider it was tried against.
+  useEffect(() => setError(null), [provider]);
 
   const canFetch =
     provider !== "custom" &&
@@ -257,7 +266,7 @@ export function ModelListRow({ t }: { t: Strings }) {
         at
           ? t.modelFetchedAt.replace(
               "{date}",
-              new Date(at).toLocaleDateString(),
+              new Date(at).toLocaleDateString(localeOf(settings.language)),
             )
           : undefined
       }
@@ -274,17 +283,16 @@ export function ModelListRow({ t }: { t: Strings }) {
   );
 }
 
-/// The agent workspace is configured through files, not settings controls -
-/// this section just explains the .levis/ convention and opens the global
-/// folder.
+/// The global config folder: the global agent.md and skills/, which apply
+/// to every document. Opens it in the file manager (creating it, with the
+/// starter agent.md, on first use).
 export function AgentWorkspaceSection({ t }: { t: Strings }) {
-  const { settings } = useSettings();
   const [error, setError] = useState<string | null>(null);
 
   async function openFolder() {
     try {
-      // Language picks the starter agent.md template on first use.
-      await ai.openGlobalAgentDir(settings.language);
+      // The starter agent.md, in the UI language, if there is none yet.
+      await ai.openGlobalAgentDir(t.agentInstructionsTemplate);
     } catch (err) {
       setError(errorText(err));
     }
@@ -302,14 +310,15 @@ export function AgentWorkspaceSection({ t }: { t: Strings }) {
   );
 }
 
-/// WHICH folder is the workspace.
+/// WHICH folder is the project folder (in code: the workspace root).
 ///
 /// The default - the folder of the document being edited - is right until
 /// the user's sources and their draft don't live together, and then there is
 /// no way out of it: `.levis/` is looked for there, and the agent's
 /// list_files/read_file are sandboxed to it (ai/workspace.rs), so material
 /// one folder over is simply unreachable. This makes the root explicit while
-/// keeping the default for everyone it already suits.
+/// keeping the default for everyone it already suits. The project bar's
+/// menu offers the same choice, with the same labels.
 export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
   const { settings, setSettings } = useSettings();
   const [error, setError] = useState<string | null>(null);
@@ -325,12 +334,15 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
     }
   }
 
-  // The one row here that keeps a line of explanation: which folder the
-  // agent can read is not something the label alone can say.
+  // Which folder the AI can read is not something the label alone can
+  // say, so the hint names it.
   return (
     <SettingRow
       label={t.agentWorkspaceRootLabel}
-      hint={root || t.agentWorkspaceRootDefault}
+      hint={t.agentWorkspaceRootHint.replace(
+        "{path}",
+        root || t.agentWorkspaceRootDefault,
+      )}
       error={error}
     >
       <div className="settings-inline-buttons">
@@ -339,7 +351,7 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
             className="text-button settings-inline-button"
             onClick={() => setSettings({ agentWorkspaceRoot: "" })}
           >
-            {t.agentWorkspaceRootReset}
+            {t.projectUseDocFolder}
           </button>
         )}
         <button
@@ -353,11 +365,12 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
   );
 }
 
-/// The GLOBAL agent.md - the standing instructions in every chat's system
-/// prompt. Levis IS a markdown editor, so the button just opens the file as
-/// a document (creating an empty starter on first use) instead of embedding
-/// a bespoke editor here. A document folder's .levis/agent.md layers on top
-/// and stays file-managed.
+/// The GLOBAL writing instructions (agent.md) - sent with every
+/// conversation, for all documents. Levis IS a markdown editor, so the
+/// button just opens the file as a document (creating the comment-only
+/// starter on first use) instead of embedding a bespoke editor here. A
+/// project's .levis/agent.md is layered after it; the project bar's menu
+/// opens that one.
 export function AgentSystemPromptSection({
   t,
   onOpenFile,
@@ -367,13 +380,12 @@ export function AgentSystemPromptSection({
   onOpenFile: (path: string) => void;
   onClose: () => void;
 }) {
-  const { settings } = useSettings();
   const [error, setError] = useState<string | null>(null);
 
   async function editAgentMd() {
     try {
-      // Language picks the starter agent.md template on first use.
-      const path = await ai.ensureGlobalAgentMd(settings.language);
+      // The starter agent.md, in the UI language, if there is none yet.
+      const path = await ai.ensureGlobalAgentMd(t.agentInstructionsTemplate);
       onClose(); // the editor is behind the settings panel
       onOpenFile(path);
     } catch (err) {
@@ -382,7 +394,11 @@ export function AgentSystemPromptSection({
   }
 
   return (
-    <SettingRow label={t.agentSystemPromptLabel} error={error}>
+    <SettingRow
+      label={t.agentSystemPromptLabel}
+      hint={t.agentSystemPromptHint}
+      error={error}
+    >
       <button
         className="text-button settings-inline-button"
         onClick={editAgentMd}
@@ -390,59 +406,5 @@ export function AgentSystemPromptSection({
         {t.agentSystemPromptEdit}
       </button>
     </SettingRow>
-  );
-}
-
-/// The GLOBAL skill list, plus an import button that copies a .md skill
-/// file into the global skills folder. Per-document .levis/skills still
-/// layer on top when chatting - this section only manages the global set.
-export function AgentSkillsSection({ t }: { t: Strings }) {
-  const [skills, setSkills] = useState<AgentSkill[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Both null = the global layer only, which is exactly what's editable here.
-  useEffect(() => {
-    ai.loadAgentWorkspace(null, null)
-      .then((ws) => setSkills(ws?.skills ?? []))
-      .catch(() => {});
-  }, []);
-
-  async function importSkill() {
-    try {
-      const updated = await ai.importAgentSkill();
-      if (updated) setSkills(updated);
-      setError(null);
-    } catch (err) {
-      setError(errorText(err));
-    }
-  }
-
-  return (
-    <>
-      <SettingRow
-        label={t.agentSkillsLabel}
-        hint={skills.length === 0 ? t.agentSkillsEmpty : undefined}
-        error={error}
-      >
-        <button
-          className="text-button settings-inline-button"
-          onClick={importSkill}
-        >
-          {t.agentSkillsImport}
-        </button>
-      </SettingRow>
-      {skills.length > 0 && (
-        <div className="settings-skill-list">
-          {skills.map((skill) => (
-            <div key={skill.name} className="settings-skill-item">
-              <span className="settings-skill-name">/{skill.name}</span>
-              <span className="settings-skill-desc">
-                {skill.description || skill.prompt}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
   );
 }
