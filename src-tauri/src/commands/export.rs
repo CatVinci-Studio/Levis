@@ -57,6 +57,39 @@ pub async fn detect_pandoc() -> Option<String> {
     .flatten()
 }
 
+/// pandoc's arguments for exporting to `format`, before --output.
+///
+/// The reader is commonmark_x trimmed to the editor's dialect: it brings
+/// bracketed spans and attributes, which the markdown handed over uses for
+/// highlights and image widths (export-pandoc-markdown.ts), plus dollar
+/// math, YAML front matter, footnotes, task lists, tables and alerts.
+/// Extensions the editor doesn't have are off, so text means what it says
+/// in the editor: no smart quotes, no `~sub~` / `^sup^` (Chinese writes
+/// ranges as 3~5), no fancy or definition lists, no `:::` divs.
+///
+/// Only epub gets the filename as its title (it refuses to build without
+/// one). Elsewhere a title would print as a heading above the document's
+/// own first heading, so the filename is only the page title.
+#[cfg(desktop)]
+fn pandoc_args(format: &str, title: &str) -> Vec<String> {
+    let title_key = if format == "epub" {
+        "title"
+    } else {
+        "pagetitle"
+    };
+    vec![
+        "--from".into(),
+        "commonmark_x-smart-subscript-superscript-fancy_lists-definition_lists\
+         -fenced_divs-implicit_header_references+autolink_bare_uris"
+            .into(),
+        "--to".into(),
+        format.into(),
+        "--standalone".into(),
+        "--metadata".into(),
+        format!("{title_key}={title}"),
+    ]
+}
+
 /// Converts the current document text to `format` (a pandoc writer name)
 /// via a user-installed pandoc. The markdown is piped through stdin - no
 /// temp file - and --resource-path points at the document's folder so
@@ -74,18 +107,7 @@ pub async fn export_via_pandoc(
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let mut cmd = Command::new(&pandoc_path);
-        cmd.arg("--from")
-            // gfm to match the editor's dialect; dollar math and YAML
-            // frontmatter are off by default in pandoc's gfm reader but
-            // supported in Textus documents.
-            .arg("gfm+tex_math_dollars+yaml_metadata_block")
-            .arg("--to")
-            .arg(&format)
-            .arg("--standalone")
-            // epub refuses (and standalone latex warns) without a title;
-            // the filename stem is what Typora passes too.
-            .arg("--metadata")
-            .arg(format!("title={title}"))
+        cmd.args(pandoc_args(&format, &title))
             .arg("--output")
             .arg(&output_path)
             .stdin(Stdio::piped())
@@ -705,5 +727,22 @@ mod pdf_macos {
                 },
             );
         });
+    }
+}
+
+#[cfg(all(test, desktop))]
+mod tests {
+    use super::pandoc_args;
+
+    #[test]
+    fn pandoc_reads_the_editor_dialect_and_titles_only_epub() {
+        let docx = pandoc_args("docx", "notes");
+        assert_eq!(docx[0], "--from");
+        assert!(docx[1].starts_with("commonmark_x-smart-subscript-superscript"));
+        assert!(docx[1].ends_with("+autolink_bare_uris"));
+        assert!(!docx[1].contains(char::is_whitespace));
+        assert!(docx.contains(&"pagetitle=notes".to_string()));
+        assert!(!docx.iter().any(|a| a.starts_with("title=")));
+        assert!(pandoc_args("epub", "notes").contains(&"title=notes".to_string()));
     }
 }
