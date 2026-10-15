@@ -240,9 +240,13 @@ const exitHighlight: FromMarkdownHandle = function (token) {
 
 export function highlightToMarkdown(): ToMarkdownExtension {
   return {
+    // Only an "=" that, with the next one, could open a highlight - "=="
+    // before a non-space - is escaped. Escaping every "=" wrote "2+2=4" back
+    // as "2+2\\=4" the first time a document was saved.
     unsafe: [
       {
         character: "=",
+        after: "=(?!\\s)",
         inConstruct: "phrasing",
         notInConstruct: CONSTRUCTS_WITHOUT_HIGHLIGHT,
       },

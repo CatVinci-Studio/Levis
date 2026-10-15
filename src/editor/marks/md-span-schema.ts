@@ -4,7 +4,7 @@ import {
   highlightFromMarkdown,
   highlightSyntax,
   highlightToMarkdown,
-} from "../code/highlight-syntax";
+} from "./highlight-syntax";
 
 // Registers "==highlighted==" parsing/serialization with remark, the same
 // way remark-math registers "$...$" (see math-schema.ts) - a unified plugin
