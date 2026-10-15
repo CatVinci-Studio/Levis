@@ -50,16 +50,23 @@ function landAfter(tr: Transaction, after: number): Transaction {
   return tr.setSelection(TextSelection.create(tr.doc, after + 1));
 }
 
-/** Enter on the empty last line of a code or math block: drop that line
+/** Enter on the empty (or whitespace-only) last line of a code or math block: drop that line
  *  and continue below the block. The first Enter makes the empty line, so
  *  it takes two, as with list items and quotes. */
 export const leaveTextBlockOnEmptyLastLine: Command = (state, dispatch) => {
   const { $from, empty } = state.selection;
   if (!empty || !LEAVABLE_TEXT_BLOCKS.has($from.parent.type.name)) return false;
   if ($from.parentOffset !== $from.parent.content.size) return false;
-  if (!$from.parent.textContent.endsWith("\n")) return false;
+  // The last line counts as empty when it holds only the indentation the
+  // code block carried over from the line above.
+  const text = $from.parent.textContent;
+  const lastBreak = text.lastIndexOf("\n");
+  if (lastBreak < 0 || text.slice(lastBreak + 1).trim() !== "") return false;
   if (dispatch) {
-    const tr = state.tr.delete($from.pos - 1, $from.pos);
+    const tr = state.tr.delete(
+      $from.pos - (text.length - lastBreak),
+      $from.pos,
+    );
     dispatch(landAfter(tr, tr.mapping.map($from.after())).scrollIntoView());
   }
   return true;

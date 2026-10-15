@@ -200,6 +200,25 @@ describe("leaveTextBlockOnEmptyLastLine", () => {
     expect(next.selection.$from.parent).toBe(next.doc.child(1));
   });
 
+  it("treats a last line holding only carried-over indentation as empty", () => {
+    const doc = docOf(code("  if x:\n    y\n    "), p("after"));
+    const next = run(
+      leaveTextBlockOnEmptyLastLine,
+      stateAt(doc, "  if x:\n    y\n    "),
+    )!;
+    expect(next.doc.child(0).textContent).toBe("  if x:\n    y");
+    expect(next.selection.$from.parent).toBe(next.doc.child(1));
+  });
+
+  it("keeps a last line with text after the indentation", () => {
+    expect(
+      run(
+        leaveTextBlockOnEmptyLastLine,
+        stateAt(docOf(code("a\n  b")), "a\n  b"),
+      ),
+    ).toBeNull();
+  });
+
   it("needs the empty line first: one Enter on text only adds a line", () => {
     expect(
       run(

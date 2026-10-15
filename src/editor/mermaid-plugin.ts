@@ -182,14 +182,24 @@ export function createMermaidPreviewPlugin(options: {
         decorations.push(
           Decoration.widget(
             to,
-            (view: EditorView) => {
+            (view: EditorView, getPos: () => number | undefined) => {
               const container = document.createElement("div");
               container.className = "mermaid-preview";
               container.innerHTML = svg;
               container.addEventListener("mousedown", (event) => {
                 event.preventDefault();
+                // The widget's DOM outlives edits above it (its key leaves
+                // the position out), so where its block starts is asked now:
+                // the `from` of the pass that built it can be another block.
+                const end = getPos();
+                if (end === undefined) return;
+                const block = view.state.doc.resolve(end).nodeBefore;
+                if (block?.type.name !== "code_block") return;
                 const tr = view.state.tr.setSelection(
-                  TextSelection.create(view.state.doc, from + 1),
+                  TextSelection.create(
+                    view.state.doc,
+                    end - block.nodeSize + 1,
+                  ),
                 );
                 view.dispatch(tr);
                 view.focus();

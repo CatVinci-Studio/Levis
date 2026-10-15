@@ -340,3 +340,47 @@ test("typed dollar amounts stay text; a typed formula still forms", async ({
   }
   await expect(paragraphs.nth(3).locator(".math-inline")).toHaveCount(2);
 });
+
+test("clicking a diagram opens its own source after text is added above", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(
+    page,
+    "Top.\n\n```mermaid\ngraph TD\n  A1-->B1\n```\n\n```mermaid\ngraph TD\n  A2-->B2\n```\n\nEnd.",
+  );
+  const previews = page.locator(".mermaid-preview");
+  await expect(previews).toHaveCount(2, { timeout: 10_000 });
+  // Lengthen the paragraph above: the diagrams' widgets are kept, their
+  // blocks move.
+  await page.locator(".ProseMirror p", { hasText: "Top." }).click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" More words above both diagrams.");
+  await previews.nth(1).click();
+  const hidden = page.locator(".ProseMirror .mermaid-source-hidden");
+  await expect(hidden.filter({ hasText: "A2-->B2" })).toHaveCount(0);
+  await expect(hidden.filter({ hasText: "A1-->B1" })).toHaveCount(1);
+});
+
+test("a table's menu stays open while it scrolls on a short window", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 360 });
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, "| a | b |\n| --- | --- |\n| c | d |\n\nEnd.");
+  await page
+    .locator(".ProseMirror td", { hasText: "d" })
+    .click({ button: "right" });
+  const menu = page.locator(".context-menu");
+  await expect(menu).toBeVisible();
+  const scrollable = await menu.evaluate(
+    (el) => el.scrollHeight > el.clientHeight,
+  );
+  expect(scrollable).toBe(true);
+  await menu.hover();
+  await page.mouse.wheel(0, 400);
+  await expect
+    .poll(() => menu.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(menu).toBeVisible();
+});
