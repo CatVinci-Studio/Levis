@@ -91,13 +91,9 @@
     display: none;
   }
 
-  /* The sheet needs no name: the grip and its buttons say what it is. So
-     its + and x move up beside the grip instead of a row of their own; the
+  /* The sheet's header rides up beside the grip instead of a row of its
+     own - Conversation / Memory on the left, + and x on the right; the
      rest of that row lets touches through to the grip under it. */
-  :root[data-window-chrome="mobile"] .agent-panel-title {
-    display: none;
-  }
-
   :root[data-window-chrome="mobile"] .agent-panel-header {
     /* The grip's height: the buttons centre on the grip's line. */
     margin-top: -44px;
@@ -107,8 +103,14 @@
     pointer-events: none;
   }
 
-  :root[data-window-chrome="mobile"] .agent-panel-actions {
+  :root[data-window-chrome="mobile"] .agent-panel-actions,
+  :root[data-window-chrome="mobile"] .agent-panel-tabs {
     pointer-events: auto;
+  }
+
+  :root[data-window-chrome="mobile"] .agent-panel-tabs button {
+    padding: 8px 14px;
+    font-size: var(--text-md);
   }
 
   /* New conversation and close: finger-sized, like every other button on

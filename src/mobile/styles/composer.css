@@ -108,8 +108,8 @@
 
   :root[data-window-chrome="mobile"]
     :is(.inline-chat-send, .inline-chat-action-primary):not(:disabled):hover {
-    border-color: var(--chrome-primary);
-    background: var(--chrome-primary);
+    border-color: var(--ui-primary);
+    background: var(--ui-primary);
   }
 
   :root[data-window-chrome="mobile"] .inline-chat-chip-remove:hover {
@@ -130,7 +130,7 @@
 
   :root[data-window-chrome="mobile"]
     :is(.inline-chat-send, .inline-chat-action-primary):not(:disabled):active {
-    background: color-mix(in srgb, var(--chrome-primary) 86%, #000);
+    background: color-mix(in srgb, var(--ui-primary) 86%, var(--ui-on-primary));
   }
 }
 

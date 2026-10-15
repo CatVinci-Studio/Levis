@@ -8,16 +8,23 @@ import {
   type GrammarDecorationSpec,
 } from "./grammar-check-plugin";
 import { findUniqueTextRange } from "./doc-text";
+import { grammarKind } from "./grammar-kind";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import type { GrammarPopoverInfo } from "./GrammarPopover";
 import type { EditorRunner } from "../editor/useEditorRunner";
 
-/** The popover for one underline, placed at (x, y). */
+/** The popover for one underline, placed at (x, y), with where it stands
+ *  among the paragraph's other underlines. */
 function popoverFor(
   deco: Decoration,
   x: number,
   y: number,
+  siblings: Decoration[] = [deco],
 ): GrammarPopoverInfo {
   const spec = deco.spec as GrammarDecorationSpec;
+  const index = siblings.findIndex(
+    (d) => d.from === deco.from && d.to === deco.to,
+  );
   return {
     x,
     y,
@@ -26,7 +33,20 @@ function popoverFor(
     issue: spec.issue,
     suggestion: spec.suggestion,
     original: spec.original,
+    kind: grammarKind(spec.original, spec.suggestion, spec.rule),
+    index: Math.max(0, index),
+    count: siblings.length,
   };
+}
+
+/** The underlines in the same paragraph as `deco`, in order. */
+function siblingsOf(state: EditorState, deco: Decoration): Decoration[] {
+  const $pos = state.doc.resolve(deco.from);
+  const start = $pos.start();
+  const end = $pos.end();
+  return ((grammarKey.getState(state)?.find(start, end) ?? []) as Decoration[])
+    .slice()
+    .sort((a, b) => a.from - b.from);
 }
 
 /**
@@ -61,7 +81,14 @@ export function useGrammarPopover(
         if (!deco) return;
         const rect = target.getBoundingClientRect();
         setApplyError(null);
-        setPopover(popoverFor(deco, rect.left, rect.bottom + 6));
+        setPopover(
+          popoverFor(
+            deco,
+            rect.left,
+            rect.bottom + 6,
+            siblingsOf(view.state, deco),
+          ),
+        );
       });
     },
     [run],
@@ -99,7 +126,12 @@ export function useGrammarPopover(
       setPopover((prev) =>
         prev?.from === deco.from && prev.to === deco.to
           ? prev
-          : popoverFor(deco, coords.left, coords.bottom + 6),
+          : popoverFor(
+              deco,
+              coords.left,
+              coords.bottom + 6,
+              siblingsOf(view.state, deco),
+            ),
       );
     });
   }, [run]);
@@ -115,6 +147,26 @@ export function useGrammarPopover(
     );
     setPopover(null);
   }, [popover, run]);
+
+  /** To the paragraph's previous or next underline (the card's ‹ ›). */
+  const step = useCallback(
+    (delta: 1 | -1) => {
+      if (!popover) return;
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const here = grammarIssueAt(view.state, popover.from);
+        if (!here) return;
+        const all = siblingsOf(view.state, here);
+        const i = all.findIndex((d) => d.from === here.from);
+        const next = all[(i + delta + all.length) % all.length];
+        if (!next) return;
+        const coords = view.coordsAtPos(next.from);
+        setApplyError(null);
+        setPopover(popoverFor(next, coords.left, coords.bottom + 6, all));
+      });
+    },
+    [popover, run],
+  );
 
   const cancelHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -185,5 +237,6 @@ export function useGrammarPopover(
     applyFix,
     onCaretMove,
     ignore,
+    step,
   };
 }

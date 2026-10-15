@@ -154,14 +154,21 @@ for (const form of ["desktop", "narrow", "phone"] as Form[]) {
           await converse(page, language);
           await input.fill(DOC[language].ask);
           await input.press("Enter");
+          // A phone folds the sheet away when edits arrive; back into it.
+          if (form === "phone") {
+            await page.locator(".review-bar-chat").click();
+            await page.waitForTimeout(400);
+          }
           await expect(page.locator(".agent-proposal-reason")).toBeVisible();
           await expect(page.locator(".agent-comment")).toBeVisible();
           await page.waitForTimeout(1500);
           await shot(page, "3-reply");
-          await page.locator(".agent-proposal-picker-toggle").click();
           await page
-            .locator(".agent-proposal-picker-list")
-            .scrollIntoViewIfNeeded();
+            .locator(
+              ".revision-note .pending-pick-keep, .agent-proposal-pick .pending-pick-keep",
+            )
+            .last()
+            .click();
           await page.waitForTimeout(300);
           await shot(page, "4-picker");
           const diff = page.locator(".agent-diff-summary");
