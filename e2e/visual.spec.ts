@@ -660,7 +660,7 @@ test("a one-character CJK fix reads with its neighbour on the grammar card", asy
   await page.waitForTimeout(300);
   await page.evaluate(() =>
     window.dispatchEvent(
-      new CustomEvent("levis:tutorial-mock-grammar", {
+      new CustomEvent("textus:tutorial-mock-grammar", {
         detail: {
           target: "黛玉必竟寄人篱下，所以步步留心。",
           issues: [
