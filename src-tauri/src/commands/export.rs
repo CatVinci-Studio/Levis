@@ -436,8 +436,11 @@ mod pdf_offscreen {
             settings.set(gtk::PRINT_SETTINGS_OUTPUT_URI.as_str(), Some(uri.as_str()));
             let setup = gtk::PageSetup::new();
             setup.set_paper_size(&gtk::PaperSize::new(Some(gtk::PAPER_NAME_A4.as_str())));
-            setup.set_top_margin(0.0, gtk::Unit::Mm);
-            setup.set_bottom_margin(0.0, gtk::Unit::Mm);
+            // Top and bottom margins here, not in CSS: WebKitGTK ignores an
+            // @page margin, and text ran to the sheet's edge. The sides are
+            // the page's own padding (exporters.ts's pdfLayoutCss), ~20mm too.
+            setup.set_top_margin(20.0, gtk::Unit::Mm);
+            setup.set_bottom_margin(20.0, gtk::Unit::Mm);
             setup.set_left_margin(0.0, gtk::Unit::Mm);
             setup.set_right_margin(0.0, gtk::Unit::Mm);
             operation.set_print_settings(&settings);

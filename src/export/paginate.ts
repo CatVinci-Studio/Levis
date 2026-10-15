@@ -15,7 +15,8 @@
 export interface PageGeometry {
   width: number;
   height: number;
-  /** ~14mm: the band at the top and bottom of each sheet text stays out of. */
+  /** ~20mm: the band at the top and bottom of each sheet text stays out of -
+   *  the margin of a printed page, matching the ~20mm at the sides. */
   margin: number;
 }
 
@@ -23,14 +24,14 @@ export interface PageGeometry {
  *  in points - PAPER_WIDTH/HEIGHT in export.rs. (NSPrintOperation was not
  *  usable: its page height depends on the selected printer's imageable
  *  area, so no layout computed here could line up with it.) */
-export const MAC_PAGE: PageGeometry = { width: 595, height: 842, margin: 40 };
+export const MAC_PAGE: PageGeometry = { width: 595, height: 842, margin: 57 };
 
 /** Windows: WebView2's PrintToPdf at scale 1 lays out at 96 CSS px per
  *  inch - A4 is 794 x 1122.5 px, and pages are cut at whole pixels. */
 export const WINDOWS_PAGE: PageGeometry = {
   width: 794,
   height: 1122,
-  margin: 53,
+  margin: 76,
 };
 
 const SPACER_CLASS = "textus-page-spacer";

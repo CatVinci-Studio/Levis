@@ -251,17 +251,28 @@ const EXPORT_FIT_CSS =
 // margin, which would leave white bands on tinted themes - and the top and
 // bottom margins are laid out instead, by paginate.ts pushing blocks
 // off each page seam. Without one (Linux, where WebKitGTK's print geometry
-// isn't pinned down) the page gets a real @page margin: text stays clear of
-// the seams, at the cost of plain margins on a tinted theme.
+// isn't pinned down) the GTK page setup gives each sheet a real top and
+// bottom margin (export.rs): text stays clear of the seams, at the cost of
+// plain margins on a tinted theme. Every platform ends up near 20mm all
+// round, the margin of a printed page.
 function pdfLayoutCss(page: PageGeometry | null): string {
   const side = Math.round((page?.width ?? 595) * 0.094);
   return (
     ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
-    (page ? "@page { margin: 0; } " : "@page { margin: 14mm 0; } ") +
+    // The sheet itself never has a CSS margin: macOS and Windows lay theirs
+    // out (export-paginate), and on Linux the GTK page setup holds it
+    // (export.rs) - WebKitGTK ignores an @page margin.
+    "@page { margin: 0; } " +
     "html, body { margin: 0; background: var(--editor-bg, var(--bg)); } " +
     ".app-shell, .main-pane, .editor-scroll { height: auto; overflow: visible; background: transparent; } " +
     `.editor-content, .editor-content.typewriter-active { max-width: none; padding: ${page ? page.margin : 0}px ${side}px 0; } ` +
-    (page ? "" : "pre, blockquote, table, img { break-inside: avoid; } ") +
+    (page
+      ? ""
+      : "pre, blockquote, table, img, .math-block-wrapper, .mermaid-preview, .md-alert { break-inside: avoid; } " +
+        // WebKitGTK's print-to-file ignores break-inside on a block, and cut
+        // a display formula in two at the seam; an inline-block it never
+        // splits.
+        ".math-block-wrapper, .mermaid-preview { display: inline-block; width: 100%; } ") +
     EXPORT_FIT_CSS
   );
 }

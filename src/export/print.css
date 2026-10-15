@@ -15,7 +15,7 @@
      sheet edge where printers clip it. Chromium still paints the root
      background into the margin, so the theme stays full-bleed. */
   @page {
-    margin: 12mm 0;
+    margin: 20mm 0;
   }
 
   .sidebar,
@@ -101,11 +101,15 @@
     padding: 0 14mm;
   }
 
-  /* Keep indivisible blocks off page seams. */
+  /* Keep indivisible blocks off page seams - a display formula or a
+     diagram cut in two reads as two broken halves. */
   pre,
   blockquote,
   table,
-  img {
+  img,
+  .math-block-wrapper,
+  .mermaid-preview,
+  .md-alert {
     break-inside: avoid;
   }
 }
