@@ -48,7 +48,7 @@ import {
   withEditorExtensions,
   type PendingEditCallbacks,
 } from "./editor-extensions";
-import { GrammarPopover } from "../ai/GrammarPopover";
+import { GrammarPopover, applyLabel } from "../ai/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
 import { ChatBody } from "../ai/chat/ChatBody";
 import { AgentPanelView } from "../ai/chat/AgentPanelView";
@@ -71,7 +71,6 @@ import {
 } from "./review-focus";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
-import { ActionSheet } from "../mobile/ActionSheet";
 import { BottomCard } from "../mobile/BottomCard";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { InsertTableDialog } from "./InsertTableDialog";
@@ -1571,6 +1570,23 @@ export function MilkdownEditor({
     if (stop) run((ctx) => revealPosition(ctx.get(editorViewCtx), stop.from));
   }
 
+  const grammarLabels = useMemo(
+    () => ({
+      grammarKinds: {
+        spelling: t.grammarKindSpelling,
+        grammar: t.grammarKindGrammar,
+        punctuation: t.grammarKindPunctuation,
+        rules: t.grammarKindRules,
+      },
+      grammarApplyTo: t.grammarApplyTo,
+      grammarApply: t.grammarApply,
+      grammarIgnore: t.grammarIgnore,
+      grammarPrevious: t.grammarPrevious,
+      grammarNext: t.grammarNext,
+    }),
+    [t],
+  );
+
   // Review notes (ai/review-notes-plugin.ts, ai/ReviewMargin.tsx): every
   // add_comment of this tab's conversations, pinned to its passage and
   // drawn in the margin - until it is marked done, or its conversation is
@@ -1922,35 +1938,49 @@ export function MilkdownEditor({
       </Presence>
       <Presence show={!!grammar.popover && phone} exitMs={250}>
         {grammar.popover && phone && (
-          // The phone's form: the explanation heads a sheet whose action is
-          // the suggested text itself, as iOS offers a spelling replacement.
-          // A fix that no longer fits the text says so in the notice, the
-          // sheet having closed on the tap.
-          <ActionSheet
-            title={grammar.popover.issue}
-            items={[
+          // The phone's form: a card from the bottom with the fix as its
+          // main button, as iOS offers a spelling replacement. A fix that
+          // no longer fits the text says so in the notice, the card having
+          // closed on the tap.
+          <BottomCard
+            label={grammarLabels.grammarKinds[grammar.popover.kind]}
+            actions={[
+              { label: t.grammarIgnore, onSelect: grammar.ignore },
               {
-                // A fix that deletes has no text to show.
-                label: grammar.popover.suggestion || t.grammarApply,
+                label: applyLabel(grammarLabels, grammar.popover.suggestion),
+                primary: true,
                 onSelect: () => {
                   if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
                 },
               },
-              { label: t.grammarIgnore, onSelect: grammar.ignore },
             ]}
             onClose={grammar.hide}
-          />
+          >
+            <span
+              className={`grammar-kind grammar-kind-${grammar.popover.kind}`}
+            >
+              {grammarLabels.grammarKinds[grammar.popover.kind]}
+            </span>
+            <div className="grammar-card-fix">
+              {grammar.popover.original && <s>{grammar.popover.original}</s>}
+              {grammar.popover.original && " → "}
+              <b>{grammar.popover.suggestion || "\u2205"}</b>
+            </div>
+            {grammar.popover.issue && (
+              <div className="grammar-card-issue">{grammar.popover.issue}</div>
+            )}
+          </BottomCard>
         )}
       </Presence>
       <Presence show={!!grammar.popover && !phone} exitMs={120}>
         {grammar.popover && !phone && (
           <GrammarPopover
             info={grammar.popover}
-            applyLabel={t.grammarApply}
-            ignoreLabel={t.grammarIgnore}
+            labels={grammarLabels}
             error={grammar.applyError}
             onApply={grammar.applyFix}
             onIgnore={grammar.ignore}
+            onStep={grammar.step}
             onMouseEnter={grammar.cancelHide}
             onMouseLeave={grammar.hide}
           />

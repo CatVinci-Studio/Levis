@@ -146,7 +146,7 @@ test("a tapped image gets width presets and delete on the toolbar", async ({
   await expect(toolbar.getByRole("button", { name: "Bold" })).toBeVisible();
 });
 
-test("a tap on a grammar underline offers the fix in a sheet", async ({
+test("a tap on a grammar underline offers the fix in a bottom card", async ({
   page,
 }) => {
   await openPhone(page);
@@ -172,10 +172,11 @@ test("a tap on a grammar underline offers the fix in a sheet", async ({
     ),
   );
   await editor.locator(".grammar-issue").tap();
-  const sheet = page.locator(".action-sheet");
-  await expect(sheet).toContainText("The verb should agree with “she”.");
+  const card = page.locator(".bottom-card");
+  await expect(card).toContainText("The verb should agree with “she”.");
+  await expect(card.locator(".grammar-kind")).toHaveText("Grammar");
   await expect(page.locator(".grammar-popover")).toHaveCount(0);
-  await sheet.getByRole("menuitem", { name: "goes" }).tap();
+  await card.getByRole("button", { name: "Change to “goes”" }).tap();
   await expect(editor).toContainText("She goes to school.");
 });
 

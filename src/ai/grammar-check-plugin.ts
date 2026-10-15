@@ -172,6 +172,8 @@ export function grammarIssueAt(
 export interface GrammarDecorationSpec {
   issue: string;
   suggestion: string;
+  /** Set when the writing-rules engine found it (labelled as such). */
+  rule?: string;
   /** What the highlighted range must still say for Apply to act (see useGrammarPopover). */
   original?: string;
 }
@@ -231,6 +233,7 @@ export function issuesToDecorations(
         issue: issue.issue,
         suggestion: issue.suggestion,
         original: issue.original,
+        rule: issue.rule,
       } satisfies GrammarDecorationSpec),
     );
   }
