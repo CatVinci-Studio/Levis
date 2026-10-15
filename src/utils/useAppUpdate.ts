@@ -10,7 +10,8 @@ export type UpdateStatus = "idle" | "available" | "downloading" | "error";
 
 /**
  * Checks GitHub Releases at startup and every 4 hours (the updater endpoint points at the
- * latest release's latest.json) and drives the update banner: available ->
+ * latest release's textus-latest.json - never latest.json, which is what
+ * Levis installs read; see scripts/updater-manifest.mjs) and drives the update banner: available ->
  * user confirms -> download + install -> relaunch. Checking is silent on
  * failure - offline, rate-limited, or running in a plain browser during
  * development are all normal situations, not something to bother the user

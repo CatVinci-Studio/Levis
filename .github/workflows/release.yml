@@ -53,6 +53,13 @@ jobs:
       - name: Tag matches the app version
         run: node scripts/check-versions.mjs --root tagged --tag "$RELEASE_TAG"
 
+      # The tagged app reads textus-latest.json and its workflow keeps
+      # tauri-action from uploading latest.json - the manifest every Levis
+      # install reads (scripts/updater-manifest.mjs). This also refuses a
+      # rebuild of an old Levis tag from this workflow.
+      - name: Updater never serves Levis's manifest
+        run: node scripts/updater-manifest.mjs check --root tagged
+
       # Required for a newly pushed stable tag. A rebuild of a tag from
       # before release notes were kept (0.8.10 and older) only warns.
       - name: Release notes exist for a stable tag
@@ -141,9 +148,10 @@ jobs:
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Signs the updater artifacts (latest.json + .sig files) so
-          # installed apps can verify downloads against the pubkey baked
-          # into tauri.conf.json.
+          # Signs the updater artifacts (the .sig files) so installed apps
+          # can verify downloads against the pubkey baked into
+          # tauri.conf.json. It is Levis's key, reused: that is why Textus
+          # must never publish a latest.json (see includeUpdaterJson below).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # macOS code signing + notarization (Gatekeeper). tauri-action
@@ -169,9 +177,16 @@ jobs:
           # from everyone else: the updater endpoint in tauri.conf.json points
           # at `releases/latest/...`, and GitHub's "latest" excludes
           # pre-releases - so a stable install never even sees this build's
-          # latest.json. Without this the tag pattern below (v*.*.*) matches
+          # manifest. Without this the tag pattern below (v*.*.*) matches
           # an rc tag too and would ship it to every user as the new stable.
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          # Never upload latest.json: Levis 0.9.x installs read that name
+          # from this repository (the old CatVinci-Studio/Levis URL
+          # redirects here) and trust the same signing key, so they would
+          # install Textus over themselves. The publish job writes
+          # textus-latest.json from the uploaded .sig files instead.
+          # scripts/updater-manifest.mjs check fails if this line goes.
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
 
       # textus-bin (packaging/arch/PKGBUILD) installs this tarball. Its
@@ -213,28 +228,40 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      # The updater reads latest.json from the newest release the moment it
-      # is published. Each platform's build merges its entry into the
-      # draft's copy; one that silently failed to (a race, an upload error)
-      # would leave every user of that platform without the update.
-      - name: Check the draft's updater manifest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The updater reads textus-latest.json from the newest release the
+      # moment it is published. It is written here, once every platform's
+      # signed artifacts are on the draft, from their .sig files: each
+      # artifact's URL is the release's download URL plus its asset name.
+      # A platform whose build silently failed to upload (a race, an upload
+      # error) has no .sig, and the build step fails rather than leave every
+      # user of that platform without the update.
+      - name: Write the updater manifest (textus-latest.json)
         run: |
-          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP"
-          manifest="$RUNNER_TEMP/latest.json"
-          jq '{version, platforms: (.platforms | keys)}' "$manifest"
-          version=$(jq -r .version "$manifest")
-          if [ "$version" != "${RELEASE_TAG#v}" ]; then
-            echo "::error::latest.json says $version, the tag is $RELEASE_TAG"
-            exit 1
-          fi
-          for platform in darwin-aarch64 windows-x86_64 linux-x86_64; do
-            if ! jq -e --arg p "$platform" \
-              '.platforms[$p] | (.url | length > 0) and (.signature | length > 0)' \
-              "$manifest" >/dev/null; then
-              echo "::error::latest.json has no signed $platform entry"
-              exit 1
-            fi
-          done
+          sigs="$RUNNER_TEMP/sigs"
+          mkdir -p "$sigs"
+          gh release download "$RELEASE_TAG" --pattern '*.sig' --dir "$sigs" --clobber
+          notes="docs/releases/${RELEASE_TAG#v}.md"
+          node scripts/updater-manifest.mjs build \
+            --version "${RELEASE_TAG#v}" \
+            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}" \
+            --sig-dir "$sigs" \
+            $([ -f "$notes" ] && printf -- '--notes-file %s' "$notes") \
+            --out "$RUNNER_TEMP/textus-latest.json"
+          jq '{version, platforms: (.platforms | keys)}' "$RUNNER_TEMP/textus-latest.json"
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/textus-latest.json" --clobber
+
+      # The last gate before anything is public: a latest.json on this
+      # release would be installed by every Levis install (same signing
+      # key, and the old repository URL redirects here).
+      - name: No latest.json on a Textus release
+        run: |
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' \
+            > "$RUNNER_TEMP/assets.txt"
+          node scripts/updater-manifest.mjs guard --assets-file "$RUNNER_TEMP/assets.txt"
 
       # A workflow_dispatch rebuild of an old tag republishes that release,
       # but making it "Latest" or pointing the cask or arch-repo at it
