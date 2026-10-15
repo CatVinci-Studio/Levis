@@ -194,8 +194,16 @@
   --review-note-line: #c99a2e;
   --review-anchor-bg: rgb(232 190 80 / 22%);
   --review-anchor-hot-bg: rgb(232 190 80 / 42%);
-  --review-note-bg: color-mix(in srgb, #f6eedb 55%, var(--editor-bg, #fff));
-  --review-note-border: color-mix(in srgb, #d9c79a 45%, var(--editor-bg, #fff));
+  --review-note-bg: color-mix(
+    in srgb,
+    #f6eedb 55%,
+    var(--editor-bg, var(--bg))
+  );
+  --review-note-border: color-mix(
+    in srgb,
+    #d9c79a 45%,
+    var(--editor-bg, var(--bg))
+  );
 }
 
 @media (prefers-color-scheme: dark) {
@@ -205,12 +213,12 @@
     --review-note-bg: color-mix(
       in srgb,
       #4a3f25 35%,
-      var(--editor-bg, #1f1f1f)
+      var(--editor-bg, var(--bg))
     );
     --review-note-border: color-mix(
       in srgb,
       #8a7440 40%,
-      var(--editor-bg, #1f1f1f)
+      var(--editor-bg, var(--bg))
     );
   }
 }
@@ -236,11 +244,15 @@
 :root[data-theme="dark"] {
   --review-anchor-bg: rgb(232 190 80 / 16%);
   --review-anchor-hot-bg: rgb(232 190 80 / 30%);
-  --review-note-bg: color-mix(in srgb, #4a3f25 35%, var(--editor-bg, #1f1f1f));
+  --review-note-bg: color-mix(
+    in srgb,
+    #4a3f25 35%,
+    var(--editor-bg, var(--bg))
+  );
   --review-note-border: color-mix(
     in srgb,
     #8a7440 40%,
-    var(--editor-bg, #1f1f1f)
+    var(--editor-bg, var(--bg))
   );
 }
 
@@ -249,7 +261,11 @@
    a note, in the editor's own surface tone - a note is the reviewer's
    paper, a revision is a draft of the text itself. */
 .revision-note {
-  background: color-mix(in srgb, var(--editor-text) 3%, var(--editor-bg, #fff));
+  background: color-mix(
+    in srgb,
+    var(--editor-text) 3%,
+    var(--editor-bg, var(--bg))
+  );
   border-color: color-mix(
     in srgb,
     var(--editor-border, var(--border-color)) 80%,

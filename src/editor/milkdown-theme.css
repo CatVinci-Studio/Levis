@@ -1106,7 +1106,7 @@
   justify-content: center;
   border: 1px solid var(--editor-border);
   border-radius: var(--radius-control);
-  background: var(--editor-bg, #fff);
+  background: var(--editor-bg, var(--bg));
   color: var(--editor-muted);
   line-height: 1;
   cursor: pointer;
