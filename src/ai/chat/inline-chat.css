@@ -655,12 +655,22 @@
   margin-left: auto;
 }
 
+.agent-proposal-head .agent-diff-summary + .agent-proposal-show {
+  margin-left: 4px;
+}
+
+.agent-proposal-title {
+  min-width: 0;
+}
+
 .agent-proposal-kind {
   font-weight: 500;
 }
 
 .agent-proposal .agent-proposal-show {
-  margin-left: 4px;
+  margin-left: auto;
+  padding-left: 4px;
+  white-space: nowrap;
   align-self: center;
   font-size: var(--text-xs);
   color: var(--editor-accent);
