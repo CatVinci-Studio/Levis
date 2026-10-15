@@ -1207,7 +1207,11 @@ export function MilkdownEditor({
     };
     // Typewriter mode scrolls on every caret move - the very move that
     // opens the grammar popover - so there a scroll only closes the menu.
-    const onScroll = () => {
+    // A long menu scrolls inside itself (a table's, on a short window);
+    // that moves nothing it points at, so it stays open.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest(".floating-surface"))
+        return;
       setMenu(null);
       if (!settingsRef.current.typewriterMode) hideGrammar();
     };
