@@ -70,7 +70,8 @@ fn judge_enabled() -> bool {
 
 /// TEXTUS_EVAL_FILTER: run only cases whose id contains this substring.
 pub fn selected(id: &str) -> bool {
-    std::env::var("TEXTUS_EVAL_FILTER").map_or(true, |f| f.split(',').any(|f| id.contains(f.trim())))
+    std::env::var("TEXTUS_EVAL_FILTER")
+        .map_or(true, |f| f.split(',').any(|f| id.contains(f.trim())))
 }
 
 /// Runs `f` over `items` on TEXTUS_EVAL_JOBS worker threads (default 6),

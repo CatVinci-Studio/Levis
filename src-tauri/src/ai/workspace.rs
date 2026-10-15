@@ -44,20 +44,48 @@ pub const WORKSPACE_DIR_NAME: &str = ".textus";
 /// The project folder's name in Levis, before the rename to Textus.
 pub const LEGACY_WORKSPACE_DIR_NAME: &str = ".levis";
 
-/// The project's settings folder: `.textus/`, or a Levis project's
-/// `.levis/` while it has no `.textus/`. That one is read AND written in
-/// place - never moved or copied - so a project keeps one folder and a Levis
-/// install sharing it still sees the same files; a new project gets
-/// `.textus/`. A project with both uses `.textus/` only.
+/// Where Textus writes a project's settings: always `.textus/`. A Levis
+/// project's `.levis/` is only ever read (see `project_read_dirs`), so a
+/// Levis install sharing the folder keeps seeing exactly what it wrote.
 pub fn project_dir(root: &Path) -> PathBuf {
-    let dir = root.join(WORKSPACE_DIR_NAME);
-    if !dir.is_dir() {
-        let legacy = root.join(LEGACY_WORKSPACE_DIR_NAME);
-        if legacy.is_dir() {
-            return legacy;
+    root.join(WORKSPACE_DIR_NAME)
+}
+
+/// The project's settings folders that exist, lowest priority first: a
+/// Levis project's `.levis/` (read only), then `.textus/`. A file or skill
+/// in `.textus/` replaces the one of the same name in `.levis/`.
+pub fn project_read_dirs(root: &Path) -> Vec<PathBuf> {
+    [LEGACY_WORKSPACE_DIR_NAME, WORKSPACE_DIR_NAME]
+        .iter()
+        .map(|name| root.join(name))
+        .filter(|dir| dir.is_dir())
+        .collect()
+}
+
+/// One project file as Textus reads it: `.textus/<rel>`, or a Levis
+/// project's `.levis/<rel>` while `.textus/` has no such file.
+pub fn project_file(root: &Path, rel: &str) -> Option<PathBuf> {
+    project_read_dirs(root)
+        .into_iter()
+        .rev()
+        .map(|dir| dir.join(rel))
+        .find(|path| path.is_file())
+}
+
+/// The path Textus writes `rel` to: `.textus/<rel>`. When only a Levis
+/// project's `.levis/<rel>` exists, it is copied there first (the original
+/// stays untouched), so an edit starts from what the author already has.
+pub fn writable_project_file(root: &Path, rel: &str) -> std::io::Result<PathBuf> {
+    let path = project_dir(root).join(rel);
+    if !path.exists() {
+        if let Some(legacy) = project_file(root, rel).filter(|p| *p != path) {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(legacy, &path)?;
         }
     }
-    dir
+    Ok(path)
 }
 
 /// Who may start a skill (`metadata.textus-invocation`). `Both`: the model,
@@ -739,12 +767,17 @@ pub(crate) fn load_layers(
         ws.style = crate::ai::project::read_style(root);
         ws.conventions = crate::ai::project::style_conventions(ws.style.as_deref());
         ws.library = crate::ai::project::read_library(root);
-        let (instructions, skills) =
-            read_layer(&project_dir(root), SkillSource::Project);
-        ws.project_instructions = instructions;
-        // Project skills shadow same-named global and built-in ones.
-        for skill in skills {
-            push_layer_skill(&mut ws.skills, skill);
+        // .levis/ (a Levis project's, read only), then .textus/: the later
+        // folder's agent.md and same-named skills win.
+        for dir in project_read_dirs(root) {
+            let (instructions, skills) = read_layer(&dir, SkillSource::Project);
+            if instructions.is_some() {
+                ws.project_instructions = instructions;
+            }
+            // Project skills shadow same-named global and built-in ones.
+            for skill in skills {
+                push_layer_skill(&mut ws.skills, skill);
+            }
         }
     }
 
@@ -1284,18 +1317,31 @@ mod tests {
     }
 
     #[test]
-    fn a_levis_project_folder_is_used_in_place_until_a_textus_one_exists() {
+    fn a_levis_project_folder_is_read_but_never_written() {
         let root = scratch("legacy-dir");
         let project = root.join("novel");
         std::fs::create_dir_all(&project).unwrap();
-        assert_eq!(project_dir(&project), project.join(".textus"), "new project");
+        assert_eq!(project_dir(&project), project.join(".textus"));
+        assert!(project_read_dirs(&project).is_empty(), "new project");
         write(
             &project.join(".levis/skills/house.md"),
             "---\nname: house\ndescription: Levis-era skill\nmetadata:\n  levis-category: \"revise\"\n  levis-aliases-zh: \"家规\"\n---\nKeep it short.",
         );
-        write(&project.join(".levis/agent.md"), "Write in British English.");
+        write(
+            &project.join(".levis/skills/tone.md"),
+            "---\nname: tone\ndescription: Levis tone\n---\nLevis tone.",
+        );
+        write(
+            &project.join(".levis/agent.md"),
+            "Write in British English.",
+        );
         write(&project.join("chapter.md"), "# One");
-        assert_eq!(project_dir(&project), project.join(".levis"));
+        // Writes still go to .textus/, which does not exist yet.
+        assert_eq!(project_dir(&project), project.join(".textus"));
+        assert_eq!(
+            project_file(&project, "agent.md"),
+            Some(project.join(".levis/agent.md"))
+        );
         let doc = project.join("chapter.md");
         let ws = load_layers(None, doc.to_str(), None, &[]);
         let house = ws.skills.iter().find(|s| s.name == "house").unwrap();
@@ -1306,12 +1352,34 @@ mod tests {
             .project_instructions
             .as_deref()
             .is_some_and(|i| i.contains("British English")));
-        // Once there is a .textus/, it is the only one read; .levis/ stays.
-        write(&project.join(".textus/agent.md"), "Textus rules.");
-        assert_eq!(project_dir(&project), project.join(".textus"));
+
+        // Editing agent.md copies it into .textus/ and leaves .levis/ as it was.
+        let copy = writable_project_file(&project, "agent.md").unwrap();
+        assert_eq!(copy, project.join(".textus/agent.md"));
+        assert_eq!(
+            std::fs::read_to_string(&copy).unwrap(),
+            "Write in British English."
+        );
+        write(&copy, "Textus rules.");
+        write(
+            &project.join(".textus/skills/tone.md"),
+            "---\nname: tone\ndescription: Textus tone\n---\nTextus tone.",
+        );
         let ws = load_layers(None, doc.to_str(), None, &[]);
-        assert!(!ws.skills.iter().any(|s| s.name == "house"));
-        assert!(project.join(".levis/skills/house.md").exists());
+        // .textus/ wins where both have a file; .levis/-only skills still load.
+        assert_eq!(ws.project_instructions.as_deref(), Some("Textus rules."));
+        assert!(ws.skills.iter().any(|s| s.name == "house"));
+        let tone = ws.skills.iter().find(|s| s.name == "tone").unwrap();
+        assert_eq!(tone.prompt, "Textus tone.");
+        assert_eq!(
+            std::fs::read_to_string(project.join(".levis/agent.md")).unwrap(),
+            "Write in British English."
+        );
+        assert!(
+            std::fs::read_to_string(project.join(".levis/skills/tone.md"))
+                .unwrap()
+                .contains("Levis tone")
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 
