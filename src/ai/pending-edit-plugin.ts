@@ -398,6 +398,26 @@ function sentenceDecorations(
           "data-index": String(index),
         }),
       );
+    // With a margin, the replacement and its ✓ / ✕ are a card beside the
+    // text (ReviewMargin.tsx); the text only marks what would change - a
+    // pure insertion by a small caret where it would go.
+    if (!hooks.inline()) {
+      if (c.from === c.to)
+        decos.push(
+          Decoration.widget(
+            c.to,
+            () => {
+              const mark = document.createElement("span");
+              mark.className = `pending-sentence pending-insert-mark pending-sentence-${state}`;
+              mark.dataset.call = p.callId;
+              mark.dataset.index = String(index);
+              return mark;
+            },
+            { side: 1, key: `pending-mark-${p.callId}-${index}-${state}` },
+          ),
+        );
+      return;
+    }
     if (c.after.trim())
       decos.push(
         Decoration.widget(
@@ -459,6 +479,8 @@ function sentenceDecorations(
 }
 
 interface SentenceHooks {
+  /** False while a margin shows the replacements beside the text. */
+  inline: () => boolean;
   labels: () => SentencePickLabels;
   decide: (callId: string, index: number, take: boolean | null) => void;
   /** The sentence the review bar points at, outlined in the text. */
@@ -605,9 +627,13 @@ export function createPendingEditPlugin(options: {
   sentenceLabels?: () => SentencePickLabels;
   /** The sentence the review bar points at (usePendingEdits). */
   getFocusedSentence?: () => { callId: string; index: number } | null;
+  /** Whether replacements are drawn in the text (no room for a margin) -
+   *  read live; a "refocus" meta redraws after it changes. */
+  sentencesInline?: () => boolean;
 }) {
   const animate = () => options.animationEnabled?.() ?? false;
   const hooks: SentenceHooks = {
+    inline: () => options.sentencesInline?.() ?? true,
     labels: () =>
       options.sentenceLabels?.() ?? { take: "Accept", keep: "Keep original" },
     decide: (callId, index, take) => options.onDecide?.(callId, index, take),

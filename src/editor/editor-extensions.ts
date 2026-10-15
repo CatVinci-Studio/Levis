@@ -81,6 +81,8 @@ export interface PendingEditCallbacks {
   onDecide: (callId: string, index: number, take: boolean | null) => void;
   /** The sentence the review bar points at. */
   getFocusedSentence: () => { callId: string; index: number } | null;
+  /** Whether a rewrite's replacements are drawn in the text. */
+  sentencesInline?: () => boolean;
 }
 
 /**

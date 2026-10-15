@@ -74,23 +74,68 @@
   border-bottom: 1px solid var(--chat-hairline, var(--border-color));
 }
 
-.agent-panel-heading {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+/* Conversation / Memory: a small segmented switch, its pill sliding to the
+   tab chosen. */
+.agent-panel-tabs {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--editor-text) 6%, transparent);
 }
 
-.agent-panel-title {
-  font-size: var(--text-md);
+.agent-panel-tabs-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  border-radius: 7px;
+  background: var(--editor-bg, var(--bg));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+  transition:
+    transform var(--dur-slow) var(--ease-spring-bouncy),
+    width var(--dur-slow) var(--ease-spring-bouncy);
+}
+
+.agent-panel-tabs button {
+  position: relative;
+  padding: 5px 12px;
+  border: 0;
+  background: none;
+  color: var(--editor-muted);
+  font: inherit;
+  font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+
+.agent-panel-tabs button[aria-selected="true"] {
+  color: var(--editor-text);
+}
+
+.agent-panel-tabs button:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: -2px;
+  border-radius: 7px;
 }
 
 .agent-panel-actions {
+  margin-left: auto;
   display: flex;
   gap: 2px;
   flex-shrink: 0;
+}
+
+.agent-panel-body[hidden] {
+  display: none;
+}
+
+.agent-panel-memory {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  animation: motion-fade-in var(--dur-base) var(--ease-out);
 }
 
 .agent-panel-body {

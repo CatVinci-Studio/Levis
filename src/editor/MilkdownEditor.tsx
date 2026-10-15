@@ -107,7 +107,7 @@ import {
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
 import { ReviewBar } from "../ai/ReviewBar";
-import { NotePopover, ReviewMargin } from "../ai/ReviewMargin";
+import { NotePopover, ReviewMargin, type MarginItem } from "../ai/ReviewMargin";
 import {
   commentCalls,
   reviewNotesKey,
@@ -277,6 +277,9 @@ export function MilkdownEditor({
   // the real handler needs `run` and the detached-chat bridge, neither of
   // which exists yet at construction time.
   const onSelectionChangeRef = useRef<() => void>(() => {});
+  // Whether a rewrite's replacements are drawn in the text (no margin) -
+  // ReviewMargin decides, the pending-edit plugin reads it.
+  const sentencesInlineRef = useRef(false);
   // The review notes' plugin callbacks, bridged like the pending edits'.
   const reviewNotesRef = useRef<{
     onChange: (notes: ReviewNote[]) => void;
@@ -354,6 +357,7 @@ export function MilkdownEditor({
             pendingEditActionsRef.current.onDecide(callId, index, take),
           getFocusedSentence: () =>
             pendingEditActionsRef.current.getFocusedSentence(),
+          sentencesInline: () => sentencesInlineRef.current,
         },
         // setQuickAskEl is a useState setter - always stable, no ref
         // indirection needed (unlike pendingEdits above, whose real
@@ -1652,11 +1656,23 @@ export function MilkdownEditor({
     });
   }, [comments, run]);
 
-  function setNoteHot(id: string | null) {
-    setHotNote(id);
+  // What the pointer is on - a margin card or its passage ("note:<id>",
+  // "rev:<callId>:<index>"): both light up together.
+  function setNoteHot(key: string | null) {
+    setHotNote(key);
+    const id = key?.startsWith("note:") ? key.slice(5) : null;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dispatch(view.state.tr.setMeta(reviewNotesKey, { type: "hot", id }));
+      for (const el of view.dom.querySelectorAll(".pending-sentence-hot"))
+        el.classList.remove("pending-sentence-hot");
+      if (key?.startsWith("rev:")) {
+        const [, callId, index] = key.split(":");
+        for (const el of view.dom.querySelectorAll(
+          `.pending-sentence[data-call="${CSS.escape(callId)}"][data-index="${index}"]`,
+        ))
+          el.classList.add("pending-sentence-hot");
+      }
     });
   }
 
@@ -1694,15 +1710,49 @@ export function MilkdownEditor({
     }, 60);
   }
 
+  // No room for a margin: notes go behind badges and a rewrite's
+  // replacements back into the text.
   function setNotesCompact(compact: boolean) {
+    sentencesInlineRef.current = compact;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dispatch(
         view.state.tr.setMeta(reviewNotesKey, { type: "compact", compact }),
       );
+      view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "refocus" }));
     });
     if (!compact) setOpenNote(null);
   }
+
+  // The margin's items: the notes, then each pending sentence numbered in
+  // the review bar's order.
+  const marginItems = useMemo<MarginItem[]>(() => {
+    const items: MarginItem[] = notes.map((note) => ({
+      kind: "note",
+      key: `note:${note.id}`,
+      note,
+    }));
+    pendingEdits.reviewStops.forEach((stop, i) => {
+      if (stop.index < 0) return;
+      const preview = pendingEdits.decidable.find(
+        (p) => p.callId === stop.callId,
+      );
+      const c = preview?.sentences?.changes[stop.index];
+      if (!c) return;
+      items.push({
+        kind: "revision",
+        key: `rev:${stop.callId}:${stop.index}`,
+        callId: stop.callId,
+        index: stop.index,
+        num: i + 1,
+        from: c.from,
+        to: c.to,
+        after: c.after,
+        take: c.take,
+      });
+    });
+    return items;
+  }, [notes, pendingEdits.reviewStops, pendingEdits.decidable]);
 
   const openNoteData = openNote
     ? (notes.find((n) => n.id === openNote.id) ?? null)
@@ -1752,11 +1802,19 @@ export function MilkdownEditor({
               // The margin's cards are portaled out but bubble here: they
               // set their own hover.
               if ((e.target as HTMLElement).closest?.(".review-note")) return;
-              const anchor = (e.target as HTMLElement).closest?.(
+              const target = e.target as HTMLElement;
+              const anchor = target.closest?.(
                 ".review-anchor",
               ) as HTMLElement | null;
-              const id = anchor?.dataset.note ?? null;
-              if (id !== hotNote) setNoteHot(id);
+              const sentence = target.closest?.(
+                ".pending-sentence",
+              ) as HTMLElement | null;
+              const key = anchor?.dataset.note
+                ? `note:${anchor.dataset.note}`
+                : sentence?.dataset.call
+                  ? `rev:${sentence.dataset.call}:${sentence.dataset.index}`
+                  : null;
+              if (key !== hotNote) setNoteHot(key);
             }
       }
       onMouseOut={phone ? undefined : grammar.onMouseOut}
@@ -1767,7 +1825,7 @@ export function MilkdownEditor({
       {isActive && scrollEl && contentEl && (
         <ReviewMargin
           view={editorView}
-          notes={notes}
+          items={marginItems}
           hot={hotNote}
           scrollEl={scrollEl}
           contentEl={contentEl}
@@ -1775,6 +1833,7 @@ export function MilkdownEditor({
           onHot={setNoteHot}
           onDone={doneNote}
           onAsk={askAboutNote}
+          onDecide={pendingEdits.decide}
           onCompact={setNotesCompact}
           layoutKey={pendingEdits.previews}
         />
@@ -1994,11 +2053,22 @@ export function MilkdownEditor({
               newConversation: t.chatNewConversation,
               popOut: t.agentPanelPopOut,
               close: t.chatClose,
+              tabChat: t.agentTabChat,
+              tabMemory: t.agentTabMemory,
             }}
             onNewConversation={startPanelConversation}
             onPopOut={canDetachChat ? popOutPanel : undefined}
             onClose={() => agentPanel.setOpen(false)}
-            headerExtra={<ProjectBar docPath={filePath} />}
+            memory={() => (
+              <ProjectBar
+                docPath={filePath}
+                memory
+                documentText={
+                  run((ctx) => ctx.get(editorViewCtx).state.doc.textContent) ??
+                  ""
+                }
+              />
+            )}
           >
             {conversation.history.length === 0 && !conversation.busy && (
               <div className="agent-panel-empty">

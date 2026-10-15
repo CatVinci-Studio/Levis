@@ -243,3 +243,85 @@
     var(--editor-bg, #1f1f1f)
   );
 }
+
+/* A rewrite's changed sentence in the margin (RevisionCard): the number the
+   bar counts it by, ✓ / ✕ on the right, the replacement below. Same card as
+   a note, in the editor's own surface tone - a note is the reviewer's
+   paper, a revision is a draft of the text itself. */
+.revision-note {
+  background: color-mix(in srgb, var(--editor-text) 3%, var(--editor-bg, #fff));
+  border-color: color-mix(
+    in srgb,
+    var(--editor-border, var(--border-color)) 80%,
+    transparent
+  );
+}
+
+.revision-note .review-note-by {
+  margin-bottom: 4px;
+}
+
+.revision-note-num {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--success-color);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.revision-note-pick {
+  margin-left: auto;
+}
+
+.revision-note-text {
+  padding: 1px 4px;
+  margin: 0 -4px;
+  border-radius: var(--radius-small);
+  background: var(--diff-insert-bg);
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+
+.revision-note-delete {
+  font-style: italic;
+  color: var(--editor-muted);
+}
+
+.revision-note-kept .revision-note-num {
+  background: color-mix(in srgb, var(--editor-muted) 70%, transparent);
+}
+
+.revision-note-kept .revision-note-text {
+  background: none;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.review-links path.revision {
+  stroke: color-mix(in srgb, var(--success-color) 70%, transparent);
+}
+
+/* A pending sentence under the pointer, or its card under it. */
+.pending-sentence-hot {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* Where a pure insertion would go, with its card in the margin. */
+.pending-insert-mark {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin: 0 1px;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background: var(--success-color);
+}

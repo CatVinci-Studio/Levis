@@ -123,7 +123,7 @@ async function ask(page: Page) {
   const composer = page.locator(".agent-panel-view textarea");
   await composer.fill("把我的笔记改得精简一些，再帮我看看哪里还能写深。");
   await composer.press("Enter");
-  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await expect(page.locator(".milkdown .pending-sentence")).toHaveCount(2);
 }
 
 for (const scheme of ["light", "dark"] as const) {
@@ -137,8 +137,8 @@ for (const scheme of ["light", "dark"] as const) {
     await ask(page);
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${DIR}/desktop-${scheme}-1.png` });
-    // Keep the second sentence as written.
-    await page.locator(".milkdown .pending-pick-keep").nth(1).click();
+    // Keep the second sentence as written, from its card in the margin.
+    await page.locator(".revision-note .pending-pick-keep").nth(1).click();
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${DIR}/desktop-${scheme}-2.png` });
     // Hover the note's passage: it and its card light up together.
@@ -156,6 +156,50 @@ for (const scheme of ["light", "dark"] as const) {
     await page.locator(".review-badge").first().click();
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${DIR}/desktop-${scheme}-4-narrow.png` });
+    // The Memory tab.
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockInvoke(page, {
+      ai_agent_message: REPLY,
+      load_agent_workspace: {
+        instructions: ["- 人名第一次出现时写全名"],
+        project_instructions: "- 引用原文时一字不改\n- 笔记用短句",
+        skills: [
+          { name: "tighten", description: "", prompt: "", source: "builtin" },
+          { name: "proofread", description: "", prompt: "", source: "builtin" },
+          { name: "translate", description: "", prompt: "", source: "builtin" },
+        ],
+        root: "/notes/红楼梦笔记",
+        style:
+          "---\nconventions: zh\n---\n# 文风\n\n- 短句为主，少用“其实”“可以说”\n- 引文保持原文用字\n- 每段先下判断，再给依据\n",
+        library: [
+          {
+            name: "林黛玉",
+            aliases: ["颦儿", "潇湘妃子"],
+            include: "detected",
+            file: ".textus/library/林黛玉.md",
+            body: "林如海之女，寄居荣国府。",
+          },
+          {
+            name: "贾宝玉",
+            aliases: ["宝二爷"],
+            include: "detected",
+            file: ".textus/library/贾宝玉.md",
+            body: "衔玉而生，贾母最疼爱的孙子。",
+          },
+          {
+            name: "木石前盟",
+            aliases: ["绛珠草"],
+            include: "detected",
+            file: ".textus/library/木石前盟.md",
+            body: "绛珠仙草与神瑛侍者的前世因缘。",
+          },
+        ],
+      },
+    });
+    await page.locator("#agent-tab-memory").click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${DIR}/desktop-${scheme}-6-memory.png` });
   });
 }
 

@@ -82,6 +82,8 @@ test("the AI panel opens with its project bar and empty state", async ({
 test("an agent reply shows a reasoned edit, a sentence picker and a comment", async ({
   page,
 }) => {
+  // Wide enough for the margin, where the sentences and the note go.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
   await pasteMarkdown(page, SAMPLE_DOC);
   const anchor =
@@ -123,16 +125,17 @@ test("an agent reply shows a reasoned edit, a sentence picker and a comment", as
     "删去重复和冗余的修饰，保留时间和人数。",
   );
   await expect(page.locator(".agent-comment")).toBeVisible();
-  // The edit previews in the document, sentence by sentence, each changed
-  // sentence with its own ✓ / ✕ - and the card lists the same two.
+  // The edit previews sentence by sentence: each changed sentence marked in
+  // the text, its replacement and ✓ / ✕ in the margin - and the card lists
+  // the same two. The comment sits in the margin too.
   await expect(page.locator(".milkdown .pending-sentence")).toHaveCount(2);
-  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await expect(page.locator(".revision-note")).toHaveCount(2);
+  await expect(page.locator(".review-note:not(.revision-note)")).toHaveCount(1);
   await expect(page.locator(".agent-proposal-sentences li")).toHaveCount(2);
-  await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
   await expect(page).toHaveScreenshot("agent-reply.png");
   // Keep the second sentence as written, from the text itself: the card and
   // the review bar both now take one of the two.
-  await page.locator(".milkdown .pending-pick-keep").nth(1).click();
+  await page.locator(".revision-note .pending-pick-keep").nth(1).click();
   await expect(
     page.locator(".agent-proposal-sentences li").nth(1),
   ).toHaveAttribute("data-state", "kept");
@@ -154,6 +157,8 @@ test("an agent reply shows a reasoned edit, a sentence picker and a comment", as
 test("the last sentence decided in the text applies the edit", async ({
   page,
 }) => {
+  // No room for a margin: the replacements and their ✓ / ✕ are in the text.
+  await page.setViewportSize({ width: 900, height: 780 });
   await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
   await pasteMarkdown(page, SAMPLE_DOC);
   const anchor =
