@@ -29,7 +29,7 @@
 
 ### 自动
 
-- [ ] `textus-1.0.0-rc1`、`feat/levis-0.9.8-bridge`、`dev` 三个分支的全部检查通过（CI 和本地：`npm run check`、Rust 的 fmt/clippy/test、Playwright）。
+- [ ] `v1.0.0-ready`、`feat/levis-0.9.8-bridge`、`dev` 三个分支的全部检查通过（CI 和本地：`npm run check`、Rust 的 fmt/clippy/test、Playwright）。
 - [ ] Linux、macOS（Mac mini）、iOS 模拟器实机测试通过，截图存档。
 - [ ] 官网 `v1.0.0` 分支的预览确认无误；把官网里的 canonical、OG 和站点地址从 `levis.catvinci.com` 改成 `textus.catvinci.com`。
 - [ ] Homebrew 仓库和 Arch 仓库里准备好的分支已推送，但尚未合并。
@@ -43,6 +43,7 @@
 - [ ] 推送标签 `v0.9.8`，盯完发布流程。
 - [ ] 核对：Release 里有各平台安装包、签名和 `latest.json`（版本 0.9.8）；Homebrew 的 `levis` 已到 0.9.8；Arch 的 `levis-bin` 已到 0.9.8-1。
 - [ ] iOS 不发 0.9.8（Levis 在 iOS 上只有 TestFlight，没有用户）。
+- [ ] **存档 Levis**：从此时的 `main`（即 `v0.9.8`）建分支 `archive/levis` 并推送。之后 `main` 和 `dev` 都是 Textus，Levis 的最后代码只在这个分支和 `v0.9.8` 标签里。
 
 ### 2. 仓库改名（自动，需要你说“改”）
 
@@ -51,15 +52,16 @@
 
 ### 3. 发布 Textus 1.0.0（自动）
 
-- [ ] 把 `main`（含 0.9.8）合进 `textus-1.0.0-rc1`，然后**删掉 0.9.8 的升级提示**（`src/settings/textus-notice.ts` 及其调用和文案）：Textus 不需要告诉自己“已升级为 Textus”。
+- [ ] 把 `main`（含 0.9.8）合进 `v1.0.0-ready`，然后**删掉 0.9.8 的升级提示**（`src/settings/textus-notice.ts` 及其调用和文案）：Textus 不需要告诉自己“已升级为 Textus”。
 - [ ] 写好 `docs/releases/1.0.0.md`，跑全套检查。
-- [ ] 开 `textus-1.0.0-rc1 → main` 的 PR，CI 通过后合并。
+- [ ] 开 `v1.0.0-ready → main` 的 PR，CI 通过后合并。
 - [ ] 推送标签 `v1.0.0`，盯完发布流程。发布流程会：
   - 构建 macOS、Windows、Linux 安装包，生成 `textus-latest.json`；
   - 从 v0.9.8 复制 `latest.json` 放进这个发布，并检查它确实是 Levis 0.9.8 的清单；
   - 把 Homebrew 的 `levis` cask 改名为 `textus`（`cask_renames.json`，`brew upgrade` 会把 levis 用户迁移过来）；
   - 发布 Arch 的 `textus-bin`（`replaces=levis-bin`，`pacman -Syu` 会自动替换）。
 - [ ] 核对：Release 里同时有 `textus-latest.json`（1.0.0）和 `latest.json`（0.9.8）；`brew install --cask catvinci-studio/tap/textus` 能装；Arch 能从 levis-bin 升级到 textus-bin。
+- [ ] **dev 跟上 main**：把 `main` 合进 `dev`（快进），之后的开发都从 Textus 继续。删掉 `v1.0.0-ready` 和 `feat/levis-0.9.8-bridge`。仓库只剩 `main`、`dev` 和存档 `archive/levis`。
 
 ### 4. iOS（自动 + 你）
 
