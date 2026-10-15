@@ -16,6 +16,7 @@ mod atomic;
 mod auth;
 mod commands;
 mod distribution;
+mod levis_import;
 #[cfg(desktop)]
 mod menu;
 mod settings;
@@ -581,6 +582,8 @@ pub fn run() {
             settings::settings_patch,
             settings::settings_fill_defaults,
             settings::settings_import_legacy,
+            levis_import::levis_import_status,
+            levis_import::levis_import,
             settings::ui_state_get,
             settings::ui_state_patch,
             settings::history_list,

@@ -45,7 +45,7 @@ const FLUSH_DELAY: Duration = Duration::from_millis(250);
 /// Debug builds get their own files: a dev build shares the installed app's
 /// identifier, hence its config directory, and must not rewrite the real
 /// settings with whatever a development session left behind.
-fn file_name(stem: &str) -> String {
+pub(crate) fn file_name(stem: &str) -> String {
     if cfg!(debug_assertions) {
         format!("{stem}.dev.json")
     } else {
@@ -599,6 +599,45 @@ impl Stores {
         true
     }
 
+    /// Takes a Levis installation's settings, UI state and histories (see
+    /// levis_import.rs): the user asked for them, so Levis's value wins for
+    /// every settings and UI-state field Levis has, and its conversations
+    /// and clipboard entries join the ones Textus already holds (Textus's
+    /// copy wins a tie). Fields only Textus has stay. Written at once.
+    pub fn import_levis(&self, payload: LegacyPayload) {
+        // A pending localStorage import (no settings.json at launch) would
+        // later undo this one; Textus's webview never had Levis's
+        // localStorage anyway.
+        self.legacy.lock().unwrap().pending = false;
+        if let Some(settings) = payload.settings {
+            self.settings.update(|p| merge_top_level(p, &settings));
+        }
+        if let Some(state) = payload.ui_state {
+            self.ui_state.update(|p| merge_top_level(p, &state));
+        }
+        for (kind, entries) in [
+            (HistoryKind::Chat, payload.chat_history),
+            (HistoryKind::Clipboard, payload.clipboard_history),
+        ] {
+            let Some(entries) = entries else { continue };
+            self.history(kind).update(|p| {
+                let list = as_list(p);
+                let seen: HashSet<String> = list
+                    .iter()
+                    .filter_map(|e| kind.key_of(e).map(str::to_owned))
+                    .collect();
+                list.extend(
+                    entries
+                        .into_iter()
+                        .filter(|e| kind.valid(e))
+                        .filter(|e| kind.key_of(e).is_some_and(|k| !seen.contains(k))),
+                );
+                kind.tidy(list);
+            });
+        }
+        self.flush_all();
+    }
+
     pub fn flush_all(&self) {
         for store in [&self.settings, &self.ui_state, &self.chat, &self.clipboard] {
             if let Err(e) = store.flush() {
@@ -615,6 +654,46 @@ pub struct LegacyPayload {
     pub ui_state: Option<Map<String, Value>>,
     pub chat_history: Option<Vec<Value>>,
     pub clipboard_history: Option<Vec<Value>>,
+}
+
+/// A settings, UI-state or history file as another installation wrote it
+/// (Levis's, for the import): its payload under `key`, or `None` when the
+/// file is missing or isn't one. A newer `schemaVersion` is read
+/// best-effort, like Textus reads its own: unknown fields are kept.
+pub fn read_store_file(path: &Path, key: &str, empty: &Value) -> Option<Value> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    parse(&raw, key, empty).map(|(payload, _)| payload)
+}
+
+/// After an import replaced settings, UI state and histories underneath
+/// every window: each window adopts the whole settings object and reloads
+/// both histories, and the native appearance follows the imported theme.
+pub fn broadcast_reload(app: &AppHandle) {
+    let Some(stores) = app.try_state::<Stores>() else {
+        return;
+    };
+    let (value, rev) = stores.settings.snapshot();
+    theme_changed(app);
+    emit_to_all(
+        app,
+        "settings-changed",
+        SettingsChanged {
+            rev,
+            patch: value.as_object().cloned().unwrap_or_default(),
+            from: String::new(),
+        },
+    );
+    for kind in [HistoryKind::Chat, HistoryKind::Clipboard] {
+        emit_to_all(
+            app,
+            "history-changed",
+            HistoryChanged {
+                kind,
+                op: HistoryOp::Reload,
+                from: String::new(),
+            },
+        );
+    }
 }
 
 /// Loads every store into app state. Called first thing in setup(), before
