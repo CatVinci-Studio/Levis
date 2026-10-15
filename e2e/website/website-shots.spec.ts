@@ -46,6 +46,10 @@
  *                   etc.), drawn where a Mac draws San Francisco. Found in
  *                   TeX Live's fonts when it is installed; without it the UI
  *                   is in this machine's own fallback.
+ *   SHOTS_CJK_FONT_DIR  the Simplified Chinese, Traditional Chinese and
+ *                   Japanese Noto Sans CJK faces as separate files, for the
+ *                   zh, zh-hant and ja shots (see CJK_REGION below; default
+ *                   ../levis-shots/fonts/noto-cjk-faces beside the checkout).
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -89,6 +93,10 @@ interface Sample {
   /** Plain words in the tour where the caret rests - away from every
    *  mark, so none of them shows its Markdown. */
   tourCaret: string;
+  /** The AI panel's width in the hero, as a user drags it (optional; the
+   *  app's default otherwise): wider where the language's labels need it
+   *  to keep the proposal's buttons on one row. */
+  panelWidth?: number;
 }
 
 /** What each shot needs from a language's Sample. */
@@ -471,24 +479,27 @@ function loadSamples(): Record<string, Partial<Sample>> {
 }
 const SAMPLES = loadSamples();
 
-/** The folder the images go in: ../levis-shots/site-assets/app beside the
- *  main checkout, whichever worktree this runs in. */
-function outputRoot(): string {
-  if (process.env.SHOTS_OUT) return path.resolve(process.env.SHOTS_OUT);
-  let checkout = process.cwd();
+/** The main checkout, whichever worktree this runs in. */
+function mainCheckout(): string {
   try {
     const common = execFileSync(
       "git",
       ["rev-parse", "--path-format=absolute", "--git-common-dir"],
       { encoding: "utf8" },
     ).trim();
-    checkout = path.dirname(common);
+    return path.dirname(common);
   } catch {
-    // Not a git checkout: beside the working directory, then.
+    // Not a git checkout: the working directory, then.
+    return process.cwd();
   }
-  return path.resolve(checkout, "..", "levis-shots", "site-assets", "app");
 }
-const OUT = outputRoot();
+const CHECKOUT = mainCheckout();
+
+/** The folder the images go in: ../levis-shots/site-assets/app beside the
+ *  main checkout. */
+const OUT = process.env.SHOTS_OUT
+  ? path.resolve(process.env.SHOTS_OUT)
+  : path.resolve(CHECKOUT, "..", "levis-shots", "site-assets", "app");
 
 const APP_NAME = process.env.SHOTS_APP_NAME ?? "Textus";
 /** The Markdown tour's document zoom (Settings' zoom, View > Zoom Out). */
@@ -506,6 +517,8 @@ interface StandInFont {
   weight: number;
   style: "normal" | "italic";
   file: string;
+  /** Only these characters (a CSS unicode-range), when set. */
+  unicodeRange?: string;
 }
 function standInFonts(): StandInFont[] {
   const faces: StandInFont[] = [];
@@ -559,6 +572,72 @@ function standInFonts(): StandInFont[] {
   return faces.filter((face) => existsSync(face.file));
 }
 const FONT_FACES = standInFonts();
+
+/** The Chinese and Japanese faces, one region each. Noto Sans CJK comes as
+ *  a collection (.ttc) of every region's face, and Chromium on Linux draws
+ *  the first face whichever region the stack names: Traditional Chinese
+ *  came out with Simplified punctuation at the bottom left of its square,
+ *  where Taiwan centres it. SHOTS_CJK_FONT_DIR (default
+ *  ../levis-shots/fonts/noto-cjk-faces beside the main checkout) holds the
+ *  faces split out of the collections, one file each, served under the
+ *  name the app's stack gives them:
+ *    python -m venv v && v/bin/pip install fonttools && v/bin/python -c '
+ *    from fontTools.ttLib import TTCollection
+ *    for w in "Regular","Medium","Bold":
+ *      for f in TTCollection(f"/usr/share/fonts/noto-cjk/NotoSansCJK-{w}.ttc").fonts:
+ *        r = f["name"].getDebugName(1)[14:16]
+ *        if r in ("SC","TC","JP"): f.save(f"NotoSansCJK{r.lower()}-{w}.otf")'
+ *  The same face also draws the curly quotes, the ellipsis and the dash in
+ *  the UI's Latin face, as a Chinese Mac draws them: full width, the
+ *  ellipsis centred, instead of narrow Latin quotes and six low dots. */
+const CJK_REGION: Record<string, { family: string; tag: string }> = {
+  zh: { family: "Noto Sans CJK SC", tag: "sc" },
+  "zh-hant": { family: "Noto Sans CJK TC", tag: "tc" },
+  ja: { family: "Noto Sans CJK JP", tag: "jp" },
+};
+function cjkFaceDir(): string {
+  if (process.env.SHOTS_CJK_FONT_DIR)
+    return path.resolve(process.env.SHOTS_CJK_FONT_DIR);
+  return path.resolve(CHECKOUT, "..", "levis-shots", "fonts", "noto-cjk-faces");
+}
+function fontFacesFor(lang: string): StandInFont[] {
+  const region = CJK_REGION[lang];
+  if (!region) return FONT_FACES;
+  const dir = cjkFaceDir();
+  const file = (weight: string) =>
+    path.join(dir, `NotoSansCJK${region.tag}-${weight}.otf`);
+  const weights = [
+    [400, "Regular"],
+    [500, "Medium"],
+    [600, "Bold"],
+    [700, "Bold"],
+  ] as const;
+  const faces: StandInFont[] = [];
+  for (const [weight, name] of weights) {
+    if (weight !== 600)
+      faces.push({
+        family: region.family,
+        weight,
+        style: "normal",
+        file: file(name),
+      });
+    faces.push({
+      family: "SF Pro Text",
+      weight,
+      style: "normal",
+      file: file(name),
+      unicodeRange: "U+2014, U+2018-2019, U+201C-201D, U+2026",
+    });
+  }
+  const found = faces.filter((face) => existsSync(face.file));
+  if (found.length < faces.length)
+    throw new Error(
+      `${lang}: no ${region.family} faces in ${dir} (see SHOTS_CJK_FONT_DIR)`,
+    );
+  // After the stand-ins: of two faces for the same characters, the later
+  // one draws them.
+  return [...FONT_FACES, ...found];
+}
 
 /** A Mac: the app leaves the top-left corner of its title row to the
  *  traffic lights (see .window-bar in App.css), and names Cmd in its
@@ -653,19 +732,20 @@ async function launch(page: Page, options: Launch) {
     );
     return existsSync(file) ? route.fulfill({ path: file }) : route.continue();
   });
-  if (FONT_FACES.length > 0) {
+  const fontFaces = fontFacesFor(options.lang);
+  if (fontFaces.length > 0) {
     await page.route("**/__shots/font/*", (route) => {
       const index = Number(
         new URL(route.request().url()).pathname.split("/").pop(),
       );
-      return route.fulfill({ path: FONT_FACES[index].file });
+      return route.fulfill({ path: fontFaces[index].file });
     });
     await page.addInitScript((faces) => {
       const style = document.createElement("style");
       style.textContent = faces
         .map(
           (face, index) =>
-            `@font-face { font-family: "${face.family}"; src: url("/__shots/font/${index}"); font-weight: ${face.weight}; font-style: ${face.style}; font-display: block; }`,
+            `@font-face { font-family: "${face.family}"; src: url("/__shots/font/${index}"); font-weight: ${face.weight}; font-style: ${face.style};${face.unicodeRange ? ` unicode-range: ${face.unicodeRange};` : ""} font-display: block; }`,
         )
         .join("\n");
       const add = () => {
@@ -677,7 +757,7 @@ async function launch(page: Page, options: Launch) {
         new MutationObserver((_, observer) => {
           if (add()) observer.disconnect();
         }).observe(document, { childList: true });
-    }, FONT_FACES);
+    }, fontFaces);
   }
   const project = options.project;
   await cannedFromStart(page, {
@@ -749,6 +829,16 @@ async function launch(page: Page, options: Launch) {
       .zen .shots-traffic-lights { display: none; }
     `,
   });
+  // Korean is broken between words, at the spaces, not between any two
+  // syllables. The app does that for its own UI only (App.css leaves the
+  // document out, since keep-all would stop Chinese or Japanese text in a
+  // Korean UI from breaking); these documents are all Korean.
+  if (options.lang === "ko")
+    await page.addStyleTag({
+      content: `
+        .editor-content, .source-view { word-break: keep-all !important; overflow-wrap: break-word; }
+      `,
+    });
 }
 
 async function emit(page: Page, event: string, payload?: unknown) {
@@ -930,7 +1020,12 @@ for (const lang of LANGS) {
           root: `/Users/me/Documents/${s.folder}`,
           library: s.library,
         },
-        storage: { "levis-agent-panel-open": "1" },
+        storage: {
+          "levis-agent-panel-open": "1",
+          ...(s.panelWidth
+            ? { "levis-agent-panel-width": String(s.panelWidth) }
+            : {}),
+        },
       });
       await canned(page, {
         ai_agent_message: [
@@ -973,6 +1068,20 @@ for (const lang of LANGS) {
       await expect(page.locator(".milkdown .pending-insert")).toHaveText(
         s.edited,
       );
+      // The proposal's buttons and its sentence picker on one row: a label
+      // too long for it drops onto a row of its own, a band of nothing.
+      const middles = await page
+        .locator(".agent-proposal-actions > *")
+        .evaluateAll((items) =>
+          items.map((item) => {
+            const box = item.getBoundingClientRect();
+            return box.top + box.height / 2;
+          }),
+        );
+      expect(
+        Math.max(...middles) - Math.min(...middles),
+        "the proposal's actions wrap: give this language a wider panelWidth",
+      ).toBeLessThan(4);
       await composer.blur();
       await shoot(page, browser, lang, "hero");
     });
