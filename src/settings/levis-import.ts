@@ -76,6 +76,9 @@ export async function runLevisImport(
   t: Strings,
   lang: Lang,
   status: LevisImportStatus,
+  /** Called with what came over, before the report is shown - so whatever
+   *  the import changes on screen has settled behind the message. */
+  onImported: (items: LevisItem[]) => void = () => {},
 ): Promise<LevisItem[]> {
   if (!status.supported || status.items.length === 0) return [];
   const go = await showConfirm(t.levisImportText, {
@@ -93,6 +96,7 @@ export async function runLevisImport(
     }));
   try {
     const report = await levisImport.run(credentials);
+    if (report.imported.length > 0) onImported(report.imported);
     ({ t, lang } = await languageAfterImport(t, lang));
     const lines = [
       report.imported.length > 0
@@ -147,9 +151,10 @@ export function useLevisImportOffer(
         // Marked only once it was asked: with nothing to offer, the check
         // (a few file lookups) simply runs again next launch.
         if (status?.supported && status.items.length > 0) {
-          const imported = await runLevisImport(t, lang, status);
+          await runLevisImport(t, lang, status, (items) =>
+            onImportedRef.current(items),
+          );
           markOffered();
-          if (imported.length > 0) onImportedRef.current(imported);
         }
       } catch {
         // No backend (the browser build) or no app directories: no offer.
