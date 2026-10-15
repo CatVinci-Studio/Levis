@@ -683,3 +683,62 @@ test("a one-character CJK fix reads with its neighbour on the grammar card", asy
   await card.locator(".grammar-popover-apply").click();
   await expect(page.locator(".milkdown")).toContainText("黛玉毕竟寄人篱下");
 });
+
+test("the review bar switches how revisions show, as Word's markup views", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  await pasteMarkdown(page, SAMPLE_DOC);
+  const anchor =
+    "这项研究在三个街区进行。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。一共访谈了四十六位居民，内容涵盖了很多方面。";
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "精简" },
+      {
+        kind: "ToolCall",
+        call_id: "e1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace",
+          anchor,
+          text: "这项研究覆盖三个街区。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。共访谈四十六位居民。",
+        }),
+      },
+      { kind: "ToolResult", call_id: "e1", output: "Edit proposed" },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("精简");
+  await composer.press("Enter");
+  // Default: the original in the text, the replacements in the margin.
+  await expect(page.locator(".revision-note")).toHaveCount(2);
+  const pick = async (name: string) => {
+    await page.locator(".review-bar-view-button").click();
+    await page.getByRole("menuitemradio", { name }).click();
+  };
+  // Changes in the text, the original in the margin.
+  await pick("修改在正文，原文在页边");
+  await expect(page.locator(".revision-note-original")).toHaveCount(2);
+  await expect(page.locator(".milkdown .pending-sentence-hidden")).toHaveCount(
+    2,
+  );
+  await expect(page.locator(".milkdown")).toContainText(
+    "这项研究覆盖三个街区。",
+  );
+  // Everything in the text.
+  await pick("全部在正文中");
+  await expect(page.locator(".revision-note")).toHaveCount(0);
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  // Only the result: no marks, no margin cards; still decided from the bar.
+  await pick("只看修改后的结果");
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(0);
+  await expect(page.locator(".milkdown .pending-sentence-final")).toHaveCount(
+    2,
+  );
+  await page.locator(".review-bar-accept").click();
+  await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
+  await expect(page.locator(".milkdown .pending-sentence-final")).toHaveCount(
+    0,
+  );
+});

@@ -7,6 +7,7 @@ import { $prose } from "@milkdown/kit/utils";
 import { renderMarkdownInlineHtml } from "./markdown-render";
 import type { EditProposal } from "./types";
 import type { SentenceHunk } from "./chat/sentence-diff";
+import type { RevisionDisplay } from "../settings/SettingsContext";
 
 /** One changed sentence (group) of a rewrite shown sentence by sentence:
  *  where its original stands in the document, what replaces it, and the
@@ -398,24 +399,73 @@ function sentenceDecorations(
           "data-index": String(index),
         }),
       );
-    // With a margin, the replacement and its ✓ / ✕ are a card beside the
-    // text (ReviewMargin.tsx); the text only marks what would change - a
-    // pure insertion by a small caret where it would go.
-    if (!hooks.inline()) {
+    const display = hooks.display();
+    const mark = (cls: string) =>
+      Decoration.widget(
+        c.to,
+        () => {
+          const el = document.createElement("span");
+          el.className = cls;
+          el.dataset.call = p.callId;
+          el.dataset.index = String(index);
+          return el;
+        },
+        {
+          side: 1,
+          key: `pending-mark-${p.callId}-${index}-${state}-${display}`,
+        },
+      );
+    // The original in the text, the replacement and its ✓ / ✕ a card in
+    // the margin (ReviewMargin.tsx); a pure insertion marked by a caret.
+    if (display === "original") {
       if (c.from === c.to)
+        decos.push(mark(`pending-insert-mark pending-sentence-${state}`));
+      return;
+    }
+    // The replacement in the text, as it would read - the original in the
+    // margin ("new"), or nowhere ("final": only the result, its decision
+    // left to the review bar and the AI card). A kept sentence is simply
+    // the original again.
+    if (display === "new" || display === "final") {
+      if (state === "kept") {
+        if (c.from < c.to && display === "new")
+          decos.push(
+            Decoration.inline(c.from, c.to, {
+              class: "pending-sentence-kept-original",
+              "data-call": p.callId,
+              "data-index": String(index),
+            }),
+          );
+        else if (display === "new")
+          decos.push(mark("pending-insert-mark pending-sentence-kept"));
+        return;
+      }
+      if (c.from < c.to)
+        decos.push(
+          Decoration.inline(c.from, c.to, { class: "pending-sentence-hidden" }),
+        );
+      if (c.after.trim())
         decos.push(
           Decoration.widget(
             c.to,
             () => {
-              const mark = document.createElement("span");
-              mark.className = `pending-sentence pending-insert-mark pending-sentence-${state}`;
-              mark.dataset.call = p.callId;
-              mark.dataset.index = String(index);
-              return mark;
+              const span = document.createElement("span");
+              span.className = `pending-insert pending-sentence-new pending-sentence-${state}${display === "final" ? " pending-sentence-final" : ""}${isFocused ? " pending-sentence-focus" : ""}`;
+              span.contentEditable = "false";
+              span.dataset.call = p.callId;
+              span.dataset.index = String(index);
+              span.setAttribute("style", stagger);
+              span.innerHTML = renderMarkdownInlineHtml(c.after.trim());
+              return span;
             },
-            { side: 1, key: `pending-mark-${p.callId}-${index}-${state}` },
+            {
+              side: 1,
+              key: `pending-new-${p.callId}-${index}-${state}-${isFocused}-${display}`,
+            },
           ),
         );
+      else if (display === "new")
+        decos.push(mark(`pending-delete-mark pending-sentence-${state}`));
       return;
     }
     if (c.after.trim())
@@ -479,8 +529,8 @@ function sentenceDecorations(
 }
 
 interface SentenceHooks {
-  /** False while a margin shows the replacements beside the text. */
-  inline: () => boolean;
+  /** How a rewrite is drawn (revision-display.ts): Word's markup views. */
+  display: () => RevisionDisplay;
   labels: () => SentencePickLabels;
   decide: (callId: string, index: number, take: boolean | null) => void;
   /** The sentence the review bar points at, outlined in the text. */
@@ -627,13 +677,13 @@ export function createPendingEditPlugin(options: {
   sentenceLabels?: () => SentencePickLabels;
   /** The sentence the review bar points at (usePendingEdits). */
   getFocusedSentence?: () => { callId: string; index: number } | null;
-  /** Whether replacements are drawn in the text (no room for a margin) -
-   *  read live; a "refocus" meta redraws after it changes. */
-  sentencesInline?: () => boolean;
+  /** How a rewrite is drawn, already fallen back to "inline" where there
+   *  is no margin - read live; a "refocus" meta redraws after it changes. */
+  revisionDisplay?: () => RevisionDisplay;
 }) {
   const animate = () => options.animationEnabled?.() ?? false;
   const hooks: SentenceHooks = {
-    inline: () => options.sentencesInline?.() ?? true,
+    display: () => options.revisionDisplay?.() ?? "inline",
     labels: () =>
       options.sentenceLabels?.() ?? { take: "Accept", keep: "Keep original" },
     decide: (callId, index, take) => options.onDecide?.(callId, index, take),
