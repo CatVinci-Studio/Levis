@@ -30,6 +30,10 @@ import { modIsMeta } from "../utils/platform";
  * in Typora and spreadsheets - gfm's own keymap exits the table instead.
  * Enter on a `| a | b |` line turns it into a table.
  *
+ * Shift+Enter is left to Milkdown's hardbreak keymap (a line break; a
+ * second one right after a break becomes a new paragraph), except where
+ * its rule misfires - see shiftEnterWithTrailingBreak.
+ *
  * Registered before every other key handler in editor-extensions.ts, and
  * $prose plugins run ahead of the preset keymaps, so these win over gfm's
  * table keymap and ProseMirror's base keymap.
@@ -219,30 +223,87 @@ export const pipeRowToTable: Command = (state, dispatch) => {
   return true;
 };
 
+/** Shift+Enter in a paragraph that already ends in a line break (the user
+ *  pressed Shift+Enter at the end, then went back up). Milkdown's
+ *  insertHardbreakCommand means "a second break right after a break
+ *  becomes a new paragraph", but checks the paragraph's last child instead
+ *  of the node before the cursor and replaces the position before the
+ *  cursor with a paragraph node. Mid-line that deletes the character
+ *  before the cursor and opens paragraph gaps where a line break was asked
+ *  for; right after a mid-paragraph break it leaves an empty paragraph
+ *  behind. Here the rule is applied as meant. */
+export const shiftEnterWithTrailingBreak: Command = (state, dispatch) => {
+  const { selection } = state;
+  if (!(selection instanceof TextSelection) || !selection.empty) return false;
+  const hardbreak = state.schema.nodes.hardbreak;
+  const { $from } = selection;
+  if (!hardbreak || $from.parent.lastChild?.type !== hardbreak) return false;
+  if (!dispatch) return true;
+  const tr = state.tr;
+  if ($from.nodeBefore?.type === hardbreak) {
+    tr.delete($from.pos - 1, $from.pos).split($from.pos - 1);
+  } else {
+    // The "hardbreak" meta keeps Milkdown's filter (no breaks in code
+    // blocks or tables) in charge, as for its own command.
+    tr.setMeta("hardbreak", true).replaceSelectionWith(hardbreak.create());
+  }
+  dispatch(tr.scrollIntoView());
+  return true;
+};
+
 const onEnter: Command[] = [
   enterInTable,
   pipeRowToTable,
   leaveTextBlockOnEmptyLastLine,
 ];
 const onModEnter: Command[] = [leaveBlockquote];
+const onShiftEnter: Command[] = [shiftEnterWithTrailingBreak];
 
-export const blockKeysPlugin = $prose(
-  () =>
-    new Plugin({
-      props: {
-        handleKeyDown(view, event) {
-          if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
-          if (event.shiftKey || event.altKey) return false;
-          const mac = modIsMeta();
-          const mod = mac ? event.metaKey : event.ctrlKey;
-          const other = mac ? event.ctrlKey : event.metaKey;
-          if (other) return false;
-          const commands = mod ? onModEnter : onEnter;
-          const state = stateWithLiveSelection(view);
-          return commands.some((command) =>
-            command(state, view.dispatch, view),
-          );
-        },
+/** How soon before Enter a Shift press still counts as part of the same
+ *  stroke rather than held on purpose. macOS Pinyin toggles 中/英 with a
+ *  Shift tap; when that tap overlaps the Enter after a Latin word, the page
+ *  gets Shift+Enter and a line break the writer never asked for. */
+export const SHIFT_OVERLAP_MS = 100;
+
+export const blockKeysPlugin = $prose(() => {
+  let shiftDownAt = -Infinity;
+  return new Plugin({
+    props: {
+      handleKeyDown(view, event) {
+        if (event.key === "Shift") {
+          if (!event.repeat) shiftDownAt = event.timeStamp;
+          return false;
+        }
+        if (event.key !== "Enter" || isImeKeyEvent(view, event)) return false;
+        if (
+          event.shiftKey &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          event.timeStamp - shiftDownAt < SHIFT_OVERLAP_MS
+        ) {
+          // Shift and Enter went down together: an Enter, as meant.
+          const plain = new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: event.code,
+            keyCode: 13,
+          });
+          const handled = view.someProp("handleKeyDown", (f) => f(view, plain));
+          if (handled) return true;
+        }
+        if (event.altKey) return false;
+        const mac = modIsMeta();
+        const mod = mac ? event.metaKey : event.ctrlKey;
+        const other = mac ? event.ctrlKey : event.metaKey;
+        if (other || (event.shiftKey && mod)) return false;
+        const commands = event.shiftKey
+          ? onShiftEnter
+          : mod
+            ? onModEnter
+            : onEnter;
+        const state = stateWithLiveSelection(view);
+        return commands.some((command) => command(state, view.dispatch, view));
       },
-    }),
-);
+    },
+  });
+});
