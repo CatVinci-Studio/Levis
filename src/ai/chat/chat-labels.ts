@@ -1,5 +1,5 @@
 import { plural, type Lang, type Strings } from "../../i18n/strings";
-import type { InlineChatLabels } from "./InlineChat";
+import type { InlineChatLabels } from "./quick-ask/InlineChat";
 import { pickerLabels } from "./ComposerPicker";
 
 /**

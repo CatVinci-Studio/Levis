@@ -437,7 +437,7 @@ export function installDevTauriShim(): void {
         return Promise.resolve(args.handler);
       }
       // The phone menu sends its commands to this same window
-      // (app-menu-actions.ts's emitMenuEvent); deliver them like Rust would.
+      // (platform/menu-events.ts's emitMenuEvent); deliver them like Rust would.
       if (cmd === "plugin:event|emit_to" && args?.event) {
         const { event, payload } = args as { event: string; payload?: unknown };
         queueMicrotask(() =>

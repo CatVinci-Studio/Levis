@@ -68,6 +68,10 @@ from the code:
 
 ## Code style
 
+**Know where code goes.** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) maps
+the folders and the layers they sit in. A folder never imports from a layer
+above it; `npm run lint` fails if one does.
+
 Formatting is automated, so it is not worth discussing. What is worth
 discussing:
 

@@ -6,8 +6,8 @@ import {
   createPendingEditPlugin,
   type PendingPreview,
 } from "./revision/pending-edit-plugin";
-import { chatSelectionPlugin } from "./chat/chat-selection-plugin";
-import { createQuickAskWidgetPlugin } from "./chat/quick-ask-widget-plugin";
+import { chatSelectionPlugin } from "./chat/quick-ask/chat-selection-plugin";
+import { createQuickAskWidgetPlugin } from "./chat/quick-ask/quick-ask-widget-plugin";
 import {
   createReviewNotesPlugin,
   type ReviewNote,

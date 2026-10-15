@@ -10,14 +10,14 @@ that owns each one is named so this document can be checked against reality.
 Chat has three surfaces and two conversations, all owned by the editor
 (`document-view/MilkdownEditor.tsx`):
 
-- **The AI panel** — docked on the right (`ai/chat/agent-panel.tsx`,
+- **The AI panel** — docked on the right (`ai/chat/panel/agent-panel.tsx`,
   `AgentPanelView.tsx`). Shows the editor's main conversation, the one saved
   to History.
 - **The detached chat window** — the same main conversation popped out into
   its own OS window, one per editor window (desktop only). It owns no
   document state: proposals and accept/reject travel over
-  `ai/chat/chat-bridge.ts` back to the editor window.
-- **Quick Ask** — the in-document bar (`ai/chat/useInlineChat.ts`). It has its
+  `ai/chat/window/chat-bridge.ts` back to the editor window.
+- **Quick Ask** — the in-document bar (`ai/chat/quick-ask/useInlineChat.ts`). It has its
   own short conversation, kept out of History and independent of the
   panel; "Continue in the full conversation" hands its turns to the main
   conversation (`expandQuickAsk`).
@@ -183,7 +183,7 @@ previews are rolled back (writing phase, above).
 | `ai/chat/cancelled-turns.ts`                          | What a stop keeps; dangling tool-call closure                              |
 | `ai/chat/useAgentConversation.ts`                     | Conversation state: send/stop/retry/restore, history persistence           |
 | `ai/chat/ChatBody.tsx`                                | Shared conversation UI; streamed-turn → proposal, idempotent afterSend     |
-| `ai/chat/ChatWindowApp.tsx`, `ai/chat/chat-bridge.ts` | Detached window and its bridge: context/status pushes, proposal forwarding |
+| `ai/chat/window/ChatWindowApp.tsx`, `ai/chat/window/chat-bridge.ts` | Detached window and its bridge: context/status pushes, proposal forwarding |
 | `document-view/MilkdownEditor.tsx`                    | Wiring: machine effects, supersede flag, exchange-boundary effect          |
 | `draft-autosave.ts`, `startup-restore.ts`, `App.tsx`  | Draft snapshots, startup restore, close-time cleanup                       |
 | `src-tauri/src/ai/tools.rs`, `agent.rs`               | `propose_edit` validation, system prompt, the status-note contract         |

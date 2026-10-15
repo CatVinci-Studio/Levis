@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ai, exportDoc, type AgentWorkspaceInfo } from "../../platform/ipc";
+import { ai, exportDoc, type AgentWorkspaceInfo } from "../../../platform/ipc";
 import {
   canPickFolder,
   canRevealInFileManager,
-} from "../../platform/capabilities";
-import { useSettings } from "../../settings/SettingsContext";
-import { useActiveProvider } from "../provider-catalog";
-import { useCloseOnOutsideClick } from "../../utils/hooks/useCloseOnOutsideClick";
-import { Presence, PresenceDiv } from "../../ui/usePresence";
-import { errorText } from "../../utils/error-text";
-import { OPEN_FILE_IN_TAB_EVENT } from "../../utils/events";
-import { basename } from "../../utils/path";
-import { knownDocumentsDir } from "../../platform/documents-path";
-import { APP_NAME } from "../../i18n/names";
-import { ChevronIcon, FolderIcon } from "../../ui/icons";
-import { ActionSheet, type ActionSheetItem } from "../../ui/ActionSheet";
-import { usePhoneLayout } from "../../ui/usePhoneLayout";
+} from "../../../platform/capabilities";
+import { useSettings } from "../../../settings/SettingsContext";
+import { useActiveProvider } from "../../provider-catalog";
+import { useCloseOnOutsideClick } from "../../../utils/hooks/useCloseOnOutsideClick";
+import { Presence, PresenceDiv } from "../../../ui/usePresence";
+import { errorText } from "../../../utils/error-text";
+import { OPEN_FILE_IN_TAB_EVENT } from "../../../utils/events";
+import { basename } from "../../../utils/path";
+import { knownDocumentsDir } from "../../../platform/documents-path";
+import { APP_NAME } from "../../../i18n/names";
+import { ChevronIcon, FolderIcon } from "../../../ui/icons";
+import { ActionSheet, type ActionSheetItem } from "../../../ui/ActionSheet";
+import { usePhoneLayout } from "../../../ui/usePhoneLayout";
 import { MemorySections } from "./MemoryView";
 
 function openInTab(path: string) {

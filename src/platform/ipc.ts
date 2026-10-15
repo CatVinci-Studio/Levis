@@ -1,5 +1,8 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import type { ChatHandoff, ChatHandoffState } from "../ai/chat/chat-bridge";
+import type {
+  ChatHandoff,
+  ChatHandoffState,
+} from "../ai/chat/window/chat-bridge";
 import type { DetachedTabDoc, HelpDoc } from "../document/doc-tabs";
 import type { DirEntryInfo } from "./fs-types";
 import type { ProviderCatalogEntry } from "../ai/provider-catalog";

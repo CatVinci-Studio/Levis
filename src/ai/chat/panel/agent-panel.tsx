@@ -9,10 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import { getUiState, setUiState } from "../../storage/ui-state";
-import { animate, duration } from "../../ui/motion";
+import { getUiState, setUiState } from "../../../storage/ui-state";
+import { animate, duration } from "../../../ui/motion";
 import "./agent-panel.css";
-import "./inline-chat.css";
+import "../inline-chat.css";
 
 /**
  * The docked Agent panel on the right of the editor window - the full

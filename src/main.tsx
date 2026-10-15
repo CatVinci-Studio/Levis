@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./app/App";
-import { ChatWindowApp } from "./ai/chat/ChatWindowApp";
+import { ChatWindowApp } from "./ai/chat/window/ChatWindowApp";
 import { SettingsProvider } from "./settings/SettingsContext";
 import { installDevTauriShim } from "./dev/tauri-shim";
 import { publishWindowChrome } from "./platform/window-chrome";

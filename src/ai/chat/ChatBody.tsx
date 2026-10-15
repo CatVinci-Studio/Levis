@@ -23,7 +23,7 @@ import { MarkdownText } from "../MarkdownText";
 import {
   QuickAskPendingBar,
   type QuickAskPendingBarLabels,
-} from "./QuickAskPendingBar";
+} from "./quick-ask/QuickAskPendingBar";
 import { parseProposal } from "./proposal";
 import { refusedProposalIds } from "../revision/proposal-status";
 import { toolActivityText } from "./AgentTurnView";

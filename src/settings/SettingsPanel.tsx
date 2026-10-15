@@ -47,7 +47,7 @@ import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
 import { usePresenceProps } from "../ui/usePresence";
 import { Select } from "../ui/Select";
-import { emitMenuEvent } from "../app/app-menu-actions";
+import { emitMenuEvent } from "../platform/menu-events";
 import type { MenuChecks } from "../app/app-menu-model";
 import {
   canDetachChat,

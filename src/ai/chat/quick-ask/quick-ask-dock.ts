@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { revealOffset } from "./useQuickAskReveal";
-import { useLatest } from "../../utils/hooks/useLatest";
+import { useLatest } from "../../../utils/hooks/useLatest";
 
 /** On the root while the docked Quick Ask is up (quick-ask-dock.css): the
  *  keyboard toolbar gives way to it, and the document scrolls clear of it. */

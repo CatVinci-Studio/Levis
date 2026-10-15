@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import type { AgentWorkspaceInfo, LibraryEntry } from "../../platform/ipc";
-import type { Lang, Strings } from "../../i18n/strings";
-import { listFromWorkspace, pickerSkills } from "./skill-picker";
+import type { AgentWorkspaceInfo, LibraryEntry } from "../../../platform/ipc";
+import type { Lang, Strings } from "../../../i18n/strings";
+import { listFromWorkspace, pickerSkills } from "../skill-picker";
 import "./MemoryView.css";
 
 /**

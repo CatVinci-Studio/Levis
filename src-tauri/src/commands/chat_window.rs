@@ -19,7 +19,7 @@ pub fn is_editor_window(label: &str) -> bool {
 /// One detached chat window.
 ///
 /// The Agent has exactly two surfaces, and they differ in what they are ABOUT
-/// (see src/ai/chat/InlineChat.tsx): the in-document Quick Ask bar is scoped
+/// (see src/ai/chat/quick-ask/InlineChat.tsx): the in-document Quick Ask bar is scoped
 /// to the one file it was opened in, while a detached window is the
 /// cross-file surface - it follows whatever document the user is editing and
 /// pulls each new selection in. There is therefore at most ONE chat window
@@ -48,7 +48,7 @@ pub fn editor_for_chat(label: &str, open: &OpenChatWindows) -> Option<String> {
 
 /// Everything a detached chat window needs to carry on where the embedded
 /// panel left off. `state` is opaque JSON: the actual shape is defined once,
-/// in TypeScript (src/ai/chat/chat-bridge.ts), so the protocol doesn't have
+/// in TypeScript (src/ai/chat/window/chat-bridge.ts), so the protocol doesn't have
 /// to be kept in sync across two languages for a payload Rust never inspects.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct ChatHandoff {
@@ -221,7 +221,7 @@ pub fn current_chat_window(
 /// it. Emitted only when `detach_chat_window` reveals a window that already
 /// exists instead of building one; a window being built claims its handoff at
 /// mount without being asked. Mirrors CHAT_ADOPT_HANDOFF in
-/// src/ai/chat/chat-bridge.ts.
+/// src/ai/chat/window/chat-bridge.ts.
 pub const CHAT_ADOPT_HANDOFF: &str = "chat:adopt-handoff";
 
 /// Claimed by the chat window's frontend at mount, and again whenever

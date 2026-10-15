@@ -1,7 +1,7 @@
 import { emitTo } from "@tauri-apps/api/event";
-import { listenToThisWindow } from "../../utils/tauri-events";
-import type { AgentTurn, EditProposal } from "../types";
-import type { PendingStatus } from "../revision/usePendingEdits";
+import { listenToThisWindow } from "../../../utils/tauri-events";
+import type { AgentTurn, EditProposal } from "../../types";
+import type { PendingStatus } from "../../revision/usePendingEdits";
 
 /**
  * The protocol between an editor window and its detached chat window.

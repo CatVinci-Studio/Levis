@@ -2,6 +2,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 代码结构：src/ 各目录放什么、模块分层和依赖方向（由 ESLint 检查）、CSS 的组织方式、Rust 端的目录（英文） |
 | [TESTING.md](TESTING.md) | 各测试套件覆盖什么、怎么运行，以及刻意没覆盖的部分 |
 | [AI-CONCEPTS.md](AI-CONCEPTS.md) | AI 相关概念的统一定义：项目文件夹、文风档案、资料库、写作要求（agent.md）、技能、全局配置文件夹，以及优先级 |
 | [AI-PROPOSALS.md](AI-PROPOSALS.md) | AI 修改建议从流式生成到写入文档的完整生命周期，以及三个对话界面 |

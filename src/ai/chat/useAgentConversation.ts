@@ -47,7 +47,7 @@ export interface RetryableSend {
 export type MockAgentReply = (message: string) => string | AgentTurn[];
 
 /// Multi-turn agent conversation state/logic backing the inline chat bar
-/// (see ai/chat/InlineChat.tsx) against the `ai_agent_message` backend command -
+/// (see ai/chat/quick-ask/InlineChat.tsx) against the `ai_agent_message` backend command -
 /// pulled out on its own so any other agent surface added later can reuse
 /// the same history bookkeeping instead of reimplementing it.
 ///

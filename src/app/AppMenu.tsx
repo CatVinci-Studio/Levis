@@ -4,7 +4,8 @@ import { useSettings } from "../settings/SettingsContext";
 import { menuIpc } from "../platform/ipc";
 import { formatCombo } from "../utils/shortcuts";
 import { useViewportClamp } from "../utils/hooks/useViewportClamp";
-import { emitMenuEvent, runLocalMenuAction } from "./app-menu-actions";
+import { runLocalMenuAction } from "./app-menu-actions";
+import { emitMenuEvent } from "../platform/menu-events";
 import {
   buildAppMenu,
   buildMobileMenu,

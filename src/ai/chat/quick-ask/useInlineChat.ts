@@ -7,9 +7,9 @@ import {
   headingAt,
   readSelection,
   serializeRange,
-} from "../doc-markdown";
+} from "../../doc-markdown";
 import { chatSelectionRange } from "./chat-selection-plugin";
-import type { EditorRunner } from "../../editor/useEditorRunner";
+import type { EditorRunner } from "../../../editor/useEditorRunner";
 
 /** The document position right after the top-level block containing `pos` -
  *  where the Quick Ask zone widget goes (quick-ask-widget-plugin), both when

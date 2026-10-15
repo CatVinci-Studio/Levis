@@ -5,7 +5,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
+import { CloseIcon, DetachIcon, PlusIcon } from "../../../ui/icons";
 
 export interface AgentPanelLabels {
   title: string;

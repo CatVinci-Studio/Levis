@@ -53,12 +53,12 @@ import {
   type PendingEditCallbacks,
 } from "./editor-extensions";
 import { GrammarPopover, applyLabel } from "../ai/writing/GrammarPopover";
-import { InlineChat } from "../ai/chat/InlineChat";
+import { InlineChat } from "../ai/chat/quick-ask/InlineChat";
 import { ChatBody } from "../ai/chat/ChatBody";
-import { AgentPanelView } from "../ai/chat/AgentPanelView";
+import { AgentPanelView } from "../ai/chat/panel/AgentPanelView";
 import { CloseConfirmBar } from "../ai/chat/CloseConfirm";
-import { ProjectBar } from "../ai/chat/ProjectBar";
-import { useAgentPanel } from "../ai/chat/agent-panel";
+import { ProjectBar } from "../ai/chat/panel/ProjectBar";
+import { useAgentPanel } from "../ai/chat/panel/agent-panel";
 import {
   cachedDocumentMarkdown,
   caretContext,
@@ -66,7 +66,7 @@ import {
   readSelection,
 } from "../ai/doc-markdown";
 import { chatLabels } from "../ai/chat/chat-labels";
-import { useDetachedChat } from "../ai/chat/useDetachedChat";
+import { useDetachedChat } from "../ai/chat/window/useDetachedChat";
 import { canDetachChat, isIOSApp } from "../platform/capabilities";
 import {
   editorFocusedBeforeAction,
@@ -97,10 +97,13 @@ import { useEditorRunner } from "../editor/useEditorRunner";
 import { useEditorClipboard } from "../editor/useEditorClipboard";
 import { useAiActions } from "../ai/writing/useAiActions";
 import { useAgentConversation } from "../ai/chat/useAgentConversation";
-import { blockPositionAfter, useInlineChat } from "../ai/chat/useInlineChat";
-import { setChatSelection } from "../ai/chat/chat-selection-plugin";
-import { setQuickAskWidget } from "../ai/chat/quick-ask-widget-plugin";
-import { keepClearOfDock } from "../ai/chat/quick-ask-dock";
+import {
+  blockPositionAfter,
+  useInlineChat,
+} from "../ai/chat/quick-ask/useInlineChat";
+import { setChatSelection } from "../ai/chat/quick-ask/chat-selection-plugin";
+import { setQuickAskWidget } from "../ai/chat/quick-ask/quick-ask-widget-plugin";
+import { keepClearOfDock } from "../ai/chat/quick-ask/quick-ask-dock";
 import {
   locateAnchor,
   usePendingEdits,
@@ -871,7 +874,7 @@ export function MilkdownEditor({
   }, [pushLiveContext]);
   const forcePushLiveContextRef = useLatest(forcePushLiveContext);
 
-  // The docked panel (ai/chat/agent-panel.tsx): rendered by THIS editor only
+  // The docked panel (ai/chat/panel/agent-panel.tsx): rendered by THIS editor only
   // while it is the active tab and the panel is open.
   const agentPanel = useAgentPanel();
   const panelContainer = isActive ? agentPanel.container : null;

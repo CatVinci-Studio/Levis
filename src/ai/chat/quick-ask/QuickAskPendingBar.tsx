@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ChevronIcon } from "../../ui/icons";
-import { useCloseOnOutsideClick } from "../../utils/hooks/useCloseOnOutsideClick";
-import { Presence, PresenceDiv } from "../../ui/usePresence";
-import { ActionSheet } from "../../ui/ActionSheet";
-import { usePhoneLayout } from "../../ui/usePhoneLayout";
+import { ChevronIcon } from "../../../ui/icons";
+import { useCloseOnOutsideClick } from "../../../utils/hooks/useCloseOnOutsideClick";
+import { Presence, PresenceDiv } from "../../../ui/usePresence";
+import { ActionSheet } from "../../../ui/ActionSheet";
+import { usePhoneLayout } from "../../../ui/usePhoneLayout";
 
 export interface QuickAskPendingBarLabels {
   proposalAccept: string;

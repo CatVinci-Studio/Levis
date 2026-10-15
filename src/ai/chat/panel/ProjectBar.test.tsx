@@ -3,25 +3,24 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveStrings } from "../../i18n/strings";
-import type { AgentWorkspaceInfo } from "../../platform/ipc";
+import { resolveStrings } from "../../../i18n/strings";
+import type { AgentWorkspaceInfo } from "../../../platform/ipc";
 
 const t = resolveStrings("en");
 let answer: (info: AgentWorkspaceInfo | null) => void = () => {};
 
-vi.mock("../../settings/SettingsContext", () => ({
+vi.mock("../../../settings/SettingsContext", () => ({
   useSettings: () => ({
     t,
     settings: { agentWorkspaceRoot: "", aiProvider: "custom", agentModels: {} },
     setSettings: vi.fn(),
   }),
 }));
-vi.mock("../provider-catalog", () => ({ useActiveProvider: () => null }));
-vi.mock("../../platform/ipc", async () => {
-  const actual =
-    await vi.importActual<typeof import("../../platform/ipc")>(
-      "../../platform/ipc",
-    );
+vi.mock("../../provider-catalog", () => ({ useActiveProvider: () => null }));
+vi.mock("../../../platform/ipc", async () => {
+  const actual = await vi.importActual<typeof import("../../../platform/ipc")>(
+    "../../../platform/ipc",
+  );
   return {
     ...actual,
     ai: {

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useSettings } from "../../settings/SettingsContext";
-import { useAgentConversation } from "./useAgentConversation";
-import type { PendingStatus } from "../revision/usePendingEdits";
-import type { EditProposal } from "../types";
-import { ChatBody } from "./ChatBody";
-import { chatLabels } from "./chat-labels";
+import { useSettings } from "../../../settings/SettingsContext";
+import { useAgentConversation } from "../useAgentConversation";
+import type { PendingStatus } from "../../revision/usePendingEdits";
+import type { EditProposal } from "../../types";
+import { ChatBody } from "../ChatBody";
+import { chatLabels } from "../chat-labels";
 import {
   CHAT_ADOPT_HANDOFF,
   CHAT_TO_EDITOR,
@@ -14,20 +14,20 @@ import {
   sendToWindow,
   type ChatContext,
 } from "./chat-bridge";
-import { windowIpc } from "../../platform/ipc";
-import { flushPendingWrites } from "../../storage/pending-writes";
-import { PinIcon, PlusIcon } from "../../ui/icons";
-import { WindowCaptionButtons } from "../../ui/WindowCaptionButtons";
-import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
-import { useLatest } from "../../utils/hooks/useLatest";
+import { windowIpc } from "../../../platform/ipc";
+import { flushPendingWrites } from "../../../storage/pending-writes";
+import { PinIcon, PlusIcon } from "../../../ui/icons";
+import { WindowCaptionButtons } from "../../../ui/WindowCaptionButtons";
+import { listenToThisWindow, unlistenAll } from "../../../utils/tauri-events";
+import { useLatest } from "../../../utils/hooks/useLatest";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,
 // ...) is declared on :root in ui/base.css. This window doesn't render App,
 // so without this import every var() resolves to nothing and the whole
 // window is unstyled; the dialogs' look comes along for its close prompt.
-import "../../ui/base.css";
-import "../../ui/app-dialog.css";
-import "./AgentTurnView.css";
-import "./inline-chat.css";
+import "../../../ui/base.css";
+import "../../../ui/app-dialog.css";
+import "../AgentTurnView.css";
+import "../inline-chat.css";
 import "./chat-window.css";
 
 /** How long a send waits for the editor to answer a context request before

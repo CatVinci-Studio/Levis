@@ -95,7 +95,7 @@ import {
   AgentPanelResizer,
   AgentPanelSheetGrip,
   useAgentPanelState,
-} from "../ai/chat/agent-panel";
+} from "../ai/chat/panel/agent-panel";
 import "./App.css";
 
 type PanelMode = "tree" | "outline" | "clipboard" | "chat";
@@ -148,7 +148,7 @@ function App() {
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const toggleSidebar = useCallback(() => setPanelOpen((v) => !v), []);
-  // The docked Agent panel on the right (ai/chat/agent-panel.tsx). App owns
+  // The docked Agent panel on the right (ai/chat/panel/agent-panel.tsx). App owns
   // the frame; the active tab's editor renders its conversation into it.
   const agentPanel = useAgentPanelState();
   // With the sidebar and the docked panel both open, a small window left

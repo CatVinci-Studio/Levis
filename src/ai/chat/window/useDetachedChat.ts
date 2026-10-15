@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { windowIpc } from "../../platform/ipc";
-import { canDetachChat } from "../../platform/capabilities";
-import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
-import { useLatest } from "../../utils/hooks/useLatest";
-import type { AgentTurn, EditProposal } from "../types";
-import type { PendingStatus } from "../revision/usePendingEdits";
+import { windowIpc } from "../../../platform/ipc";
+import { canDetachChat } from "../../../platform/capabilities";
+import { listenToThisWindow, unlistenAll } from "../../../utils/tauri-events";
+import { useLatest } from "../../../utils/hooks/useLatest";
+import type { AgentTurn, EditProposal } from "../../types";
+import type { PendingStatus } from "../../revision/usePendingEdits";
 import {
   CHAT_TO_EDITOR,
   CHAT_WINDOWS_CHANGED,
