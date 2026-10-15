@@ -184,6 +184,21 @@
   font-size: var(--text-xs);
 }
 
+.memory-more {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px dashed var(--chat-hairline, var(--editor-border));
+  background: none;
+  color: var(--editor-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.memory-more:hover {
+  color: var(--editor-text);
+}
+
 .memory-empty {
   padding: 12px 14px;
   border: 1px dashed var(--chat-hairline, var(--editor-border));
