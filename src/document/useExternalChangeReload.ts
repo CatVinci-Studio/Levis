@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { statMtime, tabIsDirty, type DocTab } from "./doc-tabs";
-import { fs } from "../platform/ipc";
+import { readDocText, statMtime, tabIsDirty, type DocTab } from "./doc-tabs";
 import { unlistenAll } from "../utils/tauri-events";
 
 // External-change pickup: whenever this window regains focus, compare each
@@ -37,7 +36,7 @@ export function useExternalChangeReload(
             }
             if (mtime === tab.diskMtime) continue;
             if (tabIsDirty(tab)) continue; // dirty: defer to the save-time prompt
-            const content = await fs.readTextFile(tab.path).catch(() => null);
+            const content = await readDocText(tab.path).catch(() => null);
             if (content === null) continue;
             // Re-check against the LIVE tab: the user may have started typing
             // (or the tab may be gone) while the read above was in flight, and

@@ -68,6 +68,7 @@ import {
   helpDocContent,
   makeBlankTab,
   readDocFromDisk,
+  writeDocFile,
   statMtime,
   tabIsDirty,
   tabTitle,
@@ -517,7 +518,7 @@ function App() {
           );
       const picked = await fs.saveFileDialog(defaultName);
       if (!picked) return false;
-      await fs.writeTextFile(picked, tab.content);
+      await writeDocFile(picked, tab.content);
       void session.addRecentFile(picked);
       // First save of a draft: any pasted images it holds live in the app's
       // data dir with an absolute src (fs.rs's save_pasted_image) - now that
@@ -529,7 +530,7 @@ function App() {
         const migration = await migrateDraftImages(picked, tab.content);
         if (migration.migrated) {
           content = migration.content;
-          await fs.writeTextFile(picked, content);
+          await writeDocFile(picked, content);
         }
         if (migration.failed.length > 0) {
           void showMessage(
@@ -578,7 +579,7 @@ function App() {
           if (!overwrite) return false;
         }
       }
-      await fs.writeTextFile(tab.path, tab.content);
+      await writeDocFile(tab.path, tab.content);
       updateTab(tabId, {
         savedContent: tab.content,
         diskMtime: await statMtime(tab.path),

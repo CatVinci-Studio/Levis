@@ -1,6 +1,7 @@
 import type { Strings } from "../i18n/strings";
 import { basename } from "../utils/path";
 import { fs } from "../platform/ipc";
+import { detectFormat, toEditorText, toFileText } from "./file-format";
 
 // Every bundled guide, by file name: "src/help/<doc>-guide.<lang>.md". A
 // language without its own copy of a guide gets the English one, so a
@@ -122,9 +123,29 @@ export async function statMtime(path: string): Promise<number | null> {
   }
 }
 
+/** A document's text as the editor holds it: "\n" line breaks, no BOM
+ *  (file-format.ts). */
+export async function readDocText(path: string): Promise<string> {
+  return toEditorText(await fs.readTextFile(path));
+}
+
 export async function readDocFromDisk(
   path: string,
 ): Promise<{ content: string; diskMtime: number | null }> {
-  const content = await fs.readTextFile(path);
+  const content = await readDocText(path);
   return { content, diskMtime: await statMtime(path) };
+}
+
+/** Writes a document, in the line endings and BOM the file already has on
+ *  disk (a new file gets "\n" and none). Read at save time rather than
+ *  remembered from the open, so it holds however the tab got here - a
+ *  reload, a restored session, a tab dragged in from another window. */
+export async function writeDocFile(
+  path: string,
+  content: string,
+): Promise<void> {
+  const existing = await fs.readTextFile(path).catch(() => null);
+  const format =
+    existing === null ? { crlf: false, bom: false } : detectFormat(existing);
+  await fs.writeTextFile(path, toFileText(content, format));
 }
