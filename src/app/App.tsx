@@ -80,7 +80,7 @@ import { useExternalChangeReload } from "../document/useExternalChangeReload";
 import { useDraftAutosave } from "../document/draft-autosave";
 import { useMenuBridge, useNativeMenuChecks } from "./menu-bridge";
 import { useStartupRestore } from "../document/startup-restore";
-import { drafts, fs, session } from "../platform/ipc";
+import { drafts, fs, session, storage } from "../platform/ipc";
 import { flushPendingWrites } from "../storage/pending-writes";
 import { defaultMarkdownFilename } from "../document/save-default-name";
 import { useModalDialog } from "../ui/useModalDialog";
@@ -138,6 +138,15 @@ function App() {
     settings.language,
     settings.levisImportOffered,
     markLevisOffered,
+    (items) => {
+      // The first-launch guide started before the offer was answered; a
+      // Levis user who had already been through it there doesn't get it
+      // again (Levis's onboardingShown came over with its settings).
+      if (!items.includes("settings")) return;
+      void storage.settingsGet().then(({ value }) => {
+        if (value.onboardingShown === true) tutorial.exit();
+      });
+    },
   );
   const [tabs, setTabs] = useState<DocTab[]>(() => [makeBlankTab()]);
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0].id);
