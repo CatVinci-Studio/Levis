@@ -4,7 +4,7 @@ import App from "./app/App";
 import { ChatWindowApp } from "./ai/chat/ChatWindowApp";
 import { SettingsProvider } from "./settings/SettingsContext";
 import { installDevTauriShim } from "./dev/tauri-shim";
-import { publishWindowChrome } from "./app/window-chrome";
+import { publishWindowChrome } from "./platform/window-chrome";
 import { WindowEdges } from "./app/WindowEdges";
 import { installWebviewGuards } from "./ui/webview-guards";
 import { restoreFolderAccess } from "./platform/ios-files";

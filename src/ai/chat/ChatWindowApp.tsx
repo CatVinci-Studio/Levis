@@ -17,7 +17,7 @@ import {
 import { windowIpc } from "../../platform/ipc";
 import { flushPendingWrites } from "../../storage/pending-writes";
 import { PinIcon, PlusIcon } from "../../ui/icons";
-import { WindowCaptionButtons } from "../../app/WindowControls";
+import { WindowCaptionButtons } from "../../ui/WindowCaptionButtons";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
 import { useLatest } from "../../utils/hooks/useLatest";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,

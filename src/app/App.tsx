@@ -20,7 +20,8 @@ import {
   ClipboardTabIcon,
   ChatTabIcon,
 } from "../ui/icons";
-import { AppMenuButton, WindowCaptionButtons } from "./WindowControls";
+import { AppMenuButton } from "./WindowControls";
+import { WindowCaptionButtons } from "../ui/WindowCaptionButtons";
 import { installClipboardCapture } from "../clipboard/history";
 import { EditorPane } from "../document-view/EditorPane";
 import { flushEditor } from "../editor/editor-flush";

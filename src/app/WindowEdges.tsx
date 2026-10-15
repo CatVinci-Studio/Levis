@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { drawsWindowEdges } from "./window-chrome";
+import { drawsWindowEdges } from "../platform/window-chrome";
 import "./window-edges.css";
 
 type ResizeDirection =

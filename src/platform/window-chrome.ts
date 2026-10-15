@@ -3,8 +3,8 @@ import {
   isLinuxPlatform,
   isMacPlatform,
   isWindowsPlatform,
-} from "../platform/os";
-import { canUseWindows, hasAppMenu } from "../platform/capabilities";
+} from "./os";
+import { canUseWindows, hasAppMenu } from "./capabilities";
 /**
  * How much of the window frame this app has to draw for itself.
  *

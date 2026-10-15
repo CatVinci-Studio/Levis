@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSettings } from "../settings/SettingsContext";
-import { appDrawsWindowFrame, ownsMenuAccelerators } from "./window-chrome";
+import { appDrawsWindowFrame, ownsMenuAccelerators } from "../platform/window-chrome";
 import { runLocalMenuAction } from "./app-menu-actions";
 import { comboFromEvent } from "../utils/shortcuts";
 import { menuIpc } from "../platform/ipc";

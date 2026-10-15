@@ -76,14 +76,14 @@ vi.mock("../settings/SettingsContext", async () => {
 });
 
 const appDrawsWindowFrame = vi.hoisted(() => ({ value: false }));
-vi.mock("./window-chrome", () => ({
+vi.mock("../platform/window-chrome", () => ({
   get appDrawsWindowFrame() {
     return appDrawsWindowFrame.value;
   },
 }));
 
-const { AppMenuButton, WindowCaptionButtons } =
-  await import("./WindowControls");
+const { AppMenuButton } = await import("./WindowControls");
+const { WindowCaptionButtons } = await import("../ui/WindowCaptionButtons");
 
 afterEach(() => {
   cleanup();

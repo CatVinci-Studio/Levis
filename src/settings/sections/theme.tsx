@@ -2,10 +2,10 @@ import { errorText } from "../../utils/error-text";
 import { useId, useRef, useState } from "react";
 import {
   useSettings,
-  BUILTIN_CONTENT_THEMES,
   THEME_MODES,
   type UserThemeMeta,
 } from "../SettingsContext";
+import { BUILTIN_CONTENT_THEMES } from "../../theme/builtin-themes";
 import type { Strings } from "../../i18n/strings";
 import { importThemeCss } from "../../theme/theme-import";
 import { ornamentRules } from "../../theme/theme-export";

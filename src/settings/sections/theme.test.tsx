@@ -22,6 +22,8 @@ const mock = vi.hoisted(() => ({
 vi.mock("../SettingsContext", () => ({
   useSettings: () => mock,
   THEME_MODES: ["system", "light", "dark"],
+}));
+vi.mock("../../theme/builtin-themes", () => ({
   BUILTIN_CONTENT_THEMES: [{ id: "default", nameKey: "themeNameDefault" }],
 }));
 vi.mock("../../platform/ipc", () => ({
