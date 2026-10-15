@@ -26,9 +26,9 @@ import {
   type ThemeChromeCache,
 } from "../storage/ui-state";
 import { listenToThisWindow } from "../utils/tauri-events";
-import { applyThemeChrome, clearThemeChrome } from "../utils/theme-chrome";
+import { applyThemeChrome, clearThemeChrome } from "../theme/theme-chrome";
 import { SettingsSync, type Raw } from "./settings-sync";
-import { adaptTyporaCss } from "./typora-compat";
+import { adaptTyporaCss } from "../theme/typora-compat";
 
 /// Light/dark, orthogonal to which content theme is selected: `themeId`
 /// picks the palette, this picks which of its two forms is shown. Every

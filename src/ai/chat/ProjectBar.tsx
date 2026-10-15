@@ -6,7 +6,7 @@ import {
 } from "../../platform/capabilities";
 import { useSettings } from "../../settings/SettingsContext";
 import { useActiveProvider } from "../provider-catalog";
-import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { useCloseOnOutsideClick } from "../../utils/hooks/useCloseOnOutsideClick";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { errorText } from "../../utils/error-text";
 import { OPEN_FILE_IN_TAB_EVENT } from "../../utils/events";

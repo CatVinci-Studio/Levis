@@ -1,6 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { ChatHandoff, ChatHandoffState } from "./ai/chat/chat-bridge";
-import type { DetachedTabDoc, HelpDoc } from "./doc-tabs";
+import type { DetachedTabDoc, HelpDoc } from "./document/doc-tabs";
 import type { DirEntryInfo } from "./sidebar/types";
 import type { ProviderCatalogEntry } from "./ai/provider-catalog";
 import type {
@@ -9,7 +9,7 @@ import type {
   ChatAttachment,
   ImageAttachment,
 } from "./ai/types";
-import type { GrammarIssue } from "./ai/grammar-check-plugin";
+import type { GrammarIssue } from "./ai/writing/grammar-check-plugin";
 import type { SkillCategory } from "./ai/skills/builtin";
 import { isDesktopApp, isIOSApp } from "./platform/capabilities";
 import { iosFiles, isScopedUrl, newDocumentPath } from "./platform/ios-files";

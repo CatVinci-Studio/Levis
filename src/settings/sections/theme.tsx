@@ -7,12 +7,12 @@ import {
   type UserThemeMeta,
 } from "../SettingsContext";
 import type { Strings } from "../../i18n/strings";
-import { importThemeCss } from "../../utils/theme-import";
-import { ornamentRules } from "../../utils/theme-export";
+import { importThemeCss } from "../../theme/theme-import";
+import { ornamentRules } from "../../theme/theme-export";
 import { basename } from "../../utils/path";
 import { showMessage } from "../../ui/app-dialog";
 import { exportDoc, fs, themes } from "../../ipc";
-import { useLatest } from "../../utils/useLatest";
+import { useLatest } from "../../utils/hooks/useLatest";
 import { Select } from "../../ui/Select";
 import { SettingRow } from "./controls";
 

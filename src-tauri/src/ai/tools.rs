@@ -312,7 +312,7 @@ fn propose_edit(ctx: &ToolContext, arguments: &str) -> String {
 
     // On later requests the frontend appends a bracketed status note to this
     // result (accepted / rejected / still undecided) - see
-    // annotateProposalStatuses in src/ai/proposal-status.ts. The size of
+    // annotateProposalStatuses in src/ai/revision/proposal-status.ts. The size of
     // the change is measured here so the reply can rest on it: replies
     // called a 20% cut "about 70% of the original" and an expansion that
     // shrank "expanded into two paragraphs" (docs/AI-EVAL.md, round 2).

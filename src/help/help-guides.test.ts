@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { helpDocContent } from "../doc-tabs";
+import { helpDocContent } from "../document/doc-tabs";
 import { LANGS } from "../i18n/strings";
 
 const GUIDES = import.meta.glob<string>("./*-guide.*.md", {

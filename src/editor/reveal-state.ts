@@ -1,7 +1,7 @@
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import type { Decoration } from "@milkdown/kit/prose/view";
 import { DecorationSet } from "@milkdown/kit/prose/view";
-import { cursorTouches } from "./enclosure";
+import { cursorTouches } from "./marks/enclosure";
 
 /**
  * Plugin state for the "render it, reveal the source under the caret"

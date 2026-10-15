@@ -31,7 +31,7 @@ export function listenToThisWindow<T>(
 ): Promise<UnlistenFn> {
   return listen<T>(event, handler, {
     // Read per call, not once at module scope: the dev browser shim
-    // (dev-tauri-shim.ts) installs the metadata this reads at startup.
+    // (tauri-shim.ts) installs the metadata this reads at startup.
     target: getCurrentWebviewWindow().label,
   });
 }

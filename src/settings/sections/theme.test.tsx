@@ -28,7 +28,7 @@ vi.mock("../../ipc", () => ({
   fs: { openCssFileDialog: vi.fn() },
   themes: { deleteTheme: vi.fn(), saveThemeCss: vi.fn() },
 }));
-vi.mock("../../utils/theme-import", () => ({
+vi.mock("../../theme/theme-import", () => ({
   importThemeCss: vi.fn().mockResolvedValue("body{}"),
 }));
 afterEach(cleanup);

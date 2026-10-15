@@ -6,7 +6,7 @@
  * backstop for replies - and pasted/typed/loaded content - that use the
  * backslash form anyway). Every path that turns markdown text into real
  * document content runs input through this first - see
- * src/editor/parse-markdown-source.ts for parserCtx-based paths and
+ * src/editor/markdown/parse-markdown-source.ts for parserCtx-based paths and
  * MilkdownEditor.tsx for the file-load path, which sets defaultValueCtx
  * directly and so can't go through that shared helper.
  *

@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import type { AgentConversation } from "../useAgentConversation";
-import type { PendingStatus } from "../usePendingEdits";
+import type { AgentConversation } from "./useAgentConversation";
+import type { PendingStatus } from "../revision/usePendingEdits";
 import type { EditProposal } from "../types";
 import { ChatBody, type ChatBodyLabels } from "./ChatBody";
 import { CloseConfirmBar, type CloseConfirmLabels } from "./CloseConfirm";
@@ -8,7 +8,7 @@ import { useQuickAskReveal } from "./useQuickAskReveal";
 import { useQuickAskDock } from "../../mobile/quick-ask-dock";
 import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
 import type { AgentMode } from "../../settings/SettingsContext";
-import "../AgentTurnView.css";
+import "./AgentTurnView.css";
 import "./inline-chat.css";
 
 export interface InlineChatLabels extends ChatBodyLabels, CloseConfirmLabels {

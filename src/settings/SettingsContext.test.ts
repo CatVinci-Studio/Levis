@@ -2,7 +2,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { loadSettings } from "./SettingsContext";
-import { installTestLocalStorage } from "../test-local-storage";
+import { installTestLocalStorage } from "../dev/test-local-storage";
 
 const SETTINGS_KEY = "catvinci-settings";
 

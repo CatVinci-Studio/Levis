@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useSettings } from "../../settings/SettingsContext";
-import { useAgentConversation } from "../useAgentConversation";
-import type { PendingStatus } from "../usePendingEdits";
+import { useAgentConversation } from "./useAgentConversation";
+import type { PendingStatus } from "../revision/usePendingEdits";
 import type { EditProposal } from "../types";
 import { ChatBody } from "./ChatBody";
 import { chatLabels } from "./chat-labels";
@@ -19,13 +19,13 @@ import { flushPendingWrites } from "../../storage/pending-writes";
 import { PinIcon, PlusIcon } from "../../ui/icons";
 import { WindowCaptionButtons } from "../../ui/WindowControls";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
-import { useLatest } from "../../utils/useLatest";
+import { useLatest } from "../../utils/hooks/useLatest";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,
 // ...) is declared on :root in App.css, which until now only App.tsx pulled
 // in. This window doesn't render App, so without this import every var()
 // below resolves to nothing and the whole window is unstyled.
-import "../../App.css";
-import "../AgentTurnView.css";
+import "../../app/App.css";
+import "./AgentTurnView.css";
 import "./inline-chat.css";
 import "./chat-window.css";
 

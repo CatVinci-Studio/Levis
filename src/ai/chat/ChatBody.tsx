@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type {
   AgentConversation,
   AgentRequestOptions,
-} from "../useAgentConversation";
+} from "./useAgentConversation";
 import type { AgentMode } from "../../settings/SettingsContext";
-import type { PendingStatus } from "../usePendingEdits";
+import type { PendingStatus } from "../revision/usePendingEdits";
 import type {
   AgentTurn,
   ChatAttachment,
@@ -25,8 +25,8 @@ import {
   type QuickAskPendingBarLabels,
 } from "./QuickAskPendingBar";
 import { parseProposal } from "./proposal";
-import { refusedProposalIds } from "../proposal-status";
-import { toolActivityText } from "../AgentTurnView";
+import { refusedProposalIds } from "../revision/proposal-status";
+import { toolActivityText } from "./AgentTurnView";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { scrollBehavior } from "../../ui/motion";

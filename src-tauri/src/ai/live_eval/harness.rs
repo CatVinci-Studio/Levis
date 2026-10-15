@@ -435,7 +435,7 @@ pub struct AgentSetup<'a> {
     pub ui_language: &'a str,
 }
 
-/// Mirrors src/ai/proposal-status.ts's notes for the two decided states.
+/// Mirrors src/ai/revision/proposal-status.ts's notes for the two decided states.
 const ACCEPTED_NOTE: &str =
     "Status: the user accepted this proposed edit - the document text in this request includes it.";
 const REJECTED_NOTE: &str =

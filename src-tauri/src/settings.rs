@@ -335,7 +335,7 @@ fn as_list(payload: &mut Value) -> &mut Vec<Value> {
 // ---------------------------------------------------------------------------
 
 /// The two histories. Their caps match what the frontend kept in
-/// localStorage (src/ai/chat-history.ts, src/utils/clipboard-history.ts);
+/// localStorage (src/ai/chat/chat-history.ts, src/utils/clipboard-history.ts);
 /// they're enforced here too because this is now the one writer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]

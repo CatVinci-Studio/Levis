@@ -42,13 +42,17 @@ import {
   selectedImagePos,
   setImageWidth,
 } from "./editor-menu";
-import { toggleSpan } from "./span-commands";
-import { cycleHeading, toggleBlockquote, toggleList } from "./block-toggles";
+import { toggleSpan } from "./marks/span-commands";
+import {
+  cycleHeading,
+  toggleBlockquote,
+  toggleList,
+} from "./keys/block-toggles";
 import {
   withEditorExtensions,
   type PendingEditCallbacks,
 } from "./editor-extensions";
-import { GrammarPopover, applyLabel } from "../ai/GrammarPopover";
+import { GrammarPopover, applyLabel } from "../ai/writing/GrammarPopover";
 import { InlineChat } from "../ai/chat/InlineChat";
 import { ChatBody } from "../ai/chat/ChatBody";
 import { AgentPanelView } from "../ai/chat/AgentPanelView";
@@ -73,10 +77,13 @@ import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
 import { BottomCard } from "../mobile/BottomCard";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
-import { InsertTableDialog } from "./InsertTableDialog";
-import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
-import { FindReplaceBar } from "./FindReplaceBar";
-import { useFindReplace } from "./useFindReplace";
+import { InsertTableDialog } from "./tables/InsertTableDialog";
+import {
+  ImageNameDialog,
+  type ImageNameRequest,
+} from "./images/ImageNameDialog";
+import { FindReplaceBar } from "./find/FindReplaceBar";
+import { useFindReplace } from "./find/useFindReplace";
 import { Presence, PresenceDiv } from "../ui/usePresence";
 import { SparkleIcon } from "../ui/icons";
 import { revealPosition } from "./reveal-position";
@@ -85,44 +92,48 @@ import {
   readEditorCaret,
   registerCaretReporter,
   takePendingCaret,
-} from "./mode-switch";
+} from "./modes/mode-switch";
 import { useEditorRunner } from "./useEditorRunner";
 import { useEditorClipboard } from "./useEditorClipboard";
-import { useAiActions } from "../ai/useAiActions";
-import { useAgentConversation } from "../ai/useAgentConversation";
-import { blockPositionAfter, useInlineChat } from "../ai/useInlineChat";
-import { setChatSelection } from "../ai/chat-selection-plugin";
-import { setQuickAskWidget } from "../ai/quick-ask-widget-plugin";
+import { useAiActions } from "../ai/writing/useAiActions";
+import { useAgentConversation } from "../ai/chat/useAgentConversation";
+import { blockPositionAfter, useInlineChat } from "../ai/chat/useInlineChat";
+import { setChatSelection } from "../ai/chat/chat-selection-plugin";
+import { setQuickAskWidget } from "../ai/chat/quick-ask-widget-plugin";
 import { keepClearOfDock } from "../mobile/quick-ask-dock";
 import {
   locateAnchor,
   usePendingEdits,
   type SelectionTarget,
-} from "../ai/usePendingEdits";
+} from "../ai/revision/usePendingEdits";
 import {
   pendingEditKey,
   prefersReducedMotion,
   streamPendingInsertText,
   type PendingPreview,
-} from "../ai/pending-edit-plugin";
-import { ProposalStream } from "../ai/proposal-stream";
-import { ReviewBar } from "../ai/ReviewBar";
+} from "../ai/revision/pending-edit-plugin";
+import { ProposalStream } from "../ai/revision/proposal-stream";
+import { ReviewBar } from "../ai/revision/ReviewBar";
 import {
   effectiveRevisionDisplay,
   revisionDisplayName,
-} from "../ai/revision-display";
-import { NotePopover, ReviewMargin, type MarginItem } from "../ai/ReviewMargin";
+} from "../ai/revision/revision-display";
+import {
+  NotePopover,
+  ReviewMargin,
+  type MarginItem,
+} from "../ai/margin/ReviewMargin";
 import {
   commentCalls,
   reviewNotesKey,
   type ReviewNote,
-} from "../ai/review-notes-plugin";
-import { isRefusal } from "../ai/proposal-status";
+} from "../ai/margin/review-notes-plugin";
+import { isRefusal } from "../ai/revision/proposal-status";
 import type { StreamEvent } from "../ipc";
-import { useGrammarPopover } from "../ai/useGrammarPopover";
+import { useGrammarPopover } from "../ai/writing/useGrammarPopover";
 import { useSettings } from "../settings/SettingsContext";
-import { useLatest } from "../utils/useLatest";
-import { useWindowEvent } from "../utils/useWindowEvent";
+import { useLatest } from "../utils/hooks/useLatest";
+import { useWindowEvent } from "../utils/hooks/useWindowEvent";
 import { normalizeMathDelimiters } from "../utils/markdown-math";
 import { createTutorialMockAgent } from "../onboarding/tutorial-mock-agent";
 import {
@@ -143,13 +154,13 @@ import {
   TUTORIAL_MOCK_GRAMMAR_EVENT,
   ZEN_MODE_EVENT,
 } from "../utils/events";
-import { showGhostSuggestion } from "../ai/ghost-text-plugin";
-import { showGrammarIssues } from "../ai/grammar-check-plugin";
+import { showGhostSuggestion } from "../ai/writing/ghost-text-plugin";
+import { showGrammarIssues } from "../ai/writing/grammar-check-plugin";
 import {
   anchorGrammarIssues,
   type TutorialGrammarMock,
 } from "../onboarding/tutorial-evaluation";
-import type { ChatHistoryEntry } from "../ai/chat-history";
+import type { ChatHistoryEntry } from "../ai/chat/chat-history";
 import type { EditProposal } from "../ai/types";
 import { Milkdown, useEditor } from "@milkdown/react";
 import "@milkdown/kit/prose/view/style/prosemirror.css";

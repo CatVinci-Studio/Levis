@@ -28,7 +28,7 @@ import {
 } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import type { ContextMenuItem } from "./ContextMenu";
-import { readImagePresentation, writeImageWidth } from "./image-plugin";
+import { readImagePresentation, writeImageWidth } from "./images/image-plugin";
 import type { EditorRunner } from "./useEditorRunner";
 import type { Strings } from "../i18n/strings";
 

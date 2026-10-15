@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
-import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
-import { useViewportClamp } from "../utils/useViewportClamp";
+import { useCloseOnOutsideClick } from "../utils/hooks/useCloseOnOutsideClick";
+import { useViewportClamp } from "../utils/hooks/useViewportClamp";
 import { ActionSheet } from "../mobile/ActionSheet";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { usePresenceProps, usePresenceState } from "../ui/usePresence";

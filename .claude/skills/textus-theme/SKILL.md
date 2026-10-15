@@ -117,7 +117,7 @@ Then check every combination: the new theme in light, in dark, and under
 
 ## Imported (Typora) themes
 
-Users pick a `.css` file in Settings > Theme. `src/utils/theme-import.ts`
+Users pick a `.css` file in Settings > Theme. `src/theme/theme-import.ts`
 makes it self-contained before storing it:
 
 - `@import` of a local file is **recursively inlined** (with a circular-import
@@ -149,7 +149,7 @@ looks the way it does in Typora. A new built-in _look_ rule belongs in
 
 **DOM differences bridged on import.** Code blocks carry Typora's
 `md-fences` class. Milkdown has no `<thead>` (the header row is a
-`<tr data-is-header>` in `<tbody>`), so `src/settings/typora-compat.ts`
+`<tr data-is-header>` in `<tbody>`), so `src/theme/typora-compat.ts`
 rewrites `thead` selectors when the theme is applied.
 
 **Imports are single-file**: `hasDark` is `false` for anything imported through

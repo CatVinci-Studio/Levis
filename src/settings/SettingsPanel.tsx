@@ -12,7 +12,7 @@ import {
   REVISION_DISPLAYS,
   type RevisionDisplay,
 } from "./SettingsContext";
-import { revisionDisplayName } from "../ai/revision-display";
+import { revisionDisplayName } from "../ai/revision/revision-display";
 import { LANGS, LANG_NAMES, type Lang, type TextKey } from "../i18n/strings";
 import {
   SettingRow,

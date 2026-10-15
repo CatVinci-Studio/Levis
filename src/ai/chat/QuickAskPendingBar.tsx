@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronIcon } from "../../ui/icons";
-import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { useCloseOnOutsideClick } from "../../utils/hooks/useCloseOnOutsideClick";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { ActionSheet } from "../../mobile/ActionSheet";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";

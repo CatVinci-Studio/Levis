@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import type { GrammarIssue } from "../ai/grammar-check-plugin";
+import type { GrammarIssue } from "../ai/writing/grammar-check-plugin";
 import type { Strings } from "../i18n/strings";
-import { useLatest } from "../utils/useLatest";
+import { useLatest } from "../utils/hooks/useLatest";
 import {
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useSettings } from "../settings/SettingsContext";
 import { menuIpc } from "../ipc";
 import { formatCombo } from "../utils/shortcuts";
-import { useViewportClamp } from "../utils/useViewportClamp";
+import { useViewportClamp } from "../utils/hooks/useViewportClamp";
 import { emitMenuEvent, runLocalMenuAction } from "./app-menu-actions";
 import {
   buildAppMenu,

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { contrast } from "../utils/theme-chrome";
+import { contrast } from "../theme/theme-chrome";
 const css = readFileSync(
   new URL("./content-themes.css", import.meta.url),
   "utf8",

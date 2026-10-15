@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { groupByProject } from "./ChatHistory";
-import type { ChatHistoryEntry } from "../ai/chat-history";
+import type { ChatHistoryEntry } from "../ai/chat/chat-history";
 
 const entry = (id: string, docPath: string | null, updatedAt: number) =>
   ({ id, docPath, title: id, updatedAt, turns: [] }) as ChatHistoryEntry;

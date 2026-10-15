@@ -10,7 +10,7 @@ import { ListMotion } from "../ui/flip";
 import { fs } from "../ipc";
 import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
-import { useLongPress } from "../utils/useLongPress";
+import { useLongPress } from "../utils/hooks/useLongPress";
 import {
   deleteIOSDocument,
   forgetIOSDocument,

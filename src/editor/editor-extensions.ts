@@ -8,65 +8,65 @@ import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethr
 import {
   commonmarkWithoutMarks,
   gfmWithoutStrikethrough,
-} from "./reduced-presets";
+} from "./markdown/reduced-presets";
 import {
   remarkFrontmatterPlugin,
   frontmatterSchema,
-} from "./frontmatter-schema";
-import { createGithubAlertPlugin } from "./github-alert-plugin";
-import { rawHtmlSchema } from "./raw-html-schema";
-import { createRawHtmlPreviewPlugin } from "./raw-html-preview-plugin";
-import { brToHardbreakPlugin } from "./br-hardbreak-plugin";
+} from "./markdown/frontmatter-schema";
+import { createGithubAlertPlugin } from "./markdown/github-alert-plugin";
+import { rawHtmlSchema } from "./html/raw-html-schema";
+import { createRawHtmlPreviewPlugin } from "./html/raw-html-preview-plugin";
+import { brToHardbreakPlugin } from "./markdown/br-hardbreak-plugin";
 import {
   remarkHighlightPlugin,
   mdSpanSchema,
   mdCodeSpanSchema,
-} from "./md-span-schema";
-import { mdSpanAutopairPlugin } from "./md-span-autopair-plugin";
-import { formatShortcutPlugin } from "./format-shortcut-plugin";
-import { enclosurePlugin } from "./enclosure";
-import { linuxImeEnterPlugin } from "./linux-ime-enter-plugin";
-import { configureMarkdownOutput } from "./markdown-output";
+} from "./marks/md-span-schema";
+import { mdSpanAutopairPlugin } from "./marks/md-span-autopair-plugin";
+import { formatShortcutPlugin } from "./keys/format-shortcut-plugin";
+import { enclosurePlugin } from "./marks/enclosure";
+import { linuxImeEnterPlugin } from "./keys/linux-ime-enter-plugin";
+import { configureMarkdownOutput } from "./markdown/markdown-output";
 import {
   remarkMathPlugin,
   mathInlineSchema,
   mathBlockSchema,
   mathInlineInputRule,
-} from "./math-schema";
-import { mathAutopairPlugin } from "./math-autopair-plugin";
-import { createMathPreviewPlugin } from "./math-preview-plugin";
-import { headingMarkerPlugin } from "./heading-marker-plugin";
-import { macNavigationPlugin } from "./mac-navigation-plugin";
-import { taskListClickPlugin } from "./task-list-plugin";
-import { syntaxHighlightPlugin } from "./syntax-highlight-plugin";
-import { codeBlockLanguageView } from "./code-block-language-view";
-import { tableColumnResizing, tableHoverView } from "./table-hover-view";
+} from "./math/math-schema";
+import { mathAutopairPlugin } from "./math/math-autopair-plugin";
+import { createMathPreviewPlugin } from "./math/math-preview-plugin";
+import { headingMarkerPlugin } from "./marks/heading-marker-plugin";
+import { macNavigationPlugin } from "./keys/mac-navigation-plugin";
+import { taskListClickPlugin } from "./markdown/task-list-plugin";
+import { syntaxHighlightPlugin } from "./code/syntax-highlight-plugin";
+import { codeBlockLanguageView } from "./code/code-block-language-view";
+import { tableColumnResizing, tableHoverView } from "./tables/table-hover-view";
 import { createMermaidPreviewPlugin } from "./mermaid-plugin";
-import { blockKeysPlugin } from "./block-keys-plugin";
-import { tabExtendPlugin } from "./tab-extend-plugin";
-import { escapeTrailingBlockPlugin } from "./escape-trailing-block-plugin";
-import { codeBlockIndentPlugin } from "./code-block-indent-plugin";
-import { pasteMarkdownSourcePlugin } from "./paste-markdown-plugin";
+import { blockKeysPlugin } from "./keys/block-keys-plugin";
+import { tabExtendPlugin } from "./keys/tab-extend-plugin";
+import { escapeTrailingBlockPlugin } from "./markdown/escape-trailing-block-plugin";
+import { codeBlockIndentPlugin } from "./code/code-block-indent-plugin";
+import { pasteMarkdownSourcePlugin } from "./markdown/paste-markdown-plugin";
 import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
-import { createImagePlugin } from "./image-plugin";
-import { createTypewriterPlugin } from "./typewriter-plugin";
-import { zenFocusPlugin } from "./zen-focus-plugin";
-import { keyboardRevealPlugin } from "./keyboard-reveal-plugin";
+import { createImagePlugin } from "./images/image-plugin";
+import { createTypewriterPlugin } from "./modes/typewriter-plugin";
+import { zenFocusPlugin } from "./modes/zen-focus-plugin";
+import { keyboardRevealPlugin } from "./keys/keyboard-reveal-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
-import { createGhostTextPlugin } from "../ai/ghost-text-plugin";
-import { buildCompletionStyle } from "../ai/completion-style";
-import { createGrammarCheckPlugin } from "../ai/grammar-check-plugin";
+import { createGhostTextPlugin } from "../ai/writing/ghost-text-plugin";
+import { buildCompletionStyle } from "../ai/writing/completion-style";
+import { createGrammarCheckPlugin } from "../ai/writing/grammar-check-plugin";
 import {
   createPendingEditPlugin,
   type PendingPreview,
-} from "../ai/pending-edit-plugin";
-import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
-import { createQuickAskWidgetPlugin } from "../ai/quick-ask-widget-plugin";
+} from "../ai/revision/pending-edit-plugin";
+import { chatSelectionPlugin } from "../ai/chat/chat-selection-plugin";
+import { createQuickAskWidgetPlugin } from "../ai/chat/quick-ask-widget-plugin";
 import {
   createReviewNotesPlugin,
   type ReviewNote,
-} from "../ai/review-notes-plugin";
-import { findReplacePlugin } from "./find-replace-plugin";
+} from "../ai/margin/review-notes-plugin";
+import { findReplacePlugin } from "./find/find-replace-plugin";
 import { resolveStrings } from "../i18n/strings";
 import type { RevisionDisplay, Settings } from "../settings/SettingsContext";
 

@@ -61,7 +61,7 @@ pub async fn detect_pandoc() -> Option<String> {
 ///
 /// The reader is commonmark_x trimmed to the editor's dialect: it brings
 /// bracketed spans and attributes, which the markdown handed over uses for
-/// highlights and image widths (export-pandoc-markdown.ts), plus dollar
+/// highlights and image widths (pandoc-markdown.ts), plus dollar
 /// math, YAML front matter, footnotes, task lists, tables and alerts.
 /// Extensions the editor doesn't have are off, so text means what it says
 /// in the editor: no smart quotes, no `~sub~` / `^sup^` (Chinese writes
@@ -186,7 +186,7 @@ pub async fn reveal_in_dir(app: tauri::AppHandle, path: String) -> Result<(), St
 /// and never paints an @page margin - so a themed background either stopped
 /// in white bands at every page edge, or, with zero margins, text ran flush
 /// into each page seam. Instead the frontend lays the document out at A4
-/// width with its own page margins (export-paginate.ts), this renders it with
+/// width with its own page margins (paginate.ts), this renders it with
 /// WKWebView's createPDF at exactly 1 CSS px = 1 pt, and PDFKit cuts that one
 /// tall page into A4 sheets. WKWebView is main-thread-only, so this
 /// dispatches there and waits for the file to be written.

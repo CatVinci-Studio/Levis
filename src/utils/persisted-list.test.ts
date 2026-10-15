@@ -11,7 +11,7 @@ import {
 import { createPersistedList } from "./persisted-list";
 import { storage } from "../ipc";
 import { resetBootForTests } from "../storage/boot";
-import { installTestLocalStorage } from "../test-local-storage";
+import { installTestLocalStorage } from "../dev/test-local-storage";
 
 const handlers: Record<string, (event: { payload: unknown }) => void> = {};
 

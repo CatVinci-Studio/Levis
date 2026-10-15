@@ -10,12 +10,12 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SettingsProvider, useSettings } from "./SettingsContext";
 import { themes } from "../ipc";
-import { applyThemeChrome } from "../utils/theme-chrome";
+import { applyThemeChrome } from "../theme/theme-chrome";
 vi.mock("../ipc", () => ({
   ai: { setAiProxy: vi.fn().mockResolvedValue(null) },
   themes: { loadThemeCss: vi.fn() },
 }));
-vi.mock("../utils/theme-chrome", () => ({
+vi.mock("../theme/theme-chrome", () => ({
   applyThemeChrome: vi.fn(),
   clearThemeChrome: () =>
     document.getElementById("textus-imported-chrome")?.remove(),

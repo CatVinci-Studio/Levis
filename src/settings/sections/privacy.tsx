@@ -4,7 +4,7 @@ import type { Strings } from "../../i18n/strings";
 import { SettingRow, ToggleRow } from "./controls";
 import { showConfirm } from "../../ui/app-dialog";
 import { CheckIcon } from "../../ui/icons";
-import { clearAllConversations } from "../../ai/chat-history";
+import { clearAllConversations } from "../../ai/chat/chat-history";
 import { clearClipboardHistory } from "../../utils/clipboard-history";
 import { drafts } from "../../ipc";
 

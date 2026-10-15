@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { Strings } from "../../i18n/strings";
 import type { AiProvider } from "../SettingsContext";
 import { useSettings } from "../SettingsContext";
-import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { useCloseOnOutsideClick } from "../../utils/hooks/useCloseOnOutsideClick";
 import {
   useProviderCatalog,
   type ProviderCatalogEntry,

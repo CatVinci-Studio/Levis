@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useSettings } from "../settings/SettingsContext";
-import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
+import { useCloseOnOutsideClick } from "../utils/hooks/useCloseOnOutsideClick";
 import { AppMenu } from "./AppMenu";
 import type { MenuChecks } from "./app-menu-model";
 import {

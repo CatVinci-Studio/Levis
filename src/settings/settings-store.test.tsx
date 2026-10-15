@@ -26,7 +26,7 @@ import {
   resetPendingWritesForTests,
 } from "../storage/pending-writes";
 import { resetUiStateForTests } from "../storage/ui-state";
-import { installTestLocalStorage } from "../test-local-storage";
+import { installTestLocalStorage } from "../dev/test-local-storage";
 
 // The file-backed path: what runs when Rust booted the window with a
 // snapshot (src/storage/boot.ts). The localStorage fallback is covered by
