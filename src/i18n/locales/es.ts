@@ -134,7 +134,7 @@ para usar una.
   memoryStyleEmpty: `Aún no hay perfil de estilo. Dale a ${AI_NAME} algunos textos tuyos y aprenderá cómo escribes.`,
   memoryLibraryEmpty: `Personas, lugares, términos: añádelos a la biblioteca y ${AI_NAME} los recordará.`,
   memoryInstructionsEmpty: `Aún no hay instrucciones. Escribe las reglas que ${AI_NAME} debe seguir siempre.`,
-  memoryNeedsSave: `Guarda este documento y ${AI_NAME} guardará tu estilo, biblioteca e instrucciones en su carpeta.`,
+  memoryNeedsSave: `Guarda este documento y ${AI_NAME} conservará tu estilo, tu biblioteca y tus instrucciones en su carpeta.`,
   agentActionInsertAtCursor: "Insertar en el cursor",
   commentLocate: "Mostrar en el documento",
   commentNotFound: "Ese fragmento ya no está en el documento.",
