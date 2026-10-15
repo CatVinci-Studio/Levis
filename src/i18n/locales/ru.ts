@@ -84,7 +84,7 @@ export default {
   projectOpenStyle: "Открыть профиль стиля",
   projectStyleChip: "Стиль",
   projectLibraryChip: "Картотека {n}",
-  projectPickFolder: "Выбрать папку проекта…",
+  projectPickFolder: "Другая папка проекта…",
   projectUseDocFolder: "Использовать папку документа",
   projectReveal: "Показать в файловом менеджере",
   projectLearnStyle: "Изучить мой стиль по образцам…",
