@@ -27,7 +27,7 @@ import {
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_MARK_EVENT,
 } from "../utils/events";
-import { pressKeepingFocus } from "./tap";
+import { pressKeepingFocus } from "../ui/tap";
 import "./KeyboardToolbar.css";
 
 /**

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { CloseIcon } from "../ui/icons";
-import { usePhoneLayout } from "../mobile/usePhoneLayout";
+import { usePhoneLayout } from "../ui/usePhoneLayout";
 import { animate, scrollBehavior } from "../ui/motion";
 import { ListMotion, measure, play, type PendingFlip } from "../ui/flip";
 
@@ -451,7 +451,7 @@ function TabPill({
       onMouseDown={(e) => e.preventDefault()}
       // Entered once: a reorder moves the pill's node, and a moved node
       // starts its stylesheet animation over - the dropped tab faded in
-      // from nothing while its neighbour slid under it (App.css).
+      // from nothing while its neighbour slid under it (TabBar.css).
       onAnimationEnd={(e) => {
         if (e.target === e.currentTarget) e.currentTarget.dataset.entered = "";
       }}

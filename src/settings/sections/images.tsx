@@ -1,6 +1,6 @@
 import { errorText } from "../../utils/error-text";
 import { useEffect, useState } from "react";
-import { imageHostAuth } from "../../ipc";
+import { imageHostAuth } from "../../platform/ipc";
 import type { Strings } from "../../i18n/strings";
 import {
   useSettings,

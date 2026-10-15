@@ -9,7 +9,7 @@ import {
   type ProviderCatalogEntry,
 } from "../../ai/provider-catalog";
 import { ChevronIcon } from "../../ui/icons";
-import { auth, type CustomEndpointConfig } from "../../ipc";
+import { auth, type CustomEndpointConfig } from "../../platform/ipc";
 import { Select } from "../../ui/Select";
 import { isIOSApp } from "../../platform/capabilities";
 import { VERBATIM_INPUT } from "./controls";

@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
-import { ai, type SkillListItem } from "../../ipc";
+import { ai, type SkillListItem } from "../../platform/ipc";
 import { resolveStrings } from "../../i18n/strings";
 import {
   ComposerPicker,
@@ -43,7 +43,7 @@ import {
   SearchIcon,
 } from "../../ui/icons";
 import { Select } from "../../ui/Select";
-import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { usePhoneLayout } from "../../ui/usePhoneLayout";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */

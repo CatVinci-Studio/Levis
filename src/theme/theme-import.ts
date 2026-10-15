@@ -1,4 +1,4 @@
-import { fs } from "../ipc";
+import { fs } from "../platform/ipc";
 
 /// Typora theme files commonly `@import` a base stylesheet from the same
 /// theme folder (e.g. `phycat-orange.css` importing `./phycat/phycat.light.css`)

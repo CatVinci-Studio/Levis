@@ -27,7 +27,7 @@ import {
 import { parseProposal } from "./proposal";
 import { refusedProposalIds } from "../revision/proposal-status";
 import { toolActivityText } from "./AgentTurnView";
-import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { usePhoneLayout } from "../../ui/usePhoneLayout";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { scrollBehavior } from "../../ui/motion";
 import {

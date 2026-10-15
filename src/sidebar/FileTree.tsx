@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { DirEntryInfo } from "./types";
+import type { DirEntryInfo } from "../platform/fs-types";
 import {
   ArrowUpIcon,
   ChevronIcon,
@@ -8,7 +8,7 @@ import {
   RefreshIcon,
   fileIconFor,
 } from "../ui/icons";
-import { fs } from "../ipc";
+import { fs } from "../platform/ipc";
 import { useSettings } from "../settings/SettingsContext";
 import { basename, isInside, parentDir } from "../utils/path";
 import { isIOSApp } from "../platform/capabilities";

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { renderMarkdownHtml } from "./markdown-render";
+import { renderMarkdownHtml } from "../editor/markdown/render-html";
 // Replies render math with KaTeX; the detached chat window never loads the
 // editor, so the stylesheet has to come with the renderer.
 import "katex/dist/katex.min.css";

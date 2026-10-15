@@ -4,7 +4,7 @@ import { ornamentRules } from "./theme-export";
 
 // Read from disk: vitest stubs CSS imports, ?raw included.
 const contentBaseCss = readFileSync(
-  new URL("../editor/content-base.css", import.meta.url),
+  new URL("./content-base.css", import.meta.url),
   "utf8",
 );
 

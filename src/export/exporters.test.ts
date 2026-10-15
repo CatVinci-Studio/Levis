@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../ipc", () => ({ exportDoc: {}, fs: {} }));
+vi.mock("../platform/ipc", () => ({ exportDoc: {}, fs: {} }));
 
 import { cloneEditorContent } from "./exporters";
 

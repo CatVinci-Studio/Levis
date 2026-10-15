@@ -5,7 +5,12 @@ import { conversationTitle, saveConversation } from "./chat-history";
 import { annotateProposalStatuses } from "../revision/proposal-status";
 import type { AgentTurn, ImageAttachment } from "../types";
 import type { PendingStatus } from "../revision/usePendingEdits";
-import { ai, AI_CANCELLED, IpcError, type StreamEvent } from "../../ipc";
+import {
+  ai,
+  AI_CANCELLED,
+  IpcError,
+  type StreamEvent,
+} from "../../platform/ipc";
 import { useLatest } from "../../utils/hooks/useLatest";
 import { useSettings, type AgentMode } from "../../settings/SettingsContext";
 

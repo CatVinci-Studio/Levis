@@ -1,0 +1,88 @@
+/* Save/Don't Save/Cancel prompt shown instead of closing a window whose
+   document has unsaved changes. */
+.close-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-bg);
+}
+
+.close-prompt {
+  min-width: 320px;
+  max-width: 420px;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--editor-border);
+  border-radius: var(--radius-dialog);
+  background: var(--bg);
+  box-shadow: var(--shadow-dialog);
+  font-size: var(--text-lg);
+}
+
+.close-prompt p {
+  margin: 0 0 16px;
+}
+
+/* The app's own alert/confirm boxes (ui/app-dialog.tsx) share this shape;
+   a long error message wraps instead of widening the box. */
+.app-dialog p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: var(--text-md);
+  color: var(--editor-text);
+}
+
+/* showPrompt's text field (a new file name). */
+.app-dialog-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  margin: 0 0 16px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--editor-text);
+  font: inherit;
+  font-size: var(--text-md);
+}
+
+.app-dialog-input:focus-visible {
+  border-color: var(--chrome-accent);
+  outline: none;
+}
+
+.app-dialog-title {
+  margin: 0 0 8px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.app-dialog-error {
+  color: var(--danger, #c1495a);
+}
+
+.app-dialog-warning {
+  color: color-mix(in srgb, #b7791f 80%, var(--editor-text));
+}
+
+.close-prompt-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-prompt-spacer {
+  flex: 1;
+}
+
+.close-prompt-buttons button {
+  color: var(--editor-text);
+}
+
+.close-prompt-discard {
+  color: var(--danger) !important;
+}

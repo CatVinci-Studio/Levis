@@ -11,7 +11,7 @@ const ipc = vi.hoisted(() => ({
   takeDraftSnapshots: vi.fn(),
 }));
 
-vi.mock("../ipc", () => ({
+vi.mock("../platform/ipc", () => ({
   windowIpc: {
     takeDetachedTab: ipc.takeDetachedTab,
     takePendingShowHelp: ipc.takePendingShowHelp,
@@ -38,7 +38,7 @@ vi.mock("../platform/capabilities", () => ({
     return platform.isIOSApp;
   },
 }));
-vi.mock("../platform/ios-files", () => ({ lastIOSDocument }));
+vi.mock("./ios-recents", () => ({ lastIOSDocument }));
 vi.mock("./doc-tabs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./doc-tabs")>()),
   readDocFromDisk: vi.fn(async (path: string) => ({

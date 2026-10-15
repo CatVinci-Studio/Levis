@@ -16,7 +16,7 @@ import {
   type DetachedTabDoc,
   type DocTab,
 } from "../document/doc-tabs";
-import { windowIpc, type WindowBounds } from "../ipc";
+import { windowIpc, type WindowBounds } from "../platform/ipc";
 import { flushPendingWrites } from "../storage/pending-writes";
 import { canUseWindows } from "../platform/capabilities";
 

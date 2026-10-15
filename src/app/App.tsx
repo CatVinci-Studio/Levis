@@ -20,9 +20,9 @@ import {
   ClipboardTabIcon,
   ChatTabIcon,
 } from "../ui/icons";
-import { AppMenuButton, WindowCaptionButtons } from "../ui/WindowControls";
-import { installClipboardCapture } from "../utils/clipboard-history";
-import { EditorPane } from "../editor/EditorPane";
+import { AppMenuButton, WindowCaptionButtons } from "./WindowControls";
+import { installClipboardCapture } from "../clipboard/history";
+import { EditorPane } from "../document-view/EditorPane";
 import { flushEditor } from "../editor/editor-flush";
 import {
   canDragTabsBetweenWindows,
@@ -30,17 +30,16 @@ import {
   canUseWindows,
   isIOSApp,
 } from "../platform/capabilities";
+import { iosFiles, useIOSDocumentsFolder } from "../platform/ios-files";
 import {
   forgetIOSDocument,
-  iosFiles,
   rememberIOSDocument,
-  useIOSDocumentsFolder,
-} from "../platform/ios-files";
+} from "../document/ios-recents";
 import { SettingsPanel } from "../settings/SettingsPanel";
 import { DocumentList } from "../mobile/DocumentList";
 import { KeyboardToolbar } from "../mobile/KeyboardToolbar";
-import { ActionSheet } from "../mobile/ActionSheet";
-import { usePhoneLayout } from "../mobile/usePhoneLayout";
+import { ActionSheet } from "../ui/ActionSheet";
+import { usePhoneLayout } from "../ui/usePhoneLayout";
 import { keyboardUp, whenKeyboardDown } from "../mobile/keyboard";
 import { useSettings } from "../settings/SettingsContext";
 import { useTutorial } from "../onboarding/useTutorial";
@@ -55,7 +54,7 @@ import { LARGE_DOC_THRESHOLD } from "../editor/large-doc";
 import { migrateDraftImages } from "../editor/images/image-migration";
 import { formatCombo } from "../utils/shortcuts";
 import { useAppUpdate } from "./useAppUpdate";
-import { useZoom } from "../utils/hooks/useZoom";
+import { useZoom } from "./useZoom";
 import {
   applyTextareaCaret,
   captureEditorCaret,
@@ -81,7 +80,7 @@ import { useExternalChangeReload } from "../document/useExternalChangeReload";
 import { useDraftAutosave } from "../document/draft-autosave";
 import { useMenuBridge, useNativeMenuChecks } from "./menu-bridge";
 import { useStartupRestore } from "../document/startup-restore";
-import { drafts, fs, session } from "../ipc";
+import { drafts, fs, session } from "../platform/ipc";
 import { flushPendingWrites } from "../storage/pending-writes";
 import { defaultMarkdownFilename } from "../document/save-default-name";
 import { useModalDialog } from "../ui/useModalDialog";
@@ -116,7 +115,7 @@ type PendingClose =
 // guard; see startup-restore.ts's `drained`.)
 let tutorialTabRecoveryDone = false;
 
-/** The sidebar's width (App.css .sidebar) and the narrowest text column
+/** The sidebar's width (sidebar-frame.css .sidebar) and the narrowest text column
  *  the docked panel may leave beside it. */
 const SIDEBAR_WIDTH = 240;
 const MIN_TEXT_COLUMN = 420;

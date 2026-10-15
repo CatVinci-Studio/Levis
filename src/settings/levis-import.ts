@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { levisImport, type LevisImportStatus, type LevisItem } from "../ipc";
+import {
+  levisImport,
+  type LevisImportStatus,
+  type LevisItem,
+} from "../platform/ipc";
 import { localeOf, type Lang, type Strings } from "../i18n/strings";
 import { showConfirm, showMessage } from "../ui/app-dialog";
 import { errorText } from "../utils/error-text";

@@ -2,7 +2,7 @@ import { Plugin, Selection, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import { isImeKeyEvent, stateWithLiveSelection } from "../marks/enclosure";
-import { isMacPlatform } from "../../utils/platform";
+import { isMacPlatform } from "../../platform/os";
 
 /** Resolve the displayed line, including soft wraps and inline enclosures.
  * Native WebKit navigation can stop at our contenteditable=false markers.

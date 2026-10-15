@@ -1,4 +1,4 @@
-import { storage } from "../ipc";
+import { storage } from "../platform/ipc";
 import { legacyImportSettled, readBoot } from "./boot";
 import { trackWrite } from "./pending-writes";
 

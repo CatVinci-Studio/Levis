@@ -4,7 +4,7 @@ import {
   useClipboardHistory,
   clearClipboardHistory,
   recordClipboardEntry,
-} from "../utils/clipboard-history";
+} from "../clipboard/history";
 import { INSERT_CLIPBOARD_TEXT_EVENT } from "../utils/events";
 
 const PREVIEW_MAX_CHARS = 120;

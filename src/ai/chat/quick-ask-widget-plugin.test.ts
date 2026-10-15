@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Editor } from "@milkdown/kit/core";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import { createTestEditor } from "../../editor/editor-test-harness";
+import { createTestEditor } from "../../document-view/editor-test-harness";
 import { setQuickAskWidget } from "./quick-ask-widget-plugin";
 import { blockPositionAfter } from "./useInlineChat";
 

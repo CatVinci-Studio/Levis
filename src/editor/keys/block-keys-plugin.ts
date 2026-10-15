@@ -14,7 +14,7 @@ import {
 } from "@milkdown/kit/prose/tables";
 import { $prose } from "@milkdown/kit/utils";
 import { isImeKeyEvent, stateWithLiveSelection } from "../marks/enclosure";
-import { modIsMeta } from "../../utils/platform";
+import { modIsMeta } from "../../platform/os";
 
 /**
  * Enter and Mod+Enter across Textus's container blocks, decided in one

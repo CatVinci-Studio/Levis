@@ -6,7 +6,7 @@ import { isImeKeyEvent } from "../../editor/marks/enclosure";
 import { isLargeDoc } from "../../editor/large-doc";
 import { createDebouncedTask } from "./debounced-task";
 import { hasPendingEdits } from "../revision/pending-edit-plugin";
-import { ai, type CompletionHints } from "../../ipc";
+import { ai, type CompletionHints } from "../../platform/ipc";
 import { AiNoticeError } from "../../utils/error-text";
 import { cjkChunk, isCjk, isCjkLetter } from "../../utils/cjk";
 import { headingTrail } from "../doc-markdown";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LANGS, resolveStrings } from "../i18n/strings";
-import { WRITING_CONVENTIONS } from "../ipc";
+import { WRITING_CONVENTIONS } from "../platform/ipc";
 import {
   CONVENTION_PROFILES,
   conventionsLanguageName,

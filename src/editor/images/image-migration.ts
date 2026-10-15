@@ -1,4 +1,4 @@
-import { fs } from "../../ipc";
+import { fs } from "../../platform/ipc";
 
 // Matches standard markdown image syntax: ![alt](src "optional title") -
 // how image-plugin.ts's paste handler inserts a src, and so how draft

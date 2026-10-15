@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { tabIsDirty, type DocTab } from "./doc-tabs";
-import { drafts } from "../ipc";
+import { drafts } from "../platform/ipc";
 
 const DEBOUNCE_MS = 3000;
 const MAX_WAIT_MS = 30000;

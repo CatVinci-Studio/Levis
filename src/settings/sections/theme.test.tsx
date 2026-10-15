@@ -10,7 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveStrings } from "../../i18n/strings";
 import { ThemeSection } from "./theme";
-import { fs, themes } from "../../ipc";
+import { fs, themes } from "../../platform/ipc";
 const mock = vi.hoisted(() => ({
   setSettings: vi.fn(),
   settings: {
@@ -24,7 +24,7 @@ vi.mock("../SettingsContext", () => ({
   THEME_MODES: ["system", "light", "dark"],
   BUILTIN_CONTENT_THEMES: [{ id: "default", nameKey: "themeNameDefault" }],
 }));
-vi.mock("../../ipc", () => ({
+vi.mock("../../platform/ipc", () => ({
   fs: { openCssFileDialog: vi.fn() },
   themes: { deleteTheme: vi.fn(), saveThemeCss: vi.fn() },
 }));

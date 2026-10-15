@@ -5,7 +5,7 @@ import type { EditProposal } from "../types";
 import { ChatBody, type ChatBodyLabels } from "./ChatBody";
 import { CloseConfirmBar, type CloseConfirmLabels } from "./CloseConfirm";
 import { useQuickAskReveal } from "./useQuickAskReveal";
-import { useQuickAskDock } from "../../mobile/quick-ask-dock";
+import { useQuickAskDock } from "./quick-ask-dock";
 import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
 import type { AgentMode } from "../../settings/SettingsContext";
 import "./AgentTurnView.css";

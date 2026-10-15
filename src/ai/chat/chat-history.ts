@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AgentTurn } from "../types";
 import { userMessageBody } from "./user-message";
 import { loadSettings } from "../../settings/SettingsContext";
-import { createPersistedList } from "../../utils/persisted-list";
+import { createPersistedList } from "../../storage/persisted-list";
 import { CHAT_HISTORY_KEY } from "../../storage/legacy-import";
 import { isIOSApp } from "../../platform/capabilities";
 import {

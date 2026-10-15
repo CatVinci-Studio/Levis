@@ -1,4 +1,4 @@
-import contentBaseCss from "../editor/content-base.css?raw";
+import contentBaseCss from "./content-base.css?raw";
 
 const ORNAMENT_PREFIX = ":root:not([data-user-theme]) .milkdown ";
 

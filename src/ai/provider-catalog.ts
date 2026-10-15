@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ai } from "../ipc";
+import { ai } from "../platform/ipc";
 import { useSettings } from "../settings/SettingsContext";
 
 /**

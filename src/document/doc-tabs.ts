@@ -1,6 +1,6 @@
 import type { Strings } from "../i18n/strings";
 import { basename } from "../utils/path";
-import { fs } from "../ipc";
+import { fs } from "../platform/ipc";
 
 // Every bundled guide, by file name: "src/help/<doc>-guide.<lang>.md". A
 // language without its own copy of a guide gets the English one, so a

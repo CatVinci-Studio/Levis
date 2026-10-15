@@ -1,0 +1,73 @@
+/* An outline jump lands the heading clear of the 28px window bar the page
+   scrolls under, with a little air - not behind it. */
+.editor-content .ProseMirror > :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 44px;
+}
+
+/* --content-zoom (set by utils/useZoom.ts) scales ONLY the document text,
+   never the window chrome. The column's max-width grows by the same factor
+   while the zoomed node's layout width divides by it, so the visual result
+   is the 100% column scaled geometrically - same words per line, everything
+   proportionally bigger - exactly like page zoom scoped to the content.
+   CSS `zoom` (not transform) so the text truly reflows and scrolls. The
+   fixed-position overlays (find bar, popovers) live OUTSIDE the zoomed
+   nodes and keep their unzoomed viewport coordinates. */
+/* The column's unzoomed width (Settings > Editor > Text Width). "auto"
+   holds a 680px column on ordinary windows - about 80 Latin characters a
+   line at 16.5px, 38 Chinese; the classic 760px ran English to 95 - and
+   widens with the pane on large screens, where a fixed column left two
+   thirds of the window empty. "Standard" keeps the classic 760px.
+   Percentages resolve against the scroll pane, so an open sidebar narrows
+   it too. An imported theme that sizes #write itself (theme-chrome.ts's
+   --theme-content-width) takes over "auto". */
+:root {
+  --content-width: var(--theme-content-width, max(680px, min(960px, 56%)));
+}
+
+:root[data-content-width="standard"] {
+  --content-width: 760px;
+}
+
+:root[data-content-width="full"] {
+  --content-width: 100%;
+}
+
+.editor-content {
+  max-width: calc(var(--content-width) * var(--content-zoom, 1));
+  margin: 0 auto;
+  /* The text size follows this column's width (milkdown-theme.css). */
+  container-type: inline-size;
+  /* Enough to clear the floating window bar (28px) and still leave the text
+     air beneath it, so nothing sits under the glass until you scroll. */
+  padding: 3rem 1.5rem 6rem;
+}
+
+:root[data-content-width="full"] .editor-content {
+  padding-inline: max(1.5rem, 4%);
+}
+
+.editor-content .milkdown {
+  zoom: var(--content-zoom, 1);
+}
+
+.editor-content.typewriter-active {
+  padding-top: 42vh;
+  padding-bottom: 42vh;
+}
+
+.source-view {
+  zoom: var(--content-zoom, 1);
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+  border: none;
+  outline: none;
+  resize: none;
+  background: var(--editor-bg, var(--bg));
+  color: var(--editor-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  line-height: 1.7;
+}

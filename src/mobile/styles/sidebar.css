@@ -18,7 +18,7 @@
     box-shadow: var(--shadow-drawer);
   }
 
-  /* A drawer: the page keeps its width under it (App.css's chain, with
+  /* A drawer: the page keeps its width under it (app/sidebar-frame.css's chain, with
      the prefix on top to outrank it). */
   :root[data-window-chrome="mobile"]:not(.zen)
     .sidebar:not(.sidebar-collapsed)

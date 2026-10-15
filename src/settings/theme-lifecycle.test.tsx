@@ -9,9 +9,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SettingsProvider, useSettings } from "./SettingsContext";
-import { themes } from "../ipc";
+import { themes } from "../platform/ipc";
 import { applyThemeChrome } from "../theme/theme-chrome";
-vi.mock("../ipc", () => ({
+vi.mock("../platform/ipc", () => ({
   ai: { setAiProxy: vi.fn().mockResolvedValue(null) },
   themes: { loadThemeCss: vi.fn() },
 }));

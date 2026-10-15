@@ -26,7 +26,7 @@
     .close-prompt-overlay
   ) {
   /* The whole screen: on iOS the title row has no window to drag or
-     close (App.css keeps the desktop's clear), and an iPad's Settings
+     close (app/window-bar.css keeps the desktop's clear), and an iPad's Settings
      left it bright and live above the dimming. */
   top: 0;
 }

@@ -19,7 +19,7 @@ import {
   type Settings,
   useSettings,
 } from "./SettingsContext";
-import { storage } from "../ipc";
+import { storage } from "../platform/ipc";
 import { resetBootForTests } from "../storage/boot";
 import {
   flushPendingWrites,
@@ -34,7 +34,7 @@ import { installTestLocalStorage } from "../dev/test-local-storage";
 
 const handlers: Record<string, (event: { payload: unknown }) => void> = {};
 
-vi.mock("../ipc", () => ({
+vi.mock("../platform/ipc", () => ({
   ai: { setAiProxy: vi.fn().mockResolvedValue(null) },
   themes: { loadThemeCss: vi.fn().mockResolvedValue(null) },
   storage: {

@@ -11,7 +11,7 @@ import { importThemeCss } from "../../theme/theme-import";
 import { ornamentRules } from "../../theme/theme-export";
 import { basename } from "../../utils/path";
 import { showMessage } from "../../ui/app-dialog";
-import { exportDoc, fs, themes } from "../../ipc";
+import { exportDoc, fs, themes } from "../../platform/ipc";
 import { useLatest } from "../../utils/hooks/useLatest";
 import { Select } from "../../ui/Select";
 import { SettingRow } from "./controls";

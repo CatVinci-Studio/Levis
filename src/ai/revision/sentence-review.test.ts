@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { editorViewCtx, serializerCtx } from "@milkdown/kit/core";
 import type { Editor } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
-import { createTestEditor } from "../../editor/editor-test-harness";
+import { createTestEditor } from "../../document-view/editor-test-harness";
 import { usePendingEdits } from "./usePendingEdits";
 import { locateHunks } from "./sentence-locate";
 import { diffSentences } from "./sentence-diff";

@@ -6,7 +6,7 @@ import { $prose } from "@milkdown/kit/utils";
 import { createDebouncedTask } from "./debounced-task";
 import { scalarToUtf16Offset, textOffsetToDocPos } from "../doc-text";
 import { isLargeDoc } from "../../editor/large-doc";
-import { ai } from "../../ipc";
+import { ai } from "../../platform/ipc";
 import { AiNoticeError } from "../../utils/error-text";
 
 export const grammarKey = new PluginKey("grammar-check");

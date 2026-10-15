@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ai, exportDoc, type AgentWorkspaceInfo } from "../../ipc";
+import { ai, exportDoc, type AgentWorkspaceInfo } from "../../platform/ipc";
 import {
   canPickFolder,
   canRevealInFileManager,
@@ -14,8 +14,8 @@ import { basename } from "../../utils/path";
 import { knownDocumentsDir } from "../../platform/documents-path";
 import { APP_NAME } from "../../i18n/names";
 import { ChevronIcon, FolderIcon } from "../../ui/icons";
-import { ActionSheet, type ActionSheetItem } from "../../mobile/ActionSheet";
-import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { ActionSheet, type ActionSheetItem } from "../../ui/ActionSheet";
+import { usePhoneLayout } from "../../ui/usePhoneLayout";
 import { MemorySections } from "./MemoryView";
 
 function openInTab(path: string) {

@@ -14,7 +14,7 @@ import {
   OPENAI_OAUTH_WRITING_MODEL_PRESETS,
 } from "../agent-models";
 import { useActiveProvider } from "../../ai/provider-catalog";
-import { ai, auth } from "../../ipc";
+import { ai, auth } from "../../platform/ipc";
 import { Select } from "../../ui/Select";
 import { SettingRow, VERBATIM_INPUT } from "./controls";
 

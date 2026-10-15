@@ -16,7 +16,7 @@ import {
   type Strings,
   type TextKey,
 } from "../i18n/strings";
-import { ai, storage, themes } from "../ipc";
+import { ai, storage, themes } from "../platform/ipc";
 import { readBoot, readLocalJson } from "../storage/boot";
 import { importLegacyStorage } from "../storage/legacy-import";
 import { trackWrite } from "../storage/pending-writes";
@@ -43,7 +43,7 @@ export type AiProvider = string;
 export type NewDocumentMode = "window" | "tab";
 /** How wide the text column runs: "auto" widens with the window, "standard"
  *  keeps the classic fixed measure, "full" uses the whole pane. Applied as
- *  `data-content-width` on the root (App.css). */
+ *  `data-content-width` on the root (app/editor-column.css). */
 export type ContentWidth = "auto" | "standard" | "full";
 export type ProxyType = "none" | "http" | "https" | "socks5";
 
@@ -80,7 +80,7 @@ const DEFAULT_SHORTCUTS: Shortcuts = {
 
 /// Built-in content themes only override `--editor-*` CSS variables (see
 /// content-themes.css) - "default" means none of them are active, so the
-/// base variables from App.css apply as-is.
+/// base variables from ui/base.css apply as-is.
 export type BuiltinContentThemeId =
   "default" | "paper" | "slate" | "forest" | "parchment";
 
@@ -630,7 +630,7 @@ function rememberThemeChrome(chrome: ThemeChromeCache) {
 /**
  * Marks every custom property the user's own CSS sets `!important`. An
  * imported theme's chrome (theme-chrome.ts) pins the `--editor-*` colours
- * with !important to beat App.css's dark block, which made a plain
+ * with !important to beat ui/base.css's dark block, which made a plain
  * `:root { --editor-bg: ... }` in Custom CSS lose. Custom CSS comes after
  * the chrome, so at equal weight it now wins again. Only custom
  * properties: everything else keeps the cascade the user wrote it for.
@@ -709,7 +709,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.proxyType, settings.proxyHost, settings.proxyPort]);
 
   // "system" removes the attribute rather than resolving it here, so the
-  // @media (prefers-color-scheme) rules in App.css/content-themes.css are
+  // @media (prefers-color-scheme) rules in ui/base.css/content-themes.css are
   // what answer - and the app follows an OS switch live, with no listener.
   useEffect(() => {
     const root = document.documentElement;

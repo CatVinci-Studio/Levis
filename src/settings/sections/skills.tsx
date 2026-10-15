@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { errorText } from "../../utils/error-text";
 import { useSettings } from "../SettingsContext";
 import type { Strings, TextKey } from "../../i18n/strings";
-import { skillText } from "../../i18n/skills";
+import { skillText } from "../../ai/skills/texts";
 import {
   BUILTIN_SKILLS,
   SKILL_CATEGORIES,
@@ -10,7 +10,7 @@ import {
   type SkillCategory,
 } from "../../ai/skills/builtin";
 import type { AgentSkill } from "../../ai/types";
-import { ai, type SkillListItem } from "../../ipc";
+import { ai, type SkillListItem } from "../../platform/ipc";
 import { showConfirm } from "../../ui/app-dialog";
 import { Select } from "../../ui/Select";
 import { SettingRow } from "./controls";

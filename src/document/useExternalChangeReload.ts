@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { statMtime, tabIsDirty, type DocTab } from "./doc-tabs";
-import { fs } from "../ipc";
+import { fs } from "../platform/ipc";
 import { unlistenAll } from "../utils/tauri-events";
 
 // External-change pickup: whenever this window regains focus, compare each

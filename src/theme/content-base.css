@@ -1,0 +1,387 @@
+/* How document elements look - headings, paragraphs, quotes, links, rules,
+   code, list rhythm, tables - kept apart from milkdown-theme.css, which
+   holds what makes the editor WORK (carets, markers, previews, resize
+   handles, table layout).
+
+   All of it sits in a cascade layer. Unlayered CSS beats layered CSS
+   whatever the selectors, so an imported Typora theme's plain
+   `blockquote {}` or `table td {}` now wins over the `.milkdown blockquote`
+   here instead of losing on specificity (#13), and so does the user's own
+   custom CSS. The functional rules stay unlayered on purpose: a theme
+   restyling a list must not be able to break its numbering or the caret.
+
+   Two tiers inside the layer. The plain rules are a neutral base, close to
+   Typora's own base.css, that every theme builds on. The
+   `:not([data-user-theme])` rules are Textus's own ornaments - the h2 rule,
+   the h3 bar, the h4 dot, the tinted quote - which an imported theme never
+   asked for: a theme that styles h3's colour but says nothing of borders
+   would otherwise keep Textus's accent bar. SettingsContext sets
+   data-user-theme while an imported theme is active.
+
+   The layer was `levis-content` before the rename to Textus. It was renamed
+   rather than kept: CSS written for Levis that says
+   `@layer levis-content { ... }` now creates a layer declared after this
+   one, so its rules still override the built-in look (more reliably than
+   before, when specificity inside the shared layer decided), and unlayered
+   CSS wins over both as always (e2e/user-css.spec.ts). */
+
+@layer textus-content {
+  /* The document's type. The size follows the column: the classic 16.5px
+     at the 760px standard measure, growing to 18px as the adaptive column
+     widens (app/editor-column.css --content-width), so a wide column doesn't read as
+     small print. cqi is the column's zoomed width, hence the divide; rem,
+     so an `html { font-size }` scales it. The face is the one the page
+     inherits (:root's --font-sans) unless a theme names --editor-font, so
+     a `body { font-family }` in Custom CSS reaches the document too. */
+  .milkdown {
+    font-family: var(--editor-font, inherit);
+    font-size: clamp(
+      1.03125rem,
+      calc(0.80875rem + 0.46875cqi / var(--content-zoom, 1)),
+      1.125rem
+    );
+    line-height: 1.8;
+    color: var(--editor-text);
+  }
+
+  /* An imported Typora theme sets the type on body or html; let it reach
+     the document instead of Textus's own. */
+  :root[data-user-theme] .milkdown {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  /* Zen's focus fade (milkdown-theme.css), both ways. Layered, so a
+     theme's own `p { transition }` is left as the theme wrote it. */
+  .milkdown .ProseMirror > * {
+    transition: opacity var(--dur-base) var(--ease-standard);
+  }
+
+  .md-span[data-delim="*"][data-rung="1"] {
+    font-style: italic;
+  }
+
+  .md-span[data-delim="*"][data-rung="2"] {
+    font-weight: 600;
+  }
+
+  .md-span[data-delim="*"][data-rung="3"] {
+    font-weight: 600;
+    font-style: italic;
+  }
+
+  .md-span[data-delim="~"] {
+    text-decoration: line-through;
+    opacity: 0.75;
+  }
+
+  .md-span[data-delim="="] {
+    background: var(--editor-highlight-bg);
+    border-radius: var(--md-radius-sm);
+    padding: 0 0.15em;
+  }
+
+  .milkdown h1,
+  .milkdown h2,
+  .milkdown h3,
+  .milkdown h4 {
+    font-weight: 650;
+    line-height: 1.3;
+    /* In the heading's own em, so a larger heading takes proportionally
+       more air above it; less below, so it binds to the text it
+       introduces. */
+    margin: 1.5em 0 0.55em;
+  }
+
+  /* A document (or a quote, list item, cell) shouldn't open with a gap. */
+  .milkdown .ProseMirror > :first-child,
+  .milkdown blockquote > :first-child,
+  .milkdown li > :first-child,
+  .milkdown td > :first-child,
+  .milkdown th > :first-child {
+    margin-top: 0;
+  }
+
+  .milkdown blockquote > :last-child,
+  .milkdown li > :last-child,
+  .milkdown td > :last-child,
+  .milkdown th > :last-child {
+    margin-bottom: 0;
+  }
+
+  .milkdown h1 {
+    font-size: 1.9em;
+  }
+
+  .milkdown h2 {
+    font-size: 1.5em;
+  }
+
+  .milkdown h3 {
+    font-size: 1.25em;
+  }
+
+  .milkdown h4 {
+    font-size: 1.1em;
+  }
+
+  .milkdown p {
+    margin: var(--md-gap) 0;
+  }
+
+  .milkdown blockquote {
+    margin: var(--md-gap-box) 0;
+    padding: 0 1em;
+    border-left: 4px solid var(--editor-border);
+  }
+
+  .milkdown a {
+    color: var(--editor-accent);
+    text-decoration: none;
+  }
+
+  .milkdown a:hover {
+    text-decoration: underline;
+  }
+
+  .milkdown hr {
+    margin: calc(var(--md-gap-box) * 1.5) 0;
+    height: 0;
+    border: none;
+    border-top: 1px solid var(--editor-border);
+  }
+
+  /* Footnotes: the reference a small raised number, each definition its
+     number then its text on one line, in the note's smaller size - not
+     the browser's bare <dl>, which puts the number on a line of its own. */
+  .milkdown sup[data-type="footnote_reference"] {
+    font-size: 0.75em;
+    line-height: 0;
+    color: var(--editor-accent);
+  }
+
+  .milkdown dl[data-type="footnote_definition"] {
+    display: flex;
+    gap: 0.6em;
+    margin: 0.35em 0;
+    font-size: 0.9em;
+    color: var(--editor-muted);
+  }
+
+  .milkdown dl[data-type="footnote_definition"] > dt {
+    flex: none;
+    min-width: 1.2em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .milkdown dl[data-type="footnote_definition"] > dd {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .milkdown dl[data-type="footnote_definition"] > dd > p {
+    margin: 0;
+  }
+
+  .milkdown code {
+    font-family: var(--font-mono);
+    font-variant-ligatures: normal;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1;
+    font-size: 0.9em;
+    background: var(--editor-code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: var(--md-radius-sm);
+  }
+
+  .code-block-wrapper {
+    background: var(--editor-code-bg);
+    border: 1px solid var(--editor-border);
+    border-radius: var(--md-radius);
+    margin: var(--md-gap-box) 0;
+  }
+
+  /* Size and line height live on the <pre>, not just its <code>: the
+     pre's own line box (its strut) is what each line is at least as tall
+     as, so leaving it at the prose 1.8 kept code double-spaced whatever
+     the code element said. */
+  .milkdown pre {
+    font-size: 0.9em;
+    line-height: 1.55;
+    padding: 0.75em 1em;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  .milkdown pre code {
+    font-family: var(--font-mono);
+    font-variant-ligatures: normal;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1;
+    font-size: 1em;
+    background: none;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    /* .milkdown code (above) sets font-size: 0.9em for inline code, and
+       without this the block case kept inheriting .milkdown's prose-tuned
+       1.8 - a line box roughly twice the monospace glyphs' height, which
+       the native caret sizes itself to (most visible on an empty line).
+       Inherits the pre's code-editor spacing. */
+    line-height: inherit;
+  }
+
+  /* The vertical rhythm of a list. Every item's content is a paragraph
+     (list_item content is "paragraph block*"), so without this rule each
+     row carries .milkdown p's prose margin and a list reads as a stack of
+     separate paragraphs. Rows sit tighter than prose by default;
+     --editor-list-gap is the theme hook (see the textus-theme skill's
+     variable table). Nested ul/ol are included because their UA margin
+     (1em) is what makes the step into a sublist read wide. */
+  .milkdown li > p,
+  .milkdown li > ul,
+  .milkdown li > ol {
+    margin: var(--editor-list-gap, 0.4em) 0;
+  }
+
+  .milkdown table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  /* Cells sit tighter than prose: the 1.8 body line height and roomy
+     padding made even one-line rows tall (#15). */
+  .milkdown th,
+  .milkdown td {
+    padding: 0.35em 0.75em;
+    line-height: 1.6;
+    border: 1px solid var(--editor-border);
+  }
+
+  /* Not `thead th`: Milkdown keeps the header row in <tbody> (see
+     settings/typora-compat.ts). Headers don't wrap, and body cells keep a
+     small floor: with content-sized columns, CJK text - which may break
+     between any two characters - otherwise let the browser squeeze a short
+     column down to one character ("序/号"), wrapping every two-character
+     word (#15). */
+  .milkdown th {
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .milkdown td {
+    min-width: 3.5em;
+  }
+
+  /* Cells in a cell selection (Select Row/Column, dragging across cells).
+     prosemirror-tables hides the native highlight for these and marks them
+     .selectedCell instead; without a rule they looked unselected (#30). */
+  .milkdown td,
+  .milkdown th {
+    position: relative;
+  }
+
+  .milkdown .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--editor-accent) 18%, transparent);
+    pointer-events: none;
+  }
+
+  /* Textus's own ornaments - see the header comment. Settings > Theme >
+     Export writes each of these out as a #write rule (theme-export.ts), so
+     keep them one selector per rule under this exact prefix. */
+  :root:not([data-user-theme]) .milkdown h2 {
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--editor-border);
+  }
+
+  :root:not([data-user-theme]) .milkdown h3 {
+    padding-left: 0.6em;
+    border-left: 4px solid var(--editor-accent);
+  }
+
+  :root:not([data-user-theme]) .milkdown h4::before {
+    content: "";
+    display: inline-block;
+    width: 0.4em;
+    height: 0.4em;
+    margin-right: 0.5em;
+    border-radius: 50%;
+    background: var(--editor-accent);
+    vertical-align: middle;
+  }
+
+  :root:not([data-user-theme]) .milkdown blockquote {
+    color: var(--editor-muted);
+    padding: 0.55em 1em;
+    border-left: 3px solid var(--editor-quote-border);
+    border-radius: 0 var(--md-radius) var(--md-radius) 0;
+    background: var(--editor-code-bg);
+  }
+
+  /* A quiet underline, not bold: a bold link read as bold text. */
+  :root:not([data-user-theme]) .milkdown a {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(
+      in srgb,
+      var(--editor-accent) 45%,
+      transparent
+    );
+    text-underline-offset: 0.2em;
+  }
+
+  :root:not([data-user-theme]) .milkdown a:hover {
+    text-decoration-color: currentColor;
+  }
+
+  /* Rounded like the code block beside it (--md-radius): separate
+     borders, so the outer edge can take the corner - each cell draws only
+     its right and bottom rule, the table the frame. */
+  :root:not([data-user-theme]) .milkdown table {
+    font-size: 0.95em;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--editor-border);
+    border-radius: var(--md-radius);
+  }
+
+  :root:not([data-user-theme]) .milkdown :is(th, td) {
+    border-width: 0 1px 1px 0;
+  }
+
+  :root:not([data-user-theme]) .milkdown tr > :is(th, td):last-child {
+    border-right-width: 0;
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:last-child > :is(th, td) {
+    border-bottom-width: 0;
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:first-child > :first-child {
+    border-top-left-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:first-child > :last-child {
+    border-top-right-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:last-child > :first-child {
+    border-bottom-left-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown tr:last-child > :last-child {
+    border-bottom-right-radius: calc(var(--md-radius) - 1px);
+  }
+
+  :root:not([data-user-theme]) .milkdown th {
+    background: var(--editor-code-bg);
+  }
+}

@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { menuIpc, windowIpc } from "../ipc";
+import { menuIpc, windowIpc } from "../platform/ipc";
 import { hasNativeMenuBar } from "../platform/capabilities";
 import {
   nativeMenuChecks,
   nativeMenuLabels,
   type MenuChecks,
-} from "../ui/app-menu-model";
+} from "./app-menu-model";
 import { listenToThisWindow, unlistenAll } from "../utils/tauri-events";
 import { exportHtml, exportPdf, exportViaPandoc } from "../export/exporters";
 import { TOGGLE_FIND_REPLACE_EVENT, INSERT_BLOCK_EVENT } from "../utils/events";

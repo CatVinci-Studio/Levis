@@ -1,4 +1,4 @@
-import { isLinuxPlatform } from "../../utils/platform";
+import { isLinuxPlatform } from "../../platform/os";
 import { Plugin } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";

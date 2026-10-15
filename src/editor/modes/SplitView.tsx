@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from "react";
-import { renderDocumentHtml } from "../../ai/markdown-render";
+import { renderDocumentHtml } from "../markdown/render-html";
 import { resolveImageSrc } from "../images/image-plugin";
 import {
   configureMermaid,

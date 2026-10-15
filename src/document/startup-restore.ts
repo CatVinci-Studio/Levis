@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { drafts, windowIpc } from "../ipc";
+import { drafts, windowIpc } from "../platform/ipc";
 import { canUseWindows, hasAppMenu, isIOSApp } from "../platform/capabilities";
-import { lastIOSDocument } from "../platform/ios-files";
+import { lastIOSDocument } from "./ios-recents";
 import {
   helpDocContent,
   makeBlankTab,

@@ -4,12 +4,12 @@ import { getVersion } from "@tauri-apps/api/app";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Strings } from "../../i18n/strings";
-import { cli } from "../../ipc";
+import { cli } from "../../platform/ipc";
 import { flushPendingWrites } from "../../storage/pending-writes";
-import { selfUpdateAllowed } from "../../utils/distribution";
+import { selfUpdateAllowed } from "../../platform/distribution";
 import { canAutoUpdate } from "../../platform/capabilities";
 import { SettingRow } from "./controls";
-import { levisImport, type LevisImportStatus } from "../../ipc";
+import { levisImport, type LevisImportStatus } from "../../platform/ipc";
 import type { Lang } from "../../i18n/strings";
 import { itemList, runLevisImport } from "../levis-import";
 

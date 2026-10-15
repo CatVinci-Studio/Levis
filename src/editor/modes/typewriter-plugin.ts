@@ -6,7 +6,7 @@ import { $prose } from "@milkdown/kit/utils";
  * pinned near vertical center of the scroll container instead of letting it
  * drift to the bottom as you type. Requires `.editor-content` to have
  * enough top/bottom padding for the first/last lines to actually reach
- * center (see `.typewriter-active` in App.css).
+ * center (see `.typewriter-active` in app/editor-column.css).
  */
 export function createTypewriterPlugin(options: { enabled: () => boolean }) {
   return $prose(

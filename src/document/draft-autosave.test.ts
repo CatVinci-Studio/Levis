@@ -2,9 +2,9 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDraftAutosave } from "./draft-autosave";
-import { drafts } from "../ipc";
+import { drafts } from "../platform/ipc";
 import type { DocTab } from "./doc-tabs";
-vi.mock("../ipc", () => ({
+vi.mock("../platform/ipc", () => ({
   drafts: {
     saveDraftSnapshot: vi.fn().mockResolvedValue(undefined),
     clearDraftSnapshot: vi.fn().mockResolvedValue(undefined),

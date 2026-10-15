@@ -1,0 +1,163 @@
+/* PDF export on Windows/Linux is window.print() on this live window (macOS
+   renders offscreen instead - see exporters.ts's exportPdf). These rules make
+   that print look like the themed document: hide app chrome, flow the content,
+   and keep the editor theme's colours. */
+@media print {
+  /* Without this the print engine drops every background colour, flattening the
+     editor theme (code blocks, quotes, dark pages) to white. */
+  :root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A real vertical page margin on every page - padding alone insets only
+     the first and last, leaving text at each page seam flush against the
+     sheet edge where printers clip it. Chromium still paints the root
+     background into the margin, so the theme stays full-bleed. */
+  @page {
+    margin: 12mm 0;
+  }
+
+  .sidebar,
+  .tab-bar,
+  .window-bar,
+  .close-prompt-overlay,
+  .update-toast,
+  .pdf-export-overlay {
+    display: none !important;
+  }
+
+  /* The room the sidebar had on screen. */
+  .main-pane {
+    margin-left: 0 !important;
+  }
+
+  /* Editing affordances, not content - keep in step with
+     EDITOR_CHROME_SELECTOR in exporters.ts. */
+  .heading-marker,
+  .enclosure-delimiter,
+  .code-block-header,
+  .table-add-row-btn,
+  .table-add-col-btn,
+  .ghost-text,
+  .quick-ask-anchor,
+  .pending-insert,
+  .image-resize-handle,
+  .frontmatter-block {
+    display: none !important;
+  }
+
+  /* Wide content wraps or fits instead of running off the sheet: a page
+     cannot scroll a code/math box, and a resized table's pixel widths were
+     sized for the screen column (exporters.ts rescales them for the other
+     exports; the live DOM printed here can only be capped). */
+  .milkdown table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .table-scroll {
+    overflow: visible;
+  }
+
+  /* Only the screen-sized pixel columns: the exports' rescaled clone
+     carries percentages, which already fit. */
+  .milkdown col[style*="px"] {
+    width: auto !important;
+  }
+
+  .math-block-rendered,
+  .katex-display {
+    overflow: visible !important;
+  }
+
+  .katex-display > .katex {
+    white-space: normal;
+  }
+
+  .milkdown a,
+  .milkdown p,
+  .milkdown li,
+  .milkdown td,
+  .milkdown th {
+    overflow-wrap: anywhere;
+  }
+
+  html,
+  body,
+  .app-shell,
+  .main-pane,
+  .editor-scroll {
+    height: auto;
+    overflow: visible;
+    background: var(--editor-bg, var(--bg)) !important;
+  }
+
+  /* Inset the text (page margins are zero for full-bleed); drop typewriter
+     mode's centering padding. */
+  .editor-content,
+  .editor-content.typewriter-active {
+    max-width: none;
+    padding: 0 14mm;
+  }
+
+  /* Keep indivisible blocks off page seams. */
+  pre,
+  blockquote,
+  table,
+  img {
+    break-inside: avoid;
+  }
+}
+
+/* "Preparing PDF…" progress overlay shown by exportPdf while the offscreen
+   render + file write runs. */
+.pdf-export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-bg);
+}
+
+.pdf-export-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.75rem 2.25rem;
+  border-radius: var(--radius-dialog);
+  background: var(--bg);
+  color: var(--editor-text);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-dialog);
+  text-align: center;
+}
+
+.pdf-export-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--editor-border);
+  border-top-color: var(--editor-accent);
+  animation: pdf-export-spin 0.7s linear infinite;
+}
+
+@keyframes pdf-export-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pdf-export-text {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.pdf-export-hint {
+  font-size: var(--text-sm);
+  color: var(--editor-muted);
+  max-width: 22ch;
+}

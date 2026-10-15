@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Editor } from "@milkdown/kit/core";
-import { createTestEditor } from "../../editor/editor-test-harness";
+import { createTestEditor } from "../../document-view/editor-test-harness";
 import { commentCalls, reviewNotesKey } from "./review-notes-plugin";
 
 let editor: Editor | null = null;

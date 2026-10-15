@@ -24,7 +24,7 @@
 }
 
 /* A click anywhere below the text still lands in it: the page's height,
-   less the column's padding above and below it (App.css .editor-content,
+   less the column's padding above and below it (app/editor-column.css .editor-content,
    3rem + 6rem) - with only 6rem off, an empty document scrolled by 48px
    and showed a scrollbar. Divided by the zoom, which scales this node's
    lengths (useZoom.ts). */

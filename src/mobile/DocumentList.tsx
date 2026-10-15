@@ -7,23 +7,23 @@ import { CloseIcon, GridViewIcon, ListViewIcon, MoreIcon } from "../ui/icons";
 import { Presence, usePresenceProps } from "../ui/usePresence";
 import { animate } from "../ui/motion";
 import { ListMotion } from "../ui/flip";
-import { fs } from "../ipc";
+import { fs } from "../platform/ipc";
 import { getUiState, setUiState } from "../storage/ui-state";
 import { basename, dirname } from "../utils/path";
 import { useLongPress } from "../utils/hooks/useLongPress";
+import { iosFiles } from "../platform/ios-files";
 import {
   deleteIOSDocument,
   forgetIOSDocument,
   inIOSDocuments,
-  iosFiles,
   recentIOSDocuments,
   renameIOSDocument,
-} from "../platform/ios-files";
+} from "../document/ios-recents";
 import "./DocumentList.css";
 
 /**
  * The iPhone's list of documents: every document opened in Textus, newest
- * first (platform/ios-files.ts keeps the history). Tap one to open it; its
+ * first (document/ios-recents.ts keeps the history). Tap one to open it; its
  * menu (the "..." button, or a long press) shares, renames, deletes or
  * forgets it. Documents in the app's own folder can be renamed and deleted;
  * one picked elsewhere in Files only granted access to the file itself, so

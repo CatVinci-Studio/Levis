@@ -4,7 +4,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
-import { renderMarkdownInlineHtml } from "../markdown-render";
+import { renderMarkdownInlineHtml } from "../../editor/markdown/render-html";
 import type { EditProposal } from "../types";
 import type { SentenceHunk } from "./sentence-diff";
 import type { RevisionDisplay } from "../../settings/SettingsContext";

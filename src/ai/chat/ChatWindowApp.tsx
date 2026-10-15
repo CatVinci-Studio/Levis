@@ -14,17 +14,18 @@ import {
   sendToWindow,
   type ChatContext,
 } from "./chat-bridge";
-import { windowIpc } from "../../ipc";
+import { windowIpc } from "../../platform/ipc";
 import { flushPendingWrites } from "../../storage/pending-writes";
 import { PinIcon, PlusIcon } from "../../ui/icons";
-import { WindowCaptionButtons } from "../../ui/WindowControls";
+import { WindowCaptionButtons } from "../../app/WindowControls";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
 import { useLatest } from "../../utils/hooks/useLatest";
 // Every theme custom property (--editor-bg, --editor-text, --editor-border,
-// ...) is declared on :root in App.css, which until now only App.tsx pulled
-// in. This window doesn't render App, so without this import every var()
-// below resolves to nothing and the whole window is unstyled.
-import "../../app/App.css";
+// ...) is declared on :root in ui/base.css. This window doesn't render App,
+// so without this import every var() resolves to nothing and the whole
+// window is unstyled; the dialogs' look comes along for its close prompt.
+import "../../ui/base.css";
+import "../../ui/app-dialog.css";
 import "./AgentTurnView.css";
 import "./inline-chat.css";
 import "./chat-window.css";

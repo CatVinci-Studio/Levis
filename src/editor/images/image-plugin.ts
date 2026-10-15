@@ -6,7 +6,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { showMessage } from "../../ui/app-dialog";
 import { dirname } from "../../utils/path";
-import { fs } from "../../ipc";
+import { fs } from "../../platform/ipc";
 import type { Settings, ImageNamingMode } from "../../settings/SettingsContext";
 import { isScopedUrl, scopedImageSrc } from "../../platform/ios-files";
 

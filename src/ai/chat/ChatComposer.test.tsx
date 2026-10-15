@@ -22,8 +22,11 @@ vi.mock("../provider-catalog", () => ({
   useActiveProvider: () => ({ supportsVision }),
 }));
 
-vi.mock("../../ipc", async () => {
-  const actual = await vi.importActual<typeof import("../../ipc")>("../../ipc");
+vi.mock("../../platform/ipc", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../platform/ipc")>(
+      "../../platform/ipc",
+    );
   return {
     ...actual,
     ai: {
@@ -36,7 +39,7 @@ vi.mock("../../ipc", async () => {
 });
 
 const { ChatComposer } = await import("./ChatComposer");
-const { IpcError } = await import("../../ipc");
+const { IpcError } = await import("../../platform/ipc");
 const { pickerLabels } = await import("./ComposerPicker");
 const { resolveStrings } = await import("../../i18n/strings");
 const { BUILTIN_SKILLS } = await import("../skills/builtin");

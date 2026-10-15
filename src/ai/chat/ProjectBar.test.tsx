@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveStrings } from "../../i18n/strings";
-import type { AgentWorkspaceInfo } from "../../ipc";
+import type { AgentWorkspaceInfo } from "../../platform/ipc";
 
 const t = resolveStrings("en");
 let answer: (info: AgentWorkspaceInfo | null) => void = () => {};
@@ -17,8 +17,11 @@ vi.mock("../../settings/SettingsContext", () => ({
   }),
 }));
 vi.mock("../provider-catalog", () => ({ useActiveProvider: () => null }));
-vi.mock("../../ipc", async () => {
-  const actual = await vi.importActual<typeof import("../../ipc")>("../../ipc");
+vi.mock("../../platform/ipc", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../platform/ipc")>(
+      "../../platform/ipc",
+    );
   return {
     ...actual,
     ai: {

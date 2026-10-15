@@ -47,82 +47,40 @@ import { tabExtendPlugin } from "./keys/tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./markdown/escape-trailing-block-plugin";
 import { codeBlockIndentPlugin } from "./code/code-block-indent-plugin";
 import { pasteMarkdownSourcePlugin } from "./markdown/paste-markdown-plugin";
-import { clipboardHistoryPlugin } from "./clipboard-history-plugin";
+import { clipboardHistoryPlugin } from "../clipboard/history-plugin";
 import { createImagePlugin } from "./images/image-plugin";
 import { createTypewriterPlugin } from "./modes/typewriter-plugin";
 import { zenFocusPlugin } from "./modes/zen-focus-plugin";
 import { keyboardRevealPlugin } from "./keys/keyboard-reveal-plugin";
 import { createPlaceholderPlugin } from "./placeholder-plugin";
-import { createGhostTextPlugin } from "../ai/writing/ghost-text-plugin";
-import { buildCompletionStyle } from "../ai/writing/completion-style";
-import { createGrammarCheckPlugin } from "../ai/writing/grammar-check-plugin";
-import {
-  createPendingEditPlugin,
-  type PendingPreview,
-} from "../ai/revision/pending-edit-plugin";
-import { chatSelectionPlugin } from "../ai/chat/chat-selection-plugin";
-import { createQuickAskWidgetPlugin } from "../ai/chat/quick-ask-widget-plugin";
-import {
-  createReviewNotesPlugin,
-  type ReviewNote,
-} from "../ai/margin/review-notes-plugin";
 import { findReplacePlugin } from "./find/find-replace-plugin";
 import { resolveStrings } from "../i18n/strings";
-import type { RevisionDisplay, Settings } from "../settings/SettingsContext";
-
-export interface PendingEditCallbacks {
-  onAccept: (callId: string) => void;
-  onReject: (callId: string) => void;
-  onPreviewsChange: (previews: PendingPreview[]) => void;
-  /** Live read of the Quick Ask nav bar's current pointer - see
-   *  createPendingEditPlugin's option of the same name. */
-  getFocusedCallId: () => string | null;
-  /** A ✓ / ✕ clicked in the text - see createPendingEditPlugin. */
-  onDecide: (callId: string, index: number, take: boolean | null) => void;
-  /** The sentence the review bar points at. */
-  getFocusedSentence: () => { callId: string; index: number } | null;
-  /** How a rewrite is drawn (revision-display.ts). */
-  revisionDisplay?: () => RevisionDisplay;
-}
+import type { Settings } from "../settings/SettingsContext";
 
 /**
- * The complete feature set the editor is composed of, in load order.
- * `settings` is a live ref (see useLatest) because the chain is built once
- * at mount while several features (AI, math, mermaid, typewriter,
- * placeholder language) follow the current Settings values. `pendingEdits`
- * is similarly built once - its callbacks must be stable, ref-indirected
- * wrappers (see MilkdownEditor) since usePendingEdits itself is created
- * from a `run` that isn't ready yet at this point.
+ * The Markdown editor itself, in load order: parsing and saving, the
+ * Typora-style marks, math, diagrams, images, tables, keys and modes. The
+ * AI features attach on top of this (ai/editor-plugins.ts), and
+ * document-view/editor-extensions.ts puts the two together.
+ *
+ * `settings` and `docPath` are live refs (see useLatest): the chain is built
+ * once at mount while several plugins follow the current values.
  */
-export function withEditorExtensions(
+export function withEditorCore(
   editor: Editor,
-  settings: { readonly current: Settings },
-  docPath: { readonly current: string | null },
-  pendingEdits: PendingEditCallbacks,
-  /** Hands the Quick Ask widget's DOM container to MilkdownEditor as it
-   *  mounts/unmounts - ref-indirected the same way `pendingEdits` is (this
-   *  is built before the real callback exists). */
-  quickAskWidget: {
-    onMount: (el: HTMLElement) => void;
-    onUnmount: (el: HTMLElement) => void;
+  options: {
+    settings: { readonly current: Settings };
+    docPath: { readonly current: string | null };
+    /** A pasted image failed to save to disk - the message to show in a
+     *  native alert (localized, since this plugin has no i18n access). */
+    onImagePasteError: () => string;
+    requestImageName: (
+      stem: string,
+      extension: string,
+    ) => Promise<string | null>;
   },
-  /** True while the onboarding tour runs: the typing-triggered AI plugins
-   *  go quiet so the tour's PRE-WRITTEN suggestions (utils/events.ts's
-   *  TUTORIAL_MOCK_GHOST_EVENT) are the only AI-looking thing on screen -
-   *  first-run users have no account, and a real response arriving over a
-   *  mocked one would derail the script. */
-  aiMuted: { readonly current: boolean },
-  /** A pasted image failed to save to disk - the message to show in a
-   *  native alert (localized, since this plugin has no i18n access itself). */
-  onImagePasteError: () => string,
-  requestImageName: (stem: string, extension: string) => Promise<string | null>,
-  /** The review notes' callbacks (review-notes-plugin.ts) - ref-indirected
-   *  like `pendingEdits`. */
-  reviewNotes: {
-    onChange: (notes: ReviewNote[]) => void;
-    onBadge: (id: string, el: HTMLElement) => void;
-  } = { onChange: () => {}, onBadge: () => {} },
 ): Editor {
+  const { settings, docPath, onImagePasteError, requestImageName } = options;
   return (
     editor
       // How saved markdown is written (markdown-output.ts).
@@ -240,50 +198,5 @@ export function withEditorExtensions(
           () => resolveStrings(settings.current.language).emptyDocPlaceholder,
         ),
       )
-
-      // AI assistance (each independently toggleable in Settings).
-      .use(
-        createGhostTextPlugin({
-          enabled: () => settings.current.enableCompletion && !aiMuted.current,
-          provider: () => settings.current.aiProvider,
-          model: () =>
-            settings.current.writingModels[settings.current.aiProvider] || null,
-          style: () => buildCompletionStyle(settings.current.completionTone),
-          project: () => ({
-            docPath: docPath.current,
-            workspaceRoot: settings.current.agentWorkspaceRoot || null,
-          }),
-        }),
-      )
-      .use(
-        createGrammarCheckPlugin({
-          enabled: () =>
-            settings.current.enableGrammarCheck && !aiMuted.current,
-          provider: () => settings.current.aiProvider,
-          model: () =>
-            settings.current.writingModels[settings.current.aiProvider] || null,
-          strictness: () => settings.current.grammarStrictness,
-          project: () => ({
-            docPath: docPath.current,
-            workspaceRoot: settings.current.agentWorkspaceRoot || null,
-          }),
-        }),
-      )
-      .use(
-        createPendingEditPlugin({
-          ...pendingEdits,
-          animationEnabled: () => settings.current.enableEditAnimation,
-          sentenceLabels: () => {
-            const t = resolveStrings(settings.current.language);
-            return {
-              take: t.proposalTakeSentence,
-              keep: t.proposalKeepSentence,
-            };
-          },
-        }),
-      )
-      .use(chatSelectionPlugin)
-      .use(createQuickAskWidgetPlugin(quickAskWidget))
-      .use(createReviewNotesPlugin(reviewNotes))
   );
 }

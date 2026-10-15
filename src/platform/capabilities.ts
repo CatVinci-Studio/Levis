@@ -1,4 +1,4 @@
-import { isDesktop, isIOSPlatform, isMacPlatform } from "../utils/platform";
+import { isDesktop, isIOSPlatform, isMacPlatform } from "./os";
 
 /**
  * What this build of the app can do - the ONE place the desktop/iOS split

@@ -169,7 +169,7 @@
 
 /* High contrast: a thicker ring (important, over the surfaces that draw
    their own), and hairlines in the muted text colour. Tripled :root to
-   outrank the light and dark palettes in App.css. */
+   outrank the light and dark palettes in base.css. */
 @media (prefers-contrast: more) {
   :where(
     button,

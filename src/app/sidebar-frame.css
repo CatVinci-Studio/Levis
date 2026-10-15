@@ -1,0 +1,103 @@
+/* The sidebar slides in from the window's left edge and back out, on its
+   transform alone: it lies over the layout rather than in it, and the
+   main pane below makes room for it at once - the editor's column glides
+   to its new place (App.tsx's FlipOnChange) instead of reflowing on every
+   frame, as a margin transition did. Transitions, not keyframes, so a
+   second toggle mid-slide turns it around from where it is. Under reduced
+   motion it doesn't travel; it fades where it rests. */
+.sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  /* Over the editor while it slides away across it. */
+  z-index: 1;
+  width: 240px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition:
+    transform var(--dur-slow) var(--ease-spring),
+    opacity var(--dur-slow) var(--ease-out),
+    visibility 0s;
+}
+
+.sidebar-collapsed {
+  transform: translateX(calc(-100% * var(--motion-travel)));
+  opacity: var(--motion-travel-fade);
+  visibility: hidden;
+  transition:
+    transform var(--dur-base) var(--ease-in),
+    opacity var(--dur-base) var(--ease-in),
+    visibility 0s linear var(--dur-base);
+}
+
+:root:not(.zen) .sidebar:not(.sidebar-collapsed) ~ .main-pane {
+  margin-left: 240px;
+}
+
+/* Thin, unobtrusive sidebar scrollbar: invisible until the pointer is over
+   the sidebar, so it reads like a macOS overlay scrollbar. */
+.sidebar-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--radius-pill);
+}
+
+.sidebar-body:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sidebar-text) 28%, transparent);
+}
+
+.sidebar-body::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--sidebar-text) 45%, transparent);
+}
+
+.text-button {
+  width: 100%;
+  color: var(--sidebar-text);
+  margin-bottom: 8px;
+}
+
+.sidebar-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.sidebar-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--editor-muted);
+  cursor: pointer;
+}
+
+.sidebar-tab:hover {
+  background: var(--sidebar-hover);
+}
+
+.sidebar-tab-active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
+}
+
+.main-pane {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}

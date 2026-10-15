@@ -3,8 +3,8 @@ import { showConfirm, showMessage } from "../ui/app-dialog";
 import type { Strings } from "../i18n/strings";
 import { basename, dirname } from "../utils/path";
 import { tabTitle, type DocTab } from "../document/doc-tabs";
-import { exportDoc, fs } from "../ipc";
-import { isMacPlatform, isWindowsPlatform } from "../utils/platform";
+import { exportDoc, fs } from "../platform/ipc";
+import { isMacPlatform, isWindowsPlatform } from "../platform/os";
 import { canExportPdf, canExportWithPandoc } from "../platform/capabilities";
 import { toPandocMarkdown } from "./pandoc-markdown";
 import { diagramsToImages } from "./diagram-images";
@@ -84,7 +84,7 @@ function collectInlinedCss(): string {
 // Editing affordances that live in the editor DOM but are not document
 // content: heading "#" markers, the code-block language picker, table
 // insert buttons, delimiters shown around the caret, AI previews. Kept in
-// step with the @media print list in App.css, which hides the same chrome
+// step with the @media print list in print.css, which hides the same chrome
 // when the webview's PDF renderer applies print media.
 const EDITOR_CHROME_SELECTOR = [
   ".heading-marker",

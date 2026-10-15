@@ -12,7 +12,7 @@ vi.mock("../platform/capabilities", async (importOriginal) => ({
 vi.mock("../ai/provider-catalog", () => ({
   useActiveProvider: () => ({ supportsVision: true }),
 }));
-vi.mock("../ipc", async (importOriginal) => ({
+vi.mock("../platform/ipc", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ai: {
     listSkills: vi.fn().mockResolvedValue(null),
@@ -31,7 +31,7 @@ beforeAll(() => {
 afterEach(cleanup);
 
 const { ChatComposer } = await import("../ai/chat/ChatComposer");
-const { pressKeepingFocus, tapKeepingFocus } = await import("./tap");
+const { pressKeepingFocus, tapKeepingFocus } = await import("../ui/tap");
 
 const labels = {
   dropSelection: "Remove selection",

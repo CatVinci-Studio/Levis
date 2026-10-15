@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useSettings } from "../settings/SettingsContext";
-import { appDrawsWindowFrame, ownsMenuAccelerators } from "../ui/window-chrome";
-import { runLocalMenuAction } from "../ui/app-menu-actions";
+import { appDrawsWindowFrame, ownsMenuAccelerators } from "./window-chrome";
+import { runLocalMenuAction } from "./app-menu-actions";
 import { comboFromEvent } from "../utils/shortcuts";
-import { menuIpc } from "../ipc";
+import { menuIpc } from "../platform/ipc";
 import {
   TRIGGER_COMPLETION_EVENT,
   TRIGGER_GRAMMAR_CHECK_EVENT,

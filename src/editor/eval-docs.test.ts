@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Editor } from "@milkdown/kit/core";
 import { editorViewCtx } from "@milkdown/kit/core";
-import { createTestEditor } from "./editor-test-harness";
+import { createTestEditor } from "../document-view/editor-test-harness";
 import { documentMarkdown, serializeBlocks } from "../ai/doc-markdown";
 
 // The live AI evaluation (src-tauri/src/ai/live_eval) sends these documents

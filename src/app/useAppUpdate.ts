@@ -2,7 +2,7 @@ import { errorText } from "../utils/error-text";
 import { useEffect, useState } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { selfUpdateAllowed } from "../utils/distribution";
+import { selfUpdateAllowed } from "../platform/distribution";
 import { flushPendingWrites } from "../storage/pending-writes";
 import { canAutoUpdate } from "../platform/capabilities";
 

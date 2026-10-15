@@ -5,7 +5,7 @@
    tabs along the top (SettingsPanel.css's narrow layout). */
 
 /* Done, as iOS writes it: a word in the accent colour, on the iPad's
-   dialog too. It is also a .text-button, whose sidebar rule (App.css)
+   dialog too. It is also a .text-button, whose sidebar rule (app/sidebar-frame.css)
    stretches it across the whole header with a border and a bottom margin. */
 :root[data-window-chrome="mobile"] .settings-done-button {
   width: auto;

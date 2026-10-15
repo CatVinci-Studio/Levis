@@ -2,7 +2,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { saveConversation, useChatHistory } from "./chat-history";
-import { storage } from "../../ipc";
+import { storage } from "../../platform/ipc";
 
 // The iOS app, whose container moved since the last version: the old
 // conversation's absolute path points into the previous container.
@@ -18,7 +18,7 @@ vi.mock("@tauri-apps/api/path", () => ({
 vi.mock("../../settings/SettingsContext", () => ({
   loadSettings: () => ({ enableChatHistory: true }),
 }));
-vi.mock("../../ipc", () => ({
+vi.mock("../../platform/ipc", () => ({
   storage: {
     historyList: vi.fn(),
     historyUpsert: vi.fn().mockResolvedValue(null),

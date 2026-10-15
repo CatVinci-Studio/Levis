@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { windowIpc } from "../../ipc";
+import { windowIpc } from "../../platform/ipc";
 import { canDetachChat } from "../../platform/capabilities";
 import { listenToThisWindow, unlistenAll } from "../../utils/tauri-events";
 import { useLatest } from "../../utils/hooks/useLatest";
