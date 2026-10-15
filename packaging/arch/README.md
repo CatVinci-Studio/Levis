@@ -18,8 +18,14 @@ Its README has the user setup and owns the signing key.
    release is still a draft. In an `archlinux:base-devel` container,
    `ci-check.sh`:
    1. Installs `textus-bin` from `[catvinci]` as it is now (the previous
-      release), with the same steps a user runs.
+      release), with the same steps a user runs. Before the first Textus
+      release reaches the repository it holds only `levis-bin` (Levis,
+      Textus's name before 1.0.0), and that is installed instead.
    2. Builds the new package from the release tarball and upgrades to it.
+      Over `levis-bin` it upgrades with `pacman -Syu` from a local
+      repository holding the new package - `replaces=('levis-bin')` only
+      acts on a sync upgrade - and checks that `levis-bin` and
+      `/usr/bin/levis` are gone.
    3. Checks the libraries, the desktop entry, a 15 s start under Xvfb,
       and that `pacman -R` leaves no files behind.
 

@@ -4,9 +4,9 @@
 # built with TEXTUS_DISTRIBUTION=aur, so Textus reports new versions but leaves
 # the upgrade to pacman. See packaging/arch/README.md.
 pkgname=textus-bin
-pkgver=0.8.13
+pkgver=1.0.0
 # The release version. It differs from pkgver only for a pre-release
-# (0.8.13-rc.1), because pkgver cannot contain "-".
+# (1.0.0-rc.1), because pkgver cannot contain "-".
 _version=$pkgver
 pkgrel=1
 pkgdesc="AI-native WYSIWYG Markdown editor"
@@ -16,7 +16,12 @@ license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'hicolor-icon-theme')
 optdepends=('pandoc: export to more formats')
 provides=('textus')
-conflicts=('textus')
+# Levis was renamed Textus at 1.0.0. `pacman -Syu` swaps an installed
+# levis-bin for textus-bin; the two ship different files (/usr/bin/levis vs
+# /usr/bin/textus) but are the same app, so they never sit side by side.
+# Levis's data in ~/.config/com.chengaoshen.levis stays for Textus to import.
+replaces=('levis-bin')
+conflicts=('textus' 'levis-bin' 'levis')
 options=('!strip' '!debug')
 source=("https://github.com/CatVinci-Studio/Textus/releases/download/v${_version}/Textus_${_version}_linux_x86_64.tar.gz")
 # updpkgsums writes the real value. Do not publish SKIP to the AUR.

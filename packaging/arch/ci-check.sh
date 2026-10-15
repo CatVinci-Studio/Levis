@@ -3,8 +3,13 @@
 #
 #   1. Install textus-bin from the [catvinci] repository
 #      (CatVinci-Studio/arch-repo) as it is now - the previous release -
-#      with install.sh, the one-line setup its README gives users.
-#   2. Build the new package from the release tarball and upgrade to it.
+#      with install.sh, the one-line setup its README gives users. Until the
+#      first Textus release is in the repository it only has levis-bin
+#      (Levis, Textus's name before 1.0.0); that is installed instead.
+#   2. Build the new package from the release tarball and upgrade to it:
+#      with pacman -U over textus-bin, or - over levis-bin - with
+#      pacman -Syu from a local repository holding the new package, the
+#      way a Levis user meets it (replaces=('levis-bin')).
 #   3. Check libraries, desktop entry, a 15 s start under Xvfb, removal.
 #
 # arch-repo signs the package and adds it to catvinci.db after the release
@@ -37,11 +42,22 @@ as_builder() { sudo -u builder -H bash -c "cd '$1' && ${*:2}"; }
 
 # 1. The previous release, through the same steps a user runs.
 previous=""
+previous_pkg=""
 if curl -fsIL "${server/\$arch/x86_64}/$repo.db" >/dev/null 2>&1; then
   pacman-key --init >/dev/null
   bash <(curl -fsSL "$install_sh")
-  pacman -S --noconfirm textus-bin
-  previous="$(pacman -Q textus-bin)"
+  for candidate in textus-bin levis-bin; do
+    if pacman -Si "$repo/$candidate" >/dev/null 2>&1; then
+      previous_pkg="$candidate"
+      break
+    fi
+  done
+  [ -n "$previous_pkg" ] || {
+    echo "[$repo] has neither textus-bin nor levis-bin" >&2
+    exit 1
+  }
+  pacman -S --noconfirm "$repo/$previous_pkg"
+  previous="$(pacman -Q "$previous_pkg")"
   echo "Installed from [$repo]: $previous"
   sudo -u builder mkdir -p /home/builder/.config/textus-upgrade-check
   sudo -u builder touch /home/builder/.config/textus-upgrade-check/keep
@@ -63,7 +79,30 @@ grep -q "sha256sums=('${expected}')" "$work/PKGBUILD" || {
 }
 as_builder "$work" 'makepkg --printsrcinfo > .SRCINFO'
 as_builder "$work" makepkg -sf --noconfirm
-pacman -U --noconfirm "$work/$pkgfile"
+if [ "$previous_pkg" = levis-bin ]; then
+  # replaces= only acts on a sync upgrade, so serve the new package from a
+  # file:// repository listed before the others and upgrade the system.
+  local_repo=/home/builder/textus-local-repo
+  mkdir -p "$local_repo"
+  cp "$work/$pkgfile" "$local_repo/"
+  repo-add "$local_repo/textus-local.db.tar.gz" "$local_repo/$pkgfile"
+  cp /etc/pacman.conf /etc/pacman.conf.orig
+  sed -i "0,/^\[core\]/s||[textus-local]\nSigLevel = Optional TrustAll\nServer = file://$local_repo\n\n[core]|" \
+    /etc/pacman.conf
+  pacman -Syu --noconfirm
+  mv /etc/pacman.conf.orig /etc/pacman.conf
+  pacman -Sy
+  if pacman -Q levis-bin >/dev/null 2>&1; then
+    echo "pacman -Syu left levis-bin installed next to textus-bin" >&2
+    exit 1
+  fi
+  [ ! -e /usr/bin/levis ] || {
+    echo "/usr/bin/levis is still there after the replacement" >&2
+    exit 1
+  }
+else
+  pacman -U --noconfirm "$work/$pkgfile"
+fi
 
 installed="$(pacman -Q textus-bin)"
 [ "$installed" = "textus-bin ${pkgver}-1" ] || {
