@@ -494,24 +494,28 @@ function ProposalCard({
               : labels.actionNames[proposal.action]}
           </span>
         </span>
-        <button
-          type="button"
-          className="agent-diff-summary"
-          aria-expanded={diffOpen}
-          title={diffOpen ? labels.diffCollapse : labels.diffShow}
-          onClick={() => setDiffOpen(!diffOpen)}
-        >
-          {added > 0 && (
-            <span className="agent-diff-chip agent-diff-add">+{added}</span>
-          )}
-          {removed > 0 && (
-            <span className="agent-diff-chip agent-diff-remove">
-              {"\u2212"}
-              {removed}
-            </span>
-          )}
-          <span className="agent-diff-caret" aria-hidden="true" />
-        </button>
+        {/* Listed sentence by sentence below, the size chips (the full
+            diff's toggle) only crowd the head - kept for the rest. */}
+        {!(sentences && sentences.length > 1) && (
+          <button
+            type="button"
+            className="agent-diff-summary"
+            aria-expanded={diffOpen}
+            title={diffOpen ? labels.diffCollapse : labels.diffShow}
+            onClick={() => setDiffOpen(!diffOpen)}
+          >
+            {added > 0 && (
+              <span className="agent-diff-chip agent-diff-add">+{added}</span>
+            )}
+            {removed > 0 && (
+              <span className="agent-diff-chip agent-diff-remove">
+                {"\u2212"}
+                {removed}
+              </span>
+            )}
+            <span className="agent-diff-caret" aria-hidden="true" />
+          </button>
+        )}
         {status === "pending" && onReveal && (
           <button
             type="button"
