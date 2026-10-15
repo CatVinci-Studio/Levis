@@ -60,9 +60,10 @@ function anchorSelector(item: MarginItem): string {
  * rewrite, beside the text they are about (review-notes-plugin.ts and
  * pending-edit-plugin.ts mark it). Each card sits level with the first line
  * of its passage, cards that would overlap stack downward, and a thin line
- * runs from the end of that first line to the card - taken from the first
- * line, not the last, so a passage that wraps doesn't throw the line across
- * the page. Hovering either side lights both.
+ * runs to the card from the text column's edge, level with that first line
+ * - not from the passage's end, which would cross the words after it or,
+ * when it wraps, throw the line across the page. Hovering either side
+ * lights both.
  *
  * The margin is made, not assumed: when the space right of the text is too
  * narrow the text column moves left to open it (animated, via its margin),
@@ -155,6 +156,8 @@ export function ReviewMargin({
       // margin transition has it right now, and placed where it is going.
       const column = contentEl.getBoundingClientRect();
       const columnLeft = natural - shift;
+      const textEdge =
+        pm.getBoundingClientRect().right - column.left + columnLeft;
       const placed: Placed[] = [];
       for (const item of items) {
         // The marked passage's own boxes: a position's coordinates are
@@ -177,7 +180,10 @@ export function ReviewMargin({
         placed.push({
           item,
           top: first.top - top0 - 8,
-          ax: first.right - column.left + columnLeft + 3,
+          // From the column's edge, level with the passage's first line -
+          // never from inside the text, where it would cross the words
+          // after the passage.
+          ax: textEdge + 6,
           ay: (first.top + first.bottom) / 2 - top0,
         });
       }
