@@ -11,7 +11,13 @@ export default defineConfig(async () => ({
   // Unit tests only; e2e/ holds the Playwright visual suite
   // (npm run test:visual), which vitest must not try to run.
   test: {
-    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**", "src-tauri/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "e2e/**",
+      "src-tauri/**",
+      ".claude/**",
+    ],
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
