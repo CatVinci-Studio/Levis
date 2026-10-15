@@ -1797,7 +1797,7 @@ mod tests {
             (&zh_ts, "tutorialCompletionTitle: \"续写\""),
             (&ja_ts, "completionToneLabel: \"補完のトーン\""),
             (&zh_ts, "proposalAccept: \"采纳\""),
-            (&ja_ts, "proposalAccept: \"承認\""),
+            (&ja_ts, "proposalAccept: \"適用\""),
             (&zh_ts, "proposalReject: \"拒绝\""),
             (&ja_ts, "proposalReject: \"却下\""),
         ] {

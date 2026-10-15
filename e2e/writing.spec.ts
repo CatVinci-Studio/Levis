@@ -384,3 +384,57 @@ test("a table's menu stays open while it scrolls on a short window", async ({
     .toBeGreaterThan(0);
   await expect(menu).toBeVisible();
 });
+
+/** A deliberate Shift+Enter: Shift held first, as a writer does. (Shift
+ *  and Enter pressed together count as Enter - see block-keys-plugin.ts.) */
+async function shiftEnter(page: Page) {
+  await page.keyboard.down("Shift");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("Enter");
+  await page.keyboard.up("Shift");
+}
+
+test("Shift+Enter mid-line in a paragraph ending in a break adds a break", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "zh" } });
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("1、时间");
+  await shiftEnter(page);
+  // Back up from the new empty line to between 时 and 间.
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await shiftEnter(page);
+  const shape = await editor.evaluate((el) =>
+    Array.from(el.querySelectorAll(":scope > p")).map((p) =>
+      Array.from(p.childNodes)
+        .map((n) =>
+          n.nodeName === "BR"
+            ? (n as Element).classList.contains("ProseMirror-trailingBreak")
+              ? ""
+              : "<br>"
+            : n.textContent,
+        )
+        .join(""),
+    ),
+  );
+  expect(shape).toEqual(["1、时<br>间<br>"]);
+});
+
+test("Shift pressed together with Enter starts a new paragraph", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "zh" } });
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("7、很少用agent");
+  // The Pinyin 中/英 Shift tap overlapping the Enter after a Latin word.
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("8、");
+  await expect(editor.locator(":scope > p")).toHaveText([
+    "7、很少用agent",
+    "8、",
+  ]);
+  await expect(editor.locator('br[data-type="hardbreak"]')).toHaveCount(0);
+});

@@ -169,7 +169,6 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   treeOpen: "開く",
   outlineCollapse: "折りたたむ",
   outlineExpand: "展開",
-  wordsUnit: "語",
   levisImportTitle: "Levis のデータを引き継ぎますか？",
   levisImportText:
     "Textus は Levis の新しいバージョンです。このコンピュータには Levis の設定、執筆の指示、履歴があります。引き継ぎはコピーするだけで、Levis 側のデータはそのまま残ります。",
@@ -199,6 +198,12 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   levisItemSession: "開いていた文書",
   levisItemDrafts: "未保存の下書き",
   levisItemCredentials: "API キーとサインイン",
+  wordsUnit: "字",
+  alertNote: "メモ",
+  alertTip: "ヒント",
+  alertImportant: "重要",
+  alertWarning: "警告",
+  alertCaution: "注意",
   settingsTitle: "設定",
   settingsViewGroup: "表示",
   settingsHelpGroup: "ヘルプ",
@@ -487,11 +492,11 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   chatWindowLost:
     "このチャットはエディタウィンドウとの接続を失いました。ウィンドウを閉じて、新しいチャットを開始してください。",
   chatCloseConfirm: "未確認の編集が {n} 件あります。どうしますか?",
-  chatCloseConfirmAccept: "すべて承認して閉じる",
+  chatCloseConfirmAccept: "すべて適用して閉じる",
   chatCloseConfirmReject: "すべて破棄して閉じる",
   chatCloseConfirmCancel: "チャットを続ける",
-  proposalAccept: "承認",
-  proposalAcceptAll: "すべて承認",
+  proposalAccept: "適用",
+  proposalAcceptAll: "すべて適用",
   proposalRejectAll: "すべて却下",
   proposalRelocate: "AIに修正をやり直してもらう",
   diffShow: "差分を表示",
@@ -501,7 +506,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   quickAskPosition: "{i} / {n}",
   quickAskPrevEdit: "前の編集",
   quickAskNextEdit: "次の編集",
-  quickAskAcceptAllCount: "すべて承認（{n}）",
+  quickAskAcceptAllCount: "すべて適用（{n}）",
   quickAskRejectAllCount: "すべて却下（{n}）",
   chatDropSelection: "選択範囲を送らない",
   quickAskAtCursor: "カーソル位置",
@@ -510,7 +515,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   chatSelectionChip: { other: "選択範囲（{n}文字）" },
   proposalReject: "却下",
   proposalStatusStreaming: "生成中…",
-  proposalStatusAccepted: "承認済み",
+  proposalStatusAccepted: "適用済み",
   proposalStatusRejected: "却下済み",
   proposalStatusExpired: "無効",
   proposalStatusInvalid: "この文書内にそのテキストが見つかりませんでした。",
@@ -627,7 +632,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
     "Markdownのコツを3つ：\n\n1. 大切な部分の両側にアスタリスクを2つ付けると **太字** になります。\n2. 行頭に `-` とスペースを入力するとリストを作れます。\n3. `#`、`##`、`###` の見出しで文書に構造を付けられます。",
   tutorialAgentEditTitle: "本文を編集",
   tutorialAgentEditBody:
-    "変更はプレビューで表示されます。「承認」で本文に反映するか、却下できます。",
+    "変更はプレビューで表示されます。「適用」で本文に反映するか、却下できます。",
   tutorialAgentEditTarget:
     "お知らせしたいのですが、会議は明日の午後3時に始まる予定です。",
   tutorialAgentEditPrompt: "この文を短くして",
@@ -636,7 +641,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   tutorialAgentEditReady:
     "右クリックで「AIに聞く…」を選び、下の依頼を送信してください。",
   tutorialAgentEditProposed:
-    "プレビューを確認して「承認」をクリックしてください。",
+    "プレビューを確認して「適用」をクリックしてください。",
   tutorialAgentEditApplied: "本文を更新しました。",
   tutorialAgentEditMockReply:
     "不要な前置きを省きました。変更プレビューを確認してください。",
