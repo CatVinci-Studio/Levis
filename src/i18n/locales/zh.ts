@@ -111,7 +111,7 @@ export default {
   memoryEditGlobal: "编辑所有项目通用的写作要求",
   memoryStyleEmpty:
     "还没有文风档案。给 Textus AI 几篇你写的文章，它会学会你的写法。",
-  memoryLibraryEmpty: "人物、地点、术语，写进资料库，Textus AI 就会记住。",
+  memoryLibraryEmpty: `人物、地点、术语，写进资料库，${AI_NAME} 就会记住。`,
   memoryInstructionsEmpty:
     "还没有写作要求。写下你希望 Textus AI 始终遵守的规则。",
   memoryNeedsSave:

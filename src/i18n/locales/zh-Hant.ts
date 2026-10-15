@@ -111,7 +111,7 @@ export default {
   memoryEditGlobal: "編輯所有專案通用的寫作要求",
   memoryStyleEmpty:
     "還沒有文風檔案。給 Textus AI 幾篇你寫的文章，它會學會你的寫法。",
-  memoryLibraryEmpty: "人物、地點、術語，寫進資料庫，Textus AI 就會記住。",
+  memoryLibraryEmpty: `人物、地點、術語，寫進資料庫，${AI_NAME} 就會記住。`,
   memoryInstructionsEmpty:
     "還沒有寫作要求。寫下你希望 Textus AI 始終遵守的規則。",
   memoryNeedsSave:
