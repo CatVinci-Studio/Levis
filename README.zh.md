@@ -1,5 +1,3 @@
-<!-- 结构与 README.md 逐节对应（scripts/check-readmes.mjs 会检查）。 -->
-
 <p align="center">
   <img src="src-tauri/icons/icon.png" alt="Textus" width="120" height="120" />
 </p>
@@ -7,14 +5,26 @@
 <h1 align="center">Textus</h1>
 
 <p align="center">
-  <strong>所见即所得的 Markdown 编辑器，AI 只提建议，不替你改稿。</strong><br>
-  开源、轻量。AI 帮你续写、检查、给出修改建议，每一处改动都由你点头。
+  <strong>下一代 Markdown 编辑器</strong><br>
+  下笔成章，AI 研墨
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>下载</strong></a> ·
+  <a href="https://textus.catvinci.com"><strong>官网</strong></a> ·
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>下载</strong></a>
+</p>
+
+<p align="center">
   <a href="./README.md">English</a> ·
-  <a href="./README.ja.md">日本語</a>
+  简体中文 ·
+  <a href="./README.zh-Hant.md">繁體中文</a> ·
+  <a href="./README.ja.md">日本語</a> ·
+  <a href="./README.ko.md">한국어</a> ·
+  <a href="./README.es.md">Español</a> ·
+  <a href="./README.fr.md">Français</a> ·
+  <a href="./README.de.md">Deutsch</a> ·
+  <a href="./README.ru.md">Русский</a> ·
+  <a href="./README.pt.md">Português</a>
 </p>
 
 <p align="center">
@@ -24,93 +34,106 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/zh/agent.png" alt="文档旁的 AI 面板：带理由的修改建议、逐句选择，以及对开头的一条批注" width="860" />
+  <img src="docs/images/readme/zh/hero.png" alt="Textus 打开着《红楼梦》，旁边的 Textus AI 附上理由、逐句提出修改，并在一处文字旁钉上审阅批注" width="860" />
 </p>
 
-## 特点
+## 写作
 
-### 编辑器
+### 所见即所得
 
-- **真正的所见即所得**：Markdown 标记只在光标所在处出现，其余地方看到的就是排好的页面。
-- 表格、公式、Mermaid 图、代码高亮、脚注、任务列表和 GitHub 提示块。
-- **分屏模式**（源码与实时预览并排）、**打字机模式**（正在写的那一行始终居中）和**禅模式**（只留文字，突出当前段落）。
-- 多标签与多窗口、查找替换、导入 Typora 主题，也可以写自己的 CSS。
-- 导出 PDF 和 HTML；装有 [Pandoc](https://pandoc.org) 时还能导出 Word、OpenDocument 和 RTF。
+每一种 Markdown 标记，边写边排好。指向任意一行，就能看到它的源码。
+
+### 公式、表格、图表
+
+公式边打边出，表格自动对齐，几行文字就能画出图表。
+
+### 写作风格？随你喜欢
+
+四种写作模式随心切换，主题一键更换，Typora 主题也能直接用。
+
+- **禅模式**：除了文字，其余一切都退到幕后。
+- **打字机模式**：正在写的那一行始终停在同一高度。
+- **分屏视图**：一边写 Markdown，一边看排版。
+- **源码模式**：整篇文档以 Markdown 原文呈现。
 
 <p align="center">
-  <img src="docs/images/readme/zh/split.png" alt="分屏模式" width="49%" />
+  <img src="docs/images/readme/zh/split.png" alt="分屏视图" width="49%" />
   <img src="docs/images/readme/zh/zen.png" alt="禅模式" width="49%" />
 </p>
 
-### 不打扰的 AI
+### 随处分享
 
-- **续写**以灰色文字出现：Tab 全部采纳，Ctrl/⌘+→ 逐词采纳；也可以要几个候选来回切换。
-- **语法检查**标出当前段落里的问题，Alt+Enter 直接改正。
-- **AI 面板**在文档旁边：可以就文档提问，也可以让它修改。每处修改都以建议的形式显示在文档里，附带理由——可以采纳、拒绝，或只采纳其中几句。请它审稿，它会留批注而不是直接改。
-- **快速提问**：选中文字后就地提问，不用离开正在写的地方。
+导出为 PDF、Word、HTML 等格式。
 
-<p align="center">
-  <img src="docs/images/readme/zh/completion.png" alt="以灰色文字出现的续写" width="860" />
-</p>
+## Textus AI
 
-### 你的项目，你的文风
+**它提议，你决定。**Textus AI 一路相助，每个字仍由你决定。
 
-- **项目文件夹**：文档保存后，它所在的文件夹就是项目文件夹，也可以另选一个。AI 可以阅读和搜索其中的文本文件，输入 `@` 可以把某个文件带进对话。
-- **文风档案**（`.textus/style.md`）：用**学习我的文风**从你挑选的范文生成，续写和修改都贴近你的写法。
-- **资料库**（`.textus/library/`）：人物、地点、术语。一段文字提到哪些条目，就把哪些条目一起交给 AI，名字和设定前后一致。
-- **写作要求**（`agent.md`）和**技能**（`/名称`）：每次对话都遵守的常驻要求，以及按名字调用的可复用指令——可以对所有文档生效，也可以只用于一个项目。
+- **续写**：停下笔，灰色的下文便会出现，按 Tab 收下。
+- **AI 写作**：修改以提议的形式出现，各附理由。可以整段采纳，也可以逐句取舍。
+- **语法检查**：边写边标出错字和语病，也会对照你的写作规范。按 Alt+Enter 即可修正。
+- **审阅批注**：批注钉在对应的句子旁。只提意见，不改你的稿。
+- **内置技能**：精简、校对、翻译、换个语气……输入斜杠即可调用。
+- **懂你**：学习你的文风，记住你笔下的人物与地点，遵循你定下的写作要求。
 
-### 服务商与隐私
+**用你喜欢的 AI**：用 ChatGPT 或 Claude 账号登录，填入 API Key，或在自己的电脑上运行模型。
 
-- 支持 OpenAI、Anthropic、Google Gemini、DeepSeek、xAI、Mistral、Groq、OpenRouter、月之暗面、智谱、通义千问、Ollama（本地），以及任何兼容 OpenAI 的接口。
-- 可以直接用 ChatGPT 或 Claude 账号登录，也可以填写 API Key。
-- 请求从你的电脑直接发往你选择的服务商；密钥和登录信息只保存在你的电脑上。使用 Ollama 时，内容完全不出本机。
+OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · 任何兼容 OpenAI 接口的服务
+
+## 隐私
+
+你写的东西只属于你。Textus 从设计上保证这一点，代码公开，任何人都能核实。
+
+- **留在你的设备上**：文档是普通的 Markdown 文件，放在你选的位置。
+- **密钥只存本地**：API Key 和登录信息只保存在你的电脑上。
+- **直达你的服务商**：AI 请求从你的设备直接发往你选择的服务商。
+- **无需账号**：下载就能写，没有任何需要注册的东西。
+- **不做追踪**：没有统计，没有遥测，没有广告。
+- **开放源代码**：以 MIT 协议公开每一行代码，上面这些，任何人都能核实。
+
+通过 Ollama 使用本地模型时，你的文字从不离开你的电脑。
 
 ## 安装
 
-macOS（Apple Silicon）可通过 [Homebrew](https://brew.sh) 安装：
+macOS（Apple 芯片）可以用 [Homebrew](https://brew.sh) 安装：
 
 ```sh
 brew install --cask catvinci-studio/tap/textus
 ```
 
-Arch Linux 可通过签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源安装（只需配置一次，之后 `sudo pacman -Syu` 会自动升级 Textus）：
+Arch Linux 可以使用带签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源（只需设置一次，之后 `sudo pacman -Syu` 会让 Textus 保持最新）：
 
 ```sh
 bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
 ```
 
-也可以从 [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) 下载安装包：
+也可以在 [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) 下载安装包：
 
-| 平台                   | 安装包                                                                   |
-| ---------------------- | ------------------------------------------------------------------------ |
-| macOS（Apple Silicon） | `Textus_X.Y.Z_aarch64.dmg`                                                |
-| Windows                | `Textus_X.Y.Z_x64-setup.exe`                                              |
-| Linux                  | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+| 平台              | 安装包                                                                        |
+| --------------- | -------------------------------------------------------------------------- |
+| macOS（Apple 芯片） | `Textus_X.Y.Z_aarch64.dmg`                                                 |
+| Windows         | `Textus_X.Y.Z_x64-setup.exe`                                               |
+| Linux           | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
 
 ## 快速上手
 
-1. 启动 Textus，直接进入空白草稿；保存时才需要文件。
-2. 打开 **设置 → Textus AI**，选择服务商，在**登录与凭据**中登录或填写密钥。
-3. 开始写。停顿时续写会以灰色文字出现，按 Tab 采纳。
-4. 点窗口顶栏的对话按钮打开 AI 面板。其余功能见 **帮助 → AI 功能指南**。
+1. 打开 Textus。它从一份空白草稿开始，保存时才需要选择文件。
+2. 打开 **设置 → Textus AI**，选择服务商，在 **登录与凭据** 中登录或填入密钥。
+3. 开始写作。停笔时，续写会以灰色文字出现，按 Tab 采纳。
+4. 点窗口栏里的对话按钮打开 AI 面板。其余功能见 **帮助 → AI 功能指南**。
 
-| 操作           | 快捷键                         |
-| -------------- | ------------------------------ |
-| AI 面板        | Ctrl/⌘+Shift+L                 |
-| 快速提问       | Ctrl/⌘+Shift+K                 |
-| 续写           | Ctrl/⌘+Shift+Space             |
-| 语法检查       | Ctrl/⌘+Shift+G                 |
-| 采纳待确认修改 | Ctrl/⌘+Enter                   |
-| 分屏模式       | Ctrl/⌘+Shift+E                 |
-| 禅模式         | Ctrl/⌘+Shift+J（Esc 退出）     |
-| 源码模式       | Ctrl/⌘+/                       |
+| 操作      | 快捷键                       |
+| ------- | ------------------------- |
+| AI 面板   | Ctrl/⌘+Shift+L            |
+| 快速提问    | Ctrl/⌘+Shift+K            |
+| 立即触发续写  | Ctrl/⌘+Shift+Space        |
+| 立即检查语法  | Ctrl/⌘+Shift+G            |
+| 采纳待定的修改 | Ctrl/⌘+Enter              |
+| 分屏视图    | Ctrl/⌘+Shift+E            |
+| 禅模式     | Ctrl/⌘+Shift+J (按 Esc 退出) |
+| 源码模式    | Ctrl/⌘+/                  |
 
-以上都可以在 **设置 → 快捷键** 中修改。
-
-## 为什么做 Textus
-
-写 Markdown 应该像在写作，而不是在编辑一个文件：不用来回看预览，也不被语法符号打断。Textus 开源、小巧，它的 AI 为想保持作者身份的人设计——给建议、讲理由，决定权始终在你。
+以上快捷键都可以在 **设置 → 快捷键** 中修改。
 
 ## 从源码构建
 
@@ -119,17 +142,17 @@ git clone https://github.com/CatVinci-Studio/Textus.git
 cd Textus
 npm install
 
-npm run tauri dev     # 完整 Tauri 应用（Rust 后端 + Vite 前端）
-npm run tauri build   # 打包 .dmg / -setup.exe（NSIS）/ .AppImage / .deb / .rpm
-npm run build         # 仅前端：类型检查（tsc）+ vite build
+npm run tauri dev     # full Tauri app (Rust shell + Vite renderer)
+npm run tauri build   # bundle .dmg / -setup.exe (NSIS) / .AppImage / .deb / .rpm
+npm run build         # frontend only: type-check (tsc) + vite build
 ```
 
-需要 [Node.js](https://nodejs.org) 22+、[Rust](https://rustup.rs)（stable），以及各平台的构建工具（macOS 上是 Xcode 命令行工具；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
+需要 [Node.js](https://nodejs.org) 22 以上、[Rust](https://rustup.rs)（stable）以及各平台的构建工具（macOS 上是 Xcode CLT；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
 
 ## 参与贡献
 
-CI 运行的检查、提交规范和发布流程见 [CONTRIBUTING.md](CONTRIBUTING.md)（英文）。[docs/TESTING.md](docs/TESTING.md) 列出了各测试套件覆盖的范围，以及刻意没有覆盖的部分。
+CI 运行的检查、提交规范和发布流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。各测试套件覆盖了什么、有意不覆盖什么，见 [docs/TESTING.md](docs/TESTING.md)。讨论可以用中文或英文。
 
-## License
+## 许可证
 
 [MIT](./LICENSE) © CatVinci Studio

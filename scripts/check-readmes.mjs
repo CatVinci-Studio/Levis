@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checks that README.zh.md and README.ja.md still follow README.md section
+// Checks that every README.<lang>.md still follows README.md section
 // by section: the same heading levels in the same order, the same code
 // blocks, the same number of table rows and the same link targets (other
 // than the language switcher), and that every image they show exists.
@@ -12,7 +12,17 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const reference = "README.md";
-const translations = ["README.zh.md", "README.ja.md"];
+const translations = [
+  "README.zh.md",
+  "README.zh-Hant.md",
+  "README.ja.md",
+  "README.ko.md",
+  "README.es.md",
+  "README.fr.md",
+  "README.de.md",
+  "README.ru.md",
+  "README.pt.md",
+];
 
 function outline(file) {
   const text = readFileSync(join(root, file), "utf8");
@@ -28,10 +38,15 @@ function outline(file) {
   const tableRows = prose.split("\n").filter((l) => l.startsWith("|")).length;
   const links = [...prose.matchAll(/(?:href|src)="([^"]+)"|\]\(([^)]+)\)/g)]
     .map((m) => m[1] ?? m[2])
-    // Each README links to the other two languages, and shows its own
+    // Each README links to the other languages, and shows its own
     // language's screenshots.
     .filter((target) => !/^\.\/README/.test(target))
-    .map((target) => target.replace(/\/readme\/(en|zh|ja)\//, "/readme/*/"));
+    .map((target) =>
+      target.replace(
+        /\/readme\/(en|zh|zh-hant|ja|ko|es|fr|de|ru|pt)\//,
+        "/readme/*/",
+      ),
+    );
   const images = [...prose.matchAll(/src="([^"]+\.png)"/g)].map((m) => m[1]);
   return { headings, code, tableRows, links, images };
 }
