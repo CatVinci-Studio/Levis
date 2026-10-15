@@ -20,8 +20,10 @@ function popoverFor(
   x: number,
   y: number,
   siblings: Decoration[] = [deco],
+  state?: EditorState,
 ): GrammarPopoverInfo {
   const spec = deco.spec as GrammarDecorationSpec;
+  const shown = state ? withContext(state, deco, spec) : null;
   const index = siblings.findIndex(
     (d) => d.from === deco.from && d.to === deco.to,
   );
@@ -34,9 +36,40 @@ function popoverFor(
     suggestion: spec.suggestion,
     original: spec.original,
     kind: grammarKind(spec.original, spec.suggestion, spec.rule),
+    shownOriginal: shown?.original,
+    shownSuggestion: shown?.suggestion,
     index: Math.max(0, index),
     count: siblings.length,
   };
+}
+
+const CJK_CHAR =
+  /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]$/u;
+
+/**
+ * How a one-character CJK fix reads on the card: the checker narrows the
+ * span to what changes (必竟 -> 毕竟 arrives as 必 -> 毕), which alone says
+ * little. The card shows it with the character beside it - after it, or
+ * before it at a paragraph's end - while Apply still changes only the one.
+ */
+function withContext(
+  state: EditorState,
+  deco: Decoration,
+  spec: GrammarDecorationSpec,
+): { original: string; suggestion: string } | null {
+  const original = spec.original ?? "";
+  if ([...original].length !== 1 || !CJK_CHAR.test(original)) return null;
+  const $pos = state.doc.resolve(deco.from);
+  const end = $pos.end();
+  const start = $pos.start();
+  const next = deco.to < end ? state.doc.textBetween(deco.to, deco.to + 1) : "";
+  if (CJK_CHAR.test(next))
+    return { original: original + next, suggestion: spec.suggestion + next };
+  const prev =
+    deco.from > start ? state.doc.textBetween(deco.from - 1, deco.from) : "";
+  if (CJK_CHAR.test(prev))
+    return { original: prev + original, suggestion: prev + spec.suggestion };
+  return null;
 }
 
 /** The underlines in the same paragraph as `deco`, in order. */
@@ -87,6 +120,7 @@ export function useGrammarPopover(
             rect.left,
             rect.bottom + 6,
             siblingsOf(view.state, deco),
+            view.state,
           ),
         );
       });
@@ -131,6 +165,7 @@ export function useGrammarPopover(
               coords.left,
               coords.bottom + 6,
               siblingsOf(view.state, deco),
+              view.state,
             ),
       );
     });
@@ -162,7 +197,9 @@ export function useGrammarPopover(
         if (!next) return;
         const coords = view.coordsAtPos(next.from);
         setApplyError(null);
-        setPopover(popoverFor(next, coords.left, coords.bottom + 6, all));
+        setPopover(
+          popoverFor(next, coords.left, coords.bottom + 6, all, view.state),
+        );
       });
     },
     [popover, run],

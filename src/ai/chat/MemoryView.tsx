@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AgentWorkspaceInfo, LibraryEntry } from "../../ipc";
 import type { Lang, Strings } from "../../i18n/strings";
 import { listFromWorkspace, pickerSkills } from "./skill-picker";
@@ -45,6 +45,7 @@ export function MemorySections({
     [info.project_instructions],
   );
   const globalRules = info.instructions.flatMap(ruleLines);
+  const [allSkills, setAllSkills] = useState(false);
   const skills = useMemo(
     () => pickerSkills(listFromWorkspace(info.skills), lang),
     [info.skills, lang],
@@ -173,17 +174,31 @@ export function MemorySections({
         <section className="memory-section">
           <h4>{t.memorySkills}</h4>
           <div className="memory-skills">
-            {skills.map((skill) => (
-              <span key={skill.name} title={skill.hint}>
-                /{skill.label ?? skill.name}
-              </span>
-            ))}
+            {(allSkills ? skills : skills.slice(0, SKILLS_SHOWN)).map(
+              (skill) => (
+                <span key={skill.name} title={skill.hint}>
+                  /{skill.label ?? skill.name}
+                </span>
+              ),
+            )}
+            {!allSkills && skills.length > SKILLS_SHOWN && (
+              <button
+                type="button"
+                className="memory-more"
+                onClick={() => setAllSkills(true)}
+              >
+                +{skills.length - SKILLS_SHOWN}
+              </button>
+            )}
           </div>
         </section>
       )}
     </div>
   );
 }
+
+/** Skills shown before "+N" - the slash menu is where they are used. */
+const SKILLS_SHOWN = 8;
 
 /** The style profile's points, for a glance: its list items and plain
  *  lines, without the front matter, headings or comments. */
