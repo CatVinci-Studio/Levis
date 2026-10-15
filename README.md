@@ -77,7 +77,7 @@ Every Markdown mark, rendered as you write. Point at a line to see its Markdown.
 Math renders as you type, tables line up, and a few lines of text draw a diagram.
 
 <p align="center">
-  <img src="docs/images/readme/en/math.png" alt="Formulas, tables, diagrams." width="860" />
+  <img src="docs/images/readme/en/math.png" alt="Formulas, tables, diagrams – done in a snap." width="860" />
 </p>
 
 ### Your writing style? Your call
@@ -98,9 +98,9 @@ Four writing modes, any theme you like – Typora themes included.
 
 Export to PDF, Word, HTML and more.
 
-## It suggests. You decide
+## Your writing assistant
 
-Textus AI helps at every step. Every word stays yours.
+It writes with you. Every word stays yours.
 
 ### While you write
 
@@ -114,17 +114,17 @@ Edits arrive as proposals, each with a reason. Take one whole, or sentence by se
 
 It learns your style, remembers your characters and places, and follows your instructions.
 
-### Use the AI you prefer
+### Any LLM you like
 
-Sign in with ChatGPT or Claude, add an API key, or run a model on your own computer.
+Textus works with more than 20 LLMs, and with any LLM that offers an OpenAI-compatible API.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · Any OpenAI-compatible endpoint
 
 <p align="center">
-  <img src="docs/images/readme/en/settings.png" alt="Use the AI you prefer." width="860" />
+  <img src="docs/images/readme/en/settings.png" alt="Any LLM you like." width="860" />
 </p>
 
-## Private by design
+## What you write is yours alone
 
 Your writing stays yours. Textus is built so that it can, and its code is open so that anyone can check.
 

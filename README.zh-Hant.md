@@ -73,7 +73,7 @@ iPhone 與 iPad 版即將推出。[在 GitHub 查看所有版本](https://github
 公式隨打隨現，表格自動對齊，幾⁠行⁠文⁠字⁠就⁠能⁠畫⁠成⁠圖⁠表⁠。
 
 <p align="center">
-  <img src="docs/images/readme/zh-hant/math.png" alt="公式、表格、圖表" width="860" />
+  <img src="docs/images/readme/zh-hant/math.png" alt="公式、表格、圖表，一鍵搞定" width="860" />
 </p>
 
 ### 寫作風格？隨你喜歡
@@ -94,9 +94,9 @@ iPhone 與 iPad 版即將推出。[在 GitHub 查看所有版本](https://github
 
 匯出為 PDF、Word、HTML 等格式。
 
-## AI 提議，由你作主
+## 你的寫作助手
 
-Textus AI 從旁協助，每⁠個⁠字⁠仍⁠由⁠你⁠決⁠定⁠。
+和你一起寫，但每個字都由你決定。
 
 ### 寫的時候
 
@@ -110,17 +110,17 @@ Textus AI 從旁協助，每⁠個⁠字⁠仍⁠由⁠你⁠決⁠定⁠。
 
 學習你的文風，記住筆下的人物與地點，遵⁠循⁠你⁠的⁠寫⁠作⁠指⁠示⁠。
 
-### 選用你喜歡的 AI
+### 不同 LLM，隨你喜歡
 
-以 ChatGPT 或 Claude 帳號登入、填⁠入 API 金⁠鑰⁠，或⁠在⁠自⁠己⁠的⁠電⁠腦⁠上⁠執⁠行⁠模⁠型⁠。
+Textus 支援超過 20 種不同的 LLM，以及任何提供 OpenAI 相容介面的 LLM。
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · 任何相容 OpenAI 介面的服務
 
 <p align="center">
-  <img src="docs/images/readme/zh-hant/settings.png" alt="選用你喜歡的 AI" width="860" />
+  <img src="docs/images/readme/zh-hant/settings.png" alt="不同 LLM，隨你喜歡" width="860" />
 </p>
 
-## 隱私，始於設計
+## 你寫的東西，只屬於你
 
 你寫的內容只屬於你。Textus 從⁠設⁠計⁠上⁠確⁠保⁠這⁠一⁠點⁠，程⁠式⁠碼⁠也⁠完⁠全⁠公⁠開⁠，任⁠何⁠人⁠都⁠能⁠查⁠證⁠。
 

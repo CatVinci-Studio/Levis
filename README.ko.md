@@ -73,7 +73,7 @@ iPhone·iPad 버전도 곧 나옵니다. [GitHub에서 모든 릴리스 보기](
 수식은 입력하는 대로 그려지고, 표는 저절로 줄을 맞춥니다. 글 몇 줄이면 다이어그램이 됩니다.
 
 <p align="center">
-  <img src="docs/images/readme/ko/math.png" alt="수식, 표, 다이어그램" width="860" />
+  <img src="docs/images/readme/ko/math.png" alt="수식, 표, 다이어그램을 한 번에" width="860" />
 </p>
 
 ### 글 쓰는 방식은? 마음 가는 대로
@@ -94,9 +94,9 @@ iPhone·iPad 버전도 곧 나옵니다. [GitHub에서 모든 릴리스 보기](
 
 PDF, Word, HTML 등으로 내보낼 수 있습니다.
 
-## 제안은 AI가, 결정은 내가
+## 당신의 글쓰기 도우미
 
-Textus AI는 곁에서 돕고, 문장은 내가 씁니다.
+함께 쓰고, 결정은 언제나 당신이.
 
 ### 쓰는 동안
 
@@ -110,17 +110,17 @@ Textus AI는 곁에서 돕고, 문장은 내가 씁니다.
 
 내 문체를 익히고, 인물과 장소를 기억하며, 내가 정한 지침을 따릅니다.
 
-### 원하는 AI로
+### 원하는 LLM으로
 
-ChatGPT나 Claude 계정, API 키로 연결하거나 내 컴퓨터의 로컬 모델을 쓰세요.
+Textus는 20개가 넘는 LLM을 지원하며, OpenAI 호환 API를 제공하는 LLM이라면 무엇이든 쓸 수 있습니다.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · OpenAI 호환 엔드포인트
 
 <p align="center">
-  <img src="docs/images/readme/ko/settings.png" alt="원하는 AI로" width="860" />
+  <img src="docs/images/readme/ko/settings.png" alt="원하는 LLM으로" width="860" />
 </p>
 
-## 설계부터 개인정보 보호
+## 당신이 쓴 글은 오직 당신의 것
 
 내 글은 내 것입니다. Textus는 처음부터 그렇게 설계되었고, 코드는 누구나 확인할 수 있습니다.
 

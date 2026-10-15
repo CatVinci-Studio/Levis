@@ -73,7 +73,7 @@ Markdown wird schon beim Tippen formatiert. Zeig auf eine Zeile, und du siehst i
 Formeln entstehen beim Tippen, Tabellen richten sich von selbst aus, und aus wenigen Zeilen Text wird ein Diagramm.
 
 <p align="center">
-  <img src="docs/images/readme/de/math.png" alt="Formeln, Tabellen, Diagramme." width="860" />
+  <img src="docs/images/readme/de/math.png" alt="Formeln, Tabellen, Diagramme – im Handumdrehen." width="860" />
 </p>
 
 ### Dein Schreibstil? Ganz wie du willst
@@ -94,9 +94,9 @@ Vier Schreibmodi und das Design deiner Wahl – auch Typora-Themes.
 
 Exportiere als PDF, Word, HTML und mehr.
 
-## Die KI schlägt vor. Du entscheidest
+## Dein Schreibassistent
 
-Textus AI hilft dir bei jedem Schritt. Jedes Wort bleibt deins.
+Schreibt mit dir. Das letzte Wort hast du.
 
 ### Während du schreibst
 
@@ -110,17 +110,17 @@ Halte kurz inne, und die nächsten Worte erscheinen in Grau. Tab übernimmt sie.
 
 Textus AI erfasst deinen Stil, merkt sich deine Figuren und Orte und folgt deinen Schreibanweisungen.
 
-### Die KI deiner Wahl
+### Das LLM deiner Wahl
 
-Melde dich mit ChatGPT oder Claude an, trage einen API-Schlüssel ein oder lass ein Modell auf deinem eigenen Rechner laufen.
+Textus unterstützt mehr als 20 LLMs und jedes LLM mit OpenAI-kompatibler API.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · Jeder OpenAI-kompatible Dienst
 
 <p align="center">
-  <img src="docs/images/readme/de/settings.png" alt="Die KI deiner Wahl." width="860" />
+  <img src="docs/images/readme/de/settings.png" alt="Das LLM deiner Wahl." width="860" />
 </p>
 
-## Privat aus Prinzip
+## Was du schreibst, gehört nur dir
 
 Was du schreibst, gehört dir. Textus ist so gebaut, dass es dabei bleibt – und der Code ist offen, damit jeder das prüfen kann.
 

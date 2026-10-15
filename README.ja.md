@@ -73,7 +73,7 @@ Markdownの記法は、書いたそばから仕上がりの姿に。行にポイ
 数式はその場で表示され、表はきれいに揃います。数行のテキストが、そのまま図になります。
 
 <p align="center">
-  <img src="docs/images/readme/ja/math.png" alt="数式も、表も、図も。" width="860" />
+  <img src="docs/images/readme/ja/math.png" alt="数式も、表も、図も、すぐできる" width="860" />
 </p>
 
 ### 書き方は？お好きなように
@@ -94,9 +94,9 @@ Markdownの記法は、書いたそばから仕上がりの姿に。行にポイ
 
 PDF、Word、HTMLなどに書き出せます。
 
-## 提案はAI、決めるのはあなた
+## あなたの執筆アシスタント
 
-Textus AIは、書くことのあらゆる場面で力を貸します。言葉は、すべてあなたのものです。
+一緒に書く。決めるのは、いつもあなた。
 
 ### 書いているとき
 
@@ -110,17 +110,17 @@ Textus AIは、書くことのあらゆる場面で力を貸します。言葉�
 
 あなたの文体を学び、人物や場所の設定を覚え、執筆の指示に従います。
 
-### 使うAIは、自由に
+### LLMは、お好きなものを
 
-ChatGPTやClaudeでサインインするか、APIキーを入力するか。手元のコンピューターでモデルを動かすこともできます。
+Textus は20種類以上のLLMに対応し、OpenAI互換のAPIを備えたLLMならどれでも使えます。
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · OpenAI互換のあらゆるエンドポイント
 
 <p align="center">
-  <img src="docs/images/readme/ja/settings.png" alt="使うAIは、自由に。" width="860" />
+  <img src="docs/images/readme/ja/settings.png" alt="LLMは、お好きなものを" width="860" />
 </p>
 
-## プライバシーは、設計から
+## あなたが書いたものは、あなただけのもの
 
 あなたの文章は、あなたのもの。Textusはそのために設計され、コードもすべて公開しています。
 

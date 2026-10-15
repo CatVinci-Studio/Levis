@@ -73,7 +73,7 @@ Todo el Markdown, con formato mientras escribes. Pasa el puntero por una línea 
 Las fórmulas se muestran mientras escribes, las tablas se alinean solas y unas pocas líneas de texto bastan para un diagrama.
 
 <p align="center">
-  <img src="docs/images/readme/es/math.png" alt="Fórmulas, tablas y diagramas." width="860" />
+  <img src="docs/images/readme/es/math.png" alt="Fórmulas, tablas y diagramas, en un instante." width="860" />
 </p>
 
 ### ¿Tu estilo de escritura? Tú decides
@@ -94,9 +94,9 @@ Cuatro modos de escritura y el tema que prefieras, incluidos los de Typora.
 
 Exporta a PDF, Word, HTML y más.
 
-## La IA propone. Tú decides
+## Tu asistente de escritura
 
-Textus AI te acompaña en cada paso. Las palabras siguen siendo tuyas.
+Escribe contigo. La última palabra es tuya.
 
 ### Mientras escribes
 
@@ -110,17 +110,17 @@ Los cambios llegan como propuestas, cada una con su motivo. Acéptalas enteras o
 
 Aprende tu estilo, recuerda a tus personajes y lugares, y sigue tus instrucciones.
 
-### Usa la IA que prefieras
+### El LLM que prefieras
 
-Inicia sesión con ChatGPT o Claude, añade una clave de API o ejecuta un modelo en tu propio ordenador.
+Textus funciona con más de 20 LLM y con cualquier LLM que ofrezca una API compatible con OpenAI.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · Cualquier servicio compatible con OpenAI
 
 <p align="center">
-  <img src="docs/images/readme/es/settings.png" alt="Usa la IA que prefieras." width="860" />
+  <img src="docs/images/readme/es/settings.png" alt="El LLM que prefieras." width="860" />
 </p>
 
-## Privacidad desde el diseño
+## Lo que escribes es solo tuyo
 
 Lo que escribes es tuyo. Textus está hecho para que siga siéndolo, y su código es abierto para que cualquiera lo compruebe.
 
