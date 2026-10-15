@@ -172,6 +172,14 @@ type /name in a conversation to use one.
   outlineCollapse: "Collapse",
   outlineExpand: "Expand",
   wordsUnit: "words",
+  textusNoticeTitle: "Levis is now Textus",
+  textusNoticeText:
+    "Textus is the new version of Levis, with a new name and a new icon. This is the last version of Levis. Your documents stay where they are, and on its first launch Textus offers to bring over your settings, history and keys.",
+  textusNoticeOk: "Get Textus",
+  textusNoticeLater: "Later",
+  textusNoticeRow: "Levis is now Textus",
+  textusNoticeRowHint:
+    "This is the last version of Levis. Textus brings over your settings, history and keys.",
   alertNote: "Note",
   alertTip: "Tip",
   alertImportant: "Important",

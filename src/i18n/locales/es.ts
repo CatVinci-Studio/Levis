@@ -184,6 +184,14 @@ para usar una.
   outlineCollapse: "Contraer",
   outlineExpand: "Expandir",
   wordsUnit: "palabras",
+  textusNoticeTitle: "Levis ahora es Textus",
+  textusNoticeText:
+    "Textus es la nueva versión de Levis, con un nombre y un icono nuevos. Esta es la última versión de Levis. Tus documentos se quedan donde están y, al abrirse por primera vez, Textus te ofrece traer tus ajustes, tu historial y tus claves.",
+  textusNoticeOk: "Obtener Textus",
+  textusNoticeLater: "Más tarde",
+  textusNoticeRow: "Levis ahora es Textus",
+  textusNoticeRowHint:
+    "Esta es la última versión de Levis. Textus puede traer tus ajustes, tu historial y tus claves.",
   alertNote: "Nota",
   alertTip: "Consejo",
   alertImportant: "Importante",

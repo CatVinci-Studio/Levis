@@ -9,6 +9,8 @@ import { flushPendingWrites } from "../../storage/pending-writes";
 import { selfUpdateAllowed } from "../../utils/distribution";
 import { canAutoUpdate } from "../../platform/capabilities";
 import { SettingRow } from "./controls";
+import { showTextusNotice } from "../textus-notice";
+import { isIOSApp } from "../../platform/capabilities";
 
 // The General category's sections beyond plain settings rows.
 
@@ -160,6 +162,21 @@ export function CliCommandSection({ t }: { t: Strings }) {
           : installed
             ? t.cliCommandReinstallButton
             : t.cliCommandInstallButton}
+      </button>
+    </SettingRow>
+  );
+}
+
+/** Levis 0.9.8: where Textus, the next version, is (settings/textus-notice.ts). */
+export function TextusNoticeSection({ t }: { t: Strings }) {
+  if (isIOSApp) return null;
+  return (
+    <SettingRow label={t.textusNoticeRow} hint={t.textusNoticeRowHint}>
+      <button
+        className="text-button settings-inline-button"
+        onClick={() => void showTextusNotice(t)}
+      >
+        {t.textusNoticeOk}
       </button>
     </SettingRow>
   );

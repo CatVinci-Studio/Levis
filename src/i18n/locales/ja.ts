@@ -170,6 +170,14 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   outlineCollapse: "折りたたむ",
   outlineExpand: "展開",
   wordsUnit: "字",
+  textusNoticeTitle: "Levis は Textus になりました",
+  textusNoticeText:
+    "Textus は Levis の新しいバージョンで、名前とアイコンが新しくなりました。これが Levis の最後のバージョンです。文書はそのままの場所に残り、Textus は初回起動時に設定・履歴・キーの引き継ぎを案内します。",
+  textusNoticeOk: "Textus を入手",
+  textusNoticeLater: "あとで",
+  textusNoticeRow: "Levis は Textus になりました",
+  textusNoticeRowHint:
+    "これが Levis の最後のバージョンです。Textus に設定・履歴・キーを引き継げます。",
   alertNote: "メモ",
   alertTip: "ヒント",
   alertImportant: "重要",

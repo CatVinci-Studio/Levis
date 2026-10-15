@@ -175,6 +175,14 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   outlineCollapse: "Recolher",
   outlineExpand: "Expandir",
   wordsUnit: "palavras",
+  textusNoticeTitle: "O Levis agora é Textus",
+  textusNoticeText:
+    "O Textus é a nova versão do Levis, com nome e ícone novos. Esta é a última versão do Levis. Seus documentos continuam onde estão e, ao abrir pela primeira vez, o Textus oferece trazer suas configurações, seu histórico e suas chaves.",
+  textusNoticeOk: "Baixar o Textus",
+  textusNoticeLater: "Depois",
+  textusNoticeRow: "O Levis agora é Textus",
+  textusNoticeRowHint:
+    "Esta é a última versão do Levis. O Textus pode trazer suas configurações, seu histórico e suas chaves.",
   alertNote: "Nota",
   alertTip: "Dica",
   alertImportant: "Importante",

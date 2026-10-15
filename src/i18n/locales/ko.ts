@@ -168,6 +168,14 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   outlineCollapse: "접기",
   outlineExpand: "펼치기",
   wordsUnit: "단어",
+  textusNoticeTitle: "Levis가 Textus가 되었습니다",
+  textusNoticeText:
+    "Textus는 이름과 아이콘이 새로워진 Levis의 새 버전입니다. 이번이 Levis의 마지막 버전입니다. 문서는 그 자리에 그대로 있고, Textus를 처음 실행하면 설정, 기록, 키를 가져오도록 안내합니다.",
+  textusNoticeOk: "Textus 받기",
+  textusNoticeLater: "나중에",
+  textusNoticeRow: "Levis가 Textus가 되었습니다",
+  textusNoticeRowHint:
+    "이번이 Levis의 마지막 버전입니다. 설정, 기록, 키를 Textus로 가져올 수 있습니다.",
   alertNote: "참고",
   alertTip: "팁",
   alertImportant: "중요",
