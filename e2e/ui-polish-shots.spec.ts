@@ -158,10 +158,7 @@ for (const form of ["desktop", "narrow", "phone"] as Form[]) {
           await expect(page.locator(".agent-comment")).toBeVisible();
           await page.waitForTimeout(1500);
           await shot(page, "3-reply");
-          await page.locator(".agent-proposal-picker-toggle").click();
-          await page
-            .locator(".agent-proposal-picker-list")
-            .scrollIntoViewIfNeeded();
+          await page.locator(".milkdown .pending-pick-keep").last().click();
           await page.waitForTimeout(300);
           await shot(page, "4-picker");
           const diff = page.locator(".agent-diff-summary");

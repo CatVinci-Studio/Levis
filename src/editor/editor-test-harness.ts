@@ -21,6 +21,8 @@ export async function createTestEditor(markdown: string): Promise<Editor> {
       onReject() {},
       onPreviewsChange() {},
       getFocusedCallId: () => null,
+      onDecide() {},
+      getFocusedSentence: () => null,
     },
     { onMount() {}, onUnmount() {} },
     { current: true },

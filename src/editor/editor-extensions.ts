@@ -73,6 +73,10 @@ export interface PendingEditCallbacks {
   /** Live read of the Quick Ask nav bar's current pointer - see
    *  createPendingEditPlugin's option of the same name. */
   getFocusedCallId: () => string | null;
+  /** A ✓ / ✕ clicked in the text - see createPendingEditPlugin. */
+  onDecide: (callId: string, index: number, take: boolean | null) => void;
+  /** The sentence the review bar points at. */
+  getFocusedSentence: () => { callId: string; index: number } | null;
 }
 
 /**
@@ -257,6 +261,13 @@ export function withEditorExtensions(
         createPendingEditPlugin({
           ...pendingEdits,
           animationEnabled: () => settings.current.enableEditAnimation,
+          sentenceLabels: () => {
+            const t = resolveStrings(settings.current.language);
+            return {
+              take: t.proposalTakeSentence,
+              keep: t.proposalKeepSentence,
+            };
+          },
         }),
       )
       .use(chatSelectionPlugin)

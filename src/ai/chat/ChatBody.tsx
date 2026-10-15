@@ -16,6 +16,7 @@ import {
   ErrorRow,
   ThinkingIndicator,
   type ChatMessagesLabels,
+  type ChatMessagesProps,
 } from "./ChatMessages";
 import { ChatComposer, type ChatComposerLabels } from "./ChatComposer";
 import { MarkdownText } from "../MarkdownText";
@@ -75,8 +76,14 @@ export interface ChatBodyProps {
     proposals: { callId: string; proposal: EditProposal }[],
   ) => void;
   onAcceptProposal: (callId: string, text?: string) => void;
-  /** See ChatMessages' proposalOriginal - enables per-sentence acceptance. */
-  proposalOriginal?: (callId: string) => string | null;
+  /** See ChatMessages' proposalSentences, onDecideSentence and
+   *  onRevealProposal - the card's view of the in-text decisions. */
+  proposalSentences?: ChatMessagesProps["proposalSentences"];
+  onDecideSentence?: ChatMessagesProps["onDecideSentence"];
+  onRevealProposal?: ChatMessagesProps["onRevealProposal"];
+  /** False where the editor's own review bar decides pending edits (the
+   *  docked panel): the bar above the composer is then not drawn. */
+  pendingBar?: boolean;
   /** See ChatMessages' onLocateText. */
   onLocateText?: (anchor: string, context?: string) => void;
   onRejectProposal: (callId: string) => void;
@@ -204,7 +211,10 @@ export function ChatBody({
   pendingCount,
   onProposals,
   onAcceptProposal,
-  proposalOriginal,
+  proposalSentences,
+  onDecideSentence,
+  onRevealProposal,
+  pendingBar = true,
   onLocateText,
   onRejectProposal,
   onAcceptAll,
@@ -500,7 +510,9 @@ export function ChatBody({
                     labels={labels}
                     proposalStatus={proposalStatus}
                     onAcceptProposal={onAcceptProposal}
-                    proposalOriginal={proposalOriginal}
+                    proposalSentences={proposalSentences}
+                    onDecideSentence={onDecideSentence}
+                    onRevealProposal={onRevealProposal}
                     onLocateText={onLocateText}
                     onRejectProposal={onRejectProposal}
                     onRelocateProposal={handleRelocate}
@@ -532,7 +544,9 @@ export function ChatBody({
                 labels={labels}
                 proposalStatus={proposalStatus}
                 onAcceptProposal={onAcceptProposal}
-                proposalOriginal={proposalOriginal}
+                proposalSentences={proposalSentences}
+                onDecideSentence={onDecideSentence}
+                onRevealProposal={onRevealProposal}
                 onLocateText={onLocateText}
                 onRejectProposal={onRejectProposal}
                 onRelocateProposal={handleRelocate}
@@ -558,8 +572,8 @@ export function ChatBody({
       ) : (
         // Rises from the composer's edge with the first undecided edit
         // and goes back down after the last.
-        <Presence show={pendingCount > 0} exitMs={150}>
-          {pendingCount > 0 && (
+        <Presence show={pendingBar && pendingCount > 0} exitMs={150}>
+          {pendingBar && pendingCount > 0 && (
             <PresenceDiv className="inline-chat-pending-bar">
               <span className="inline-chat-pending-count">
                 {labels.pendingSummary.replace("{n}", String(pendingCount))}

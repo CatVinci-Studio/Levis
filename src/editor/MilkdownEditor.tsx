@@ -100,11 +100,13 @@ import {
   type SelectionTarget,
 } from "../ai/usePendingEdits";
 import {
+  pendingEditKey,
   prefersReducedMotion,
   streamPendingInsertText,
   type PendingPreview,
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
+import { ReviewBar } from "../ai/ReviewBar";
 import { isRefusal } from "../ai/proposal-status";
 import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
@@ -262,6 +264,8 @@ export function MilkdownEditor({
     onReject: () => {},
     onPreviewsChange: () => {},
     getFocusedCallId: () => null,
+    onDecide: () => {},
+    getFocusedSentence: () => null,
   });
   // Same bridge, for the selection listener registered in the chain below:
   // the real handler needs `run` and the detached-chat bridge, neither of
@@ -335,6 +339,10 @@ export function MilkdownEditor({
             pendingEditActionsRef.current.onPreviewsChange(previews),
           getFocusedCallId: () =>
             pendingEditActionsRef.current.getFocusedCallId(),
+          onDecide: (callId, index, take) =>
+            pendingEditActionsRef.current.onDecide(callId, index, take),
+          getFocusedSentence: () =>
+            pendingEditActionsRef.current.getFocusedSentence(),
         },
         // setQuickAskEl is a useState setter - always stable, no ref
         // indirection needed (unlike pendingEdits above, whose real
@@ -463,13 +471,28 @@ export function MilkdownEditor({
       onReject: pendingEdits.reject,
       onPreviewsChange: pendingEdits.syncFromPlugin,
       getFocusedCallId: () => pendingEdits.focusedPreview?.callId ?? null,
+      onDecide: pendingEdits.decide,
+      getFocusedSentence: () => pendingEdits.focusedStop,
     };
   }, [
     pendingEdits.accept,
     pendingEdits.reject,
     pendingEdits.syncFromPlugin,
     pendingEdits.focusedPreview,
+    pendingEdits.decide,
+    pendingEdits.focusedStop,
   ]);
+  // The review bar's pointer is drawn in the text (an outline round the
+  // sentence): redraw when it moves.
+  const focusedStopKey = pendingEdits.focusedStop
+    ? `${pendingEdits.focusedStop.callId}:${pendingEdits.focusedStop.index}`
+    : null;
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "refocus" }));
+    });
+  }, [focusedStopKey, run]);
   // Re-prompting supersedes: the first proposal a new exchange writes into
   // the document clears whatever previews the user left undecided - the new
   // suggestion replaces the old one on screen instead of stacking under it.
@@ -1485,6 +1508,53 @@ export function MilkdownEditor({
     });
   }
 
+  // The review bar (ai/ReviewBar.tsx) floats over the bottom of the pane
+  // this editor scrolls in, while there is anything to decide - except
+  // while Quick Ask, which has its own, is open, and on a phone while the
+  // AI sheet covers the text.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [paneEl, setPaneEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setPaneEl(
+      (rootRef.current?.closest(".main-pane") as HTMLElement | null) ?? null,
+    );
+  }, []);
+  const reviewBarShown =
+    isActive &&
+    pendingEdits.decidable.length > 0 &&
+    !inlineChat.visible &&
+    !(phone && panelContainer);
+  // On a phone, the edits arriving fold the AI sheet away so the text they
+  // change is what's on screen, scrolled to the first of them; the bar
+  // has the way back into the conversation.
+  const hadDecidable = useRef(false);
+  useEffect(() => {
+    const has = pendingEdits.decidable.length > 0;
+    if (has && !hadDecidable.current && phone && panelContainer && isActive) {
+      agentPanel.setOpen(false);
+      const first = pendingEdits.reviewStops[0];
+      if (first) {
+        pendingEdits.pointReview(first.callId, first.index);
+        run((ctx) => revealPosition(ctx.get(editorViewCtx), first.from));
+      }
+    }
+    hadDecidable.current = has;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEdits.decidable.length]);
+
+  function stepReview(delta: 1 | -1) {
+    const stop = pendingEdits.stepReview(delta);
+    if (stop) run((ctx) => revealPosition(ctx.get(editorViewCtx), stop.from));
+  }
+
+  // A card's sentence or "Show in text": point the review bar there and
+  // bring it into view.
+  function revealProposal(callId: string, index: number) {
+    const stop = pendingEdits.pointReview(callId, index);
+    if (!stop) return;
+    run((ctx) => revealPosition(ctx.get(editorViewCtx), stop.from));
+  }
+
   function popOutPanel() {
     handleDetachChat();
     agentPanel.setOpen(false);
@@ -1510,6 +1580,7 @@ export function MilkdownEditor({
 
   return (
     <div
+      ref={rootRef}
       onContextMenu={onContextMenu}
       // iOS fires mouseover on a tap; there the caret opens the suggestion.
       onMouseOver={phone ? undefined : grammar.onMouseOver}
@@ -1518,6 +1589,27 @@ export function MilkdownEditor({
       onPointerUp={() => (lastTouchRef.current = Date.now())}
     >
       <Milkdown />
+      {paneEl &&
+        createPortal(
+          <Presence show={reviewBarShown} exitMs={200}>
+            {reviewBarShown && (
+              <ReviewBar
+                labels={t}
+                taken={pendingEdits.reviewCount.taken}
+                total={pendingEdits.reviewCount.total}
+                position={pendingEdits.stopIndex}
+                stops={pendingEdits.reviewStops.length}
+                phone={phone}
+                onPrevious={() => stepReview(-1)}
+                onNext={() => stepReview(1)}
+                onAccept={pendingEdits.acceptAll}
+                onReject={pendingEdits.rejectAll}
+                onOpenChat={() => agentPanel.setOpen(true)}
+              />
+            )}
+          </Presence>,
+          paneEl,
+        )}
       <Presence show={findReplace.open} exitMs={120}>
         {findReplace.open && (
           <FindReplaceBar findReplace={findReplace} labels={t} />
@@ -1688,7 +1780,10 @@ export function MilkdownEditor({
               refreshContext={panelSendContext}
               onProposals={showProposals}
               onAcceptProposal={pendingEdits.accept}
-              proposalOriginal={pendingEdits.originalText}
+              proposalSentences={pendingEdits.sentences}
+              onDecideSentence={pendingEdits.decide}
+              onRevealProposal={revealProposal}
+              pendingBar={false}
               onLocateText={locateText}
               onRejectProposal={pendingEdits.reject}
               onAcceptAll={pendingEdits.acceptAll}

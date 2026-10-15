@@ -123,27 +123,70 @@ test("an agent reply shows a reasoned edit, a sentence picker and a comment", as
     "删去重复和冗余的修饰，保留时间和人数。",
   );
   await expect(page.locator(".agent-comment")).toBeVisible();
-  // The edit previews in the document.
-  await expect(page.locator(".milkdown .pending-delete").first()).toBeVisible();
-  await page.locator(".agent-proposal-picker-toggle").click();
-  await expect(page.locator(".agent-proposal-picker-list li")).toHaveCount(2);
-  // The insert preview types itself out; the shot waits for its last words.
+  // The edit previews in the document, sentence by sentence, each changed
+  // sentence with its own ✓ / ✕ - and the card lists the same two.
+  await expect(page.locator(".milkdown .pending-sentence")).toHaveCount(2);
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await expect(page.locator(".agent-proposal-sentences li")).toHaveCount(2);
   await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
   await expect(page).toHaveScreenshot("agent-reply.png");
-  // Accept only the first sentence change.
-  await page.locator(".agent-proposal-picker-list input").nth(1).uncheck();
-  // The one Accept button now takes only the ticked change.
+  // Keep the second sentence as written, from the text itself: the card and
+  // the review bar both now take one of the two.
+  await page.locator(".milkdown .pending-pick-keep").nth(1).click();
+  await expect(
+    page.locator(".agent-proposal-sentences li").nth(1),
+  ).toHaveAttribute("data-state", "kept");
   const accept = page.locator(
     ".agent-proposal-actions .inline-chat-action-primary",
   );
   await expect(accept).toHaveText("采纳 1/2 处");
-  await accept.click();
+  await expect(page.locator(".review-bar-accept")).toHaveText("采纳 1/2 处");
+  await page.locator(".review-bar-accept").click();
   await expect(page.locator(".milkdown")).toContainText(
     "这项研究覆盖三个街区。我们花了整整两个月的时间",
   );
   await expect(page.locator(".milkdown")).toContainText(
     "一共访谈了四十六位居民，内容涵盖了很多方面。",
   );
+  await expect(page.locator(".review-bar")).toHaveCount(0);
+});
+
+test("the last sentence decided in the text applies the edit", async ({
+  page,
+}) => {
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  await pasteMarkdown(page, SAMPLE_DOC);
+  const anchor =
+    "这项研究在三个街区进行。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。一共访谈了四十六位居民，内容涵盖了很多方面。";
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "精简" },
+      {
+        kind: "ToolCall",
+        call_id: "e1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace",
+          anchor,
+          text: "这项研究覆盖三个街区。我们花了整整两个月的时间，和住在这些街区里的居民进行了一对一的、比较深入的访谈。共访谈四十六位居民。",
+        }),
+      },
+      { kind: "ToolResult", call_id: "e1", output: "Edit proposed" },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("精简");
+  await composer.press("Enter");
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await page.locator(".milkdown .pending-pick-take").first().click();
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await page.locator(".milkdown .pending-pick-take").nth(1).click();
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(0);
+  await expect(page.locator(".milkdown")).toContainText(
+    "这项研究覆盖三个街区。",
+  );
+  await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
+  await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
 });
 
 test("an accepted new table row and nested item land inside the table and list", async ({
