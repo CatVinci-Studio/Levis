@@ -72,6 +72,7 @@ import {
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "./ContextMenu";
 import { ActionSheet } from "../mobile/ActionSheet";
+import { BottomCard } from "../mobile/BottomCard";
 import { usePhoneLayout } from "../mobile/usePhoneLayout";
 import { InsertTableDialog } from "./InsertTableDialog";
 import { ImageNameDialog, type ImageNameRequest } from "./ImageNameDialog";
@@ -107,6 +108,12 @@ import {
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
 import { ReviewBar } from "../ai/ReviewBar";
+import { NotePopover, ReviewMargin } from "../ai/ReviewMargin";
+import {
+  commentCalls,
+  reviewNotesKey,
+  type ReviewNote,
+} from "../ai/review-notes-plugin";
 import { isRefusal } from "../ai/proposal-status";
 import type { StreamEvent } from "../ipc";
 import { useGrammarPopover } from "../ai/useGrammarPopover";
@@ -271,6 +278,11 @@ export function MilkdownEditor({
   // the real handler needs `run` and the detached-chat bridge, neither of
   // which exists yet at construction time.
   const onSelectionChangeRef = useRef<() => void>(() => {});
+  // The review notes' plugin callbacks, bridged like the pending edits'.
+  const reviewNotesRef = useRef<{
+    onChange: (notes: ReviewNote[]) => void;
+    onBadge: (id: string, el: HTMLElement) => void;
+  }>({ onChange: () => {}, onBadge: () => {} });
   // Defined further down (useGrammarPopover); read through a ref here.
   const grammarCaretRef = useRef<() => void>(() => {});
 
@@ -357,6 +369,10 @@ export function MilkdownEditor({
         tutorialMockRef,
         () => tRef.current.imagePasteFailedMessage,
         requestImageName,
+        {
+          onChange: (notes) => reviewNotesRef.current.onChange(notes),
+          onBadge: (id, el) => reviewNotesRef.current.onBadge(id, el),
+        },
       ),
     [],
   );
@@ -1518,6 +1534,14 @@ export function MilkdownEditor({
     setPaneEl(
       (rootRef.current?.closest(".main-pane") as HTMLElement | null) ?? null,
     );
+    setScrollEl(
+      (rootRef.current?.closest(".editor-scroll") as HTMLElement | null) ??
+        null,
+    );
+    setContentEl(
+      (rootRef.current?.closest(".editor-content") as HTMLElement | null) ??
+        null,
+    );
   }, []);
   const reviewBarShown =
     isActive &&
@@ -1546,6 +1570,127 @@ export function MilkdownEditor({
     const stop = pendingEdits.stepReview(delta);
     if (stop) run((ctx) => revealPosition(ctx.get(editorViewCtx), stop.from));
   }
+
+  // Review notes (ai/review-notes-plugin.ts, ai/ReviewMargin.tsx): every
+  // add_comment of this tab's conversations, pinned to its passage and
+  // drawn in the margin - until it is marked done, or its conversation is
+  // cleared.
+  const [notes, setNotes] = useState<ReviewNote[]>([]);
+  const [hotNote, setHotNote] = useState<string | null>(null);
+  const [openNote, setOpenNote] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const doneNotes = useRef(new Set<string>());
+  const lostNotes = useRef(new Set<string>());
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  const [contentEl, setContentEl] = useState<HTMLElement | null>(null);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+  useEffect(() => {
+    reviewNotesRef.current = {
+      onChange: setNotes,
+      onBadge: (id, el) => {
+        const r = el.getBoundingClientRect();
+        setOpenNote({ id, x: r.left, y: r.bottom + 6 });
+      },
+    };
+  }, []);
+  const panelTurns = conversation.streaming?.turns;
+  const quickTurns = quickConversation.streaming?.turns;
+  const comments = useMemo(
+    () =>
+      commentCalls([
+        ...conversation.history,
+        ...(panelTurns ?? []),
+        ...quickConversation.history,
+        ...(quickTurns ?? []),
+      ]),
+    [conversation.history, panelTurns, quickConversation.history, quickTurns],
+  );
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      setEditorView(view);
+      const current = reviewNotesKey.getState(view.state)?.notes ?? [];
+      const wanted = comments.filter((c) => !doneNotes.current.has(c.id));
+      const keep = current.filter((n) => wanted.some((w) => w.id === n.id));
+      const added: ReviewNote[] = [];
+      for (const c of wanted) {
+        if (keep.some((n) => n.id === c.id) || lostNotes.current.has(c.id))
+          continue;
+        const range = locateAnchor(ctx, view.state.doc, c.anchor, c.context);
+        if (!range || range.from >= range.to) {
+          lostNotes.current.add(c.id);
+          continue;
+        }
+        added.push({ id: c.id, ...range, comment: c.comment });
+      }
+      if (added.length === 0 && keep.length === current.length) return;
+      view.dispatch(
+        view.state.tr.setMeta(reviewNotesKey, {
+          type: "set",
+          notes: [...keep, ...added].sort((a, b) => a.from - b.from),
+        }),
+      );
+    });
+  }, [comments, run]);
+
+  function setNoteHot(id: string | null) {
+    setHotNote(id);
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(reviewNotesKey, { type: "hot", id }));
+    });
+  }
+
+  function doneNote(id: string) {
+    doneNotes.current.add(id);
+    setOpenNote(null);
+    setHotNote(null);
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(
+        view.state.tr.setMeta(reviewNotesKey, { type: "remove", id }),
+      );
+    });
+  }
+
+  // "Ask about it": into the AI panel's composer, the note quoted, for the
+  // writer to finish the question.
+  function askAboutNote(note: ReviewNote) {
+    setOpenNote(null);
+    agentPanel.setOpen(true);
+    const text = t.reviewNoteAskPrefix.replace("{comment}", note.comment);
+    window.setTimeout(() => {
+      const box = document.querySelector<HTMLTextAreaElement>(
+        ".agent-panel-view textarea",
+      );
+      if (!box) return;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(box, text);
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+      box.focus();
+      box.setSelectionRange(text.length, text.length);
+    }, 60);
+  }
+
+  function setNotesCompact(compact: boolean) {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(
+        view.state.tr.setMeta(reviewNotesKey, { type: "compact", compact }),
+      );
+    });
+    if (!compact) setOpenNote(null);
+  }
+
+  const openNoteData = openNote
+    ? (notes.find((n) => n.id === openNote.id) ?? null)
+    : null;
 
   // A card's sentence or "Show in text": point the review bar there and
   // bring it into view.
@@ -1583,12 +1728,86 @@ export function MilkdownEditor({
       ref={rootRef}
       onContextMenu={onContextMenu}
       // iOS fires mouseover on a tap; there the caret opens the suggestion.
-      onMouseOver={phone ? undefined : grammar.onMouseOver}
+      onMouseOver={
+        phone
+          ? undefined
+          : (e) => {
+              grammar.onMouseOver(e);
+              // The margin's cards are portaled out but bubble here: they
+              // set their own hover.
+              if ((e.target as HTMLElement).closest?.(".review-note")) return;
+              const anchor = (e.target as HTMLElement).closest?.(
+                ".review-anchor",
+              ) as HTMLElement | null;
+              const id = anchor?.dataset.note ?? null;
+              if (id !== hotNote) setNoteHot(id);
+            }
+      }
       onMouseOut={phone ? undefined : grammar.onMouseOut}
       onPointerDown={() => (lastTouchRef.current = Date.now())}
       onPointerUp={() => (lastTouchRef.current = Date.now())}
     >
       <Milkdown />
+      {isActive && scrollEl && contentEl && (
+        <ReviewMargin
+          view={editorView}
+          notes={notes}
+          hot={hotNote}
+          scrollEl={scrollEl}
+          contentEl={contentEl}
+          labels={t}
+          onHot={setNoteHot}
+          onDone={doneNote}
+          onAsk={askAboutNote}
+          onCompact={setNotesCompact}
+          layoutKey={pendingEdits.previews}
+        />
+      )}
+      {openNoteData && openNote && !phone && (
+        <NotePopover
+          note={openNoteData}
+          x={openNote.x}
+          y={openNote.y}
+          labels={t}
+          onDone={doneNote}
+          onAsk={askAboutNote}
+          onClose={() => setOpenNote(null)}
+        />
+      )}
+      <Presence show={!!openNoteData && phone} exitMs={250}>
+        {openNoteData && phone && (
+          <BottomCard
+            label={t.reviewNoteBy}
+            actions={[
+              {
+                label: t.reviewNoteAsk,
+                onSelect: () => askAboutNote(openNoteData),
+              },
+              {
+                label: t.reviewNoteDone,
+                primary: true,
+                onSelect: () => doneNote(openNoteData.id),
+              },
+            ]}
+            onClose={() => setOpenNote(null)}
+          >
+            <div className="bottom-card-kicker">
+              <span className="review-note-mark" aria-hidden="true">
+                AI
+              </span>
+              {t.reviewNoteBy}
+            </div>
+            <p className="bottom-card-quote">
+              {editorView?.state.doc.textBetween(
+                openNoteData.from,
+                openNoteData.to,
+                " ",
+              )}
+            </p>
+            {openNoteData.comment}
+          </BottomCard>
+        )}
+      </Presence>
       {paneEl &&
         createPortal(
           <Presence show={reviewBarShown} exitMs={200}>

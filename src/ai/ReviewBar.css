@@ -196,3 +196,28 @@
     display: none;
   }
 }
+
+/* Dark: a dark pill would vanish into the page - lift it a shade instead. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .review-bar:not(.review-bar-phone) {
+    background: color-mix(
+      in srgb,
+      var(--editor-text) 16%,
+      var(--editor-bg, #1e1e1e)
+    );
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--editor-text) 12%, transparent),
+      0 14px 30px -14px rgb(0 0 0 / 70%);
+  }
+}
+
+:root[data-theme="dark"] .review-bar:not(.review-bar-phone) {
+  background: color-mix(
+    in srgb,
+    var(--editor-text) 16%,
+    var(--editor-bg, #1e1e1e)
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--editor-text) 12%, transparent),
+    0 14px 30px -14px rgb(0 0 0 / 70%);
+}

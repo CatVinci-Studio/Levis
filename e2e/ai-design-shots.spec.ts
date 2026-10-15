@@ -104,6 +104,16 @@ for (const scheme of ["light", "dark"] as const) {
     await page.locator(".milkdown .pending-pick-keep").nth(1).click();
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${DIR}/desktop-${scheme}-2.png` });
+    // Hover the note's passage: it and its card light up together.
+    await page.locator(".milkdown .review-anchor").first().hover();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${DIR}/desktop-${scheme}-3-note.png` });
+    // A narrow window: no room for a margin, the note sits behind a badge.
+    await page.setViewportSize({ width: 900, height: 800 });
+    await page.waitForTimeout(500);
+    await page.locator(".review-badge").first().click();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${DIR}/desktop-${scheme}-4-narrow.png` });
   });
 }
 
@@ -127,5 +137,10 @@ test.describe("phone", () => {
     await ask(page);
     await page.waitForTimeout(600);
     await page.screenshot({ path: `${DIR}/phone-2-review.png` });
+    await page.locator(".review-bar-reject, .review-bar-button").last().click();
+    await page.waitForTimeout(400);
+    await page.locator(".review-badge").first().click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${DIR}/phone-3-note.png` });
   });
 });

@@ -1,0 +1,95 @@
+/* A phone's bottom card (BottomCard.tsx): the action sheet's scrim and
+   motion, a single card holding content and two big buttons. */
+.bottom-card-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet-menu, var(--z-sheet));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.bottom-card-scrim::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-bg);
+  animation: motion-fade-in var(--dur-medium) var(--ease-out);
+}
+
+.bottom-card {
+  position: relative;
+  padding: 0 18px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--editor-bg, var(--bg));
+  color: var(--editor-text);
+  box-shadow: var(--shadow-sheet);
+  animation: motion-sheet-in var(--dur-sheet) var(--ease-spring);
+}
+
+.bottom-card-scrim[data-state="closing"]::before {
+  animation: motion-fade-out var(--dur-medium) var(--ease-in) forwards;
+}
+
+.bottom-card-scrim[data-state="closing"] > .bottom-card {
+  animation: motion-sheet-out var(--dur-medium) var(--ease-in) forwards;
+}
+
+.bottom-card-grab {
+  width: 38px;
+  height: 5px;
+  margin: 8px auto 12px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--editor-text) 18%, transparent);
+}
+
+.bottom-card-body {
+  font-size: var(--text-lg, 16px);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.bottom-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bottom-card-actions button {
+  flex: 1;
+  padding: 13px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--editor-border, var(--border-color));
+  background: var(--editor-bg, var(--bg));
+  color: var(--editor-text);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.bottom-card-actions .bottom-card-primary {
+  border-color: var(--editor-text);
+  background: var(--editor-text);
+  color: var(--editor-bg, var(--bg));
+}
+
+/* What a note card shows: who, the passage, the note. */
+.bottom-card-kicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: var(--text-sm);
+  color: var(--editor-muted);
+}
+
+.bottom-card-quote {
+  margin: 0 0 8px;
+  padding-left: 9px;
+  border-left: 2px solid var(--review-note-line, var(--editor-accent));
+  font-size: var(--text-sm);
+  color: var(--editor-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

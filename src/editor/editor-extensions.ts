@@ -62,6 +62,10 @@ import {
 } from "../ai/pending-edit-plugin";
 import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
 import { createQuickAskWidgetPlugin } from "../ai/quick-ask-widget-plugin";
+import {
+  createReviewNotesPlugin,
+  type ReviewNote,
+} from "../ai/review-notes-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { resolveStrings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
@@ -110,6 +114,12 @@ export function withEditorExtensions(
    *  native alert (localized, since this plugin has no i18n access itself). */
   onImagePasteError: () => string,
   requestImageName: (stem: string, extension: string) => Promise<string | null>,
+  /** The review notes' callbacks (review-notes-plugin.ts) - ref-indirected
+   *  like `pendingEdits`. */
+  reviewNotes: {
+    onChange: (notes: ReviewNote[]) => void;
+    onBadge: (id: string, el: HTMLElement) => void;
+  } = { onChange: () => {}, onBadge: () => {} },
 ): Editor {
   return (
     editor
@@ -272,5 +282,6 @@ export function withEditorExtensions(
       )
       .use(chatSelectionPlugin)
       .use(createQuickAskWidgetPlugin(quickAskWidget))
+      .use(createReviewNotesPlugin(reviewNotes))
   );
 }

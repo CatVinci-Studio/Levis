@@ -1,0 +1,245 @@
+/* Review notes in the margin (ReviewMargin.tsx). The scroll area becomes
+   their positioning context while there are any; the text column moves
+   over to open a margin (its margin-left, animated). */
+.editor-scroll.review-notes-on {
+  position: relative;
+}
+
+.editor-scroll > .editor-content {
+  transition: margin-left var(--dur-slow) var(--ease-spring);
+}
+
+.review-margin {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 0;
+  height: 0;
+  z-index: 5;
+}
+
+.review-links {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.review-links path {
+  fill: none;
+  stroke: var(--review-note-line);
+  stroke-width: 1.2;
+  opacity: 0.7;
+  stroke-dasharray: 600;
+  animation: review-link-draw 600ms var(--ease-out) both;
+  animation-delay: 160ms;
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    stroke-width var(--dur-fast) var(--ease-standard);
+}
+
+.review-links path.hot {
+  opacity: 1;
+  stroke-width: 1.7;
+}
+
+@keyframes review-link-draw {
+  from {
+    stroke-dashoffset: 600;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.review-note {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 9px 12px 9px;
+  border-radius: var(--radius-surface);
+  border: 1px solid var(--review-note-border);
+  background: var(--review-note-bg);
+  color: var(--editor-text);
+  font-family: var(--font-ui, inherit);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  box-shadow: 0 8px 22px -16px rgb(0 0 0 / 30%);
+  transition:
+    top var(--dur-slow) var(--ease-spring),
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+  animation: review-note-in var(--dur-slow) var(--ease-out) both;
+}
+
+.review-note-hot {
+  transform: translateX(-3px);
+  box-shadow: 0 12px 26px -14px rgb(0 0 0 / 35%);
+}
+
+@keyframes review-note-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.review-note-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  font-size: var(--text-xs);
+  color: var(--editor-muted);
+}
+
+.review-note-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--editor-accent) 14%, transparent);
+  color: var(--editor-accent);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.review-note-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The actions open under the note on hover (always, by touch or focus). */
+.review-note-actions {
+  display: flex;
+  gap: 6px;
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-height var(--dur-medium) var(--ease-out),
+    margin var(--dur-medium) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.review-note:is(:hover, :focus-within, .review-note-hot, .review-note-popover)
+  .review-note-actions {
+  max-height: 32px;
+  margin-top: 7px;
+  opacity: 1;
+}
+
+.review-note-actions button {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--review-note-border);
+  background: var(--editor-bg, var(--bg));
+  color: var(--editor-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.review-note-actions button:hover {
+  border-color: var(--review-note-line);
+}
+
+.review-note-popover {
+  position: fixed;
+  z-index: 400;
+  width: 260px;
+  animation: motion-pop-in var(--dur-fast) var(--ease-out);
+}
+
+/* The passage a note is about, and its badge when there's no margin. */
+.review-anchor {
+  background: var(--review-anchor-bg);
+  box-shadow: inset 0 -1.5px 0 var(--review-note-line);
+  border-radius: 2px;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+
+.review-anchor-hot {
+  background: var(--review-anchor-hot-bg);
+}
+
+.review-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  padding: 0;
+  vertical-align: 0.2em;
+  border: 0;
+  border-radius: 50%;
+  background: var(--review-note-line);
+  color: #fff;
+  font: 700 10.5px/1 var(--font-ui, sans-serif);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px var(--review-anchor-bg);
+  animation: pending-pick-in var(--dur-medium) var(--ease-spring-bouncy) both;
+}
+
+[data-platform="ios"] .review-badge {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+:root {
+  --review-note-line: #c99a2e;
+  --review-anchor-bg: rgb(232 190 80 / 22%);
+  --review-anchor-hot-bg: rgb(232 190 80 / 42%);
+  --review-note-bg: color-mix(in srgb, #f6eedb 55%, var(--editor-bg, #fff));
+  --review-note-border: color-mix(in srgb, #d9c79a 45%, var(--editor-bg, #fff));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --review-anchor-bg: rgb(232 190 80 / 16%);
+    --review-anchor-hot-bg: rgb(232 190 80 / 30%);
+    --review-note-bg: color-mix(
+      in srgb,
+      #4a3f25 35%,
+      var(--editor-bg, #1f1f1f)
+    );
+    --review-note-border: color-mix(
+      in srgb,
+      #8a7440 40%,
+      var(--editor-bg, #1f1f1f)
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-note,
+  .review-links path,
+  .review-badge {
+    animation: none !important;
+  }
+}
+
+@media print {
+  .review-margin {
+    display: none;
+  }
+  .review-anchor {
+    background: none;
+    box-shadow: none;
+  }
+}
+
+:root[data-theme="dark"] {
+  --review-anchor-bg: rgb(232 190 80 / 16%);
+  --review-anchor-hot-bg: rgb(232 190 80 / 30%);
+  --review-note-bg: color-mix(in srgb, #4a3f25 35%, var(--editor-bg, #1f1f1f));
+  --review-note-border: color-mix(
+    in srgb,
+    #8a7440 40%,
+    var(--editor-bg, #1f1f1f)
+  );
+}
