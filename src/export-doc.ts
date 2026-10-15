@@ -6,6 +6,8 @@ import { tabTitle, type DocTab } from "./doc-tabs";
 import { exportDoc, fs } from "./ipc";
 import { isMacPlatform, isWindowsPlatform } from "./utils/platform";
 import { canExportPdf, canExportWithPandoc } from "./platform/capabilities";
+import { toPandocMarkdown } from "./export-pandoc-markdown";
+import { diagramsToImages } from "./export-diagram-images";
 import {
   MAC_PAGE,
   WINDOWS_PAGE,
@@ -30,6 +32,10 @@ const PANDOC_FORMATS: Record<string, { ext: string; label: string }> = {
   textile: { ext: "textile", label: "Textile" },
   opml: { ext: "opml", label: "OPML" },
 };
+
+// The formats that carry pictures inside the file, so a diagram can go in
+// as one; the plain-text ones (LaTeX, MediaWiki, ...) keep its source.
+const EMBEDS_IMAGES = new Set(["docx", "odt", "epub", "rtf"]);
 
 function escapeHtml(text: string): string {
   return text
@@ -90,6 +96,8 @@ const EDITOR_CHROME_SELECTOR = [
   ".quick-ask-anchor",
   ".pending-insert",
   ".image-resize-handle",
+  // Front matter is metadata for tools, not part of the page.
+  ".frontmatter-block",
 ].join(", ");
 
 // A resized table carries pixel widths (an inline table width plus one per
@@ -182,7 +190,14 @@ function buildStandaloneHtml(
   layoutCss: string,
 ): string {
   const root = document.documentElement;
-  const dataTheme = root.getAttribute("data-theme");
+  // Pin the appearance the page was exported in. Following the system
+  // (no data-theme) would let a reader's dark mode restyle the text while
+  // the diagrams keep the colours they were rendered with.
+  const dataTheme =
+    root.getAttribute("data-theme") ??
+    (window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light");
   const contentTheme = root.getAttribute("data-content-theme");
   // An imported theme switches Levis's own ornaments off (content-base.css);
   // the export has to say so too, or they come back on the page.
@@ -384,9 +399,16 @@ export async function exportViaPandoc(
   if (!picked) return;
   try {
     // tab.content, not the file on disk - unsaved edits export too.
+    const text = toPandocMarkdown(tab.content, {
+      NOTE: t.alertNote,
+      TIP: t.alertTip,
+      IMPORTANT: t.alertImportant,
+      WARNING: t.alertWarning,
+      CAUTION: t.alertCaution,
+    });
     await exportDoc.exportViaPandoc({
       pandocPath: pandoc,
-      markdown: tab.content,
+      markdown: EMBEDS_IMAGES.has(format) ? await diagramsToImages(text) : text,
       outputPath: picked,
       format,
       resourceDir: tab.path ? dirname(tab.path) : null,

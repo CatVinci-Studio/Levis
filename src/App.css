@@ -1158,7 +1158,8 @@ body {
   .ghost-text,
   .quick-ask-anchor,
   .pending-insert,
-  .image-resize-handle {
+  .image-resize-handle,
+  .frontmatter-block {
     display: none !important;
   }
 
