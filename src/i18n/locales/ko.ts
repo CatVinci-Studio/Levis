@@ -691,8 +691,10 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
     "다른 프로그램이 디스크에 있는 이 파일을 변경했습니다. 저장하면 그 변경 내용을 덮어씁니다.",
   fileChangedOnDiskOverwrite: "덮어쓰기",
   saveFailedTitle: "저장하지 못함",
-  saveFailedMessage: "‘{name}’ 문서를 저장하지 못했습니다. 변경 내용은 그대로 남아 있습니다.",
-  saveReadOnlyHint: "읽기 전용 파일입니다. ‘다른 이름으로 저장’으로 새 파일에 저장할 수 있습니다.",
+  saveFailedMessage:
+    "‘{name}’ 문서를 저장하지 못했습니다. 변경 내용은 그대로 남아 있습니다.",
+  saveReadOnlyHint:
+    "읽기 전용 파일입니다. ‘다른 이름으로 저장’으로 새 파일에 저장할 수 있습니다.",
   unsavedIndicator: "저장하지 않은 변경 사항",
   largeDocBadge: "큰 문서",
   largeDocHint:

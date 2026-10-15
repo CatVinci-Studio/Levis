@@ -711,7 +711,8 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   fileChangedOnDiskOverwrite: "Substituir",
   saveFailedTitle: "Não foi possível salvar",
   saveFailedMessage: "“{name}” não foi salvo. Suas alterações continuam aqui.",
-  saveReadOnlyHint: "O arquivo é somente leitura. Use Salvar Como para guardar suas alterações em um arquivo novo.",
+  saveReadOnlyHint:
+    "O arquivo é somente leitura. Use Salvar Como para guardar suas alterações em um arquivo novo.",
   unsavedIndicator: "Alterações não salvas",
   largeDocBadge: "Documento grande",
   largeDocHint:

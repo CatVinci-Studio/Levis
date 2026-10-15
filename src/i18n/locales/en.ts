@@ -705,7 +705,8 @@ type /name in a conversation to use one.
   fileChangedOnDiskOverwrite: "Overwrite",
   saveFailedTitle: "Couldn't Save",
   saveFailedMessage: "“{name}” wasn't saved. Your changes are still here.",
-  saveReadOnlyHint: "The file is read-only. Use Save As to keep your changes in a new file.",
+  saveReadOnlyHint:
+    "The file is read-only. Use Save As to keep your changes in a new file.",
   unsavedIndicator: "Unsaved changes",
   largeDocBadge: "Large document",
   largeDocHint:

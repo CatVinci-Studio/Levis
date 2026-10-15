@@ -713,8 +713,10 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
     "Diese Datei wurde von einem anderen Programm geändert. Beim Speichern werden diese Änderungen überschrieben.",
   fileChangedOnDiskOverwrite: "Überschreiben",
   saveFailedTitle: "Speichern fehlgeschlagen",
-  saveFailedMessage: "„{name}“ wurde nicht gespeichert. Deine Änderungen sind noch da.",
-  saveReadOnlyHint: "Die Datei ist schreibgeschützt. Mit „Speichern unter“ sicherst du deine Änderungen in einer neuen Datei.",
+  saveFailedMessage:
+    "„{name}“ wurde nicht gespeichert. Deine Änderungen sind noch da.",
+  saveReadOnlyHint:
+    "Die Datei ist schreibgeschützt. Mit „Speichern unter“ sicherst du deine Änderungen in einer neuen Datei.",
   unsavedIndicator: "Nicht gespeicherte Änderungen",
   largeDocBadge: "Großes Dokument",
   largeDocHint:

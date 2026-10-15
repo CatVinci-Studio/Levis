@@ -697,8 +697,10 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
     "このファイルは他のプログラムによって変更されています。保存するとその変更が上書きされます。",
   fileChangedOnDiskOverwrite: "上書き",
   saveFailedTitle: "保存できませんでした",
-  saveFailedMessage: "「{name}」は保存されていません。変更内容はそのまま残っています。",
-  saveReadOnlyHint: "このファイルは読み取り専用です。「別名で保存」で新しいファイルに保存できます。",
+  saveFailedMessage:
+    "「{name}」は保存されていません。変更内容はそのまま残っています。",
+  saveReadOnlyHint:
+    "このファイルは読み取り専用です。「別名で保存」で新しいファイルに保存できます。",
   unsavedIndicator: "未保存の変更",
   largeDocBadge: "大きな文書",
   largeDocHint:
