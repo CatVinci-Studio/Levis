@@ -221,6 +221,13 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
           // Moved or deleted since: start blank.
         }
       }
+      // Recovered drafts and nothing else to open: the first of them takes
+      // the blank initial tab, rather than an empty "Untitled" opening
+      // beside what was recovered.
+      if (restored.length > 0) {
+        loadRecoveredIntoInitialTab(restored[0]);
+        return;
+      }
       // Nothing else claimed the initial blank tab and this installation has
       // never shown onboarding. Keeping the durable flag false until this
       // exact point means a first launch that was busy opening a file can

@@ -233,6 +233,21 @@ describe("startup restore into the initial tab", () => {
     ]);
   });
 
+  // A crash with nothing reopened: what was recovered fills the window, not
+  // an empty "Untitled" beside it.
+  it("puts the first recovered draft in the initial tab", async () => {
+    ipc.takeDraftSnapshots.mockResolvedValue([
+      { tabId: "old-a", path: null, content: "draft a" },
+      { tabId: "old-b", path: null, content: "draft b" },
+    ]);
+    const { tabs } = await restore("tab");
+    await waitFor(() => expect(tabs()[0].content).toBe("draft a"));
+    expect(tabs()).toEqual([
+      expect.objectContaining({ id: "initial", content: "draft a" }),
+      expect.objectContaining({ content: "draft b" }),
+    ]);
+  });
+
   it("leaves the initial tab alone when nothing claims it", async () => {
     const { tabs, openFile } = await restore("window");
     await waitFor(() => expect(ipc.takePendingOpenPath).toHaveBeenCalled());
