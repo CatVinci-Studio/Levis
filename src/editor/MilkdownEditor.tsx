@@ -1524,6 +1524,14 @@ export function MilkdownEditor({
       );
       view.focus();
       revealPosition(view, range.from);
+      // Its note in the margin lights up with it for a moment.
+      const note = notesRef.current.find(
+        (n) => n.from < range.to && range.from < n.to,
+      );
+      if (note) {
+        setNoteHot(`note:${note.id}`);
+        window.setTimeout(() => setNoteHot(null), 1600);
+      }
     });
   }
 
@@ -1596,6 +1604,7 @@ export function MilkdownEditor({
   // drawn in the margin - until it is marked done, or its conversation is
   // cleared.
   const [notes, setNotes] = useState<ReviewNote[]>([]);
+  const notesRef = useLatest(notes);
   const [hotNote, setHotNote] = useState<string | null>(null);
   const [openNote, setOpenNote] = useState<{
     id: string;

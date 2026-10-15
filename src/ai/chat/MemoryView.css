@@ -217,7 +217,7 @@
 }
 
 .memory-empty-actions .primary {
-  border-color: var(--editor-text);
-  background: var(--editor-text);
-  color: var(--editor-bg, var(--bg));
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
 }

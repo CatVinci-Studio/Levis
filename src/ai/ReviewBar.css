@@ -11,8 +11,10 @@
   gap: 10px;
   padding: 5px 5px 5px 14px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, #24272e 94%, transparent);
-  color: #fff;
+  /* Ink of the page's own theme: the primary button's colours, inverted
+     with the theme (a dark or imported theme gets a light bar). */
+  background: color-mix(in srgb, var(--ui-primary) 94%, transparent);
+  color: var(--ui-on-primary);
   font-size: var(--text-sm);
   line-height: 1;
   white-space: nowrap;
@@ -86,7 +88,7 @@
 
 .review-bar-nav button:hover,
 .review-bar-chat:hover {
-  background: rgb(255 255 255 / 12%);
+  background: color-mix(in srgb, var(--ui-on-primary) 14%, transparent);
   opacity: 1;
 }
 
@@ -97,32 +99,32 @@
 .review-bar-sep {
   width: 1px;
   height: 16px;
-  background: rgb(255 255 255 / 18%);
+  background: color-mix(in srgb, var(--ui-on-primary) 20%, transparent);
 }
 
 .review-bar-button {
   padding: 6px 13px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgb(255 255 255 / 22%);
+  border: 1px solid color-mix(in srgb, var(--ui-on-primary) 26%, transparent);
   background: transparent;
-  color: #fff;
+  color: var(--ui-on-primary);
   font-weight: 600;
   transition: background var(--dur-fast) var(--ease-standard);
 }
 
 .review-bar-button:hover {
-  background: rgb(255 255 255 / 10%);
+  background: color-mix(in srgb, var(--ui-on-primary) 12%, transparent);
 }
 
 .review-bar-accept,
 .review-bar-accept:hover {
-  border-color: #fff;
-  background: #fff;
-  color: #24272e;
+  border-color: var(--ui-on-primary);
+  background: var(--ui-on-primary);
+  color: var(--ui-primary);
 }
 
 .review-bar button:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--ui-on-primary);
   outline-offset: 2px;
 }
 
@@ -186,38 +188,13 @@
 }
 
 .review-bar-phone .review-bar-accept {
-  border-color: var(--editor-text);
-  background: var(--editor-text);
-  color: var(--editor-bg, var(--bg));
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
 }
 
 @media print {
   .review-bar {
     display: none;
   }
-}
-
-/* Dark: a dark pill would vanish into the page - lift it a shade instead. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .review-bar:not(.review-bar-phone) {
-    background: color-mix(
-      in srgb,
-      var(--editor-text) 16%,
-      var(--editor-bg, #1e1e1e)
-    );
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--editor-text) 12%, transparent),
-      0 14px 30px -14px rgb(0 0 0 / 70%);
-  }
-}
-
-:root[data-theme="dark"] .review-bar:not(.review-bar-phone) {
-  background: color-mix(
-    in srgb,
-    var(--editor-text) 16%,
-    var(--editor-bg, #1e1e1e)
-  );
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--editor-text) 12%, transparent),
-    0 14px 30px -14px rgb(0 0 0 / 70%);
 }

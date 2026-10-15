@@ -67,9 +67,9 @@
 }
 
 .bottom-card-actions .bottom-card-primary {
-  border-color: var(--editor-text);
-  background: var(--editor-text);
-  color: var(--editor-bg, var(--bg));
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
 }
 
 /* What a note card shows: who, the passage, the note. */

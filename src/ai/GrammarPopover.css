@@ -110,8 +110,8 @@
   padding: 5px 6px 5px 12px;
   border: none;
   border-radius: var(--radius-pill);
-  background: var(--editor-text);
-  color: var(--editor-bg, var(--bg));
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;

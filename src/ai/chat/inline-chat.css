@@ -1287,11 +1287,42 @@ li[data-state="kept"] .agent-proposal-sentence-text {
   background: var(--chat-card-bg, transparent);
 }
 
+.agent-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-comment-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--review-anchor-bg);
+  color: var(--review-note-line);
+}
+
+.agent-comment-icon svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.agent-comment .agent-proposal-show {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--editor-accent);
+}
+
 .agent-comment-quote {
-  margin: 0 0 8px;
+  margin: 0;
   padding: 0 0 0 8px;
-  border-left: 2px solid
-    color-mix(in srgb, var(--editor-accent) 60%, transparent);
+  border-left: 2px solid var(--review-note-line);
   font-size: var(--text-sm);
   color: var(--editor-muted);
   display: -webkit-box;
@@ -1303,7 +1334,6 @@ li[data-state="kept"] .agent-proposal-sentence-text {
 .agent-comment-text {
   font-size: var(--text-md);
   line-height: 1.55;
-  margin-bottom: 10px;
 }
 
 .agent-error-explanation {

@@ -67,7 +67,8 @@ export interface ChatMessagesLabels extends AgentTurnLabels {
   proposalKeepSentence: string;
   /** Scrolls the document to the proposal. */
   proposalShowInText: string;
-  /** An add_comment card's jump-to-passage button. */
+  /** An add_comment card's title and jump-to-passage link. */
+  commentTitle: string;
   commentLocate: string;
   /** Plain-language help per kind of provider failure (ErrorRow). */
   aiErrors: Record<AiErrorKind, string>;
@@ -264,21 +265,31 @@ export function ChatMessages({
                 className={`agent-comment${reveal ? " turn-reveal" : ""}`}
                 style={style}
               >
+                <div className="agent-proposal-head">
+                  <span className="agent-comment-icon" aria-hidden="true">
+                    <svg viewBox="0 0 16 16">
+                      <path d="M3 3.5h10v7H7l-3 2.5v-2.5H3z" />
+                    </svg>
+                  </span>
+                  <span className="agent-proposal-title">
+                    {labels.commentTitle}
+                  </span>
+                  {onLocateText && (
+                    <button
+                      type="button"
+                      className="agent-proposal-link agent-proposal-show"
+                      onClick={() =>
+                        onLocateText(comment.anchor, comment.context)
+                      }
+                    >
+                      {labels.commentLocate}
+                    </button>
+                  )}
+                </div>
                 <blockquote className="agent-comment-quote">
                   {comment.anchor}
                 </blockquote>
                 <div className="agent-comment-text">{comment.comment}</div>
-                {onLocateText && (
-                  <button
-                    type="button"
-                    className="inline-chat-action"
-                    onClick={() =>
-                      onLocateText(comment.anchor, comment.context)
-                    }
-                  >
-                    {labels.commentLocate}
-                  </button>
-                )}
               </div>
             );
           }

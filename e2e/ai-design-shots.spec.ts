@@ -236,3 +236,48 @@ test.describe("phone", () => {
     await page.screenshot({ path: `${DIR}/phone-4-grammar.png` });
   });
 });
+
+// The same surfaces under other themes: a built-in one in each appearance,
+// and an imported Typora theme - the margin, the bar and the panel take the
+// theme's colours with the document.
+for (const [themeId, scheme] of [
+  ["parchment", "light"],
+  ["slate", "dark"],
+] as const) {
+  test(`theme ${themeId} ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openApp(page, {
+      storage: { "levis-agent-panel-open": "1" },
+      settings: { themeId },
+      colorScheme: scheme,
+    });
+    await paste(page);
+    await ask(page);
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${DIR}/theme-${themeId}-${scheme}.png` });
+  });
+}
+
+test("theme imported typora", async ({ page }) => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(
+    new URL("./fixtures/themes/newsprint-like.css", import.meta.url),
+    "utf8",
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openApp(page, { storage: { "levis-agent-panel-open": "1" } });
+  // Apply the theme's derived chrome the way an import does.
+  await page.evaluate(async (css) => {
+    const mod = await import("/src/utils/theme-chrome.ts");
+    const style = document.createElement("style");
+    style.id = "test-typora";
+    style.textContent = css;
+    document.head.appendChild(style);
+    document.documentElement.setAttribute("data-user-theme", "");
+    mod.applyThemeChrome(css, false);
+  }, css);
+  await paste(page);
+  await ask(page);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${DIR}/theme-typora-newsprint.png` });
+});

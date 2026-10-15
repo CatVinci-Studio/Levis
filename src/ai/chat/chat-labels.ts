@@ -41,7 +41,8 @@ export function chatLabels(t: Strings, lang: Lang): InlineChatLabels {
     proposalKeepSentence: t.proposalKeepSentence,
     proposalShowInText: t.proposalShowInText,
     proposalAcceptSome: t.proposalAcceptSome,
-    commentLocate: t.commentLocate,
+    commentTitle: t.reviewNoteBy,
+    commentLocate: t.proposalShowInText,
     toolResult: t.toolResult,
     aiErrors: {
       notConfigured: t.aiErrorNotConfigured,
