@@ -1,6 +1,7 @@
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
+import { showDocImage } from "../images/image-plugin";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -54,7 +55,10 @@ interface HtmlChild {
   text: string;
 }
 
-function fragmentWidget(rendered: { html: string; inline: boolean }) {
+function fragmentWidget(
+  rendered: { html: string; inline: boolean },
+  docPath: () => string | null,
+) {
   return (view: EditorView, getPos: () => number | undefined) => {
     // Inline fragments (a lone <img>, <kbd>x</kbd>, <br>) stay in the
     // line they were written in; only block-level content (alignment
@@ -64,6 +68,11 @@ function fragmentWidget(rendered: { html: string; inline: boolean }) {
       ? "raw-html-rendered raw-html-rendered-inline"
       : "raw-html-rendered";
     el.innerHTML = rendered.html;
+    // An <img src="pic.png"> means the file beside the document, as in
+    // Typora - left as is, the webview looked for it in the app itself.
+    el.querySelectorAll("img").forEach((img) =>
+      showDocImage(img, img.getAttribute("src") ?? "", docPath()),
+    );
     el.addEventListener("mousedown", (event) => {
       event.preventDefault();
       const widgetPos = getPos();
@@ -91,6 +100,7 @@ function decorateTextblock(
   blockPos: number,
   touches: Touches,
   decorations: Decoration[],
+  docPath: () => string | null,
 ) {
   const htmls: HtmlChild[] = [];
   block.forEach((child, offset) => {
@@ -179,17 +189,22 @@ function decorateTextblock(
       }),
     );
     decorations.push(
-      Decoration.widget(item.to, fragmentWidget(rendered), { side: -1 }),
+      Decoration.widget(item.to, fragmentWidget(rendered, docPath), {
+        side: -1,
+      }),
     );
   }
 }
 
-function buildDecorations(state: EditorState): RevealState {
+function buildDecorations(
+  state: EditorState,
+  docPath: () => string | null,
+): RevealState {
   return buildReveal(state, (touches) => {
     const decorations: Decoration[] = [];
     state.doc.descendants((node, pos) => {
       if (node.isTextblock) {
-        decorateTextblock(node, pos, touches, decorations);
+        decorateTextblock(node, pos, touches, decorations, docPath);
         return false; // textblocks don't nest
       }
       return undefined;
@@ -205,15 +220,22 @@ function buildDecorations(state: EditorState): RevealState {
  * self-contained fragments show as sanitized inline or block widgets.
  * Cursor on any of it reveals the raw markup for direct editing.
  */
-export function createRawHtmlPreviewPlugin() {
+export function createRawHtmlPreviewPlugin(
+  options: {
+    /** The open document's path, for an <img> with a relative src. */
+    docPath?: () => string | null;
+  } = {},
+) {
+  const docPath = options.docPath ?? (() => null);
+  const build = (state: EditorState) => buildDecorations(state, docPath);
   return $prose(
     () =>
       new Plugin<RevealState>({
         key: rawHtmlPreviewKey,
         state: {
-          init: (_config, state) => buildDecorations(state),
+          init: (_config, state) => build(state),
           apply: (tr, prev, oldState, newState) =>
-            applyReveal(tr, prev, oldState, newState, buildDecorations),
+            applyReveal(tr, prev, oldState, newState, build),
         },
         props: {
           decorations(state) {

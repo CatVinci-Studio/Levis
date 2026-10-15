@@ -101,7 +101,7 @@ export function withEditorCore(
       // in reduced-presets.ts) so it stays editable; a whitelist of common
       // tags renders while the cursor is elsewhere.
       .use(rawHtmlSchema)
-      .use(createRawHtmlPreviewPlugin())
+      .use(createRawHtmlPreviewPlugin({ docPath: () => docPath.current }))
       .use(brToHardbreakPlugin)
 
       // GitHub-style alerts: > [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING]

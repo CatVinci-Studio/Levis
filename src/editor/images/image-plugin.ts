@@ -37,6 +37,32 @@ export function resolveImageSrc(src: string, docPath: string | null): string {
   return convertFileSrc(`${dirname(docPath)}/${src}`);
 }
 
+/**
+ * Points `img` at a document's image: a relative src resolves against the
+ * document's folder, read through the iOS plugin beside a document picked
+ * in Files. The written src is kept as data-doc-src for exports - the one
+ * shown is an asset: URL that only resolves inside this app. Shared by
+ * markdown images and the raw-HTML <img> preview.
+ */
+export function showDocImage(
+  img: HTMLImageElement,
+  src: string,
+  doc: string | null,
+  stillWanted: () => boolean = () => true,
+): void {
+  if (doc && isScopedUrl(doc) && !/^[a-z][a-z0-9+.-]*:|^\//i.test(src)) {
+    img.removeAttribute("src");
+    void scopedImageSrc(src, doc)
+      .then((url) => {
+        if (stillWanted()) img.src = url;
+      })
+      .catch(() => {});
+  } else {
+    img.src = resolveImageSrc(src, doc);
+  }
+  img.dataset.docSrc = src;
+}
+
 /** `{textus-width=N%}`; documents written by Levis say `levis-width`, read
  *  the same (and rewritten as `textus-width` when the width changes). */
 const IMAGE_WIDTH_METADATA = /\s*\{(?:textus|levis)-width=(\d{1,3})%\}\s*$/;
@@ -228,22 +254,12 @@ function createImageView(
   const apply = (n: ProseNode) => {
     current = n;
     const presentation = readImagePresentation(n.attrs.title as string | null);
-    const src = (n.attrs.src as string) ?? "";
-    const doc = docPath();
-    if (doc && isScopedUrl(doc) && !/^[a-z][a-z0-9+.-]*:|^\//i.test(src)) {
-      // Beside a document picked in Files: read through the plugin.
-      img.removeAttribute("src");
-      void scopedImageSrc(src, doc)
-        .then((url) => {
-          if (current === n) img.src = url;
-        })
-        .catch(() => {});
-    } else {
-      img.src = resolveImageSrc(src, doc);
-    }
-    // The markdown's own src, for exports: the rendered one is an asset:
-    // URL that only resolves inside this app.
-    img.dataset.docSrc = src;
+    showDocImage(
+      img,
+      (n.attrs.src as string) ?? "",
+      docPath(),
+      () => current === n,
+    );
     img.alt = (n.attrs.alt as string) ?? "";
     if (presentation.title) img.title = presentation.title;
     else img.removeAttribute("title");
