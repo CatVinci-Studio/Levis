@@ -42,23 +42,12 @@ export function diffSentences(before: string, after: string): SentenceHunk[] {
   const hunks: SentenceHunk[] = [];
   let pendingBefore: string[] = [];
   let pendingAfter: string[] = [];
-  // A run of changed sentences becomes one change - or, when as many
-  // sentences go as come, one change per pair: a rewrite that tightens
-  // three sentences in a row is three decisions, not one.
+  // A run of changed sentences is aligned sentence to sentence by what
+  // they say (alignRun), so each becomes its own decision - also when the
+  // rewrite split one sentence in two or joined two into one.
   const flush = () => {
-    if (
-      pendingBefore.length > 1 &&
-      pendingBefore.length === pendingAfter.length
-    )
-      pendingBefore.forEach((before, k) =>
-        hunks.push({ kind: "change", before, after: pendingAfter[k] }),
-      );
-    else if (pendingBefore.length || pendingAfter.length)
-      hunks.push({
-        kind: "change",
-        before: pendingBefore.join(""),
-        after: pendingAfter.join(""),
-      });
+    for (const group of alignRun(pendingBefore, pendingAfter))
+      hunks.push({ kind: "change", ...group });
     pendingBefore = [];
     pendingAfter = [];
   };
@@ -81,6 +70,123 @@ export function diffSentences(before: string, after: string): SentenceHunk[] {
   }
   flush();
   return hunks;
+}
+
+/** Character bigrams (single characters for one-character text), for a
+ *  similarity that works the same for CJK and for spaced scripts. */
+function bigrams(text: string): Map<string, number> {
+  const chars = [...text.replace(/\s+/g, " ").trim().toLowerCase()];
+  const grams = new Map<string, number>();
+  const add = (g: string) => grams.set(g, (grams.get(g) ?? 0) + 1);
+  if (chars.length < 2) chars.forEach(add);
+  for (let k = 0; k + 1 < chars.length; k++) add(chars[k] + chars[k + 1]);
+  return grams;
+}
+
+/** Dice similarity of two texts' bigrams, 0..1. */
+export function similarity(a: string, b: string): number {
+  const x = bigrams(a);
+  const y = bigrams(b);
+  let total = 0;
+  let shared = 0;
+  for (const n of x.values()) total += n;
+  for (const [g, n] of y) {
+    total += n;
+    shared += Math.min(n, x.get(g) ?? 0);
+  }
+  return total === 0 ? 0 : (2 * shared) / total;
+}
+
+/** Below this, two sentences are not the same sentence rewritten. */
+const MATCH = 0.25;
+
+/**
+ * Pairs the sentences of a changed run: each original sentence with the
+ * one, or two, it became (or two originals joined into one), by the most
+ * similar alignment in order - a dynamic program over 1:1, 1:2 and 2:1
+ * pairs, plus sentences dropped or added on their own. A rewrite that can't
+ * be aligned that way (nothing similar enough) stays one change.
+ */
+export function alignRun(
+  before: string[],
+  after: string[],
+): { before: string; after: string }[] {
+  if (before.length === 0 || after.length === 0)
+    return before.length || after.length
+      ? [{ before: before.join(""), after: after.join("") }]
+      : [];
+  const m = before.length;
+  const n = after.length;
+  type Step = { score: number; di: number; dj: number };
+  const best: Step[][] = Array.from({ length: m + 1 }, () =>
+    new Array<Step>(n + 1).fill({ score: -Infinity, di: 0, dj: 0 }),
+  );
+  best[0][0] = { score: 0, di: 0, dj: 0 };
+  const moves: [number, number][] = [
+    [1, 1],
+    [1, 2],
+    [2, 1],
+    [1, 0],
+    [0, 1],
+  ];
+  for (let i = 0; i <= m; i++)
+    for (let j = 0; j <= n; j++) {
+      const here = best[i][j];
+      if (here.score === -Infinity) continue;
+      for (const [di, dj] of moves) {
+        const ni = i + di;
+        const nj = j + dj;
+        if (ni > m || nj > n) continue;
+        let gain: number;
+        if (di === 0 || dj === 0) gain = 0;
+        else {
+          const sim = similarity(
+            before.slice(i, ni).join(""),
+            after.slice(j, nj).join(""),
+          );
+          if (sim < MATCH) continue;
+          // A split or join must earn its place over a plain pair.
+          gain = sim - (di + dj > 2 ? 0.05 : 0);
+        }
+        if (here.score + gain > best[ni][nj].score)
+          best[ni][nj] = { score: here.score + gain, di, dj };
+      }
+    }
+  const groups: { before: string; after: string }[] = [];
+  let i = m;
+  let j = n;
+  while (i > 0 || j > 0) {
+    const { di, dj } = best[i][j];
+    if (di === 0 && dj === 0) break;
+    groups.unshift({
+      before: before.slice(i - di, i).join(""),
+      after: after.slice(j - dj, j).join(""),
+    });
+    i -= di;
+    j -= dj;
+  }
+  // Nothing paired up: one change, as before.
+  if (!groups.some((g) => g.before && g.after))
+    return [{ before: before.join(""), after: after.join("") }];
+  // A sentence dropped or added on its own joins the pair before it (or
+  // after it, at the start), so it is decided with its neighbour rather
+  // than as a lone strike or insert between two pairs.
+  const merged: { before: string; after: string }[] = [];
+  for (const g of groups) {
+    const last = merged[merged.length - 1];
+    if ((!g.before || !g.after) && last) {
+      last.before += g.before;
+      last.after += g.after;
+    } else merged.push({ ...g });
+  }
+  if (merged.length > 1 && (!merged[0].before || !merged[0].after)) {
+    const first = merged.shift()!;
+    merged[0] = {
+      before: first.before + merged[0].before,
+      after: first.after + merged[0].after,
+    };
+  }
+  return merged;
 }
 
 /** The text with only the chosen changes applied (`take[k]` for the k-th
