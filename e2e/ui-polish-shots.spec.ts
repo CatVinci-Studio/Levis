@@ -7,7 +7,7 @@ import { mockInvoke, openApp, pasteMarkdown, PHONE } from "./helpers";
 // and dark, desktop, a narrow panel and phone - for review, not a baseline.
 // Runs only with LEVIS_SHOTS_DIR set to where the PNGs go:
 //
-//   LEVIS_SHOTS_DIR=../levis-shots/ui-polish/after npx playwright test ui-polish-shots
+//   LEVIS_SHOTS_DIR=../assets/ui-polish/after npx playwright test ui-polish-shots
 
 const DIR = process.env.LEVIS_SHOTS_DIR;
 test.skip(!DIR, "set LEVIS_SHOTS_DIR to take the screenshots");

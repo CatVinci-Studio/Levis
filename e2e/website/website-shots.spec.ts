@@ -38,7 +38,7 @@
  *                   language lacks is skipped. e2e/website/site-samples.json
  *                   has the other seven site languages, each on the site's
  *                   own classic for that language.
- *   SHOTS_OUT       where the images go (default ../levis-shots/site-assets/
+ *   SHOTS_OUT       where the images go (default ../assets/site-assets/
  *                   app, beside the main checkout).
  *   SHOTS_APP_NAME  the product name the UI shows (default Textus: the site
  *                   is for 1.0, and names the app no other way).
@@ -49,7 +49,7 @@
  *   SHOTS_CJK_FONT_DIR  the Simplified Chinese, Traditional Chinese and
  *                   Japanese Noto Sans CJK faces as separate files, for the
  *                   zh, zh-hant and ja shots (see CJK_REGION below; default
- *                   ../levis-shots/fonts/noto-cjk-faces beside the checkout).
+ *                   ../assets/fonts/noto-cjk-faces beside the checkout).
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -495,11 +495,11 @@ function mainCheckout(): string {
 }
 const CHECKOUT = mainCheckout();
 
-/** The folder the images go in: ../levis-shots/site-assets/app beside the
+/** The folder the images go in: ../assets/site-assets/app beside the
  *  main checkout. */
 const OUT = process.env.SHOTS_OUT
   ? path.resolve(process.env.SHOTS_OUT)
-  : path.resolve(CHECKOUT, "..", "levis-shots", "site-assets", "app");
+  : path.resolve(CHECKOUT, "..", "assets", "site-assets", "app");
 
 const APP_NAME = process.env.SHOTS_APP_NAME ?? "Textus";
 /** The Markdown tour's document zoom (Settings' zoom, View > Zoom Out). */
@@ -578,7 +578,7 @@ const FONT_FACES = standInFonts();
  *  the first face whichever region the stack names: Traditional Chinese
  *  came out with Simplified punctuation at the bottom left of its square,
  *  where Taiwan centres it. SHOTS_CJK_FONT_DIR (default
- *  ../levis-shots/fonts/noto-cjk-faces beside the main checkout) holds the
+ *  ../assets/fonts/noto-cjk-faces beside the main checkout) holds the
  *  faces split out of the collections, one file each, served under the
  *  name the app's stack gives them:
  *    python -m venv v && v/bin/pip install fonttools && v/bin/python -c '
@@ -598,7 +598,7 @@ const CJK_REGION: Record<string, { family: string; tag: string }> = {
 function cjkFaceDir(): string {
   if (process.env.SHOTS_CJK_FONT_DIR)
     return path.resolve(process.env.SHOTS_CJK_FONT_DIR);
-  return path.resolve(CHECKOUT, "..", "levis-shots", "fonts", "noto-cjk-faces");
+  return path.resolve(CHECKOUT, "..", "assets", "fonts", "noto-cjk-faces");
 }
 function fontFacesFor(lang: string): StandInFont[] {
   const region = CJK_REGION[lang];
