@@ -38,7 +38,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/en/hero.png" alt="Textus with Hamlet open. Beside it, Textus AI proposes an edit with its reason, sentence by sentence, and pins a review comment to a line." width="860" /><br>
+  <img src="docs/images/readme/en/hero.png" alt="Textus with Hamlet and the reader’s notes on it open. Textus AI tightens the notes sentence by sentence, each change in the margin, and pins a review note beside the play." width="860" /><br>
   <sub><i>Hamlet</i>, William Shakespeare</sub>
 </p>
 

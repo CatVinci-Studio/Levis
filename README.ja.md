@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/ja/hero.png" alt="『吾輩は猫である』を開いたTextus。横のパネルではTextus AIが一文ずつ理由を添えて修正を提案し、本文の一行にはレビューのコメントが付いている。" width="860" /><br>
+  <img src="docs/images/readme/ja/hero.png" alt="『吾輩は猫である』と読書メモを開いたTextus。Textus AIがメモを一文ずつ簡潔にし、修正は余白に並び、本文の横にはレビューのコメントが付いている。" width="860" /><br>
   <sub>夏目漱石『吾輩は猫である』</sub>
 </p>
 

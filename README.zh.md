@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/zh/hero.png" alt="Textus 打开着《红楼梦》，旁边的 Textus AI 附上理由、逐句提出修改，并在一处文字旁钉上审阅批注" width="860" /><br>
+  <img src="docs/images/readme/zh/hero.png" alt="Textus 打开着《红楼梦》和一段读书笔记，Textus AI 逐句精简笔记，每处修改都在页边，并在原文旁钉上审阅批注" width="860" /><br>
   <sub>《红楼梦》曹雪芹</sub>
 </p>
 

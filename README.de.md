@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/de/hero.png" alt="Textus mit geöffnetem Hamlet. Daneben schlägt Textus AI eine Änderung mit Begründung vor, Satz für Satz, und heftet einen Kommentar an eine Zeile." width="860" /><br>
+  <img src="docs/images/readme/de/hero.png" alt="Textus mit Kafkas »Die Verwandlung« und den Notizen dazu. Textus AI strafft die Notizen Satz für Satz, jede Änderung am Rand, und heftet einen Kommentar neben den Text." width="860" /><br>
   <sub><i>Die Verwandlung</i>, Franz Kafka</sub>
 </p>
 

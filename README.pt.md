@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/pt/hero.png" alt="O Textus com Hamlet aberto. Ao lado, a Textus AI propõe uma edição frase a frase, com o motivo, e fixa um comentário de revisão numa linha." width="860" /><br>
+  <img src="docs/images/readme/pt/hero.png" alt="O Textus com Dom Casmurro e as notas do leitor abertas. A Textus AI enxuga as notas frase a frase, cada mudança na margem, e fixa um comentário de revisão ao lado do texto." width="860" /><br>
   <sub><i>Dom Casmurro</i>, Machado de Assis</sub>
 </p>
 

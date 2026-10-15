@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/es/hero.png" alt="Textus con Hamlet abierto. Al lado, Textus AI propone un cambio razonado, frase a frase, y deja un comentario junto a una línea." width="860" /><br>
+  <img src="docs/images/readme/es/hero.png" alt="Textus con Don Quijote de la Mancha y las notas del lector abiertas. Textus AI condensa las notas frase a frase, cada cambio en el margen, y deja un comentario junto al texto." width="860" /><br>
   <sub><i>Don Quijote de la Mancha</i>, Miguel de Cervantes</sub>
 </p>
 

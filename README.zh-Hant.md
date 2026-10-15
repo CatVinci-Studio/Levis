@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/zh-hant/hero.png" alt="Textus 開著《哈姆雷特》，一旁的 Textus AI 逐句提出修改並附上理由，還在一行文字旁留下審閱註解" width="860" /><br>
+  <img src="docs/images/readme/zh-hant/hero.png" alt="Textus 開著《西遊記》和一段讀書筆記，Textus AI 逐句精簡筆記，每處修改都在頁邊，並在原文旁留下審閱註解" width="860" /><br>
   <sub>吳承恩《西遊記》</sub>
 </p>
 

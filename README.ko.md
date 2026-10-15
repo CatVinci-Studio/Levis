@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/ko/hero.png" alt="『햄릿』을 연 Textus. 오른쪽의 Textus AI가 문장마다 이유를 붙여 수정을 제안하고, 한 줄에 검토 댓글을 남겼습니다." width="860" /><br>
+  <img src="docs/images/readme/ko/hero.png" alt="『메밀꽃 필 무렵』과 독서 메모를 연 Textus. Textus AI가 메모를 문장마다 다듬어 여백에 보여 주고, 원문 옆에 검토 메모를 남겼습니다." width="860" /><br>
   <sub>이효석, <i>「메밀꽃 필 무렵」</i></sub>
 </p>
 

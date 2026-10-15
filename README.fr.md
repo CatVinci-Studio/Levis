@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/fr/hero.png" alt="Textus avec Hamlet ouvert. À côté, Textus AI propose une modification avec son explication, phrase par phrase, et épingle un commentaire de relecture sur une ligne." width="860" /><br>
+  <img src="docs/images/readme/fr/hero.png" alt="Textus avec Les Misérables et les notes du lecteur ouvertes. Textus AI resserre les notes phrase par phrase, chaque modification dans la marge, et épingle un commentaire de relecture à côté du texte." width="860" /><br>
   <sub><i>Les Misérables</i>, Victor Hugo</sub>
 </p>
 
