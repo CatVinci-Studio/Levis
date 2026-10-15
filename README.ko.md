@@ -62,7 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 iPhone·iPad 버전도 곧 나옵니다. [GitHub에서 모든 릴리스 보기](https://github.com/CatVinci-Studio/Textus/releases)
 
-## 오직 글쓰기를 위해
+## 글쓰기
 
 어떤 Markdown 표기든 쓰는 즉시 서식으로 바뀝니다. 줄을 가리키면 원래 표기가 보입니다.
 
@@ -94,9 +94,9 @@ iPhone·iPad 버전도 곧 나옵니다. [GitHub에서 모든 릴리스 보기](
 
 PDF, Word, HTML 등으로 내보낼 수 있습니다.
 
-## 당신의 글쓰기 도우미
+## Textus AI
 
-함께 쓰고, 결정은 언제나 당신이.
+당신의 글쓰기 도우미, 함께 씁니다.
 
 ### 쓰는 동안
 

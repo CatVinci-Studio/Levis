@@ -62,7 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 iPhone 与 iPad 版即将推出。[在 GitHub 查看所有版本](https://github.com/CatVinci-Studio/Textus/releases)
 
-## 专为写作而生
+## 写作
 
 每一种 Markdown 标记，边写边排好。指向任意一行，就能看到它的源码。
 
@@ -94,9 +94,9 @@ iPhone 与 iPad 版即将推出。[在 GitHub 查看所有版本](https://github
 
 导出为 PDF、Word、HTML 等格式。
 
-## 你的写作助手
+## Textus AI
 
-和你一起写，但每个字都由你决定。
+你的写作助手，和你一起写。
 
 ### 写的时候
 

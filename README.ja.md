@@ -62,7 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 iPhone版とiPad版も、まもなく登場します。[すべてのリリースをGitHubで見る](https://github.com/CatVinci-Studio/Textus/releases)
 
-## 書くために、つくられた
+## 執筆
 
 Markdownの記法は、書いたそばから仕上がりの姿に。行にポインタを合わせると、元の記法が現れます。
 
@@ -94,9 +94,9 @@ Markdownの記法は、書いたそばから仕上がりの姿に。行にポイ
 
 PDF、Word、HTMLなどに書き出せます。
 
-## あなたの執筆アシスタント
+## Textus AI
 
-一緒に書く。決めるのは、いつもあなた。
+あなたの執筆アシスタント。一緒に書いていきます。
 
 ### 書いているとき
 

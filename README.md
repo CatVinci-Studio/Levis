@@ -66,7 +66,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 iPhone and iPad: coming soon. [All releases on GitHub](https://github.com/CatVinci-Studio/Textus/releases)
 
-## Made for writing
+## Writing
 
 Every Markdown mark, rendered as you write. Point at a line to see its Markdown.
 
@@ -98,9 +98,9 @@ Four writing modes, any theme you like – Typora themes included.
 
 Export to PDF, Word, HTML and more.
 
-## Your writing assistant
+## Textus AI
 
-It writes with you. Every word stays yours.
+Your writing assistant. It writes with you.
 
 ### While you write
 

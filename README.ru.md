@@ -62,7 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 iPhone и iPad — скоро. [Все версии на GitHub](https://github.com/CatVinci-Studio/Textus/releases)
 
-## Создан для письма
+## Редактор
 
 Markdown оформляется прямо при наборе. Наведите курсор на строку — и увидите её разметку.
 
@@ -94,9 +94,9 @@ Markdown оформляется прямо при наборе. Наведите
 
 Экспорт в PDF, Word, HTML и другие форматы.
 
-## Ваш помощник в письме
+## Textus AI
 
-Пишет вместе с вами. Последнее слово за вами.
+Ваш помощник в письме. Пишет вместе с вами.
 
 ### Пока вы пишете
 

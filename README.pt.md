@@ -62,7 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 iPhone e iPad: em breve. [Todas as versões no GitHub](https://github.com/CatVinci-Studio/Textus/releases)
 
-## Feito para escrever
+## Escrita
 
 Toda a sintaxe do Markdown, formatada enquanto você escreve. Passe o cursor sobre uma linha para ver o Markdown dela.
 
@@ -94,9 +94,9 @@ Quatro modos de escrita e o tema que você quiser, inclusive os do Typora.
 
 Exporte para PDF, Word, HTML e mais.
 
-## Seu assistente de escrita
+## Textus AI
 
-Escreve com você. A última palavra é sua.
+Seu assistente de escrita. Escreve com você.
 
 ### Enquanto você escreve
 
