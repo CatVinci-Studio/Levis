@@ -6,8 +6,7 @@
 
 <p align="center">
   <strong>Der Markdown-Editor der nächsten Generation.</strong><br>
-  Du führst die Feder. Die KI reicht die Tinte.<br>
-  <sub>Kostenlos und quelloffen · Für macOS, Windows und Linux.</sub>
+  Du führst die Feder. Die KI reicht die Tinte.
 </p>
 
 <p align="center">
@@ -65,15 +64,11 @@ iPhone und iPad: bald verfügbar. [Alle Versionen auf GitHub](https://github.com
 
 ## Zum Schreiben gemacht
 
-### Was du siehst, bekommst du
-
 Markdown wird schon beim Tippen formatiert. Zeig auf eine Zeile, und du siehst ihr Markdown.
 
 <p align="center">
   <img src="docs/images/readme/de/markdown.png" alt="Was du siehst, bekommst du." width="860" />
 </p>
-
-### Formeln, Tabellen, Diagramme
 
 Formeln entstehen beim Tippen, Tabellen richten sich von selbst aus, und aus wenigen Zeilen Text wird ein Diagramm.
 
@@ -85,17 +80,17 @@ Formeln entstehen beim Tippen, Tabellen richten sich von selbst aus, und aus wen
 
 Vier Schreibmodi und das Design deiner Wahl – auch Typora-Themes.
 
-- **Zen-Modus**: alles außer deinem Text tritt zurück.
-- **Schreibmaschinenmodus**: die Zeile, an der du schreibst, bleibt auf gleicher Höhe.
-- **Geteilte Ansicht**: links das Markdown, rechts die fertige Seite.
-- **Quellcodemodus**: das ganze Dokument als reines Markdown.
+| Schreibmodi           | Was er tut                                               |
+| --------------------- | -------------------------------------------------------- |
+| Zen-Modus             | Alles außer deinem Text tritt zurück                     |
+| Schreibmaschinenmodus | Die Zeile, an der du schreibst, bleibt auf gleicher Höhe |
+| Geteilte Ansicht      | Links das Markdown, rechts die fertige Seite             |
+| Quellcodemodus        | Das ganze Dokument als reines Markdown                   |
 
 <p align="center">
   <img src="docs/images/readme/de/split.png" alt="Geteilte Ansicht" width="49%" />
   <img src="docs/images/readme/de/zen.png" alt="Zen-Modus" width="49%" />
 </p>
-
-### Teilen, wo du willst
 
 Exportiere als PDF, Word, HTML und mehr.
 
@@ -103,12 +98,17 @@ Exportiere als PDF, Word, HTML und mehr.
 
 Textus AI hilft dir bei jedem Schritt. Jedes Wort bleibt deins.
 
-- **Vervollständigung**: Halte kurz inne, und die nächsten Worte erscheinen in Grau. Tab übernimmt sie.
-- **Schreiben mit KI**: Änderungen kommen als Vorschlag, jeweils mit Begründung. Nimm sie ganz oder Satz für Satz an.
-- **Grammatikprüfung**: Findet Tipp- und Grammatikfehler schon beim Schreiben und achtet auf deine Konventionen. Alt+Enter behebt sie.
-- **Lektorat**: Kommentare direkt an der Stelle, um die es geht. Anmerkungen statt Umschreiben.
-- **Integrierte Skills**: Straffen, Korrektur lesen, übersetzen, den Ton ändern und mehr – ein Schrägstrich genügt.
-- **Lernt dich kennen**: Textus AI erfasst deinen Stil, merkt sich deine Figuren und Orte und folgt deinen Schreibanweisungen.
+### Während du schreibst
+
+Halte kurz inne, und die nächsten Worte erscheinen in Grau. Tab übernimmt sie. Findet Tipp- und Grammatikfehler schon beim Schreiben und achtet auf deine Konventionen. Alt+Enter behebt sie.
+
+### Wenn du fragst
+
+Änderungen kommen als Vorschlag, jeweils mit Begründung. Nimm sie ganz oder Satz für Satz an. Kommentare direkt an der Stelle, um die es geht. Anmerkungen statt Umschreiben. Straffen, Korrektur lesen, übersetzen, den Ton ändern und mehr – ein Schrägstrich genügt.
+
+### Lernt dich kennen
+
+Textus AI erfasst deinen Stil, merkt sich deine Figuren und Orte und folgt deinen Schreibanweisungen.
 
 ### Die KI deiner Wahl
 
@@ -124,14 +124,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 Was du schreibst, gehört dir. Textus ist so gebaut, dass es dabei bleibt – und der Code ist offen, damit jeder das prüfen kann.
 
-- **Auf deinem Gerät**: Dokumente sind einfache Markdown-Dateien – gespeichert, wo du willst.
-- **Schlüssel bleiben lokal**: API-Schlüssel und Anmeldungen liegen nur auf deinem Rechner.
-- **Direkt zu deinem Anbieter**: KI-Anfragen gehen direkt von deinem Gerät an den Anbieter deiner Wahl.
-- **Kein Konto**: Laden und losschreiben. Registrieren musst du dich nirgends.
-- **Kein Tracking**: Keine Analysen, keine Telemetrie, keine Werbung.
-- **Quelloffen**: MIT-lizenziert und vollständig einsehbar – jeder kann all das prüfen.
-
-Mit einem lokalen Modell über Ollama bleibt jedes Wort auf deinem Rechner.
+Dokumente sind einfache Markdown-Dateien – gespeichert, wo du willst. API-Schlüssel und Anmeldungen liegen nur auf deinem Rechner. KI-Anfragen gehen direkt von deinem Gerät an den Anbieter deiner Wahl. Laden und losschreiben. Registrieren musst du dich nirgends. Keine Analysen, keine Telemetrie, keine Werbung. MIT-lizenziert und vollständig einsehbar – jeder kann all das prüfen. Mit einem lokalen Modell über Ollama bleibt jedes Wort auf deinem Rechner.
 
 ## Gut zu wissen
 

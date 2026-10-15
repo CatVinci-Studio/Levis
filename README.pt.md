@@ -6,8 +6,7 @@
 
 <p align="center">
   <strong>O editor de Markdown de nova geração.</strong><br>
-  A caneta é sua. A IA cuida da tinta.<br>
-  <sub>Gratuito e de código aberto · Para macOS, Windows e Linux.</sub>
+  A caneta é sua. A IA cuida da tinta.
 </p>
 
 <p align="center">
@@ -65,15 +64,11 @@ iPhone e iPad: em breve. [Todas as versões no GitHub](https://github.com/CatVin
 
 ## Feito para escrever
 
-### O que você vê é o que você obtém
-
 Toda a sintaxe do Markdown, formatada enquanto você escreve. Passe o cursor sobre uma linha para ver o Markdown dela.
 
 <p align="center">
   <img src="docs/images/readme/pt/markdown.png" alt="O que você vê é o que você obtém." width="860" />
 </p>
-
-### Fórmulas, tabelas, diagramas
 
 As fórmulas aparecem enquanto você digita, as tabelas se alinham sozinhas e poucas linhas de texto viram um diagrama.
 
@@ -85,17 +80,17 @@ As fórmulas aparecem enquanto você digita, as tabelas se alinham sozinhas e po
 
 Quatro modos de escrita e o tema que você quiser, inclusive os do Typora.
 
-- **Modo Zen**: tudo sai de cena, menos as suas palavras.
-- **Modo Máquina de Escrever**: a linha que você está escrevendo fica sempre na mesma altura.
-- **Visualização Dividida**: o Markdown de um lado, a página pronta do outro.
-- **Modo Código-Fonte**: o documento inteiro em Markdown puro.
+| Modos de escrita         | O que faz                                                    |
+| ------------------------ | ------------------------------------------------------------ |
+| Modo Zen                 | Tudo sai de cena, menos as suas palavras                     |
+| Modo Máquina de Escrever | A linha que você está escrevendo fica sempre na mesma altura |
+| Visualização Dividida    | O Markdown de um lado, a página pronta do outro              |
+| Modo Código-Fonte        | O documento inteiro em Markdown puro                         |
 
 <p align="center">
   <img src="docs/images/readme/pt/split.png" alt="Visualização Dividida" width="49%" />
   <img src="docs/images/readme/pt/zen.png" alt="Modo Zen" width="49%" />
 </p>
-
-### Compartilhe onde quiser
 
 Exporte para PDF, Word, HTML e mais.
 
@@ -103,12 +98,17 @@ Exporte para PDF, Word, HTML e mais.
 
 A Textus AI ajuda do rascunho à revisão. Cada palavra continua sua.
 
-- **Continuação**: Pare um instante e as próximas palavras surgem em cinza. Tab para aceitar.
-- **Escrita com IA**: As edições chegam como propostas, cada uma com o seu motivo. Aceite tudo de uma vez ou frase a frase.
-- **Verificação gramatical**: Ortografia e gramática conferidas enquanto você escreve, de acordo com as suas normas de escrita. Alt+Enter corrige.
-- **Comentários**: Comentários fixados nas linhas a que se referem. Observações, não reescritas.
-- **Habilidades integradas**: Enxugar, revisar, traduzir, mudar o tom e mais: é só digitar uma barra.
-- **Ela conhece a sua obra**: Aprende o seu estilo, lembra seus personagens e lugares e segue suas instruções.
+### Enquanto você escreve
+
+Pare um instante e as próximas palavras surgem em cinza. Tab para aceitar. Ortografia e gramática conferidas enquanto você escreve, de acordo com as suas normas de escrita. Alt+Enter corrige.
+
+### Quando você pede
+
+As edições chegam como propostas, cada uma com o seu motivo. Aceite tudo de uma vez ou frase a frase. Comentários fixados nas linhas a que se referem. Observações, não reescritas. Enxugar, revisar, traduzir, mudar o tom e mais: é só digitar uma barra.
+
+### Ela conhece a sua obra
+
+Aprende o seu estilo, lembra seus personagens e lugares e segue suas instruções.
 
 ### Use a IA que preferir
 
@@ -124,14 +124,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 O que você escreve é seu. O Textus foi feito para que continue assim, e o código é aberto: qualquer pessoa pode conferir.
 
-- **No seu dispositivo**: Os documentos são arquivos Markdown comuns, guardados onde você quiser.
-- **Chaves guardadas aqui**: Chaves de API e logins ficam salvos só no seu computador.
-- **Direto para o provedor**: As requisições de IA saem do seu dispositivo direto para o provedor que você escolher.
-- **Sem conta**: Baixe e comece a escrever. Não há cadastro.
-- **Sem rastreamento**: Sem analytics, sem telemetria, sem anúncios.
-- **Código aberto**: Licença MIT e código público, linha por linha, para que qualquer pessoa confira tudo isso.
-
-Com um modelo local no Ollama, suas palavras nunca saem do seu computador.
+Os documentos são arquivos Markdown comuns, guardados onde você quiser. Chaves de API e logins ficam salvos só no seu computador. As requisições de IA saem do seu dispositivo direto para o provedor que você escolher. Baixe e comece a escrever. Não há cadastro. Sem analytics, sem telemetria, sem anúncios. Licença MIT e código público, linha por linha, para que qualquer pessoa confira tudo isso. Com um modelo local no Ollama, suas palavras nunca saem do seu computador.
 
 ## Perguntas frequentes
 

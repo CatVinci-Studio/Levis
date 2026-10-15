@@ -10,8 +10,7 @@
 
 <p align="center">
   <strong>The next-generation Markdown editor.</strong><br>
-  You hold the pen. AI keeps your ink flowing.<br>
-  <sub>Free and open source · For macOS, Windows and Linux.</sub>
+  You hold the pen. AI keeps your ink flowing.
 </p>
 
 <p align="center">
@@ -69,15 +68,11 @@ iPhone and iPad: coming soon. [All releases on GitHub](https://github.com/CatVin
 
 ## Made for writing
 
-### What you see is what you get
-
 Every Markdown mark, rendered as you write. Point at a line to see its Markdown.
 
 <p align="center">
   <img src="docs/images/readme/en/markdown.png" alt="What you see is what you get." width="860" />
 </p>
-
-### Formulas, tables, diagrams
 
 Math renders as you type, tables line up, and a few lines of text draw a diagram.
 
@@ -89,17 +84,17 @@ Math renders as you type, tables line up, and a few lines of text draw a diagram
 
 Four writing modes, any theme you like – Typora themes included.
 
-- **Zen Mode**: everything but your words steps away.
-- **Typewriter Mode**: the line you are writing stays at the same height.
-- **Split View**: Markdown on one side, the finished page on the other.
-- **Source Code Mode**: the whole document as plain Markdown.
+| Writing modes    | What it does                                         |
+| ---------------- | ---------------------------------------------------- |
+| Zen Mode         | Everything but your words steps away                 |
+| Typewriter Mode  | The line you are writing stays at the same height    |
+| Split View       | Markdown on one side, the finished page on the other |
+| Source Code Mode | The whole document as plain Markdown                 |
 
 <p align="center">
   <img src="docs/images/readme/en/split.png" alt="Split View" width="49%" />
   <img src="docs/images/readme/en/zen.png" alt="Zen Mode" width="49%" />
 </p>
-
-### Share it anywhere
 
 Export to PDF, Word, HTML and more.
 
@@ -107,12 +102,17 @@ Export to PDF, Word, HTML and more.
 
 Textus AI helps at every step. Every word stays yours.
 
-- **Continuation**: Pause, and the next words appear in grey. Tab takes them.
-- **AI writing**: Edits arrive as proposals, each with a reason. Take one whole, or sentence by sentence.
-- **Grammar check**: Typos and grammar are flagged as you write, along with your own conventions. Alt+Enter fixes them.
-- **Review**: Comments pinned to the lines they mean. Notes, not rewrites.
-- **Built-in skills**: Tighten, proofread, translate, change the tone and more, one slash away.
-- **It knows you**: It learns your style, remembers your characters and places, and follows your instructions.
+### While you write
+
+Pause, and the next words appear in grey. Tab takes them. Typos and grammar are flagged as you write, along with your own conventions. Alt+Enter fixes them.
+
+### When you ask
+
+Edits arrive as proposals, each with a reason. Take one whole, or sentence by sentence. Comments pinned to the lines they mean. Notes, not rewrites. Tighten, proofread, translate, change the tone and more, one slash away.
+
+### It knows you
+
+It learns your style, remembers your characters and places, and follows your instructions.
 
 ### Use the AI you prefer
 
@@ -128,14 +128,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 Your writing stays yours. Textus is built so that it can, and its code is open so that anyone can check.
 
-- **On your device**: Documents are plain Markdown files, kept wherever you choose.
-- **Keys kept locally**: API keys and sign-ins are stored only on your computer.
-- **Straight to your provider**: AI requests travel directly from your device to the provider you pick.
-- **No account**: Download it and write. There is nothing to sign up for.
-- **No tracking**: No analytics, no telemetry, no ads.
-- **Open source**: MIT-licensed and public, line by line, so anyone can verify all of this.
-
-With a local model through Ollama, your words never leave your computer.
+Documents are plain Markdown files, kept wherever you choose. API keys and sign-ins are stored only on your computer. AI requests travel directly from your device to the provider you pick. Download it and write. There is nothing to sign up for. No analytics, no telemetry, no ads. MIT-licensed and public, line by line, so anyone can verify all of this. With a local model through Ollama, your words never leave your computer.
 
 ## Questions
 
