@@ -16,6 +16,10 @@ export interface GrammarPopoverInfo {
   original?: string;
   /** What kind of slip it is (grammar-kind.ts), for the label. */
   kind: GrammarKind;
+  /** How the card shows the fix when it differs from what is replaced (a
+   *  one-character CJK fix, shown with its neighbour). */
+  shownOriginal?: string;
+  shownSuggestion?: string;
   /** Where it stands among the paragraph's underlines. */
   index: number;
   count: number;
@@ -92,9 +96,9 @@ export function GrammarPopover({
           {labels.grammarKinds[info.kind]}
         </span>
         <span className="grammar-popover-fix">
-          {info.original && <s>{info.original}</s>}
+          {info.original && <s>{info.shownOriginal ?? info.original}</s>}
           {info.original && <span aria-hidden="true"> → </span>}
-          <b>{info.suggestion || "\u2205"}</b>
+          <b>{info.shownSuggestion ?? (info.suggestion || "\u2205")}</b>
         </span>
         {info.count > 1 && (
           <span className="grammar-popover-nav">
@@ -126,7 +130,7 @@ export function GrammarPopover({
       ) : (
         <div className="grammar-popover-actions">
           <button className="grammar-popover-apply" onClick={onApply}>
-            {applyLabel(labels, info.suggestion)}
+            {applyLabel(labels, info.shownSuggestion ?? info.suggestion)}
             <kbd>Alt+Enter</kbd>
           </button>
           <button className="grammar-popover-ignore" onClick={onIgnore}>

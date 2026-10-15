@@ -649,3 +649,37 @@ test("Select Row from the right-click menu highlights the clicked row", async ({
     .evaluate((el) => getComputedStyle(el, "::after").backgroundColor);
   expect(tint).not.toBe("rgba(0, 0, 0, 0)");
 });
+
+test("a one-character CJK fix reads with its neighbour on the grammar card", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "黛玉必竟寄人篱下，所以步步留心。");
+  await page.waitForTimeout(300);
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new CustomEvent("levis:tutorial-mock-grammar", {
+        detail: {
+          target: "黛玉必竟寄人篱下，所以步步留心。",
+          issues: [
+            {
+              start: 2,
+              end: 3,
+              issue: "“必竟”应为“毕竟”。",
+              suggestion: "毕",
+              original: "必",
+            },
+          ],
+        },
+      }),
+    ),
+  );
+  await page.locator(".milkdown .grammar-issue").hover();
+  const card = page.locator(".grammar-popover");
+  await expect(card.locator(".grammar-popover-fix")).toHaveText("必竟 → 毕竟");
+  await expect(card.locator(".grammar-popover-apply")).toContainText(
+    "改为“毕竟”",
+  );
+  await card.locator(".grammar-popover-apply").click();
+  await expect(page.locator(".milkdown")).toContainText("黛玉毕竟寄人篱下");
+});
