@@ -18,7 +18,11 @@ import {
   VERBATIM_INPUT,
 } from "./sections/controls";
 import { ChevronIcon, CloseIcon } from "../ui/icons";
-import { UpdateSection, CliCommandSection } from "./sections/general";
+import {
+  UpdateSection,
+  CliCommandSection,
+  LevisImportSection,
+} from "./sections/general";
 import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
@@ -196,6 +200,7 @@ export function SettingsPanel({
 
           <SettingsGroup title={t.generalSystemLabel}>
             {canInstallCliCommand && <CliCommandSection t={t} />}
+            <LevisImportSection t={t} lang={settings.language} />
             <UpdateSection t={t} />
           </SettingsGroup>
         </>

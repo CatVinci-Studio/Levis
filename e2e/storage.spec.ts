@@ -145,7 +145,9 @@ test("the boot script puts the appearance on the document before the app runs", 
   // React took over the boot script's <style> rather than adding another.
   await expect(page.locator("style#textus-user-css")).toHaveCount(1);
   expect(
-    await page.locator("style#textus-user-css").evaluate((el) => el.textContent),
+    await page
+      .locator("style#textus-user-css")
+      .evaluate((el) => el.textContent),
   ).toBe(SETTINGS.customCss);
 });
 

@@ -47,6 +47,7 @@ import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
 import { SIDEBAR_TAB } from "./onboarding/tutorial-evaluation";
 import { LanguageWelcome } from "./onboarding/LanguageWelcome";
+import { useLevisImportOffer } from "./settings/levis-import";
 import { useTutorialDocumentEvaluation } from "./onboarding/useTutorialDocumentEvaluation";
 import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
@@ -127,6 +128,18 @@ function subscribeWindowResize(onChange: () => void) {
 
 function App() {
   const { t, settings, setSettings } = useSettings();
+  // A Levis installation on this computer is offered once, before the
+  // language welcome (its import brings the language already chosen).
+  const markLevisOffered = useCallback(
+    () => setSettings({ levisImportOffered: true }),
+    [setSettings],
+  );
+  const levisOffer = useLevisImportOffer(
+    t,
+    settings.language,
+    settings.levisImportOffered,
+    markLevisOffered,
+  );
   const [tabs, setTabs] = useState<DocTab[]>(() => [makeBlankTab()]);
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0].id);
   // The one save/discard/cancel prompt, reused for every "this would lose
@@ -1468,7 +1481,7 @@ function App() {
           )}
         </Presence>
 
-        {tutorial.active && settings.languageChosen && (
+        {tutorial.active && settings.languageChosen && !levisOffer.pending && (
           <TutorialExperience
             tutorial={tutorial}
             t={t}
@@ -1480,8 +1493,11 @@ function App() {
             }}
           />
         )}
-        <Presence show={!settings.languageChosen} exitMs={200}>
-          {!settings.languageChosen && (
+        <Presence
+          show={!settings.languageChosen && !levisOffer.pending}
+          exitMs={200}
+        >
+          {!settings.languageChosen && !levisOffer.pending && (
             <LanguageWelcome
               language={settings.language}
               onLanguage={(language) => setSettings({ language })}

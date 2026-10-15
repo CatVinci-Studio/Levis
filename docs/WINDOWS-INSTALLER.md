@@ -30,9 +30,9 @@ install-location page was kept.
 | #   | Page             | What it is for                                               |
 | --- | ---------------- | ------------------------------------------------------------ |
 | 1   | Welcome          | The branded sidebar. No decisions.                           |
-| 2   | Install location | Defaults to `%LOCALAPPDATA%\Textus`; changeable.              |
+| 2   | Install location | Defaults to `%LOCALAPPDATA%\Textus`; changeable.             |
 | 3   | Progress         | Advances to the finish page by itself when the copy is done. |
-| 4   | Finish           | "Create a desktop shortcut" and "Run Textus" checkboxes.      |
+| 4   | Finish           | "Create a desktop shortcut" and "Run Textus" checkboxes.     |
 
 Pages that exist in the stock Tauri template and are deliberately **not**
 shown:

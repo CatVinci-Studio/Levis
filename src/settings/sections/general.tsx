@@ -9,6 +9,9 @@ import { flushPendingWrites } from "../../storage/pending-writes";
 import { selfUpdateAllowed } from "../../utils/distribution";
 import { canAutoUpdate } from "../../platform/capabilities";
 import { SettingRow } from "./controls";
+import { levisImport, type LevisImportStatus } from "../../ipc";
+import type { Lang } from "../../i18n/strings";
+import { itemList, runLevisImport } from "../levis-import";
 
 // The General category's sections beyond plain settings rows.
 
@@ -160,6 +163,42 @@ export function CliCommandSection({ t }: { t: Strings }) {
           : installed
             ? t.cliCommandReinstallButton
             : t.cliCommandInstallButton}
+      </button>
+    </SettingRow>
+  );
+}
+
+/** Settings > General: bring a Levis installation in (again) - the same
+ *  flow the first launch offers (settings/levis-import.ts). Shown only
+ *  where there is a Levis installation to read. */
+export function LevisImportSection({ t, lang }: { t: Strings; lang: Lang }) {
+  const [status, setStatus] = useState<LevisImportStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    levisImport
+      .status()
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+  if (!status?.supported || status.items.length === 0) return null;
+  return (
+    <SettingRow
+      label={t.levisImportRow}
+      hint={`${t.levisImportRowHint} (${itemList(t, lang, status.items)})`}
+    >
+      <button
+        className="text-button settings-inline-button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await runLevisImport(t, lang, status);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {t.levisImportButton}
       </button>
     </SettingRow>
   );

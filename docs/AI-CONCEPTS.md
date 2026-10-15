@@ -15,18 +15,18 @@ Grammar check uses only the writing conventions and the library's names.
 
 ## Glossary
 
-| Concept              | 中文             | 日本語                   | In one sentence                                                                        |
-| -------------------- | ---------------- | ------------------------ | -------------------------------------------------------------------------------------- |
-| Project folder       | 项目文件夹       | プロジェクトフォルダー   | The folder Textus AI works in and may read.                                             |
-| `.textus/` folder     | `.textus/` 文件夹 | `.textus/` フォルダー     | The project's own settings, inside the project folder.                                 |
-| Style profile        | 文风档案         | 文体プロファイル         | How you write, so continuations and edits sound like you.                              |
-| Learn my style       | 学习我的文风     | 文体を学習               | Drafts the style profile from samples of your writing.                                 |
-| Library              | 资料库           | ライブラリ               | Facts about people, places and terms that must stay consistent.                        |
-| Writing instructions | 写作要求         | 執筆の指示               | Standing rules sent with every conversation, in `agent.md`.                            |
-| Skills               | 技能             | スキル                   | Named, reusable instructions, called with `/name`.                                     |
-| Global config folder | 全局配置文件夹   | グローバル設定フォルダー | The app's folder for the writing instructions and skills that apply to every document. |
-| Built-in skills      | 内置技能         | 組み込みスキル           | The 18 skills that come with the app; each can be turned off, customized or reset.     |
-| Writing conventions  | 写作规范         | 表記ルール               | The punctuation, spacing and number norms followed, per document language.             |
+| Concept              | 中文              | 日本語                   | In one sentence                                                                        |
+| -------------------- | ----------------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| Project folder       | 项目文件夹        | プロジェクトフォルダー   | The folder Textus AI works in and may read.                                            |
+| `.textus/` folder    | `.textus/` 文件夹 | `.textus/` フォルダー    | The project's own settings, inside the project folder.                                 |
+| Style profile        | 文风档案          | 文体プロファイル         | How you write, so continuations and edits sound like you.                              |
+| Learn my style       | 学习我的文风      | 文体を学習               | Drafts the style profile from samples of your writing.                                 |
+| Library              | 资料库            | ライブラリ               | Facts about people, places and terms that must stay consistent.                        |
+| Writing instructions | 写作要求          | 執筆の指示               | Standing rules sent with every conversation, in `agent.md`.                            |
+| Skills               | 技能              | スキル                   | Named, reusable instructions, called with `/name`.                                     |
+| Global config folder | 全局配置文件夹    | グローバル設定フォルダー | The app's folder for the writing instructions and skills that apply to every document. |
+| Built-in skills      | 内置技能          | 組み込みスキル           | The 18 skills that come with the app; each can be turned off, customized or reset.     |
+| Writing conventions  | 写作规范          | 表記ルール               | The punctuation, spacing and number norms followed, per document language.             |
 
 ### Project folder
 
@@ -279,7 +279,7 @@ names above.
 | User-facing name     | In code                                                                                                                                                           |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Project folder       | workspace root: `settings.agentWorkspaceRoot` (`""` = the document's folder), `workspace::project_root`, `AgentWorkspace.root`                                    |
-| `.textus/` folder     | `WORKSPACE_DIR_NAME`                                                                                                                                              |
+| `.textus/` folder    | `WORKSPACE_DIR_NAME`                                                                                                                                              |
 | Style profile        | `AgentWorkspace.style`, `project::read_style`, `learn_style`                                                                                                      |
 | Library              | `AgentWorkspace.library`, `project::read_library`, `project::relevant_library`                                                                                    |
 | Writing instructions | `AgentWorkspace.instructions` (global) and `AgentWorkspace.project_instructions`; `agentSystemPrompt*` strings                                                    |

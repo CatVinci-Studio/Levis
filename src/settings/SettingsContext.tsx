@@ -138,6 +138,9 @@ export interface Settings {
   /** False only on a fresh install, until the language welcome screen is
    *  confirmed. Existing installations are migrated to true. */
   languageChosen: boolean;
+  /** The first-launch offer to import a Levis installation was answered
+   *  (or the import ran) - settings/levis-import.ts. */
+  levisImportOffered: boolean;
   /// Appearance: follow the OS, or pin light/dark. Independent of `themeId`.
   theme: ThemeMode;
   enableCompletion: boolean;
@@ -246,6 +249,7 @@ export interface Settings {
 const DEFAULT_SETTINGS: Settings = {
   language: "en",
   languageChosen: false,
+  levisImportOffered: false,
   theme: "system",
   enableCompletion: true,
   enableGrammarCheck: true,

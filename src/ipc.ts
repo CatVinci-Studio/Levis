@@ -209,6 +209,41 @@ export const storage = {
 };
 
 // ---------------------------------------------------------------------------
+// Levis import (src-tauri/src/levis_import.rs)
+// ---------------------------------------------------------------------------
+
+/** What a Levis installation can bring (levis_import.rs `Item`). */
+export type LevisItem =
+  | "settings"
+  | "chatHistory"
+  | "clipboardHistory"
+  | "themes"
+  | "writingInstructions"
+  | "skills"
+  | "recentFiles"
+  | "session"
+  | "drafts"
+  | "credentials";
+
+export interface LevisImportStatus {
+  supported: boolean;
+  levisDir: string | null;
+  items: LevisItem[];
+}
+
+export interface LevisImportReport {
+  imported: LevisItem[];
+  kept: string[];
+  failed: string[];
+}
+
+export const levisImport = {
+  status: () => call<LevisImportStatus>("levis_import_status"),
+  run: (includeCredentials: boolean) =>
+    call<LevisImportReport>("levis_import", { includeCredentials }),
+};
+
+// ---------------------------------------------------------------------------
 // window / tab-drag (src-tauri/src/tab_drag.rs, App's pending-open queue)
 // ---------------------------------------------------------------------------
 
