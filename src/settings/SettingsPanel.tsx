@@ -9,7 +9,10 @@ import {
   type NewDocumentMode,
   type ContentWidth,
   type ProxyType,
+  REVISION_DISPLAYS,
+  type RevisionDisplay,
 } from "./SettingsContext";
+import { revisionDisplayName } from "../ai/revision-display";
 import { LANGS, LANG_NAMES, type Lang, type TextKey } from "../i18n/strings";
 import {
   SettingRow,
@@ -393,6 +396,24 @@ export function SettingsPanel({
                     <option value="ask">{t.agentModeAsk}</option>
                     <option value="edit">{t.agentModeEdit}</option>
                     <option value="plan">{t.agentModePlan}</option>
+                  </Select>
+                </SettingRow>
+                <SettingRow label={t.revisionDisplayLabel}>
+                  <Select
+                    className="settings-select"
+                    aria-label={t.revisionDisplayLabel}
+                    value={settings.revisionDisplay}
+                    onChange={(e) =>
+                      setSettings({
+                        revisionDisplay: e.target.value as RevisionDisplay,
+                      })
+                    }
+                  >
+                    {REVISION_DISPLAYS.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {revisionDisplayName(t, mode)}
+                      </option>
+                    ))}
                   </Select>
                 </SettingRow>
                 <ToggleRow

@@ -108,6 +108,13 @@ utiliser une.
   proposalKeepSentence: "Garder l’original",
   proposalShowInText: "Voir dans le texte",
   proposalDeleteSentence: "Supprimer cette phrase",
+  revisionDisplayLabel: "Affichage des révisions",
+  revisionDisplayInline: "Tout dans le texte",
+  revisionDisplayOriginal:
+    "Original dans le texte, modifications dans la marge",
+  revisionDisplayNew: "Modifications dans le texte, original dans la marge",
+  revisionDisplayFinal: "Résultat seul, sans marques",
+  proposalDeletedSentence: "Original",
   reviewBarLabel: "Révision",
   reviewBarOpenChat: "Ouvrir le panneau IA",
   reviewNoteBy: "Relecture",

@@ -107,6 +107,10 @@ import {
 } from "../ai/pending-edit-plugin";
 import { ProposalStream } from "../ai/proposal-stream";
 import { ReviewBar } from "../ai/ReviewBar";
+import {
+  effectiveRevisionDisplay,
+  revisionDisplayName,
+} from "../ai/revision-display";
 import { NotePopover, ReviewMargin, type MarginItem } from "../ai/ReviewMargin";
 import {
   commentCalls,
@@ -217,7 +221,7 @@ export function MilkdownEditor({
   const [quickAskEl, setQuickAskEl] = useState<HTMLElement | null>(null);
   // iPhone: Quick Ask docks at the bottom of the screen instead.
   const phone = usePhoneLayout();
-  const { t, settings } = useSettings();
+  const { t, settings, setSettings } = useSettings();
 
   // The editor plugin chain below is only built once (empty deps), so
   // plugins read this ref to see live settings instead of the value
@@ -279,7 +283,7 @@ export function MilkdownEditor({
   const onSelectionChangeRef = useRef<() => void>(() => {});
   // Whether a rewrite's replacements are drawn in the text (no margin) -
   // ReviewMargin decides, the pending-edit plugin reads it.
-  const sentencesInlineRef = useRef(false);
+  const noMarginRef = useRef(false);
   // The review notes' plugin callbacks, bridged like the pending edits'.
   const reviewNotesRef = useRef<{
     onChange: (notes: ReviewNote[]) => void;
@@ -357,7 +361,11 @@ export function MilkdownEditor({
             pendingEditActionsRef.current.onDecide(callId, index, take),
           getFocusedSentence: () =>
             pendingEditActionsRef.current.getFocusedSentence(),
-          sentencesInline: () => sentencesInlineRef.current,
+          revisionDisplay: () =>
+            effectiveRevisionDisplay(
+              settingsRef.current.revisionDisplay,
+              !noMarginRef.current,
+            ),
         },
         // setQuickAskEl is a useState setter - always stable, no ref
         // indirection needed (unlike pendingEdits above, whose real
@@ -501,6 +509,14 @@ export function MilkdownEditor({
     pendingEdits.decide,
     pendingEdits.focusedStop,
   ]);
+  // Switching how revisions show (Settings, or the review bar's menu)
+  // redraws them.
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "refocus" }));
+    });
+  }, [settings.revisionDisplay, run]);
   // The review bar's pointer is drawn in the text (an outline round the
   // sentence): redraw when it moves.
   const focusedStopKey = pendingEdits.focusedStop
@@ -1678,7 +1694,7 @@ export function MilkdownEditor({
       if (key?.startsWith("rev:")) {
         const [, callId, index] = key.split(":");
         for (const el of view.dom.querySelectorAll(
-          `.pending-sentence[data-call="${CSS.escape(callId)}"][data-index="${index}"]`,
+          `[data-call="${CSS.escape(callId)}"][data-index="${index}"]`,
         ))
           el.classList.add("pending-sentence-hot");
       }
@@ -1722,7 +1738,7 @@ export function MilkdownEditor({
   // No room for a margin: notes go behind badges and a rewrite's
   // replacements back into the text.
   function setNotesCompact(compact: boolean) {
-    sentencesInlineRef.current = compact;
+    noMarginRef.current = compact;
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dispatch(
@@ -1741,8 +1757,10 @@ export function MilkdownEditor({
       key: `note:${note.id}`,
       note,
     }));
+    const display = settings.revisionDisplay;
     pendingEdits.reviewStops.forEach((stop, i) => {
       if (stop.index < 0) return;
+      if (display !== "original" && display !== "new") return;
       const preview = pendingEdits.decidable.find(
         (p) => p.callId === stop.callId,
       );
@@ -1757,11 +1775,18 @@ export function MilkdownEditor({
         from: c.from,
         to: c.to,
         after: c.after,
+        before: c.before,
+        shows: display,
         take: c.take,
       });
     });
     return items;
-  }, [notes, pendingEdits.reviewStops, pendingEdits.decidable]);
+  }, [
+    notes,
+    pendingEdits.reviewStops,
+    pendingEdits.decidable,
+    settings.revisionDisplay,
+  ]);
 
   const openNoteData = openNote
     ? (notes.find((n) => n.id === openNote.id) ?? null)
@@ -1816,7 +1841,7 @@ export function MilkdownEditor({
                 ".review-anchor",
               ) as HTMLElement | null;
               const sentence = target.closest?.(
-                ".pending-sentence",
+                "[data-call][data-index]",
               ) as HTMLElement | null;
               const key = anchor?.dataset.note
                 ? `note:${anchor.dataset.note}`
@@ -1908,6 +1933,9 @@ export function MilkdownEditor({
                 onAccept={pendingEdits.acceptAll}
                 onReject={pendingEdits.rejectAll}
                 onOpenChat={() => agentPanel.setOpen(true)}
+                display={settings.revisionDisplay}
+                displayName={(mode) => revisionDisplayName(t, mode)}
+                onDisplay={(mode) => setSettings({ revisionDisplay: mode })}
               />
             )}
           </Presence>,
