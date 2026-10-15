@@ -725,6 +725,9 @@ para usar una.
   fileChangedOnDiskMessage:
     "Otro programa modificó este archivo en el disco. Si guardas, se sobrescribirán esos cambios.",
   fileChangedOnDiskOverwrite: "Sobrescribir",
+  saveFailedTitle: "No se pudo guardar",
+  saveFailedMessage: "«{name}» no se guardó. Tus cambios siguen aquí.",
+  saveReadOnlyHint: "El archivo es de solo lectura. Usa Guardar como para conservar tus cambios en un archivo nuevo.",
   unsavedIndicator: "Cambios sin guardar",
   largeDocBadge: "Documento grande",
   largeDocHint:

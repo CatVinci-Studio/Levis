@@ -904,7 +904,7 @@ pub fn with_boot<'a, R: tauri::Runtime, M: Manager<R>>(
 }
 
 /// The colour a window shows before its page has painted, for a pinned
-/// appearance: the page's own background (App.css's `--bg`, and what
+/// appearance: the page's own background (ui/base.css's `--bg`, and what
 /// index.html paints before any stylesheet loads).
 ///
 /// On Linux the GTK window and the WebKit view start in their own colours -
@@ -1518,11 +1518,11 @@ mod tests {
     #[test]
     fn a_pinned_appearance_gives_windows_the_page_background() {
         // Checked against the page itself, not restated here: a window must
-        // open in exactly the colour index.html paints first and App.css's
+        // open in exactly the colour index.html paints first and ui/base.css's
         // --bg keeps, or the change is a flash of its own. A failure here
         // means one of the three moved without the others.
         let index = include_str!("../../index.html");
-        let app_css = include_str!("../../src/App.css");
+        let app_css = include_str!("../../src/ui/base.css");
         for (theme, app_css_rule) in [
             ("dark", ":root[data-theme=\"dark\"] {"),
             ("light", ":root {"),
@@ -1543,7 +1543,7 @@ mod tests {
             assert_eq!(
                 css_value(app_css, app_css_rule, "--bg:"),
                 hex,
-                "App.css, {theme}"
+                "ui/base.css, {theme}"
             );
         }
         // "system", missing or unreadable: the toolkit's own default.

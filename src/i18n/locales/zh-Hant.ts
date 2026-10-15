@@ -670,6 +670,9 @@ export default {
   fileChangedOnDiskMessage:
     "其他程式已修改磁碟上的這個檔案。儲存會覆寫那些變更。",
   fileChangedOnDiskOverwrite: "覆寫",
+  saveFailedTitle: "無法儲存",
+  saveFailedMessage: "「{name}」沒有儲存，你的修改仍保留在這裡。",
+  saveReadOnlyHint: "這個檔案是唯讀的。可以用「另存新檔」把修改儲存到新檔案。",
   unsavedIndicator: "未儲存的變更",
   largeDocBadge: "大型文件",
   largeDocHint:

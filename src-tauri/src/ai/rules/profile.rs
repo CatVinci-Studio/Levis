@@ -453,7 +453,7 @@ mod tests {
 
     #[test]
     fn the_frontend_list_mirrors_this_one() {
-        let ipc = include_str!("../../../../src/ipc.ts");
+        let ipc = include_str!("../../../../src/platform/ipc.ts");
         let start = ipc.find("export const WRITING_CONVENTIONS:").unwrap();
         let block = &ipc[start..start + ipc[start..].find("\n};").unwrap()];
         for (lang, auto, profiles) in LANGUAGE_PROFILES {

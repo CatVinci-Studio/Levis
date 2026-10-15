@@ -64,6 +64,7 @@ import {
 } from "../editor/modes/mode-switch";
 import { listenToThisWindow, unlistenAll } from "../utils/tauri-events";
 import { basename, dirname } from "../utils/path";
+import { errorText } from "../utils/error-text";
 import {
   helpDocContent,
   makeBlankTab,
@@ -500,6 +501,32 @@ function App() {
     [updateTab, evaluateTutorialDocumentChange],
   );
 
+  // Writes a document, or says why it couldn't and resolves false - the tab
+  // stays dirty, so nothing is lost. A failed save used to be silent: the
+  // unsaved dot simply stayed, and a read-only file gave no reason at all.
+  const writeOrReport = useCallback(
+    async (path: string, content: string): Promise<boolean> => {
+      try {
+        await writeDocFile(path, content);
+        return true;
+      } catch (err) {
+        const reason = errorText(err);
+        const lines = [
+          t.saveFailedMessage.replace("{name}", basename(path)),
+          /read-only|permission denied/i.test(reason)
+            ? t.saveReadOnlyHint
+            : reason,
+        ];
+        await showMessage(lines.join("\n"), {
+          title: t.saveFailedTitle,
+          tone: "error",
+        });
+        return false;
+      }
+    },
+    [t],
+  );
+
   // Resolves true only when the document actually reached disk - the close
   // prompt must not close the window (or remove the tab) when a save-as
   // dialog was cancelled.
@@ -518,7 +545,7 @@ function App() {
           );
       const picked = await fs.saveFileDialog(defaultName);
       if (!picked) return false;
-      await writeDocFile(picked, tab.content);
+      if (!(await writeOrReport(picked, tab.content))) return false;
       void session.addRecentFile(picked);
       // First save of a draft: any pasted images it holds live in the app's
       // data dir with an absolute src (fs.rs's save_pasted_image) - now that
@@ -554,7 +581,7 @@ function App() {
       });
       return true;
     },
-    [updateTab, liveTabs, t, settings.autoSuggestFilename],
+    [updateTab, liveTabs, t, settings.autoSuggestFilename, writeOrReport],
   );
 
   const saveTab = useCallback(
@@ -579,14 +606,14 @@ function App() {
           if (!overwrite) return false;
         }
       }
-      await writeDocFile(tab.path, tab.content);
+      if (!(await writeOrReport(tab.path, tab.content))) return false;
       updateTab(tabId, {
         savedContent: tab.content,
         diskMtime: await statMtime(tab.path),
       });
       return true;
     },
-    [updateTab, liveTabs, saveTabAs, t],
+    [updateTab, liveTabs, saveTabAs, t, writeOrReport],
   );
 
   // Back to the rich editor, from plain source mode or split view alike.

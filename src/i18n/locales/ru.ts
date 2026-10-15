@@ -714,6 +714,9 @@ export default {
   fileChangedOnDiskMessage:
     "Этот файл изменён на диске другой программой. При сохранении эти изменения будут перезаписаны.",
   fileChangedOnDiskOverwrite: "Перезаписать",
+  saveFailedTitle: "Не удалось сохранить",
+  saveFailedMessage: "«{name}» не сохранён. Ваши изменения остались на месте.",
+  saveReadOnlyHint: "Файл доступен только для чтения. Сохраните изменения в новый файл через «Сохранить как».",
   unsavedIndicator: "Несохранённые изменения",
   largeDocBadge: "Большой документ",
   largeDocHint:

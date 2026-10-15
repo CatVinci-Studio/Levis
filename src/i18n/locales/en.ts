@@ -703,6 +703,9 @@ type /name in a conversation to use one.
   fileChangedOnDiskMessage:
     "This file has been changed on disk by another program. Saving will overwrite those changes.",
   fileChangedOnDiskOverwrite: "Overwrite",
+  saveFailedTitle: "Couldn't Save",
+  saveFailedMessage: "“{name}” wasn't saved. Your changes are still here.",
+  saveReadOnlyHint: "The file is read-only. Use Save As to keep your changes in a new file.",
   unsavedIndicator: "Unsaved changes",
   largeDocBadge: "Large document",
   largeDocHint:

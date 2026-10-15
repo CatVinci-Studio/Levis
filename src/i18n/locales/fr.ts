@@ -732,6 +732,9 @@ utiliser une.
   fileChangedOnDiskMessage:
     "Ce fichier a été modifié sur le disque par une autre application. L'enregistrer écrasera ces modifications.",
   fileChangedOnDiskOverwrite: "Écraser",
+  saveFailedTitle: "Enregistrement impossible",
+  saveFailedMessage: "«\u00a0{name}\u00a0» n'a pas été enregistré. Vos modifications sont conservées.",
+  saveReadOnlyHint: "Ce fichier est en lecture seule. Utilisez Enregistrer sous pour conserver vos modifications dans un nouveau fichier.",
   unsavedIndicator: "Modifications non enregistrées",
   largeDocBadge: "Document volumineux",
   largeDocHint:

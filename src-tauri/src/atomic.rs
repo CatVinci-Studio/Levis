@@ -48,7 +48,35 @@ fn sync_parent_dir(target: &Path) {
     let _ = target;
 }
 
+/// What replacing an existing file has to carry over: where it really is
+/// (a symlink is written through, not replaced by a regular file) and its
+/// permissions (the new file would otherwise get the default mode, and a
+/// read-only file would quietly become writable). A read-only file is not
+/// replaced at all: the user made it so, and the save says why it failed.
+fn existing_target(target: &Path) -> std::io::Result<(PathBuf, Option<std::fs::Permissions>)> {
+    let real = match std::fs::canonicalize(target) {
+        Ok(real) => real,
+        Err(_) => return Ok((target.to_path_buf(), None)),
+    };
+    let permissions = std::fs::metadata(&real)?.permissions();
+    if permissions.readonly() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            format!("{} is read-only", real.display()),
+        ));
+    }
+    Ok((real, Some(permissions)))
+}
+
 fn write_via_temp(target: &Path, contents: &[u8], secret: bool) -> std::io::Result<()> {
+    // Secrets always get a fresh owner-only file; anything else keeps what
+    // the file it replaces had.
+    let (real, permissions) = if secret {
+        (target.to_path_buf(), None)
+    } else {
+        existing_target(target)?
+    };
+    let target = real.as_path();
     let tmp = tmp_path(target);
     let result = (|| {
         let mut options = std::fs::OpenOptions::new();
@@ -62,6 +90,9 @@ fn write_via_temp(target: &Path, contents: &[u8], secret: bool) -> std::io::Resu
         let _ = secret;
         let mut file = options.open(&tmp)?;
         file.write_all(contents)?;
+        if let Some(permissions) = permissions {
+            file.set_permissions(permissions)?;
+        }
         file.sync_all()?;
         drop(file);
         std::fs::rename(&tmp, target)
@@ -234,6 +265,48 @@ mod tests {
         write(&path, b"{}").await.unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}");
         assert!(leftovers(&dir).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // Unix only: modes and symlinks.
+    #[cfg(unix)]
+    #[test]
+    fn a_replaced_file_keeps_its_mode_and_a_read_only_one_is_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch_dir("mode");
+        let shared = dir.join("shared.md");
+        std::fs::write(&shared, "one").unwrap();
+        std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o664)).unwrap();
+        write_sync(&shared, "two").unwrap();
+        assert_eq!(std::fs::read_to_string(&shared).unwrap(), "two");
+        let mode = std::fs::metadata(&shared).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o664, "the mode it had, not the default");
+
+        let locked = dir.join("locked.md");
+        std::fs::write(&locked, "keep").unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let err = write_sync(&locked, "lost").unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(std::fs::read_to_string(&locked).unwrap(), "keep");
+        assert!(leftovers(&dir).is_empty());
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_is_written_through_not_replaced() {
+        let dir = scratch_dir("link");
+        let real = dir.join("real.md");
+        let link = dir.join("link.md");
+        std::fs::write(&real, "one").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        write_sync(&link, "two").unwrap();
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "two");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

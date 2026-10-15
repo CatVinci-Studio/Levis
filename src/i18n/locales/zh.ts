@@ -667,6 +667,9 @@ export default {
   fileChangedOnDiskTitle: "文件已在磁盘上被修改",
   fileChangedOnDiskMessage: "该文件已被其他程序修改。保存将覆盖磁盘上的更改。",
   fileChangedOnDiskOverwrite: "覆盖",
+  saveFailedTitle: "无法保存",
+  saveFailedMessage: "“{name}”没有保存，你的修改仍然保留在这里。",
+  saveReadOnlyHint: "这个文件是只读的。可以用“另存为”把修改保存到新文件。",
   unsavedIndicator: "有未保存的更改",
   largeDocBadge: "大文档模式",
   largeDocHint:

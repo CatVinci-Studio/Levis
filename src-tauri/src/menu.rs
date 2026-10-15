@@ -787,7 +787,7 @@ mod tests {
         // their keys are made up on both sides, so a typo on either would
         // leave that one label English with nothing to say so.
         let source = include_str!("menu.rs");
-        let frontend = include_str!("../../src/ui/app-menu-model.ts");
+        let frontend = include_str!("../../src/app/app-menu-model.ts");
         let keys: Vec<&str> = source
             .split('"')
             .filter(|s| s.starts_with("menu:") || s.starts_with("predefined:"))
