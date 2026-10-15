@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openApp } from "./helpers";
+import { openApp, pasteMarkdown } from "./helpers";
 
 // Han characters are drawn differently in Japanese, Simplified and
 // Traditional Chinese and Korean; the font stacks pick the faces for the
@@ -122,12 +122,16 @@ test("the Paper theme's serif follows the language too", async ({ page }) => {
   expect(await firstCjkFace(page, "ko", editor)).toBe("AppleMyungjo");
 });
 
-test("Korean UI text breaks at spaces, the document breaks as usual", async ({
+test("Korean breaks at spaces, in the UI and the document, but not in table cells", async ({
   page,
 }) => {
-  // keep-all is for the chrome's Korean; on the document it stopped Chinese
-  // paragraphs and table cells breaking anywhere but at punctuation.
+  // keep-all on a table cell made a Chinese cell one unbreakable run, so
+  // the table outgrew the page; paragraphs still wrap at the edge.
   await openApp(page, { settings: { language: "ko" } });
+  await pasteMarkdown(
+    page,
+    "메밀꽃 필 무렵\n\n| 인물 | 하는 일 |\n| --- | --- |\n| 허 생원 | 장돌뱅이 |\n",
+  );
   const wordBreak = (selector: string) =>
     page.evaluate(
       (selector) =>
@@ -135,5 +139,23 @@ test("Korean UI text breaks at spaces, the document breaks as usual", async ({
       selector,
     );
   expect(await wordBreak(".window-bar-title")).toBe("keep-all");
-  expect(await wordBreak(".milkdown .ProseMirror p")).toBe("normal");
+  expect(await wordBreak(".milkdown .ProseMirror p")).toBe("keep-all");
+  expect(await wordBreak(".milkdown .ProseMirror td p")).toBe("normal");
+});
+
+test("Chinese and Japanese UIs take quotes, the ellipsis and the dash from the CJK face", async ({
+  page,
+}) => {
+  await openApp(page);
+  const stack = (lang: string, selector: string) =>
+    faces(page, lang, selector).then((f) => f[0]);
+  const editor = ".milkdown .ProseMirror";
+  expect(await stack("zh-CN", "body")).toBe("Textus Punct SC");
+  expect(await stack("zh-CN", editor)).toBe("Textus Punct SC");
+  expect(await stack("zh-Hant", "body")).toBe("Textus Punct TC");
+  expect(await stack("ja", "body")).toBe("Textus Punct JP");
+  // Elsewhere the faces stay out, so English and French quotes and
+  // apostrophes keep their Latin shapes.
+  for (const lang of ["en", "fr", "ko"])
+    expect(await stack(lang, "body")).toBe("Textus No Punct");
 });

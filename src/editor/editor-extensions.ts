@@ -132,7 +132,18 @@ export function withEditorExtensions(
 
       // GitHub-style alerts: > [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING]
       // / [!CAUTION] blockquotes render as colored callouts with a badge.
-      .use(createGithubAlertPlugin())
+      .use(
+        createGithubAlertPlugin((type) => {
+          const t = resolveStrings(settings.current.language);
+          return {
+            NOTE: t.alertNote,
+            TIP: t.alertTip,
+            IMPORTANT: t.alertImportant,
+            WARNING: t.alertWarning,
+            CAUTION: t.alertCaution,
+          }[type];
+        }),
+      )
 
       // CommonMark's emphasis flanking rules reject "**" next to CJK
       // punctuation (e.g. 话说**“你好”**了 stays literal), which would also
