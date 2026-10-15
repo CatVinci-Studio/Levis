@@ -109,13 +109,10 @@ export default {
   memoryInThisDocument: "本文用到",
   memoryAllProjects: "所有项目",
   memoryEditGlobal: "编辑所有项目通用的写作要求",
-  memoryStyleEmpty:
-    "还没有文风档案。给 Textus AI 几篇你写的文章，它会学会你的写法。",
+  memoryStyleEmpty: `还没有文风档案。给 ${AI_NAME} 几篇你写的文章，它会学会你的写法。`,
   memoryLibraryEmpty: `人物、地点、术语，写进资料库，${AI_NAME} 就会记住。`,
-  memoryInstructionsEmpty:
-    "还没有写作要求。写下你希望 Textus AI 始终遵守的规则。",
-  memoryNeedsSave:
-    "保存这篇文档后，Textus AI 会在它所在的文件夹里记住你的文风、资料和要求。",
+  memoryInstructionsEmpty: `还没有写作要求。写下你希望 ${AI_NAME} 始终遵守的规则。`,
+  memoryNeedsSave: `保存这篇文档后，${AI_NAME} 会在它所在的文件夹里记住你的文风、资料和要求。`,
   agentActionInsertAtCursor: "在光标处插入",
   commentLocate: "在文档中定位",
   commentNotFound: "文档里已经找不到这段文字。",

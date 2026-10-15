@@ -116,14 +116,10 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   memoryInThisDocument: "この文書で使用",
   memoryAllProjects: "すべてのプロジェクト",
   memoryEditGlobal: "すべてのプロジェクト共通の指示を編集",
-  memoryStyleEmpty:
-    "文体プロファイルはまだありません。自分の文章をいくつか渡すと、Textus AI が書き方を覚えます。",
-  memoryLibraryEmpty:
-    "人物、場所、用語を資料庫に書いておけば、Textus AI が覚えます。",
-  memoryInstructionsEmpty:
-    "執筆の指示はまだありません。Textus AI に常に守ってほしいルールを書いておけます。",
-  memoryNeedsSave:
-    "この文書を保存すると、Textus AI はそのフォルダに文体・資料・指示を記憶します。",
+  memoryStyleEmpty: `文体プロファイルはまだありません。自分の文章をいくつか渡すと、${AI_NAME} が書き方を覚えます。`,
+  memoryLibraryEmpty: `人物、場所、用語を資料庫に書いておけば、${AI_NAME} が覚えます。`,
+  memoryInstructionsEmpty: `執筆の指示はまだありません。${AI_NAME} に常に守ってほしいルールを書いておけます。`,
+  memoryNeedsSave: `この文書を保存すると、${AI_NAME} はそのフォルダに文体・資料・指示を記憶します。`,
   agentActionInsertAtCursor: "カーソル位置に挿入",
   commentLocate: "文書内で表示",
   commentNotFound: "その箇所は文書内に見つかりません。",

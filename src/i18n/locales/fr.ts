@@ -125,14 +125,10 @@ utiliser une.
   memoryInThisDocument: "Dans ce document",
   memoryAllProjects: "Tous les projets",
   memoryEditGlobal: "Modifier les consignes communes à tous les projets",
-  memoryStyleEmpty:
-    "Pas encore de profil de style. Donnez à Textus AI quelques-uns de vos textes et il apprendra votre manière d’écrire.",
-  memoryLibraryEmpty:
-    "Personnages, lieux, termes : ajoutez-les à la bibliothèque et Textus AI s’en souviendra.",
-  memoryInstructionsEmpty:
-    "Pas encore de consignes. Écrivez les règles que Textus AI doit toujours suivre.",
-  memoryNeedsSave:
-    "Enregistrez ce document et Textus AI gardera votre style, votre bibliothèque et vos consignes dans son dossier.",
+  memoryStyleEmpty: `Pas encore de profil de style. Donnez à ${AI_NAME} quelques-uns de vos textes et il apprendra votre manière d’écrire.`,
+  memoryLibraryEmpty: `Personnages, lieux, termes : ajoutez-les à la bibliothèque et ${AI_NAME} s’en souviendra.`,
+  memoryInstructionsEmpty: `Pas encore de consignes. Écrivez les règles que ${AI_NAME} doit toujours suivre.`,
+  memoryNeedsSave: `Enregistrez ce document et ${AI_NAME} gardera votre style, votre bibliothèque et vos consignes dans son dossier.`,
   agentActionInsertAtCursor: "Insérer au curseur",
   commentLocate: "Afficher dans le document",
   commentNotFound: "Ce passage ne figure plus dans le document.",

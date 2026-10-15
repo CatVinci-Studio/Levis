@@ -114,14 +114,10 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   memoryInThisDocument: "이 문서에서 사용",
   memoryAllProjects: "모든 프로젝트",
   memoryEditGlobal: "모든 프로젝트 공통 지침 편집",
-  memoryStyleEmpty:
-    "아직 문체 프로필이 없습니다. 직접 쓴 글을 몇 편 주면 Textus AI가 문체를 배웁니다.",
-  memoryLibraryEmpty:
-    "인물, 장소, 용어를 자료집에 적어 두면 Textus AI가 기억합니다.",
-  memoryInstructionsEmpty:
-    "아직 작성 지침이 없습니다. Textus AI가 항상 지켜야 할 규칙을 적어 두세요.",
-  memoryNeedsSave:
-    "이 문서를 저장하면 Textus AI가 그 폴더에 문체, 자료, 지침을 기억합니다.",
+  memoryStyleEmpty: `아직 문체 프로필이 없습니다. 직접 쓴 글을 몇 편 주면 ${AI_NAME}가 문체를 배웁니다.`,
+  memoryLibraryEmpty: `인물, 장소, 용어를 자료집에 적어 두면 ${AI_NAME}가 기억합니다.`,
+  memoryInstructionsEmpty: `아직 작성 지침이 없습니다. ${AI_NAME}가 항상 지켜야 할 규칙을 적어 두세요.`,
+  memoryNeedsSave: `이 문서를 저장하면 ${AI_NAME}가 그 폴더에 문체, 자료, 지침을 기억합니다.`,
   agentActionInsertAtCursor: "커서 위치에 삽입",
   commentLocate: "문서에서 보기",
   commentNotFound: "해당 부분이 더 이상 문서에 없습니다.",

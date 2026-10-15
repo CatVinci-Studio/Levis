@@ -117,14 +117,10 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   memoryInThisDocument: "Neste documento",
   memoryAllProjects: "Todos os projetos",
   memoryEditGlobal: "Editar as instruções de todos os projetos",
-  memoryStyleEmpty:
-    "Ainda não há perfil de estilo. Dê ao Textus AI alguns textos seus e ele aprende como você escreve.",
-  memoryLibraryEmpty:
-    "Pessoas, lugares, termos: adicione-os à biblioteca e o Textus AI vai lembrar.",
-  memoryInstructionsEmpty:
-    "Ainda não há instruções. Escreva as regras que o Textus AI deve sempre seguir.",
-  memoryNeedsSave:
-    "Salve este documento e o Textus AI guarda seu estilo, biblioteca e instruções na pasta dele.",
+  memoryStyleEmpty: `Ainda não há perfil de estilo. Dê ao ${AI_NAME} alguns textos seus e ele aprende como você escreve.`,
+  memoryLibraryEmpty: `Pessoas, lugares, termos: adicione-os à biblioteca e o ${AI_NAME} vai lembrar.`,
+  memoryInstructionsEmpty: `Ainda não há instruções. Escreva as regras que o ${AI_NAME} deve sempre seguir.`,
+  memoryNeedsSave: `Salve este documento e o ${AI_NAME} guarda seu estilo, biblioteca e instruções na pasta dele.`,
   agentActionInsertAtCursor: "Inserir no cursor",
   commentLocate: "Mostrar no documento",
   commentNotFound: "Esse trecho não está mais no documento.",

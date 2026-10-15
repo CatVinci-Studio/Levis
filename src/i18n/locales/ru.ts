@@ -118,14 +118,10 @@ export default {
   memoryInThisDocument: "В этом документе",
   memoryAllProjects: "Все проекты",
   memoryEditGlobal: "Изменить требования для всех проектов",
-  memoryStyleEmpty:
-    "Профиля стиля пока нет. Дайте Textus AI несколько своих текстов — он научится писать, как вы.",
-  memoryLibraryEmpty:
-    "Люди, места, термины: добавьте их в справочник, и Textus AI их запомнит.",
-  memoryInstructionsEmpty:
-    "Требований пока нет. Запишите правила, которым Textus AI должен следовать всегда.",
-  memoryNeedsSave:
-    "Сохраните документ, и Textus AI будет хранить ваш стиль, справочник и требования в его папке.",
+  memoryStyleEmpty: `Профиля стиля пока нет. Дайте ${AI_NAME} несколько своих текстов — он научится писать, как вы.`,
+  memoryLibraryEmpty: `Люди, места, термины: добавьте их в справочник, и ${AI_NAME} их запомнит.`,
+  memoryInstructionsEmpty: `Требований пока нет. Запишите правила, которым ${AI_NAME} должен следовать всегда.`,
+  memoryNeedsSave: `Сохраните документ, и ${AI_NAME} будет хранить ваш стиль, справочник и требования в его папке.`,
   agentActionInsertAtCursor: "Вставка у курсора",
   commentLocate: "Показать в документе",
   commentNotFound: "Этого фрагмента больше нет в документе.",

@@ -119,14 +119,10 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   memoryInThisDocument: "In diesem Dokument",
   memoryAllProjects: "Alle Projekte",
   memoryEditGlobal: "Vorgaben für alle Projekte bearbeiten",
-  memoryStyleEmpty:
-    "Noch kein Stilprofil. Gib Textus AI ein paar deiner Texte, und es lernt, wie du schreibst.",
-  memoryLibraryEmpty:
-    "Personen, Orte, Begriffe: Trag sie in die Bibliothek ein, und Textus AI merkt sie sich.",
-  memoryInstructionsEmpty:
-    "Noch keine Schreibvorgaben. Schreib die Regeln auf, die Textus AI immer befolgen soll.",
-  memoryNeedsSave:
-    "Speichere dieses Dokument, dann merkt sich Textus AI Stil, Bibliothek und Vorgaben in seinem Ordner.",
+  memoryStyleEmpty: `Noch kein Stilprofil. Gib ${AI_NAME} ein paar deiner Texte, und es lernt, wie du schreibst.`,
+  memoryLibraryEmpty: `Personen, Orte, Begriffe: Trag sie in die Bibliothek ein, und ${AI_NAME} merkt sie sich.`,
+  memoryInstructionsEmpty: `Noch keine Schreibvorgaben. Schreib die Regeln auf, die ${AI_NAME} immer befolgen soll.`,
+  memoryNeedsSave: `Speichere dieses Dokument, dann merkt sich ${AI_NAME} Stil, Bibliothek und Vorgaben in seinem Ordner.`,
   agentActionInsertAtCursor: "Am Cursor einfügen",
   commentLocate: "Im Dokument anzeigen",
   commentNotFound: "Diese Stelle steht nicht mehr im Dokument.",

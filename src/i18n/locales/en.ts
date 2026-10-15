@@ -118,14 +118,10 @@ type /name in a conversation to use one.
   memoryInThisDocument: "In this document",
   memoryAllProjects: "All projects",
   memoryEditGlobal: "Edit the instructions for all projects",
-  memoryStyleEmpty:
-    "No style profile yet. Give Textus AI a few things you wrote and it learns how you write.",
-  memoryLibraryEmpty:
-    "People, places, terms: add them to the library and Textus AI remembers them.",
-  memoryInstructionsEmpty:
-    "No writing instructions yet. Write down the rules Textus AI should always follow.",
-  memoryNeedsSave:
-    "Save this document and Textus AI keeps your style, library and instructions in its folder.",
+  memoryStyleEmpty: `No style profile yet. Give ${AI_NAME} a few things you wrote and it learns how you write.`,
+  memoryLibraryEmpty: `People, places, terms: add them to the library and ${AI_NAME} remembers them.`,
+  memoryInstructionsEmpty: `No writing instructions yet. Write down the rules ${AI_NAME} should always follow.`,
+  memoryNeedsSave: `Save this document and ${AI_NAME} keeps your style, library and instructions in its folder.`,
   agentActionInsertAtCursor: "Insert at cursor",
   commentLocate: "Show in document",
   commentNotFound: "That passage is no longer in the document.",
