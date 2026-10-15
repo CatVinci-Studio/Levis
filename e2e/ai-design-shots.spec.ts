@@ -285,3 +285,29 @@ test("theme imported typora", async ({ page }) => {
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${DIR}/theme-typora-newsprint.png` });
 });
+
+// The four revision displays (Settings > revision display), as Word's
+// markup views, each with the second sentence kept.
+for (const revisionDisplay of ["inline", "original", "new", "final"]) {
+  test(`revision display ${revisionDisplay}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openApp(page, {
+      storage: { "levis-agent-panel-open": "1" },
+      settings: { revisionDisplay },
+    });
+    await paste(page);
+    await mockInvoke(page, { ai_agent_message: REPLY.slice(0, 3) });
+    const composer = page.locator(".agent-panel-view textarea");
+    await composer.fill("精简");
+    await composer.press("Enter");
+    await expect(page.locator(".agent-proposal")).toBeVisible();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `${DIR}/display-${revisionDisplay}-1.png` });
+    await page
+      .locator(".agent-proposal-pick .pending-pick-keep")
+      .nth(1)
+      .click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${DIR}/display-${revisionDisplay}-2.png` });
+  });
+}

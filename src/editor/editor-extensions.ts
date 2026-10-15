@@ -68,7 +68,7 @@ import {
 } from "../ai/review-notes-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { resolveStrings } from "../i18n/strings";
-import type { Settings } from "../settings/SettingsContext";
+import type { RevisionDisplay, Settings } from "../settings/SettingsContext";
 
 export interface PendingEditCallbacks {
   onAccept: (callId: string) => void;
@@ -81,8 +81,8 @@ export interface PendingEditCallbacks {
   onDecide: (callId: string, index: number, take: boolean | null) => void;
   /** The sentence the review bar points at. */
   getFocusedSentence: () => { callId: string; index: number } | null;
-  /** Whether a rewrite's replacements are drawn in the text. */
-  sentencesInline?: () => boolean;
+  /** How a rewrite is drawn (revision-display.ts). */
+  revisionDisplay?: () => RevisionDisplay;
 }
 
 /**
