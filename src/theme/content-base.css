@@ -264,7 +264,7 @@
   }
 
   /* Not `thead th`: Milkdown keeps the header row in <tbody> (see
-     settings/typora-compat.ts). Headers don't wrap, and body cells keep a
+     theme/typora-compat.ts). Headers don't wrap, and body cells keep a
      small floor: with content-sized columns, CJK text - which may break
      between any two characters - otherwise let the browser squeeze a short
      column down to one character ("序/号"), wrapping every two-character

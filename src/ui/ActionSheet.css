@@ -1,4 +1,4 @@
-/* mobile/ActionSheet.tsx: UIKit's action sheet - grouped rows rising from
+/* ui/ActionSheet.tsx: UIKit's action sheet - grouped rows rising from
    the bottom edge, Cancel set apart beneath them. */
 .action-sheet-scrim {
   position: fixed;

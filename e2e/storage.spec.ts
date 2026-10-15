@@ -22,7 +22,7 @@ interface DevStorage {
   patches: Record<string, unknown>[];
   fills: Record<string, unknown>[];
   /** Every command in order, plus "<command>:done" for each storage write
-   *  answered (src/dev-tauri-shim.ts). */
+   *  answered (dev/tauri-shim.ts). */
   log: string[];
   uiState: Record<string, unknown>;
   histories: Record<string, { text?: string }[]>;
@@ -387,7 +387,7 @@ test("a window booted with no settings fills in defaults, never over newer value
 });
 
 /** An imported theme, and the app chrome colours the frontend last derived
- *  from it (utils/theme-chrome.ts), as ui-state.json remembers them. */
+ *  from it (theme/theme-chrome.ts), as ui-state.json remembers them. */
 const THEME_CSS = "#write { color: rgb(1, 2, 3); }";
 const CHROME = ":root { --sidebar-bg: rgb(10, 20, 30) !important; }";
 const themed = (theme: string) => ({

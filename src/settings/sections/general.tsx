@@ -20,7 +20,7 @@ import { itemList, runLevisImport } from "../levis-import";
  * check (useAppUpdate) is silent about being up to date and about errors;
  * a manual check is the opposite - the user asked, so "already latest" and
  * failures both get an explicit answer here. A package-manager build only
- * reports the new version - see utils/distribution.ts.
+ * reports the new version - see platform/distribution.ts.
  */
 export function UpdateSection({ t }: { t: Strings }) {
   const [version, setVersion] = useState("");

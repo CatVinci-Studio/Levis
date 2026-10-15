@@ -21,7 +21,7 @@ export function groupByProject(
 }
 
 /**
- * Sidebar panel over the saved agent conversations (see ai/chat-history.ts),
+ * Sidebar panel over the saved agent conversations (see ai/chat/chat-history.ts),
  * grouped by project folder. Clicking an entry restores it as the live
  * conversation in the Agent panel (via RESTORE_CHAT_EVENT - same decoupling
  * as the clipboard panel's insert event).

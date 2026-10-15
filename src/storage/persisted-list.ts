@@ -36,7 +36,7 @@ export function createPersistedList<T>(
     /** The form an entry is stored in, applied to every entry written - and,
      *  file-backed, to the entries already stored when the list loads, where
      *  any it changes are written back: a migration of what an older build
-     *  stored (the chat history's iOS document paths, ai/chat-history.ts).
+     *  stored (the chat history's iOS document paths, ai/chat/chat-history.ts).
      *  Must return an entry already in that form unchanged (the same
      *  object). */
     normalise?: (entry: T) => T;

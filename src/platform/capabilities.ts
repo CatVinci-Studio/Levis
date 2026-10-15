@@ -10,7 +10,7 @@ import { isDesktop, isIOSPlatform, isMacPlatform } from "./os";
  * docs/ios/code-map.zh.md): every flag below that is false on iOS stands for
  * Rust commands, plugins or window APIs that are not compiled or not
  * registered there, so calling them would only ever reject. The desktop-only
- * command wrappers in src/ipc.ts check {@link isDesktopApp} as a backstop.
+ * command wrappers in platform/ipc.ts check {@link isDesktopApp} as a backstop.
  *
  * Read once at module load: a webview does not change platforms, and a
  * hook would only re-render consumers for a value that cannot change.

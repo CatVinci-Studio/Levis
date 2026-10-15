@@ -4,7 +4,7 @@
   scroll-margin-top: 44px;
 }
 
-/* --content-zoom (set by utils/useZoom.ts) scales ONLY the document text,
+/* --content-zoom (set by app/useZoom.ts) scales ONLY the document text,
    never the window chrome. The column's max-width grows by the same factor
    while the zoomed node's layout width divides by it, so the visual result
    is the 100% column scaled geometrically - same words per line, everything

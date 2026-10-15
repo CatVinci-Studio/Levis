@@ -15,7 +15,7 @@ You need a stable Rust toolchain and Node 22+. Linux also needs
 `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`.
 
 `npm run dev` alone serves the frontend at <http://localhost:1420> in a plain
-browser. A dev-only shim (`src/dev-tauri-shim.ts`) stubs the Tauri IPC so the
+browser. A dev-only shim (`dev/tauri-shim.ts`) stubs the Tauri IPC so the
 editor still mounts, which makes UI work fast to iterate on - but anything
 touching the backend (attachments, windows, AI requests) needs the real app.
 

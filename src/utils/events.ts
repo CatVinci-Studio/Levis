@@ -15,7 +15,7 @@ export const RESTORE_CHAT_EVENT = "textus:restore-chat";
 
 /// detail: an editing action from the app-drawn menu's Edit submenu -
 /// "undo", "redo", "cut", "copy", "paste" or "select-all" (see
-/// ui/app-menu-actions.ts). Those items are `PredefinedMenuItem`s in the
+/// app/app-menu-actions.ts). Those items are `PredefinedMenuItem`s in the
 /// native menu, which has no id to address them by, so on Windows they come
 /// through here to the editor instead.
 export const EDIT_ACTION_EVENT = "textus:edit-action";
@@ -27,11 +27,11 @@ export const INSERT_BLOCK_EVENT = "textus:insert-block";
 
 /// detail: "heading" | "bullet-list" | "ordered-list" | "blockquote" - the
 /// iPhone keyboard toolbar's block buttons, which toggle rather than only
-/// insert (editor/block-toggles.ts).
+/// insert (editor/keys/block-toggles.ts).
 export const TOGGLE_BLOCK_EVENT = "textus:toggle-block";
 
 /// detail: "bold" | "italic" - makes the selection bold or italic, or plain
-/// again (editor/span-commands.ts; the iPhone's keyboard toolbar).
+/// again (editor/marks/span-commands.ts; the iPhone's keyboard toolbar).
 export const TOGGLE_MARK_EVENT = "textus:toggle-mark";
 
 /// detail: a TableAction (editor/editor-menu.ts) - "row-below",

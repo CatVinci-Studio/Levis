@@ -20,8 +20,7 @@ import {
   ClipboardTabIcon,
   ChatTabIcon,
 } from "../ui/icons";
-import { AppMenuButton } from "./WindowControls";
-import { WindowCaptionButtons } from "../ui/WindowCaptionButtons";
+import { WindowBar } from "./WindowBar";
 import { installClipboardCapture } from "../clipboard/history";
 import { EditorPane } from "../document-view/EditorPane";
 import { flushEditor } from "../editor/editor-flush";
@@ -583,7 +582,7 @@ function App() {
   // Back to the rich editor, from plain source mode or split view alike.
   const leaveSourceMode = useCallback(
     (tab: DocTab) => {
-      // Keep the user's place across the switch (editor/mode-switch.ts): the
+      // Keep the user's place across the switch (editor/modes/mode-switch.ts): the
       // view being left records its caret, the one being entered places it.
       const textarea = document.querySelector<HTMLTextAreaElement>(
         '[data-active-tab="true"] textarea.source-view',
@@ -641,7 +640,7 @@ function App() {
 
   // Zen mode: only the text. Sidebar, tab bar, AI panel and window-bar
   // readouts go away, the window goes fullscreen, and every paragraph but
-  // the one being written dims (editor/zen-focus-plugin.ts). Esc leaves.
+  // the one being written dims (editor/modes/zen-focus-plugin.ts). Esc leaves.
   const [zenMode, setZenMode] = useState(false);
   const toggleZenMode = useCallback(() => setZenMode((on) => !on), []);
   // In the commit itself, before paint: the text column's glide
@@ -1075,53 +1074,17 @@ function App() {
           } as React.CSSProperties
         }
       >
-        {/* The window's one top strip: traffic-light room, which document this
-          is, and its status. A real row in the layout, not an overlay - the
-          overlay title bar hides the native drag area behind the webview, so
-          the app has to draw this itself, and drawing it as a transparent
-          fixed strip meant the document scrolled underneath and the filename
-          sat on top of the text. It is also the drag region (both for moving
-          the window and for the drag-to-merge gesture in useTabDragMerge).
-
-          Where the OS supplies no frame at all (Windows), this same row is
-          ALSO the caption and the way into the app menu - the two components
-          below render nothing anywhere else, so this stays one strip on
-          every platform. See ui/window-chrome.ts. */}
-        <header className="window-bar" data-tauri-drag-region>
-          <AppMenuButton checks={menuChecks} />
-          {/* The unsaved dot leads the title, as a native edited-document
-            title does - in the status group it sat on top of a long title
-            on a narrow window. */}
-          <span className="window-bar-title">
-            {activeDirty && (
-              <span className="unsaved-dot" title={t.unsavedIndicator} />
-            )}
-            <span className="window-bar-title-text">{activeTitle}</span>
-          </span>
-          <div className="window-bar-status">
-            {isLargeDoc && (
-              <span className="large-doc-badge" title={t.largeDocHint}>
-                {t.largeDocBadge}
-              </span>
-            )}
-            <span className="word-count">
-              {wordCount.words > 0 && `${wordCount.words} ${t.wordsUnit}`}
-            </span>
-            {(settings.enableAskAi || tutorial.active) && (
-              <button
-                type="button"
-                className={`window-bar-toggle${agentPanel.open ? " window-bar-toggle-on" : ""}`}
-                aria-pressed={agentPanel.open}
-                aria-label={t.agentPanelToggle}
-                title={`${t.agentPanelToggle} (${formatCombo(settings.shortcuts.toggleAgentPanel)})`}
-                onClick={toggleAgentPanel}
-              >
-                <ChatTabIcon />
-              </button>
-            )}
-          </div>
-          <WindowCaptionButtons />
-        </header>
+        <WindowBar
+          menuChecks={menuChecks}
+          title={activeTitle}
+          dirty={activeDirty}
+          largeDoc={isLargeDoc}
+          words={wordCount.words}
+          showAgentToggle={settings.enableAskAi || tutorial.active}
+          agentOpen={agentPanel.open}
+          agentShortcut={formatCombo(settings.shortcuts.toggleAgentPanel)}
+          onToggleAgent={toggleAgentPanel}
+        />
         {/* iPhone: the sidebar is a drawer over the page (mobile/styles),
           and a tap beside it closes it. */}
         <Presence show={isIOSApp && panelOpen} exitMs={250}>

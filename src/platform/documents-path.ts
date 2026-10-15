@@ -8,7 +8,7 @@ import { documentDir } from "@tauri-apps/api/path";
  * by the next version. Such a path is stored as "documents:<path inside
  * Documents>" instead and resolved against the current folder when read:
  * the recent documents (ios-files.ts) and the chat history's document
- * (ai/chat-history.ts). Desktop paths are stored as they are.
+ * (ai/chat/chat-history.ts). Desktop paths are stored as they are.
  */
 export const IN_DOCUMENTS = "documents:";
 

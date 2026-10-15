@@ -314,23 +314,23 @@ export const windowIpc = {
 
 // ---------------------------------------------------------------------------
 // menu (src-tauri/src/menu.rs) - only used where the app draws its own menu
-// because the native bar is gone; see ui/window-chrome.ts.
+// because the native bar is gone; see platform/window-chrome.ts.
 // ---------------------------------------------------------------------------
 
 export const menuIpc = {
   /** Runs a menu id exactly as clicking its native twin would. The ids come
-   *  from ui/app-menu-model.ts and are defined in src-tauri/src/menu.rs. */
+   *  from app/app-menu-model.ts and are defined in src-tauri/src/menu.rs. */
   triggerMenuItem: (id: string) =>
     desktopQuery<void>("trigger_menu_item", undefined, { id }),
   /** Backs File > Open Recent, whose native submenu the app-drawn menu
    *  cannot read. */
   listRecentFiles: () => desktopQuery<string[]>("list_recent_files", []),
   /** Rebuilds the native (macOS) menu bar with these labels, keyed as
-   *  ui/app-menu-model.ts's nativeMenuLabels keys them. */
+   *  app/app-menu-model.ts's nativeMenuLabels keys them. */
   setMenuLabels: (labels: Record<string, string>) =>
     desktopQuery<void>("set_menu_labels", undefined, { labels }),
   /** Sets the native (macOS) View items' check marks, keyed by menu id
-   *  (ui/app-menu-model.ts's nativeMenuChecks). */
+   *  (app/app-menu-model.ts's nativeMenuChecks). */
   setMenuChecks: (checks: Record<string, boolean>) =>
     desktopQuery<void>("set_menu_checks", undefined, { checks }),
 };

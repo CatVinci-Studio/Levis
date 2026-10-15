@@ -8,7 +8,7 @@ that owns each one is named so this document can be checked against reality.
 ## The surfaces, and the one path into the document
 
 Chat has three surfaces and two conversations, all owned by the editor
-(`editor/MilkdownEditor.tsx`):
+(`document-view/MilkdownEditor.tsx`):
 
 - **The AI panel** — docked on the right (`ai/chat/agent-panel.tsx`,
   `AgentPanelView.tsx`). Shows the editor's main conversation, the one saved
@@ -17,7 +17,7 @@ Chat has three surfaces and two conversations, all owned by the editor
   its own OS window, one per editor window (desktop only). It owns no
   document state: proposals and accept/reject travel over
   `ai/chat/chat-bridge.ts` back to the editor window.
-- **Quick Ask** — the in-document bar (`ai/useInlineChat.ts`). It has its
+- **Quick Ask** — the in-document bar (`ai/chat/useInlineChat.ts`). It has its
   own short conversation, kept out of History and independent of the
   panel; "Continue in the full conversation" hands its turns to the main
   conversation (`expandQuickAsk`).
@@ -31,7 +31,7 @@ path: one transaction, one undo step, no direct-apply fallback.
 
 ## Writing phase: the `ProposalStream` machine
 
-`ai/proposal-stream.ts` - plain logic, no ProseMirror dependency. Every
+`ai/revision/proposal-stream.ts` - plain logic, no ProseMirror dependency. Every
 lifecycle decision for a streamed proposal lives here; `MilkdownEditor` only
 wires the machine's effects to the editor (place → streaming preview, feed →
 typewriter, finalize → decidable re-show, discard → reject).
@@ -73,7 +73,7 @@ Smaller rules the machine also owns:
 
 ## Deciding phase: `PendingStatus`
 
-`ai/usePendingEdits.ts` + `ai/pending-edit-plugin.ts`.
+`ai/revision/usePendingEdits.ts` + `ai/revision/pending-edit-plugin.ts`.
 
 ```mermaid
 flowchart LR
@@ -123,8 +123,8 @@ fetch-fresh-document signal that precedes every detached send.
 
 ## Conversation layer
 
-`ai/useAgentConversation.ts`, `ai/cancelled-turns.ts`,
-`ai/proposal-status.ts`; Rust side `src-tauri/src/ai/agent.rs` / `tools.rs`.
+`ai/chat/useAgentConversation.ts`, `ai/chat/cancelled-turns.ts`,
+`ai/revision/proposal-status.ts`; Rust side `src-tauri/src/ai/agent.rs` / `tools.rs`.
 
 **Every send.** History travels to the backend in full; the document goes
 into the system prompt as markdown source (long documents truncate to an
@@ -176,14 +176,14 @@ previews are rolled back (writing phase, above).
 
 | File                                                  | Owns                                                                       |
 | ----------------------------------------------------- | -------------------------------------------------------------------------- |
-| `ai/proposal-stream.ts`                               | Writing-phase machine: place/feed/finalize/discard                         |
-| `ai/usePendingEdits.ts`                               | Anchor resolution, accept/reject/rejectAll, status map, review navigation  |
-| `ai/pending-edit-plugin.ts`                           | Decorations, typewriter + settle, docChanged staleness, keyboard shortcuts |
-| `ai/proposal-status.ts`                               | Status notes annotated onto history at send time                           |
-| `ai/cancelled-turns.ts`                               | What a stop keeps; dangling tool-call closure                              |
-| `ai/useAgentConversation.ts`                          | Conversation state: send/stop/retry/restore, history persistence           |
+| `ai/revision/proposal-stream.ts`                      | Writing-phase machine: place/feed/finalize/discard                         |
+| `ai/revision/usePendingEdits.ts`                      | Anchor resolution, accept/reject/rejectAll, status map, review navigation  |
+| `ai/revision/pending-edit-plugin.ts`                  | Decorations, typewriter + settle, docChanged staleness, keyboard shortcuts |
+| `ai/revision/proposal-status.ts`                      | Status notes annotated onto history at send time                           |
+| `ai/chat/cancelled-turns.ts`                          | What a stop keeps; dangling tool-call closure                              |
+| `ai/chat/useAgentConversation.ts`                     | Conversation state: send/stop/retry/restore, history persistence           |
 | `ai/chat/ChatBody.tsx`                                | Shared conversation UI; streamed-turn → proposal, idempotent afterSend     |
 | `ai/chat/ChatWindowApp.tsx`, `ai/chat/chat-bridge.ts` | Detached window and its bridge: context/status pushes, proposal forwarding |
-| `editor/MilkdownEditor.tsx`                           | Wiring: machine effects, supersede flag, exchange-boundary effect          |
+| `document-view/MilkdownEditor.tsx`                    | Wiring: machine effects, supersede flag, exchange-boundary effect          |
 | `draft-autosave.ts`, `startup-restore.ts`, `App.tsx`  | Draft snapshots, startup restore, close-time cleanup                       |
 | `src-tauri/src/ai/tools.rs`, `agent.rs`               | `propose_edit` validation, system prompt, the status-note contract         |

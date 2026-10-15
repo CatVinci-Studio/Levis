@@ -15,7 +15,7 @@ import {
 /**
  * Persisted agent conversations, so past chats can be reopened and continued
  * (the Chats sidebar panel). Kept by Rust in chat-history.json and capped
- * so it can't grow unbounded. A persisted list (utils/persisted-list.ts) so
+ * so it can't grow unbounded. A persisted list (storage/persisted-list.ts) so
  * the sidebar list re-renders live as conversations are saved or deleted,
  * in every window.
  */

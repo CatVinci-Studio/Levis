@@ -28,7 +28,7 @@
 }
 
 /* Where the app owns the whole frame (Windows - main.tsx sets the attribute
-   from ui/window-chrome.ts), that left inset holds no traffic lights: the
+   from platform/window-chrome.ts), that left inset holds no traffic lights: the
    menu button takes it, and the caption buttons take the right edge. Both
    are flush to the window edge, so the row's own padding gets out of their
    way and the components cancel what's left with a negative margin. The

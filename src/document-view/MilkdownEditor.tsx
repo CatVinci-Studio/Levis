@@ -1459,7 +1459,7 @@ export function MilkdownEditor({
     setMenu({ x: 0, y: 0, imagePos: selectedImagePos(run), phone: true });
   });
 
-  // The app-drawn menu's Edit submenu (Windows - see ui/app-menu-actions.ts).
+  // The app-drawn menu's Edit submenu (Windows - see app/app-menu-actions.ts).
   // These are `PredefinedMenuItem`s in the native menu, which gives them no
   // id to dispatch by, so they arrive as an event and run the very commands
   // the right-click menu below runs.
@@ -1562,7 +1562,7 @@ export function MilkdownEditor({
     });
   }
 
-  // The review bar (ai/ReviewBar.tsx) floats over the bottom of the pane
+  // The review bar (ai/revision/ReviewBar.tsx) floats over the bottom of the pane
   // this editor scrolls in, while there is anything to decide - except
   // while Quick Ask, which has its own, is open, and on a phone while the
   // AI sheet covers the text.
@@ -1626,7 +1626,7 @@ export function MilkdownEditor({
     [t],
   );
 
-  // Review notes (ai/review-notes-plugin.ts, ai/ReviewMargin.tsx): every
+  // Review notes (ai/margin/review-notes-plugin.ts, ai/margin/ReviewMargin.tsx): every
   // add_comment of this tab's conversations, pinned to its passage and
   // drawn in the margin - until it is marked done, or its conversation is
   // cleared.

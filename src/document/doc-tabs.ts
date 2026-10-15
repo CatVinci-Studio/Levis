@@ -35,7 +35,7 @@ export interface DocTab {
   // window focus, dirty tabs get an overwrite prompt on save.
   diskMtime: number | null;
   sourceMode: boolean;
-  /** Source mode with a rendered preview beside it (editor/SplitView.tsx).
+  /** Source mode with a rendered preview beside it (editor/modes/SplitView.tsx).
    *  Only meaningful while sourceMode is on. */
   splitView?: boolean;
   reloadKey: number;

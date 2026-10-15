@@ -226,7 +226,7 @@ npm run check       # the same plus types, lint and formatting
 cd src-tauri && cargo test   # ai-names and style-headings against your strings and guide
 ```
 
-`src/i18n/skills/skills.test.ts` checks the skill labels, hints and
+`src/ai/skills/texts/skills.test.ts` checks the skill labels, hints and
 aliases. `src/i18n/strings.test.ts` fails on a key English doesn't have, a value of
 the wrong kind, an empty string, a placeholder kept or added wrongly, a
 missing or unknown plural form, or - once `complete = true` - any key not

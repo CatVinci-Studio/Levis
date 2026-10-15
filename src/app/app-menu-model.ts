@@ -5,7 +5,7 @@ import { basename } from "../utils/path";
 /**
  * The app menu, as data - what `AppMenu.tsx` draws where the app owns its
  * window frame and there is no native menu bar left (Windows; see
- * ui/window-chrome.ts).
+ * platform/window-chrome.ts).
  *
  * Every entry that reaches the backend carries the SAME id its native twin
  * in src-tauri/src/menu.rs was built with, and `trigger_menu_item` there
@@ -136,7 +136,7 @@ function recentEntries(t: Strings, recents: string[]): MenuNode[] {
 }
 
 /** Same format list, in the same order, as menu.rs's EXPORT_PANDOC_PREFIX
- *  loop and the frontend's PANDOC_FORMATS (src/export-doc.ts). */
+ *  loop and the frontend's PANDOC_FORMATS (export/exporters.ts). */
 function exportEntries(t: Strings): MenuNode[] {
   const pandoc: [string, string][] = [
     ["docx", t.menuExportDocx],

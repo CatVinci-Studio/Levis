@@ -170,7 +170,7 @@
     color: var(--danger);
   }
 
-  /* ---- The title row's menu (ui/AppMenu.tsx): a pull-down menu. ---- */
+  /* ---- The title row's menu (app/AppMenu.tsx): a pull-down menu. ---- */
 
   /* UIMenu's width, grown for a longer label (French "Rechercher et
      remplacer…" ellipsized at 250px); a recent document's long name still
@@ -241,7 +241,7 @@
     transition-duration: 0s;
   }
 
-  /* ---- Find and replace (editor/FindReplaceBar.tsx): a bar across the
+  /* ---- Find and replace (editor/find/FindReplaceBar.tsx): a bar across the
      top, under the title row, rather than a card in the corner. ---- */
 
   :root[data-window-chrome="mobile"] .find-replace-bar {

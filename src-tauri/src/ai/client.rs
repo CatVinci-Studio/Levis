@@ -154,7 +154,7 @@ const COMPLETION_LENGTH_LONG: &str = "Length: the writer explicitly asked for a 
 
 /// What the frontend knows about the cursor beyond the raw text around it
 /// (ghost-text-plugin.ts's completionHints). Mirrors CompletionHints in
-/// src/ipc.ts.
+/// platform/ipc.ts.
 #[derive(Deserialize, Default)]
 pub struct CompletionHints {
     #[serde(default)]

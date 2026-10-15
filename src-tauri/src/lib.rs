@@ -235,7 +235,7 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
 /// exactly one place - the two used to carry byte-identical copies of them.
 ///
 /// The chrome is the same idea on both platforms - ONE top row, drawn by the
-/// app (src/App.tsx's `.window-bar`) - but the platforms reach it from
+/// app (app/App.tsx's `.window-bar`) - but the platforms reach it from
 /// opposite directions:
 ///
 /// - macOS has a style for exactly this: an overlay title bar keeps the
@@ -243,7 +243,7 @@ pub(crate) fn queue_paths_to_open(app: &tauri::AppHandle, paths: Vec<String>) {
 ///   our own row.
 /// - Windows and Linux have no equivalent, so the only way to stop stacking a
 ///   native title bar AND a native menu bar AND our row is to drop the native
-///   frame entirely and draw the caption ourselves (src/ui/WindowControls.tsx).
+///   frame entirely and draw the caption ourselves (src/app/WindowControls.tsx).
 ///   On Windows tao keeps WS_SIZEBOX on undecorated windows and hit-tests the
 ///   border in its own WM_NCHITTEST, so edge resizing, Aero snap and
 ///   Win+Arrow all still work; on Linux tao hit-tests an undecorated window's
@@ -311,7 +311,7 @@ fn detect_wayland() {
 /// Takes the native menu BAR off a window without detaching its menu.
 ///
 /// Windows and Linux, and the cfg here has to keep matching
-/// `appDrawsWindowFrame` in src/ui/window-chrome.ts - that flag is what
+/// `appDrawsWindowFrame` in src/platform/window-chrome.ts - that flag is what
 /// decides whether the frontend draws the menu button this hides the menu
 /// behind (macOS has the system menu bar and ignores this entirely).
 ///
@@ -573,7 +573,7 @@ pub fn run() {
         // One handler list for both targets. Desktop-only commands carry
         // #[cfg(desktop)] and are simply not registered on iOS - the
         // frontend never calls them there (src/platform/capabilities.ts and
-        // the desktop-only wrappers in src/ipc.ts).
+        // the desktop-only wrappers in platform/ipc.ts).
         .invoke_handler(tauri::generate_handler![
             // Shared: desktop and iOS.
             take_pending_open_path,

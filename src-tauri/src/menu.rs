@@ -2,12 +2,12 @@
 //! dispatch, and the mutable File > Open Recent submenu. Menu ids that carry
 //! a payload do it in the id string ("recent:<path>", "export-pandoc:<fmt>",
 //! "help-doc:<doc>", "insert-block:<kind>"); the frontend listener for each
-//! menu-* event lives in src/menu-bridge.ts.
+//! menu-* event lives in app/menu-bridge.ts.
 //!
 //! On Windows and Linux the bar built here is never seen - it is hidden with
 //! the window frame (kept on Windows for its accelerators; on Linux GTK stops
 //! firing them, and the frontend handles those keys), and the menu the user
-//! opens is drawn in HTML (src/ui/app-menu-model.ts, which lists the same
+//! opens is drawn in HTML (src/app/app-menu-model.ts, which lists the same
 //! ids) and comes back through `trigger_menu_item`. Renaming an id here
 //! means renaming it there.
 //!
@@ -38,7 +38,7 @@ const EXPORT_PDF_ID: &str = "export-pdf";
 const EXPORT_HTML_ID: &str = "export-html";
 /// Menu ids of pandoc-backed File > Export entries carry the pandoc writer
 /// name: "export-pandoc:<format>". The format list must stay in step with
-/// the frontend's PANDOC_FORMATS (src/export-doc.ts).
+/// the frontend's PANDOC_FORMATS (export/exporters.ts).
 const EXPORT_PANDOC_PREFIX: &str = "export-pandoc:";
 const QUIT_ID: &str = "quit";
 const CLOSE_TAB_ID: &str = "close-tab";
@@ -141,7 +141,7 @@ struct RecentMenu(Mutex<Option<Submenu<tauri::Wry>>>);
 /// The labels the menu is built with, keyed by menu id - or, for what has
 /// no id of ours, "menu:<name>" for a submenu and "predefined:<name>" for
 /// an item muda makes (the keys `nativeMenuLabels` in
-/// src/ui/app-menu-model.ts sends). Empty until the frontend sends them,
+/// src/app/app-menu-model.ts sends). Empty until the frontend sends them,
 /// which leaves every label English.
 #[derive(Default)]
 struct MenuLabels(Mutex<HashMap<String, String>>);
@@ -214,7 +214,7 @@ pub fn set_menu_labels(app: AppHandle, labels: HashMap<String, String>) {
 /// window, which sends its state on every change and as it gains focus.
 /// The items are named by what they show, never "Toggle ...", and the mark
 /// is AppKit's own. Only macOS shows this menu; elsewhere the app-drawn menu
-/// draws the same marks (ui/AppMenu.tsx) and this does nothing.
+/// draws the same marks (app/AppMenu.tsx) and this does nothing.
 #[tauri::command(async)]
 pub fn set_menu_checks(app: AppHandle, checks: HashMap<String, bool>) {
     #[cfg(target_os = "macos")]
@@ -239,7 +239,7 @@ pub fn set_menu_checks(app: AppHandle, checks: HashMap<String, bool>) {
 
 /// Runs a menu id exactly as clicking that item in the native menu would.
 ///
-/// The way in for the app-drawn menu on Windows (src/ui/AppMenu.tsx): there
+/// The way in for the app-drawn menu on Windows (src/app/AppMenu.tsx): there
 /// the native menu bar is hidden and the menu is redrawn in HTML, so its
 /// items have no native click to dispatch - they send their id here instead.
 /// The ids are the contract between the two, and `dispatch` below is the one
@@ -394,7 +394,7 @@ fn build(
         // There the app is closed with Alt+F4, which the OS delivers on its
         // own, and Ctrl+Q means nothing, so claiming it would only take a
         // shortcut Windows users never aim at Quit. The app-drawn menu
-        // advertises Alt+F4 instead (src/ui/app-menu-model.ts).
+        // advertises Alt+F4 instead (src/app/app-menu-model.ts).
         #[cfg(not(windows))]
         let builder = builder.accelerator("CmdOrCtrl+Q");
         builder.build(app)?
@@ -562,7 +562,7 @@ fn build(
     // Fixed OS-convention accelerators (like Cmd+S / Cmd+W), not
     // user-configurable ones - so unlike the items above they keep
     // native accelerators. Zoom itself is applied by the frontend
-    // (utils/useZoom.ts), which also handles pinch and mod+wheel.
+    // (app/useZoom.ts), which also handles pinch and mod+wheel.
     let zoom_in_item = item(ZOOM_IN_ID, "Zoom In")
         .accelerator("CmdOrCtrl+=")
         .build(app)?;
@@ -592,7 +592,7 @@ fn build(
         // Linux, where it renders as an entry that does nothing when
         // clicked. Windows reaches fullscreen through the app-drawn menu
         // instead, which calls the window API directly
-        // (src/ui/app-menu-actions.ts).
+        // (src/app/app-menu-actions.ts).
         #[cfg(target_os = "macos")]
         let builder = builder
             .separator()

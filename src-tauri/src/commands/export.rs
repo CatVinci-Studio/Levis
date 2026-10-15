@@ -263,7 +263,7 @@ mod pdf_offscreen {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
     /// A4 in inches; with scale 1 and no margins Chromium lays it out at
-    /// 794 x 1122 CSS px - WINDOWS_PAGE in src/export-paginate.ts, which
+    /// 794 x 1122 CSS px - WINDOWS_PAGE in export/paginate.ts, which
     /// paginates the document at that size. Change both together.
     #[cfg(windows)]
     const PAGE_WIDTH_IN: f64 = 8.27;
@@ -479,7 +479,7 @@ mod pdf_macos {
 
     // A4 in PostScript points (1pt = 1/72"); createPDF renders 1 CSS px as 1pt,
     // so this is also the page in CSS px. Mirrored by MAC_PAGE in
-    // src/export-paginate.ts, which lays the document out at this size - change
+    // export/paginate.ts, which lays the document out at this size - change
     // both together.
     const PAPER_WIDTH: f64 = 595.0;
     const PAPER_HEIGHT: f64 = 842.0;

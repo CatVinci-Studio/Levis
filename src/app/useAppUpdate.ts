@@ -18,7 +18,7 @@ export type UpdateStatus = "idle" | "available" | "downloading" | "error";
  * about. Installing is the opposite: the user explicitly asked, so errors
  * surface.
  *
- * A package-manager build (see utils/distribution.ts) still checks, but
+ * A package-manager build (see platform/distribution.ts) still checks, but
  * `selfUpdate` is false: the banner tells the user to upgrade through the
  * package manager, and install() does nothing.
  */

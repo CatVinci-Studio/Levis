@@ -34,7 +34,7 @@ pub const AUTOMATIC: &str = "automatic";
 
 /// Per language: its key in the setting, the profile Automatic uses (None:
 /// universal rules and consistency checks only) and the profiles a user can
-/// choose. Mirrored by WRITING_CONVENTIONS in src/ipc.ts (a test keeps the
+/// choose. Mirrored by WRITING_CONVENTIONS in platform/ipc.ts (a test keeps the
 /// two the same).
 pub const LANGUAGE_PROFILES: &[(Lang, Option<&str>, &[&str])] = &[
     (
@@ -462,7 +462,7 @@ mod tests {
             let at = block
                 .find(&format!("{key}:"))
                 .or_else(|| block.find(&bare))
-                .unwrap_or_else(|| panic!("{} missing in src/ipc.ts", lang.code()));
+                .unwrap_or_else(|| panic!("{} missing in platform/ipc.ts", lang.code()));
             let entry = &block[at..];
             let entry = &entry[..entry.find("},").map_or(entry.len(), |e| e + 2)];
             match auto {

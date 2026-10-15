@@ -23,7 +23,7 @@ export interface UiState {
   /** iOS: the document list's layout (mobile/DocumentList.tsx). */
   documentListView: string;
   /** The chrome colours last derived from the selected imported theme
-   *  (utils/theme-chrome.ts), so the boot script (src-tauri/src/boot.js)
+   *  (theme/theme-chrome.ts), so the boot script (src-tauri/src/boot.js)
    *  can paint the next window's first frame with them - deriving them
    *  takes a CSS engine, which Rust doesn't have. A cache: the frontend
    *  derives them again on every load and replaces both copies. */

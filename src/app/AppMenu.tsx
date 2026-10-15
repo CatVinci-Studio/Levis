@@ -23,7 +23,7 @@ import "./app-menu.css";
  * The app-drawn menu, opened from the title row's hamburger.
  *
  * Only ever mounted where the OS frame is gone and the native menu bar went
- * with it (Windows - see ui/window-chrome.ts). It replaces a `popup_menu_at`
+ * with it (Windows - see platform/window-chrome.ts). It replaces a `popup_menu_at`
  * of the real `Menu`, which worked but was the raw Win32 popup: the system's
  * grey, in the system's font, and - the reason this exists - labelled from
  * Rust string literals that never followed the language picked in Settings.

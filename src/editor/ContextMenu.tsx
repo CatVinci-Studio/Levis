@@ -23,7 +23,7 @@ interface ContextMenuProps {
 }
 
 /** A menu at the pointer - or, on a phone, the same items as an action
- *  sheet from the bottom edge (mobile/ActionSheet.tsx). Render it inside a
+ *  sheet from the bottom edge (ui/ActionSheet.tsx). Render it inside a
  *  Presence (ui/usePresence.ts) for its exit. */
 export function ContextMenu(props: ContextMenuProps) {
   const phone = usePhoneLayout();

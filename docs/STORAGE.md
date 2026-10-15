@@ -50,7 +50,7 @@ Settings > Textus AI > Writing conventions stores; it applies to documents in
 that profile's language, the others stay Automatic), or `{ "zh-Hans": "zh-Hans-CN/tech", "en":
 "en-GB/govuk", "options": { "cjk-latin-space": "on" } }` - one profile per
 language key, `"automatic"` or a missing language meaning Automatic. The
-allowed values are `writing_conventions_options` (`src/ipc.ts`:
+allowed values are `writing_conventions_options` (`platform/ipc.ts`:
 `WRITING_CONVENTIONS`).
 
 ### Data directory

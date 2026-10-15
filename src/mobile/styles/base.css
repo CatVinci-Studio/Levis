@@ -29,7 +29,7 @@
   /* Phone-only layers. A full-screen page (Settings, Documents) covers
      the find bar (300) and the app menu (310) but stays under the alerts
      it asks its own questions with (400-450) - Delete, Clear. An action
-     sheet (mobile/ActionSheet.tsx) is over everything. */
+     sheet (ui/ActionSheet.tsx) is over everything. */
   --z-phone-page: 350;
   --z-sheet-menu: 500;
 }

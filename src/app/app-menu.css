@@ -1,4 +1,4 @@
-/* The app-drawn menu (ui/AppMenu.tsx). Windows only - where the OS frame is
+/* The app-drawn menu (app/AppMenu.tsx). Windows only - where the OS frame is
    gone there is no native menu bar left, and this is the whole way in.
 
    Sized to the app rather than to Win32: the same 13px body text, the same

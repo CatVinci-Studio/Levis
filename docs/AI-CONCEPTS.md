@@ -175,7 +175,7 @@ document language: a profile such as `zh-Hans-CN/fiction`, `en-GB/govuk` or
   `cjk-latin-space: on` in the front matter of `.textus/style.md`. The
   profiles and option keys are listed in
   `src-tauri/src/ai/rules/profile.rs` (`LANGUAGE_PROFILES`, `OPTIONS`) and
-  mirrored in `src/ipc.ts` (`WRITING_CONVENTIONS`).
+  mirrored in `platform/ipc.ts` (`WRITING_CONVENTIONS`).
 - **Create / edit:** **Settings > Textus AI > Writing Assistance > Writing
   conventions** (default Automatic) for the global choice; the style
   profile's front matter for a project, which wins for the languages it

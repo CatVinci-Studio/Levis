@@ -85,7 +85,7 @@ starters send nothing; templates name the menu items as the menus do).
 ### 5. Visual (Playwright, `e2e/`)
 
 The real frontend in Chromium against the Vite dev server, with the dev
-Tauri shim (`src/dev-tauri-shim.ts`) standing in for the backend. Each test
+Tauri shim (`dev/tauri-shim.ts`) standing in for the backend. Each test
 drives a flow and compares a screenshot: first run, the sidebar lesson, a
 document in light and dark (including the table-header regression, #15),
 split view, zen mode, the AI panel, an agent reply with a reasoned edit, the

@@ -91,7 +91,7 @@ window.__textusBoot = function (boot, themeCss) {
       // (applyUserTheme() in SettingsContext.tsx).
       if (dark && !themeCss.dark)
         document.documentElement.setAttribute("data-light-page", "");
-      // adaptTyporaCss() in src/settings/typora-compat.ts.
+      // adaptTyporaCss() in src/theme/typora-compat.ts.
       var css = source.replace(
         /\bthead\b(?:\s*>?\s*tr\b)?/g,
         "tr[data-is-header]",
@@ -99,7 +99,7 @@ window.__textusBoot = function (boot, themeCss) {
       addStyle("textus-custom-theme", css);
       // The app's own colours (sidebar, background, accents) as the
       // frontend last derived them from this stylesheet in this appearance
-      // - applyThemeChrome() in src/utils/theme-chrome.ts, which needs a
+      // - applyThemeChrome() in src/theme/theme-chrome.ts, which needs a
       // CSS engine to work them out, so they're remembered in ui-state.json
       // (ThemeChromeCache in src/storage/ui-state.ts) rather than computed
       // here. Anything else: none, and the frontend applies them a moment

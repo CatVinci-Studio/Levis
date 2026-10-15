@@ -1098,7 +1098,7 @@ Listed with the results they came from: Results > Round 4 (root causes and fixes
 Grouped by root cause, each fixed at the layer where it lives. Every
 deterministic change has unit tests (`client.rs`, `checks.rs`, `agent.rs`,
 `harness.rs`, `doc-markdown.test.ts`, `grammar-check-plugin.test.ts`,
-`chat/proposal.test.ts`).
+`ai/chat/proposal.test.ts`).
 
 1. **Completion: the join** (`client.rs`). The model no longer decides
    whether to repeat a word. `word_at_cursor` takes the word the cursor is

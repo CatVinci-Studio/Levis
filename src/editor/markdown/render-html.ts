@@ -83,7 +83,7 @@ export function renderMarkdownHtml(markdown: string): string {
 }
 
 // The document flavour: markdown as the editor reads it - a single newline
-// is not a line break - for the split view's preview (editor/SplitView.tsx).
+// is not a line break - for the split view's preview (editor/modes/SplitView.tsx).
 const documentMarked = new Marked({
   gfm: true,
   breaks: false,

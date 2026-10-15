@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { openApp, PHONE } from "./helpers";
 
 // The composer's `/` and `@` pickers and Settings' skills, against the dev
-// shim's skill list (src/dev-tauri-shim.ts: the 18 built-ins and one skill
+// shim's skill list (dev/tauri-shim.ts: the 18 built-ins and one skill
 // of the user's own).
 
 const AI_NAME = "Textus AI";
