@@ -35,7 +35,9 @@
  *   SAMPLES_JSON    a JSON file of { "<lang>": Sample } (see Sample below):
  *                   the texts of languages beyond the built-in three, or
  *                   fields that replace built-in ones. A shot whose texts a
- *                   language lacks is skipped.
+ *                   language lacks is skipped. e2e/website/site-samples.json
+ *                   has the other seven site languages, each on the site's
+ *                   own classic for that language.
  *   SHOTS_OUT       where the images go (default ../levis-shots/site-assets/
  *                   app, beside the main checkout).
  *   SHOTS_APP_NAME  the product name the UI shows (default Textus: the site
