@@ -16,6 +16,7 @@ import { APP_NAME } from "../../i18n/names";
 import { ChevronIcon, FolderIcon } from "../../ui/icons";
 import { ActionSheet, type ActionSheetItem } from "../../mobile/ActionSheet";
 import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { MemorySections } from "./MemoryView";
 
 function openInTab(path: string) {
   window.dispatchEvent(
@@ -44,7 +45,18 @@ export function libraryFileName(name: string): string {
  * docs/AI-CONCEPTS.md. The folder used to be a setting three screens deep;
  * this is where it actually matters.
  */
-export function ProjectBar({ docPath }: { docPath: string | null }) {
+export function ProjectBar({
+  docPath,
+  memory = false,
+  documentText = "",
+}: {
+  docPath: string | null;
+  /** The AI panel's Memory tab: the folder row without its chips, then
+   *  everything the project keeps (MemoryView.tsx). */
+  memory?: boolean;
+  /** The open document's text, to mark the library entries it mentions. */
+  documentText?: string;
+}) {
   const { t, settings, setSettings } = useSettings();
   const provider = useActiveProvider();
   const workspaceRoot = settings.agentWorkspaceRoot || null;
@@ -177,10 +189,22 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
   // Still loading: say nothing. The answer takes one IPC round trip, long
   // enough on an iPhone for "too broad" to flash every time the panel
   // opened, or the app started with it open.
+  const openGlobalInstructions = () =>
+    run(t.projectOpening, async () => {
+      openInTab(await ai.ensureGlobalAgentMd(t.agentInstructionsTemplate));
+    });
+
   if (info === undefined) return null;
   // An unsaved draft simply has no project yet - nothing to say about it
-  // up front. A folder too broad to read is worth saying, once.
+  // up front (the Memory tab says why it is empty). A folder too broad to
+  // read is worth saying, once.
   if (!root) {
+    if (memory)
+      return (
+        <div className="project-bar project-bar-empty memory-no-project">
+          {docPath ? t.projectTooBroad : t.memoryNeedsSave}
+        </div>
+      );
     if (!docPath) return null;
     return (
       <div className="project-bar project-bar-empty">{t.projectTooBroad}</div>
@@ -240,7 +264,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
     documents && trimmed === documents ? APP_NAME : basename(trimmed) || root;
 
   return (
-    <div className="project-bar">
+    <div className={`project-bar${memory ? " project-bar-memory" : ""}`}>
       <div className="project-bar-row" ref={menuRef}>
         <button
           type="button"
@@ -254,7 +278,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
           <span className="project-bar-name">{folderName}</span>
           <ChevronIcon className="project-bar-chevron" />
         </button>
-        {info?.style && (
+        {info?.style && !memory && (
           <button
             type="button"
             className="project-bar-chip"
@@ -264,7 +288,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
             {t.projectStyleChip}
           </button>
         )}
-        {(info?.library.length ?? 0) > 0 && (
+        {(info?.library.length ?? 0) > 0 && !memory && (
           <span className="project-bar-chip project-bar-chip-static">
             {t.projectLibraryChip.replace(
               "{n}",
@@ -330,6 +354,22 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
         <div className="project-bar-status" role="status">
           {busy ?? message}
         </div>
+      )}
+      {memory && info && (
+        <MemorySections
+          info={info}
+          t={t}
+          lang={settings.language}
+          documentText={documentText}
+          onOpenStyle={openStyle}
+          onLearnStyle={learnStyle}
+          onNewEntry={() => setNaming(true)}
+          onOpenEntry={(entry) =>
+            openInTab(`${trimmed}/${entry.file.replace(/^[\\/]+/, "")}`)
+          }
+          onOpenInstructions={openInstructions}
+          onOpenGlobalInstructions={openGlobalInstructions}
+        />
       )}
     </div>
   );

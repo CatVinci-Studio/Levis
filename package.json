@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:visual": "playwright test",
     "screenshots:readme": "playwright test -c playwright.readme.config.ts",
+    "screenshots:website": "playwright test -c playwright.website.config.ts",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",

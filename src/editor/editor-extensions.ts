@@ -62,6 +62,10 @@ import {
 } from "../ai/pending-edit-plugin";
 import { chatSelectionPlugin } from "../ai/chat-selection-plugin";
 import { createQuickAskWidgetPlugin } from "../ai/quick-ask-widget-plugin";
+import {
+  createReviewNotesPlugin,
+  type ReviewNote,
+} from "../ai/review-notes-plugin";
 import { findReplacePlugin } from "./find-replace-plugin";
 import { resolveStrings } from "../i18n/strings";
 import type { Settings } from "../settings/SettingsContext";
@@ -73,6 +77,12 @@ export interface PendingEditCallbacks {
   /** Live read of the Quick Ask nav bar's current pointer - see
    *  createPendingEditPlugin's option of the same name. */
   getFocusedCallId: () => string | null;
+  /** A ✓ / ✕ clicked in the text - see createPendingEditPlugin. */
+  onDecide: (callId: string, index: number, take: boolean | null) => void;
+  /** The sentence the review bar points at. */
+  getFocusedSentence: () => { callId: string; index: number } | null;
+  /** Whether a rewrite's replacements are drawn in the text. */
+  sentencesInline?: () => boolean;
 }
 
 /**
@@ -106,6 +116,12 @@ export function withEditorExtensions(
    *  native alert (localized, since this plugin has no i18n access itself). */
   onImagePasteError: () => string,
   requestImageName: (stem: string, extension: string) => Promise<string | null>,
+  /** The review notes' callbacks (review-notes-plugin.ts) - ref-indirected
+   *  like `pendingEdits`. */
+  reviewNotes: {
+    onChange: (notes: ReviewNote[]) => void;
+    onBadge: (id: string, el: HTMLElement) => void;
+  } = { onChange: () => {}, onBadge: () => {} },
 ): Editor {
   return (
     editor
@@ -257,9 +273,17 @@ export function withEditorExtensions(
         createPendingEditPlugin({
           ...pendingEdits,
           animationEnabled: () => settings.current.enableEditAnimation,
+          sentenceLabels: () => {
+            const t = resolveStrings(settings.current.language);
+            return {
+              take: t.proposalTakeSentence,
+              keep: t.proposalKeepSentence,
+            };
+          },
         }),
       )
       .use(chatSelectionPlugin)
       .use(createQuickAskWidgetPlugin(quickAskWidget))
+      .use(createReviewNotesPlugin(reviewNotes))
   );
 }

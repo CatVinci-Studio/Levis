@@ -602,7 +602,7 @@ misses are Haiku's (below).
 **Spend.** Run4 $9.43; the fixes' re-runs $2.00 (agent Sonnet $0.97,
 agent Haiku $0.05, agent-builtin $0.91, completion and grammar $0.07 over
 six runs). Ledger total after round 4: $28.80 of the $29 cap
-(`levis-shots/ai-eval/spend.json`).
+(`../assets/ai-eval/spend.json`).
 
 **Still weak after round 4.**
 
@@ -726,7 +726,7 @@ judged cases, which the join won't place, so 12 of 19 passed (run3: 16)
 and `ru/heading` still got the word alone (`run3-fix/try-word-in-before`).
 
 Re-run with `TEXTUS_EVAL_JUDGE=0`, only the judged cases, output in
-`levis-shots/ai-eval/run3-fix`:
+`../assets/ai-eval/run3-fix`:
 
 | Suite                       | run3 (same cases) | run3-fix |   Cost |
 | --------------------------- | ----------------: | -------: | -----: |
@@ -764,7 +764,7 @@ Branch `integrate/ai-0.9.7`: `dev` (with #48) plus #42 (the concept model:
 UI, guides, `.textus/agent.md` as its own layer) and #47 (the round-2
 fixes), merged so that every place uses #42's names. Agent Sonnet 5.5,
 writing Haiku 5.5, `TEXTUS_EVAL_JUDGE=0`, output in
-`levis-shots/ai-eval/run3` (its `cases-index.json` has all 250 rows).
+`../assets/ai-eval/run3` (its `cases-index.json` has all 250 rows).
 
 What the merge changed for the model:
 
@@ -835,13 +835,13 @@ words - but an unsaved draft has no project bar, so the menu isn't there
 
 Spend: run3 cost $6.97 at list prices - completion and grammar $0.02, the
 three agent passes $6.73, follow-ups $0.22 - and the ledger stands at
-$15.23 of the $19 cap (`levis-shots/ai-eval/spend.json`). Judging:
+$15.23 of the $19 cap (`../assets/ai-eval/spend.json`). Judging:
 reading the rows, no API cost.
 
 ### Round 2 after the fixes (run2)
 
 Branch `fix/ai-eval-round2`, agent Sonnet 5.5, writing Haiku 5.5,
-`TEXTUS_EVAL_JUDGE=0`, output in `levis-shots/ai-eval/run2`. Completion and
+`TEXTUS_EVAL_JUDGE=0`, output in `../assets/ai-eval/run2`. Completion and
 grammar were re-run whole (a cent each; the join and parsing changes touch
 every case). The agent re-run covers the 61 cases that failed a check or
 that the run1 judges didn't rate good, plus 16 that were good as a
@@ -918,7 +918,7 @@ Spend: round 2's fix work cost $5.20 at list prices - the run2 runs above
 ($2.06), the three follow-ups ($0.41), and development runs on the way
 (`dev/`: three completion and three grammar suites, $0.07; agent subsets
 of 6, 77 and 10 cases, $2.67). With the baseline, this workflow spent
-$8.26 of its $20 (the ledger is `levis-shots/ai-eval/spend.json`).
+$8.26 of its $20 (the ledger is `../assets/ai-eval/spend.json`).
 Judging: subagents, no API cost.
 
 ### Round 2 baseline (run1, automatic checks only)

@@ -7,7 +7,7 @@ import { mockInvoke, openApp, pasteMarkdown, PHONE } from "./helpers";
 // and dark, desktop, a narrow panel and phone - for review, not a baseline.
 // Runs only with TEXTUS_SHOTS_DIR set to where the PNGs go:
 //
-//   TEXTUS_SHOTS_DIR=../levis-shots/ui-polish/after npx playwright test ui-polish-shots
+//   TEXTUS_SHOTS_DIR=../assets/ui-polish/after npx playwright test ui-polish-shots
 
 const DIR = process.env.TEXTUS_SHOTS_DIR;
 test.skip(!DIR, "set TEXTUS_SHOTS_DIR to take the screenshots");
@@ -154,14 +154,21 @@ for (const form of ["desktop", "narrow", "phone"] as Form[]) {
           await converse(page, language);
           await input.fill(DOC[language].ask);
           await input.press("Enter");
+          // A phone folds the sheet away when edits arrive; back into it.
+          if (form === "phone") {
+            await page.locator(".review-bar-chat").click();
+            await page.waitForTimeout(400);
+          }
           await expect(page.locator(".agent-proposal-reason")).toBeVisible();
           await expect(page.locator(".agent-comment")).toBeVisible();
           await page.waitForTimeout(1500);
           await shot(page, "3-reply");
-          await page.locator(".agent-proposal-picker-toggle").click();
           await page
-            .locator(".agent-proposal-picker-list")
-            .scrollIntoViewIfNeeded();
+            .locator(
+              ".revision-note .pending-pick-keep, .agent-proposal-pick .pending-pick-keep",
+            )
+            .last()
+            .click();
           await page.waitForTimeout(300);
           await shot(page, "4-picker");
           const diff = page.locator(".agent-diff-summary");

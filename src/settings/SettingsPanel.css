@@ -312,10 +312,14 @@ button.settings-danger-button {
     var(--ease-spring-bouncy);
 }
 
-/* The accent's solid fill: in dark mode the editor accent is a pale blue
-   the white thumb hardly stands out from. */
+/* On: the theme's ink, like a primary button - its thumb in the page's
+   colour, so a dark theme's light track still shows it. */
 .settings-row input[type="checkbox"]:checked {
-  background: var(--chrome-primary);
+  background: var(--ui-primary);
+}
+
+.settings-row input[type="checkbox"]:checked::after {
+  background: var(--ui-on-primary);
 }
 
 .settings-row input[type="checkbox"]:checked::after {
