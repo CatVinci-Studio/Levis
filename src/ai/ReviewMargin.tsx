@@ -13,6 +13,7 @@ export interface ReviewMarginLabels {
   proposalTakeSentence: string;
   proposalKeepSentence: string;
   proposalDeleteSentence: string;
+  proposalDeletedSentence: string;
 }
 
 /** One thing in the margin: a review note, or one changed sentence of a
@@ -29,6 +30,10 @@ export type MarginItem =
       from: number;
       to: number;
       after: string;
+      before: string;
+      /** Which side the margin shows: the replacement ("original": the
+       *  original stays in the text) or the original ("new"). */
+      shows: "original" | "new";
       take: boolean | null;
     };
 
@@ -52,7 +57,7 @@ interface Placed {
 function anchorSelector(item: MarginItem): string {
   return item.kind === "note"
     ? `.review-anchor[data-note="${CSS.escape(item.note.id)}"]`
-    : `.pending-sentence[data-call="${CSS.escape(item.callId)}"][data-index="${item.index}"]`;
+    : `[data-call="${CSS.escape(item.callId)}"][data-index="${item.index}"]`;
 }
 
 /**
@@ -375,13 +380,22 @@ function RevisionCard({
           </button>
         </span>
       </div>
-      <div className="revision-note-text">
-        {item.after.trim() || (
-          <span className="revision-note-delete">
-            {labels.proposalDeleteSentence}
+      {item.shows === "new" ? (
+        <div className="revision-note-text revision-note-original">
+          <span className="revision-note-was">
+            {labels.proposalDeletedSentence}
           </span>
-        )}
-      </div>
+          <s>{item.before.trim() || "\u2014"}</s>
+        </div>
+      ) : (
+        <div className="revision-note-text">
+          {item.after.trim() || (
+            <span className="revision-note-delete">
+              {labels.proposalDeleteSentence}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

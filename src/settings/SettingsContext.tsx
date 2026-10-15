@@ -104,6 +104,15 @@ export const BUILTIN_CONTENT_THEMES: {
   { id: "parchment", name: "Parchment", nameKey: "themeNameParchment" },
 ];
 
+/// Settings.revisionDisplay's values.
+export const REVISION_DISPLAYS = [
+  "inline",
+  "original",
+  "new",
+  "final",
+] as const;
+export type RevisionDisplay = (typeof REVISION_DISPLAYS)[number];
+
 /// Tone presets for AI completion - resolved to an English style directive
 /// appended to the completion prompt (see ../ai/completion-style).
 export type CompletionTone =
@@ -170,6 +179,13 @@ export interface Settings {
   agentModels: Record<string, string>;
   /** Initial mode shown in a newly mounted Agent composer. */
   agentDefaultMode: AgentMode;
+  /// How a pending rewrite shows in the document, as Word's markup views:
+  /// "inline" (struck original and new text in the text), "original" (the
+  /// original struck in the text, the new text in the margin), "new" (the
+  /// new text in the text, the original in the margin) or "final" (only
+  /// the result, unmarked). The margin views fall back to "inline" where
+  /// there is no room for a margin.
+  revisionDisplay: RevisionDisplay;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
   /// Settings > Levis AI > Writing Assistance > Writing conventions:
@@ -265,6 +281,7 @@ const DEFAULT_SETTINGS: Settings = {
   writingModels: {},
   agentModels: {},
   agentDefaultMode: "ask",
+  revisionDisplay: "original",
   completionTone: "default",
   writingConventions: "automatic",
   enableWebSearch: false,
@@ -383,6 +400,11 @@ export function normaliseSettings(parsed: Raw | null): Settings {
       )
         ? (parsed.agentDefaultMode as AgentMode)
         : DEFAULT_SETTINGS.agentDefaultMode,
+      revisionDisplay: REVISION_DISPLAYS.includes(
+        parsed.revisionDisplay as RevisionDisplay,
+      )
+        ? (parsed.revisionDisplay as RevisionDisplay)
+        : DEFAULT_SETTINGS.revisionDisplay,
       shortcuts: {
         ...DEFAULT_SETTINGS.shortcuts,
         ...((parsed.shortcuts as Partial<Shortcuts> | undefined) ?? {}),
