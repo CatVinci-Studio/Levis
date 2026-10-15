@@ -2015,7 +2015,10 @@ export function MilkdownEditor({
             actions={[
               { label: t.grammarIgnore, onSelect: grammar.ignore },
               {
-                label: applyLabel(grammarLabels, grammar.popover.suggestion),
+                label: applyLabel(
+                  grammarLabels,
+                  grammar.popover.shownSuggestion ?? grammar.popover.suggestion,
+                ),
                 primary: true,
                 onSelect: () => {
                   if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
@@ -2030,9 +2033,16 @@ export function MilkdownEditor({
               {grammarLabels.grammarKinds[grammar.popover.kind]}
             </span>
             <div className="grammar-card-fix">
-              {grammar.popover.original && <s>{grammar.popover.original}</s>}
+              {grammar.popover.original && (
+                <s>
+                  {grammar.popover.shownOriginal ?? grammar.popover.original}
+                </s>
+              )}
               {grammar.popover.original && " → "}
-              <b>{grammar.popover.suggestion || "\u2205"}</b>
+              <b>
+                {grammar.popover.shownSuggestion ??
+                  (grammar.popover.suggestion || "\u2205")}
+              </b>
             </div>
             {grammar.popover.issue && (
               <div className="grammar-card-issue">{grammar.popover.issue}</div>
