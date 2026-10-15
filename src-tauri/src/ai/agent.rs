@@ -150,7 +150,7 @@ fn qwen_uses_responses_search(model: &str) -> bool {
 /// out shorter because feelings counted as invented facts; edits that
 /// spread to neighbouring paragraphs "for consistency" or, after "make it
 /// warmer", to the whole email; half-width punctuation in Chinese replies.
-const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Levis, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (its current text comes with their latest message, above the message itself; earlier messages show what they wrote then, not the document).
+const AGENT_ROLE: &str = "You are a professional writing assistant embedded in Textus, a markdown editor. You help the user plan, draft, revise, and polish their writing: outlining, continuing a draft, rewriting for tone or clarity, critiquing structure and argument, checking facts, and answering questions about the document they have open (its current text comes with their latest message, above the message itself; earlier messages show what they wrote then, not the document).
 
 Language: reply in the language of the user's own message - what they typed under ---the user's message--- - not the language of the document, and not the target language of a translation they asked for (asked in English to translate a paragraph into Spanish, you put Spanish in the document and reply in English; asked in Chinese to translate into English, you reply in Chinese); text you write into the document stays in the document's language unless they ask for another. A reply language set under ---user instructions--- overrides this; a style profile never does, whatever language it is written in. In Chinese and Japanese, use full-width punctuation (，。：；？！（）) and quote with “ ” or 「」 - never ASCII \" or ( ) - in replies as well as in the document.
 
@@ -172,9 +172,8 @@ const RULES_TOOL_INSTRUCTIONS: &str = "check_conventions checks text against the
 const AGENT_READ_ONLY_TOOL_INSTRUCTIONS: &str = "Use search_document to locate specific passages in a long document and read_document to read a section in full, rather than guessing. These tools are for inspection and research only; no document edit tool is available in this mode. For feedback on specific passages, pin each point with add_comment.";
 
 /// What the assistant is called in the UI and what its Settings page is
-/// called: `AI_NAME` in src/i18n/names.ts ("Levis AI" until the Textus
-/// rename). A test keeps the two in step.
-pub(crate) const AI_NAME: &str = "Levis AI";
+/// called: `AI_NAME` in src/i18n/names.ts ("Levis AI" before 1.0). A test keeps the two in step.
+pub(crate) const AI_NAME: &str = "Textus AI";
 
 /// Where the user changes the project folder. The project menu exists only
 /// while there is a project folder - ProjectBar shows nothing for an
@@ -193,7 +192,7 @@ fn where_to_choose_the_project_folder(has_menu: bool) -> String {
 /// What the agent is told about its project folder (in code, the workspace
 /// root) - which one is in use and why - and about what the app calls the
 /// things that shape its work (docs/AI-CONCEPTS.md: project folder,
-/// `.levis/` folder, writing instructions, global config folder, skills,
+/// `.textus/` folder, writing instructions, global config folder, skills,
 /// library, style profile, "Learn my style"), with the menu items, chips
 /// and Settings rows that make and open them, what reaches completion too,
 /// and the same names in the user's UI language (UiNames). Without
@@ -202,7 +201,7 @@ fn where_to_choose_the_project_folder(has_menu: bool) -> String {
 /// what to do, and was told the document's folder held reference material
 /// even when no file tool was offered (docs/AI-EVAL.md, round 2). Labels it
 /// wasn't given never came up: users were told to write a hidden
-/// .levis/style.md by hand, and had no way back after choosing a folder.
+/// .textus/style.md by hand, and had no way back after choosing a folder.
 fn workspace_section(workspace: &AgentWorkspace, ui_language: &str) -> String {
     use crate::ai::workspace::RootSource;
     let one_folder = "There is one project folder at a time: for material in two places, the user chooses a folder that contains both.";
@@ -238,7 +237,7 @@ fn workspace_section(workspace: &AgentWorkspace, ui_language: &str) -> String {
         None => String::new(),
     };
     format!(
-        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .levis/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .levis/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, or that you load when a request matches one, each one Markdown file - a name and a one-line description at the top, then the instructions. The app ships built-in skills, listed in Settings > {AI_NAME} > Built-in skills, where each has a switch to turn it off and Customize…, which copies it into the global config folder's skills/ and opens the copy to edit (Reset deletes the copy and brings the built-in back); the user's own skills go in .levis/skills/ or in the global config folder's skills/ (Settings > {AI_NAME} > Skills > Import Skill… copies a file there), and one with a built-in skill's name replaces it. The library: one file per person, place or term in .levis/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document (aliases go on an `aliases:` line at the top of the entry); New library entry… in the project menu starts one. The style profile: .levis/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. Writing conventions (Settings > {AI_NAME}, under Writing Assistance) picks the punctuation, spacing and number norms you, the grammar check and check_conventions follow - Automatic, or one profile such as en-GB/govuk for documents in that language; a `conventions:` line in the style profile's front matter overrides it for the project. The style profile and the library also shape completion, the grey suggestions as the user types; Enable AI completion in Settings > {AI_NAME}, under Writing Assistance, turns completion on or off, and Completion tone there sets its register. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - for a skill, first a built-in skill that already does it (named as their UI names it) and Customize… to adapt it, before writing one from scratch - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
+        "---project---\n{folder}\nWhat the app calls the things that shape your work, in its English UI: the project folder, whose .textus/ folder holds the project's own settings. The writing instructions: agent.md files in the global config folder and in .textus/, shown to you under ---user instructions--- headings and used only in conversations; the global ones open from Settings > {AI_NAME} > Writing Instructions (agent.md) > Edit agent.md, the project's from Edit project writing instructions in the project menu. Skills: reusable instructions the user calls with /name, or that you load when a request matches one, each one Markdown file - a name and a one-line description at the top, then the instructions. The app ships built-in skills, listed in Settings > {AI_NAME} > Built-in skills, where each has a switch to turn it off and Customize…, which copies it into the global config folder's skills/ and opens the copy to edit (Reset deletes the copy and brings the built-in back); the user's own skills go in .textus/skills/ or in the global config folder's skills/ (Settings > {AI_NAME} > Skills > Import Skill… copies a file there), and one with a built-in skill's name replaces it. The library: one file per person, place or term in .textus/library, an entry sent to you whenever its name or an alias appears in the user's message or the open document (aliases go on an `aliases:` line at the top of the entry); New library entry… in the project menu starts one. The style profile: .textus/style.md, sent to you as ---the author's style profile---; Learn my style from samples… in the project menu drafts it from the user's own writing (\"Learn my style\"), Create style profile starts an empty one, and once it exists Open style profile in the menu, or the Style chip next to the folder name, opens it. Writing conventions (Settings > {AI_NAME}, under Writing Assistance) picks the punctuation, spacing and number norms you, the grammar check and check_conventions follow - Automatic, or one profile such as en-GB/govuk for documents in that language; a `conventions:` line in the style profile's front matter overrides it for the project. The style profile and the library also shape completion, the grey suggestions as the user types; Enable AI completion in Settings > {AI_NAME}, under Writing Assistance, turns completion on or off, and Completion tone there sets its register. The panel's modes are Ask, which only reads and comments, Edit, which can propose edits, and Plan, which writes a plan first; the user applies a proposal with Accept or drops it with Reject.{names}\nAsked how to do something in the app, answer in two to four plain sentences: what to use, where it is and what it does - for a skill, first a built-in skill that already does it (named as their UI names it) and Customize… to adapt it, before writing one from scratch - no headings or code blocks, no tips they didn't ask for, and no remarks about their document or their files."
     )
 }
 
@@ -1633,7 +1632,7 @@ mod tests {
         let unsaved = load_from(None, None, None);
         assert_eq!(unsaved.root_source, RootSource::None);
         let text = workspace_section(&unsaved, "en");
-        assert!(text.contains("isn't saved") && text.contains("Settings > Levis AI"));
+        assert!(text.contains("isn't saved") && text.contains("Settings > Textus AI"));
         assert!(!text.contains("list_files"));
         // No project, no project bar: only the Settings row is offered.
         assert!(!text.contains("click the folder name"));

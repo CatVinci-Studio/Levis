@@ -4,9 +4,9 @@ description: >-
   Writing conventions for Japanese: typography (JTF, 公用文), numbers and counters, kanji, okurigana and kana usage, register and honorifics, fiction dialogue, business email, 公用文, ad disclosure and AI tells.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Adapted from the JTF 日本語標準スタイルガイド 第4.0版 (CC BY 4.0) and 公用文作成の考え方, 敬語の指針, 「異字同訓」の漢字の使い分け例 and 在留支援のためのやさしい日本語ガイドライン (文化庁, MEXT terms); 常用漢字表, 送り仮名の付け方, 現代仮名遣い and 外来語の表記 (unprotected); W3C JLReq (W3C licence); 消費者庁 告示第19号; textlint-ja and yomiyasu (MIT, ideas)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Adapted from the JTF 日本語標準スタイルガイド 第4.0版 (CC BY 4.0) and 公用文作成の考え方, 敬語の指針, 「異字同訓」の漢字の使い分け例 and 在留支援のためのやさしい日本語ガイドライン (文化庁, MEXT terms); 常用漢字表, 送り仮名の付け方, 現代仮名遣い and 外来語の表記 (unprotected); W3C JLReq (W3C licence); 消費者庁 告示第19号; textlint-ja and yomiyasu (MIT, ideas)."
 ---
 
 ## typography

@@ -52,7 +52,7 @@ pub struct CompletionCase {
     /// The word the cursor sits inside, as it must read once accepted.
     pub completes: Option<&'static str>,
     pub rubric: &'static str,
-    /// The project's style profile (.levis/style.md), when one is active.
+    /// The project's style profile (.textus/style.md), when one is active.
     pub style_profile: Option<&'static str>,
     /// Text that must not appear in the suggestion (a banned word, a
     /// punctuation mark the profile rules out).

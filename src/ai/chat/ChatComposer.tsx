@@ -183,7 +183,7 @@ export function ChatComposer({
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Skills come from the agent workspace on disk (global dir + the workspace
-  // root's .levis/skills). Loaded fresh each time the chat opens, so editing
+  // root's .textus/skills). Loaded fresh each time the chat opens, so editing
   // a skill file takes effect on the next chat without a restart.
   useEffect(() => {
     let cancelled = false;

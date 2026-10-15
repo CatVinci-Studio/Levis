@@ -4,9 +4,9 @@ description: >-
   Writing conventions for French: spacing before high punctuation by region, guillemets, numbers and ordinals, courtesy titles and spelling, dialogue, inclusive writing and letters.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Summarised from OQLF Vitrine linguistique and Académie française pages (summarised only); quoted or summarised from the Rectifications de l'orthographe (1990) and the Circulaire du 21 novembre 2017; adapted from the EU Interinstitutional Style Guide (© European Union, reproduction authorised); FranceTerme (Licence Ouverte), named only."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Summarised from OQLF Vitrine linguistique and Académie française pages (summarised only); quoted or summarised from the Rectifications de l'orthographe (1990) and the Circulaire du 21 novembre 2017; adapted from the EU Interinstitutional Style Guide (© European Union, reproduction authorised); FranceTerme (Licence Ouverte), named only."
 ---
 
 ## typography

@@ -4,9 +4,9 @@ description: >-
   Writing conventions for German: quotation marks by country, dashes and ellipses, numbers and dates, spelling (2024 Regelwerk), commas, direct speech and letters.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Adapted from the Amtliches Regelwerk der deutschen Rechtschreibung 2024 (Rat für deutsche Rechtschreibung, CC BY 4.0) and the EU Interinstitutional Style Guide (© European Union, reproduction authorised); summarised from DIN 5008, the Swiss Bundeskanzlei Schreibweisungen and Weisung Genderstern (summarised only)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Adapted from the Amtliches Regelwerk der deutschen Rechtschreibung 2024 (Rat für deutsche Rechtschreibung, CC BY 4.0) and the EU Interinstitutional Style Guide (© European Union, reproduction authorised); summarised from DIN 5008, the Swiss Bundeskanzlei Schreibweisungen and Weisung Genderstern (summarised only)."
 ---
 
 ## typography

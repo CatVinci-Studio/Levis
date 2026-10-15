@@ -380,9 +380,9 @@ fn write_cases() -> Vec<AgentCase> {
         "第三章.md",
         NOVEL_ZH,
         &[
-            (".levis/library/林晚.md", LIB_LIN_WAN),
-            (".levis/library/老周.md", LIB_LAO_ZHOU),
-            (".levis/style.md", STYLE_ZH_FICTION),
+            (".textus/library/林晚.md", LIB_LIN_WAN),
+            (".textus/library/老周.md", LIB_LAO_ZHOU),
+            (".textus/style.md", STYLE_ZH_FICTION),
         ],
     );
     c.push(AgentCase::new("builtin/continue-story/zh/next-scene", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "/continue-story 接着写这一场，三五百字", edit_anywhere().longer().lacks(&["！"]).check("250-700 characters", measured(Metric::CjkChars, 250, 700, new_text)).check("no new heading", same_headings).conventions_clean("zh-Hans-CN/fiction"), "Continues right after 水壶响起来 / 第三年, with no recap. The library says 林晚 doesn't drink tea, only plain water - she must not drink tea. The style profile's limits are rules: short sentences (rarely over 25 characters), no exclamation marks. About 300-500 characters, 林晚's point of view, 老周 consistent with his entry. Reply: one or two Chinese sentences on what happens.").disk(ws));
@@ -408,7 +408,7 @@ fn write_cases() -> Vec<AgentCase> {
         "describe-zh",
         "第三章.md",
         NOVEL_ZH,
-        &[(".levis/library/老周书店.md", LIB_BOOKSHOP)],
+        &[(".textus/library/老周书店.md", LIB_BOOKSHOP)],
     );
     c.push(AgentCase::new("builtin/describe/zh/bookshop", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "/describe 在第一段后面加一段书店里面的描写", edit_anywhere().longer().check("after the first paragraph", within("雨从傍晚开始下", "“你还没走？”")).has(&["“你还没走？”老周从里屋探出头来。"]).check("uses the library", proposed_has_any(&["木楼梯", "黑猫"])).lacks(&["三层"]).conventions_clean("zh-Hans-CN"), "One new paragraph right after the first, describing the inside of the bookshop as 林晚 sees it from the door. The library entry (two floors, a creaky wooden staircase, old books downstairs, reading room upstairs, a black cat asleep on the counter) is the source of truth; a few chosen details, not a catalogue; no new characters or events.").disk(ws));
 
@@ -416,7 +416,7 @@ fn write_cases() -> Vec<AgentCase> {
         "describe-en",
         "chapter-7.md",
         NOVEL_EN,
-        &[(".levis/library/Tom.md", LIB_TOM)],
+        &[(".textus/library/Tom.md", LIB_TOM)],
     );
     c.push(AgentCase::new("builtin/describe/en/character", Lang::En, Lang::En, NOVEL_EN, "Describe Tom when he finally appears at the station.", edit_anywhere().loads("describe").check("near his arrival", within("The rain had not stopped", "\"The bus broke down,\"")).has(&["\"The bus broke down,\" he replied apologetically."]).check("uses the library", proposed_has_any(&["watch"])).no_new_numbers(), "Matched by description. A short action-led description of Tom as he appears, through Elena's eyes, using the library (tall, his late father's watch, a paperback) without contradicting it; the dialogue that follows stays as it is.").disk(ws));
 
@@ -460,7 +460,7 @@ fn write_cases() -> Vec<AgentCase> {
         "imitate-en",
         "report.md",
         LANG_EN,
-        &[(".levis/style.md", STYLE_EN_PROFILE)],
+        &[(".textus/style.md", STYLE_EN_PROFILE)],
     );
     c.push(AgentCase::new("builtin/imitate-style/en/profile", Lang::En, Lang::En, LANG_EN, "/imitate-style rewrite the Method paragraph in my style", edit_in(para(LANG_EN, 1), StructureExpect::Same).check("sentences of 18 words at most", sentences_at_most(18)).check("no semicolons", proposed_lacks(&[";"])).check("second person", |o| {
         let t = proposed_text(o).to_lowercase();
@@ -585,7 +585,7 @@ fn check_cases() -> Vec<AgentCase> {
         "proof-fr",
         "programme.md",
         PROOF_FR,
-        &[(".levis/style.md", STYLE_FR_FR)],
+        &[(".textus/style.md", STYLE_FR_FR)],
     );
     c.push(AgentCase::new("builtin/proofread/fr/typography", Lang::Fr, Lang::Fr, PROOF_FR, "/proofread", edit_anywhere().has(&["M. Martin", "1re", "2e", "A-t-il", "\u{202f}!", "\u{202f}?"]).lacks(&["Mr ", "1ère", "2ème", "t'il"]).check("space before %", has_any(&["85\u{a0}%", "85\u{202f}%"])).conventions_clean("fr-FR"), "fr-FR typography: narrow no-break spaces before ! ? ;, a no-break space before : and %, M. not Mr, 1re/2e, a-t-il; nothing else rewritten.").disk(ws));
 
@@ -597,7 +597,7 @@ fn check_cases() -> Vec<AgentCase> {
         "continuity-zh",
         "第三章.md",
         NOVEL_ZH,
-        &[(".levis/library/林晚.md", LIB_LIN_WAN_FIFTH_YEAR)],
+        &[(".textus/library/林晚.md", LIB_LIN_WAN_FIFTH_YEAR)],
     );
     c.push(AgentCase::new("builtin/continuity/zh/library", Lang::ZhHans, Lang::ZhHans, NOVEL_ZH, "/continuity", no_edit().comments().check("flags the year", |o| {
         o.comments.iter().any(|(a, c)| a.contains("第三年") && c.contains("第五年")).then_some(()).ok_or_else(|| "no comment on 第三年 citing 第五年".into())
@@ -673,7 +673,7 @@ fn format_cases() -> Vec<AgentCase> {
 
     // social-post
     let ws = plain("social-x", SOCIAL_EN);
-    c.push(AgentCase::new("builtin/social-post/en/x", Lang::En, Lang::En, SOCIAL_EN, "Turn this into a post for X.", edit_anywhere().loads("social-post").check("fits X (280 weighted)", measured(Metric::XWeighted, 1, 280, post)).has(&["levis.app", "2,000"]).reply(&["280"]), "Hook first, one idea, nothing invented (no discount, no new feature); the reply states the count against 280.").disk(ws));
+    c.push(AgentCase::new("builtin/social-post/en/x", Lang::En, Lang::En, SOCIAL_EN, "Turn this into a post for X.", edit_anywhere().loads("social-post").check("fits X (280 weighted)", measured(Metric::XWeighted, 1, 280, post)).has(&["textus.app", "2,000"]).reply(&["280"]), "Hook first, one idea, nothing invented (no discount, no new feature); the reply states the count against 280.").disk(ws));
 
     let ws = plain("social-xhs", SOCIAL_ZH);
     c.push(AgentCase::new("builtin/social-post/zh/xiaohongshu", Lang::ZhHans, Lang::ZhHans, SOCIAL_ZH, "/social-post 改成小红书笔记", edit_anywhere().check("title of 20 characters at most", measured(Metric::Chars, 1, 20, |o| {
@@ -702,7 +702,7 @@ fn format_cases() -> Vec<AgentCase> {
         "headline-shadowed",
         "report.md",
         LANG_EN,
-        &[(".levis/skills/headline.md", PROJECT_HEADLINE)],
+        &[(".textus/skills/headline.md", PROJECT_HEADLINE)],
     );
     c.push(AgentCase::new("builtin/headline/en/shadowed", Lang::En, Lang::En, LANG_EN, "Give this document a better title.", edit_in("# Weekend Reading Club: first-year report", StructureExpect::Same).loads("headline").check("the project's skill", |o| {
         o.tool_results().contains("House style for titles").then_some(()).ok_or_else(|| "use_skill didn't return the project's headline skill".into())
@@ -939,7 +939,7 @@ pub fn cases() -> Vec<AgentCase> {
     c
 }
 
-/// The suite after LEVIS_EVAL_FILTER.
+/// The suite after TEXTUS_EVAL_FILTER.
 pub fn all_cases() -> Vec<AgentCase> {
     let mut c = cases();
     c.retain(|c| harness::selected(&c.id));

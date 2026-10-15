@@ -26,7 +26,7 @@ import { SettingRow, VERBATIM_INPUT } from "./controls";
 
 /** Fired after a model list is fetched, so both pickers (writing and
  *  chat) pick up the new list from the cache at once. */
-const MODELS_FETCHED_EVENT = "levis-models-fetched";
+const MODELS_FETCHED_EVENT = "textus-models-fetched";
 
 /** Whether "sign in with ChatGPT" is the active OpenAI login - that OAuth
  *  token can't list models, and only accepts its own preset family. */
@@ -314,7 +314,7 @@ export function AgentWorkspaceSection({ t }: { t: Strings }) {
 ///
 /// The default - the folder of the document being edited - is right until
 /// the user's sources and their draft don't live together, and then there is
-/// no way out of it: `.levis/` is looked for there, and the agent's
+/// no way out of it: `.textus/` is looked for there, and the agent's
 /// list_files/read_file are sandboxed to it (ai/workspace.rs), so material
 /// one folder over is simply unreachable. This makes the root explicit while
 /// keeping the default for everyone it already suits. The project bar's
@@ -366,10 +366,10 @@ export function AgentWorkspaceRootSection({ t }: { t: Strings }) {
 }
 
 /// The GLOBAL writing instructions (agent.md) - sent with every
-/// conversation, for all documents. Levis IS a markdown editor, so the
+/// conversation, for all documents. Textus IS a markdown editor, so the
 /// button just opens the file as a document (creating the comment-only
 /// starter on first use) instead of embedding a bespoke editor here. A
-/// project's .levis/agent.md is layered after it; the project bar's menu
+/// project's .textus/agent.md is layered after it; the project bar's menu
 /// opens that one.
 export function AgentSystemPromptSection({
   t,

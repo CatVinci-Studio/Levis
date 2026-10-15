@@ -76,7 +76,7 @@ export function themeColumnWidth(maxWidth: string): string | null {
 
 /** Also the id the boot script (src-tauri/src/boot.js) gives the copy it
  *  paints the first frame with, so applying here replaces that one. */
-const STYLE_ID = "levis-imported-chrome";
+const STYLE_ID = "textus-imported-chrome";
 export function clearThemeChrome() {
   document.getElementById(STYLE_ID)?.remove();
 }
@@ -108,7 +108,7 @@ export function applyThemeChrome(css: string, dark: boolean): string | null {
     write.className = "ProseMirror";
     const link = doc.createElement("a");
     link.href = "#";
-    link.textContent = "Levis";
+    link.textContent = "Textus";
     write.appendChild(link);
     const milkdown = doc.createElement("div");
     milkdown.className = "milkdown";
@@ -138,7 +138,7 @@ export function applyThemeChrome(css: string, dark: boolean): string | null {
       accent,
     );
     const documentStyle = view.getComputedStyle(write);
-    // Typora themes often style body/#write without Levis variables. Supply
+    // Typora themes often style body/#write without Textus variables. Supply
     // those variables for source view, code blocks and editor decorations too.
     for (const [key, fallback] of Object.entries({
       "--editor-bg": palette["--bg"],

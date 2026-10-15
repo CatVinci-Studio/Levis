@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Levis
+Name=Textus
 Comment=AI-native WYSIWYG Markdown editor
-Exec=levis %F
-Icon=levis
-StartupWMClass=levis
+Exec=textus %F
+Icon=textus
+StartupWMClass=textus
 Terminal=false
 Categories=Utility;TextEditor;
 MimeType=text/markdown;text/x-markdown;

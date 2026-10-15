@@ -357,7 +357,7 @@ pub(crate) fn open_new_window(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 /// The files named on a command line: every argument after the program
-/// name that isn't a flag. `levis notes.md` from a shell passes a path
+/// name that isn't a flag. `textus notes.md` from a shell passes a path
 /// relative to that shell's directory - which, for a second launch handed
 /// over by single-instance, is not this process's own - while everything
 /// downstream (tabs, recents, session) wants it absolute. Desktop launchers
@@ -539,7 +539,7 @@ pub fn run() {
     // the running instance here and exits before setting anything else up.
     // (macOS routes later opens to the running app itself; see
     // RunEvent::Opened below.) Release builds only, so a dev build can run
-    // next to an installed Levis instead of forwarding to it.
+    // next to an installed Textus instead of forwarding to it.
     #[cfg(all(any(windows, target_os = "linux"), not(debug_assertions)))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
         let paths = paths_from_argv(argv, std::path::Path::new(&cwd));
@@ -555,9 +555,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(PendingOpenPaths(Mutex::new(Vec::new())));
-    // Document access outside the app's own folder (plugins/levis-files).
+    // Document access outside the app's own folder (plugins/textus-files).
     #[cfg(target_os = "ios")]
-    let builder = builder.plugin(tauri_plugin_levis_files::init());
+    let builder = builder.plugin(tauri_plugin_textus_files::init());
     #[cfg(desktop)]
     let builder = desktop_builder(builder);
     builder
@@ -741,12 +741,12 @@ pub fn run() {
             }
             // Finder "Open With"/double-click on an associated .md lands
             // here as an Apple open-documents event (macOS never passes
-            // opened files via argv). iOS delivers "Open in Levis" from the
+            // opened files via argv). iOS delivers "Open in Textus" from the
             // Files app the same way.
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             if let tauri::RunEvent::Opened { urls } = event {
                 // iOS hands over a security-scoped URL: kept as a URL, it is
-                // read and written through plugins/levis-files, which opens
+                // read and written through plugins/textus-files, which opens
                 // its scope. A plain path would be unreadable there.
                 #[cfg(target_os = "ios")]
                 let paths: Vec<String> = urls

@@ -22,7 +22,7 @@ import {
 import "./DocumentList.css";
 
 /**
- * The iPhone's list of documents: every document opened in Levis, newest
+ * The iPhone's list of documents: every document opened in Textus, newest
  * first (platform/ios-files.ts keeps the history). Tap one to open it; its
  * menu (the "..." button, or a long press) shares, renames, deletes or
  * forgets it. Documents in the app's own folder can be renamed and deleted;
@@ -284,7 +284,7 @@ export function DocumentList({
             fresh={seen.current !== null && !seen.current.has(entry.path)}
             detail={[
               when(entry.mtime),
-              entry.local ? "Levis" : basename(dirname(entry.path)),
+              entry.local ? "Textus" : basename(dirname(entry.path)),
             ]
               .filter(Boolean)
               .join(" · ")}

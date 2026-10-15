@@ -9,21 +9,21 @@ description: >-
   questions about inline completion.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "write"
-  levis-packs: "contract craft#fiction standards#dialogue standards#ai-tells"
-  levis-sources: "Our own text. Ideas from chinese-novelist-skill (MIT) and mattpocock/skills writing-beats (MIT); show vs tell summarised from Wikipedia."
-  levis-aliases-en: "continue, next-scene"
-  levis-aliases-zh: "接着写, 续写, 写下一节, 下一章"
-  levis-aliases-zh-Hant: "接著寫, 續寫, 寫下一節"
-  levis-aliases-ja: "続きを書く, 続き"
-  levis-aliases-ko: "이어서 쓰기, 다음 이야기"
-  levis-aliases-es: "continuar"
-  levis-aliases-fr: "continuer, suite"
-  levis-aliases-de: "fortsetzen, weiterschreiben"
-  levis-aliases-ru: "продолжить"
-  levis-aliases-pt: "continuar"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "write"
+  textus-packs: "contract craft#fiction standards#dialogue standards#ai-tells"
+  textus-sources: "Our own text. Ideas from chinese-novelist-skill (MIT) and mattpocock/skills writing-beats (MIT); show vs tell summarised from Wikipedia."
+  textus-aliases-en: "continue, next-scene"
+  textus-aliases-zh: "接着写, 续写, 写下一节, 下一章"
+  textus-aliases-zh-Hant: "接著寫, 續寫, 寫下一節"
+  textus-aliases-ja: "続きを書く, 続き"
+  textus-aliases-ko: "이어서 쓰기, 다음 이야기"
+  textus-aliases-es: "continuar"
+  textus-aliases-fr: "continuer, suite"
+  textus-aliases-de: "fortsetzen, weiterschreiben"
+  textus-aliases-ru: "продолжить"
+  textus-aliases-pt: "continuar"
 ---
 
 # Continue the story

@@ -21,14 +21,14 @@ import {
   conventionsProfileName,
 } from "../writing-conventions";
 
-// Settings > Levis AI: skills (the user's own, and the built-ins with their
+// Settings > Textus AI: skills (the user's own, and the built-ins with their
 // switches, Customize… and Reset) and the Writing conventions row. Skills
 // are files: the rows here mirror them and open them in a tab, they never
 // embed an editor.
 
 /** Fired after a skill changes here, so every section showing the list
  *  reloads it. */
-const SKILLS_CHANGED_EVENT = "levis-skills-changed";
+const SKILLS_CHANGED_EVENT = "textus-skills-changed";
 
 function announceChange() {
   window.dispatchEvent(new Event(SKILLS_CHANGED_EVENT));

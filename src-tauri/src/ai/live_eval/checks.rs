@@ -1397,7 +1397,7 @@ more"
         assert!(half_width_in_cjk("无法按时出席,特向您申请").is_some());
         assert!(half_width_in_cjk("文档\"配置\"一节").is_some());
         assert!(half_width_in_cjk("(当前这章)").is_some());
-        assert!(half_width_in_cjk("我把 `retry: 3` 改成了 5，叫 \"Levis\" 也行。").is_none());
+        assert!(half_width_in_cjk("我把 `retry: 3` 改成了 5，叫 \"Textus\" 也行。").is_none());
         assert!(half_width_in_cjk("Plain English, no CJK: fine (really).").is_none());
         assert!(new_numbers("closed 2,300 tickets", "the 2300 tickets").is_empty());
         assert!(meta_commentary(

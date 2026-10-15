@@ -1,10 +1,10 @@
 <!-- 结构与 README.md 逐节对应（scripts/check-readmes.mjs 会检查）。 -->
 
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Levis" width="120" height="120" />
+  <img src="src-tauri/icons/icon.png" alt="Textus" width="120" height="120" />
 </p>
 
-<h1 align="center">Levis</h1>
+<h1 align="center">Textus</h1>
 
 <p align="center">
   <strong>所见即所得的 Markdown 编辑器，AI 只提建议，不替你改稿。</strong><br>
@@ -12,13 +12,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><strong>下载</strong></a> ·
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>下载</strong></a> ·
   <a href="./README.md">English</a> ·
   <a href="./README.ja.md">日本語</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Levis"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
@@ -56,8 +56,8 @@
 ### 你的项目，你的文风
 
 - **项目文件夹**：文档保存后，它所在的文件夹就是项目文件夹，也可以另选一个。AI 可以阅读和搜索其中的文本文件，输入 `@` 可以把某个文件带进对话。
-- **文风档案**（`.levis/style.md`）：用**学习我的文风**从你挑选的范文生成，续写和修改都贴近你的写法。
-- **资料库**（`.levis/library/`）：人物、地点、术语。一段文字提到哪些条目，就把哪些条目一起交给 AI，名字和设定前后一致。
+- **文风档案**（`.textus/style.md`）：用**学习我的文风**从你挑选的范文生成，续写和修改都贴近你的写法。
+- **资料库**（`.textus/library/`）：人物、地点、术语。一段文字提到哪些条目，就把哪些条目一起交给 AI，名字和设定前后一致。
 - **写作要求**（`agent.md`）和**技能**（`/名称`）：每次对话都遵守的常驻要求，以及按名字调用的可复用指令——可以对所有文档生效，也可以只用于一个项目。
 
 ### 服务商与隐私
@@ -71,27 +71,27 @@
 macOS（Apple Silicon）可通过 [Homebrew](https://brew.sh) 安装：
 
 ```sh
-brew install --cask catvinci-studio/tap/levis
+brew install --cask catvinci-studio/tap/textus
 ```
 
-Arch Linux 可通过签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源安装（只需配置一次，之后 `sudo pacman -Syu` 会自动升级 Levis）：
+Arch Linux 可通过签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源安装（只需配置一次，之后 `sudo pacman -Syu` 会自动升级 Textus）：
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) levis-bin
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
 ```
 
-也可以从 [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest) 下载安装包：
+也可以从 [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) 下载安装包：
 
 | 平台                   | 安装包                                                                   |
 | ---------------------- | ------------------------------------------------------------------------ |
-| macOS（Apple Silicon） | `Levis_X.Y.Z_aarch64.dmg`                                                |
-| Windows                | `Levis_X.Y.Z_x64-setup.exe`                                              |
-| Linux                  | `Levis_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Levis-X.Y.Z-1.x86_64.rpm` |
+| macOS（Apple Silicon） | `Textus_X.Y.Z_aarch64.dmg`                                                |
+| Windows                | `Textus_X.Y.Z_x64-setup.exe`                                              |
+| Linux                  | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
 
 ## 快速上手
 
-1. 启动 Levis，直接进入空白草稿；保存时才需要文件。
-2. 打开 **设置 → Levis AI**，选择服务商，在**登录与凭据**中登录或填写密钥。
+1. 启动 Textus，直接进入空白草稿；保存时才需要文件。
+2. 打开 **设置 → Textus AI**，选择服务商，在**登录与凭据**中登录或填写密钥。
 3. 开始写。停顿时续写会以灰色文字出现，按 Tab 采纳。
 4. 点窗口顶栏的对话按钮打开 AI 面板。其余功能见 **帮助 → AI 功能指南**。
 
@@ -108,15 +108,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 以上都可以在 **设置 → 快捷键** 中修改。
 
-## 为什么做 Levis
+## 为什么做 Textus
 
-写 Markdown 应该像在写作，而不是在编辑一个文件：不用来回看预览，也不被语法符号打断。Levis 开源、小巧，它的 AI 为想保持作者身份的人设计——给建议、讲理由，决定权始终在你。
+写 Markdown 应该像在写作，而不是在编辑一个文件：不用来回看预览，也不被语法符号打断。Textus 开源、小巧，它的 AI 为想保持作者身份的人设计——给建议、讲理由，决定权始终在你。
 
 ## 从源码构建
 
 ```bash
-git clone https://github.com/CatVinci-Studio/Levis.git
-cd Levis
+git clone https://github.com/CatVinci-Studio/Textus.git
+cd Textus
 npm install
 
 npm run tauri dev     # 完整 Tauri 应用（Rust 后端 + Vite 前端）

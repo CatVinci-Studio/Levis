@@ -184,7 +184,7 @@ function buildStandaloneHtml(
   const root = document.documentElement;
   const dataTheme = root.getAttribute("data-theme");
   const contentTheme = root.getAttribute("data-content-theme");
-  // An imported theme switches Levis's own ornaments off (content-base.css);
+  // An imported theme switches Textus's own ornaments off (content-base.css);
   // the export has to say so too, or they come back on the page.
   const userTheme = root.hasAttribute("data-user-theme");
   const rootAttrs =

@@ -5,12 +5,12 @@ import { mockInvoke, openApp, pasteMarkdown, PHONE } from "./helpers";
 // sentence picker, a reply streaming in, the / menu) and of the app's
 // surfaces (menus, selects, dialogs, settings) in English and Chinese, light
 // and dark, desktop, a narrow panel and phone - for review, not a baseline.
-// Runs only with LEVIS_SHOTS_DIR set to where the PNGs go:
+// Runs only with TEXTUS_SHOTS_DIR set to where the PNGs go:
 //
-//   LEVIS_SHOTS_DIR=../levis-shots/ui-polish/after npx playwright test ui-polish-shots
+//   TEXTUS_SHOTS_DIR=../levis-shots/ui-polish/after npx playwright test ui-polish-shots
 
-const DIR = process.env.LEVIS_SHOTS_DIR;
-test.skip(!DIR, "set LEVIS_SHOTS_DIR to take the screenshots");
+const DIR = process.env.TEXTUS_SHOTS_DIR;
+test.skip(!DIR, "set TEXTUS_SHOTS_DIR to take the screenshots");
 
 const DOC = {
   en: {

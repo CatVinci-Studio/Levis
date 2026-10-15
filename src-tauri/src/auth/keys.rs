@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn a_corrupt_keys_file_is_moved_aside_not_fatal() {
-        let dir = std::env::temp_dir().join(format!("levis-keys-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("textus-keys-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("provider_keys.json");

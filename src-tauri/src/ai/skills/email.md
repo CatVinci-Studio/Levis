@@ -8,21 +8,21 @@ description: >-
   (写邮件/回信, メール作成, 이메일 작성, correo, courriel, E-Mail, письмо).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "format"
-  levis-packs: "contract craft#email standards#letters standards#register"
-  levis-sources: "Our own text. Structure summarised from The Tongue and Quill and AR 25-50 (public domain), GOV.UK (OGL v3.0), Google and Microsoft style guides (CC BY 4.0); etiquette from the attached language packs."
-  levis-aliases-en: "email, letter, reply"
-  levis-aliases-zh: "写邮件, 邮件, 回信, 书信"
-  levis-aliases-zh-Hant: "寫郵件, 郵件, 回信"
-  levis-aliases-ja: "メールを書く, メール, ビジネスメール"
-  levis-aliases-ko: "이메일, 메일, 답장"
-  levis-aliases-es: "correo, carta"
-  levis-aliases-fr: "courriel, lettre"
-  levis-aliases-de: "email, brief"
-  levis-aliases-ru: "письмо"
-  levis-aliases-pt: "email, carta"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "format"
+  textus-packs: "contract craft#email standards#letters standards#register"
+  textus-sources: "Our own text. Structure summarised from The Tongue and Quill and AR 25-50 (public domain), GOV.UK (OGL v3.0), Google and Microsoft style guides (CC BY 4.0); etiquette from the attached language packs."
+  textus-aliases-en: "email, letter, reply"
+  textus-aliases-zh: "写邮件, 邮件, 回信, 书信"
+  textus-aliases-zh-Hant: "寫郵件, 郵件, 回信"
+  textus-aliases-ja: "メールを書く, メール, ビジネスメール"
+  textus-aliases-ko: "이메일, 메일, 답장"
+  textus-aliases-es: "correo, carta"
+  textus-aliases-fr: "courriel, lettre"
+  textus-aliases-de: "email, brief"
+  textus-aliases-ru: "письмо"
+  textus-aliases-pt: "email, carta"
 ---
 
 # Write an email

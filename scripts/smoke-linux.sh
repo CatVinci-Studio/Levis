@@ -3,7 +3,7 @@
 # (e2e/, a browser against the dev server) can't reach:
 #
 #   1. the .deb carries the binary, icons and a .desktop entry that takes
-#      files (Exec=levis %F) and claims Markdown;
+#      files (Exec=textus %F) and claims Markdown;
 #   2. the release binary starts and opens the file it is given;
 #   3. a second launch hands its file to the first instance and exits
 #      (tauri-plugin-single-instance, release builds only);
@@ -43,8 +43,8 @@ fail() {
 }
 
 version="$(node -p "require('$root/package.json').version")"
-binary="$root/src-tauri/target/release/levis"
-deb="$root/src-tauri/target/release/bundle/deb/Levis_${version}_amd64.deb"
+binary="$root/src-tauri/target/release/textus"
+deb="$root/src-tauri/target/release/bundle/deb/Textus_${version}_amd64.deb"
 
 if [ "$build" = 1 ]; then
   # No updater artifacts: signing them needs the release key, which only CI has.
@@ -54,8 +54,8 @@ fi
 [ -x "$binary" ] || fail "no release binary at $binary (run with --build)"
 [ -f "$deb" ] || fail "no package at $deb (run with --build)"
 
-if pgrep -x levis > /dev/null; then
-  fail "Levis is already running; quit it first (a second instance would forward to it)"
+if pgrep -x textus > /dev/null; then
+  fail "Textus is already running; quit it first (a second instance would forward to it)"
 fi
 
 work="$(mktemp -d)"
@@ -70,17 +70,17 @@ echo "package: $(basename "$deb")"
 mkdir "$work/deb"
 (cd "$work/deb" && ar x "$deb" && mkdir data && tar -xf data.tar.* -C data)
 data="$work/deb/data"
-[ -x "$data/usr/bin/levis" ] && pass "binary in /usr/bin" || fail "no /usr/bin/levis in the package"
+[ -x "$data/usr/bin/textus" ] && pass "binary in /usr/bin" || fail "no /usr/bin/textus in the package"
 desktop="$(find "$data/usr/share/applications" -name '*.desktop' | head -n1)"
 [ -n "$desktop" ] || fail "no .desktop entry in the package"
-grep -qx 'Exec=levis %F' "$desktop" && pass ".desktop Exec takes files" ||
+grep -qx 'Exec=textus %F' "$desktop" && pass ".desktop Exec takes files" ||
   fail ".desktop Exec line: $(grep '^Exec=' "$desktop")"
 grep -q '^MimeType=.*text/markdown' "$desktop" && pass ".desktop claims text/markdown" ||
   fail ".desktop has no Markdown MimeType"
-grep -qx 'StartupWMClass=levis' "$desktop" && pass ".desktop StartupWMClass" ||
+grep -qx 'StartupWMClass=textus' "$desktop" && pass ".desktop StartupWMClass" ||
   fail ".desktop StartupWMClass missing"
-find "$data/usr/share/icons" -name 'levis.png' | grep -q . && pass "icons installed" ||
-  fail "no levis.png icons in the package"
+find "$data/usr/share/icons" -name 'textus.png' | grep -q . && pass "icons installed" ||
+  fail "no textus.png icons in the package"
 
 export XDG_CONFIG_HOME="$work/config" XDG_DATA_HOME="$work/data" XDG_CACHE_HOME="$work/cache"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"

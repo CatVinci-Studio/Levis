@@ -3,7 +3,7 @@
 
 fn main() {
     // WebKitGTK's DMA-BUF renderer (2.42+) draws a blank or white window,
-    // or crashes, on NVIDIA's proprietary driver - the most common "Levis
+    // or crashes, on NVIDIA's proprietary driver - the most common "Textus
     // opens empty" report on Linux. Falling back to the older renderer costs
     // little for a text editor. Only on NVIDIA, and never over a value the
     // user set themselves. Set before any thread exists, which is what makes
@@ -15,5 +15,5 @@ fn main() {
         // SAFETY: first statement of main, single-threaded.
         unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
     }
-    levis_lib::run()
+    textus_lib::run()
 }

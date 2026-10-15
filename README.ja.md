@@ -1,10 +1,10 @@
 <!-- 構成は README.md と節ごとに対応しています（scripts/check-readmes.mjs で確認）。 -->
 
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Levis" width="120" height="120" />
+  <img src="src-tauri/icons/icon.png" alt="Textus" width="120" height="120" />
 </p>
 
-<h1 align="center">Levis</h1>
+<h1 align="center">Textus</h1>
 
 <p align="center">
   <strong>書き換えるのではなく、提案する AI を備えた WYSIWYG Markdown エディタ。</strong><br>
@@ -12,13 +12,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><strong>ダウンロード</strong></a> ·
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>ダウンロード</strong></a> ·
   <a href="./README.md">English</a> ·
   <a href="./README.zh.md">中文</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Levis"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
@@ -56,8 +56,8 @@
 ### あなたのプロジェクト、あなたの文体
 
 - **プロジェクトフォルダー**：文書を保存すると、そのフォルダーがプロジェクトフォルダーになります（別のフォルダーも選べます）。AI はその中のテキストファイルを読み、検索でき、`@` でファイルを会話に加えられます。
-- **文体プロファイル**（`.levis/style.md`）：**文体を学習**で、選んだ見本から下書きされます。続き書きも編集もあなたの書き方に沿います。
-- **ライブラリ**（`.levis/library/`）：人物、場所、用語。文章が触れている項目だけが AI に渡されるので、名前や設定がぶれません。
+- **文体プロファイル**（`.textus/style.md`）：**文体を学習**で、選んだ見本から下書きされます。続き書きも編集もあなたの書き方に沿います。
+- **ライブラリ**（`.textus/library/`）：人物、場所、用語。文章が触れている項目だけが AI に渡されるので、名前や設定がぶれません。
 - **執筆の指示**（`agent.md`）と**スキル**（`/名前`）：毎回の会話で守らせる常設のルールと、名前で呼び出す再利用できる指示。すべての文書にも、1つのプロジェクトだけにも設定できます。
 
 ### サービスとプライバシー
@@ -71,27 +71,27 @@
 macOS（Apple Silicon）は [Homebrew](https://brew.sh) で：
 
 ```sh
-brew install --cask catvinci-studio/tap/levis
+brew install --cask catvinci-studio/tap/textus
 ```
 
-Arch Linux は署名付きの [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman リポジトリから（設定は一度だけ。以後は `sudo pacman -Syu` で Levis も更新されます）：
+Arch Linux は署名付きの [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman リポジトリから（設定は一度だけ。以後は `sudo pacman -Syu` で Textus も更新されます）：
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) levis-bin
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
 ```
 
-または [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest) からインストーラーをダウンロードしてください：
+または [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) からインストーラーをダウンロードしてください：
 
 | プラットフォーム       | インストーラー                                                           |
 | ---------------------- | ------------------------------------------------------------------------ |
-| macOS（Apple Silicon） | `Levis_X.Y.Z_aarch64.dmg`                                                |
-| Windows                | `Levis_X.Y.Z_x64-setup.exe`                                              |
-| Linux                  | `Levis_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Levis-X.Y.Z-1.x86_64.rpm` |
+| macOS（Apple Silicon） | `Textus_X.Y.Z_aarch64.dmg`                                                |
+| Windows                | `Textus_X.Y.Z_x64-setup.exe`                                              |
+| Linux                  | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
 
 ## クイックスタート
 
-1. Levis を起動すると、空の下書きが開きます。ファイルが必要になるのは保存するときだけです。
-2. **設定 → Levis AI** でサービスを選び、**ログインと認証** でサインインするかキーを入力します。
+1. Textus を起動すると、空の下書きが開きます。ファイルが必要になるのは保存するときだけです。
+2. **設定 → Textus AI** でサービスを選び、**ログインと認証** でサインインするかキーを入力します。
 3. 書き始めます。手を止めると続き書きが灰色の文字で表示され、Tab で受け入れます。
 4. ウィンドウ上部のチャットボタンで AI パネルを開きます。そのほかは **ヘルプ → AI 機能ガイド** をご覧ください。
 
@@ -108,15 +108,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/ma
 
 いずれも **設定 → ショートカット** で変更できます。
 
-## なぜ Levis か
+## なぜ Textus か
 
-Markdown を書くことは、ファイルを編集することではなく、文章を書くことであってほしい。プレビューを見比べる必要も、記号に邪魔されることもなく。Levis はオープンソースで小さく、その AI は書き手であり続けたい人のために作られています。提案し、理由を示し、決めるのは常にあなたです。
+Markdown を書くことは、ファイルを編集することではなく、文章を書くことであってほしい。プレビューを見比べる必要も、記号に邪魔されることもなく。Textus はオープンソースで小さく、その AI は書き手であり続けたい人のために作られています。提案し、理由を示し、決めるのは常にあなたです。
 
 ## ソースからビルド
 
 ```bash
-git clone https://github.com/CatVinci-Studio/Levis.git
-cd Levis
+git clone https://github.com/CatVinci-Studio/Textus.git
+cd Textus
 npm install
 
 npm run tauri dev     # Tauri アプリ全体（Rust シェル + Vite レンダラー）

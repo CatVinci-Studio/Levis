@@ -89,7 +89,7 @@
   }
 
   /* Four tabs across one screen, English's "Editor & Appearance" and
-     "Levis AI" included: the tightest spacing that still fits them on a
+     "Textus AI" included: the tightest spacing that still fits them on a
      375pt iPhone. */
   :root[data-window-chrome="mobile"] .settings-nav {
     padding: 8px 8px;

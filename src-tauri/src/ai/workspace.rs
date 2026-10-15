@@ -4,18 +4,18 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-/// Everything that shapes Levis AI for the document being edited: the
-/// project folder, its `.levis/` folder and the global config folder. The
+/// Everything that shapes Textus AI for the document being edited: the
+/// project folder, its `.textus/` folder and the global config folder. The
 /// user-facing names and rules are in docs/AI-CONCEPTS.md; in code the
 /// project folder is still called the workspace root.
 ///
 /// The project folder is the document's own folder unless the user chose
-/// another one, and its `.levis/` directory holds the project's settings:
+/// another one, and its `.textus/` directory holds the project's settings:
 ///
 /// ```text
 /// my-novel/                 <- the project folder
 /// ├── chapter-1.md          <- the open document
-/// └── .levis/
+/// └── .textus/
 ///     ├── agent.md          <- the project's writing instructions (system prompt)
 ///     ├── style.md          <- the style profile (ai::project)
 ///     ├── library/          <- the library (ai::project)
@@ -39,9 +39,28 @@ use tauri::{AppHandle, Manager};
 ///
 /// Only `name` + `description` go into the system prompt (the skill index);
 /// the body is loaded dynamically via the `use_skill` tool.
-pub const WORKSPACE_DIR_NAME: &str = ".levis";
+pub const WORKSPACE_DIR_NAME: &str = ".textus";
 
-/// Who may start a skill (`metadata.levis-invocation`). `Both`: the model,
+/// The project folder's name in Levis, before the rename to Textus.
+pub const LEGACY_WORKSPACE_DIR_NAME: &str = ".levis";
+
+/// The project's settings folder: `.textus/`, or a Levis project's
+/// `.levis/` while it has no `.textus/`. That one is read AND written in
+/// place - never moved or copied - so a project keeps one folder and a Levis
+/// install sharing it still sees the same files; a new project gets
+/// `.textus/`. A project with both uses `.textus/` only.
+pub fn project_dir(root: &Path) -> PathBuf {
+    let dir = root.join(WORKSPACE_DIR_NAME);
+    if !dir.is_dir() {
+        let legacy = root.join(LEGACY_WORKSPACE_DIR_NAME);
+        if legacy.is_dir() {
+            return legacy;
+        }
+    }
+    dir
+}
+
+/// Who may start a skill (`metadata.textus-invocation`). `Both`: the model,
 /// when a request matches the description, and the user with /name.
 /// `UserOnly`: /name only - left out of the skill index the model sees.
 /// `Hidden`: neither; loaded by exact name with use_skill (the reference
@@ -56,7 +75,7 @@ pub enum Invocation {
 }
 
 /// Which layer a skill comes from: bundled with the app (ai::builtin), the
-/// global config folder's skills/, or the project's .levis/skills/. Each
+/// global config folder's skills/, or the project's .textus/skills/. Each
 /// layer replaces same-named skills of the ones before it.
 #[derive(Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -68,7 +87,7 @@ pub enum SkillSource {
 }
 
 /// One skill as the app sees it: the frontmatter's name and description,
-/// the body (`prompt`, comments stripped) and the Levis-only keys under
+/// the body (`prompt`, comments stripped) and the Textus-only keys under
 /// `metadata:` (see docs in parse_skill_file). Serialised camelCase for
 /// the frontend's skill list (src/ai/types.ts).
 #[derive(Serialize, Clone, Debug)]
@@ -77,7 +96,7 @@ pub struct AgentSkill {
     pub name: String,
     pub description: String,
     pub prompt: String,
-    /// `levis-category`: write, revise, check or format (the `/` menu's
+    /// `textus-category`: write, revise, check or format (the `/` menu's
     /// groups). None for a user skill that doesn't say.
     pub category: Option<String>,
     pub invocation: Invocation,
@@ -89,21 +108,21 @@ pub struct AgentSkill {
     /// (`disabledBuiltinSkills`); always true for the user's own skills.
     pub enabled: bool,
     /// Extra words the user can type after `/`, per UI language code
-    /// (src/i18n/langs.ts): `levis-aliases-<code>`, comma-separated.
+    /// (src/i18n/langs.ts): `textus-aliases-<code>`, comma-separated.
     pub aliases: BTreeMap<String, Vec<String>>,
-    /// `levis-packs`: the reference-pack sections appended to the body when
+    /// `textus-packs`: the reference-pack sections appended to the body when
     /// the skill is used ("contract", "craft#fiction", "standards#dialogue"
     /// for the document's language) - see ai::builtin::expand_skill.
     pub packs: Vec<String>,
-    /// `levis-version` of a built-in skill (bumped when its behaviour
+    /// `textus-version` of a built-in skill (bumped when its behaviour
     /// changes).
     pub version: Option<String>,
-    /// `levis-based-on: "<name>@<version>"`, written into a copy made with
+    /// `textus-based-on: "<name>@<version>"`, written into a copy made with
     /// Customize… - what makes Reset allowed to delete it.
     pub based_on: Option<String>,
     /// A customized copy whose built-in has a newer version since.
     pub builtin_updated: bool,
-    /// `levis-target-packs`: sections of the TARGET language's pack to
+    /// `textus-target-packs`: sections of the TARGET language's pack to
     /// attach when the request names one (translate).
     #[serde(skip)]
     pub target_packs: Vec<String>,
@@ -143,7 +162,7 @@ pub struct AgentWorkspace {
     /// The global writing instructions (the global config folder's
     /// agent.md, comments stripped), in prompt order.
     pub instructions: Vec<String>,
-    /// The project's writing instructions (`.levis/agent.md`), sent after
+    /// The project's writing instructions (`.textus/agent.md`), sent after
     /// the global ones and winning where the two conflict.
     pub project_instructions: Option<String>,
     /// Merged skills: the built-in ones (turned-off ones included, with
@@ -157,9 +176,9 @@ pub struct AgentWorkspace {
     /// agent's file tools. None for an unsaved draft, and for a folder too
     /// broad to expose (the home directory or a filesystem root).
     pub root: Option<String>,
-    /// `.levis/style.md` - the author's style profile.
+    /// `.textus/style.md` - the author's style profile.
     pub style: Option<String>,
-    /// `.levis/library/*.md` - the project's people, places and terms.
+    /// `.textus/library/*.md` - the project's people, places and terms.
     pub library: Vec<crate::ai::project::LibraryEntry>,
     /// Where `root` came from - or why there is none - so the agent can
     /// tell the user which folder it reads and how to change that.
@@ -187,7 +206,7 @@ pub enum RootSource {
     None,
     /// The open document's own folder - the default.
     DocumentFolder,
-    /// The folder the user chose (the project menu, or Settings > Levis AI).
+    /// The folder the user chose (the project menu, or Settings > Textus AI).
     Chosen,
     /// The folder would be the home folder or a drive root, which is never
     /// opened to the agent (project::is_too_broad).
@@ -414,13 +433,20 @@ fn unquote(raw: &str) -> String {
 /// doesn't), spaces in it become `-` so `/name` stays one token, and
 /// `<!-- -->` comments in the body are stripped like those in agent.md.
 ///
-/// The Levis keys under `metadata:` (all optional; built-in skills set them
-/// all): `levis-version`, `levis-invocation` (both, user-only, hidden),
-/// `levis-category`, `levis-packs` and `levis-target-packs` (space-separated
-/// pack references), `levis-aliases-<ui language>` (comma-separated),
-/// `levis-based-on` (a Customize… copy) and `levis-sources` (credits, not
-/// read). Claude Code's top-level `disable-model-invocation: true` also
-/// makes a skill /name-only.
+/// The Textus keys under `metadata:` (all optional; built-in skills set them
+/// all): `textus-version`, `textus-invocation` (both, user-only, hidden),
+/// `textus-category`, `textus-packs` and `textus-target-packs` (space-separated
+/// pack references), `textus-aliases-<ui language>` (comma-separated),
+/// `textus-based-on` (a Customize… copy) and `textus-sources` (credits, not
+/// read). A skill written for Levis says `levis-` instead (a Customize… copy
+/// imported from Levis, a project's .levis/skills/); that prefix is read the
+/// same, `textus-` winning where a file has both. Claude Code's top-level
+/// `disable-model-invocation: true` also makes a skill /name-only.
+/// The prefix of the app's own keys under a skill's `metadata:`.
+const META_PREFIX: &str = "textus";
+/// The same keys as Levis wrote them.
+const LEGACY_META_PREFIX: &str = "levis";
+
 pub(crate) fn parse_skill_file(file_stem: &str, content: &str) -> AgentSkill {
     let (frontmatter, body) = split_frontmatter(content);
     let fm = frontmatter.unwrap_or_default();
@@ -443,31 +469,46 @@ pub(crate) fn parse_skill_file(file_stem: &str, content: &str) -> AgentSkill {
         skill.invocation = Invocation::UserOnly;
     }
     let meta = |key: &str| {
-        fm.metadata
-            .get(key)
-            .map(|v| v.trim())
-            .filter(|v| !v.is_empty())
+        let get = |prefix: &str| {
+            fm.metadata
+                .get(&format!("{prefix}-{key}"))
+                .map(|v| v.trim())
+                .filter(|v| !v.is_empty())
+        };
+        get(META_PREFIX).or_else(|| get(LEGACY_META_PREFIX))
     };
-    if let Some(invocation) = meta("levis-invocation") {
+    if let Some(invocation) = meta("invocation") {
         skill.invocation = match invocation.to_ascii_lowercase().as_str() {
             "user-only" | "user_only" | "useronly" | "user" => Invocation::UserOnly,
             "hidden" => Invocation::Hidden,
             _ => Invocation::Both,
         };
     }
-    skill.category = meta("levis-category").map(str::to_string);
-    skill.version = meta("levis-version").map(str::to_string);
-    skill.based_on = meta("levis-based-on").map(str::to_string);
+    skill.category = meta("category").map(str::to_string);
+    skill.version = meta("version").map(str::to_string);
+    skill.based_on = meta("based-on").map(str::to_string);
     let words = |v: Option<&str>| {
         v.map(|v| v.split_whitespace().map(str::to_string).collect())
             .unwrap_or_default()
     };
-    skill.packs = words(meta("levis-packs"));
-    skill.target_packs = words(meta("levis-target-packs"));
-    for (key, value) in &fm.metadata {
-        let Some(lang) = key.strip_prefix("levis-aliases-") else {
-            continue;
-        };
+    skill.packs = words(meta("packs"));
+    skill.target_packs = words(meta("target-packs"));
+    // Legacy keys first, so a `textus-` list for the same language wins.
+    let mut alias_keys: Vec<(&str, &String)> = fm
+        .metadata
+        .iter()
+        .filter_map(|(key, value)| {
+            let lang = key
+                .strip_prefix(LEGACY_META_PREFIX)?
+                .strip_prefix("-aliases-")?;
+            Some((lang, value))
+        })
+        .collect();
+    alias_keys.extend(fm.metadata.iter().filter_map(|(key, value)| {
+        let lang = key.strip_prefix(META_PREFIX)?.strip_prefix("-aliases-")?;
+        Some((lang, value))
+    }));
+    for (lang, value) in alias_keys {
         let mut list: Vec<String> = Vec::new();
         for alias in value.split([',', '，']).map(str::trim) {
             if !alias.is_empty()
@@ -485,7 +526,7 @@ pub(crate) fn parse_skill_file(file_stem: &str, content: &str) -> AgentSkill {
     skill
 }
 
-/// Strips `<!-- -->` comments from a `.levis/` file or the global agent.md
+/// Strips `<!-- -->` comments from a `.textus/` file or the global agent.md
 /// before it goes anywhere near a prompt: the starter templates explain
 /// themselves in comments, and users get a natural way to annotate their
 /// files ("comments are never sent" holds for every one of them). An
@@ -505,7 +546,7 @@ pub(crate) fn strip_html_comments(text: &str) -> String {
     out
 }
 
-/// Reads one layer (the global config folder or a project's .levis dir):
+/// Reads one layer (the global config folder or a project's .textus dir):
 /// its agent.md and every skill under skills/, marked as coming from
 /// `source`. Missing files/dirs are just empty layers, never errors - most
 /// folders won't have any configuration.
@@ -550,7 +591,7 @@ fn read_skill_files(skills_dir: &Path) -> Vec<(PathBuf, AgentSkill)> {
 
 /// Notes on a user skill that it replaces the built-in skill of its name,
 /// and whether that built-in has changed since the skill was copied from
-/// it (Customize… writes `levis-based-on: "<name>@<version>"`).
+/// it (Customize… writes `textus-based-on: "<name>@<version>"`).
 fn mark_override(skill: &mut AgentSkill) {
     let Some(builtin) = builtin::find(&skill.name) else {
         return;
@@ -575,7 +616,7 @@ fn push_layer_skill(skills: &mut Vec<AgentSkill>, skill: AgentSkill) {
     skills.push(skill);
 }
 
-/// The built-in skills the user turned off in Settings > Levis AI > Skills
+/// The built-in skills the user turned off in Settings > Textus AI > Skills
 /// (settings.json's `disabledBuiltinSkills`).
 fn disabled_builtin_skills(app: &AppHandle) -> Vec<String> {
     crate::settings::read_setting(app, DISABLED_BUILTINS_KEY)
@@ -589,14 +630,14 @@ fn disabled_builtin_skills(app: &AppHandle) -> Vec<String> {
 /// The settings.json field listing the built-in skills turned off.
 pub(crate) const DISABLED_BUILTINS_KEY: &str = "disabledBuiltinSkills";
 
-/// Resolves the workspace root - the project folder: the folder `.levis/`
+/// Resolves the workspace root - the project folder: the folder `.textus/`
 /// is read from and the sandbox boundary the `list_files`/`read_file` tools
 /// may not escape.
 ///
 /// The document's own folder is the default and covers the common case (a
 /// folder of chapters, notes next to the draft). `root_override` is the
 /// chosen project folder ("Choose project folder…" in the project bar, or
-/// Settings > Levis AI > Project Folder) - one setting for every document,
+/// Settings > Textus AI > Project Folder) - one setting for every document,
 /// unsaved drafts included. Without it, reference material one folder over
 /// is simply unreachable, and so is any attachment the user picked from
 /// elsewhere on disk - which is exactly the wall a user hits the first time
@@ -627,7 +668,7 @@ pub(crate) fn project_root(doc_path: Option<&str>, root_override: Option<&str>) 
 }
 
 /// Loads the merged agent workspace for a document: the built-in skills,
-/// then the global config folder, then the project folder's `.levis/`
+/// then the global config folder, then the project folder's `.textus/`
 /// layer on top.
 pub fn load(
     app: &AppHandle,
@@ -699,7 +740,7 @@ pub(crate) fn load_layers(
         ws.conventions = crate::ai::project::style_conventions(ws.style.as_deref());
         ws.library = crate::ai::project::read_library(root);
         let (instructions, skills) =
-            read_layer(&root.join(WORKSPACE_DIR_NAME), SkillSource::Project);
+            read_layer(&project_dir(root), SkillSource::Project);
         ws.project_instructions = instructions;
         // Project skills shadow same-named global and built-in ones.
         for skill in skills {
@@ -762,7 +803,7 @@ fn listed(skills: Vec<AgentSkill>) -> Vec<AgentSkill> {
 }
 
 /// Folder picker behind "Choose project folder…" (the project bar's menu
-/// and Settings > Levis AI > Project Folder). Desktop only: the dialog
+/// and Settings > Textus AI > Project Folder). Desktop only: the dialog
 /// plugin has no folder picker on iOS.
 #[cfg(desktop)]
 #[tauri::command]
@@ -787,7 +828,7 @@ pub async fn pick_workspace_root(window: tauri::WebviewWindow) -> Result<Option<
 
 /// Creates the global config folder (with a starter agent.md and skills/
 /// folder on first use) and reveals it in the file manager - Settings >
-/// Levis AI > Global Config Folder. Desktop only: iOS has no file manager to
+/// Textus AI > Global Config Folder. Desktop only: iOS has no file manager to
 /// reveal a folder in (the opener plugin only opens URLs there).
 #[cfg(desktop)]
 #[tauri::command]
@@ -802,9 +843,9 @@ pub async fn open_global_agent_dir(app: AppHandle, template: String) -> Result<(
 
 /// Creates the global config folder if needed (skills/ folder plus a
 /// starter agent.md, same shape `open_global_agent_dir` guarantees) and
-/// returns the agent.md path. Backs Settings > Levis AI > Writing
+/// returns the agent.md path. Backs Settings > Textus AI > Writing
 /// Instructions > Edit agent.md, which opens that file in the editor itself
-/// - Levis IS a markdown editor, so there's no bespoke textarea for it.
+/// - Textus IS a markdown editor, so there's no bespoke textarea for it.
 #[tauri::command]
 pub fn ensure_global_agent_md(app: AppHandle, template: String) -> Result<String, String> {
     Ok(ensure_global_layer(&app, &template)?
@@ -928,10 +969,10 @@ pub async fn import_agent_skill(
 pub(crate) const UNKNOWN_BUILTIN: &str = "UNKNOWN_BUILTIN";
 pub(crate) const NOT_A_COPY: &str = "NOT_A_COPY";
 
-/// Settings > Levis AI > Skills > Customize…: copies a built-in skill into
+/// Settings > Textus AI > Skills > Customize…: copies a built-in skill into
 /// the global config folder's skills/, where it replaces the built-in, and
 /// returns the copy's path for the frontend to open in a tab. The copy
-/// gains `levis-based-on: "<name>@<version>"` under `metadata:`, which is
+/// gains `textus-based-on: "<name>@<version>"` under `metadata:`, which is
 /// what lets Reset delete it and Settings say when the built-in has changed.
 /// An existing skill of that name - an earlier copy, or the user's own - is
 /// never overwritten: its path is returned instead.
@@ -968,9 +1009,9 @@ pub(crate) fn customize_in(skills_dir: &Path, name: &str) -> Result<PathBuf, Str
     Ok(path)
 }
 
-/// Settings > Levis AI > Skills > Reset to built-in: deletes the global
+/// Settings > Textus AI > Skills > Reset to built-in: deletes the global
 /// copies Customize… made of a built-in skill (those carrying
-/// `levis-based-on`), so the built-in applies again. A same-named skill the
+/// `textus-based-on`), so the built-in applies again. A same-named skill the
 /// user wrote or imported themselves is theirs: NOT_A_COPY, nothing
 /// deleted. Nothing to delete is not an error. Returns the deleted files'
 /// paths, so the frontend can close a tab still showing one: saving that
@@ -1012,7 +1053,7 @@ pub(crate) fn reset_in(skills_dir: &Path, name: &str) -> Result<Vec<String>, Str
     Ok(deleted)
 }
 
-/// Turns a built-in skill on or off (Settings > Levis AI > Skills): kept in
+/// Turns a built-in skill on or off (Settings > Textus AI > Skills): kept in
 /// settings.json as `disabledBuiltinSkills`, broadcast to every window like
 /// any settings change. Returns the new list.
 #[tauri::command]
@@ -1188,7 +1229,7 @@ mod tests {
     fn a_name_nested_under_metadata_does_not_rename_the_skill() {
         let skill = parse_skill_file(
             "polish",
-            "---\nname: polish\nmetadata:\n  name: other\n  levis-category: \"revise\"\n  levis-packs: \"contract standards#words\"\n  levis-aliases-zh: \"润色， 打磨, 润色\"\n  levis-invocation: user-only\ndescription: Polish\n---\nbody",
+            "---\nname: polish\nmetadata:\n  name: other\n  textus-category: \"revise\"\n  textus-packs: \"contract standards#words\"\n  textus-aliases-zh: \"润色， 打磨, 润色\"\n  textus-invocation: user-only\ndescription: Polish\n---\nbody",
         );
         assert_eq!(skill.name, "polish");
         assert_eq!(skill.description, "Polish");
@@ -1226,7 +1267,7 @@ mod tests {
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "levis-skills-{tag}-{}-{}",
+            "textus-skills-{tag}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1243,6 +1284,49 @@ mod tests {
     }
 
     #[test]
+    fn a_levis_project_folder_is_used_in_place_until_a_textus_one_exists() {
+        let root = scratch("legacy-dir");
+        let project = root.join("novel");
+        std::fs::create_dir_all(&project).unwrap();
+        assert_eq!(project_dir(&project), project.join(".textus"), "new project");
+        write(
+            &project.join(".levis/skills/house.md"),
+            "---\nname: house\ndescription: Levis-era skill\nmetadata:\n  levis-category: \"revise\"\n  levis-aliases-zh: \"家规\"\n---\nKeep it short.",
+        );
+        write(&project.join(".levis/agent.md"), "Write in British English.");
+        write(&project.join("chapter.md"), "# One");
+        assert_eq!(project_dir(&project), project.join(".levis"));
+        let doc = project.join("chapter.md");
+        let ws = load_layers(None, doc.to_str(), None, &[]);
+        let house = ws.skills.iter().find(|s| s.name == "house").unwrap();
+        assert_eq!(house.source, SkillSource::Project);
+        assert_eq!(house.category.as_deref(), Some("revise"));
+        assert_eq!(house.aliases["zh"], ["家规"]);
+        assert!(ws
+            .project_instructions
+            .as_deref()
+            .is_some_and(|i| i.contains("British English")));
+        // Once there is a .textus/, it is the only one read; .levis/ stays.
+        write(&project.join(".textus/agent.md"), "Textus rules.");
+        assert_eq!(project_dir(&project), project.join(".textus"));
+        let ws = load_layers(None, doc.to_str(), None, &[]);
+        assert!(!ws.skills.iter().any(|s| s.name == "house"));
+        assert!(project.join(".levis/skills/house.md").exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn textus_metadata_wins_over_the_levis_prefix() {
+        let skill = parse_skill_file(
+            "x",
+            "---\nname: x\nmetadata:\n  levis-version: \"1\"\n  textus-version: \"2\"\n  levis-based-on: \"tighten@1\"\n  levis-aliases-en: \"old\"\n  textus-aliases-en: \"new\"\n---\nbody",
+        );
+        assert_eq!(skill.version.as_deref(), Some("2"));
+        assert_eq!(skill.based_on.as_deref(), Some("tighten@1"));
+        assert_eq!(skill.aliases["en"], ["new"]);
+    }
+
+    #[test]
     fn layers_override_built_ins_by_name() {
         let root = scratch("layers");
         let global = root.join("agent");
@@ -1256,7 +1340,7 @@ mod tests {
             "---\nname: headline\ndescription: Global headline\n---\nGlobal.",
         );
         write(
-            &project.join(".levis/skills/headline.md"),
+            &project.join(".textus/skills/headline.md"),
             "---\nname: headline\ndescription: House style\n---\nAt most 6 words.",
         );
         write(&project.join("chapter.md"), "# One");
@@ -1303,7 +1387,7 @@ mod tests {
         let path = customize_in(&skills, "tighten").unwrap();
         assert_eq!(path, skills.join("tighten.md"));
         let copy = std::fs::read_to_string(&path).unwrap();
-        assert!(copy.contains("levis-based-on: \"tighten@1\""));
+        assert!(copy.contains("textus-based-on: \"tighten@1\""));
         // The copy now shadows the built-in, marked as such.
         let ws = load_layers(Some(&root), None, None, &[]);
         let tighten = ws.skills.iter().find(|s| s.name == "tighten").unwrap();

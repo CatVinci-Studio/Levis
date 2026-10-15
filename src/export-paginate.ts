@@ -33,7 +33,7 @@ export const WINDOWS_PAGE: PageGeometry = {
   margin: 53,
 };
 
-const SPACER_CLASS = "levis-page-spacer";
+const SPACER_CLASS = "textus-page-spacer";
 
 // Containers whose children can start on a new page on their own. Anything
 // else is moved as a whole, or left to split if it is taller than a page.

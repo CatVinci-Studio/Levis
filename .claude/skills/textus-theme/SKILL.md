@@ -1,9 +1,9 @@
 ---
-name: levis-theme
-description: Author or modify a Levis editor theme - the built-in content themes in src/editor/content-themes.css, or a Typora-compatible CSS file users import. Use when adding a theme, changing theme colours, touching --editor-* / --sidebar-* / --bg CSS variables, debugging why a theme only half-applies or looks wrong in dark mode, or working on the theme picker in Settings.
+name: textus-theme
+description: Author or modify a Textus editor theme - the built-in content themes in src/editor/content-themes.css, or a Typora-compatible CSS file users import. Use when adding a theme, changing theme colours, touching --editor-* / --sidebar-* / --bg CSS variables, debugging why a theme only half-applies or looks wrong in dark mode, or working on the theme picker in Settings.
 ---
 
-# Authoring a Levis theme
+# Authoring a Textus theme
 
 ## The two things called "theme"
 
@@ -137,12 +137,12 @@ sits under `.milkdown`. Target `#write` for Typora compatibility.
 
 **Why a plain `blockquote {}` wins.** How document elements look (headings,
 quotes, links, rules, code, list rhythm, tables) lives in
-`src/editor/content-base.css`, inside `@layer levis-content`. Unlayered CSS
+`src/editor/content-base.css`, inside `@layer textus-content`. Unlayered CSS
 beats layered CSS regardless of specificity, so an imported theme's bare
 element selectors override the built-in look. What makes the editor _work_
 (list markers, carets, previews, table layout and resize handles) stays
 unlayered in `milkdown-theme.css` so a theme can't break it. While an imported
-theme is active, `<html>` carries `data-user-theme` and Levis's own ornaments
+theme is active, `<html>` carries `data-user-theme` and Textus's own ornaments
 (h2 rule, h3 bar, h4 dot, tinted quote, accent hr) switch off, so a theme
 looks the way it does in Typora. A new built-in _look_ rule belongs in
 `content-base.css`; a new _behaviour_ rule in `milkdown-theme.css`.

@@ -9,7 +9,7 @@ import { IN_DOCUMENTS } from "./documents-path";
 import { getUiState, setUiState, uiStateReady } from "../storage/ui-state";
 
 /**
- * iOS document access (src-tauri/plugins/levis-files). A file or folder the
+ * iOS document access (src-tauri/plugins/textus-files). A file or folder the
  * user picks in the Files app is addressed by its `file://` URL and read and
  * written through the native plugin, which holds the security scope; the
  * app's own Documents folder keeps plain paths and the ordinary Rust file
@@ -24,7 +24,7 @@ export function isScopedUrl(path: string): boolean {
 type Picked = { url: string | null; name?: string; folder?: boolean };
 
 const call = <T>(command: string, args?: Record<string, unknown>) =>
-  invoke<T>(`plugin:levis-files|${command}`, args ? { args } : undefined);
+  invoke<T>(`plugin:textus-files|${command}`, args ? { args } : undefined);
 
 /** A pick from the app's own Documents folder as the plain path the rest of
  *  the app (the file tree, open tabs) knows it by - otherwise the same file
@@ -121,7 +121,7 @@ export async function restoreFolderAccess(): Promise<void> {
   );
 }
 
-/** The app's Documents folder - "On My iPhone > Levis" in the Files app,
+/** The app's Documents folder - "On My iPhone > Textus" in the Files app,
  *  where new documents are saved and what the file tree shows by default.
  *  Null until it resolves, and always null on desktop. */
 export function useIOSDocumentsFolder(): string | null {
@@ -179,7 +179,7 @@ let recentsQueue: Promise<unknown> = Promise.resolve();
 /**
  * Changes the stored list, one change at a time. Each is a read, an await
  * or two (the live copy, the Documents path), then a write - and two
- * documents opened together (a launch restoring one while "Open in Levis"
+ * documents opened together (a launch restoring one while "Open in Textus"
  * delivers another) used to interleave: both read the same list and the
  * second write dropped the first one's entry. Queued, each change starts
  * from what the previous one wrote.

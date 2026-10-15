@@ -2109,7 +2109,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "levis"
+name = "textus"
 version = "0.9.6"
 dependencies = [
  "aicompat",
@@ -2133,7 +2133,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
- "tauri-plugin-levis-files",
+ "tauri-plugin-textus-files",
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-single-instance",
@@ -4296,7 +4296,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-levis-files"
+name = "tauri-plugin-textus-files"
 version = "0.1.0"
 dependencies = [
  "serde",

@@ -1,5 +1,5 @@
 // The command list is also the permission list (permissions/default.toml
-// allows them all). Each one is a method of LevisFilesPlugin.swift.
+// allows them all). Each one is a method of TextusFilesPlugin.swift.
 const COMMANDS: &[&str] = &[
     "pick_document",
     "pick_folder",

@@ -4,9 +4,9 @@ description: >-
   Language-independent writing craft that built-in skills attach: fiction (show and tell, point of view, poems, screenplays), plain language, email structure, and social platform limits.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Summarised from Wikipedia (Show, don't tell; Narration; Screenplay; Haiku; Jueju; Regulated verse; Sijo), CommonMark, Fountain, the Federal Plain Language Guidelines and The Tongue and Quill (public domain), GOV.UK (OGL v3.0), 公用文作成の考え方 (文化庁), 국어기본법, Lei 15.263/2025, DIN SPEC 33429; platform limits are dated facts from the platforms' documentation."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Summarised from Wikipedia (Show, don't tell; Narration; Screenplay; Haiku; Jueju; Regulated verse; Sijo), CommonMark, Fountain, the Federal Plain Language Guidelines and The Tongue and Quill (public domain), GOV.UK (OGL v3.0), 公用文作成の考え方 (文化庁), 국어기본법, Lei 15.263/2025, DIN SPEC 33429; platform limits are dated facts from the platforms' documentation."
 ---
 
 ## fiction

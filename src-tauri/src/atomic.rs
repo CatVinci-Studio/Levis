@@ -172,12 +172,12 @@ mod tests {
 
     #[test]
     fn temp_files_are_unique_private_and_removed_on_drop() {
-        let a = TempFile::create("levis-test-", ".html", "<p>a</p>").unwrap();
-        let b = TempFile::create("levis-test-", ".html", "<p>b</p>").unwrap();
+        let a = TempFile::create("textus-test-", ".html", "<p>a</p>").unwrap();
+        let b = TempFile::create("textus-test-", ".html", "<p>b</p>").unwrap();
         assert_ne!(a.path(), b.path());
         assert_eq!(std::fs::read_to_string(a.path()).unwrap(), "<p>a</p>");
         let name = a.path().file_name().unwrap().to_str().unwrap();
-        assert!(name.starts_with("levis-test-") && name.ends_with(".html"));
+        assert!(name.starts_with("textus-test-") && name.ends_with(".html"));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -190,7 +190,7 @@ mod tests {
     }
 
     fn scratch_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("levis-atomic-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("textus-atomic-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn secrets_are_owner_only_and_replace_atomically() {
         use std::os::unix::fs::PermissionsExt;
-        let path = std::env::temp_dir().join(format!("levis-secret-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!("textus-secret-{}.json", std::process::id()));
         write_secret_sync(&path, "one").unwrap();
         write_secret_sync(&path, "two").unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "two");

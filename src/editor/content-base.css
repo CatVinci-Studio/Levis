@@ -12,13 +12,20 @@
 
    Two tiers inside the layer. The plain rules are a neutral base, close to
    Typora's own base.css, that every theme builds on. The
-   `:not([data-user-theme])` rules are Levis's own ornaments - the h2 rule,
+   `:not([data-user-theme])` rules are Textus's own ornaments - the h2 rule,
    the h3 bar, the h4 dot, the tinted quote - which an imported theme never
    asked for: a theme that styles h3's colour but says nothing of borders
-   would otherwise keep Levis's accent bar. SettingsContext sets
-   data-user-theme while an imported theme is active. */
+   would otherwise keep Textus's accent bar. SettingsContext sets
+   data-user-theme while an imported theme is active.
 
-@layer levis-content {
+   The layer was `levis-content` before the rename to Textus. It was renamed
+   rather than kept: CSS written for Levis that says
+   `@layer levis-content { ... }` now creates a layer declared after this
+   one, so its rules still override the built-in look (more reliably than
+   before, when specificity inside the shared layer decided), and unlayered
+   CSS wins over both as always (e2e/user-css.spec.ts). */
+
+@layer textus-content {
   /* The document's type. The size follows the column: the classic 16.5px
      at the 760px standard measure, growing to 18px as the adaptive column
      widens (App.css --content-width), so a wide column doesn't read as
@@ -38,7 +45,7 @@
   }
 
   /* An imported Typora theme sets the type on body or html; let it reach
-     the document instead of Levis's own. */
+     the document instead of Textus's own. */
   :root[data-user-theme] .milkdown {
     font-size: inherit;
     line-height: inherit;
@@ -200,7 +207,7 @@
      (list_item content is "paragraph block*"), so without this rule each
      row carries .milkdown p's prose margin and a list reads as a stack of
      separate paragraphs. Rows sit tighter than prose by default;
-     --editor-list-gap is the theme hook (see the levis-theme skill's
+     --editor-list-gap is the theme hook (see the textus-theme skill's
      variable table). Nested ul/ol are included because their UA margin
      (1em) is what makes the step into a sublist read wide. */
   .milkdown li > p,
@@ -254,7 +261,7 @@
     pointer-events: none;
   }
 
-  /* Levis's own ornaments - see the header comment. Settings > Theme >
+  /* Textus's own ornaments - see the header comment. Settings > Theme >
      Export writes each of these out as a #write rule (theme-export.ts), so
      keep them one selector per rule under this exact prefix. */
   :root:not([data-user-theme]) .milkdown h2 {

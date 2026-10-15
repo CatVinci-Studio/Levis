@@ -336,7 +336,7 @@ fn en_cases() -> Vec<AgentCase> {
     let code = checks::lines_between(TECH_EN, "```js", "}\n```");
     c.push(AgentCase::new("tech/en/fix-await", Lang::En, Lang::En, TECH_EN, "uploadAll returns before the uploads are done. Fix it.", edit_in(&code, StructureExpect::Same).has(&["await client.upload"]), "The bug: client.upload(...) is not awaited inside the loop. Expect a minimal fix (await client.upload(...), or Promise.all) inside the js block, nothing else changed; the reply names the cause in a sentence."));
     let steps = checks::lines_between(TECH_EN, "1. Create", "target folder.");
-    c.push(AgentCase::new("tech/en/add-step", Lang::En, Lang::En, TECH_EN, "Add a step between 2 and 3: set the LEVIS_TOKEN environment variable to your token.", edit_in(&steps, StructureExpect::Delta(&[("item", 1), ("/", 1)])).has(&["LEVIS_TOKEN"]), "Expect a new ordered item between steps 2 and 3 (renumbered 3/4 or left for Markdown to number), with `LEVIS_TOKEN` in code formatting, nothing else changed."));
+    c.push(AgentCase::new("tech/en/add-step", Lang::En, Lang::En, TECH_EN, "Add a step between 2 and 3: set the TEXTUS_TOKEN environment variable to your token.", edit_in(&steps, StructureExpect::Delta(&[("item", 1), ("/", 1)])).has(&["TEXTUS_TOKEN"]), "Expect a new ordered item between steps 2 and 3 (renumbered 3/4 or left for Markdown to number), with `TEXTUS_TOKEN` in code formatting, nothing else changed."));
     // para() splits on blank lines, which the code block above has.
     let retries = checks::lines_between(TECH_EN, "Uploads that fail", "after each attempt.");
     c.push(AgentCase::new("tech/en/rewrite-keep-code", Lang::En, Lang::En, TECH_EN, "Rewrite the Retries paragraph so it's easier to scan.", edit_in(&retries, StructureExpect::Any).keep_inline().has(&["`retries`", "`backoffMs`"]), "Expect the Retries paragraph made scannable (shorter sentences or a short list), keeping the inline code `retries`, `3` and `backoffMs` and every fact (automatic retry on network errors, default 3, delay doubles)."));
@@ -379,10 +379,10 @@ fn en_cases() -> Vec<AgentCase> {
     c.push(AgentCase::new("novel/en/continue", Lang::En, Lang::En, NOVEL_EN, "Continue the scene with three more lines of dialogue.", end, "Fiction: inventing is fine here. Expect three more lines of dialogue appended after the last paragraph, consistent with Elena's irritation and Tom's dead phone, in the same past-tense style and quote marks."));
 
     // Social post.
-    c.push(AgentCase::new("social/en/tweet", Lang::En, Lang::En, SOCIAL_EN, "Make this fit in a single tweet (280 characters).", edit_in(para(SOCIAL_EN, 0), StructureExpect::Same).has(&["levis.app"]).check("at most 280 characters", |o| {
+    c.push(AgentCase::new("social/en/tweet", Lang::En, Lang::En, SOCIAL_EN, "Make this fit in a single tweet (280 characters).", edit_in(para(SOCIAL_EN, 0), StructureExpect::Same).has(&["textus.app"]).check("at most 280 characters", |o| {
         let n = proposed_text(o).trim().chars().count();
         (n <= 280).then_some(()).ok_or_else(|| format!("{n} characters"))
-    }), "Expect the post cut to at most 280 characters, keeping the launch of Levis 1.0, the core pitch (offline, sync, AI that respects your writing), the thanks if room allows, free on macOS/Windows/Linux and levis.app."));
+    }), "Expect the post cut to at most 280 characters, keeping the launch of Textus 1.0, the core pitch (offline, sync, AI that respects your writing), the thanks if room allows, free on macOS/Windows/Linux and textus.app."));
 
     // Product copy.
     c.push(AgentCase::new("product/en/bullets", Lang::En, Lang::En, PRODUCT_EN, "Turn the selling points into a 3-bullet list.", edit_in(para(PRODUCT_EN, 0), StructureExpect::Any).has(&["12%"]).check("three list items", |o| {

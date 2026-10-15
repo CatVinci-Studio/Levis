@@ -453,7 +453,7 @@ export interface CompletionHints {
   length: "short" | "long";
 }
 
-/** A project library entry (`.levis/library/*.md`, ai::project). */
+/** A project library entry (`.textus/library/*.md`, ai::project). */
 export interface LibraryEntry {
   name: string;
   aliases: string[];
@@ -463,11 +463,11 @@ export interface LibraryEntry {
   body: string;
 }
 
-/** What shapes Levis AI for one document - see docs/AI-CONCEPTS.md. */
+/** What shapes Textus AI for one document - see docs/AI-CONCEPTS.md. */
 export interface AgentWorkspaceInfo {
   /** The global writing instructions (agent.md), comments stripped. */
   instructions: string[];
-  /** The project's writing instructions (.levis/agent.md), if any. */
+  /** The project's writing instructions (.textus/agent.md), if any. */
   project_instructions: string | null;
   /** Global and project skills; a project skill replaces a global one of
    *  the same name. */
@@ -568,7 +568,7 @@ export type WritingConventionsSetting =
       options?: Record<string, string>;
     });
 
-/** `.levis/style.md` front matter, as Rust read it. */
+/** `.textus/style.md` front matter, as Rust read it. */
 export interface ProjectConventions {
   profiles: string[];
   options: Record<string, string>;
@@ -641,7 +641,7 @@ export interface TextMeasure {
 /**
  * One skill as the `/` menu and Settings list it (ai::workspace::AgentSkill,
  * from `list_skills`): the built-ins, the global config folder's skills/
- * and the project's .levis/skills/, each layer replacing same-named skills
+ * and the project's .textus/skills/, each layer replacing same-named skills
  * of the layers before it. Hidden skills are never listed.
  */
 export interface SkillListItem {
@@ -668,7 +668,7 @@ export interface SkillListItem {
   aliases: Record<string, string[]>;
   /** Reference-pack sections Rust appends when it is used. */
   packs?: string[];
-  /** A built-in's `levis-version`. */
+  /** A built-in's `textus-version`. */
   version?: string | null;
   /** "tighten@1" on a copy made by Customize… - only then can Reset
    *  delete it. */
@@ -733,9 +733,9 @@ export const ai = {
     provider: string;
     document: string;
     docPath: string | null;
-    /** The chosen project folder (Settings > Levis AI > Project Folder, or
+    /** The chosen project folder (Settings > Textus AI > Project Folder, or
      *  the project bar); null keeps the default, the document's own folder.
-     *  Decides where .levis/ is read from and how far list_files/read_file
+     *  Decides where .textus/ is read from and how far list_files/read_file
      *  may reach. */
     workspaceRoot: string | null;
     history: AgentTurn[];
@@ -806,7 +806,7 @@ export const ai = {
     workspaceRoot: string | null,
     path: string,
   ) => call<string>("read_project_file", { docPath, workspaceRoot, path }),
-  /** Creates `.levis/<rel>` from `template` if missing; returns its path. */
+  /** Creates `.textus/<rel>` from `template` if missing; returns its path. */
   ensureProjectFile: (
     docPath: string | null,
     workspaceRoot: string | null,
@@ -820,7 +820,7 @@ export const ai = {
       template,
     }),
   pickTextFiles: () => call<string[]>("pick_text_files"),
-  /** "Learn my style": writes the project's .levis/style.md from the
+  /** "Learn my style": writes the project's .textus/style.md from the
    *  picked samples and returns its path. */
   learnStyle: (args: {
     provider: string;
@@ -830,7 +830,7 @@ export const ai = {
     files: string[];
   }) => call<string>("learn_style", args),
   /** Folder picker behind "Choose project folder…" (the project bar's menu
-   *  and Settings > Levis AI > Project Folder). */
+   *  and Settings > Textus AI > Project Folder). */
   pickWorkspaceRoot: (): Promise<string | null> =>
     isIOSApp
       ? iosFiles.pickProjectFolder()

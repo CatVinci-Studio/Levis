@@ -996,7 +996,7 @@ pub async fn ai_grammar_check(
     strictness: Option<String>,
     model: Option<String>,
     // The document and the chosen project folder, for the writing
-    // conventions profile (.levis/style.md) and the library names the rules
+    // conventions profile (.textus/style.md) and the library names the rules
     // check; both optional, so an older caller gets Automatic.
     doc_path: Option<String>,
     workspace_root: Option<String>,

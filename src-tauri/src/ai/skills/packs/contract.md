@@ -7,9 +7,9 @@ description: >-
   report.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Ideas from blader/humanizer, avoid-ai-writing, Humanizer-zh, yomiyasu, talkstream/ru-text and k-skill (MIT), and the prompts.chat Multilingual Writing Improvement Assistant (CC0); all summarised in our words."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Ideas from blader/humanizer, avoid-ai-writing, Humanizer-zh, yomiyasu, talkstream/ru-text and k-skill (MIT), and the prompts.chat Multilingual Writing Improvement Assistant (CC0); all summarised in our words."
 ---
 
 ## contract

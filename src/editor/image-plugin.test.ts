@@ -30,21 +30,31 @@ describe("image upload filenames", () => {
 
 describe("image width metadata", () => {
   it("reads a saved width without exposing it as the image tooltip", () => {
-    expect(readImagePresentation("Product shot {levis-width=70%}")).toEqual({
+    expect(readImagePresentation("Product shot {textus-width=70%}")).toEqual({
       title: "Product shot",
       widthPercent: 70,
     });
   });
 
   it("updates the width while preserving a regular Markdown title", () => {
-    expect(writeImageWidth("Product shot {levis-width=50%}", 70)).toBe(
-      "Product shot {levis-width=70%}",
+    expect(writeImageWidth("Product shot {textus-width=50%}", 70)).toBe(
+      "Product shot {textus-width=70%}",
+    );
+  });
+
+  it("reads a width Levis saved and rewrites it with the textus key", () => {
+    expect(readImagePresentation("Shot {levis-width=40%}")).toEqual({
+      title: "Shot",
+      widthPercent: 40,
+    });
+    expect(writeImageWidth("Shot {levis-width=40%}", 60)).toBe(
+      "Shot {textus-width=60%}",
     );
   });
 
   it("can restore automatic sizing and remove metadata-only titles", () => {
-    expect(writeImageWidth("{levis-width=50%}", null)).toBeNull();
-    expect(writeImageWidth("Product shot {levis-width=50%}", null)).toBe(
+    expect(writeImageWidth("{textus-width=50%}", null)).toBeNull();
+    expect(writeImageWidth("Product shot {textus-width=50%}", null)).toBe(
       "Product shot",
     );
   });

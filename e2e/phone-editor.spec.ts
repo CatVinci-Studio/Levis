@@ -155,7 +155,7 @@ test("a tap on a grammar underline offers the fix in a sheet", async ({
   // The tutorial's canned issue: no backend needed.
   await page.evaluate(() =>
     window.dispatchEvent(
-      new CustomEvent("levis:tutorial-mock-grammar", {
+      new CustomEvent("textus:tutorial-mock-grammar", {
         detail: {
           target: "She go to school.",
           issues: [

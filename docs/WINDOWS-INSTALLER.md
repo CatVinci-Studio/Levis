@@ -30,9 +30,9 @@ install-location page was kept.
 | #   | Page             | What it is for                                               |
 | --- | ---------------- | ------------------------------------------------------------ |
 | 1   | Welcome          | The branded sidebar. No decisions.                           |
-| 2   | Install location | Defaults to `%LOCALAPPDATA%\Levis`; changeable.              |
+| 2   | Install location | Defaults to `%LOCALAPPDATA%\Textus`; changeable.              |
 | 3   | Progress         | Advances to the finish page by itself when the copy is done. |
-| 4   | Finish           | "Create a desktop shortcut" and "Run Levis" checkboxes.      |
+| 4   | Finish           | "Create a desktop shortcut" and "Run Textus" checkboxes.      |
 
 Pages that exist in the stock Tauri template and are deliberately **not**
 shown:
@@ -86,7 +86,7 @@ stretched to fit and looks it.
 tauri-bundler's own template, vendored (from tauri-cli v2.11.4) because the
 two changes above are to `Page` declarations and no config option reaches
 them; `installerHooks` only reaches the four install/uninstall macros. It is
-upstream **verbatim** apart from the blocks marked `; Levis:`, so re-syncing
+upstream **verbatim** apart from the blocks marked `; Textus:`, so re-syncing
 after a CLI upgrade is a diff against that tag's copy of
 `crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi` plus re-applying
 those blocks.

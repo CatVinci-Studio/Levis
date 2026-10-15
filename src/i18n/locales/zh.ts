@@ -64,7 +64,7 @@ export default {
   格式    数字一律用阿拉伯数字。
   背景    我写面向大众读者的科普长文。
 
-只针对某个项目的要求，写在那个项目的 .levis/agent.md 里（AI 面板的
+只针对某个项目的要求，写在那个项目的 .textus/agent.md 里（AI 面板的
 项目菜单 > 编辑本项目的写作要求）。两份都会发送；有冲突时以项目的
 为准。
 
@@ -479,8 +479,8 @@ export default {
   updateDownloading: "正在下载更新…",
   updateFailed: "更新失败:",
   updateViaPackageManager: `${APP_NAME} 由系统包管理器安装，请用包管理器更新。`,
-  cliCommandLabel: "终端 'levis' 命令",
-  cliCommandHint: `在终端中用 levis 打开 ${APP_NAME}，或 levis README.md 打开指定文件`,
+  cliCommandLabel: "终端 'textus' 命令",
+  cliCommandHint: `在终端中用 textus 打开 ${APP_NAME}，或 textus README.md 打开指定文件`,
   cliCommandInstalled: "已安装",
   cliCommandNotInstalled: "未安装",
   cliCommandInstallButton: "安装",

@@ -59,11 +59,11 @@ describe("imported theme chrome", () => {
   );
   it("clears only the derived stylesheet when returning to a built-in theme", () => {
     document.head.innerHTML =
-      '<style id="levis-imported-chrome"></style><style id="levis-custom-theme"></style>';
+      '<style id="textus-imported-chrome"></style><style id="textus-custom-theme"></style>';
     clearThemeChrome();
-    expect(document.getElementById("levis-imported-chrome")).toBeNull();
-    expect(document.getElementById("levis-custom-theme")).not.toBeNull();
-    document.getElementById("levis-custom-theme")?.remove();
+    expect(document.getElementById("textus-imported-chrome")).toBeNull();
+    expect(document.getElementById("textus-custom-theme")).not.toBeNull();
+    document.getElementById("textus-custom-theme")?.remove();
   });
 });
 

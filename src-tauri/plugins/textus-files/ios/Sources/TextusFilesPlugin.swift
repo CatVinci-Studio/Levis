@@ -28,16 +28,16 @@ struct PickArgs: Decodable {
   var allowedExtensions: [String]?
 }
 
-private let bookmarksKey = "levis.bookmarks"
+private let bookmarksKey = "textus.bookmarks"
 /// The bookmark keys, least recently picked or used first - what decides
 /// which bookmarks go once there are more than `maxBookmarks`.
-private let bookmarkOrderKey = "levis.bookmarks.order"
+private let bookmarkOrderKey = "textus.bookmarks.order"
 /// Every bookmark is resolved on each read and write (scopeRoot), and
 /// UserDefaults is loaded whole at launch, so the list can't grow forever.
 /// Far more than anyone keeps open; the oldest unused ones go first.
 private let maxBookmarks = 200
 
-class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
+class TextusFilesPlugin: Plugin, UIDocumentPickerDelegate {
   private var pending: Invoke?
   private var pickingFolder = false
   private var keyboardFit: KeyboardFit?
@@ -306,7 +306,7 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
 
   /// Opens a remembered folder's scope until the app quits and returns its
   /// plain path. A scope covers the whole process, so the Rust side (the
-  /// project folder the AI reads, .levis/style.md and library/) then reads
+  /// project folder the AI reads, .textus/style.md and library/) then reads
   /// it with ordinary file calls.
   @objc public func beginAccess(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(UrlArgs.self)
@@ -336,7 +336,7 @@ class LevisFilesPlugin: Plugin, UIDocumentPickerDelegate {
 
 }
 
-@_cdecl("init_plugin_levis_files")
+@_cdecl("init_plugin_textus_files")
 func initPlugin() -> Plugin {
-  return LevisFilesPlugin()
+  return TextusFilesPlugin()
 }

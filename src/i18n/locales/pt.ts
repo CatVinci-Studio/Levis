@@ -72,7 +72,7 @@ Vale a pena escrever aqui, por exemplo:
   Termos       Escreva “e-mail”, nunca “email”.
   Contexto     Escrevo reportagens longas de divulgação científica para o público geral.
 
-Instruções para um só projeto ficam no .levis/agent.md desse projeto
+Instruções para um só projeto ficam no .textus/agent.md desse projeto
 (menu do projeto no painel de IA > Editar instruções de escrita do projeto).
 Os dois são enviados; quando divergem, vale o do projeto.
 
@@ -509,8 +509,8 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   updateDownloading: "Baixando a atualização…",
   updateFailed: "Falha na atualização:",
   updateViaPackageManager: `O ${APP_NAME} foi instalado pelo seu gerenciador de pacotes. Atualize-o por lá.`,
-  cliCommandLabel: "Comando de terminal 'levis'",
-  cliCommandHint: `Permite abrir o ${APP_NAME} (ou um arquivo) pelo terminal, por exemplo: levis README.md`,
+  cliCommandLabel: "Comando de terminal 'textus'",
+  cliCommandHint: `Permite abrir o ${APP_NAME} (ou um arquivo) pelo terminal, por exemplo: textus README.md`,
   cliCommandInstalled: "Instalado",
   cliCommandNotInstalled: "Não instalado",
   cliCommandInstallButton: "Instalar",

@@ -73,7 +73,7 @@ Worth writing here, for example:
   Terms        Write "e-mail", never "email".
   Background   I write long-form science journalism for a general audience.
 
-Instructions for one project only go in that project's .levis/agent.md
+Instructions for one project only go in that project's .textus/agent.md
 (the AI panel's project menu > Edit project writing instructions).
 Both are sent; where they disagree, the project's win.
 
@@ -505,8 +505,8 @@ type /name in a conversation to use one.
   updateDownloading: "Downloading update…",
   updateFailed: "Update failed:",
   updateViaPackageManager: `${APP_NAME} was installed by your package manager. Update it there.`,
-  cliCommandLabel: "'levis' Terminal Command",
-  cliCommandHint: `Lets you open ${APP_NAME} (or a file) from the terminal, e.g. levis README.md`,
+  cliCommandLabel: "'textus' Terminal Command",
+  cliCommandHint: `Lets you open ${APP_NAME} (or a file) from the terminal, e.g. textus README.md`,
   cliCommandInstalled: "Installed",
   cliCommandNotInstalled: "Not installed",
   cliCommandInstallButton: "Install",

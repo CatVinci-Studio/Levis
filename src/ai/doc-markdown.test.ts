@@ -80,12 +80,12 @@ describe("findMarkdownMatch", () => {
   });
 
   // The shape that produced strings of "Couldn't locate that text": prose
-  // where the natural anchor ("GPT 5.6 sol", "Levis") repeats across
+  // where the natural anchor ("GPT 5.6 sol", "Textus") repeats across
   // paragraphs, so every plain anchor died as ambiguous.
   it("disambiguates a repeated anchor through a unique context", () => {
     const doc = blocks(
-      "I used GPT 5.6 sol to build Levis.",
-      "Levis brings the **latest LLMs, including GPT 5.6 sol**, to markdown.",
+      "I used GPT 5.6 sol to build Textus.",
+      "Textus brings the **latest LLMs, including GPT 5.6 sol**, to markdown.",
     );
     expect(findMarkdownMatch(doc, "GPT 5.6 sol")).toBeNull();
     const match = findMarkdownMatch(

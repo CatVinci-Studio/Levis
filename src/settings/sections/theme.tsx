@@ -21,7 +21,7 @@ const CUSTOM_CSS_PLACEHOLDER = `#write > p {
   line-height: 2;
 }`;
 
-/** The variables a theme sets (see the levis-theme skill), as the current
+/** The variables a theme sets (see the textus-theme skill), as the current
  *  theme resolves them - the starting point of an exported theme. */
 const THEME_VARIABLES = [
   "--editor-bg",
@@ -38,7 +38,7 @@ const THEME_VARIABLES = [
 
 /**
  * Writes the current theme out as a starter CSS file (#13): the colour and
- * font variables as they resolve right now, Levis's heading/quote/table
+ * font variables as they resolve right now, Textus's heading/quote/table
  * ornaments (#29), the user's own CSS, and a few commented hooks for the
  * usual adjustments. Importing the edited file
  * (Import Theme) makes it a theme of its own.
@@ -79,7 +79,7 @@ async function exportThemeCss(t: Strings, customCss: string): Promise<void> {
   ]
     .filter(Boolean)
     .join("\n");
-  const css = `/* Levis theme - exported from Settings > Theme.
+  const css = `/* Textus theme - exported from Settings > Theme.
    Edit it, then bring it back with Import Theme.
    #write is the document; .milkdown wraps it. */
 
@@ -103,11 +103,11 @@ ${typeRules}
   /* font-family: "Songti SC", serif; */
 }
 
-/* Levis's ornaments - delete any you don't want */
+/* Textus's ornaments - delete any you don't want */
 ${ornamentRules()}
 ${customCss.trim() ? `\n/* Custom CSS */\n${customCss}\n` : ""}`;
   const picked = await exportDoc.exportSaveDialog(
-    "levis-theme.css",
+    "textus-theme.css",
     "CSS",
     "css",
   );

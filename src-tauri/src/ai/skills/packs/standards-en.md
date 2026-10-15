@@ -4,9 +4,9 @@ description: >-
   Writing conventions for English: punctuation and typography presets, numbers, word choice and spelling variety, register and inclusive language, dialogue, letters, academic citation styles, ad disclosure and AI tells.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Adapted from the Google developer documentation style guide and the Microsoft Writing Style Guide (CC BY 4.0, changes made) and GOV.UK guidance (OGL v3.0); summarised from the Federal Plain Language Guidelines, GPO Style Manual, AR 25-50, The Tongue and Quill, Strunk 1920 and FTC 16 CFR 255 (public domain), Chicago 18, AP, APA 7, MLA 9, the Oxford style guide, ASA/CAP and Wikipedia (summarised only); Kobak et al. 2025 (CC BY 4.0); blader/humanizer and avoid-ai-writing (MIT, ideas)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Adapted from the Google developer documentation style guide and the Microsoft Writing Style Guide (CC BY 4.0, changes made) and GOV.UK guidance (OGL v3.0); summarised from the Federal Plain Language Guidelines, GPO Style Manual, AR 25-50, The Tongue and Quill, Strunk 1920 and FTC 16 CFR 255 (public domain), Chicago 18, AP, APA 7, MLA 9, the Oxford style guide, ASA/CAP and Wikipedia (summarised only); Kobak et al. 2025 (CC BY 4.0); blader/humanizer and avoid-ai-writing (MIT, ideas)."
 ---
 
 ## typography
@@ -58,7 +58,7 @@ metadata:
 - "data is" in tech presets, "data are" in science presets, never flagged without a preset. Never flag split infinitives, "will" in the first person or "would" in conditionals. (guard) [Strunk 1920 overrides]
 - One spelling variety per project: A (US), B (British -ise), Z (British -ize), C (Canadian), D (Australian), checked with ESDB/VarCon data. (M) [UK-01]
 - [en-GB] -our, -re, -yse, licence/license, practice/practise, travelled, enrol, fulfil, programme (not software), grey, tyre, kerb, cheque, aluminium; American proper nouns keep their spelling (Pearl Harbor). (M) [UK-02]
-- -ise in every variety (advertise, advise, comprise, compromise, devise, disguise, exercise, improvise, revise, supervise, surprise, televise); -ize in every variety (capsize, prize, seize, size). (M) [UK-03]
+- -ise in every variety (advertise, advise, comprise, compromise, devise, disguise, exercise, improvise, revise, supervise, surprise, tetextuse); -ize in every variety (capsize, prize, seize, size). (M) [UK-03]
 - Vocabulary differences (flat/apartment, lift/elevator, autumn/fall) are flagged, never auto-converted. (S) [UK-04]
 - [en-GB] single quotes first (Oxford) or GOV.UK's split (single for terms, double for speech); logical punctuation; Mr, Dr, St without stops; collective nouns may take plural verbs ([en-GB/oxford] singular). [en-US] double quotes; periods and commas inside except around literal strings in code font; Mr. and Dr. (M/S) [UK-05–UK-07]
 

@@ -70,7 +70,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   用語    「ユーザー」と書き、「ユーザ」とは書かない。
   背景    一般読者向けの科学記事を書いている。
 
-特定のプロジェクトだけの指示は、そのプロジェクトの .levis/agent.md
+特定のプロジェクトだけの指示は、そのプロジェクトの .textus/agent.md
 に書きます。AIパネルのプロジェクトメニューにある
 「このプロジェクトの執筆の指示を編集」で開けます。両方が送られ、
 食い違う点はプロジェクトの指示が優先されます。
@@ -497,8 +497,8 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   updateDownloading: "アップデートをダウンロード中…",
   updateFailed: "アップデートに失敗しました:",
   updateViaPackageManager: `${APP_NAME} はパッケージマネージャーでインストールされています。そちらで更新してください。`,
-  cliCommandLabel: "ターミナル 'levis' コマンド",
-  cliCommandHint: `ターミナルから${APP_NAME}（またはファイル）を開けます。例：levis README.md`,
+  cliCommandLabel: "ターミナル 'textus' コマンド",
+  cliCommandHint: `ターミナルから${APP_NAME}（またはファイル）を開けます。例：textus README.md`,
   cliCommandInstalled: "インストール済み",
   cliCommandNotInstalled: "未インストール",
   cliCommandInstallButton: "インストール",

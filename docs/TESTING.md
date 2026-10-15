@@ -63,7 +63,7 @@ pinned rather than trusted.
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ai::agent`             | The scripted agent loop end to end, history compaction, where the document rides (current turn only), focus-section selection on long docs.                                                                                                                             |
 | `ai::tools`             | `propose_edit`/`add_comment` anchor validation, including near-miss matching.                                                                                                                                                                                           |
-| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.levis/style.md` and `.levis/library/` parsing and relevance.                                                                                                                                     |
+| `ai::project`           | Project folder access: containment, hidden files, size caps, search, `.textus/style.md` and `.textus/library/` parsing and relevance.                                                                                                                                     |
 | `ai::workspace`         | Skill parsing, root resolution and the too-broad-folder guard.                                                                                                                                                                                                          |
 | `ai::client`            | Completion prompt assembly, candidate splitting, grammar-issue relocation (CJK offsets), merging the rules engine's findings.                                                                                                                                           |
 | `ai::rules`             | The writing-rules engine: every rule per language with its guards and never-flag cases, profiles and settings, Markdown blocks, majority, fix idempotency, post-processing, platform counts, timing. `sweep` (ignored) runs it over the help guides and eval documents. |
@@ -123,10 +123,10 @@ defaults side by side with the other current models. Results land in a
 `.jsonl` and `.md` per suite. `docs/AI-EVAL.md` has the matrix, how to run
 and filter it, and the latest before/after results.
 
-The key comes from `$LEVIS_ANTHROPIC_KEY_FILE` or `.anthropic-api-key.local`
+The key comes from `$TEXTUS_ANTHROPIC_KEY_FILE` or `.anthropic-api-key.local`
 (git-ignored); without one every test passes vacuously. A full run costs
-real money - filter with `LEVIS_EVAL_FILTER` and skip the judge with
-`LEVIS_EVAL_JUDGE=0` while iterating. The checking code itself is
+real money - filter with `TEXTUS_EVAL_FILTER` and skip the judge with
+`TEXTUS_EVAL_JUDGE=0` while iterating. The checking code itself is
 unit-tested and runs with the normal `cargo test`.
 
 ## What is deliberately not covered

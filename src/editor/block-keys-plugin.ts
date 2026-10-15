@@ -17,7 +17,7 @@ import { isImeKeyEvent, stateWithLiveSelection } from "./enclosure";
 import { modIsMeta } from "../utils/platform";
 
 /**
- * Enter and Mod+Enter across Levis's container blocks, decided in one
+ * Enter and Mod+Enter across Textus's container blocks, decided in one
  * place so they follow one rule (issue #28):
  *
  * - Enter on an empty line leaves the block: an empty list item or quote

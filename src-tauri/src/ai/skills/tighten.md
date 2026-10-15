@@ -7,21 +7,21 @@ description: >-
   concise (精简/压缩, 簡潔に, 간결하게, acortar, resserrer, kürzen, сократить).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "user-only"
-  levis-category: "revise"
-  levis-packs: "contract standards#words"
-  levis-sources: "Our own text. Wordiness rules summarised from the Federal Plain Language Guidelines and Strunk 1920 (public domain), write-good and Vale Microsoft (MIT, ideas), Humanizer-zh (MIT, ideas), JTF style guide (CC BY 4.0) and k-skill (MIT, ideas)."
-  levis-aliases-en: "shorten, concise"
-  levis-aliases-zh: "精简, 压缩, 删减"
-  levis-aliases-zh-Hant: "精簡, 壓縮"
-  levis-aliases-ja: "簡潔にする, 短く"
-  levis-aliases-ko: "간결하게, 줄이기, 압축"
-  levis-aliases-es: "condensar, acortar"
-  levis-aliases-fr: "resserrer, raccourcir"
-  levis-aliases-de: "straffen, kürzen"
-  levis-aliases-ru: "сократить, сжать"
-  levis-aliases-pt: "enxugar, encurtar"
+  textus-version: "1"
+  textus-invocation: "user-only"
+  textus-category: "revise"
+  textus-packs: "contract standards#words"
+  textus-sources: "Our own text. Wordiness rules summarised from the Federal Plain Language Guidelines and Strunk 1920 (public domain), write-good and Vale Microsoft (MIT, ideas), Humanizer-zh (MIT, ideas), JTF style guide (CC BY 4.0) and k-skill (MIT, ideas)."
+  textus-aliases-en: "shorten, concise"
+  textus-aliases-zh: "精简, 压缩, 删减"
+  textus-aliases-zh-Hant: "精簡, 壓縮"
+  textus-aliases-ja: "簡潔にする, 短く"
+  textus-aliases-ko: "간결하게, 줄이기, 압축"
+  textus-aliases-es: "condensar, acortar"
+  textus-aliases-fr: "resserrer, raccourcir"
+  textus-aliases-de: "straffen, kürzen"
+  textus-aliases-ru: "сократить, сжать"
+  textus-aliases-pt: "enxugar, encurtar"
 ---
 
 # Tighten

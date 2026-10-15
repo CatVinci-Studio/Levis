@@ -1,5 +1,5 @@
 /* Under the 28px window bar (not over the title and word count), and left
-   of a docked Levis AI panel rather than over its header and close button -
+   of a docked Textus AI panel rather than over its header and close button -
    App.tsx sets --docked-panel-width while one is docked. */
 .find-replace-bar {
   position: fixed;

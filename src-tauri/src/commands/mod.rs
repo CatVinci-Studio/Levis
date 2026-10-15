@@ -1,7 +1,7 @@
 //! Commands invoked by the frontend. Shared by desktop and iOS unless gated:
 //! the modules below `#[cfg(desktop)]` are about OS windows (the detached
 //! chat window, per-window session restore, window-mode prefs) or the desktop
-//! shell (the `levis` terminal command); `documents` (rename and delete
+//! shell (the `textus` terminal command); `documents` (rename and delete
 //! for the iPhone's document list) is `#[cfg(mobile)]`. See docs/ios/code-map.zh.md.
 
 pub mod attachment;

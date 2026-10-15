@@ -1,12 +1,12 @@
 //! The project folder (in code, the workspace root) seen as writing
 //! material - see docs/AI-CONCEPTS.md. One place for walking it, reading
 //! from it safely, searching it, and the two writing aids that live in its
-//! `.levis/` directory:
+//! `.textus/` directory:
 //!
 //! ```text
 //! my-novel/
 //! ├── chapter-1.md
-//! └── .levis/
+//! └── .textus/
 //!     ├── style.md            <- the author's style profile ("Learn my style")
 //!     └── library/
 //!         ├── lin-wan.md      <- one entry per character, place or term
@@ -30,7 +30,7 @@
 //! `<!-- -->` comments in the style profile and in entries are notes to
 //! self and never reach the model.
 
-use crate::ai::workspace::{strip_html_comments, WORKSPACE_DIR_NAME};
+use crate::ai::workspace::{project_dir, strip_html_comments};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -265,7 +265,12 @@ pub fn parse_library_entry(file: &str, stem: &str, content: &str) -> LibraryEntr
 }
 
 pub fn read_library(root: &Path) -> Vec<LibraryEntry> {
-    let dir = root.join(WORKSPACE_DIR_NAME).join("library");
+    let project = project_dir(root);
+    let folder = project
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let dir = project.join("library");
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return Vec::new();
     };
@@ -280,7 +285,7 @@ pub fn read_library(root: &Path) -> Vec<LibraryEntry> {
         .filter_map(|path| {
             let stem = path.file_stem()?.to_str()?.to_string();
             let content = std::fs::read_to_string(&path).ok()?;
-            let file = format!("{WORKSPACE_DIR_NAME}/library/{stem}.md");
+            let file = format!("{folder}/library/{stem}.md");
             let entry = parse_library_entry(&file, &stem, &content);
             (!entry.body.is_empty()).then_some(entry)
         })
@@ -288,7 +293,7 @@ pub fn read_library(root: &Path) -> Vec<LibraryEntry> {
 }
 
 fn style_path(root: &Path) -> PathBuf {
-    root.join(WORKSPACE_DIR_NAME).join("style.md")
+    project_dir(root).join("style.md")
 }
 
 pub fn read_style(root: &Path) -> Option<String> {
@@ -344,7 +349,7 @@ pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -
     let mut parts = Vec::new();
     if let Some(style) = style {
         parts.push(format!(
-            "---the author's style profile (.levis/style.md: how this author writes, drafted from their own writing with \"Learn my style\" or written by them; follow it in all the text you write for this project's documents, whatever their language - it shapes that text, never the language you reply in. Its concrete limits - sentence length, words and punctuation to avoid - are rules; its habits apply where they read naturally and never override the request or the sense of the text: a habit of the present tense doesn't turn a plan into a fact, a habit of speaking to \"you\" doesn't turn the author's own account of what they did into the reader's, a length limit doesn't let a sentence drop what it covered, and an expansion still comes out longer)---\n{style}"
+            "---the author's style profile (.textus/style.md: how this author writes, drafted from their own writing with \"Learn my style\" or written by them; follow it in all the text you write for this project's documents, whatever their language - it shapes that text, never the language you reply in. Its concrete limits - sentence length, words and punctuation to avoid - are rules; its habits apply where they read naturally and never override the request or the sense of the text: a habit of the present tense doesn't turn a plan into a fact, a habit of speaking to \"you\" doesn't turn the author's own account of what they did into the reader's, a length limit doesn't let a sentence drop what it covered, and an expansion still comes out longer)---\n{style}"
         ));
     }
     if !entries.is_empty() {
@@ -361,7 +366,7 @@ pub fn writing_context_section(style: Option<&str>, entries: &[&LibraryEntry]) -
             .collect::<Vec<_>>()
             .join("\n\n");
         parts.push(format!(
-            "---project library (.levis/library): established facts about the people, places and terms mentioned here - stay consistent with them, add nothing about them that neither this nor the text gives, and treat them as background: use them as constraints, not as text to recite---\n{body}"
+            "---project library (.textus/library): established facts about the people, places and terms mentioned here - stay consistent with them, add nothing about them that neither this nor the text gives, and treat them as background: use them as constraints, not as text to recite---\n{body}"
         ));
     }
     (!parts.is_empty()).then(|| parts.join("\n\n"))
@@ -374,7 +379,7 @@ mod tests {
     #[test]
     fn library_entries_parse_frontmatter_lists_in_both_scripts() {
         let entry = parse_library_entry(
-            ".levis/library/lin.md",
+            ".textus/library/lin.md",
             "lin",
             "---\nname: 林晚\naliases: [晚晚, 林老师]\ninclude: always\n---\n女主角。",
         );
@@ -468,7 +473,7 @@ mod tests {
 
     #[test]
     fn walking_skips_hidden_and_build_folders_and_reads_safely() {
-        let dir = std::env::temp_dir().join(format!("levis-project-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("textus-project-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         for (path, body) in [
             ("notes/a.md", "alpha beta"),
@@ -495,7 +500,7 @@ mod tests {
     fn filesystem_root_is_too_broad() {
         assert!(is_too_broad(Path::new("/")));
         assert!(!is_too_broad(
-            &std::env::temp_dir().join("levis-some-project")
+            &std::env::temp_dir().join("textus-some-project")
         ));
     }
 }
@@ -538,7 +543,7 @@ pub async fn read_project_file(
     .map_err(|e| e.to_string())?
 }
 
-/// Creates `.levis/<rel>` with `template` unless it already exists, and
+/// Creates `.textus/<rel>` with `template` unless it already exists, and
 /// returns its absolute path - "new library entry", "open style profile".
 #[tauri::command]
 pub async fn ensure_project_file(
@@ -556,7 +561,7 @@ pub async fn ensure_project_file(
         {
             return Err("Invalid file name.".to_string());
         }
-        let path = root.join(WORKSPACE_DIR_NAME).join(rel);
+        let path = project_dir(&root).join(rel);
         if !path.exists() {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -638,7 +643,7 @@ Under each heading give 3-6 short, concrete, checkable bullet points drawn from 
 }
 
 /// "Learn my style": analyses the picked samples and writes the project's
-/// `.levis/style.md` (keeping the previous one as style.previous.md), which
+/// `.textus/style.md` (keeping the previous one as style.previous.md), which
 /// the agent and the inline completion then follow. Returns its path, which
 /// the frontend opens for the author to review and edit.
 #[tauri::command]

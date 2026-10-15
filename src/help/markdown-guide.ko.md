@@ -1,6 +1,6 @@
-# Levis Markdown 가이드
+# Textus Markdown 가이드
 
-환영합니다. 이 문서는 Levis가 지원하는 Markdown 렌더링을 보여 주는 내장 문서입니다. 저장되지 않은 초안일 뿐이니 마음껏 고치고 실험해 본 다음 저장하지 않고 닫으면 됩니다.
+환영합니다. 이 문서는 Textus가 지원하는 Markdown 렌더링을 보여 주는 내장 문서입니다. 저장되지 않은 초안일 뿐이니 마음껏 고치고 실험해 본 다음 저장하지 않고 닫으면 됩니다.
 
 > [!TIP]
 > `Cmd+/` 키를 누르면 WYSIWYG 모드와 소스 모드를 오가며 여기 있는 예시의 원래 문법을 볼 수 있습니다.
@@ -25,7 +25,7 @@ GitHub 스타일 알림:
 
 **굵게**(`**텍스트**`), *기울임꼴*(`*텍스트*`), ***굵은 기울임꼴***, ~~취소선~~(`~~텍스트~~`), ==강조 표시==(`==텍스트==`), 그리고 `인라인 코드`.
 
-링크는 이렇게 씁니다: [Levis 저장소](https://github.com/CatVinci-Studio/Levis). 인라인 HTML도 렌더링됩니다(예: 키보드 키 <kbd>Cmd</kbd> + <kbd>S</kbd>).
+링크는 이렇게 씁니다: [Textus 저장소](https://github.com/CatVinci-Studio/Textus). 인라인 HTML도 렌더링됩니다(예: 키보드 키 <kbd>Cmd</kbd> + <kbd>S</kbd>).
 
 인라인 수식: 질량-에너지 등가 원리 $E = mc^2$, 오일러 등식 $e^{i\pi} + 1 = 0$.
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "안녕하세요, Levis!";
+    let greeting = "안녕하세요, Textus!";
     println!("{greeting}");
 }
 ```
@@ -113,14 +113,14 @@ gantt
 ```mermaid
 sequenceDiagram
     participant 나
-    participant Levis
-    나->>Levis: Markdown 입력
-    Levis-->>나: 실시간 렌더링
+    participant Textus
+    나->>Textus: Markdown 입력
+    Textus-->>나: 실시간 렌더링
 ```
 
 ## 이미지
 
-클립보드에서 이미지를 바로 붙여넣으면 Levis가 문서 옆의 `assets/` 폴더에 저장하고 참조를 삽입합니다. 직접 쓸 수도 있습니다:
+클립보드에서 이미지를 바로 붙여넣으면 Textus가 문서 옆의 `assets/` 폴더에 저장하고 참조를 삽입합니다. 직접 쓸 수도 있습니다:
 
 **설정 → 편집기 및 모양 → 이미지**에서는 새로 붙여넣는 이미지를 직접 운영하는 이미지 호스팅으로 보내도록 바꿀 수 있습니다. 엔드포인트는 `file` 필드가 있는 `multipart/form-data`를 받고, 공개 URL을 일반 텍스트로 반환하거나 지정한 JSON 필드에 담아 반환하면 됩니다. 업로드하는 파일은 자동으로 이름을 바꾸거나, 원래 이름을 유지하거나, 업로드할 때마다 이름을 묻게 할 수 있습니다. 저장 방식을 바꿔도 기존 이미지 참조는 바뀌지 않습니다.
 
@@ -130,7 +130,7 @@ sequenceDiagram
 
 ## 보기와 모드
 
-WYSIWYG 편집기와 소스 모드(`Cmd+/`) 외에도 Levis에는 세 가지 쓰기 방식이 있습니다(Windows와 Linux에서는 `Cmd` 대신 `Ctrl`을 쓰세요. 지금 지정된 단축키는 설정 → 단축키에서 볼 수 있습니다):
+WYSIWYG 편집기와 소스 모드(`Cmd+/`) 외에도 Textus에는 세 가지 쓰기 방식이 있습니다(Windows와 Linux에서는 `Cmd` 대신 `Ctrl`을 쓰세요. 지금 지정된 단축키는 설정 → 단축키에서 볼 수 있습니다):
 
 - **분할 보기**(`Cmd+Shift+E`): 왼쪽에 Markdown 소스, 오른쪽에 렌더링된 미리 보기가 표시되고 함께 스크롤됩니다.
 - **타자기 모드**(설정 → 편집기 및 모양 → 보기): 입력 중인 줄이 창 가운데에 머무릅니다. 편집기, 소스 모드, 분할 보기 모두에서 작동합니다.

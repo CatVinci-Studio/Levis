@@ -4,9 +4,9 @@ description: >-
   Writing conventions for Simplified Chinese (mainland): typography and punctuation, numbers, words, dialogue, register, letters, 公文, academic writing, new media and AI tells.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Summarised from GB/T 15834-2011, GB/T 15835-2011, CY/T 154-2017, GB/T 9704-2012, GB/T 7713.2-2022, GB/T 7714-2025, GB/T 16159, GB/T 28039, CY/T 174 (standards, summarised only); quoted or summarised from 党政机关公文处理工作条例 (2012), 广告法, 互联网广告管理办法, 网络信息内容生态治理规定, 人工智能生成合成内容标识办法 and 国家通用语言文字法 (unprotected official texts); W3C clreq (W3C licence); ruanyf (public domain); sparanoid and Humanizer-zh (MIT, ideas)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Summarised from GB/T 15834-2011, GB/T 15835-2011, CY/T 154-2017, GB/T 9704-2012, GB/T 7713.2-2022, GB/T 7714-2025, GB/T 16159, GB/T 28039, CY/T 174 (standards, summarised only); quoted or summarised from 党政机关公文处理工作条例 (2012), 广告法, 互联网广告管理办法, 网络信息内容生态治理规定, 人工智能生成合成内容标识办法 and 国家通用语言文字法 (unprotected official texts); W3C clreq (W3C licence); ruanyf (public domain); sparanoid and Humanizer-zh (MIT, ideas)."
 ---
 
 ## typography

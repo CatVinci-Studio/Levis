@@ -2,10 +2,10 @@
      follow its structure section by section (scripts/check-readmes.mjs). -->
 
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Levis" width="120" height="120" />
+  <img src="src-tauri/icons/icon.png" alt="Textus" width="120" height="120" />
 </p>
 
-<h1 align="center">Levis</h1>
+<h1 align="center">Textus</h1>
 
 <p align="center">
   <strong>A WYSIWYG Markdown editor with an AI that reviews instead of rewriting.</strong><br>
@@ -13,13 +13,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><strong>Download</strong></a> ·
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>Download</strong></a> ·
   <a href="./README.zh.md">中文</a> ·
   <a href="./README.ja.md">日本語</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Levis"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
@@ -57,8 +57,8 @@
 ### Your project, your voice
 
 - **Project folder**: save a document and its folder becomes the project folder, or choose another. The AI can read and search the text files there, and `@` brings one into the conversation.
-- **Style profile** (`.levis/style.md`): **Learn my style** drafts it from samples you pick, so continuations and edits sound like you.
-- **Library** (`.levis/library/`): characters, places and terms. The entries a passage mentions go to the AI with it, so names and facts stay consistent.
+- **Style profile** (`.textus/style.md`): **Learn my style** drafts it from samples you pick, so continuations and edits sound like you.
+- **Library** (`.textus/library/`): characters, places and terms. The entries a passage mentions go to the AI with it, so names and facts stay consistent.
 - **Writing instructions** (`agent.md`) and **skills** (`/name`): standing rules for every conversation, and reusable instructions you call by name - for all your documents or for one project.
 
 ### Providers and privacy
@@ -72,27 +72,27 @@
 macOS (Apple Silicon) via [Homebrew](https://brew.sh):
 
 ```sh
-brew install --cask catvinci-studio/tap/levis
+brew install --cask catvinci-studio/tap/textus
 ```
 
-Arch Linux via the signed [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman repository (once; `sudo pacman -Syu` then keeps Levis up to date):
+Arch Linux via the signed [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman repository (once; `sudo pacman -Syu` then keeps Textus up to date):
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) levis-bin
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
 ```
 
-Or download an installer from [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest):
+Or download an installer from [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest):
 
 | Platform              | Installer                                                                |
 | --------------------- | ------------------------------------------------------------------------ |
-| macOS (Apple Silicon) | `Levis_X.Y.Z_aarch64.dmg`                                                |
-| Windows               | `Levis_X.Y.Z_x64-setup.exe`                                              |
-| Linux                 | `Levis_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Levis-X.Y.Z-1.x86_64.rpm` |
+| macOS (Apple Silicon) | `Textus_X.Y.Z_aarch64.dmg`                                                |
+| Windows               | `Textus_X.Y.Z_x64-setup.exe`                                              |
+| Linux                 | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
 
 ## Quick start
 
-1. Launch Levis. It opens on a blank draft; you only need a file when you save.
-2. Open **Settings → Levis AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
+1. Launch Textus. It opens on a blank draft; you only need a file when you save.
+2. Open **Settings → Textus AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
 3. Start typing. A continuation appears as grey text when you pause; Tab accepts it.
 4. Open the AI panel with the chat button in the window bar. **Help → AI Features Guide** covers the rest.
 
@@ -109,15 +109,15 @@ Or download an installer from [Releases](https://github.com/CatVinci-Studio/Levi
 
 All of them can be changed in **Settings → Shortcuts**.
 
-## Why Levis
+## Why Textus
 
-Writing Markdown should feel like writing, not like editing a file: no preview pane to glance at, no syntax in the way. Levis is open source and small, and its AI is built for writers who want to stay the author - it suggests, explains, and leaves every decision to you.
+Writing Markdown should feel like writing, not like editing a file: no preview pane to glance at, no syntax in the way. Textus is open source and small, and its AI is built for writers who want to stay the author - it suggests, explains, and leaves every decision to you.
 
 ## Build from source
 
 ```bash
-git clone https://github.com/CatVinci-Studio/Levis.git
-cd Levis
+git clone https://github.com/CatVinci-Studio/Textus.git
+cd Textus
 npm install
 
 npm run tauri dev     # full Tauri app (Rust shell + Vite renderer)

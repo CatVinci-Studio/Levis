@@ -1,6 +1,6 @@
-# Levis Markdown 指南
+# Textus Markdown 指南
 
-这份文档展示 Levis 支持的 Markdown 格式。可以直接编辑示例；关闭时选择不保存即可。
+这份文档展示 Textus 支持的 Markdown 格式。可以直接编辑示例；关闭时选择不保存即可。
 
 > [!TIP]
 > 按 `Cmd+/` 切换编辑视图与源码视图，查看示例的写法。Windows 和 Linux 使用 `Ctrl+/`；修改过快捷键时，以设置中的配置为准。
@@ -25,7 +25,7 @@ GitHub 风格的提示块：
 
 **粗体**、*斜体*、***粗斜体***、~~删除线~~、==高亮==，以及 `行内代码`。
 
-链接写法：[Levis 仓库](https://github.com/CatVinci-Studio/Levis)。行内 HTML 也会渲染，比如键盘按键 <kbd>Cmd</kbd> + <kbd>S</kbd>。
+链接写法：[Textus 仓库](https://github.com/CatVinci-Studio/Textus)。行内 HTML 也会渲染，比如键盘按键 <kbd>Cmd</kbd> + <kbd>S</kbd>。
 
 行内数学公式：质能方程 $E = mc^2$，欧拉恒等式 $e^{i\pi} + 1 = 0$。
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "你好,Levis!";
+    let greeting = "你好,Textus!";
     println!("{greeting}");
 }
 ```
@@ -113,14 +113,14 @@ gantt
 ```mermaid
 sequenceDiagram
     participant 你
-    participant Levis
-    你->>Levis: 输入 Markdown
-    Levis-->>你: 实时渲染
+    participant Textus
+    你->>Textus: 输入 Markdown
+    Textus-->>你: 实时渲染
 ```
 
 ## 图片
 
-从剪贴板直接粘贴图片，Levis 会把它保存到文档旁的 `assets/` 目录并插入引用；也可以手写：
+从剪贴板直接粘贴图片，Textus 会把它保存到文档旁的 `assets/` 目录并插入引用；也可以手写：
 
 也可以前往**设置 → 编辑与外观 → 图片**，让之后粘贴的图片上传到自己的图床。上传接口通过 `multipart/form-data` 的 `file` 字段接收图片，可以直接返回公开 URL，也可以把 URL 放在可配置的 JSON 字段中。上传文件可以自动重命名、保留原名，或在每次上传前弹窗询问。切换存储方式不会修改已有的图片引用。
 
@@ -130,7 +130,7 @@ sequenceDiagram
 
 ## 视图与模式
 
-除了所见即所得编辑和源码视图（`Cmd+/`），Levis 还有三种写作方式（Windows 和 Linux 将 `Cmd` 换成 `Ctrl`；修改过快捷键时，以设置 → 快捷键中的配置为准）：
+除了所见即所得编辑和源码视图（`Cmd+/`），Textus 还有三种写作方式（Windows 和 Linux 将 `Cmd` 换成 `Ctrl`；修改过快捷键时，以设置 → 快捷键中的配置为准）：
 
 - **分屏视图**（`Cmd+Shift+E`）：左边是 Markdown 源码，右边是渲染后的预览，两边同步滚动。
 - **打字机模式**（设置 → 编辑与外观 → 主题）：正在输入的那一行始终保持在窗口中间，编辑器、源码模式和分屏视图都适用。

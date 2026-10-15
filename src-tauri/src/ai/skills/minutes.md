@@ -8,21 +8,21 @@ description: >-
   (纪要/会议记录, 議事録, 회의록, acta, compte rendu, Protokoll, протокол).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "format"
-  levis-packs: "contract standards#official"
-  levis-sources: "Our own text. 'A record of what was done and not what was said' from Robert's Rules of Order (1876, public domain); 纪要 phrasing from 党政机关公文处理工作条例 (2012)."
-  levis-aliases-en: "minutes, action-items"
-  levis-aliases-zh: "会议纪要, 纪要, 会议记录"
-  levis-aliases-zh-Hant: "會議紀錄, 紀錄"
-  levis-aliases-ja: "議事録"
-  levis-aliases-ko: "회의록"
-  levis-aliases-es: "acta"
-  levis-aliases-fr: "compte-rendu, procès-verbal"
-  levis-aliases-de: "protokoll"
-  levis-aliases-ru: "протокол"
-  levis-aliases-pt: "ata"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "format"
+  textus-packs: "contract standards#official"
+  textus-sources: "Our own text. 'A record of what was done and not what was said' from Robert's Rules of Order (1876, public domain); 纪要 phrasing from 党政机关公文处理工作条例 (2012)."
+  textus-aliases-en: "minutes, action-items"
+  textus-aliases-zh: "会议纪要, 纪要, 会议记录"
+  textus-aliases-zh-Hant: "會議紀錄, 紀錄"
+  textus-aliases-ja: "議事録"
+  textus-aliases-ko: "회의록"
+  textus-aliases-es: "acta"
+  textus-aliases-fr: "compte-rendu, procès-verbal"
+  textus-aliases-de: "protokoll"
+  textus-aliases-ru: "протокол"
+  textus-aliases-pt: "ata"
 ---
 
 # Meeting minutes

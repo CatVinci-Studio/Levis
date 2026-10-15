@@ -37,7 +37,9 @@ export function resolveImageSrc(src: string, docPath: string | null): string {
   return convertFileSrc(`${dirname(docPath)}/${src}`);
 }
 
-const IMAGE_WIDTH_METADATA = /\s*\{levis-width=(\d{1,3})%\}\s*$/;
+/** `{textus-width=N%}`; documents written by Levis say `levis-width`, read
+ *  the same (and rewritten as `textus-width` when the width changes). */
+const IMAGE_WIDTH_METADATA = /\s*\{(?:textus|levis)-width=(\d{1,3})%\}\s*$/;
 
 /** Store image width in a standard Markdown image title suffix. */
 export function readImagePresentation(title: string | null | undefined): {
@@ -65,7 +67,7 @@ export function writeImageWidth(
   if (widthPercent === null)
     return visibleTitle.length > 0 ? visibleTitle : null;
 
-  const metadata = `{levis-width=${Math.min(100, Math.max(1, Math.round(widthPercent)))}%}`;
+  const metadata = `{textus-width=${Math.min(100, Math.max(1, Math.round(widthPercent)))}%}`;
   return visibleTitle.length > 0 ? `${visibleTitle} ${metadata}` : metadata;
 }
 

@@ -1,6 +1,6 @@
 name: Arch package
 
-# Builds levis-bin for a release and tests it in an Arch container: install
+# Builds textus-bin for a release and tests it in an Arch container: install
 # the previous version from [catvinci], upgrade, start, remove (see
 # packaging/arch/ci-check.sh). Then attaches the package, PKGBUILD and
 # SRCINFO to the release.
@@ -46,9 +46,9 @@ jobs:
       - name: Download the Linux tarball
         run: |
           gh release download "$TAG" --dir tarball \
-            --pattern "Levis_${TAG#v}_linux_x86_64.tar.gz*"
+            --pattern "Textus_${TAG#v}_linux_x86_64.tar.gz*"
 
-      - name: Build, upgrade and test levis-bin
+      - name: Build, upgrade and test textus-bin
         run: packaging/arch/ci-check.sh "${TAG#v}" tarball package
 
       - name: Attach the package to the release

@@ -4,9 +4,9 @@ description: >-
   Writing conventions for Portuguese (Brazil by default, Portugal noted): quotation marks, numbers, ordinals and dates, capitals and hyphens under the 1990 agreement, dialogue, register, official writing and letters.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Quoted or summarised from the Acordo Ortográfico de 1990, Decreto 9.758/2019 and Lei 15.263/2025 (unprotected official texts); summarised from the Manual de Redação da Presidência da República and Ciberdúvidas (summarised only); adapted from the EU Interinstitutional Style Guide (© European Union, reproduction authorised); Unicode CLDR (facts)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Quoted or summarised from the Acordo Ortográfico de 1990, Decreto 9.758/2019 and Lei 15.263/2025 (unprotected official texts); summarised from the Manual de Redação da Presidência da República and Ciberdúvidas (summarised only); adapted from the EU Interinstitutional Style Guide (© European Union, reproduction authorised); Unicode CLDR (facts)."
 ---
 
 ## typography

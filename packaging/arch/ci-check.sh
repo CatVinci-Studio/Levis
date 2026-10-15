@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds levis-bin for one release and tests it the way a user gets it:
+# Builds textus-bin for one release and tests it the way a user gets it:
 #
-#   1. Install levis-bin from the [catvinci] repository
+#   1. Install textus-bin from the [catvinci] repository
 #      (CatVinci-Studio/arch-repo) as it is now - the previous release -
 #      with install.sh, the one-line setup its README gives users.
 #   2. Build the new package from the release tarball and upgrade to it.
@@ -14,7 +14,7 @@
 # arch-package.yml); makepkg itself runs as an unprivileged user.
 #
 # Usage: packaging/arch/ci-check.sh <version> <tarball-dir> <out-dir>
-#   <tarball-dir> holds Levis_<version>_linux_x86_64.tar.gz and its .sha256.
+#   <tarball-dir> holds Textus_<version>_linux_x86_64.tar.gz and its .sha256.
 set -euo pipefail
 
 version="$1"
@@ -22,12 +22,12 @@ tarball_dir="$(realpath "$2")"
 out_dir="$(realpath -m "$3")"
 pkgver="${version//-/_}"
 here="$(cd "$(dirname "$0")" && pwd)"
-work=/home/builder/levis-bin
+work=/home/builder/textus-bin
 repo=catvinci
 server='https://github.com/CatVinci-Studio/arch-repo/releases/download/$arch'
 install_sh="https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh"
-tarball="Levis_${version}_linux_x86_64.tar.gz"
-pkgfile="levis-bin-${pkgver}-1-x86_64.pkg.tar.zst"
+tarball="Textus_${version}_linux_x86_64.tar.gz"
+pkgfile="textus-bin-${pkgver}-1-x86_64.pkg.tar.zst"
 
 pacman -Syu --noconfirm --needed git pacman-contrib desktop-file-utils \
   xorg-server-xvfb curl
@@ -40,11 +40,11 @@ previous=""
 if curl -fsIL "${server/\$arch/x86_64}/$repo.db" >/dev/null 2>&1; then
   pacman-key --init >/dev/null
   bash <(curl -fsSL "$install_sh")
-  pacman -S --noconfirm levis-bin
-  previous="$(pacman -Q levis-bin)"
+  pacman -S --noconfirm textus-bin
+  previous="$(pacman -Q textus-bin)"
   echo "Installed from [$repo]: $previous"
-  sudo -u builder mkdir -p /home/builder/.config/levis-upgrade-check
-  sudo -u builder touch /home/builder/.config/levis-upgrade-check/keep
+  sudo -u builder mkdir -p /home/builder/.config/textus-upgrade-check
+  sudo -u builder touch /home/builder/.config/textus-upgrade-check/keep
 fi
 
 # 2. Build and upgrade. makepkg uses the tarball next to the PKGBUILD
@@ -65,43 +65,43 @@ as_builder "$work" 'makepkg --printsrcinfo > .SRCINFO'
 as_builder "$work" makepkg -sf --noconfirm
 pacman -U --noconfirm "$work/$pkgfile"
 
-installed="$(pacman -Q levis-bin)"
-[ "$installed" = "levis-bin ${pkgver}-1" ] || {
-  echo "expected levis-bin ${pkgver}-1, got: $installed" >&2
+installed="$(pacman -Q textus-bin)"
+[ "$installed" = "textus-bin ${pkgver}-1" ] || {
+  echo "expected textus-bin ${pkgver}-1, got: $installed" >&2
   exit 1
 }
 if [ -n "$previous" ]; then
   echo "Upgrade: $previous -> $installed"
-  [ -f /home/builder/.config/levis-upgrade-check/keep ] || {
+  [ -f /home/builder/.config/textus-upgrade-check/keep ] || {
     echo "user config disappeared during the upgrade" >&2
     exit 1
   }
 fi
 
 # 3. Checks.
-if ldd /usr/bin/levis | grep 'not found'; then
-  echo "levis needs libraries that the package does not depend on" >&2
+if ldd /usr/bin/textus | grep 'not found'; then
+  echo "textus needs libraries that the package does not depend on" >&2
   exit 1
 fi
-desktop-file-validate /usr/share/applications/levis.desktop
-test -f /usr/share/icons/hicolor/256x256/apps/levis.png
-test -f /usr/share/licenses/levis-bin/LICENSE
+desktop-file-validate /usr/share/applications/textus.desktop
+test -f /usr/share/icons/hicolor/256x256/apps/textus.png
+test -f /usr/share/licenses/textus-bin/LICENSE
 
 # A window cannot be checked here, but a missing library, a GTK/WebKit
 # init failure or an early panic exits before the timeout. Exit 124 means
-# Levis was still running after 15 s.
+# Textus was still running after 15 s.
 set +e
 sudo -u builder -H env LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
-  xvfb-run -a timeout 15 /usr/bin/levis
+  xvfb-run -a timeout 15 /usr/bin/textus
 status=$?
 set -e
 [ "$status" -eq 124 ] || {
-  echo "levis exited early with status $status" >&2
+  echo "textus exited early with status $status" >&2
   exit 1
 }
 
-files="$(pacman -Qlq levis-bin | grep -v '/$')"
-pacman -R --noconfirm levis-bin
+files="$(pacman -Qlq textus-bin | grep -v '/$')"
+pacman -R --noconfirm textus-bin
 for f in $files; do
   if [ -e "$f" ]; then
     echo "left behind after pacman -R: $f" >&2
@@ -113,5 +113,5 @@ done
 mkdir -p "$out_dir"
 cp "$work/$pkgfile" "$work/PKGBUILD" "$out_dir/"
 cp "$work/.SRCINFO" "$out_dir/SRCINFO"
-echo "levis-bin ${pkgver}-1: all checks passed"
+echo "textus-bin ${pkgver}-1: all checks passed"
 ls -l "$out_dir"

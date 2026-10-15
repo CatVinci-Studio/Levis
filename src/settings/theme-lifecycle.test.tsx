@@ -18,7 +18,7 @@ vi.mock("../ipc", () => ({
 vi.mock("../utils/theme-chrome", () => ({
   applyThemeChrome: vi.fn(),
   clearThemeChrome: () =>
-    document.getElementById("levis-imported-chrome")?.remove(),
+    document.getElementById("textus-imported-chrome")?.remove(),
 }));
 function Controls() {
   const { setSettings } = useSettings();
@@ -52,8 +52,8 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.unstubAllGlobals();
-  document.getElementById("levis-custom-theme")?.remove();
-  document.getElementById("levis-imported-chrome")?.remove();
+  document.getElementById("textus-custom-theme")?.remove();
+  document.getElementById("textus-imported-chrome")?.remove();
 });
 it("applies imported chrome and removes both styles on returning to default", async () => {
   vi.mocked(themes.loadThemeCss).mockResolvedValue("body { color: green; }");
@@ -69,11 +69,11 @@ it("applies imported chrome and removes both styles on returning to default", as
     ),
   );
   const derived = document.createElement("style");
-  derived.id = "levis-imported-chrome";
+  derived.id = "textus-imported-chrome";
   document.head.appendChild(derived);
   fireEvent.click(screen.getByText("Default"));
-  expect(document.getElementById("levis-custom-theme")).toBeNull();
-  expect(document.getElementById("levis-imported-chrome")).toBeNull();
+  expect(document.getElementById("textus-custom-theme")).toBeNull();
+  expect(document.getElementById("textus-imported-chrome")).toBeNull();
 });
 it("does not let a late light-theme response replace a newer dark selection", async () => {
   let resolveLight!: (css: string) => void;
@@ -99,7 +99,7 @@ it("does not let a late light-theme response replace a newer dark selection", as
   await act(async () => {
     resolveLight("body { color: black; }");
   });
-  expect(document.getElementById("levis-custom-theme")?.textContent).toBe(
+  expect(document.getElementById("textus-custom-theme")?.textContent).toBe(
     "body { color: white; }",
   );
   expect(applyThemeChrome).toHaveBeenCalledTimes(1);
@@ -121,6 +121,6 @@ it("does not restore an import after switching to a built-in theme", async () =>
   await act(async () => {
     finish("body { background: black; }");
   });
-  expect(document.getElementById("levis-custom-theme")).toBeNull();
+  expect(document.getElementById("textus-custom-theme")).toBeNull();
   expect(applyThemeChrome).not.toHaveBeenCalled();
 });

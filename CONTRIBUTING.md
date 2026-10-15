@@ -1,4 +1,4 @@
-# Contributing to Levis
+# Contributing to Textus
 
 Thanks for taking the time. This is a Tauri app: a React + TypeScript
 frontend in `src/`, a Rust backend in `src-tauri/`, and a provider-agnostic
@@ -154,7 +154,7 @@ rest of the documentation.
 4. Tag `vX.Y.Z` and push the tag. `.github/workflows/release.yml` checks
    that the tag matches the version in those files, then builds,
    signs and notarizes for macOS/Windows/Linux, publishes the GitHub release,
-   points the Homebrew cask at it, and sends the tested `levis-bin` package
+   points the Homebrew cask at it, and sends the tested `textus-bin` package
    to the `[catvinci]` pacman repository in `CatVinci-Studio/arch-repo` (see
    `packaging/arch/README.md`).
 

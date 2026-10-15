@@ -8,21 +8,21 @@ description: >-
   문체 모방, imitar el estilo, pastiche, im Stil von, стилизация).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "write"
-  levis-packs: "contract"
-  levis-sources: "Our own text. Content invariants adapted from yomiyasu (MIT, ideas); 'a sample overrides generic rules' from blader/humanizer (MIT, ideas)."
-  levis-aliases-en: "style, pastiche"
-  levis-aliases-zh: "模仿文风, 仿写, 文风"
-  levis-aliases-zh-Hant: "模仿文風, 仿寫"
-  levis-aliases-ja: "文体をまねる, 文体模写"
-  levis-aliases-ko: "문체 모방"
-  levis-aliases-es: "imitar"
-  levis-aliases-fr: "pastiche"
-  levis-aliases-de: "stil"
-  levis-aliases-ru: "стилизация"
-  levis-aliases-pt: "imitar"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "write"
+  textus-packs: "contract"
+  textus-sources: "Our own text. Content invariants adapted from yomiyasu (MIT, ideas); 'a sample overrides generic rules' from blader/humanizer (MIT, ideas)."
+  textus-aliases-en: "style, pastiche"
+  textus-aliases-zh: "模仿文风, 仿写, 文风"
+  textus-aliases-zh-Hant: "模仿文風, 仿寫"
+  textus-aliases-ja: "文体をまねる, 文体模写"
+  textus-aliases-ko: "문체 모방"
+  textus-aliases-es: "imitar"
+  textus-aliases-fr: "pastiche"
+  textus-aliases-de: "stil"
+  textus-aliases-ru: "стилизация"
+  textus-aliases-pt: "imitar"
 ---
 
 # Imitate a style

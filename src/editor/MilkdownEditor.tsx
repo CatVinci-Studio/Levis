@@ -304,7 +304,7 @@ export function MilkdownEditor({
             const order = (node.attrs.order as number) ?? 1;
             return order === 1
               ? {}
-              : { style: `--levis-ol-start: ${order - 1}` };
+              : { style: `--textus-ol-start: ${order - 1}` };
           });
           ctx
             .get(listenerCtx)
@@ -1165,7 +1165,7 @@ export function MilkdownEditor({
     () =>
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
-        view.dispatch(view.state.tr.setMeta("levis-refresh", true));
+        view.dispatch(view.state.tr.setMeta("textus-refresh", true));
       }),
     [run],
   );
@@ -1429,7 +1429,7 @@ export function MilkdownEditor({
 
   // Quick Ask's "continue in the panel": its exchange becomes the full
   // conversation - in the docked panel, or the detached window when the
-  // user prefers it there (Settings > Levis AI > Advanced) - and from then
+  // user prefers it there (Settings > Textus AI > Advanced) - and from then
   // on is saved to History like any other. The panel's previous
   // conversation is already in History. Not while either side is
   // mid-reply: the turns would be incomplete.

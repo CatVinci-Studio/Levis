@@ -9,21 +9,21 @@ description: >-
   resumir, résumer, zusammenfassen, кратко изложить).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "user-only"
-  levis-category: "format"
-  levis-packs: "contract standards#academic"
-  levis-sources: "Our own text. BLUF from AR 25-50 (public domain); GOV.UK summaries (OGL v3.0); abstract conventions summarised from the APA abstract guide and GB/T 7713.2."
-  levis-aliases-en: "summary, tldr, abstract"
-  levis-aliases-zh: "总结摘要, 总结, 摘要, 概括"
-  levis-aliases-zh-Hant: "摘要, 總結, 概述"
-  levis-aliases-ja: "要約, まとめ, 要旨"
-  levis-aliases-ko: "요약, 정리"
-  levis-aliases-es: "resumir, resumen"
-  levis-aliases-fr: "résumer, résumé"
-  levis-aliases-de: "zusammenfassen, zusammenfassung"
-  levis-aliases-ru: "резюме, конспект"
-  levis-aliases-pt: "resumir, resumo"
+  textus-version: "1"
+  textus-invocation: "user-only"
+  textus-category: "format"
+  textus-packs: "contract standards#academic"
+  textus-sources: "Our own text. BLUF from AR 25-50 (public domain); GOV.UK summaries (OGL v3.0); abstract conventions summarised from the APA abstract guide and GB/T 7713.2."
+  textus-aliases-en: "summary, tldr, abstract"
+  textus-aliases-zh: "总结摘要, 总结, 摘要, 概括"
+  textus-aliases-zh-Hant: "摘要, 總結, 概述"
+  textus-aliases-ja: "要約, まとめ, 要旨"
+  textus-aliases-ko: "요약, 정리"
+  textus-aliases-es: "resumir, resumen"
+  textus-aliases-fr: "résumer, résumé"
+  textus-aliases-de: "zusammenfassen, zusammenfassung"
+  textus-aliases-ru: "резюме, конспект"
+  textus-aliases-pt: "resumir, resumo"
 ---
 
 # Summarize

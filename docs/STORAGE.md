@@ -1,8 +1,8 @@
-# What Levis stores, and where
+# What Textus stores, and where
 
-Everything the app remembers between launches, so that it can be backed up,
-inspected, and, at 1.0.0, imported by Textus (the app's new name, with a new
-identifier) by copying files.
+Everything the app remembers between launches, so that it can be backed up
+and inspected - and so that Textus (Levis's name since 1.0.0, with a new
+identifier) can import a Levis installation by copying files.
 
 Up to 0.9.6 the settings and histories lived in the webview's localStorage.
 That store belongs to the webview engine: it is keyed by app identifier and
@@ -14,14 +14,14 @@ Rust (`src-tauri/src/settings.rs`).
 
 ## Directories
 
-The app identifier is `com.chengaoshen.levis`. Tauri's app directories:
+The app identifier is `com.catvinci.textus`. Tauri's app directories:
 
-| Platform | Config directory                                                          | Data directory                          |
-| -------- | ------------------------------------------------------------------------- | --------------------------------------- |
-| Linux    | `~/.config/com.chengaoshen.levis/`                                        | `~/.local/share/com.chengaoshen.levis/` |
-| macOS    | `~/Library/Application Support/com.chengaoshen.levis/`                    | the same directory                      |
-| Windows  | `%APPDATA%\com.chengaoshen.levis\`                                        | the same directory                      |
-| iOS      | `Library/Application Support/com.chengaoshen.levis/` in the app container | the same directory                      |
+| Platform | Config directory                                                        | Data directory                        |
+| -------- | ----------------------------------------------------------------------- | ------------------------------------- |
+| Linux    | `~/.config/com.catvinci.textus/`                                        | `~/.local/share/com.catvinci.textus/` |
+| macOS    | `~/Library/Application Support/com.catvinci.textus/`                    | the same directory                    |
+| Windows  | `%APPDATA%\com.catvinci.textus\`                                        | the same directory                    |
+| iOS      | `Library/Application Support/com.catvinci.textus/` in the app container | the same directory                    |
 
 (`$XDG_CONFIG_HOME` and `$XDG_DATA_HOME` move the Linux ones.)
 
@@ -33,20 +33,20 @@ marked †, so a development build never rewrites an installed app's settings
 
 ### Config directory
 
-| File                                                                                                | What                                                                                                                                                                                                                                                          |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `settings.json` †                                                                                   | Every setting in Settings, plus zoom and the onboarding flags: `{"schemaVersion": 1, "settings": {...}}`. Field names and meanings are the `Settings` interface in `src/settings/SettingsContext.tsx`.                                                        |
-| `prefs.json`                                                                                        | `editor_window_size`, written by Rust when an editor window closes. Also still holds `new_document_mode` and `restore_session_on_startup` from 0.9.6, no longer read after the first launch of 0.9.7.                                                         |
-| `session.json`                                                                                      | The documents each window had open, for session restore (desktop). Closing the last window leaves it as it was: the next launch reopens those documents, and so does the Dock icon on macOS, where the app keeps running windowless.                          |
-| `recent_files.json`                                                                                 | File > Open Recent (desktop).                                                                                                                                                                                                                                 |
-| `themes/<id>/light.css`, `dark.css`                                                                 | Imported themes. `settings.userThemes` lists them.                                                                                                                                                                                                            |
-| `agent/agent.md`, `agent/skills/`                                                                   | The global config folder: global writing instructions and skills ([AI-CONCEPTS.md](AI-CONCEPTS.md)), including copies of built-in skills made with Customize… (marked `levis-based-on`). Built-ins turned off are listed in `settings.disabledBuiltinSkills`. |
-| `provider_keys.json`, `api_key.json`, `custom_endpoint.json`, `auth-codex.json`, `auth-claude.json` | AI credentials (owner-only on Unix).                                                                                                                                                                                                                          |
+| File                                                                                                | What                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `settings.json` †                                                                                   | Every setting in Settings, plus zoom and the onboarding flags: `{"schemaVersion": 1, "settings": {...}}`. Field names and meanings are the `Settings` interface in `src/settings/SettingsContext.tsx`.                                                         |
+| `prefs.json`                                                                                        | `editor_window_size`, written by Rust when an editor window closes. Also still holds `new_document_mode` and `restore_session_on_startup` from 0.9.6, no longer read after the first launch of 0.9.7.                                                          |
+| `session.json`                                                                                      | The documents each window had open, for session restore (desktop). Closing the last window leaves it as it was: the next launch reopens those documents, and so does the Dock icon on macOS, where the app keeps running windowless.                           |
+| `recent_files.json`                                                                                 | File > Open Recent (desktop).                                                                                                                                                                                                                                  |
+| `themes/<id>/light.css`, `dark.css`                                                                 | Imported themes. `settings.userThemes` lists them.                                                                                                                                                                                                             |
+| `agent/agent.md`, `agent/skills/`                                                                   | The global config folder: global writing instructions and skills ([AI-CONCEPTS.md](AI-CONCEPTS.md)), including copies of built-in skills made with Customize… (marked `textus-based-on`). Built-ins turned off are listed in `settings.disabledBuiltinSkills`. |
+| `provider_keys.json`, `api_key.json`, `custom_endpoint.json`, `auth-codex.json`, `auth-claude.json` | AI credentials (owner-only on Unix).                                                                                                                                                                                                                           |
 
 `settings.json`'s `writingConventions` is also read by Rust
 (`ai::conventions`), which owns its meaning: `"automatic"` (the default; a
 missing field means the same), one profile such as `"en-GB/govuk"` (what
-Settings > Levis AI > Writing conventions stores; it applies to documents in
+Settings > Textus AI > Writing conventions stores; it applies to documents in
 that profile's language, the others stay Automatic), or `{ "zh-Hans": "zh-Hans-CN/tech", "en":
 "en-GB/govuk", "options": { "cjk-latin-space": "on" } }` - one profile per
 language key, `"automatic"` or a missing language meaning Automatic. The
@@ -72,7 +72,7 @@ earlier version is rewritten that way when the history loads.
 
 The webview's own storage also lives here (`localstorage/`, `WebKitCache/`
 and so on; `EBWebView\` under `%LOCALAPPDATA%` on Windows). Since 0.9.7 the
-only key the app still uses there is `levis-fetched-models:<provider>`, a
+only key the app still uses there is `textus-fetched-models:<provider>`, a
 cache of each provider's model list that is simply fetched again when
 missing.
 
@@ -134,13 +134,17 @@ On the first launch without `settings.json`, every window boots with
 (`settings_import_legacy`), which keeps the first such offer only. Until it
 arrives, `prefs.json`'s two old keys stand in for the settings Rust needs
 at startup. The localStorage keys are left untouched, so a downgrade to
-0.9.6 still finds everything as it was.
+0.9.6 still finds everything as it was. Textus keeps these keys' `levis-`
+names: they are what a Levis 0.9.6 webview holds, and still what the
+fallback (no Rust boot snapshot, as in the browser) reads and writes.
 
-## Importing into Textus
+## Importing Levis data into Textus
 
-Textus will have a new identifier, so its directories are new and empty. On
-its first launch, if its own `settings.json` doesn't exist, it can import a
-Levis installation by copying from the Levis directories above:
+Textus has a new identifier (`com.catvinci.textus`, Levis was
+`com.chengaoshen.levis`), so its directories start new and empty. On its
+first launch, if its own `settings.json` doesn't exist, it can import a
+Levis installation by copying from Levis's directories (the table above with
+`com.chengaoshen.levis` in place of `com.catvinci.textus`):
 
 1. `settings.json`, `ui-state.json`, `chat-history.json`,
    `clipboard-history.json` - read with the same code, since the format is
@@ -157,3 +161,12 @@ Levis installation by copying from the Levis directories above:
 The Levis directories are left in place, so Levis keeps working alongside.
 A Levis older than 0.9.7 has no files to copy; Textus doesn't read another
 app's webview storage, so such a user updates Levis once first.
+
+## Project folders: `.textus/` and `.levis/`
+
+A project's own settings (writing instructions, skills, library, style
+profile) live in its `.textus/` folder. A project made with Levis has a
+`.levis/` folder instead; while a project has no `.textus/`, Textus reads
+and writes its `.levis/` in place (`ai::workspace::project_dir`), so nothing
+is moved or copied and a Levis install sharing the folder still sees the same
+files. A project with both uses `.textus/` only.

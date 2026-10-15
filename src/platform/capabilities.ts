@@ -68,5 +68,5 @@ export const canRevealInFileManager = isDesktopApp;
  *  (platform/ios-files.ts) on iOS. */
 export const canPickFolder = isDesktopApp || isIOSApp;
 
-/** Settings' "install the `levis` terminal command" (cli.rs). */
+/** Settings' "install the `textus` terminal command" (cli.rs). */
 export const canInstallCliCommand = isDesktopApp;

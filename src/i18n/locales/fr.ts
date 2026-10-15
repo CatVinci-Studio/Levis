@@ -79,7 +79,7 @@ Ce qu'il est utile d'écrire ici, par exemple\u00a0:
                 pour le grand public.
 
 Les instructions propres à un seul projet vont dans le fichier
-.levis/agent.md de ce projet (dans le panneau IA, menu du projet >
+.textus/agent.md de ce projet (dans le panneau IA, menu du projet >
 Modifier les instructions d'écriture du projet). Les deux sont
 envoyées\u202f; en cas de contradiction, celles du projet l'emportent.
 
@@ -526,8 +526,8 @@ utiliser une.
   updateDownloading: "Téléchargement de la mise à jour…",
   updateFailed: "Échec de la mise à jour\u00a0:",
   updateViaPackageManager: `${APP_NAME} a été installé par votre gestionnaire de paquets. Mettez-le à jour depuis celui-ci.`,
-  cliCommandLabel: "Commande de terminal «\u00a0levis\u00a0»",
-  cliCommandHint: `Permet d'ouvrir ${APP_NAME} (ou un fichier) depuis le terminal, par exemple\u00a0: levis README.md`,
+  cliCommandLabel: "Commande de terminal «\u00a0textus\u00a0»",
+  cliCommandHint: `Permet d'ouvrir ${APP_NAME} (ou un fichier) depuis le terminal, par exemple\u00a0: textus README.md`,
   cliCommandInstalled: "Installée",
   cliCommandNotInstalled: "Non installée",
   cliCommandInstallButton: "Installer",

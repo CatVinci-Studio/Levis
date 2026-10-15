@@ -78,7 +78,7 @@ Ejemplos de lo que conviene escribir aquí:
   Contexto     Escribo reportajes científicos extensos para el
                público general.
 
-Las instrucciones para un solo proyecto van en el .levis/agent.md de
+Las instrucciones para un solo proyecto van en el .textus/agent.md de
 ese proyecto (en el panel de IA, menú del proyecto >
 Editar instrucciones de escritura del proyecto). Se envían ambas; si
 se contradicen, prevalecen las del proyecto.
@@ -522,8 +522,8 @@ para usar una.
   updateDownloading: "Descargando la actualización…",
   updateFailed: "No se pudo actualizar:",
   updateViaPackageManager: `${APP_NAME} se instaló con tu gestor de paquetes. Actualízalo desde ahí.`,
-  cliCommandLabel: "Comando de terminal «levis»",
-  cliCommandHint: `Permite abrir ${APP_NAME} (o un archivo) desde la línea de comandos, p. ej., levis README.md`,
+  cliCommandLabel: "Comando de terminal «textus»",
+  cliCommandHint: `Permite abrir ${APP_NAME} (o un archivo) desde la línea de comandos, p. ej., textus README.md`,
   cliCommandInstalled: "Instalado",
   cliCommandNotInstalled: "No instalado",
   cliCommandInstallButton: "Instalar",

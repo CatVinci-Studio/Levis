@@ -77,7 +77,7 @@ pub async fn export_via_pandoc(
         cmd.arg("--from")
             // gfm to match the editor's dialect; dollar math and YAML
             // frontmatter are off by default in pandoc's gfm reader but
-            // supported in Levis documents.
+            // supported in Textus documents.
             .arg("gfm+tex_math_dollars+yaml_metadata_block")
             .arg("--to")
             .arg(&format)
@@ -291,7 +291,7 @@ mod pdf_offscreen {
     ) -> Result<(), String> {
         let id = crate::next_window_id();
         // Removed when `page` drops, however this returns.
-        let page = crate::atomic::TempFile::create("levis-pdf-export-", ".html", html)
+        let page = crate::atomic::TempFile::create("textus-pdf-export-", ".html", html)
             .map_err(|e| e.to_string())?;
         let label = format!("{}{id}", super::PDF_EXPORT_LABEL_PREFIX);
 

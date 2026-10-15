@@ -124,7 +124,7 @@ export function useTabDragMerge(opts: {
 
   // Single-tab windows have no tab bar to drag a pill out of (App.tsx's
   // showTabBar), so they're merged by dragging the whole native window (its
-  // title bar) onto another Levis window instead - the same gesture
+  // title bar) onto another Textus window instead - the same gesture
   // Safari/Chrome use to combine two single-tab windows into one.
   //
   // Tauri's onMoved fires on every tick of a drag but there is no "drag

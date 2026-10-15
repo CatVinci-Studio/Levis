@@ -277,7 +277,7 @@ export function ChatTabIcon({ className }: IconProps) {
   );
 }
 
-/** Levis AI itself: a four-pointed spark, with a small one beside it (the
+/** Textus AI itself: a four-pointed spark, with a small one beside it (the
  *  AI panel's empty state). */
 export function SparkleIcon({ className }: IconProps) {
   return (

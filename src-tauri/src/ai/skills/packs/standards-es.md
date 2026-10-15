@@ -4,9 +4,9 @@ description: >-
   Writing conventions for Spanish: punctuation and quotation marks, numbers and dates, accents and spelling, dialogue with the raya, inclusive language and letters.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Summarised from the RAE/ASALE Diccionario panhispánico de dudas, Ortografía 2010 and related notes (summarised only, never quoted); adapted from the EU Interinstitutional Style Guide (© European Union, reproduction authorised); Unicode CLDR (facts)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Summarised from the RAE/ASALE Diccionario panhispánico de dudas, Ortografía 2010 and related notes (summarised only, never quoted); adapted from the EU Interinstitutional Style Guide (© European Union, reproduction authorised); Unicode CLDR (facts)."
 ---
 
 ## typography

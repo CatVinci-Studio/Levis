@@ -54,7 +54,7 @@ export type MockAgentReply = (message: string) => string | AgentTurn[];
 export function useAgentConversation(
   docPath: string | null,
   /** The chosen project folder, or null for the default (the document's
-   *  folder). Decides where `.levis/` is read from and how far the agent's
+   *  folder). Decides where `.textus/` is read from and how far the agent's
    *  file tools may reach - see ai/workspace.rs. */
   workspaceRoot: string | null,
   provider: string,

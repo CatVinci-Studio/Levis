@@ -75,7 +75,7 @@ test("Settings fills the phone's screen and Done closes it", async ({
   await expect(panel).toHaveCount(0);
 });
 
-test("opening Levis AI while typing puts the keyboard away", async ({
+test("opening Textus AI while typing puts the keyboard away", async ({
   page,
 }) => {
   await openPhone(page);
@@ -94,7 +94,7 @@ test("opening Levis AI while typing puts the keyboard away", async ({
   ).toBe("none");
 });
 
-test("Levis AI is a bottom sheet that leaves the document in view", async ({
+test("Textus AI is a bottom sheet that leaves the document in view", async ({
   page,
 }) => {
   await openPhone(page);

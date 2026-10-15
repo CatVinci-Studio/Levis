@@ -1,7 +1,7 @@
 "$schema" = "schemas/schema.json"
 
 [default]
-description = "Everything Levis's iOS document access needs."
+description = "Everything Textus's iOS document access needs."
 permissions = [
   "allow-pick-document",
   "allow-pick-folder",

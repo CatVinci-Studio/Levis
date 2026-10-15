@@ -476,7 +476,7 @@ test("the phone toolbar's block buttons toggle: H steps through levels, lists an
   const toggle = (kind: string) =>
     page.evaluate(
       (detail) =>
-        window.dispatchEvent(new CustomEvent("levis:toggle-block", { detail })),
+        window.dispatchEvent(new CustomEvent("textus:toggle-block", { detail })),
       kind,
     );
   for (const tag of ["h1", "h2", "h3"]) {

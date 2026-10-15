@@ -312,7 +312,7 @@ export function installDevTauriShim(): void {
   };
   w.__devSkills = skills;
   const skillCopyPath = (name: string) =>
-    `/home/dev/.config/levis/agent/skills/${name}.md`;
+    `/home/dev/.config/textus/agent/skills/${name}.md`;
   function skillCommand(
     cmd: string,
     args: Record<string, unknown> = {},
@@ -383,7 +383,7 @@ export function installDevTauriShim(): void {
           skills.customized.add(name);
           skills.files.set(
             path,
-            `---\nname: ${name}\ndescription: The built-in ${name} skill, to change as you like.\nmetadata:\n  levis-based-on: "${name}@1"\n---\n\n# ${name}\n`,
+            `---\nname: ${name}\ndescription: The built-in ${name} skill, to change as you like.\nmetadata:\n  textus-based-on: "${name}@1"\n---\n\n# ${name}\n`,
           );
         }
         return Promise.resolve(path);

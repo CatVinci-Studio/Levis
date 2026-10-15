@@ -55,7 +55,7 @@ export function isIOSPlatform(): boolean {
 }
 
 /** A desktop build (macOS, Windows, Linux): everything that isn't the iOS
- *  app (or an Android webview, which Levis doesn't ship but which must
+ *  app (or an Android webview, which Textus doesn't ship but which must
  *  never be mistaken for desktop Linux). The Rust side's `cfg(desktop)`. */
 export function isDesktop(): boolean {
   if (typeof navigator === "undefined") return true;

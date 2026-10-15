@@ -15,7 +15,7 @@ env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
   # The one place the product's name is spelled for this workflow: the
   # release title and the DMG the Homebrew cask points at.
-  PRODUCT_NAME: Levis
+  PRODUCT_NAME: Textus
 
 permissions:
   contents: write
@@ -174,23 +174,23 @@ jobs:
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           args: ${{ matrix.args }}
 
-      # levis-bin (packaging/arch/PKGBUILD) installs this tarball. Its
-      # binary is a second build with LEVIS_DISTRIBUTION=aur: it reports new
+      # textus-bin (packaging/arch/PKGBUILD) installs this tarball. Its
+      # binary is a second build with TEXTUS_DISTRIBUTION=aur: it reports new
       # versions but does not install them, because pacman owns /usr/bin.
-      # --no-bundle recompiles only the levis crate and skips the installers.
+      # --no-bundle recompiles only the textus crate and skips the installers.
       - name: Build and upload AUR tarball
         if: matrix.platform == 'ubuntu-22.04'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LEVIS_DISTRIBUTION: aur
+          TEXTUS_DISTRIBUTION: aur
         run: |
           npx tauri build --no-bundle
           scripts/package-linux-tarball.sh "${RELEASE_TAG#v}" \
-            src-tauri/target/release/levis dist-aur
+            src-tauri/target/release/textus dist-aur
           gh release upload "$RELEASE_TAG" dist-aur/* --clobber
 
-  # Builds and tests levis-bin and attaches it to the draft (see
+  # Builds and tests textus-bin and attaches it to the draft (see
   # arch-package.yml). Before publish, so a broken package keeps the whole
   # release a draft.
   arch-package:
@@ -272,7 +272,7 @@ jobs:
           fi
 
   # Points the Homebrew cask (CatVinci-Studio/homebrew-tap) at the DMG this
-  # release just published, so `brew install --cask catvinci-studio/tap/levis`
+  # release just published, so `brew install --cask catvinci-studio/tap/textus`
   # always serves the newest version. Pushes via a write deploy key on the
   # tap repo (GITHUB_TOKEN can't push to another repository).
   #
@@ -298,9 +298,9 @@ jobs:
           fi
           VERSION="${RELEASE_TAG#v}"
           # The release was published seconds ago; let the CDN catch up.
-          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o levis.dmg \
-            "https://github.com/CatVinci-Studio/Levis/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
-          SHA=$(sha256sum levis.dmg | cut -d' ' -f1)
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o textus.dmg \
+            "https://github.com/CatVinci-Studio/Textus/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
+          SHA=$(sha256sum textus.dmg | cut -d' ' -f1)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           printf '%s\n' "$TAP_DEPLOY_KEY" > ~/.ssh/tap_key
@@ -308,8 +308,8 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key"
           git clone git@github.com:CatVinci-Studio/homebrew-tap.git
           cd homebrew-tap
-          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/levis.rb
-          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/levis.rb
+          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/textus.rb
+          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/textus.rb
           # A rerun after a successful push has nothing to commit.
           if git diff --quiet; then
             echo "The cask already serves ${VERSION}"
@@ -317,11 +317,11 @@ jobs:
           fi
           git -c user.name="github-actions[bot]" \
               -c user.email="github-actions[bot]@users.noreply.github.com" \
-              commit -am "levis ${VERSION}"
+              commit -am "textus ${VERSION}"
           git push
 
   # Asks the [catvinci] pacman repository (CatVinci-Studio/arch-repo) to
-  # serve the levis-bin this release carries (see update-arch-repo.yml).
+  # serve the textus-bin this release carries (see update-arch-repo.yml).
   # Only for the newest stable tag, like the Homebrew cask: pacman sorts
   # 0.9.0_rc.1 above 0.9.0, and an older tag would downgrade.
   update-arch-repo:

@@ -69,7 +69,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   용어    ‘컨텐츠’가 아니라 ‘콘텐츠’로 쓴다.
   배경    일반 독자를 위한 긴 과학 기사를 쓴다.
 
-한 프로젝트에만 해당하는 지침은 그 프로젝트의 .levis/agent.md에
+한 프로젝트에만 해당하는 지침은 그 프로젝트의 .textus/agent.md에
 적습니다(AI 패널의 프로젝트 메뉴 > 프로젝트 글쓰기 지침 편집).
 두 지침이 모두 전송되며, 서로 다르면 프로젝트 지침이 우선합니다.
 
@@ -494,8 +494,8 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   updateDownloading: "업데이트 다운로드 중…",
   updateFailed: "업데이트 실패:",
   updateViaPackageManager: `${APP_NAME} 앱은 패키지 관리자로 설치되었습니다. 업데이트도 패키지 관리자에서 하세요.`,
-  cliCommandLabel: "'levis' 터미널 명령어",
-  cliCommandHint: `터미널에서 ${APP_NAME} 또는 파일을 열 수 있습니다. 예: levis README.md`,
+  cliCommandLabel: "'textus' 터미널 명령어",
+  cliCommandHint: `터미널에서 ${APP_NAME} 또는 파일을 열 수 있습니다. 예: textus README.md`,
   cliCommandInstalled: "설치됨",
   cliCommandNotInstalled: "설치 안 됨",
   cliCommandInstallButton: "설치",

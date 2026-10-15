@@ -1,15 +1,15 @@
-# Uploading files with the Levis Sync API
+# Uploading files with the Textus Sync API
 
 ## Quick start
 
 1. Create an API token in **Settings > Developer**.
-2. Install the client with `npm install @levis/sync`.
+2. Install the client with `npm install @textus/sync`.
 3. Call `upload()` with the file path and the target folder.
 
 ```js
-import { SyncClient } from "@levis/sync";
+import { SyncClient } from "@textus/sync";
 
-const client = new SyncClient({ token: process.env.LEVIS_TOKEN });
+const client = new SyncClient({ token: process.env.TEXTUS_TOKEN });
 
 async function uploadAll(paths) {
   for (const path of paths) {

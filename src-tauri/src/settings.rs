@@ -6,9 +6,9 @@
 //!
 //! - localStorage belongs to the webview engine, keyed by app identifier and
 //!   stored in a different format on every platform (SQLite under WebKitGTK
-//!   and WKWebView, LevelDB under WebView2). At 1.0.0 the app becomes Textus
-//!   with a new identifier; it can import a Levis user's data by copying a
-//!   few files, but not by reaching into another app's browser profile.
+//!   and WKWebView, LevelDB under WebView2). At 1.0.0 Levis became Textus
+//!   with a new identifier; Textus can import a Levis user's data by copying
+//!   a few files, but not by reaching into another app's browser profile.
 //! - Every window wrote the WHOLE settings object (and whole history arrays)
 //!   back on every change, so two windows changing different things raced
 //!   and the slower one silently undid the other.
@@ -117,7 +117,7 @@ impl Store {
             // the real data - nor write it at all (see `unreadable`).
             Err(e) => {
                 eprintln!(
-                    "levis: cannot read {}: {e}; using defaults for this session and leaving the file alone",
+                    "textus: cannot read {}: {e}; using defaults for this session and leaving the file alone",
                     path.display()
                 );
                 unreadable = true;
@@ -174,7 +174,7 @@ impl Store {
             // schedules another write instead of being left unwritten.
             store.flush_scheduled.store(false, Ordering::Release);
             if let Err(e) = store.flush() {
-                eprintln!("levis: cannot write {}: {e}", store.path.display());
+                eprintln!("textus: cannot write {}: {e}", store.path.display());
             }
         });
     }
@@ -296,11 +296,11 @@ fn move_aside(path: &Path) {
     let aside = path.with_file_name(format!("{name}.corrupt-{stamp}"));
     match std::fs::rename(path, &aside) {
         Ok(()) => eprintln!(
-            "levis: {} was unreadable; moved to {} and starting from defaults",
+            "textus: {} was unreadable; moved to {} and starting from defaults",
             path.display(),
             aside.display()
         ),
-        Err(e) => eprintln!("levis: cannot move aside {}: {e}", path.display()),
+        Err(e) => eprintln!("textus: cannot move aside {}: {e}", path.display()),
     }
 }
 
@@ -602,7 +602,7 @@ impl Stores {
     pub fn flush_all(&self) {
         for store in [&self.settings, &self.ui_state, &self.chat, &self.clipboard] {
             if let Err(e) = store.flush() {
-                eprintln!("levis: cannot write {}: {e}", store.path.display());
+                eprintln!("textus: cannot write {}: {e}", store.path.display());
             }
         }
     }
@@ -647,7 +647,7 @@ fn theme_changed(app: &AppHandle) {
 ///
 /// It decides a new window's first frames: until its page has painted
 /// (some 125 ms), a WKWebView shows a background that follows the app's
-/// appearance, not the page. So with Levis pinned to Dark on a light Mac,
+/// appearance, not the page. So with Textus pinned to Dark on a light Mac,
 /// every window opened white for a moment however early the boot script
 /// put the theme on the document. It also gives scrollbars, context menus,
 /// open/save panels and the page's prefers-color-scheme the same appearance
@@ -745,7 +745,7 @@ pub fn boot_script(app: &AppHandle, label: &str) -> String {
         "label": label,
     });
     format!(
-        "{}\n;window.__levisBoot({boot}, {theme_css});",
+        "{}\n;window.__textusBoot({boot}, {theme_css});",
         include_str!("boot.js")
     )
 }
@@ -1112,7 +1112,7 @@ mod tests {
     /// A fresh, empty directory per test.
     fn temp_dir() -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "levis-settings-test-{}-{}",
+            "textus-settings-test-{}-{}",
             std::process::id(),
             DIR_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));

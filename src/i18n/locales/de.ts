@@ -75,7 +75,7 @@ Was hier zum Beispiel hingehört:
   Hintergrund  Ich schreibe lange Wissenschaftsreportagen für ein breites Publikum.
 
 Anweisungen, die nur für ein Projekt gelten, gehören in dessen
-.levis/agent.md (Projektmenü im KI-Bereich > Projekt-Schreibanweisungen bearbeiten).
+.textus/agent.md (Projektmenü im KI-Bereich > Projekt-Schreibanweisungen bearbeiten).
 Beide werden gesendet; wo sie sich widersprechen, gelten die des Projekts.
 
 Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
@@ -510,8 +510,8 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   updateDownloading: "Update wird geladen…",
   updateFailed: "Update fehlgeschlagen:",
   updateViaPackageManager: `${APP_NAME} wurde über deinen Paketmanager installiert. Aktualisiere es dort.`,
-  cliCommandLabel: "Terminalbefehl „levis“",
-  cliCommandHint: `Öffnet ${APP_NAME} (oder eine Datei) aus dem Terminal, etwa mit levis README.md`,
+  cliCommandLabel: "Terminalbefehl „textus“",
+  cliCommandHint: `Öffnet ${APP_NAME} (oder eine Datei) aus dem Terminal, etwa mit textus README.md`,
   cliCommandInstalled: "Installiert",
   cliCommandNotInstalled: "Nicht installiert",
   cliCommandInstallButton: "Installieren",

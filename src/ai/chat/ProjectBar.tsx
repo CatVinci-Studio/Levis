@@ -37,10 +37,10 @@ export function libraryFileName(name: string): string {
 
 /**
  * The project the conversation works in, under the AI panel's header: the
- * project folder Levis AI may read (and search, and @-mention), and the
- * project-level files kept in its .levis/ folder - the style profile, the
+ * project folder Textus AI may read (and search, and @-mention), and the
+ * project-level files kept in its .textus/ folder - the style profile, the
  * library of people, places and terms (src-tauri ai::project) and the
- * project's writing instructions (.levis/agent.md). The names follow
+ * project's writing instructions (.textus/agent.md). The names follow
  * docs/AI-CONCEPTS.md. The folder used to be a setting three screens deep;
  * this is where it actually matters.
  */
@@ -76,7 +76,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
       .catch(() => setInfo(null));
   }, [docPath, workspaceRoot]);
   useEffect(reload, [reload]);
-  // Files under .levis/ change outside this component (edited in a tab):
+  // Files under .textus/ change outside this component (edited in a tab):
   // re-read whenever the window regains focus.
   useEffect(() => {
     window.addEventListener("focus", reload);
@@ -232,7 +232,7 @@ export function ProjectBar({ docPath }: { docPath: string | null }) {
     },
     { label: t.projectEditInstructions, onSelect: openInstructions },
   ];
-  // iOS: the app's own Documents folder is "Levis" in the Files app, and
+  // iOS: the app's own Documents folder is "Textus" in the Files app, and
   // "Documents" was English in every language.
   const trimmed = root.replace(/[\\/]+$/, "");
   const documents = knownDocumentsDir()?.replace(/[\\/]+$/, "");

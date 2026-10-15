@@ -245,9 +245,9 @@ mod tests {
             x_weighted("see https://example.com/a/very/long/path?x=1"),
             4 + 23
         );
-        assert_eq!(x_weighted("levis.app"), 23);
+        assert_eq!(x_weighted("textus.app"), 23);
         // In Chinese text too, with no space around the address.
-        assert_eq!(x_weighted("访问levis.app了解"), 4 + 23 + 4);
+        assert_eq!(x_weighted("访问textus.app了解"), 4 + 23 + 4);
         // Abbreviations are not domains.
         assert_eq!(x_weighted("e.g. ok"), 7);
         // An emoji is 2, ZWJ family and flags included; curly quotes are 1.

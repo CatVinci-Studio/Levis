@@ -1,15 +1,15 @@
-//! iOS document access for Levis.
+//! iOS document access for Textus.
 //!
 //! An iOS app can't open arbitrary paths: a file or folder the user picks in
 //! the Files app arrives as a security-scoped URL that has to be opened for
 //! access around every read and write, through a file coordinator (iCloud
 //! may be syncing it), and that must be saved as a bookmark to survive a
 //! relaunch. That is native work, so it lives in
-//! `ios/Sources/LevisFilesPlugin.swift`; this crate only forwards the
+//! `ios/Sources/TextusFilesPlugin.swift`; this crate only forwards the
 //! frontend's calls to it.
 //!
 //! Files in the app's own Documents folder (shown in Files as "On My
-//! iPhone > Levis") don't need any of this and keep using the app's
+//! iPhone > Textus") don't need any of this and keep using the app's
 //! ordinary Rust file commands.
 //!
 //! Registered on iOS only (see the app's lib.rs); desktop never loads it.
@@ -22,7 +22,7 @@ mod ios {
         AppHandle, Manager, Runtime,
     };
 
-    tauri::ios_plugin_binding!(init_plugin_levis_files);
+    tauri::ios_plugin_binding!(init_plugin_textus_files);
 
     struct Native<R: Runtime>(PluginHandle<R>);
 
@@ -59,7 +59,7 @@ mod ios {
     }
 
     pub fn init<R: Runtime>() -> TauriPlugin<R> {
-        Builder::new("levis-files")
+        Builder::new("textus-files")
             .invoke_handler(tauri::generate_handler![
                 pick_document,
                 pick_folder,
@@ -72,7 +72,7 @@ mod ios {
                 share
             ])
             .setup(|app, api| {
-                let handle = api.register_ios_plugin(init_plugin_levis_files)?;
+                let handle = api.register_ios_plugin(init_plugin_textus_files)?;
                 app.manage(Native(handle));
                 Ok(())
             })

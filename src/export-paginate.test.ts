@@ -17,7 +17,7 @@ function stack(heights: number[]): {
   });
   document.body.replaceChildren(root);
   const heightOf = (el: Element) =>
-    el.classList.contains("levis-page-spacer")
+    el.classList.contains("textus-page-spacer")
       ? parseFloat((el as HTMLElement).style.height) || 0
       : Number((el as HTMLElement).dataset.h ?? 0);
   for (const el of [root, ...blocks]) {
@@ -40,7 +40,7 @@ describe("paginateDocument", () => {
     // crosses the bottom band, so it must start at 110.
     const { root, blocks } = stack([60, 40]);
     paginateDocument(document, root, 100, 10);
-    const spacers = root.querySelectorAll(".levis-page-spacer");
+    const spacers = root.querySelectorAll(".textus-page-spacer");
     expect(spacers).toHaveLength(2);
     expect(blocks[1].getBoundingClientRect().top).toBe(110);
   });

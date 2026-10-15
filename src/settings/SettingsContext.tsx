@@ -169,7 +169,7 @@ export interface Settings {
   agentDefaultMode: AgentMode;
   /// Tone preset for inline completion suggestions.
   completionTone: CompletionTone;
-  /// Settings > Levis AI > Writing Assistance > Writing conventions:
+  /// Settings > Textus AI > Writing Assistance > Writing conventions:
   /// "automatic", or a profile such as "zh-Hans-CN/fiction" that the AI
   /// and the checks follow for documents in that language (Rust reads it;
   /// settings/writing-conventions.ts lists the values). A project's style
@@ -190,7 +190,7 @@ export interface Settings {
   pinAgentWindow: boolean;
   /// The chosen project folder (in code, the workspace root), or "" for
   /// the default: the folder of the document being edited. One setting for
-  /// every document. It is the folder whose `.levis/` (style profile,
+  /// every document. It is the folder whose `.textus/` (style profile,
   /// library, agent.md, skills) is read AND the sandbox boundary of the
   /// agent's list_files/read_file tools, so setting it is what lets the
   /// agent reach reference material that doesn't live next to the draft.
@@ -289,7 +289,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 const STORAGE_KEY = "catvinci-settings";
 /** The <style> holding Settings > Theme > Custom CSS. */
-const CUSTOM_CSS_STYLE_ID = "levis-user-css";
+const CUSTOM_CSS_STYLE_ID = "textus-user-css";
 
 interface SettingsContextValue {
   settings: Settings;
@@ -727,7 +727,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // switches while in "system" mode.
   useEffect(() => {
     const root = document.documentElement;
-    const STYLE_ID = "levis-custom-theme";
+    const STYLE_ID = "textus-custom-theme";
 
     function clearInjectedStyle() {
       document.getElementById(STYLE_ID)?.remove();
@@ -759,7 +759,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
 
     root.removeAttribute("data-content-theme");
-    // Turns Levis's own content ornaments off (content-base.css): an
+    // Turns Textus's own content ornaments off (content-base.css): an
     // imported theme should look the way it does in Typora.
     root.setAttribute("data-user-theme", "");
     let cancelled = false;

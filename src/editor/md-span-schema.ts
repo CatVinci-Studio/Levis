@@ -56,7 +56,7 @@ export const mdSpanSchema = $nodeSchema("md_span", () => ({
     {
       // Not tag-specific ([data-type=...] alone) because toDOM below picks
       // the wrapper tag by delim/rung (strong/em/del/mark) rather than
-      // always "span" - this must still recognize Levis's own re-pasted
+      // always "span" - this must still recognize Textus's own re-pasted
       // content regardless of which tag it rendered as.
       tag: '[data-type="md_span"]',
       getAttrs: (dom) => ({
@@ -67,7 +67,7 @@ export const mdSpanSchema = $nodeSchema("md_span", () => ({
     // Standard semantic tags - recognizes bold/italic/strikethrough/highlight
     // pasted in from anywhere else (a browser, Notion, another editor),
     // which otherwise carried no formatting this schema could see at all.
-    // Lower priority than the rule above: Levis's own data-type-marked
+    // Lower priority than the rule above: Textus's own data-type-marked
     // content must always resolve through its own attrs, never get
     // re-derived from (and second-guessed via) the tag name.
     { tag: "strong", priority: 40, getAttrs: () => ({ delim: "*", rung: 2 }) },
@@ -89,7 +89,7 @@ export const mdSpanSchema = $nodeSchema("md_span", () => ({
       "data-syntax": spanDelimText(node),
       class: "md-span",
     };
-    // A semantic tag Levis's own parseDOM rule above still recognizes via
+    // A semantic tag Textus's own parseDOM rule above still recognizes via
     // data-type, so pasting this into an EXTERNAL app (which reads only the
     // tag, not the attrs) shows real bold/italic/strikethrough/highlight
     // instead of an unstyled <span>. Bold+italic together (rung 3) has no
@@ -168,7 +168,7 @@ export const mdCodeSpanSchema = $nodeSchema("md_code_span", () => ({
     // editor) - excluding one inside <pre> (a fenced code BLOCK), whose own
     // parseDOM already owns that shape; without this exclusion an entire
     // pasted code block's content would get misread as one inline code
-    // span. Lower priority so Levis's own data-type-marked rule above wins
+    // span. Lower priority so Textus's own data-type-marked rule above wins
     // when both could match.
     {
       tag: "code",

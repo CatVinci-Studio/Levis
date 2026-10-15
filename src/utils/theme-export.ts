@@ -3,7 +3,7 @@ import contentBaseCss from "../editor/content-base.css?raw";
 const ORNAMENT_PREFIX = ":root:not([data-user-theme]) .milkdown ";
 
 /**
- * Levis's own ornaments from content-base.css (the h2 rule, the h3 bar, the
+ * Textus's own ornaments from content-base.css (the h2 rule, the h3 bar, the
  * tinted quote, ...) rewritten as plain `#write` rules. Importing any theme
  * switches those ornaments off, so an exported theme has to carry them
  * itself or it loses them on the way back in (#29) - and as real rules the

@@ -1,13 +1,13 @@
-# Guia dos recursos de IA do Levis
+# Guia dos recursos de IA do Textus
 
-O Levis tem uma IA integrada feita para a escrita, a Levis AI: autocompletar, verificação gramatical e conversas que leem e revisam o seu documento. Este guia mostra como conectar um serviço, como usar os recursos de IA e como adaptar a Levis AI ao seu jeito de escrever com uma pasta de projeto, um perfil de estilo, uma biblioteca, instruções de escrita e habilidades.
+O Textus tem uma IA integrada feita para a escrita, a Textus AI: autocompletar, verificação gramatical e conversas que leem e revisam o seu documento. Este guia mostra como conectar um serviço, como usar os recursos de IA e como adaptar a Textus AI ao seu jeito de escrever com uma pasta de projeto, um perfil de estilo, uma biblioteca, instruções de escrita e habilidades.
 
 ## Como conectar um serviço
 
-1. Abra **Ajustes > Levis AI** e escolha o serviço que você quer em **Conexão > Provedor**.
+1. Abra **Ajustes > Textus AI** e escolha o serviço que você quer em **Conexão > Provedor**.
 2. Expanda **Login e credenciais** e entre na sua conta ou digite uma chave de API, conforme o que o serviço oferece.
 3. Para um **Endpoint personalizado** (qualquer servidor compatível com a API da OpenAI: modelos locais, proxies), digite a URL base, uma chave se ele exigir e o nome do modelo, e salve.
-4. Escolha o modelo auxiliar em **Assistência de escrita** e o modelo do chat em **Chat da Levis AI**.
+4. Escolha o modelo auxiliar em **Assistência de escrita** e o modelo do chat em **Chat da Textus AI**.
 
 O login acontece no seu navegador. O suporte a imagens, busca na web e edições no documento depende do serviço e do modelo escolhidos.
 
@@ -23,7 +23,7 @@ Enquanto você digita, uma continuação em cinza aparece no cursor. Pressione <
 
 Peça uma continuação quando quiser com <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> ou pelo menu de contexto (o cursor precisa estar no fim de um parágrafo): você recebe uma continuação mais longa, com até três alternativas, e <kbd>Option</kbd>+<kbd>[</kbd> / <kbd>Option</kbd>+<kbd>]</kbd> passam de uma para outra.
 
-Em **Ajustes > Levis AI > Assistência de escrita**, você pode escolher um **Tom do autocompletar** (Seguir o documento / Formal / Informal / Acadêmico / Conciso). Quando o documento pertence a um projeto com perfil de estilo ou biblioteca (veja **Personalize a Levis AI**, mais abaixo), o autocompletar também segue esses arquivos.
+Em **Ajustes > Textus AI > Assistência de escrita**, você pode escolher um **Tom do autocompletar** (Seguir o documento / Formal / Informal / Acadêmico / Conciso). Quando o documento pertence a um projeto com perfil de estilo ou biblioteca (veja **Personalize a Textus AI**, mais abaixo), o autocompletar também segue esses arquivos.
 
 ### 2. Verificação gramatical
 
@@ -34,10 +34,10 @@ Possíveis problemas aparecem sublinhados. Passe o ponteiro sobre um deles, ou l
 A conversa completa fica em um painel no lado direito do editor. Abra ou feche o painel com o botão de chat na ponta direita da barra da janela ou com <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
 
 - **Uma conversa por documento**: cada aba tem a sua conversa, e trocar de aba troca o painel junto. **Nova conversa**, no cabeçalho do painel, recomeça do zero (se ainda houver edições sem decisão, o app pergunta antes).
-- **Modos**: o campo de mensagem tem **Perguntar**, **Editar** e **Planejar**. O painel começa no modo definido em **Ajustes > Levis AI > Chat da Levis AI > Modo padrão**.
+- **Modos**: o campo de mensagem tem **Perguntar**, **Editar** e **Planejar**. O painel começa no modo definido em **Ajustes > Textus AI > Chat da Textus AI > Modo padrão**.
 - **Menções com @**: digite `@` no campo para escolher um arquivo de texto da pasta do projeto; ele é anexado à mensagem.
 - **Anexar arquivos**: o botão **+** à esquerda do campo anexa à mensagem um PDF, um documento do Word, uma apresentação do PowerPoint, uma planilha, uma imagem ou um arquivo de texto simples. Tudo, menos as imagens, é convertido em texto no seu computador e vai dentro da mensagem; as imagens são enviadas como imagens de verdade aos provedores que conseguem vê-las (os que não conseguem avisam na hora, em vez de descartá-las sem dizer nada). Um arquivo longo é enviado só em parte, e o anexo mostra “(parcial)” quando isso acontece.
-- **Busca na web**: depois de ativada em **Ajustes > Levis AI > Chat da Levis AI** (nos provedores que oferecem o recurso), a Levis AI pode buscar na web por conta própria quando um pedido precisar.
+- **Busca na web**: depois de ativada em **Ajustes > Textus AI > Chat da Textus AI** (nos provedores que oferecem o recurso), a Textus AI pode buscar na web por conta própria quando um pedido precisar.
 - **Histórico**: a aba **Conversas** da barra lateral guarda as conversas anteriores. Clique em uma para reabri-la no editor atual e continuar.
 - **Erros**: quando uma solicitação falha, o chat diz que tipo de problema houve e o que fazer (verificar a chave, esperar um pouco, escolher outro modelo), acima da mensagem do próprio provedor.
 
@@ -48,27 +48,27 @@ A conversa completa fica em um painel no lado direito do editor. Abra ou feche o
 Pressione <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> (ou clique com o botão direito > Perguntar à IA…) para abrir uma pequena barra de chat logo abaixo do parágrafo em que você está. Ela fica dentro do documento e empurra o texto seguinte para baixo, em vez de cobri-lo. Se havia texto selecionado quando você a abriu, a seleção vai junto. A Pergunta rápida abre no modo **Editar**, porque normalmente é aberta sobre um trecho que você quer mudar (“encurte isto”); o modo Perguntar está a um clique, no seletor de modo.
 
 - **O atalho de novo**: pressionar <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> com a barra aberta leva o cursor para o campo dela; pressionar mais uma vez, a partir do campo, fecha a barra. <kbd>Esc</kbd> em qualquer ponto da barra também a fecha, e o cursor volta ao documento. Se ainda houver edições sem decisão, o app pergunta antes de fechar a barra (ou de começar uma nova conversa).
-- A Pergunta rápida tem a sua própria conversa curta, separada da do painel e não salva no histórico. Ela abre mesmo com o painel aberto. **Continuar na conversa completa** (o botão no canto dela) passa a conversa para o painel de IA, onde ela segue e fica salva. Ative **Ajustes > Levis AI > Avançado > Abrir conversas completas em uma janela separada** para mandá-la a uma janela separada.
+- A Pergunta rápida tem a sua própria conversa curta, separada da do painel e não salva no histórico. Ela abre mesmo com o painel aberto. **Continuar na conversa completa** (o botão no canto dela) passa a conversa para o painel de IA, onde ela segue e fica salva. Ative **Ajustes > Textus AI > Avançado > Abrir conversas completas em uma janela separada** para mandá-la a uma janela separada.
 
 ### 5. Edições no documento
 
 O chat nunca escreve direto no seu documento. Quando você pede a um provedor com chamada de ferramentas que altere o documento, cada alteração é uma proposta mostrada exatamente onde entraria: o texto removido aparece riscado e o texto novo aparece como uma inserção em verde. Nada muda no documento até você aceitar, e <kbd>Cmd</kbd>+<kbd>Z</kbd> desfaz uma edição aceita de uma só vez.
 
 - **Aceitar / Rejeitar**: pela barra flutuante ao lado da edição, pelo cartão da proposta no painel ou pelo teclado: <kbd>Cmd</kbd>+<kbd>Return</kbd> aceita, e <kbd>Cmd</kbd>+<kbd>Delete</kbd> com o cursor sobre a edição rejeita. Várias propostas na mesma resposta aparecem em prévia ao mesmo tempo; passe de uma para outra com ‹› e use Aceitar todas / Rejeitar todas.
-- **Motivos**: cada cartão de proposta diz por que a Levis AI fez aquela alteração.
+- **Motivos**: cada cartão de proposta diz por que a Textus AI fez aquela alteração.
 - **Só algumas frases**: quando uma proposta reescreve várias frases, o cartão oferece **Escolher frases (N)**; marque as que você quer e clique no botão de aceitar, que passa a mostrar quantas você marcou (por exemplo, **Aceitar 2 de 3**).
-- **No cursor**: sem nada selecionado, a Levis AI sabe onde está o seu cursor, então “escreva uma transição aqui” insere o texto exatamente ali.
-- **Comentários em vez de edições**: peça uma revisão (“o que está fraco aqui?”) e a Levis AI fixa comentários nos trechos sem alterá-los. Cada cartão de comentário tem **Mostrar no documento**, que seleciona o trecho a que ele se refere.
+- **No cursor**: sem nada selecionado, a Textus AI sabe onde está o seu cursor, então “escreva uma transição aqui” insere o texto exatamente ali.
+- **Comentários em vez de edições**: peça uma revisão (“o que está fraco aqui?”) e a Textus AI fixa comentários nos trechos sem alterá-los. Cada cartão de comentário tem **Mostrar no documento**, que seleciona o trecho a que ele se refere.
 
-## Personalize a Levis AI
+## Personalize a Textus AI
 
-A Levis AI aprende sobre você e o seu trabalho a partir de alguns arquivos Markdown comuns, e não de configurações escondidas. Cada um tem uma função:
+A Textus AI aprende sobre você e o seu trabalho a partir de alguns arquivos Markdown comuns, e não de configurações escondidas. Cada um tem uma função:
 
 | Conceito | O que é | Onde fica |
 | --- | --- | --- |
-| **Pasta do projeto** | A pasta em que a Levis AI trabalha e que ela pode ler | A pasta do documento ou uma que você escolher |
-| **Perfil de estilo** | Como você escreve | `.levis/style.md` |
-| **Biblioteca** | Fatos sobre pessoas, lugares e termos | `.levis/library/` |
+| **Pasta do projeto** | A pasta em que a Textus AI trabalha e que ela pode ler | A pasta do documento ou uma que você escolher |
+| **Perfil de estilo** | Como você escreve | `.textus/style.md` |
+| **Biblioteca** | Fatos sobre pessoas, lugares e termos | `.textus/library/` |
 | **Instruções de escrita** | Regras fixas para toda conversa | `agent.md`, global e por projeto |
 | **Habilidades** | Instruções reutilizáveis que você chama com `/nome` | `skills/`, global e por projeto |
 | **Pasta de configuração global** | O que vale para todos os documentos | A pasta de configurações do app |
@@ -79,8 +79,8 @@ Daqui em diante, “conversas” quer dizer o painel de IA e a Pergunta rápida.
 meu-romance/             ← a pasta do projeto
 ├── capitulo-1.md        ← o documento que você está editando
 ├── notas/
-│   └── cronologia.md    ← material de referência que a Levis AI pode ler
-└── .levis/              ← as configurações do próprio projeto
+│   └── cronologia.md    ← material de referência que a Textus AI pode ler
+└── .textus/              ← as configurações do próprio projeto
     ├── style.md         ← perfil de estilo
     ├── agent.md         ← instruções de escrita deste projeto
     ├── library/
@@ -90,30 +90,30 @@ meu-romance/             ← a pasta do projeto
         └── polir.md     ← uma habilidade por arquivo
 ```
 
-O menu do projeto cria a pasta `.levis/` e os arquivos dela na primeira vez que você precisa deles; as habilidades do projeto são a única coisa que você adiciona à mão. Em qualquer um desses arquivos, o texto dentro de comentários `<!-- -->` é uma nota para você mesmo e nunca é enviado.
+O menu do projeto cria a pasta `.textus/` e os arquivos dela na primeira vez que você precisa deles; as habilidades do projeto são a única coisa que você adiciona à mão. Em qualquer um desses arquivos, o texto dentro de comentários `<!-- -->` é uma nota para você mesmo e nunca é enviado.
 
 ### A pasta do projeto
 
-**A pasta do projeto é a pasta em que a Levis AI trabalha.** Por padrão, é a pasta do documento que você está editando: salve um documento e a pasta dele se torna a pasta do projeto.
+**A pasta do projeto é a pasta em que a Textus AI trabalha.** Por padrão, é a pasta do documento que você está editando: salve um documento e a pasta dele se torna a pasta do projeto.
 
-- A Levis AI pode listar, ler e buscar os arquivos de texto dessa pasta (Markdown, texto simples e formatos parecidos) para encontrar as cenas anteriores de um personagem, um termo ou as suas notas. Arquivos e pastas ocultos, pastas de build e de dependências (como `node_modules`) e arquivos com mais de 100 KB ficam de fora.
+- A Textus AI pode listar, ler e buscar os arquivos de texto dessa pasta (Markdown, texto simples e formatos parecidos) para encontrar as cenas anteriores de um personagem, um termo ou as suas notas. Arquivos e pastas ocultos, pastas de build e de dependências (como `node_modules`) e arquivos com mais de 100 KB ficam de fora.
 - Digitar `@` no campo do chat anexa um dos arquivos dela à sua mensagem.
-- A pasta `.levis/` dela guarda o perfil de estilo, a biblioteca, as instruções de escrita e as habilidades do projeto.
+- A pasta `.textus/` dela guarda o perfil de estilo, a biblioteca, as instruções de escrita e as habilidades do projeto.
 
-A barra abaixo do cabeçalho do painel de IA mostra o nome da pasta do projeto; clique nele para abrir o **menu do projeto**. Quando o seu material de referência não está ao lado do rascunho, use **Escolher pasta do projeto…** nesse menu (ou **Ajustes > Levis AI > Pasta do projeto**). A pasta escolhida vale para todos os documentos, inclusive rascunhos não salvos, até você escolher **Usar a pasta do documento** de novo.
+A barra abaixo do cabeçalho do painel de IA mostra o nome da pasta do projeto; clique nele para abrir o **menu do projeto**. Quando o seu material de referência não está ao lado do rascunho, use **Escolher pasta do projeto…** nesse menu (ou **Ajustes > Textus AI > Pasta do projeto**). A pasta escolhida vale para todos os documentos, inclusive rascunhos não salvos, até você escolher **Usar a pasta do documento** de novo.
 
 > [!TIP]
-> Seu rascunho está em `tese/rascunhos/` e as notas das entrevistas em `tese/pesquisa/`? Escolha `tese/` como pasta do projeto, e a Levis AI poderá ler `pesquisa/entrevistas.md` enquanto você trabalha em `rascunhos/capitulo-2.md`.
+> Seu rascunho está em `tese/rascunhos/` e as notas das entrevistas em `tese/pesquisa/`? Escolha `tese/` como pasta do projeto, e a Textus AI poderá ler `pesquisa/entrevistas.md` enquanto você trabalha em `rascunhos/capitulo-2.md`.
 
-Tudo o que a Levis AI lê precisa estar dentro da pasta do projeto: `..`, caminhos absolutos e links que apontam para fora são recusados. Um rascunho não salvo não tem pasta do projeto, a menos que você tenha escolhido uma, e uma pasta ampla demais (sua pasta pessoal ou um disco inteiro) é recusada.
+Tudo o que a Textus AI lê precisa estar dentro da pasta do projeto: `..`, caminhos absolutos e links que apontam para fora são recusados. Um rascunho não salvo não tem pasta do projeto, a menos que você tenha escolhido uma, e uma pasta ampla demais (sua pasta pessoal ou um disco inteiro) é recusada.
 
 ### O perfil de estilo — “Aprender meu estilo”
 
-**O perfil de estilo descreve como você escreve**, para que as continuações e edições soem como você: voz e tom, ritmo das frases, escolha de palavras, pontuação, o que você nunca faz. A Levis AI o segue nas conversas, e o autocompletar o segue enquanto você digita, em todos os documentos do projeto. Ele é o arquivo `.levis/style.md`.
+**O perfil de estilo descreve como você escreve**, para que as continuações e edições soem como você: voz e tom, ritmo das frases, escolha de palavras, pontuação, o que você nunca faz. A Textus AI o segue nas conversas, e o autocompletar o segue enquanto você digita, em todos os documentos do projeto. Ele é o arquivo `.textus/style.md`.
 
 Há duas maneiras de criar um, ambas no menu do projeto:
 
-- **Aprender meu estilo com amostras…**: escolha alguns arquivos com textos seus (até oito). A Levis AI estuda esses textos e faz um rascunho do perfil (voz e tom, frases e ritmo, escolha de palavras, pontuação, estrutura, o que você nunca faz e algumas citações curtas como exemplos), que abre em uma nova aba. Leia, corrija, complete: o perfil é seu. Ao aprender de novo, a Levis AI guarda o perfil anterior como `style.previous.md`.
+- **Aprender meu estilo com amostras…**: escolha alguns arquivos com textos seus (até oito). A Textus AI estuda esses textos e faz um rascunho do perfil (voz e tom, frases e ritmo, escolha de palavras, pontuação, estrutura, o que você nunca faz e algumas citações curtas como exemplos), que abre em uma nova aba. Leia, corrija, complete: o perfil é seu. Ao aprender de novo, a Textus AI guarda o perfil anterior como `style.previous.md`.
 - **Criar perfil de estilo**: comece de um esboço vazio e escreva tudo você mesmo.
 
 Quando já existe um perfil, o botão **Estilo**, ao lado do nome da pasta, abre o arquivo.
@@ -133,7 +133,7 @@ Pontos concretos e verificáveis funcionam melhor do que adjetivos: “frases cu
 
 ### A biblioteca
 
-**A biblioteca guarda fatos que precisam se manter coerentes**: um arquivo Markdown por personagem, lugar ou termo, em `.levis/library/`. **Nova entrada na biblioteca…**, no menu do projeto, pede um nome e abre a nova entrada; o botão **Biblioteca** mostra quantas entradas existem.
+**A biblioteca guarda fatos que precisam se manter coerentes**: um arquivo Markdown por personagem, lugar ou termo, em `.textus/library/`. **Nova entrada na biblioteca…**, no menu do projeto, pede um nome e abre a nova entrada; o botão **Biblioteca** mostra quantas entradas existem.
 
 ```markdown
 ---
@@ -146,16 +146,16 @@ Protagonista, 32 anos, professora de chinês em uma escola de ensino médio de H
 Canhota. Nunca fala do irmão.
 ```
 
-Você não precisa anexar entradas. Uma entrada com `include: detected` (o padrão) vai para a Levis AI sempre que o nome dela ou um dos nomes alternativos (`aliases`) aparece: na sua mensagem ou no documento, durante uma conversa, e no texto em volta do cursor, durante o autocompletar. `always` envia a entrada em toda solicitação; `never` a deixa de fora. Entradas que não são mencionadas não custam nada, então a biblioteca pode crescer o quanto o seu projeto precisar.
+Você não precisa anexar entradas. Uma entrada com `include: detected` (o padrão) vai para a Textus AI sempre que o nome dela ou um dos nomes alternativos (`aliases`) aparece: na sua mensagem ou no documento, durante uma conversa, e no texto em volta do cursor, durante o autocompletar. `always` envia a entrada em toda solicitação; `never` a deixa de fora. Entradas que não são mencionadas não custam nada, então a biblioteca pode crescer o quanto o seu projeto precisar.
 
 ### Instruções de escrita (agent.md)
 
-**Instruções de escrita são regras fixas enviadas em toda conversa**: do que se trata o projeto, em que idioma responder, grafias e termos, o que a Levis AI deve sempre ou nunca fazer. Elas ficam em arquivos chamados `agent.md`, em dois níveis:
+**Instruções de escrita são regras fixas enviadas em toda conversa**: do que se trata o projeto, em que idioma responder, grafias e termos, o que a Textus AI deve sempre ou nunca fazer. Elas ficam em arquivos chamados `agent.md`, em dois níveis:
 
-- **Global**, para todos os documentos: **Ajustes > Levis AI > Instruções de escrita (agent.md) > Editar agent.md**.
-- **Projeto**, para os documentos de um projeto: `.levis/agent.md`, que se abre com **Editar instruções de escrita do projeto**, no menu do projeto.
+- **Global**, para todos os documentos: **Ajustes > Textus AI > Instruções de escrita (agent.md) > Editar agent.md**.
+- **Projeto**, para os documentos de um projeto: `.textus/agent.md`, que se abre com **Editar instruções de escrita do projeto**, no menu do projeto.
 
-Os dois abrem em uma aba e começam com um breve guia em comentários. Quando os dois existem, a Levis AI recebe ambos (primeiro as instruções globais, depois as do projeto) e, onde eles divergem, valem as do projeto.
+Os dois abrem em uma aba e começam com um breve guia em comentários. Quando os dois existem, a Textus AI recebe ambos (primeiro as instruções globais, depois as do projeto) e, onde eles divergem, valem as do projeto.
 
 ```markdown
 O livro é um romance policial ambientado na Xangai dos anos 1930, narrado por Lin Wan em primeira pessoa.
@@ -183,21 +183,21 @@ Devolva apenas o texto revisado.
 Há duas maneiras de usar uma habilidade:
 
 1. **Chamar pelo nome**: digite `/` no campo do chat e escolha a habilidade no menu, ou digite o nome dela seguido do seu pedido: `/polir dê mais uma olhada nisto`.
-2. **Só pedir** (apenas em provedores com chamada de ferramentas): a Levis AI conhece o nome e a descrição de cada habilidade e, quando o seu pedido corresponde a uma delas, carrega as instruções completas e as segue por conta própria.
+2. **Só pedir** (apenas em provedores com chamada de ferramentas): a Textus AI conhece o nome e a descrição de cada habilidade e, quando o seu pedido corresponde a uma delas, carrega as instruções completas e as segue por conta própria.
 
-As habilidades ficam nos mesmos dois níveis que as instruções de escrita: as globais na pasta `skills/` da pasta de configuração global (**Ajustes > Levis AI > Habilidades > Importar Habilidade…** copia um arquivo de habilidade para lá) e as do projeto em `.levis/skills/` (uma pasta oculta; no Finder do macOS, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> a mostra). Uma habilidade do projeto com o mesmo nome de uma global substitui a global.
+As habilidades ficam nos mesmos dois níveis que as instruções de escrita: as globais na pasta `skills/` da pasta de configuração global (**Ajustes > Textus AI > Habilidades > Importar Habilidade…** copia um arquivo de habilidade para lá) e as do projeto em `.textus/skills/` (uma pasta oculta; no Finder do macOS, <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> a mostra). Uma habilidade do projeto com o mesmo nome de uma global substitui a global.
 
 ### Habilidades integradas
 
-O Levis traz 18 habilidades para as tarefas de escrita mais comuns. O menu `/` as agrupa em **Escrever** (continuar a história, descrever personagem ou cena, polir diálogos, imitar um estilo), **Reescrever** (expandir, enxugar, mudar o tom, tirar o tom de IA, traduzir e polir), **Verificar** (revisar, verificar continuidade) e **Formatos** (escrever e-mail, aviso ou documento oficial, ata de reunião, revisão acadêmica, post para redes sociais, título, resumir). Digite `/` e escolha uma, ou digite o nome dela em qualquer idioma do app: `/proofread`, `/revisar` e `/校对` chamam a mesma habilidade. O Levis AI também escolhe sozinho a maioria delas quando o seu pedido combina com uma; **Expandir**, **Enxugar**, **Mudar o tom** e **Resumir** só rodam quando você as chama.
+O Textus traz 18 habilidades para as tarefas de escrita mais comuns. O menu `/` as agrupa em **Escrever** (continuar a história, descrever personagem ou cena, polir diálogos, imitar um estilo), **Reescrever** (expandir, enxugar, mudar o tom, tirar o tom de IA, traduzir e polir), **Verificar** (revisar, verificar continuidade) e **Formatos** (escrever e-mail, aviso ou documento oficial, ata de reunião, revisão acadêmica, post para redes sociais, título, resumir). Digite `/` e escolha uma, ou digite o nome dela em qualquer idioma do app: `/proofread`, `/revisar` e `/校对` chamam a mesma habilidade. O Textus AI também escolhe sozinho a maioria delas quando o seu pedido combina com uma; **Expandir**, **Enxugar**, **Mudar o tom** e **Resumir** só rodam quando você as chama.
 
-**Ajustes > Levis AI > Habilidades integradas** mostra todas. O botão desativa uma: ela some do menu `/` e o Levis AI deixa de usá-la. **Personalizar…** copia a habilidade para a pasta `skills/` da pasta de configuração global e abre a cópia para você mudar as instruções; dali em diante, é a sua cópia que roda. **Restaurar** apaga a cópia e traz de volta a versão integrada. Uma habilidade sua com o nome de uma integrada a substitui.
+**Ajustes > Textus AI > Habilidades integradas** mostra todas. O botão desativa uma: ela some do menu `/` e o Textus AI deixa de usá-la. **Personalizar…** copia a habilidade para a pasta `skills/` da pasta de configuração global e abre a cópia para você mudar as instruções; dali em diante, é a sua cópia que roda. **Restaurar** apaga a cópia e traz de volta a versão integrada. Uma habilidade sua com o nome de uma integrada a substitui.
 
 ### Normas de escrita
 
-**Ajustes > Levis AI > Assistência de escrita > Normas de escrita** define quais regras de pontuação, espaços e números o Levis AI e a verificação gramatical seguem. **Automático** aplica a norma nacional quando o idioma tem uma (para o português, a norma brasileira; para o japonês, a JTF); nos outros casos, segue o que o seu documento já faz com mais frequência e aponta só as inconsistências. Ao escolher um perfil, como **Portugal** ou **Brasil · Documentos oficiais**, os documentos nesse idioma passam a seguir esse perfil.
+**Ajustes > Textus AI > Assistência de escrita > Normas de escrita** define quais regras de pontuação, espaços e números o Textus AI e a verificação gramatical seguem. **Automático** aplica a norma nacional quando o idioma tem uma (para o português, a norma brasileira; para o japonês, a JTF); nos outros casos, segue o que o seu documento já faz com mais frequência e aponta só as inconsistências. Ao escolher um perfil, como **Portugal** ou **Brasil · Documentos oficiais**, os documentos nesse idioma passam a seguir esse perfil.
 
-Um projeto pode ter a própria escolha: adicione uma linha `conventions:` entre as duas linhas `---` no início do perfil de estilo (`.levis/style.md`). Nos documentos desse projeto, ela vale mais que o ajuste.
+Um projeto pode ter a própria escolha: adicione uma linha `conventions:` entre as duas linhas `---` no início do perfil de estilo (`.textus/style.md`). Nos documentos desse projeto, ela vale mais que o ajuste.
 
 ```markdown
 ---
@@ -207,7 +207,7 @@ conventions: zh-Hans-CN/fiction, en-GB/govuk
 
 ### A pasta de configuração global
 
-**A pasta de configuração global guarda o que vale para todos os documentos**: o seu `agent.md` global e as suas habilidades globais. Ela pertence ao app, não a um projeto; **Ajustes > Levis AI > Pasta de configuração global > Abrir Pasta** a mostra.
+**A pasta de configuração global guarda o que vale para todos os documentos**: o seu `agent.md` global e as suas habilidades globais. Ela pertence ao app, não a um projeto; **Ajustes > Textus AI > Pasta de configuração global > Abrir Pasta** a mostra.
 
 ```
 agent/                ← a pasta de configuração global
@@ -230,17 +230,17 @@ Não existe perfil de estilo nem biblioteca global: eles descrevem uma obra espe
 | Tom do autocompletar (Ajustes) | | ✓ | |
 
 - **Global primeiro, projeto depois.** As instruções de escrita dos dois níveis são enviadas, as do projeto por último, e as do projeto vencem em caso de conflito. Uma habilidade do projeto substitui uma global com o mesmo nome.
-- **Uma pasta de projeto por vez.** Só a `.levis/` dela conta: quando você escolhe uma pasta de projeto, uma `.levis/` ao lado do documento não é lida.
+- **Uma pasta de projeto por vez.** Só a `.textus/` dela conta: quando você escolhe uma pasta de projeto, uma `.textus/` ao lado do documento não é lida.
 - **Não é preciso reiniciar.** Edite qualquer um desses arquivos e a próxima solicitação já usa a nova versão (no autocompletar, em cerca de dez segundos).
 
 ### Qual arquivo para quê?
 
 - Como o seu texto deve soar → o **perfil de estilo**.
 - Quem é quem, o que é o quê → a **biblioteca**.
-- O que a Levis AI deve saber ou sempre fazer em uma conversa → as **instruções de escrita**.
+- O que a Textus AI deve saber ou sempre fazer em uma conversa → as **instruções de escrita**.
 - Uma tarefa que você pede várias vezes → uma **habilidade**.
-- Notas, pesquisa, capítulos anteriores → arquivos comuns na **pasta do projeto**; a Levis AI os lê quando um pedido precisa deles.
+- Notas, pesquisa, capítulos anteriores → arquivos comuns na **pasta do projeto**; a Textus AI os lê quando um pedido precisa deles.
 
 ## Uma observação sobre privacidade
 
-O seu documento, os arquivos anexados ou mencionados com @, as suas instruções de escrita, o perfil de estilo, as entradas da biblioteca mencionadas e os arquivos do projeto que a Levis AI lê são enviados, em cada solicitação, ao provedor que você escolheu; **Aprender meu estilo** envia as amostras que você escolher. A busca na web acontece nos servidores desse provedor. Desative nos Ajustes qualquer recurso que você não queira usar dessa forma.
+O seu documento, os arquivos anexados ou mencionados com @, as suas instruções de escrita, o perfil de estilo, as entradas da biblioteca mencionadas e os arquivos do projeto que a Textus AI lê são enviados, em cada solicitação, ao provedor que você escolheu; **Aprender meu estilo** envia as amostras que você escolher. A busca na web acontece nos servidores desse provedor. Desative nos Ajustes qualquer recurso que você não queira usar dessa forma.

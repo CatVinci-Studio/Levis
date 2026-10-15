@@ -74,7 +74,7 @@ final class KeyboardFit {
 
   /// WebKit puts its form-assistant bar (previous / next field and Done)
   /// on top of the keyboard for any focused field. A document editor has no
-  /// "next field", and Levis draws its own toolbar there
+  /// "next field", and Textus draws its own toolbar there
   /// (mobile/KeyboardToolbar.tsx), so the content view is given a subclass
   /// whose inputAccessoryView is nil - the standard way to drop that bar,
   /// since WKWebView exposes no setting for it.
@@ -85,7 +85,7 @@ final class KeyboardFit {
       })
     else { return }
     let base: AnyClass = type(of: content)
-    let name = "\(base)_LevisNoAccessory"
+    let name = "\(base)_TextusNoAccessory"
     var subclass: AnyClass? = NSClassFromString(name)
     if subclass == nil, let made = objc_allocateClassPair(base, name, 0) {
       let nothing: @convention(block) (AnyObject) -> AnyObject? = { _ in nil }

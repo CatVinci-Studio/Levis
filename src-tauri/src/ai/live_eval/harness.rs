@@ -23,7 +23,7 @@ use std::time::Instant;
 // ------------------------------------------------------------- environment
 
 pub fn auth() -> Option<AnthropicAuth> {
-    let path = std::env::var("LEVIS_ANTHROPIC_KEY_FILE")
+    let path = std::env::var("TEXTUS_ANTHROPIC_KEY_FILE")
         .unwrap_or_else(|_| format!("{}/../.anthropic-api-key.local", env!("CARGO_MANIFEST_DIR")));
     match std::fs::read_to_string(&path) {
         Ok(key) if !key.trim().is_empty() => Some(AnthropicAuth::ApiKey(key.trim().to_string())),
@@ -38,10 +38,10 @@ pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
     tauri::async_runtime::block_on(future)
 }
 
-/// The shipped agent default, unless LEVIS_EVAL_AGENT_MODEL overrides it
+/// The shipped agent default, unless TEXTUS_EVAL_AGENT_MODEL overrides it
 /// (how the matrix is re-run against another model).
 pub fn agent_model() -> String {
-    std::env::var("LEVIS_EVAL_AGENT_MODEL").unwrap_or_else(|_| {
+    std::env::var("TEXTUS_EVAL_AGENT_MODEL").unwrap_or_else(|_| {
         crate::ai::catalog::find("anthropic")
             .and_then(|e| e.agent_default_model)
             .expect("anthropic has an agent default")
@@ -50,9 +50,9 @@ pub fn agent_model() -> String {
 }
 
 /// The shipped writing (completion + grammar) model, unless
-/// LEVIS_EVAL_WRITING_MODEL overrides it.
+/// TEXTUS_EVAL_WRITING_MODEL overrides it.
 pub fn writing_model() -> String {
-    std::env::var("LEVIS_EVAL_WRITING_MODEL")
+    std::env::var("TEXTUS_EVAL_WRITING_MODEL")
         .unwrap_or_else(|_| anthropic::COMPLETION_MODEL.to_string())
 }
 
@@ -65,19 +65,19 @@ pub fn writing_model_arg(model: &str) -> Option<&str> {
 pub const JUDGE_MODEL: &str = "claude-opus-5-5";
 
 fn judge_enabled() -> bool {
-    std::env::var("LEVIS_EVAL_JUDGE").map_or(true, |v| v != "0")
+    std::env::var("TEXTUS_EVAL_JUDGE").map_or(true, |v| v != "0")
 }
 
-/// LEVIS_EVAL_FILTER: run only cases whose id contains this substring.
+/// TEXTUS_EVAL_FILTER: run only cases whose id contains this substring.
 pub fn selected(id: &str) -> bool {
-    std::env::var("LEVIS_EVAL_FILTER").map_or(true, |f| f.split(',').any(|f| id.contains(f.trim())))
+    std::env::var("TEXTUS_EVAL_FILTER").map_or(true, |f| f.split(',').any(|f| id.contains(f.trim())))
 }
 
-/// Runs `f` over `items` on LEVIS_EVAL_JOBS worker threads (default 6),
+/// Runs `f` over `items` on TEXTUS_EVAL_JOBS worker threads (default 6),
 /// keeping the input order in the output. The API is the bottleneck, not
 /// the CPU - this is what keeps a 150-case matrix to minutes.
 pub fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
-    let jobs: usize = std::env::var("LEVIS_EVAL_JOBS")
+    let jobs: usize = std::env::var("TEXTUS_EVAL_JOBS")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(6);
@@ -201,7 +201,7 @@ impl Usage {
 }
 
 /// Every request this process made, in micro-dollars - what the budget
-/// guard compares against LEVIS_EVAL_BUDGET_USD.
+/// guard compares against TEXTUS_EVAL_BUDGET_USD.
 static SPENT_MICRO_USD: AtomicU64 = AtomicU64::new(0);
 
 /// Records one request's cost against the process-wide total.
@@ -214,12 +214,12 @@ pub fn spent_usd() -> f64 {
     SPENT_MICRO_USD.load(Ordering::SeqCst) as f64 / 1e6
 }
 
-/// LEVIS_EVAL_BUDGET_USD: once this process has spent that much, cases that
+/// TEXTUS_EVAL_BUDGET_USD: once this process has spent that much, cases that
 /// haven't started yet are skipped (marked with a failed `budget` check)
 /// instead of sent. Cases already running finish, so the overshoot is at
-/// most LEVIS_EVAL_JOBS cases.
+/// most TEXTUS_EVAL_JOBS cases.
 pub fn budget_exhausted() -> Option<String> {
-    let budget: f64 = std::env::var("LEVIS_EVAL_BUDGET_USD")
+    let budget: f64 = std::env::var("TEXTUS_EVAL_BUDGET_USD")
         .ok()
         .and_then(|v| v.parse().ok())?;
     let spent = spent_usd();
@@ -686,7 +686,7 @@ impl Verdict {
     }
 }
 
-const JUDGE_INSTRUCTIONS: &str = "You grade the output of the AI features of Levis, a Markdown writing app, for a regression evaluation. Be strict and specific: the bar is a careful professional editor who is fluent in the language of the text.
+const JUDGE_INSTRUCTIONS: &str = "You grade the output of the AI features of Textus, a Markdown writing app, for a regression evaluation. Be strict and specific: the bar is a careful professional editor who is fluent in the language of the text.
 
 Score each criterion from 1 to 5: 5 = could not reasonably be improved; 4 = good, minor nits only; 3 = acceptable but with a flaw the user would notice; 2 = poor - the user would have to redo much of it; 1 = wrong, harmful, or ignores the request. Use null when a criterion genuinely does not apply.
 
@@ -702,7 +702,7 @@ Task-specific expectations follow the task; where they conflict with the general
 Respond with ONLY a JSON object, no fences: {\"faithfulness\": n|null, \"helpfulness\": n|null, \"minimality\": n|null, \"tone\": n|null, \"correctness\": n|null, \"reasons\": \"for every score below 5, one short sentence naming the specific flaw\"}";
 
 /// Asks Opus to grade one case. None when judging is switched off
-/// (LEVIS_EVAL_JUDGE=0) or the judge's reply can't be parsed twice over.
+/// (TEXTUS_EVAL_JUDGE=0) or the judge's reply can't be parsed twice over.
 pub fn judge(
     auth: &AnthropicAuth,
     task: &str,
@@ -928,7 +928,7 @@ pub fn skipped(case: &str, model: &str, lang: &str, reason: String, input: Value
 fn run_dir() -> &'static PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| {
-        let dir = std::env::var("LEVIS_EVAL_OUT")
+        let dir = std::env::var("TEXTUS_EVAL_OUT")
             .map(PathBuf::from)
             .unwrap_or_else(|_| {
                 let stamp = std::time::SystemTime::now()
@@ -936,7 +936,7 @@ fn run_dir() -> &'static PathBuf {
                     .unwrap()
                     .as_secs();
                 std::env::temp_dir()
-                    .join("levis-live-eval")
+                    .join("textus-live-eval")
                     .join(stamp.to_string())
             });
         std::fs::create_dir_all(&dir).expect("create eval output dir");
@@ -1077,7 +1077,7 @@ pub fn finish(suite: &str, records: Vec<Record>) -> Vec<String> {
         .count();
     if skipped > 0 {
         md.push_str(&format!(
-            "\n**Warning: {skipped} of {n} cases were skipped by the budget guard** (LEVIS_EVAL_BUDGET_USD).\n"
+            "\n**Warning: {skipped} of {n} cases were skipped by the budget guard** (TEXTUS_EVAL_BUDGET_USD).\n"
         ));
     }
     md.push_str(&format!(
@@ -1113,10 +1113,10 @@ fn write_index(dir: &Path, suite: &str, rows: Vec<Value>) {
     std::fs::write(&path, serde_json::to_string_pretty(&all).unwrap()).expect("write index");
 }
 
-/// LEVIS_EVAL_SPEND_FILE: a running `{"spent_usd", "runs": [...]}` ledger
+/// TEXTUS_EVAL_SPEND_FILE: a running `{"spent_usd", "runs": [...]}` ledger
 /// that each finished suite adds its cost to.
 fn record_spend(dir: &Path, suite: &str, cases: usize, total: &Usage) {
-    let Ok(path) = std::env::var("LEVIS_EVAL_SPEND_FILE") else {
+    let Ok(path) = std::env::var("TEXTUS_EVAL_SPEND_FILE") else {
         return;
     };
     let mut ledger: Value = std::fs::read_to_string(&path)

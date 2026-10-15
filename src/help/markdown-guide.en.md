@@ -1,6 +1,6 @@
-# Levis Markdown Guide
+# Textus Markdown Guide
 
-Welcome! This built-in document demonstrates the Markdown rendering Levis supports. It is just an unsaved draft — feel free to edit and experiment, then close it without saving.
+Welcome! This built-in document demonstrates the Markdown rendering Textus supports. It is just an unsaved draft — feel free to edit and experiment, then close it without saving.
 
 > [!TIP]
 > Press `Cmd+/` to toggle between WYSIWYG and source mode and see the raw syntax behind any example here.
@@ -25,7 +25,7 @@ GitHub-style alerts:
 
 **Bold** (`**text**`), *italic* (`*text*`), ***bold italic***, ~~strikethrough~~ (`~~text~~`), ==highlight== (`==text==`), and `inline code`.
 
-Links look like this: [the Levis repository](https://github.com/CatVinci-Studio/Levis). Inline HTML renders too, e.g. keyboard keys <kbd>Cmd</kbd> + <kbd>S</kbd>.
+Links look like this: [the Textus repository](https://github.com/CatVinci-Studio/Textus). Inline HTML renders too, e.g. keyboard keys <kbd>Cmd</kbd> + <kbd>S</kbd>.
 
 Inline math: mass–energy equivalence $E = mc^2$, Euler's identity $e^{i\pi} + 1 = 0$.
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "Hello, Levis!";
+    let greeting = "Hello, Textus!";
     println!("{greeting}");
 }
 ```
@@ -113,14 +113,14 @@ A sequence diagram:
 ```mermaid
 sequenceDiagram
     participant You
-    participant Levis
-    You->>Levis: Type Markdown
-    Levis-->>You: Rendered live
+    participant Textus
+    You->>Textus: Type Markdown
+    Textus-->>You: Rendered live
 ```
 
 ## Images
 
-Paste an image straight from the clipboard — Levis saves it to an `assets/` folder next to the document and inserts the reference. Or write it by hand:
+Paste an image straight from the clipboard — Textus saves it to an `assets/` folder next to the document and inserts the reference. Or write it by hand:
 
 In **Settings → Editor & Appearance → Images**, you can instead send newly pasted images to your own image host. The endpoint receives `multipart/form-data` with a `file` field and may return either the public URL as plain text or in a configurable JSON field. Uploaded files can be renamed automatically, keep their original name, or ask you for a name before every upload. Existing image references are never changed when you switch storage modes.
 
@@ -130,7 +130,7 @@ In **Settings → Editor & Appearance → Images**, you can instead send newly p
 
 ## Views and modes
 
-Besides the WYSIWYG editor and source mode (`Cmd+/`), Levis has three ways to write (on Windows and Linux use `Ctrl` for `Cmd`; Settings → Shortcuts has the current bindings):
+Besides the WYSIWYG editor and source mode (`Cmd+/`), Textus has three ways to write (on Windows and Linux use `Ctrl` for `Cmd`; Settings → Shortcuts has the current bindings):
 
 - **Split view** (`Cmd+Shift+E`): the Markdown source on the left, the rendered preview on the right, scrolling together.
 - **Typewriter mode** (Settings → Editor & Appearance → Theme): the line you are typing stays in the middle of the window — in the editor, source mode and split view.

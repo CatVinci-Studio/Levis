@@ -5,9 +5,8 @@ import { openApp, PHONE, openPhone } from "./helpers";
 // with it.
 
 // The English labels these tests look for, as in src/i18n/locales/en.ts
-// (the e2e project can't import it). AI_NAME is the one name that changes at
-// the Textus rename.
-const AI_NAME = "Levis AI";
+// (the e2e project can't import it). AI_NAME is src/i18n/names.ts's.
+const AI_NAME = "Textus AI";
 const t = {
   settingsTitle: "Settings",
   settingsDone: "Done",
@@ -288,7 +287,7 @@ test.describe("phone", () => {
     await editor.focus();
     await page.evaluate(() =>
       window.dispatchEvent(
-        new CustomEvent("levis:insert-block", { detail: "table" }),
+        new CustomEvent("textus:insert-block", { detail: "table" }),
       ),
     );
     const dialog = page.getByRole("dialog", { name: "Insert Table" });

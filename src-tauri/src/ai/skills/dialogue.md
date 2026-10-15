@@ -8,21 +8,21 @@ description: >-
   diálogo, dialogues, Dialog, диалог).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "write"
-  levis-packs: "contract craft#fiction standards#dialogue"
-  levis-sources: "Our own text. Dialogue rules summarised from GB/T 15834, the Taiwan MOE handbook, JLReq (W3C), 한글 맞춤법 문장 부호, RAE DPD, OQLF, Amtliches Regelwerk 2024 (CC BY 4.0), Правила 1956 and Ciberdúvidas."
-  levis-aliases-en: "dialog"
-  levis-aliases-zh: "对话润色, 对话, 对白"
-  levis-aliases-zh-Hant: "對話潤飾, 對話, 對白"
-  levis-aliases-ja: "会話文を整える, 会話文, 台詞"
-  levis-aliases-ko: "대사, 대화문"
-  levis-aliases-es: "diálogo"
-  levis-aliases-fr: "dialogues"
-  levis-aliases-de: "dialog"
-  levis-aliases-ru: "диалог"
-  levis-aliases-pt: "diálogo"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "write"
+  textus-packs: "contract craft#fiction standards#dialogue"
+  textus-sources: "Our own text. Dialogue rules summarised from GB/T 15834, the Taiwan MOE handbook, JLReq (W3C), 한글 맞춤법 문장 부호, RAE DPD, OQLF, Amtliches Regelwerk 2024 (CC BY 4.0), Правила 1956 and Ciberdúvidas."
+  textus-aliases-en: "dialog"
+  textus-aliases-zh: "对话润色, 对话, 对白"
+  textus-aliases-zh-Hant: "對話潤飾, 對話, 對白"
+  textus-aliases-ja: "会話文を整える, 会話文, 台詞"
+  textus-aliases-ko: "대사, 대화문"
+  textus-aliases-es: "diálogo"
+  textus-aliases-fr: "dialogues"
+  textus-aliases-de: "dialog"
+  textus-aliases-ru: "диалог"
+  textus-aliases-pt: "diálogo"
 ---
 
 # Polish dialogue

@@ -1,6 +1,6 @@
 //! Rename and delete for the iPhone's document list (the recently opened
 //! documents, src/mobile/DocumentList.tsx), inside the app's own Documents
-//! folder - "On My iPhone > Levis" in the Files app. Desktop users have a
+//! folder - "On My iPhone > Textus" in the Files app. Desktop users have a
 //! real file manager for this, so these are registered on iOS only.
 //!
 //! Every path is checked to lie inside Documents before anything is touched:
@@ -34,7 +34,7 @@ fn inside_documents(
         parent.canonicalize().map_err(|e| e.to_string())?.join(name)
     };
     if resolved == docs || !resolved.starts_with(&docs) {
-        return Err("Outside the Levis folder".into());
+        return Err("Outside the Textus folder".into());
     }
     Ok(resolved)
 }

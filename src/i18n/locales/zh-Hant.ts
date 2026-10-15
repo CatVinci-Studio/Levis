@@ -64,7 +64,7 @@ export default {
   用詞    使用臺灣慣用語：寫「影片」，不寫「視頻」。
   背景    我為一般讀者撰寫長篇科普報導。
 
-只適用於單一專案的指示，寫在該專案的 .levis/agent.md 中（AI 面板的
+只適用於單一專案的指示，寫在該專案的 .textus/agent.md 中（AI 面板的
 專案選單 > 編輯本專案的寫作指示）。兩份都會傳送；內容衝突時，以
 專案的為準。
 
@@ -479,8 +479,8 @@ export default {
   updateDownloading: "正在下載更新…",
   updateFailed: "更新失敗：",
   updateViaPackageManager: `${APP_NAME} 是透過套件管理工具安裝的，需在該工具中更新。`,
-  cliCommandLabel: "終端機指令「levis」",
-  cliCommandHint: `可在終端機中開啟 ${APP_NAME}（或某個檔案），例如 levis README.md`,
+  cliCommandLabel: "終端機指令「textus」",
+  cliCommandHint: `可在終端機中開啟 ${APP_NAME}（或某個檔案），例如 textus README.md`,
   cliCommandInstalled: "已安裝",
   cliCommandNotInstalled: "未安裝",
   cliCommandInstallButton: "安裝",

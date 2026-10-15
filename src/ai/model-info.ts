@@ -27,7 +27,7 @@ export function formatContext(tokens: number): string {
   return `${Math.round(tokens / 1000)}K`;
 }
 
-const CACHE_PREFIX = "levis-fetched-models:";
+const CACHE_PREFIX = "textus-fetched-models:";
 
 export interface FetchedModels {
   models: string[];

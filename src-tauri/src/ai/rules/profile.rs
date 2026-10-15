@@ -5,7 +5,7 @@
 //! `fr-CA`: language (and script), then region, then an optional preset.
 //! It comes from, in order:
 //!
-//! 1. the project's `.levis/style.md` front matter (`conventions:`, one
+//! 1. the project's `.textus/style.md` front matter (`conventions:`, one
 //!    value or several separated by commas, plus option keys such as
 //!    `cjk-latin-space: on`) - [`ProjectConventions::from_style`];
 //! 2. the global setting `writingConventions` in settings.json - either
@@ -93,7 +93,7 @@ pub const LANGUAGE_PROFILES: &[(Lang, Option<&str>, &[&str])] = &[
 ];
 
 /// Options a profile can override, with their values (the first is the
-/// default). Keys as in `.levis/style.md` front matter and in the
+/// default). Keys as in `.textus/style.md` front matter and in the
 /// setting's `options` object.
 pub const OPTIONS: &[(&str, &[&str])] = &[
     ("cjk-latin-space", &["auto", "on", "off", "layout"]),
@@ -238,7 +238,7 @@ impl Profile {
     }
 }
 
-/// What `.levis/style.md` says about conventions.
+/// What `.textus/style.md` says about conventions.
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectConventions {

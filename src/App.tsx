@@ -247,7 +247,7 @@ function App() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
   // The tree always mirrors the active tab's folder. With no file open there
   // is nothing to show - except on iOS, where the app's Documents folder is
-  // home: where Save puts new documents, and what Files lists under Levis.
+  // home: where Save puts new documents, and what Files lists under Textus.
   const iosDocuments = useIOSDocumentsFolder();
   useEffect(() => {
     void rememberIOSDocument(activeTab.path);
@@ -268,11 +268,11 @@ function App() {
   const activeTitle = tabTitle(activeTab, t);
 
   // The OS title names the document too: it is what the taskbar, Alt+Tab
-  // and window lists show, where every window read "Levis" before.
+  // and window lists show, where every window read "Textus" before.
   useEffect(() => {
     if (!canUseWindows) return;
     void getCurrentWindow()
-      .setTitle(`${activeTitle} - Levis`)
+      .setTitle(`${activeTitle} - Textus`)
       .catch(() => {});
   }, [activeTitle]);
 
@@ -785,7 +785,7 @@ function App() {
   }, []);
 
   // Files handed over by the OS (Finder "Open With" / double-click, or the
-  // `levis` CLI command) at launch, recovered drafts, a dragged-in tab, or a
+  // `textus` CLI command) at launch, recovered drafts, a dragged-in tab, or a
   // Help doc this window was spawned to show - see startup-restore.ts for
   // the actual priority chain. Deliberately runs only once, at mount.
   useStartupRestore({

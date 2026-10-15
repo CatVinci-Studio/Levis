@@ -73,7 +73,7 @@ export default {
   Термины       Пиши «интернет» со строчной буквы.
   Контекст      Я пишу научно-популярные лонгриды для широкой публики.
 
-Инструкции только для одного проекта пишутся в его файле .levis/agent.md
+Инструкции только для одного проекта пишутся в его файле .textus/agent.md
 (меню проекта на панели ИИ > Изменить инструкции проекта).
 Отправляются и те и другие; при расхождении приоритет у проектных.
 
@@ -514,8 +514,8 @@ export default {
   updateDownloading: "Загрузка обновления…",
   updateFailed: "Не удалось обновить:",
   updateViaPackageManager: `${APP_NAME} установлен через менеджер пакетов. Обновите его там.`,
-  cliCommandLabel: "Команда «levis» для терминала",
-  cliCommandHint: `Позволяет открывать ${APP_NAME} (или файл) из терминала, например levis README.md`,
+  cliCommandLabel: "Команда «textus» для терминала",
+  cliCommandHint: `Позволяет открывать ${APP_NAME} (или файл) из терминала, например textus README.md`,
   cliCommandInstalled: "Установлена",
   cliCommandNotInstalled: "Не установлена",
   cliCommandInstallButton: "Установить",

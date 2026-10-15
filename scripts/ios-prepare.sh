@@ -13,7 +13,7 @@
 set -eu
 cd "$(dirname "$0")/../src-tauri"
 cp icons/ios/*.png gen/apple/Assets.xcassets/AppIcon.appiconset/
-# The folder is named after the crate (levis_iOS today), so it is found
+# The folder is named after the crate (textus_iOS today), so it is found
 # rather than spelled out: a rename must not quietly ship without the
 # manifest.
 set -- gen/apple/*_iOS/

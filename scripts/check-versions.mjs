@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Checks that every file carrying the app's version agrees on it:
 // package.json, both version fields of package-lock.json, the [package] of
-// src-tauri/Cargo.toml, the levis entry of src-tauri/Cargo.lock and
+// src-tauri/Cargo.toml, the textus entry of src-tauri/Cargo.lock and
 // src-tauri/tauri.conf.json. A bump that misses one ships an app whose
 // About box, updater manifest and installer names disagree - the release
 // workflow names files after tauri.conf.json, the updater compares against
@@ -41,9 +41,9 @@ export function collectVersions(readFile = reader(ownRoot)) {
       readFile("src-tauri/Cargo.toml"),
       "^\\[package\\]\\s*$",
     ),
-    "src-tauri/Cargo.lock (levis)": tomlVersion(
+    "src-tauri/Cargo.lock (textus)": tomlVersion(
       readFile("src-tauri/Cargo.lock"),
-      '^\\[\\[package\\]\\]\\s*\\nname = "levis"\\s*$',
+      '^\\[\\[package\\]\\]\\s*\\nname = "textus"\\s*$',
     ),
     "src-tauri/tauri.conf.json": tauri.version,
   };

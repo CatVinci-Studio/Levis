@@ -6,7 +6,7 @@
 // a theme's `thead th` rules would never match anything.
 const THEAD_SELECTOR = /\bthead\b(?:\s*>?\s*tr\b)?/g;
 
-/** Rewrites an imported Typora theme's selectors onto Levis's editor DOM. */
+/** Rewrites an imported Typora theme's selectors onto Textus's editor DOM. */
 export function adaptTyporaCss(css: string): string {
   return css.replace(THEAD_SELECTOR, "tr[data-is-header]");
 }

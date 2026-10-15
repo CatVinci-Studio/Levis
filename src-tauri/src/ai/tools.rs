@@ -9,7 +9,7 @@ use std::path::Path;
 /// each tool's call signature.
 pub struct ToolContext<'a> {
     pub document: &'a str,
-    /// The merged skills: built-in, global config folder, project .levis/.
+    /// The merged skills: built-in, global config folder, project .textus/.
     pub skills: &'a [AgentSkill],
     /// The UI language (src/i18n/langs.ts) - which language's writing
     /// conventions a skill gets when the document is too short to tell.
@@ -1186,7 +1186,7 @@ mod tests {
     fn measure_text_counts_exactly() {
         let out = measure_text(
             &ctx(""),
-            r#"{"text":"你好 https://levis.app","metric":"x_weighted"}"#,
+            r#"{"text":"你好 https://textus.app","metric":"x_weighted"}"#,
         );
         assert_eq!(out, "x_weighted: 28 of 280 weighted characters - within the limit (252 to spare). URLs count 23 each; CJK characters and emoji count 2.");
         let out = measure_text(&ctx(""), r#"{"text":"hi"}"#);
@@ -1266,17 +1266,17 @@ mod tests {
         }
         let out = propose_edit(
             &ctx("名称：乐维斯"),
-            r#"{"action":"replace","anchor":"乐维斯","text":"Levis"}"#,
+            r#"{"action":"replace","anchor":"乐维斯","text":"Textus"}"#,
         );
         assert!(out.starts_with("Edit proposed"), "{out}");
     }
 
     #[test]
     fn a_second_proposal_for_the_same_passage_is_refused() {
-        let doc = ctx("Levis is great. Levis is fast. It ships soon.");
-        let ctx2 = ctx("Levis is great.");
+        let doc = ctx("Textus is great. Textus is fast. It ships soon.");
+        let ctx2 = ctx("Textus is great.");
         let ctx = doc;
-        let first = r#"{"action":"replace","anchor":"Levis is great.","text":"Levis is good."}"#;
+        let first = r#"{"action":"replace","anchor":"Textus is great.","text":"Textus is good."}"#;
         assert!(propose_edit(&ctx, first).starts_with("Edit proposed"));
         assert!(propose_edit(&ctx, first).starts_with("Not proposed"));
         // Inside the first passage, too.
@@ -1286,8 +1286,8 @@ mod tests {
         // word picked out elsewhere by its context all stand.
         for args in [
             r#"{"action":"replace","anchor":"It ships soon.","text":"It ships in May."}"#,
-            r#"{"action":"insert_after","anchor":"Levis is great.","text":" Really."}"#,
-            r#"{"action":"replace","anchor":"Levis","context":"Levis is fast","text":"It"}"#,
+            r#"{"action":"insert_after","anchor":"Textus is great.","text":" Really."}"#,
+            r#"{"action":"replace","anchor":"Textus","context":"Textus is fast","text":"It"}"#,
         ] {
             assert!(
                 propose_edit(&ctx, args).starts_with("Edit proposed"),
@@ -1309,7 +1309,7 @@ mod tests {
         let again = r#"{"action":"replace","anchor":"its","context":"its late","text":"it is"}"#;
         assert!(propose_edit(&typos, again).starts_with("Not proposed"));
         // A refused call (no match) doesn't count as proposed.
-        let missing = r#"{"action":"replace","anchor":"Levis is slow.","text":"x"}"#;
+        let missing = r#"{"action":"replace","anchor":"Textus is slow.","text":"x"}"#;
         assert!(propose_edit(&ctx2, missing).starts_with("No exact match"));
     }
 
@@ -1326,8 +1326,8 @@ mod tests {
     #[test]
     fn propose_edit_rejects_repeated_anchor_without_context() {
         let out = propose_edit(
-            &ctx("Levis is great. Levis is fast."),
-            r#"{"action":"replace","anchor":"Levis","text":"It"}"#,
+            &ctx("Textus is great. Textus is fast."),
+            r#"{"action":"replace","anchor":"Textus","text":"It"}"#,
         );
         assert!(out.contains("appears 2 times"), "{out}");
         assert!(out.contains("`context`"), "{out}");
@@ -1336,23 +1336,23 @@ mod tests {
     #[test]
     fn propose_edit_accepts_repeated_anchor_with_unique_context() {
         let out = propose_edit(
-            &ctx("Levis is great. Levis is fast."),
-            r#"{"action":"replace","anchor":"Levis","text":"It","context":"Levis is fast"}"#,
+            &ctx("Textus is great. Textus is fast."),
+            r#"{"action":"replace","anchor":"Textus","text":"It","context":"Textus is fast"}"#,
         );
         assert!(out.starts_with("Edit proposed"), "{out}");
     }
 
     #[test]
     fn propose_edit_rejects_context_that_repeats_or_misses_the_anchor() {
-        let doc = "Levis is great. Levis is great.";
+        let doc = "Textus is great. Textus is great.";
         let repeated = propose_edit(
             &ctx(doc),
-            r#"{"action":"replace","anchor":"Levis","text":"It","context":"Levis is great"}"#,
+            r#"{"action":"replace","anchor":"Textus","text":"It","context":"Textus is great"}"#,
         );
         assert!(repeated.contains("`context`"), "{repeated}");
         let anchor_free = propose_edit(
-            &ctx("Levis is great. Levis is fast."),
-            r#"{"action":"replace","anchor":"Levis","text":"It","context":"is fast"}"#,
+            &ctx("Textus is great. Textus is fast."),
+            r#"{"action":"replace","anchor":"Textus","text":"It","context":"is fast"}"#,
         );
         assert!(anchor_free.contains("`context`"), "{anchor_free}");
     }
