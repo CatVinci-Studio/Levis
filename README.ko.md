@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>차세대 Markdown 편집기</strong><br>
-  붓 가는 대로 글이 되고, 먹은 AI가 갈아 줍니다
+  붓 가는 대로 글이 되고, 먹은 AI가 갈아 줍니다<br>
+  <sub>무료 · 오픈 소스 · macOS, Windows, Linux 지원</sub>
 </p>
 
 <p align="center">
@@ -34,18 +35,51 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/ko/hero.png" alt="『햄릿』을 연 Textus. 오른쪽의 Textus AI가 문장마다 이유를 붙여 수정을 제안하고, 한 줄에 검토 댓글을 남겼습니다." width="860" />
+  <img src="docs/images/readme/ko/hero.png" alt="『햄릿』을 연 Textus. 오른쪽의 Textus AI가 문장마다 이유를 붙여 수정을 제안하고, 한 줄에 검토 댓글을 남겼습니다." width="860" /><br>
+  <sub>이효석, <i>「메밀꽃 필 무렵」</i></sub>
 </p>
 
-## 글쓰기
+## Textus 시작하기
+
+MIT 라이선스로 공개된 무료 오픈 소스입니다.
+
+| 플랫폼               | 다운로드                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| macOS · Apple 실리콘 | [.dmg 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
+| Windows · x64     | [.exe 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
+| Linux · x64       | [.AppImage 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest) · 또는 .deb · .rpm |
+
+Homebrew로도 설치할 수 있습니다:
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux는 서명된 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 저장소로(한 번만 설정하면 이후 `sudo pacman -Syu`로 Textus도 최신 상태가 됩니다):
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone·iPad 버전도 곧 나옵니다. [GitHub에서 모든 릴리스 보기](https://github.com/CatVinci-Studio/Textus/releases)
+
+## 오직 글쓰기를 위해
 
 ### 보이는 그대로
 
 어떤 Markdown 표기든 쓰는 즉시 서식으로 바뀝니다. 줄을 가리키면 원래 표기가 보입니다.
 
+<p align="center">
+  <img src="docs/images/readme/ko/markdown.png" alt="보이는 그대로" width="860" />
+</p>
+
 ### 수식, 표, 다이어그램
 
 수식은 입력하는 대로 그려지고, 표는 저절로 줄을 맞춥니다. 글 몇 줄이면 다이어그램이 됩니다.
+
+<p align="center">
+  <img src="docs/images/readme/ko/math.png" alt="수식, 표, 다이어그램" width="860" />
+</p>
 
 ### 글 쓰는 방식은? 마음 가는 대로
 
@@ -65,9 +99,9 @@
 
 PDF, Word, HTML 등으로 내보낼 수 있습니다.
 
-## Textus AI
+## 제안은 AI가, 결정은 내가
 
-**제안은 AI가, 결정은 내가.** Textus AI는 곁에서 돕고, 문장은 내가 씁니다.
+Textus AI는 곁에서 돕고, 문장은 내가 씁니다.
 
 - **이어 쓰기**: 손을 멈추면 다음 말이 회색으로 떠오릅니다. Tab 키로 수락하세요.
 - **AI 글쓰기**: 고칠 곳은 이유와 함께 제안으로 옵니다. 통째로 수락하거나 문장별로 고르세요.
@@ -76,11 +110,17 @@ PDF, Word, HTML 등으로 내보낼 수 있습니다.
 - **내장 스킬**: 간결하게, 교정, 번역, 어조 바꾸기까지. 슬래시(/) 하나면 됩니다.
 - **나를 아는 AI**: 내 문체를 익히고, 인물과 장소를 기억하며, 내가 정한 지침을 따릅니다.
 
-**원하는 AI로**: ChatGPT나 Claude 계정, API 키로 연결하거나 내 컴퓨터의 로컬 모델을 쓰세요.
+### 원하는 AI로
+
+ChatGPT나 Claude 계정, API 키로 연결하거나 내 컴퓨터의 로컬 모델을 쓰세요.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · OpenAI 호환 엔드포인트
 
-## 개인정보
+<p align="center">
+  <img src="docs/images/readme/ko/settings.png" alt="원하는 AI로" width="860" />
+</p>
+
+## 설계부터 개인정보 보호
 
 내 글은 내 것입니다. Textus는 처음부터 그렇게 설계되었고, 코드는 누구나 확인할 수 있습니다.
 
@@ -93,27 +133,42 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 Ollama로 로컬 모델을 쓰면 글이 내 컴퓨터 밖으로 나가지 않습니다.
 
-## 설치
+## 자주 묻는 질문
 
-macOS(Apple 실리콘)는 [Homebrew](https://brew.sh)로:
+<details>
+<summary><strong>Textus는 무료인가요?</strong></summary>
 
-```sh
-brew install --cask catvinci-studio/tap/textus
-```
+네. MIT 라이선스의 무료 오픈 소스이며, 계정도 구독도 필요 없습니다. Textus AI 사용료는 선택한 제공업체가 직접 청구하고, 로컬 모델은 비용이 들지 않습니다.
 
-Arch Linux는 서명된 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 저장소로(한 번만 설정하면 이후 `sudo pacman -Syu`로 Textus도 최신 상태가 됩니다):
+</details>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
-```
+<details>
+<summary><strong>어떤 운영체제에서 쓸 수 있나요?</strong></summary>
 
-또는 [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest)에서 설치 파일을 내려받으세요:
+Apple 실리콘 Mac의 macOS, Windows, Linux에서 쓸 수 있습니다. iPhone·iPad 버전도 준비 중입니다.
 
-| 플랫폼              | 설치 파일                                                                      |
-| ---------------- | -------------------------------------------------------------------------- |
-| macOS(Apple 실리콘) | `Textus_X.Y.Z_aarch64.dmg`                                                 |
-| Windows          | `Textus_X.Y.Z_x64-setup.exe`                                               |
-| Linux            | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+</details>
+
+<details>
+<summary><strong>AI 계정이 필요한가요?</strong></summary>
+
+아니요. 편집기의 모든 기능은 AI 없이도 쓸 수 있습니다. Textus AI를 쓰려면 제공업체를 직접 연결하세요. ChatGPT나 Claude 계정으로 로그인하거나, API 키를 입력하거나, Ollama로 로컬 모델을 실행하면 됩니다.
+
+</details>
+
+<details>
+<summary><strong>인터넷 없이도 쓸 수 있나요?</strong></summary>
+
+편집기는 완전히 오프라인으로 작동합니다. Textus AI는 제공업체와 연결되어야 하지만, 로컬 모델을 쓰면 인터넷이 필요 없습니다.
+
+</details>
+
+<details>
+<summary><strong>일반 Markdown 파일인가요?</strong></summary>
+
+네. 일반 .md 파일이며 표, 할 일 목록, 각주, 수식, Mermaid를 지원합니다. PDF, Word, HTML 등으로 내보낼 수 있습니다.
+
+</details>
 
 ## 빠른 시작
 

@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>下一代 Markdown 编辑器</strong><br>
-  下笔成章，AI 研墨
+  下笔成章，AI 研墨<br>
+  <sub>免费 · 开源 · 支持 macOS、Windows 和 Linux。</sub>
 </p>
 
 <p align="center">
@@ -34,18 +35,51 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/zh/hero.png" alt="Textus 打开着《红楼梦》，旁边的 Textus AI 附上理由、逐句提出修改，并在一处文字旁钉上审阅批注" width="860" />
+  <img src="docs/images/readme/zh/hero.png" alt="Textus 打开着《红楼梦》，旁边的 Textus AI 附上理由、逐句提出修改，并在一处文字旁钉上审阅批注" width="860" /><br>
+  <sub>《红楼梦》曹雪芹</sub>
 </p>
 
-## 写作
+## 开始使用 Textus
+
+免费开源，采用 MIT 协议。
+
+| 平台               | 下载                                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| macOS · Apple 芯片 | [下载 .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
+| Windows · x64    | [下载 .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
+| Linux · x64      | [下载 .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · 另有 .deb · .rpm |
+
+或用 Homebrew 安装：
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux 可以使用带签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源（只需设置一次，之后 `sudo pacman -Syu` 会让 Textus 保持最新）：
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone 与 iPad 版即将推出。[在 GitHub 查看所有版本](https://github.com/CatVinci-Studio/Textus/releases)
+
+## 专为写作而生
 
 ### 所见即所得
 
 每一种 Markdown 标记，边写边排好。指向任意一行，就能看到它的源码。
 
+<p align="center">
+  <img src="docs/images/readme/zh/markdown.png" alt="所见即所得" width="860" />
+</p>
+
 ### 公式、表格、图表
 
 公式边打边出，表格自动对齐，几行文字就能画出图表。
+
+<p align="center">
+  <img src="docs/images/readme/zh/math.png" alt="公式、表格、图表" width="860" />
+</p>
 
 ### 写作风格？随你喜欢
 
@@ -65,9 +99,9 @@
 
 导出为 PDF、Word、HTML 等格式。
 
-## Textus AI
+## 它提议，你决定
 
-**它提议，你决定。**Textus AI 一路相助，每个字仍由你决定。
+Textus AI 一路相助，每个字仍由你决定。
 
 - **续写**：停下笔，灰色的下文便会出现，按 Tab 收下。
 - **AI 写作**：修改以提议的形式出现，各附理由。可以整段采纳，也可以逐句取舍。
@@ -76,11 +110,17 @@
 - **内置技能**：精简、校对、翻译、换个语气……输入斜杠即可调用。
 - **懂你**：学习你的文风，记住你笔下的人物与地点，遵循你定下的写作要求。
 
-**用你喜欢的 AI**：用 ChatGPT 或 Claude 账号登录，填入 API Key，或在自己的电脑上运行模型。
+### 用你喜欢的 AI
+
+用 ChatGPT 或 Claude 账号登录，填入 API Key，或在自己的电脑上运行模型。
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · 任何兼容 OpenAI 接口的服务
 
-## 隐私
+<p align="center">
+  <img src="docs/images/readme/zh/settings.png" alt="用你喜欢的 AI" width="860" />
+</p>
+
+## 隐私，从设计开始
 
 你写的东西只属于你。Textus 从设计上保证这一点，代码公开，任何人都能核实。
 
@@ -93,27 +133,42 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 通过 Ollama 使用本地模型时，你的文字从不离开你的电脑。
 
-## 安装
+## 常见问题
 
-macOS（Apple 芯片）可以用 [Homebrew](https://brew.sh) 安装：
+<details>
+<summary><strong>Textus 免费吗？</strong></summary>
 
-```sh
-brew install --cask catvinci-studio/tap/textus
-```
+免费。Textus 以 MIT 协议开源，不需要账号，也没有订阅。如果使用 Textus AI，费用由你选择的服务商直接结算；使用本地模型则完全免费。
 
-Arch Linux 可以使用带签名的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 软件源（只需设置一次，之后 `sudo pacman -Syu` 会让 Textus 保持最新）：
+</details>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
-```
+<details>
+<summary><strong>支持哪些平台？</strong></summary>
 
-也可以在 [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) 下载安装包：
+支持 Apple 芯片的 macOS、Windows 和 Linux。iPhone 与 iPad 版即将推出。
 
-| 平台              | 安装包                                                                        |
-| --------------- | -------------------------------------------------------------------------- |
-| macOS（Apple 芯片） | `Textus_X.Y.Z_aarch64.dmg`                                                 |
-| Windows         | `Textus_X.Y.Z_x64-setup.exe`                                               |
-| Linux           | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+</details>
+
+<details>
+<summary><strong>需要 AI 账号吗？</strong></summary>
+
+不需要。不用 AI，编辑器的全部功能照样可用。想用 Textus AI，就接入你自己的服务商：用 ChatGPT 或 Claude 账号登录、填入 API Key，或用 Ollama 运行本地模型。
+
+</details>
+
+<details>
+<summary><strong>可以离线使用吗？</strong></summary>
+
+编辑器完全可以离线使用。Textus AI 需要连接你的服务商，运行本地模型时则无需联网。
+
+</details>
+
+<details>
+<summary><strong>是标准 Markdown 吗？能导出什么格式？</strong></summary>
+
+是的，就是普通的 .md 文件，支持表格、任务列表、脚注、公式和 Mermaid。可以导出为 PDF、Word、HTML 等格式。
+
+</details>
 
 ## 快速上手
 

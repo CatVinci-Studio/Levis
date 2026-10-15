@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>新一代 Markdown 編輯器</strong><br>
-  下筆成章，AI 研墨
+  下筆成章，AI 研墨<br>
+  <sub>免費 · 開源 · 支援 macOS、Windows 與 Linux。</sub>
 </p>
 
 <p align="center">
@@ -34,18 +35,51 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/zh-hant/hero.png" alt="Textus 開著《哈姆雷特》，一旁的 Textus AI 逐句提出修改並附上理由，還在一行文字旁留下審閱註解" width="860" />
+  <img src="docs/images/readme/zh-hant/hero.png" alt="Textus 開著《哈姆雷特》，一旁的 Textus AI 逐句提出修改並附上理由，還在一行文字旁留下審閱註解" width="860" /><br>
+  <sub>吳承恩《西遊記》</sub>
 </p>
 
-## 寫作
+## 取得 Textus
+
+免費開源，採用 MIT 授權。
+
+| 平台               | 下載                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| macOS · Apple 晶片 | [下載 .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                        |
+| Windows · x64    | [下載 .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                        |
+| Linux · x64      | [下載 .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · 另提供 .deb · .rpm |
+
+或透過 Homebrew 安裝：
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux 可以使用帶簽章的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 軟體庫（只需設定一次，之後 `sudo pacman -Syu` 會讓 Textus 保持最新）：
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone 與 iPad 版即將推出。[在 GitHub 查看所有版本](https://github.com/CatVinci-Studio/Textus/releases)
+
+## 為寫作而生
 
 ### 所見即所得
 
 所有 Markdown 標記，邊寫邊排版。將指標移到任一行，就⁠能⁠看⁠到⁠原⁠始⁠寫⁠法⁠。
 
+<p align="center">
+  <img src="docs/images/readme/zh-hant/markdown.png" alt="所見即所得" width="860" />
+</p>
+
 ### 公式、表格、圖表
 
 公式隨打隨現，表格自動對齊，幾⁠行⁠文⁠字⁠就⁠能⁠畫⁠成⁠圖⁠表⁠。
+
+<p align="center">
+  <img src="docs/images/readme/zh-hant/math.png" alt="公式、表格、圖表" width="860" />
+</p>
 
 ### 寫作風格？隨你喜歡
 
@@ -65,9 +99,9 @@
 
 匯出為 PDF、Word、HTML 等格式。
 
-## Textus AI
+## AI 提議，由你作主
 
-**AI 提議，由你作主。**Textus AI 從旁協助，每⁠個⁠字⁠仍⁠由⁠你⁠決⁠定⁠。
+Textus AI 從旁協助，每⁠個⁠字⁠仍⁠由⁠你⁠決⁠定⁠。
 
 - **續寫**：停下筆，下文便以灰字浮現，按 Tab 接⁠受⁠。
 - **AI 寫作**：修改以提議呈現，各附理由。可以整段接受，也⁠可⁠以⁠逐⁠句⁠取⁠捨⁠。
@@ -76,11 +110,17 @@
 - **內建技能**：精簡、校對、翻譯、調整語氣……輸⁠入 / 就⁠能⁠使⁠用⁠。
 - **懂你**：學習你的文風，記住筆下的人物與地點，遵⁠循⁠你⁠的⁠寫⁠作⁠指⁠示⁠。
 
-**選用你喜歡的 AI**：以 ChatGPT 或 Claude 帳號登入、填⁠入 API 金⁠鑰⁠，或⁠在⁠自⁠己⁠的⁠電⁠腦⁠上⁠執⁠行⁠模⁠型⁠。
+### 選用你喜歡的 AI
+
+以 ChatGPT 或 Claude 帳號登入、填⁠入 API 金⁠鑰⁠，或⁠在⁠自⁠己⁠的⁠電⁠腦⁠上⁠執⁠行⁠模⁠型⁠。
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · 任何相容 OpenAI 介面的服務
 
-## 隱私
+<p align="center">
+  <img src="docs/images/readme/zh-hant/settings.png" alt="選用你喜歡的 AI" width="860" />
+</p>
+
+## 隱私，始於設計
 
 你寫的內容只屬於你。Textus 從⁠設⁠計⁠上⁠確⁠保⁠這⁠一⁠點⁠，程⁠式⁠碼⁠也⁠完⁠全⁠公⁠開⁠，任⁠何⁠人⁠都⁠能⁠查⁠證⁠。
 
@@ -93,27 +133,42 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 透過 Ollama 使用本機模型時，你⁠的⁠文⁠字⁠完⁠全⁠不⁠會⁠離⁠開⁠電⁠腦⁠。
 
-## 安裝
+## 常見問題
 
-macOS（Apple 晶片）可以用 [Homebrew](https://brew.sh) 安裝：
+<details>
+<summary><strong>Textus 免費嗎？</strong></summary>
 
-```sh
-brew install --cask catvinci-studio/tap/textus
-```
+免費。Textus 以 MIT 授權開源，不需帳號，也沒有訂閱。使用 Textus AI 時，費用由你選擇的服務供應商直接收取；改用本機模型則完全免費。
 
-Arch Linux 可以使用帶簽章的 [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman 軟體庫（只需設定一次，之後 `sudo pacman -Syu` 會讓 Textus 保持最新）：
+</details>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
-```
+<details>
+<summary><strong>支援哪些平台？</strong></summary>
 
-也可以在 [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) 下載安裝檔：
+支援 macOS（Apple 晶片）、Windows 與 Linux。iPhone 與 iPad 版即將推出。
 
-| 平台              | 安裝檔                                                                        |
-| --------------- | -------------------------------------------------------------------------- |
-| macOS（Apple 晶片） | `Textus_X.Y.Z_aarch64.dmg`                                                 |
-| Windows         | `Textus_X.Y.Z_x64-setup.exe`                                               |
-| Linux           | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+</details>
+
+<details>
+<summary><strong>一定要有 AI 帳號嗎？</strong></summary>
+
+不用。即使不用 AI，編輯器的所有功能也都能正常使用。想使用 Textus AI，就連接你自己的服務供應商：以 ChatGPT 或 Claude 帳號登入、填入 API 金鑰，或透過 Ollama 執行本機模型。
+
+</details>
+
+<details>
+<summary><strong>可以離線使用嗎？</strong></summary>
+
+編輯器可以完全離線使用。Textus AI 需要連線到你的服務供應商；若執行本機模型，則不必連網。
+
+</details>
+
+<details>
+<summary><strong>是標準的 Markdown 嗎？能⁠匯⁠出⁠哪⁠些⁠格⁠式⁠？</strong></summary>
+
+是。檔案就是一般的 .md 檔，支援表格、待辦清單、註腳、數學公式與 Mermaid，也能匯出為 PDF、Word、HTML 等格式。
+
+</details>
 
 ## 快速上手
 

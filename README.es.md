@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>El editor de Markdown de nueva generación.</strong><br>
-  Tú pones la pluma. La IA, la tinta.
+  Tú pones la pluma. La IA, la tinta.<br>
+  <sub>Gratuito y de código abierto · Para macOS, Windows y Linux.</sub>
 </p>
 
 <p align="center">
@@ -34,18 +35,51 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/es/hero.png" alt="Textus con Hamlet abierto. Al lado, Textus AI propone un cambio razonado, frase a frase, y deja un comentario junto a una línea." width="860" />
+  <img src="docs/images/readme/es/hero.png" alt="Textus con Hamlet abierto. Al lado, Textus AI propone un cambio razonado, frase a frase, y deja un comentario junto a una línea." width="860" /><br>
+  <sub><i>Don Quijote de la Mancha</i>, Miguel de Cervantes</sub>
 </p>
 
-## Escritura
+## Consigue Textus
+
+Gratuito y de código abierto, con licencia MIT.
+
+| Plataforma            | Descargar                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| macOS · Apple Silicon | [Descargar .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                                 |
+| Windows · x64         | [Descargar .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                                 |
+| Linux · x64           | [Descargar .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · También como .deb · .rpm |
+
+O instálalo con Homebrew:
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux con el repositorio de pacman firmado [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) (una sola vez; después `sudo pacman -Syu` mantiene Textus al día):
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone y iPad: muy pronto. [Todas las versiones en GitHub](https://github.com/CatVinci-Studio/Textus/releases)
+
+## Hecho para escribir
 
 ### Lo que ves es lo que obtienes
 
 Todo el Markdown, con formato mientras escribes. Pasa el puntero por una línea para ver su código.
 
+<p align="center">
+  <img src="docs/images/readme/es/markdown.png" alt="Lo que ves es lo que obtienes." width="860" />
+</p>
+
 ### Fórmulas, tablas y diagramas
 
 Las fórmulas se muestran mientras escribes, las tablas se alinean solas y unas pocas líneas de texto bastan para un diagrama.
+
+<p align="center">
+  <img src="docs/images/readme/es/math.png" alt="Fórmulas, tablas y diagramas." width="860" />
+</p>
 
 ### ¿Tu estilo de escritura? Tú decides
 
@@ -65,9 +99,9 @@ Cuatro modos de escritura y el tema que prefieras, incluidos los de Typora.
 
 Exporta a PDF, Word, HTML y más.
 
-## Textus AI
+## La IA propone. Tú decides
 
-**La IA propone. Tú decides.** Textus AI te acompaña en cada paso. Las palabras siguen siendo tuyas.
+Textus AI te acompaña en cada paso. Las palabras siguen siendo tuyas.
 
 - **Autocompletado**: Haz una pausa y las palabras siguientes aparecen en gris. Pulsa Tab para aceptarlas.
 - **Escritura con IA**: Los cambios llegan como propuestas, cada una con su motivo. Acéptalas enteras o frase a frase.
@@ -76,11 +110,17 @@ Exporta a PDF, Word, HTML y más.
 - **Habilidades integradas**: Condensar, corregir, traducir, cambiar el tono y más, con solo teclear /.
 - **Te conoce**: Aprende tu estilo, recuerda a tus personajes y lugares, y sigue tus instrucciones.
 
-**Usa la IA que prefieras**: Inicia sesión con ChatGPT o Claude, añade una clave de API o ejecuta un modelo en tu propio ordenador.
+### Usa la IA que prefieras
+
+Inicia sesión con ChatGPT o Claude, añade una clave de API o ejecuta un modelo en tu propio ordenador.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · Cualquier servicio compatible con OpenAI
 
-## Privacidad
+<p align="center">
+  <img src="docs/images/readme/es/settings.png" alt="Usa la IA que prefieras." width="860" />
+</p>
+
+## Privacidad desde el diseño
 
 Lo que escribes es tuyo. Textus está hecho para que siga siéndolo, y su código es abierto para que cualquiera lo compruebe.
 
@@ -93,27 +133,42 @@ Lo que escribes es tuyo. Textus está hecho para que siga siéndolo, y su códig
 
 Con un modelo local a través de Ollama, tus palabras nunca salen de tu ordenador.
 
-## Instalación
+## Preguntas frecuentes
 
-macOS (Apple Silicon) con [Homebrew](https://brew.sh):
+<details>
+<summary><strong>¿Es gratis Textus?</strong></summary>
 
-```sh
-brew install --cask catvinci-studio/tap/textus
-```
+Sí. Es gratuito y de código abierto, con licencia MIT, sin cuenta ni suscripción. Si usas Textus AI, te cobra directamente tu proveedor; con un modelo local, nadie.
 
-Arch Linux con el repositorio de pacman firmado [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) (una sola vez; después `sudo pacman -Syu` mantiene Textus al día):
+</details>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
-```
+<details>
+<summary><strong>¿En qué sistemas funciona?</strong></summary>
 
-O descarga un instalador desde [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest):
+En macOS con Apple Silicon, Windows y Linux. Pronto llegará a iPhone y iPad.
 
-| Plataforma            | Instalador                                                                 |
-| --------------------- | -------------------------------------------------------------------------- |
-| macOS (Apple Silicon) | `Textus_X.Y.Z_aarch64.dmg`                                                 |
-| Windows               | `Textus_X.Y.Z_x64-setup.exe`                                               |
-| Linux                 | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+</details>
+
+<details>
+<summary><strong>¿Necesito una cuenta de IA?</strong></summary>
+
+No. El editor funciona perfectamente sin IA. Para usar Textus AI, conecta tu propio proveedor: inicia sesión con ChatGPT o Claude, añade una clave de API o ejecuta un modelo local con Ollama.
+
+</details>
+
+<details>
+<summary><strong>¿Funciona sin conexión?</strong></summary>
+
+El editor, sí, por completo. Textus AI necesita conectarse a tu proveedor, salvo que uses un modelo local.
+
+</details>
+
+<details>
+<summary><strong>¿Es Markdown estándar? ¿A qué formatos exporta?</strong></summary>
+
+Sí: archivos .md normales, con tablas, listas de tareas, notas al pie, fórmulas y Mermaid. Exporta a PDF, Word, HTML y más.
+
+</details>
 
 ## Primeros pasos
 

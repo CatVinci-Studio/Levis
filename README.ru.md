@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>Markdown-редактор нового поколения.</strong><br>
-  Перо в ваших руках. Чернила готовит ИИ.
+  Перо в ваших руках. Чернила готовит ИИ.<br>
+  <sub>Бесплатно и с открытым кодом · Для macOS, Windows и Linux.</sub>
 </p>
 
 <p align="center">
@@ -34,18 +35,51 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/ru/hero.png" alt="Textus с открытым «Гамлетом». Справа Textus AI предлагает правку с объяснением, по предложениям, и оставляет комментарий к строке." width="860" />
+  <img src="docs/images/readme/ru/hero.png" alt="Textus с открытым «Гамлетом». Справа Textus AI предлагает правку с объяснением, по предложениям, и оставляет комментарий к строке." width="860" /><br>
+  <sub><i>«Анна Каренина»</i>, Лев Толстой</sub>
 </p>
 
-## Редактор
+## Установите Textus
+
+Бесплатно и с открытым кодом, по лицензии MIT.
+
+| Платформа             | Скачать                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| macOS · Apple Silicon | [Скачать .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
+| Windows · x64         | [Скачать .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
+| Linux · x64           | [Скачать .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · А также .deb · .rpm |
+
+Или через Homebrew:
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux через подписанный pacman-репозиторий [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) (один раз; дальше `sudo pacman -Syu` будет обновлять Textus):
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone и iPad — скоро. [Все версии на GitHub](https://github.com/CatVinci-Studio/Textus/releases)
+
+## Создан для письма
 
 ### Что видишь, то и получаешь
 
 Markdown оформляется прямо при наборе. Наведите курсор на строку — и увидите её разметку.
 
+<p align="center">
+  <img src="docs/images/readme/ru/markdown.png" alt="Что видишь, то и получаешь." width="860" />
+</p>
+
 ### Формулы, таблицы, диаграммы
 
 Формулы отображаются по ходу ввода, таблицы выравниваются сами, а из пары строк текста получается диаграмма.
+
+<p align="center">
+  <img src="docs/images/readme/ru/math.png" alt="Формулы, таблицы, диаграммы." width="860" />
+</p>
 
 ### Ваш стиль письма? Решать вам
 
@@ -65,9 +99,9 @@ Markdown оформляется прямо при наборе. Наведите
 
 Экспорт в PDF, Word, HTML и другие форматы.
 
-## Textus AI
+## ИИ предлагает. Решаете вы
 
-**ИИ предлагает. Решаете вы.** Textus AI рядом на каждом шаге. А каждое слово — ваше.
+Textus AI рядом на каждом шаге. А каждое слово — ваше.
 
 - **Автодополнение**: Остановитесь — и следующие слова появятся серым. Нажмите Tab, чтобы принять.
 - **Правки от ИИ**: Каждая правка — с объяснением. Примите её целиком или по предложениям.
@@ -76,11 +110,17 @@ Markdown оформляется прямо при наборе. Наведите
 - **Встроенные навыки**: Сократить, вычитать, перевести, сменить тон и многое другое — достаточно набрать «/».
 - **Понимает вас**: Перенимает ваш стиль, помнит ваших героев и места, следует вашим инструкциям.
 
-**ИИ на ваш выбор**: Войдите через ChatGPT или Claude, добавьте API-ключ или запустите модель на своём компьютере.
+### ИИ на ваш выбор
+
+Войдите через ChatGPT или Claude, добавьте API-ключ или запустите модель на своём компьютере.
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · Любой сервис, совместимый с OpenAI
 
-## Приватность
+<p align="center">
+  <img src="docs/images/readme/ru/settings.png" alt="ИИ на ваш выбор." width="860" />
+</p>
+
+## Ваши тексты — только ваши
 
 Так устроен Textus, и убедиться в этом может каждый: его код открыт.
 
@@ -93,27 +133,42 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 С локальной моделью через Ollama ваши тексты вообще не покидают компьютер.
 
-## Установка
+## Вопросы и ответы
 
-macOS (Apple Silicon) через [Homebrew](https://brew.sh):
+<details>
+<summary><strong>Textus бесплатный?</strong></summary>
 
-```sh
-brew install --cask catvinci-studio/tap/textus
-```
+Да. Textus бесплатен, его код открыт (лицензия MIT), аккаунт и подписка не нужны. За Textus AI вы платите своему провайдеру — или никому, если модель локальная.
 
-Arch Linux через подписанный pacman-репозиторий [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) (один раз; дальше `sudo pacman -Syu` будет обновлять Textus):
+</details>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
-```
+<details>
+<summary><strong>На каких платформах работает Textus?</strong></summary>
 
-Или скачайте установщик в [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest):
+На macOS (Apple Silicon), Windows и Linux. Версии для iPhone и iPad в разработке.
 
-| Платформа             | Установщик                                                                 |
-| --------------------- | -------------------------------------------------------------------------- |
-| macOS (Apple Silicon) | `Textus_X.Y.Z_aarch64.dmg`                                                 |
-| Windows               | `Textus_X.Y.Z_x64-setup.exe`                                               |
-| Linux                 | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+</details>
+
+<details>
+<summary><strong>Нужен ли аккаунт для ИИ?</strong></summary>
+
+Нет. Редактор полностью работает и без ИИ. Чтобы включить Textus AI, подключите провайдера: войдите через ChatGPT или Claude, вставьте API-ключ или запустите локальную модель через Ollama.
+
+</details>
+
+<details>
+<summary><strong>Работает ли Textus без интернета?</strong></summary>
+
+Редактор — полностью. Textus AI нужен доступ к провайдеру, если только модель не локальная: тогда ничего не покидает ваш компьютер.
+
+</details>
+
+<details>
+<summary><strong>Это обычный Markdown? В какие форматы можно экспортировать?</strong></summary>
+
+Да, это обычные файлы .md — с таблицами, списками задач, сносками, формулами и диаграммами Mermaid. Экспорт — в PDF, Word, HTML и другие форматы.
+
+</details>
 
 ## Быстрый старт
 

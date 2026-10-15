@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>次世代のMarkdownエディタ</strong><br>
-  筆をとるのは、あなた。墨を磨るのは、AI。
+  筆をとるのは、あなた。墨を磨るのは、AI。<br>
+  <sub>無料・オープンソース · macOS、Windows、Linuxに対応。</sub>
 </p>
 
 <p align="center">
@@ -34,18 +35,51 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/ja/hero.png" alt="『吾輩は猫である』を開いたTextus。横のパネルではTextus AIが一文ずつ理由を添えて修正を提案し、本文の一行にはレビューのコメントが付いている。" width="860" />
+  <img src="docs/images/readme/ja/hero.png" alt="『吾輩は猫である』を開いたTextus。横のパネルではTextus AIが一文ずつ理由を添えて修正を提案し、本文の一行にはレビューのコメントが付いている。" width="860" /><br>
+  <sub>夏目漱石『吾輩は猫である』</sub>
 </p>
 
-## 執筆
+## Textusを入手
+
+無料のオープンソース。MITライセンスで公開しています。
+
+| プラットフォーム          | ダウンロード                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| macOS · Appleシリコン | [.dmgをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
+| Windows · x64     | [.exeをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
+| Linux · x64       | [.AppImageをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest) · ほかの形式も .deb · .rpm |
+
+Homebrewでもインストールできます：
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux は署名付きの [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman リポジトリで（設定は一度だけ。以後は `sudo pacman -Syu` で Textus も最新に保たれます）：
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone版とiPad版も、まもなく登場します。[すべてのリリースをGitHubで見る](https://github.com/CatVinci-Studio/Textus/releases)
+
+## 書くために、つくられた
 
 ### 見たまま、書ける
 
 Markdownの記法は、書いたそばから仕上がりの姿に。行にポインタを合わせると、元の記法が現れます。
 
+<p align="center">
+  <img src="docs/images/readme/ja/markdown.png" alt="見たまま、書ける。" width="860" />
+</p>
+
 ### 数式も、表も、図も
 
 数式はその場で表示され、表はきれいに揃います。数行のテキストが、そのまま図になります。
+
+<p align="center">
+  <img src="docs/images/readme/ja/math.png" alt="数式も、表も、図も。" width="860" />
+</p>
 
 ### 書き方は？お好きなように
 
@@ -65,9 +99,9 @@ Markdownの記法は、書いたそばから仕上がりの姿に。行にポイ
 
 PDF、Word、HTMLなどに書き出せます。
 
-## Textus AI
+## 提案はAI、決めるのはあなた
 
-**提案はAI、決めるのはあなた。**Textus AIは、書くことのあらゆる場面で力を貸します。言葉は、すべてあなたのものです。
+Textus AIは、書くことのあらゆる場面で力を貸します。言葉は、すべてあなたのものです。
 
 - **文章の補完**：手を止めると、続きの言葉が灰色で現れます。Tabキーで採用。
 - **AIライティング**：修正は、理由を添えた提案として届きます。まとめて承認することも、一文ずつ選ぶこともできます。
@@ -76,11 +110,17 @@ PDF、Word、HTMLなどに書き出せます。
 - **組み込みスキル**：簡潔にする、校正、翻訳、口調を変えるなど。スラッシュひとつで呼び出せます。
 - **あなたを知っている**：あなたの文体を学び、人物や場所の設定を覚え、執筆の指示に従います。
 
-**使うAIは、自由に**：ChatGPTやClaudeでサインインするか、APIキーを入力するか。手元のコンピューターでモデルを動かすこともできます。
+### 使うAIは、自由に
+
+ChatGPTやClaudeでサインインするか、APIキーを入力するか。手元のコンピューターでモデルを動かすこともできます。
 
 OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · OpenAI互換のあらゆるエンドポイント
 
-## プライバシー
+<p align="center">
+  <img src="docs/images/readme/ja/settings.png" alt="使うAIは、自由に。" width="860" />
+</p>
+
+## プライバシーは、設計から
 
 あなたの文章は、あなたのもの。Textusはそのために設計され、コードもすべて公開しています。
 
@@ -93,27 +133,42 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 
 Ollamaでローカルモデルを使えば、あなたの言葉がコンピューターの外へ出ることはありません。
 
-## インストール
+## よくある質問
 
-macOS（Apple シリコン）は [Homebrew](https://brew.sh) で：
+<details>
+<summary><strong>Textusは無料ですか？</strong></summary>
 
-```sh
-brew install --cask catvinci-studio/tap/textus
-```
+はい。MITライセンスのオープンソースで、アカウントもサブスクリプションも要りません。Textus AIの利用料は、選んだプロバイダーから直接請求されます。ローカルモデルなら費用はかかりません。
 
-Arch Linux は署名付きの [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman リポジトリで（設定は一度だけ。以後は `sudo pacman -Syu` で Textus も最新に保たれます）：
+</details>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
-```
+<details>
+<summary><strong>どの環境で使えますか？</strong></summary>
 
-または [Releases](https://github.com/CatVinci-Studio/Textus/releases/latest) からインストーラをダウンロードしてください：
+Appleシリコン搭載のmacOS、Windows、Linuxです。iPhone版とiPad版も準備中です。
 
-| プラットフォーム          | インストーラ                                                                     |
-| ----------------- | -------------------------------------------------------------------------- |
-| macOS（Apple シリコン） | `Textus_X.Y.Z_aarch64.dmg`                                                 |
-| Windows           | `Textus_X.Y.Z_x64-setup.exe`                                               |
-| Linux             | `Textus_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Textus-X.Y.Z-1.x86_64.rpm` |
+</details>
+
+<details>
+<summary><strong>AIのアカウントは必要ですか？</strong></summary>
+
+いいえ。エディタの機能は、AIなしですべて使えます。Textus AIを使うときは、ご自身のプロバイダーを接続します。ChatGPTやClaudeでのサインイン、APIキーの入力、Ollamaによるローカルモデルのどれでも使えます。
+
+</details>
+
+<details>
+<summary><strong>オフラインでも使えますか？</strong></summary>
+
+エディタはすべての機能が使えます。Textus AIにはプロバイダーへの接続が必要ですが、ローカルモデルならオフラインでも動きます。
+
+</details>
+
+<details>
+<summary><strong>普通のMarkdownで、書き出しもできますか？</strong></summary>
+
+はい、普通の.mdファイルです。表、タスクリスト、脚注、数式、Mermaidに対応し、PDF、Word、HTMLなどに書き出せます。
+
+</details>
 
 ## はじめかた
 
