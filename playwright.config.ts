@@ -17,8 +17,9 @@ const port = Number(process.env.PLAYWRIGHT_PORT) || 1430;
 
 export default defineConfig({
   testDir: "./e2e",
-  // The README screenshots run on their own (playwright.readme.config.ts).
-  testIgnore: "readme/**",
+  // The README and website screenshots run on their own
+  // (playwright.readme.config.ts, playwright.website.config.ts).
+  testIgnore: ["readme/**", "website/**"],
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,

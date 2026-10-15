@@ -1,4 +1,10 @@
-import type { ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { CloseIcon, DetachIcon, PlusIcon } from "../../ui/icons";
 
 export interface AgentPanelLabels {
@@ -6,20 +12,28 @@ export interface AgentPanelLabels {
   newConversation: string;
   popOut: string;
   close: string;
+  /** The two tabs: the conversation, and what the AI keeps (MemoryView). */
+  tabChat: string;
+  tabMemory: string;
 }
 
+type Tab = "chat" | "memory";
+
 /**
- * The docked panel's chrome: a header naming the panel and the document the
- * conversation belongs to, with new / pop out / close, over the chat body
- * (ChatBody, variant "full") its editor renders into `children`. Purely
- * presentational - the editor owns the conversation and wires the actions.
+ * The docked panel's chrome: one header row - the Conversation / Memory
+ * switch on the left, new / pop out / close on the right - over the chat
+ * body (ChatBody, variant "full") its editor renders into `children`, or
+ * the Memory view. The conversation stays mounted while Memory shows, so
+ * its scroll, draft and any reply still arriving are where they were.
+ * Purely presentational - the editor owns the conversation and wires the
+ * actions.
  */
 export function AgentPanelView({
   labels,
   onNewConversation,
   onPopOut,
   onClose,
-  headerExtra,
+  memory,
   children,
 }: {
   labels: AgentPanelLabels;
@@ -28,15 +42,60 @@ export function AgentPanelView({
    *  the button is not drawn. */
   onPopOut?: () => void;
   onClose: () => void;
-  /** A second header row (the project folder chip). */
-  headerExtra?: ReactNode;
+  /** The Memory tab's content, drawn only while it shows. */
+  memory?: () => ReactNode;
   children: ReactNode;
 }) {
+  const [tab, setTab] = useState<Tab>("chat");
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<CSSProperties>({});
+  // The sliding pill behind the selected tab: measured, so it fits each
+  // language's words.
+  useLayoutEffect(() => {
+    const on = tabsRef.current?.querySelector<HTMLElement>(
+      '[aria-selected="true"]',
+    );
+    if (on)
+      setThumb({
+        width: on.offsetWidth,
+        transform: `translateX(${on.offsetLeft - 2}px)`,
+      });
+  }, [tab, labels.tabChat, labels.tabMemory]);
+  const tabButton = (id: Tab, label: string) => (
+    <button
+      type="button"
+      role="tab"
+      id={`agent-tab-${id}`}
+      aria-selected={tab === id}
+      aria-controls={`agent-tabpanel-${id}`}
+      tabIndex={tab === id ? 0 : -1}
+      onClick={() => setTab(id)}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          const next = id === "chat" ? "memory" : "chat";
+          setTab(next);
+          tabsRef.current
+            ?.querySelector<HTMLElement>(`#agent-tab-${next}`)
+            ?.focus();
+        }
+      }}
+    >
+      {label}
+    </button>
+  );
   return (
     <section className="agent-panel-view" aria-label={labels.title}>
       <header className="agent-panel-header">
-        <div className="agent-panel-heading">
-          <span className="agent-panel-title">{labels.title}</span>
+        <div
+          className="agent-panel-tabs"
+          role="tablist"
+          aria-label={labels.title}
+          ref={tabsRef}
+        >
+          <span className="agent-panel-tabs-thumb" style={thumb} />
+          {tabButton("chat", labels.tabChat)}
+          {memory && tabButton("memory", labels.tabMemory)}
         </div>
         <div className="agent-panel-actions">
           <button
@@ -44,7 +103,10 @@ export function AgentPanelView({
             className="inline-chat-header-button"
             aria-label={labels.newConversation}
             title={labels.newConversation}
-            onClick={onNewConversation}
+            onClick={() => {
+              setTab("chat");
+              onNewConversation();
+            }}
           >
             <PlusIcon />
           </button>
@@ -70,8 +132,25 @@ export function AgentPanelView({
           </button>
         </div>
       </header>
-      {headerExtra}
-      <div className="agent-panel-body">{children}</div>
+      <div
+        className="agent-panel-body"
+        id="agent-tabpanel-chat"
+        role="tabpanel"
+        aria-labelledby="agent-tab-chat"
+        hidden={tab !== "chat"}
+      >
+        {children}
+      </div>
+      {tab === "memory" && memory && (
+        <div
+          className="agent-panel-memory"
+          id="agent-tabpanel-memory"
+          role="tabpanel"
+          aria-labelledby="agent-tab-memory"
+        >
+          {memory()}
+        </div>
+      )}
     </section>
   );
 }

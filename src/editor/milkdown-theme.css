@@ -159,6 +159,181 @@
   font-size: 0.9em;
 }
 
+/* A rewrite shown sentence by sentence (pending-edit-plugin's
+   sentenceDecorations): each changed sentence struck where it stands, its
+   replacement right after, then a ✓ / ✕. Undecided and taken read the
+   same - Accept takes them; a kept sentence turns back into ordinary text
+   and its replacement dims, struck in turn. The first appearance runs
+   sentence by sentence (--i): the strike draws, the new words rise, the
+   buttons pop. */
+.pending-sentence {
+  color: color-mix(in srgb, var(--editor-text) 55%, transparent);
+  border-radius: var(--md-radius-sm);
+  transition:
+    color var(--dur-fast) var(--ease-standard),
+    background var(--dur-fast) var(--ease-standard);
+}
+
+.pending-sentence-open,
+.pending-sentence-taken {
+  animation: pending-strike-in var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 160ms);
+}
+
+.pending-sentence.pending-sentence-kept {
+  color: inherit;
+  background: none;
+  text-decoration-color: transparent;
+}
+
+.pending-sentence-new.pending-sentence-open,
+.pending-sentence-new.pending-sentence-taken {
+  animation: pending-new-in var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 160ms + 120ms);
+}
+
+.pending-sentence-new.pending-sentence-kept {
+  background: none;
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--editor-text) 40%,
+    transparent
+  );
+  animation: pending-fade-kept var(--dur-fast) var(--ease-out);
+}
+
+/* The review bar's pointer. */
+.pending-sentence-focus {
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--editor-accent) 35%, transparent);
+}
+
+@keyframes pending-strike-in {
+  from {
+    color: inherit;
+    background: transparent;
+    text-decoration-color: transparent;
+  }
+}
+
+@keyframes pending-new-in {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+@keyframes pending-fade-kept {
+  from {
+    opacity: 1;
+  }
+}
+
+/* The ✓ / ✕ pair after a changed sentence (and in the AI card): outlined
+   while undecided; the choice made fills in. */
+.pending-pick {
+  display: inline-flex;
+  gap: 3px;
+  margin: 0 2px 0 5px;
+  vertical-align: 0.12em;
+  white-space: nowrap;
+  user-select: none;
+  animation: pending-pick-in var(--dur-medium) var(--ease-spring-bouncy) both;
+  animation-delay: calc(var(--i, 0) * 160ms + 260ms);
+}
+
+.pending-pick-kept,
+.pending-pick-taken {
+  animation: none;
+}
+
+:is(.pending-pick, .agent-proposal-pick) button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--editor-border, var(--border-color));
+  background: var(--editor-bg, var(--bg));
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    transform var(--dur-fast) var(--ease-spring-bouncy);
+}
+
+:is(.pending-pick, .agent-proposal-pick) button svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:is(.pending-pick, .agent-proposal-pick) .pending-pick-take {
+  color: var(--success-color);
+}
+
+:is(.pending-pick, .agent-proposal-pick) .pending-pick-keep {
+  color: var(--editor-muted);
+}
+
+:is(.pending-pick, .agent-proposal-pick) button:hover {
+  transform: scale(1.12);
+  border-color: currentColor;
+}
+
+:is(.pending-pick, .agent-proposal-pick)
+  .pending-pick-take[aria-pressed="true"] {
+  background: var(--success-color);
+  border-color: var(--success-color);
+  color: #fff;
+}
+
+:is(.pending-pick, .agent-proposal-pick)
+  .pending-pick-keep[aria-pressed="true"] {
+  background: var(--editor-text);
+  border-color: var(--editor-text);
+  color: var(--editor-bg, var(--bg));
+}
+
+:is(.pending-pick, .agent-proposal-pick) button:focus-visible {
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+
+/* Fingers, not a pointer: room to hit each one. */
+[data-platform="ios"] .pending-pick button {
+  width: 28px;
+  height: 28px;
+}
+
+[data-platform="ios"] .pending-pick button svg {
+  width: 13px;
+  height: 13px;
+}
+
+@keyframes pending-pick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-sentence,
+  .pending-sentence-new,
+  .pending-pick {
+    animation: none !important;
+  }
+}
+
 /* While the typewriter is still revealing text (pending-edit-plugin's
    animation queue), a blinking caret marks the growth point - same
    blink cadence as the ghost-text caret above. */

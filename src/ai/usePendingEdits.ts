@@ -11,7 +11,13 @@ import {
 } from "./doc-markdown";
 import { applyEditRange } from "./apply-edit";
 import { isIOSApp } from "../platform/capabilities";
-import { pendingEditKey, type PendingPreview } from "./pending-edit-plugin";
+import {
+  pendingEditKey,
+  sentenceTake,
+  type PendingPreview,
+} from "./pending-edit-plugin";
+import { composeSentences, diffSentences } from "./chat/sentence-diff";
+import { locateHunks } from "./sentence-locate";
 import { nextFocusAfterChange, orderForReview } from "./pending-edit-focus";
 import { locatePlainText } from "./text-locate";
 import type { EditProposal } from "./types";
@@ -135,6 +141,44 @@ function resolveAnchored(
   };
 }
 
+/**
+ * A rewrite's sentence-by-sentence view (PendingPreview.sentences): the
+ * diff of what it replaces against its text, each change found in the
+ * document. Null when the proposal isn't a rewrite, nothing changed, or a
+ * piece can't be found - it is then shown and decided whole.
+ */
+function sentencesFor(
+  ctx: Ctx,
+  doc: ProseNode,
+  proposal: EditProposal,
+  original: string | null,
+  range: { from: number; to: number } | null,
+): PendingPreview["sentences"] {
+  if (original === null || !range || proposal.text === undefined)
+    return undefined;
+  const hunks = diffSentences(original, proposal.text);
+  if (!hunks.some((h) => h.kind === "change")) return undefined;
+  const ranges = locateHunks(doc, range.from, range.to, hunks, (markdown) => {
+    const parsed = parseMarkdownSource(ctx, markdown);
+    return parsed && typeof parsed !== "string" ? parsed.textContent : null;
+  });
+  if (!ranges) return undefined;
+  const changes = hunks.flatMap((h, i) =>
+    h.kind === "change"
+      ? [{ ...ranges[i], before: h.before, after: h.after, take: null }]
+      : [],
+  );
+  return { hunks, changes };
+}
+
+/** One stop of the review bar: a changed sentence, or a whole proposal
+ *  that isn't shown sentence by sentence (`index` -1). */
+export interface ReviewStop {
+  callId: string;
+  index: number;
+  from: number;
+}
+
 const isAnchored = (proposal: EditProposal) =>
   proposal.action !== "append" &&
   proposal.action !== "insert_at_cursor" &&
@@ -184,6 +228,93 @@ export function usePendingEdits(run: EditorRunner) {
       nextFocusAfterChange(lastOrderRef.current, prev, newOrder),
     );
     lastOrderRef.current = newOrder;
+  }, [decidable]);
+
+  // The review bar walks sentence by sentence: every changed sentence of a
+  // proposal shown that way, or the proposal itself otherwise, top to
+  // bottom. The pointer is kept by identity, falling back to the stop now
+  // at its old place when its own went (decided, applied).
+  const reviewStops = useMemo<ReviewStop[]>(
+    () =>
+      decidable
+        .flatMap((p) =>
+          p.sentences
+            ? p.sentences.changes.map((c, index) => ({
+                callId: p.callId,
+                index,
+                from: c.from,
+              }))
+            : [{ callId: p.callId, index: -1, from: p.from }],
+        )
+        .sort((a, b) => a.from - b.from),
+    [decidable],
+  );
+  const [stopKey, setStopKey] = useState<string | null>(null);
+  const stopIndex = stopKey
+    ? reviewStops.findIndex((s) => `${s.callId}:${s.index}` === stopKey)
+    : -1;
+  const focusedStop = stopIndex >= 0 ? reviewStops[stopIndex] : null;
+  const lastStopsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const keys = reviewStops.map((s) => `${s.callId}:${s.index}`);
+    setStopKey((prev) => {
+      if (prev === null) return null;
+      return nextFocusAfterChange(lastStopsRef.current, prev, keys);
+    });
+    lastStopsRef.current = keys;
+  }, [reviewStops]);
+
+  /** Moves the review bar's pointer and returns where it now is. */
+  const stepReview = useCallback(
+    (delta: 1 | -1): ReviewStop | null => {
+      if (reviewStops.length === 0) return null;
+      const next =
+        stopIndex === -1
+          ? delta === 1
+            ? 0
+            : reviewStops.length - 1
+          : (stopIndex + delta + reviewStops.length) % reviewStops.length;
+      const stop = reviewStops[next];
+      setStopKey(`${stop.callId}:${stop.index}`);
+      setFocusedCallId(stop.callId);
+      return stop;
+    },
+    [reviewStops, stopIndex],
+  );
+
+  /** Points the review bar at a sentence (index -1: the proposal's first
+   *  stop) - a card's sentence or "Show in text" was clicked. */
+  const pointReview = useCallback(
+    (callId: string, index: number): ReviewStop | null => {
+      const stop =
+        reviewStops.find(
+          (s) => s.callId === callId && (index < 0 || s.index === index),
+        ) ?? null;
+      if (stop) {
+        setStopKey(`${stop.callId}:${stop.index}`);
+        setFocusedCallId(stop.callId);
+      }
+      return stop;
+    },
+    [reviewStops],
+  );
+
+  /** How much an Accept-everything would take: changed sentences (a whole
+   *  proposal counting as one) taken of all of them. */
+  const reviewCount = useMemo(() => {
+    let taken = 0;
+    let total = 0;
+    for (const p of decidable) {
+      const take = sentenceTake(p);
+      if (take) {
+        total += take.length;
+        taken += take.filter(Boolean).length;
+      } else {
+        total += 1;
+        taken += 1;
+      }
+    }
+    return { taken, total };
   }, [decidable]);
 
   /** Wired (via a ref-indirected callback, see MilkdownEditor) to the
@@ -265,6 +396,27 @@ export function usePendingEdits(run: EditorRunner) {
             if (!streaming) invalidIds.push(callId);
             continue;
           }
+          // Only the final proposal is split into sentences: a streaming
+          // draft's text is still growing (and is typed in whole anyway).
+          const sentences = streaming
+            ? undefined
+            : proposal.action === "replace"
+              ? sentencesFor(
+                  ctx,
+                  state.doc,
+                  proposal,
+                  proposal.anchor ?? null,
+                  strikeRange,
+                )
+              : proposal.action === "replace_selection"
+                ? sentencesFor(
+                    ctx,
+                    state.doc,
+                    proposal,
+                    chatInfo?.selectionMarkdown ?? null,
+                    range,
+                  )
+                : undefined;
           resolved.push({
             callId,
             proposal,
@@ -275,6 +427,7 @@ export function usePendingEdits(run: EditorRunner) {
             streaming,
             strikeFrom: strikeRange?.from,
             strikeTo: strikeRange?.to,
+            sentences,
           });
         }
 
@@ -308,6 +461,7 @@ export function usePendingEdits(run: EditorRunner) {
     ): boolean => {
       let ok = false;
       let stillStreaming = false;
+      let rejectedAll = false;
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
         const { state } = view;
@@ -332,6 +486,21 @@ export function usePendingEdits(run: EditorRunner) {
           return;
 
         let replacement = preview.replacement;
+        // Decided sentence by sentence (the ✓ / ✕ in the text or the
+        // card): Accept writes the original with only the taken changes.
+        const take = sentenceTake(preview);
+        if (textOverride === undefined && preview.sentences && take) {
+          if (!take.some(Boolean)) {
+            // Every sentence kept: nothing to write - it is a rejection.
+            view.dispatch(
+              state.tr.setMeta(pendingEditKey, { type: "remove", callId }),
+            );
+            rejectedAll = true;
+            return;
+          }
+          if (!take.every(Boolean))
+            textOverride = composeSentences(preview.sentences.hunks, take);
+        }
         if (textOverride !== undefined) {
           const { proposal } = preview;
           if (
@@ -411,6 +580,10 @@ export function usePendingEdits(run: EditorRunner) {
         ok = true;
       });
       if (stillStreaming) return false;
+      if (rejectedAll) {
+        setStatuses((prev) => ({ ...prev, [callId]: "rejected" }));
+        return true;
+      }
       setStatuses((prev) => ({
         ...prev,
         [callId]: ok ? "accepted" : "invalid",
@@ -418,6 +591,39 @@ export function usePendingEdits(run: EditorRunner) {
       return ok;
     },
     [run],
+  );
+
+  /**
+   * One sentence taken (true), kept as written (false) or undecided again
+   * (null). Once every sentence of the proposal has a decision, it is
+   * applied - the last ✓ / ✕ is the Accept; one that kept them all is a
+   * rejection. Until then Accept (the card, the review bar, Ctrl/⌘+Enter)
+   * takes the undecided ones.
+   */
+  const decide = useCallback(
+    (callId: string, index: number, take: boolean | null) => {
+      let complete = false;
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        view.dispatch(
+          view.state.tr.setMeta(pendingEditKey, {
+            type: "decide",
+            callId,
+            index,
+            take,
+          }),
+        );
+        const preview = (
+          pendingEditKey.getState(view.state)?.previews ?? []
+        ).find((p) => p.callId === callId);
+        complete =
+          !!preview?.sentences &&
+          !preview.streaming &&
+          preview.sentences.changes.every((c) => c.take !== null);
+      });
+      if (complete) accept(callId);
+    },
+    [run, accept],
   );
 
   const reject = useCallback(
@@ -507,25 +713,6 @@ export function usePendingEdits(run: EditorRunner) {
     return merged;
   }, [previews, statuses]);
 
-  /** The markdown a pending replace/replace_selection would replace - what
-   *  the card's per-sentence picker diffs the proposal against. */
-  const originalText = useCallback(
-    (callId: string): string | null =>
-      run((ctx) => {
-        const { state } = ctx.get(editorViewCtx);
-        const preview = (pendingEditKey.getState(state)?.previews ?? []).find(
-          (p) => p.callId === callId,
-        );
-        if (!preview) return null;
-        if (preview.proposal.action === "replace")
-          return preview.proposal.anchor ?? null;
-        if (preview.proposal.action === "replace_selection")
-          return serializeRange(ctx, state.doc, preview.from, preview.to);
-        return null;
-      }) ?? null,
-    [run],
-  );
-
   /** Per-callId view of `allStatuses` - what the local chat card asks; one
    *  merge rule, not two that could drift. */
   const status = useCallback(
@@ -538,12 +725,28 @@ export function usePendingEdits(run: EditorRunner) {
     [allStatuses],
   );
 
+  /** A proposal's sentences as the card lists them - null when it isn't
+   *  pending or isn't shown sentence by sentence. */
+  const sentences = useCallback(
+    (callId: string) =>
+      previews.find((p) => p.callId === callId && !p.streaming)?.sentences
+        ?.changes ?? null,
+    [previews],
+  );
+
   return {
     previews,
     allStatuses,
     showPreviews,
     accept,
-    originalText,
+    decide,
+    sentences,
+    reviewStops,
+    focusedStop,
+    stopIndex,
+    stepReview,
+    pointReview,
+    reviewCount,
     reject,
     acceptAll,
     rejectAll,

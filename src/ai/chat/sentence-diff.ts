@@ -24,8 +24,8 @@ export function splitSentences(text: string): string[] {
   return out.join("") === text ? out : [text];
 }
 
-/** LCS over sentences, then runs of non-matching sentences become one
- *  change hunk each. */
+/** LCS over sentences, then runs of non-matching sentences become change
+ *  hunks (see flush). */
 export function diffSentences(before: string, after: string): SentenceHunk[] {
   const a = splitSentences(before);
   const b = splitSentences(after);
@@ -40,17 +40,27 @@ export function diffSentences(before: string, after: string): SentenceHunk[] {
           : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
 
   const hunks: SentenceHunk[] = [];
-  let pendingBefore = "";
-  let pendingAfter = "";
+  let pendingBefore: string[] = [];
+  let pendingAfter: string[] = [];
+  // A run of changed sentences becomes one change - or, when as many
+  // sentences go as come, one change per pair: a rewrite that tightens
+  // three sentences in a row is three decisions, not one.
   const flush = () => {
-    if (pendingBefore || pendingAfter)
+    if (
+      pendingBefore.length > 1 &&
+      pendingBefore.length === pendingAfter.length
+    )
+      pendingBefore.forEach((before, k) =>
+        hunks.push({ kind: "change", before, after: pendingAfter[k] }),
+      );
+    else if (pendingBefore.length || pendingAfter.length)
       hunks.push({
         kind: "change",
-        before: pendingBefore,
-        after: pendingAfter,
+        before: pendingBefore.join(""),
+        after: pendingAfter.join(""),
       });
-    pendingBefore = "";
-    pendingAfter = "";
+    pendingBefore = [];
+    pendingAfter = [];
   };
   let i = 0;
   let j = 0;
@@ -64,9 +74,9 @@ export function diffSentences(before: string, after: string): SentenceHunk[] {
       j < b.length &&
       (i >= a.length || lcs[i][j + 1] >= lcs[i + 1][j])
     ) {
-      pendingAfter += b[j++];
+      pendingAfter.push(b[j++]);
     } else {
-      pendingBefore += a[i++];
+      pendingBefore.push(a[i++]);
     }
   }
   flush();
