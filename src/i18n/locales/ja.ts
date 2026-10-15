@@ -197,7 +197,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   levisItemRecentFiles: "最近使ったファイル",
   levisItemSession: "開いていた文書",
   levisItemDrafts: "未保存の下書き",
-  levisItemCredentials: "API キーとサインイン",
+  levisItemCredentials: "API キーやサインイン",
   wordsUnit: "字",
   alertNote: "メモ",
   alertTip: "ヒント",

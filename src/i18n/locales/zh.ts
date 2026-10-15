@@ -185,7 +185,7 @@ export default {
   levisItemRecentFiles: "最近打开的文件",
   levisItemSession: "打开的文档",
   levisItemDrafts: "未保存的草稿",
-  levisItemCredentials: "API 密钥和登录状态",
+  levisItemCredentials: "API 密钥及登录状态",
   wordsUnit: "字",
   alertNote: "备注",
   alertTip: "提示",
