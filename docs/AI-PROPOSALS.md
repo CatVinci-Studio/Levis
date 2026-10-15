@@ -174,16 +174,16 @@ previews are rolled back (writing phase, above).
 
 ## File index
 
-| File                                                  | Owns                                                                       |
-| ----------------------------------------------------- | -------------------------------------------------------------------------- |
-| `ai/revision/proposal-stream.ts`                      | Writing-phase machine: place/feed/finalize/discard                         |
-| `ai/revision/usePendingEdits.ts`                      | Anchor resolution, accept/reject/rejectAll, status map, review navigation  |
-| `ai/revision/pending-edit-plugin.ts`                  | Decorations, typewriter + settle, docChanged staleness, keyboard shortcuts |
-| `ai/revision/proposal-status.ts`                      | Status notes annotated onto history at send time                           |
-| `ai/chat/cancelled-turns.ts`                          | What a stop keeps; dangling tool-call closure                              |
-| `ai/chat/useAgentConversation.ts`                     | Conversation state: send/stop/retry/restore, history persistence           |
-| `ai/chat/ChatBody.tsx`                                | Shared conversation UI; streamed-turn → proposal, idempotent afterSend     |
+| File                                                                | Owns                                                                       |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `ai/revision/proposal-stream.ts`                                    | Writing-phase machine: place/feed/finalize/discard                         |
+| `ai/revision/usePendingEdits.ts`                                    | Anchor resolution, accept/reject/rejectAll, status map, review navigation  |
+| `ai/revision/pending-edit-plugin.ts`                                | Decorations, typewriter + settle, docChanged staleness, keyboard shortcuts |
+| `ai/revision/proposal-status.ts`                                    | Status notes annotated onto history at send time                           |
+| `ai/chat/cancelled-turns.ts`                                        | What a stop keeps; dangling tool-call closure                              |
+| `ai/chat/useAgentConversation.ts`                                   | Conversation state: send/stop/retry/restore, history persistence           |
+| `ai/chat/ChatBody.tsx`                                              | Shared conversation UI; streamed-turn → proposal, idempotent afterSend     |
 | `ai/chat/window/ChatWindowApp.tsx`, `ai/chat/window/chat-bridge.ts` | Detached window and its bridge: context/status pushes, proposal forwarding |
-| `document-view/MilkdownEditor.tsx`                    | Wiring: machine effects, supersede flag, exchange-boundary effect          |
-| `draft-autosave.ts`, `startup-restore.ts`, `App.tsx`  | Draft snapshots, startup restore, close-time cleanup                       |
-| `src-tauri/src/ai/tools.rs`, `agent.rs`               | `propose_edit` validation, system prompt, the status-note contract         |
+| `document-view/MilkdownEditor.tsx`                                  | Wiring: machine effects, supersede flag, exchange-boundary effect          |
+| `draft-autosave.ts`, `startup-restore.ts`, `App.tsx`                | Draft snapshots, startup restore, close-time cleanup                       |
+| `src-tauri/src/ai/tools.rs`, `agent.rs`                             | `propose_edit` validation, system prompt, the status-note contract         |
