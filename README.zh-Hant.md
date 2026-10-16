@@ -33,6 +33,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
+https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
+
 <p align="center">
   <img src="docs/images/readme/zh-hant/hero.png" alt="Textus 開著《西遊記》和一段讀書筆記，Textus AI 逐句精簡筆記，每處修改都在頁邊，並在原文旁留下審閱註解" width="860" /><br>
   <sub>吳承恩《西遊記》</sub>

@@ -33,6 +33,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
+https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
+
 <p align="center">
   <img src="docs/images/readme/de/hero.png" alt="Textus mit Kafkas »Die Verwandlung« und den Notizen dazu. Textus AI strafft die Notizen Satz für Satz, jede Änderung am Rand, und heftet einen Kommentar neben den Text." width="860" /><br>
   <sub><i>Die Verwandlung</i>, Franz Kafka</sub>

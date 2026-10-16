@@ -33,6 +33,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
+https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
+
 <p align="center">
   <img src="docs/images/readme/pt/hero.png" alt="O Textus com Dom Casmurro e as notas do leitor abertas. A Textus AI enxuga as notas frase a frase, cada mudança na margem, e fixa um comentário de revisão ao lado do texto." width="860" /><br>
   <sub><i>Dom Casmurro</i>, Machado de Assis</sub>

@@ -33,6 +33,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
+https://github.com/user-attachments/assets/56473ad9-5cb0-4608-b3c8-30882420edcd
+
 <p align="center">
   <img src="docs/images/readme/zh/hero.png" alt="Textus 打开着《红楼梦》和一段读书笔记，Textus AI 逐句精简笔记，每处修改都在页边，并在原文旁钉上审阅批注" width="860" /><br>
   <sub>《红楼梦》曹雪芹</sub>
