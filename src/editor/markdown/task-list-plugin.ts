@@ -1,5 +1,6 @@
 import { $prose } from "@milkdown/kit/utils";
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 const CHECKBOX_HIT_WIDTH = 24;
@@ -44,11 +45,17 @@ export const taskListClickPlugin = $prose(
 // IMEs pair them, leaving the caret between), so the GFM "[ ] " rule never
 // fires. A list item whose whole text is 【】, 【 】 or 【x】 (or the
 // full-width ［］) becomes a task, as does a paragraph reading "- 【】" -
-// written out as standard "- [ ] " markdown. The whole paragraph is
-// checked, not just the text before the caret, so a paired 【|】 counts.
-// Typed input and IME commits only; a paste never converts.
-const CJK_TASK = /^\s*[【［]\s*([xX√✓]?)\s*[】］]\s*$/;
-const CJK_TASK_PARAGRAPH = /^\s*[-*+]\s*[【［]\s*([xX√✓]?)\s*[】］]\s*$/;
+// written out as standard "- [ ] " markdown. The looser ASCII spellings
+// people type for the same thing, "[]" and "-[]", count too. The whole
+// paragraph is checked, not just the text before the caret, so a paired
+// 【|】 counts. Typed input and IME commits only; a paste never converts.
+const CJK_TASK = /^\s*[【［[]\s*([xX√✓]?)\s*[】］\]]\s*$/;
+const CJK_TASK_PARAGRAPH = /^\s*[-*+]\s*[【［[]\s*([xX√✓]?)\s*[】］\]]\s*$/;
+
+// The document right after a conversion: a space typed while it's still
+// the current one is the separator of "[ ] " (the GFM spelling, which now
+// converts at the "]") and is dropped rather than starting the item.
+const convertedDoc = new WeakMap<EditorView, ProseNode>();
 
 function convertCjkTask(
   view: EditorView,
@@ -72,6 +79,7 @@ function convertCjkTask(
         checked: match[1] !== "",
       });
     view.dispatch(tr.scrollIntoView());
+    convertedDoc.set(view, view.state.doc);
     return true;
   }
 
@@ -87,6 +95,7 @@ function convertCjkTask(
   // Inside the new paragraph: list, item, paragraph openings.
   tr.setSelection(TextSelection.create(tr.doc, before + 3));
   view.dispatch(tr.scrollIntoView());
+  convertedDoc.set(view, view.state.doc);
   return true;
 }
 
@@ -96,6 +105,9 @@ export const cjkTaskInputPlugin = $prose(
       props: {
         handleTextInput(view, from, to, text) {
           if (view.composing) return false;
+          const justConverted = convertedDoc.get(view) === view.state.doc;
+          convertedDoc.delete(view);
+          if (justConverted && text === " ") return true;
           const { $from } = view.state.selection;
           if ($from.parent.type.name !== "paragraph") return false;
           const start = $from.start();

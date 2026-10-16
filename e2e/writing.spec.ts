@@ -640,18 +640,18 @@ test("full-width 【】 turns a line into a task, the way [ ] does", async ({
     );
   });
   await expect(tasks).toHaveCount(1);
-  await page.keyboard.type("买菜");
+  await page.keyboard.type("买菜", { delay: 30 });
   await expect(tasks.nth(0)).toHaveText("买菜");
   // Typed: "- " makes the bullet, 【x】 then makes it a checked task.
-  await page.keyboard.press("Enter");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("- 【x】写稿");
+  await page.keyboard.press("Enter", { delay: 30 });
+  await page.keyboard.press("Enter", { delay: 30 });
+  await page.keyboard.type("- 【x】写稿", { delay: 30 });
   await expect(tasks).toHaveCount(2);
   await expect(tasks.nth(1)).toHaveAttribute("data-checked", "true");
   await expect(tasks.nth(1)).toHaveText("写稿");
   // Pasted text stays as written.
-  await page.keyboard.press("Enter");
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter", { delay: 30 });
+  await page.keyboard.press("Enter", { delay: 30 });
   await pasteMarkdown(page, "- 【】");
   await expect(tasks).toHaveCount(2);
 });
@@ -744,6 +744,26 @@ test("Escape that closes the context menu keeps the grey suggestion", async ({
   // The next Escape is the editor's again.
   await page.keyboard.press("Escape");
   await expect(ghost).toHaveCount(0);
+});
+
+test("ASCII - [] and -[] make tasks too; the space after - [ ] is eaten", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  const tasks = editor.locator('li[data-item-type="task"]');
+  await page.keyboard.type("- [ ] milk");
+  await expect(tasks.nth(0)).toHaveText("milk");
+  for (const spelling of ["- []", "-[]", "-[x]"]) {
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type(spelling + "eggs");
+  }
+  await expect(tasks).toHaveCount(4);
+  await expect(tasks.nth(1)).toHaveText("eggs");
+  await expect(tasks.nth(2)).toHaveText("eggs");
+  await expect(tasks.nth(3)).toHaveAttribute("data-checked", "true");
 });
 
 test("list items aren't positioned, so WebKit's IME commit can't prune them", async ({
