@@ -27,10 +27,28 @@ const ghostTextKey = new PluginKey("ghost-text");
  * with spaces - so it's stripped. Latin before-text keeps the suggestion
  * verbatim: a leading space there is usually a correct word boundary.
  */
-function tidySuggestion(before: string, suggestion: string): string {
-  return isCjk(before.slice(-1))
+export function tidySuggestion(
+  before: string,
+  suggestion: string,
+  oneLine = false,
+): string {
+  const text = isCjk(before.slice(-1))
     ? suggestion.replace(/^[ \t]+/, "")
     : suggestion;
+  // A table cell or a heading holds one line: a line break taken into one
+  // split the table row (or the heading) when the file was saved.
+  return oneLine ? text.replace(/[ \t]*\n+[ \t]*/g, " ").trimEnd() : text;
+}
+
+/** Whether the caret's block is one line in Markdown (a table cell, a
+ *  heading), where a suggestion can't carry a line break. */
+export function isOneLineBlock(doc: ProseNode, pos: number): boolean {
+  const $pos = doc.resolve(pos);
+  if ($pos.parent.type.name === "heading") return true;
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.spec.tableRole?.endsWith("cell")) return true;
+  }
+  return false;
 }
 
 /**
@@ -199,10 +217,14 @@ export function nextWordChunk(text: string): string {
 
 /** The alternatives in a multi-candidate response (CANDIDATE_SEPARATOR in
  *  src-tauri ai/client.rs); a single continuation comes back as one. Only
- *  whole lines go with the separator: a candidate's leading space is the
- *  join the backend made onto the before-text ("quickly" + " grew"). */
+ *  whole lines after the separator go with it: a candidate's leading space
+ *  is the join the backend made onto the before-text ("quickly" + " grew").
+ *  The separator is cut wherever it sits - at the very start (the first
+ *  alternative was dropped) or on a candidate's own line, which a model
+ *  sometimes writes - rather than only on a line of its own; left in, Tab
+ *  inserted "<<<>>>" into the document. */
 export function splitCandidates(raw: string): string[] {
-  return raw.split(/\n\s*<<<>>>(?:[ \t]*\n)*/).filter((part) => part.trim());
+  return raw.split(/\s*<<<>>>(?:[ \t]*\n)*/).filter((part) => part.trim());
 }
 
 /// Runs a completion request right now at the cursor and shows it as ghost
@@ -249,7 +271,13 @@ export async function triggerGhostTextNow(
     project,
   );
   const candidates = splitCandidates(raw ?? "")
-    .map((text) => tidySuggestion(before, stripEcho(before, text)))
+    .map((text) =>
+      tidySuggestion(
+        before,
+        stripEcho(before, text),
+        isOneLineBlock(view.state.doc, cursorPos),
+      ),
+    )
     .filter((text, i, all) => text.trim() && all.indexOf(text) === i);
   if (candidates.length === 0) throw new AiNoticeError("completion-empty");
   if (view.state.selection.from !== cursorPos) return; // cursor moved while we were waiting
@@ -533,6 +561,7 @@ export function createGhostTextPlugin(options: {
                 suggestion = tidySuggestion(
                   before,
                   stripEcho(before, suggestion),
+                  isOneLineBlock(view.state.doc, cursorPos),
                 );
                 if (!suggestion?.trim()) return;
                 if (!view.hasFocus() || view.state.selection.from !== cursorPos)

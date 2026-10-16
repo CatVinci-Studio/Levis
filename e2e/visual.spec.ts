@@ -652,6 +652,22 @@ test("Select Row from the right-click menu highlights the clicked row", async ({
   expect(tint).not.toBe("rgba(0, 0, 0, 0)");
 });
 
+test("a right-click on a paragraph while editing a table shows the paragraph's menu", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| h1 | h2 |\n|---|---|\n| a | b |\n\nbelow");
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.locator("td", { hasText: "a" }).click();
+  await editor.locator(":scope > p", { hasText: "below" }).click({
+    button: "right",
+  });
+  await expect(page.locator(".context-menu-item").first()).toBeVisible();
+  await expect(
+    page.locator(".context-menu-item", { hasText: "选中整行" }),
+  ).toHaveCount(0);
+});
+
 test("a one-character CJK fix reads with its neighbour on the grammar card", async ({
   page,
 }) => {

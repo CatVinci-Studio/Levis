@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { nextWordChunk, splitCandidates, stripEcho } from "./ghost-text-plugin";
+import { Schema } from "@milkdown/kit/prose/model";
+import {
+  isOneLineBlock,
+  nextWordChunk,
+  splitCandidates,
+  stripEcho,
+  tidySuggestion,
+} from "./ghost-text-plugin";
 
 describe("stripEcho", () => {
   it("drops a repeated tail of the before-text", () => {
@@ -36,9 +43,54 @@ describe("splitCandidates", () => {
     expect(splitCandidates("just one")).toEqual(["just one"]);
     expect(splitCandidates("one\n\n<<<>>>\n\ntwo")).toEqual(["one", "two"]);
   });
+  it("cuts a separator that isn't on a line of its own", () => {
+    expect(splitCandidates(" <<<>>>\n")).toEqual([]);
+    expect(splitCandidates("<<<>>>\n slowed")).toEqual([" slowed"]);
+    expect(splitCandidates(" grew <<<>>>\n slowed")).toEqual([
+      " grew",
+      " slowed",
+    ]);
+  });
   it("keeps each candidate's joining space", () => {
     expect(splitCandidates(" grew\n<<<>>>\n slowed\n<<<>>>\n stalled")).toEqual(
       [" grew", " slowed", " stalled"],
+    );
+  });
+});
+
+describe("one-line blocks", () => {
+  const schema = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { group: "block", content: "text*" },
+      heading: { group: "block", content: "text*" },
+      table: { group: "block", content: "row+", tableRole: "table" },
+      row: { content: "cell+", tableRole: "row" },
+      cell: { content: "paragraph", tableRole: "cell" },
+      text: {},
+    },
+  });
+  const p = (t: string) => schema.node("paragraph", null, schema.text(t));
+  const doc = schema.node("doc", null, [
+    p("prose"),
+    schema.node("heading", null, schema.text("Title")),
+    schema.node("table", null, [
+      schema.node("row", null, [schema.node("cell", null, [p("cell")])]),
+    ]),
+  ]);
+
+  it("knows a table cell and a heading from a paragraph", () => {
+    expect(isOneLineBlock(doc, 3)).toBe(false);
+    expect(isOneLineBlock(doc, 10)).toBe(true);
+    expect(isOneLineBlock(doc, 19)).toBe(true);
+  });
+
+  it("joins a suggestion's lines there, and only there", () => {
+    expect(tidySuggestion("Act", " walks.\n\nThen leaves.\n", true)).toBe(
+      " walks. Then leaves.",
+    );
+    expect(tidySuggestion("Act", " walks.\n\nThen leaves.")).toBe(
+      " walks.\n\nThen leaves.",
     );
   });
 });

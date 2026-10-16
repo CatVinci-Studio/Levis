@@ -186,11 +186,20 @@ export function setImageWidth(
  * A right-click on a table cell other than the one being edited moves the
  * caret into it, so the table items act on the cell under the pointer. A
  * cell inside a cell selection keeps the selection, for Delete Row etc. on
- * several rows at once.
+ * several rows at once. A right-click outside any table while the caret is
+ * in one moves the caret to the pointer: left where it was, the menu
+ * offered the table's items for a click on a paragraph.
  */
-function moveCaretToClickedCell(view: EditorView, target: EventTarget | null) {
+function moveCaretToClickedCell(
+  view: EditorView,
+  target: EventTarget | null,
+  coords: { left: number; top: number } | null,
+) {
   const cell = target instanceof Element ? target.closest("td, th") : null;
-  if (!cell || !view.dom.contains(cell)) return;
+  if (!cell || !view.dom.contains(cell)) {
+    leaveTableForClick(view, target, coords);
+    return;
+  }
   let $inside;
   try {
     $inside = view.state.doc.resolve(view.posAtDOM(cell, 0));
@@ -226,6 +235,24 @@ function moveCaretToClickedCell(view: EditorView, target: EventTarget | null) {
   );
 }
 
+function leaveTableForClick(
+  view: EditorView,
+  target: EventTarget | null,
+  coords: { left: number; top: number } | null,
+) {
+  const { selection } = view.state;
+  const inTable =
+    selection instanceof CellSelection ||
+    (selection.empty && isInTable(view.state));
+  if (!inTable || !coords) return;
+  if (!(target instanceof Node) || !view.dom.contains(target)) return;
+  const hit = view.posAtCoords(coords);
+  if (!hit) return;
+  view.dispatch(
+    view.state.tr.setSelection(Selection.near(view.state.doc.resolve(hit.pos))),
+  );
+}
+
 /**
  * Prepares the editor for a right-click and reports the image under the
  * pointer, if any (its doc position, for the width items).
@@ -240,12 +267,16 @@ function moveCaretToClickedCell(view: EditorView, target: EventTarget | null) {
  */
 export function contextMenuTarget(
   run: EditorRunner,
-  e: { target: EventTarget | null },
+  e: { target: EventTarget | null; clientX?: number; clientY?: number },
 ): number | null {
   return (
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
-      moveCaretToClickedCell(view, e.target);
+      const coords =
+        e.clientX === undefined || e.clientY === undefined
+          ? null
+          : { left: e.clientX, top: e.clientY };
+      moveCaretToClickedCell(view, e.target, coords);
       const { anchor, head } = view.state.selection;
       try {
         const a = view.domAtPos(anchor);

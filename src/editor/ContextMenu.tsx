@@ -56,6 +56,11 @@ function PointerMenu({ x, y, items, onClose }: ContextMenuProps) {
       {...presence}
       className="context-menu floating-surface"
       style={{ ...pos, ...origin }}
+      // A press on an item doesn't take the focus: on Linux the button
+      // kept it, and once the menu closed it fell to the page - Tab then
+      // left the document instead of taking the suggestion that "Continue
+      // writing" had just put there.
+      onMouseDown={(e) => e.preventDefault()}
     >
       {items.map((item, i) =>
         item === "separator" ? (
