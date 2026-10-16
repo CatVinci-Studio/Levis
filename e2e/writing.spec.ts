@@ -836,7 +836,19 @@ test("mod+wheel in source mode keeps the line under the pointer", async ({
   await pasteMarkdown(page, shortLines);
   await emit(page, "menu-toggle-source-mode");
   const source = page.locator('[data-active-tab="true"] textarea.source-view');
-  await source.evaluate((ta) => (ta.scrollTop = ta.scrollHeight / 3));
+  // Entering source mode scrolls the caret into view a moment later (on a
+  // slow machine, after a scroll set here): set the position until it holds,
+  // or that late scroll moves the text after `before` is read.
+  await expect
+    .poll(async () => {
+      const top = await source.evaluate((ta) => {
+        ta.scrollTop = Math.round(ta.scrollHeight / 3);
+        return ta.scrollTop;
+      });
+      await page.waitForTimeout(150);
+      return top > 0 && (await source.evaluate((ta) => ta.scrollTop)) === top;
+    })
+    .toBe(true);
   const box = (await source.boundingBox())!;
   const y = box.y + box.height * 0.3;
   const before = await sourceLineAt(page, y);

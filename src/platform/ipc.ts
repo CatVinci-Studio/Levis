@@ -342,6 +342,12 @@ export const menuIpc = {
 // export (src-tauri/src/commands/export.rs)
 // ---------------------------------------------------------------------------
 
+/** Our own pages, opened in the system browser. Each URL is fixed in Rust
+ *  (commands/links.rs), not passed from here. */
+export const links = {
+  openCommunityPage: () => call<void>("open_community_page"),
+};
+
 export const exportDoc = {
   exportSaveDialog: (defaultName: string, filterName: string, ext: string) =>
     call<string | null>("export_save_dialog", { defaultName, filterName, ext }),
@@ -523,9 +529,11 @@ export interface AgentWorkspaceInfo {
 // ---------------------------------------------------------------------------
 // Writing conventions (src-tauri/src/ai/rules/profile.rs)
 
-/** The default of the global writing conventions setting
- *  (`writingConventions` in settings.json), and the per-language value
- *  meaning "no choice". */
+/** The settings.json key of the global writing conventions default. No
+ *  frontend code reads it, but keep it: profile.rs's tests check it against
+ *  the key the backend uses. */
+export const WRITING_CONVENTIONS_KEY = "writingConventions";
+/** Its default value, and the per-language value meaning "no choice". */
 export const WRITING_CONVENTIONS_AUTOMATIC = "automatic";
 
 /** A document language as the rules engine names it. */
