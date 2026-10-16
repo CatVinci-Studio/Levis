@@ -1,0 +1,260 @@
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { editorViewCtx } from "@milkdown/kit/core";
+import type { EditorRunner } from "../editor/useEditorRunner";
+import type { PendingEditCallbacks } from "./editor-extensions";
+import { useAgentConversation } from "../ai/chat/useAgentConversation";
+import {
+  usePendingEdits,
+  type SelectionTarget,
+} from "../ai/revision/usePendingEdits";
+import {
+  pendingEditKey,
+  prefersReducedMotion,
+  streamPendingInsertText,
+} from "../ai/revision/pending-edit-plugin";
+import { ProposalStream } from "../ai/revision/proposal-stream";
+import { isRefusal } from "../ai/revision/proposal-status";
+import type { EditProposal } from "../ai/types";
+import type { StreamEvent } from "../platform/ipc";
+import type { Settings } from "../settings/SettingsContext";
+import type { Strings } from "../i18n/strings";
+import { createTutorialMockAgent } from "../onboarding/tutorial-mock-agent";
+
+/** The editor's side of AI edits: the pending previews (usePendingEdits),
+ *  the two conversations that propose them (the panel's and Quick Ask's),
+ *  and the streaming that grows a proposal in the document as it arrives. */
+export function useEditorProposals({
+  run,
+  pendingEditActionsRef,
+  settingsRef,
+  settings,
+  filePath,
+  tutorialMock,
+  t,
+}: {
+  run: EditorRunner;
+  pendingEditActionsRef: { current: PendingEditCallbacks };
+  settingsRef: { readonly current: Settings };
+  settings: Settings;
+  filePath: string | null;
+  tutorialMock: boolean;
+  t: Strings;
+}) {
+  const pendingEdits = usePendingEdits(run);
+  useEffect(() => {
+    pendingEditActionsRef.current = {
+      onAccept: pendingEdits.accept,
+      onReject: pendingEdits.reject,
+      onPreviewsChange: pendingEdits.syncFromPlugin,
+      getFocusedCallId: () => pendingEdits.focusedPreview?.callId ?? null,
+      onDecide: pendingEdits.decide,
+      getFocusedSentence: () => pendingEdits.focusedStop,
+    };
+  }, [
+    pendingEditActionsRef,
+    pendingEdits.accept,
+    pendingEdits.reject,
+    pendingEdits.syncFromPlugin,
+    pendingEdits.focusedPreview,
+    pendingEdits.decide,
+    pendingEdits.focusedStop,
+  ]);
+  // Switching how revisions show (Settings, or the review bar's menu)
+  // redraws them.
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "refocus" }));
+    });
+  }, [settings.revisionDisplay, run]);
+  // The review bar's pointer is drawn in the text (an outline round the
+  // sentence): redraw when it moves.
+  const focusedStopKey = pendingEdits.focusedStop
+    ? `${pendingEdits.focusedStop.callId}:${pendingEdits.focusedStop.index}`
+    : null;
+  useEffect(() => {
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "refocus" }));
+    });
+  }, [focusedStopKey, run]);
+  // Re-prompting supersedes: the first proposal a new exchange writes into
+  // the document clears whatever previews the user left undecided - the new
+  // suggestion replaces the old one on screen instead of stacking under it.
+  // Armed when an exchange starts (the busy effects below for the embedded
+  // bar; onContextRequest in useChatContextBridge for detached sends),
+  // consumed by the first preview add that follows - so a question exchange
+  // that proposes nothing leaves existing previews alone, and later
+  // proposals of the SAME exchange coexist as siblings. The superseded
+  // proposals read as "rejected" everywhere downstream (chat cards, next
+  // request's status notes).
+  const supersedePending = useRef(false);
+  // What a replace_selection proposal from the editor's own conversation
+  // targets: recorded by whichever surface SENDS (Quick Ask's captured
+  // selection, or the panel's live selection at send time), so a selection
+  // made while the reply is still streaming can't redirect it.
+  const requestTargetRef = useRef<SelectionTarget | null>(null);
+  // The same, for a request from the detached window: the selection it was
+  // shown when it asked for context, not whatever has been pushed since.
+  const detachedTargetRef = useRef<SelectionTarget | null>(null);
+  const addPreviews = useCallback(
+    (
+      proposals: {
+        callId: string;
+        proposal: EditProposal;
+        streaming?: boolean;
+      }[],
+      target: SelectionTarget | null,
+    ) => {
+      if (supersedePending.current) {
+        supersedePending.current = false;
+        pendingEdits.rejectAll();
+      }
+      pendingEdits.showPreviews(proposals, target);
+    },
+    // Member functions only - both are stable per editor ([run]), and
+    // depending on the whole `pendingEdits` object (fresh every render)
+    // would destabilize the ProposalStream memo below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingEdits.rejectAll, pendingEdits.showPreviews],
+  );
+  // A streaming propose_edit grows its green preview in the document while
+  // the model is still writing it. All lifecycle decisions - when a draft is
+  // placed, what a stop keeps, what a failure discards - live in the
+  // ProposalStream machine (proposal-stream.ts); this hook only wires its
+  // effects to the editor. Gated on the animation setting: off means
+  // previews appear complete, at once.
+  // propose_edit call ids awaiting their tool result, and what a refused
+  // one does: the preview goes (reject is stable per editor; the model
+  // never hears this status - annotateProposalStatuses skips refusals).
+  const proposalCallIds = useRef(new Set<string>());
+  const discardRefused = pendingEdits.reject;
+  const proposalStream = useMemo(
+    () =>
+      new ProposalStream({
+        place: (callId, proposal) =>
+          addPreviews(
+            [{ callId, proposal, streaming: true }],
+            requestTargetRef.current,
+          ),
+        feed: streamPendingInsertText,
+        finalize: (callId, proposal) =>
+          addPreviews([{ callId, proposal }], requestTargetRef.current),
+        discard: pendingEdits.reject,
+      }),
+    // requestTargetRef is a stable ref; addPreviews/reject are stable per
+    // editor (useCallback on `run`).
+    [addPreviews, pendingEdits.reject],
+  );
+  const handleStreamEvent = useCallback(
+    (event: StreamEvent) => {
+      // A propose_edit the backend refused (tools.rs: a cut-off `text`)
+      // may already be on screen - streamed, or placed from its call turn
+      // a moment before this result arrived. The model resends it; this
+      // copy must go, with or without animation.
+      if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolCall" &&
+        event.turn.name === "propose_edit"
+      )
+        proposalCallIds.current.add(event.turn.call_id);
+      if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolResult" &&
+        proposalCallIds.current.has(event.turn.call_id)
+      ) {
+        proposalCallIds.current.delete(event.turn.call_id);
+        if (isRefusal(event.turn.output)) discardRefused(event.turn.call_id);
+        return;
+      }
+      // Reduced motion renders widgets instantly, so streamed drafts would
+      // create animation entries nothing ever reveals (or settles).
+      if (!settingsRef.current.enableEditAnimation || prefersReducedMotion())
+        return;
+      if (event.type === "toolStart")
+        proposalStream.toolStart(event.callId, event.name);
+      else if (event.type === "toolArgsDelta")
+        proposalStream.argsDelta(event.callId, event.delta);
+      else if (
+        event.type === "turn" &&
+        event.turn.kind === "ToolCall" &&
+        event.turn.name === "propose_edit"
+      )
+        proposalStream.finalCall(event.turn.call_id, event.turn.arguments);
+    },
+    // settingsRef is a stable ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [proposalStream, discardRefused],
+  );
+  // Owned here rather than by the popup so a completed exchange can be saved
+  // to history when the popup closes. Every ordinary NEW open resets it;
+  // sidebar history restoration is the one path that deliberately resumes.
+  const agentModel = settings.agentModels[settings.aiProvider] || undefined;
+  const conversation = useAgentConversation(
+    filePath,
+    settings.agentWorkspaceRoot || null,
+    settings.aiProvider,
+    settings.enableWebSearch,
+    agentModel,
+    tutorialMock ? createTutorialMockAgent(t) : null,
+    handleStreamEvent,
+    pendingEdits.allStatuses,
+  );
+  // Quick Ask's own conversation: a one-off exchange at the caret, kept out
+  // of the History list. "Continue in the panel" hands it to `conversation`
+  // (expandQuickAsk), which is the one the panel, the detached window and
+  // History share.
+  const quickConversation = useAgentConversation(
+    filePath,
+    settings.agentWorkspaceRoot || null,
+    settings.aiProvider,
+    settings.enableWebSearch,
+    agentModel,
+    tutorialMock ? createTutorialMockAgent(t) : null,
+    handleStreamEvent,
+    pendingEdits.allStatuses,
+    false,
+  );
+  // Exchange boundaries. Start (busy rising): arm the supersede flag so this
+  // exchange's first proposal clears the undecided leftovers of the previous
+  // one. End with drafts still open: a user stop keeps what was already
+  // typed into the document (frozen as a decidable preview), a failure
+  // discards it - Retry would otherwise duplicate the proposal. A normal
+  // completion left the machine empty and finish is a no-op.
+  useEffect(() => {
+    if (conversation.busy) {
+      supersedePending.current = true;
+      return;
+    }
+    proposalStream.finish(conversation.error ? "failed" : "stopped");
+  }, [conversation.busy, conversation.error, proposalStream]);
+  useEffect(() => {
+    if (quickConversation.busy) {
+      supersedePending.current = true;
+      return;
+    }
+    proposalStream.finish(quickConversation.error ? "failed" : "stopped");
+  }, [quickConversation.busy, quickConversation.error, proposalStream]);
+  // Proposals always resolve HERE, whether the chat that produced them is
+  // the embedded popup or a detached window - one implementation of the
+  // anchor/apply logic, addressed two ways (see chat-bridge.ts).
+  const showProposals = useCallback(
+    (proposals: { callId: string; proposal: EditProposal }[]) => {
+      addPreviews(proposals, requestTargetRef.current);
+    },
+    [addPreviews],
+  );
+
+  return {
+    pendingEdits,
+    conversation,
+    quickConversation,
+    supersedePending,
+    requestTargetRef,
+    detachedTargetRef,
+    addPreviews,
+    showProposals,
+  };
+}
+
+export type PendingEdits = ReturnType<typeof usePendingEdits>;
