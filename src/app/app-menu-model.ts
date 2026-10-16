@@ -202,9 +202,9 @@ export function buildAppMenu(
           action: { native: "new-file" },
         },
         {
-          // Ctrl+Shift+N, not the Cmd+T this has on macOS: Ctrl+T is "new
-          // tab" to a Windows user and this app has tabs. Bound to match in
-          // menu.rs (NEW_WINDOW_ACCEL).
+          // Ctrl+Shift+N, as Cmd+Shift+N on macOS: Ctrl+T is "new tab"
+          // to anyone from a browser and this app has tabs. Bound to match
+          // in menu.rs (NEW_WINDOW_ACCEL).
           label: t.menuNewWindow,
           accel: "mod+shift+n",
           action: { native: "new-window" },

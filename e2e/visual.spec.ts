@@ -192,6 +192,15 @@ test("the last sentence decided in the text applies the edit", async ({
   );
   await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
   await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
+
+  // Undo puts the proposal back on offer, redo applies it again.
+  await page.locator(".milkdown .ProseMirror").focus();
+  await page.keyboard.press("Control+z");
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await expect(page.locator(".agent-proposal-status-accepted")).toHaveCount(0);
+  await page.keyboard.press("Control+Shift+z");
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(0);
+  await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
 });
 
 test("an accepted new table row and nested item land inside the table and list", async ({

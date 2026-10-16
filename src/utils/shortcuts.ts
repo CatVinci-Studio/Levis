@@ -103,8 +103,7 @@ const RESERVED_COMBOS = new Set([
 export function isReservedCombo(combo: string): boolean {
   return (
     RESERVED_COMBOS.has(combo) ||
-    (modIsMeta()
-      ? combo === "mod+t"
-      : combo === "mod+shift+n" || combo === "alt+f4")
+    combo === "mod+shift+n" ||
+    (!modIsMeta() && combo === "alt+f4")
   );
 }

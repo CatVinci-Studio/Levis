@@ -355,6 +355,11 @@ export function createGhostTextPlugin(options: {
   project: () => { docPath: string | null; workspaceRoot: string | null };
 }) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
+  // Set by an accept (Tab, a tap): the edit that inserts the suggestion
+  // isn't typing, and asking again at once spent a request on a second
+  // suggestion nobody waited for - one that often opened mid-thought
+  // ("and ..." after a full stop). The next keystroke asks as usual.
+  let accepted = false;
 
   return $prose(
     () =>
@@ -398,6 +403,7 @@ export function createGhostTextPlugin(options: {
               event.preventDefault();
               const tr = view.state.tr.insertText(state.suggestion, state.from);
               tr.setMeta(ghostTextKey, { type: "clear" });
+              accepted = true;
               view.dispatch(tr);
               return true;
             },
@@ -469,6 +475,7 @@ export function createGhostTextPlugin(options: {
             event.preventDefault();
             const tr = view.state.tr.insertText(state.suggestion, state.from);
             tr.setMeta(ghostTextKey, { type: "clear" });
+            accepted = true;
             view.dispatch(tr);
             return true;
           },
@@ -491,6 +498,11 @@ export function createGhostTextPlugin(options: {
                 view.state.selection.from === ghost.from;
               view.dom.classList.toggle("ghost-text-caret", pinned);
 
+              if (accepted) {
+                accepted = false;
+                debounced.cancel();
+                return;
+              }
               if (!options.enabled()) return;
               if (view.composing) return;
               // A suggestion is still on offer right here (say, the rest

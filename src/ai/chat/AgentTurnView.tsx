@@ -9,7 +9,7 @@ export interface AgentTurnLabels {
   /** Selection chip, for a selection of `n` characters. */
   selectionChip: (n: number) => string;
   /** What each tool call is doing, by tool name; "{arg}" is its main
-   *  argument (query, heading, path, skill). */
+   *  argument (query, heading, path, skill); "*" covers any other tool. */
   toolActivity: Record<string, string>;
   toolResult: string;
 }
@@ -38,7 +38,8 @@ export function toolActivityText(
   // document" rather than "Reading “”"), keyed "<name>:whole".
   const template =
     (arg ? undefined : labels.toolActivity[`${name}:whole`]) ??
-    labels.toolActivity[name];
+    labels.toolActivity[name] ??
+    labels.toolActivity["*"];
   if (!template) return name;
   return template.replace("{arg}", arg);
 }

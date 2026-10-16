@@ -482,7 +482,14 @@ export function NotePopover({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const pos = useViewportClamp(ref, x, y);
+  // Kept within the document's column: in a narrow window it reached
+  // across the divider into the AI panel.
+  const pos = useViewportClamp(ref, x, y, {
+    right: () =>
+      document
+        .querySelector('[data-active-tab="true"] > .editor-scroll')
+        ?.getBoundingClientRect().right,
+  });
   useLayoutEffect(() => {
     const away = (e: PointerEvent) => {
       const target = e.target as HTMLElement;

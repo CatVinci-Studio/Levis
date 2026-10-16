@@ -681,11 +681,24 @@ fn resolve_root(doc_path: Option<&str>, root_override: Option<&str>) -> Option<P
         .map(PathBuf::from)
         .filter(|p| p.is_dir());
     picked.or_else(|| {
-        doc_path
+        let folder = doc_path
             .map(Path::new)
             .and_then(|p| p.parent())
-            .filter(|p| !p.as_os_str().is_empty())
-            .map(Path::to_path_buf)
+            .filter(|p| !p.as_os_str().is_empty())?;
+        // A file of the project's own (.textus/library/Lin.md, opened from
+        // the Memory tab) belongs to the folder holding .textus/: left at
+        // its own folder, the panel took .textus/library for the project
+        // and showed an empty library right after New library entry.
+        let project = folder
+            .ancestors()
+            .find(|dir| {
+                matches!(
+                    dir.file_name().and_then(|n| n.to_str()),
+                    Some(".textus" | ".levis")
+                )
+            })
+            .and_then(Path::parent);
+        Some(project.unwrap_or(folder).to_path_buf())
     })
 }
 
@@ -1165,6 +1178,14 @@ mod tests {
             Some(PathBuf::from("/tmp/novel"))
         );
         assert_eq!(resolve_root(None, None), None);
+        assert_eq!(
+            resolve_root(Some("/tmp/novel/.textus/library/Lin.md"), None),
+            Some(PathBuf::from("/tmp/novel"))
+        );
+        assert_eq!(
+            resolve_root(Some("/tmp/novel/.textus/style.md"), None),
+            Some(PathBuf::from("/tmp/novel"))
+        );
     }
 
     #[test]

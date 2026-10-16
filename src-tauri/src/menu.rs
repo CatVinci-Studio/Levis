@@ -600,14 +600,10 @@ fn build(
         builder.build()?
     };
 
-    // Cmd+T on macOS. On Windows and Linux Ctrl+T is "new tab" in every
-    // browser, and this app has tabs - so there New Window takes
-    // Ctrl+Shift+N, which is what file managers, browsers and VS Code all
-    // open a window with (and what the app-drawn menu advertises).
-    #[cfg(any(windows, target_os = "linux"))]
+    // Cmd/Ctrl+Shift+N everywhere: what file managers, browsers and VS Code
+    // open a window with. Cmd+T read as "new tab" to anyone coming from a
+    // browser, and this app has tabs (Cmd+N opens a new document in one).
     const NEW_WINDOW_ACCEL: &str = "CmdOrCtrl+Shift+N";
-    #[cfg(not(any(windows, target_os = "linux")))]
-    const NEW_WINDOW_ACCEL: &str = "CmdOrCtrl+T";
     let new_window_item = item(NEW_WINDOW_ID, "New Window")
         .accelerator(NEW_WINDOW_ACCEL)
         .build(app)?;

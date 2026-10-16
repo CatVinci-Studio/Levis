@@ -148,6 +148,9 @@ utiliser une.
   toolReadFile: "Lecture de {arg}",
   toolUseSkill: "Utilisation de la compétence {arg}",
   toolAddComment: "Ajout d'un commentaire",
+  toolCheckConventions: "Vérification des conventions d'écriture",
+  toolMeasureText: "Comptage des mots",
+  toolWorking: "Traitement en cours",
   menuToggleSplitView: "Vue partagée",
   shortcutToggleSplitView:
     "Activer/désactiver la vue partagée (source | aperçu)",

@@ -1,5 +1,6 @@
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { isHistoryTransaction } from "@milkdown/kit/prose/history";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
@@ -257,7 +258,9 @@ export function streamPendingInsertText(
 
 type PendingMeta =
   | { type: "add"; previews: PendingPreview[] }
-  | { type: "remove"; callId: string }
+  /** `applied`: Accept put the proposal into the document in the same
+   *  transaction - kept so an undo can bring the proposal back. */
+  | { type: "remove"; callId: string; applied?: boolean }
   | { type: "clear" }
   /** The typewriter finished revealing this preview's text - it may now be
    *  decided on (dispatched by maybeSettle, never from outside). */
@@ -271,6 +274,61 @@ type PendingMeta =
 interface PendingState {
   previews: PendingPreview[];
   decoration: DecorationSet;
+  /** Accepted proposals, with the document before and after the accept:
+   *  an undo back to `before` puts the proposal on offer again (its card
+   *  had kept saying "Applied" over the restored text), a redo back to
+   *  `after` takes it away again. */
+  applied: AppliedEdit[];
+}
+
+interface AppliedEdit {
+  preview: PendingPreview;
+  before: ProseNode;
+  after: ProseNode;
+  /** Undone: the preview is on offer again. */
+  undone: boolean;
+}
+
+/** Accepts remembered for undo - older ones are rarely undone that far. */
+const MAX_APPLIED = 20;
+
+/** An undo or redo landing exactly on an accept's before or after: the
+ *  preview comes back or goes again. Null when nothing matched. */
+function replayHistory(
+  tr: Transaction,
+  prev: PendingState,
+): { previews: PendingPreview[]; applied: AppliedEdit[] } | null {
+  if (!isHistoryTransaction(tr) || prev.applied.length === 0) return null;
+  const back: PendingPreview[] = [];
+  const gone = new Set<string>();
+  const applied = prev.applied.map((entry) => {
+    if (!entry.undone && tr.doc.eq(entry.before)) {
+      back.push(entry.preview);
+      return { ...entry, undone: true };
+    }
+    if (entry.undone && tr.doc.eq(entry.after)) {
+      gone.add(entry.preview.callId);
+      return { ...entry, undone: false };
+    }
+    return entry;
+  });
+  if (back.length === 0 && gone.size === 0) return null;
+  // The others move with the undo, as with any edit; the restored ones were
+  // recorded against exactly this document.
+  const others = mapPreviews(
+    prev.previews.filter(
+      (p) => !gone.has(p.callId) && !back.some((b) => b.callId === p.callId),
+    ),
+    tr,
+  ).survivors;
+  return { previews: [...others, ...back], applied };
+}
+
+/** The call ids accepted and not undone - what the cards show as applied. */
+export function appliedCallIds(state: EditorState): string[] {
+  return (pendingEditKey.getState(state)?.applied ?? [])
+    .filter((entry) => !entry.undone)
+    .map((entry) => entry.preview.callId);
 }
 
 export const pendingEditKey = new PluginKey<PendingState>("pending-edit");
@@ -664,7 +722,7 @@ export function createPendingEditPlugin(options: {
    *  React, since nothing else polls ProseMirror state. Drives the
    *  in-document accept/reject controls and the chat panel's proposal
    *  status chips. */
-  onPreviewsChange?: (previews: PendingPreview[]) => void;
+  onPreviewsChange?: (previews: PendingPreview[], applied: string[]) => void;
   /** Whether the green widget types its text in (Settings toggle, read live
    *  per decoration build). Off, or unset: the text appears at once. */
   animationEnabled?: () => boolean;
@@ -698,6 +756,111 @@ export function createPendingEditPlugin(options: {
       if (!next.some((n) => n.callId === p.callId)) dropAnimation(p.callId);
     }
   };
+  const applyMeta = (
+    tr: Transaction,
+    prev: PendingState,
+    meta: PendingMeta | undefined,
+  ): Omit<PendingState, "applied"> => {
+    if (meta?.type === "add") {
+      const keep = prev.previews.filter(
+        (p) => !meta.previews.some((n) => n.callId === p.callId),
+      );
+      // A final (non-streaming) add for a callId whose typewriter is
+      // still revealing keeps the streaming state - the settle meta,
+      // not the add, is what makes the preview decidable.
+      const previews = [
+        ...keep,
+        ...meta.previews.map((p) =>
+          p.streaming || stillRevealing(p.callId)
+            ? { ...p, streaming: true }
+            : p,
+        ),
+      ];
+      return {
+        previews,
+        decoration: buildDecorations(tr.doc, previews, animate(), hooks),
+      };
+    }
+    if (meta?.type === "settle") {
+      if (!prev.previews.some((p) => p.callId === meta.callId && p.streaming))
+        return prev;
+      const previews = prev.previews.map((p) =>
+        p.callId === meta.callId ? { ...p, streaming: undefined } : p,
+      );
+      return {
+        previews,
+        decoration: buildDecorations(tr.doc, previews, animate(), hooks),
+      };
+    }
+    if (meta?.type === "decide") {
+      const previews = prev.previews.map((p) =>
+        p.callId === meta.callId && p.sentences
+          ? {
+              ...p,
+              sentences: {
+                hunks: p.sentences.hunks,
+                changes: p.sentences.changes.map((c, i) =>
+                  i === meta.index ? { ...c, take: meta.take } : c,
+                ),
+              },
+            }
+          : p,
+      );
+      return {
+        previews,
+        decoration: buildDecorations(tr.doc, previews, animate(), hooks),
+      };
+    }
+    if (meta?.type === "refocus") {
+      return {
+        previews: prev.previews,
+        decoration: buildDecorations(tr.doc, prev.previews, animate(), hooks),
+      };
+    }
+    if (meta?.type === "remove") {
+      const rest = prev.previews.filter((p) => p.callId !== meta.callId);
+      // Accepting a proposal applies it and removes its preview in
+      // one transaction (usePendingEdits.ts): the others still have
+      // to be mapped through that edit. Left at their old positions,
+      // every preview below a grown or shrunk block drifted off its
+      // text, and its Accept then refused.
+      const previews = tr.docChanged ? mapPreviews(rest, tr).survivors : rest;
+      dropRemovedAnimations(prev.previews, previews);
+      return {
+        previews,
+        decoration: buildDecorations(tr.doc, previews, animate(), hooks),
+      };
+    }
+    if (meta?.type === "clear") {
+      dropRemovedAnimations(prev.previews, []);
+      return prev.previews.length === 0
+        ? prev
+        : { previews: [], decoration: DecorationSet.empty };
+    }
+    if (tr.docChanged && prev.previews.length > 0) {
+      const { survivors, changed } = mapPreviews(prev.previews, tr);
+      if (!changed) {
+        // Typing below the last pending edit - the common case while
+        // a preview sits mid-document. Keeping the ARRAY's identity
+        // is what stops view.update's `previews !== last` check from
+        // re-notifying React (and, downstream, re-emitting the
+        // statuses IPC push) on every keystroke; mapping the
+        // existing DecorationSet instead of rebuilding it is the
+        // same pattern chat-selection-plugin and
+        // quick-ask-widget-plugin use.
+        return {
+          previews: prev.previews,
+          decoration: prev.decoration.map(tr.mapping, tr.doc),
+        };
+      }
+      dropRemovedAnimations(prev.previews, survivors);
+      return {
+        previews: survivors,
+        decoration: buildDecorations(tr.doc, survivors, animate(), hooks),
+      };
+    }
+    return prev;
+  };
   return $prose(
     () =>
       new Plugin<PendingState>({
@@ -706,146 +869,44 @@ export function createPendingEditPlugin(options: {
           init: (): PendingState => ({
             previews: [],
             decoration: DecorationSet.empty,
+            applied: [],
           }),
           apply(tr, prev): PendingState {
             const meta = tr.getMeta(pendingEditKey) as PendingMeta | undefined;
-            if (meta?.type === "add") {
-              const keep = prev.previews.filter(
-                (p) => !meta.previews.some((n) => n.callId === p.callId),
-              );
-              // A final (non-streaming) add for a callId whose typewriter is
-              // still revealing keeps the streaming state - the settle meta,
-              // not the add, is what makes the preview decidable.
-              const previews = [
-                ...keep,
-                ...meta.previews.map((p) =>
-                  p.streaming || stillRevealing(p.callId)
-                    ? { ...p, streaming: true }
-                    : p,
-                ),
-              ];
+            const replay = tr.docChanged ? replayHistory(tr, prev) : null;
+            if (replay) {
+              dropRemovedAnimations(prev.previews, replay.previews);
               return {
-                previews,
+                previews: replay.previews,
+                applied: replay.applied,
                 decoration: buildDecorations(
                   tr.doc,
-                  previews,
-                  animate(),
+                  replay.previews,
+                  false,
                   hooks,
                 ),
               };
             }
-            if (meta?.type === "settle") {
-              if (
-                !prev.previews.some(
-                  (p) => p.callId === meta.callId && p.streaming,
-                )
-              )
-                return prev;
-              const previews = prev.previews.map((p) =>
-                p.callId === meta.callId ? { ...p, streaming: undefined } : p,
-              );
-              return {
-                previews,
-                decoration: buildDecorations(
-                  tr.doc,
-                  previews,
-                  animate(),
-                  hooks,
-                ),
-              };
+            let applied = prev.applied;
+            if (meta?.type === "remove" && meta.applied && tr.docChanged) {
+              const taken = prev.previews.find((p) => p.callId === meta.callId);
+              if (taken)
+                applied = [
+                  ...applied.filter((e) => e.preview.callId !== meta.callId),
+                  {
+                    preview: taken,
+                    before: tr.before,
+                    after: tr.doc,
+                    undone: false,
+                  },
+                ].slice(-MAX_APPLIED);
+            } else if (meta?.type === "clear") {
+              applied = [];
             }
-            if (meta?.type === "decide") {
-              const previews = prev.previews.map((p) =>
-                p.callId === meta.callId && p.sentences
-                  ? {
-                      ...p,
-                      sentences: {
-                        hunks: p.sentences.hunks,
-                        changes: p.sentences.changes.map((c, i) =>
-                          i === meta.index ? { ...c, take: meta.take } : c,
-                        ),
-                      },
-                    }
-                  : p,
-              );
-              return {
-                previews,
-                decoration: buildDecorations(
-                  tr.doc,
-                  previews,
-                  animate(),
-                  hooks,
-                ),
-              };
-            }
-            if (meta?.type === "refocus") {
-              return {
-                previews: prev.previews,
-                decoration: buildDecorations(
-                  tr.doc,
-                  prev.previews,
-                  animate(),
-                  hooks,
-                ),
-              };
-            }
-            if (meta?.type === "remove") {
-              const rest = prev.previews.filter(
-                (p) => p.callId !== meta.callId,
-              );
-              // Accepting a proposal applies it and removes its preview in
-              // one transaction (usePendingEdits.ts): the others still have
-              // to be mapped through that edit. Left at their old positions,
-              // every preview below a grown or shrunk block drifted off its
-              // text, and its Accept then refused.
-              const previews = tr.docChanged
-                ? mapPreviews(rest, tr).survivors
-                : rest;
-              dropRemovedAnimations(prev.previews, previews);
-              return {
-                previews,
-                decoration: buildDecorations(
-                  tr.doc,
-                  previews,
-                  animate(),
-                  hooks,
-                ),
-              };
-            }
-            if (meta?.type === "clear") {
-              dropRemovedAnimations(prev.previews, []);
-              return prev.previews.length === 0
-                ? prev
-                : { previews: [], decoration: DecorationSet.empty };
-            }
-            if (tr.docChanged && prev.previews.length > 0) {
-              const { survivors, changed } = mapPreviews(prev.previews, tr);
-              if (!changed) {
-                // Typing below the last pending edit - the common case while
-                // a preview sits mid-document. Keeping the ARRAY's identity
-                // is what stops view.update's `previews !== last` check from
-                // re-notifying React (and, downstream, re-emitting the
-                // statuses IPC push) on every keystroke; mapping the
-                // existing DecorationSet instead of rebuilding it is the
-                // same pattern chat-selection-plugin and
-                // quick-ask-widget-plugin use.
-                return {
-                  previews: prev.previews,
-                  decoration: prev.decoration.map(tr.mapping, tr.doc),
-                };
-              }
-              dropRemovedAnimations(prev.previews, survivors);
-              return {
-                previews: survivors,
-                decoration: buildDecorations(
-                  tr.doc,
-                  survivors,
-                  animate(),
-                  hooks,
-                ),
-              };
-            }
-            return prev;
+            const next = applyMeta(tr, prev, meta);
+            return next === prev && applied === prev.applied
+              ? prev
+              : { ...next, applied };
           },
         },
         props: {
@@ -888,13 +949,19 @@ export function createPendingEditPlugin(options: {
         },
         view() {
           let last: PendingPreview[] = [];
+          let lastApplied: AppliedEdit[] = [];
           return {
             update(view) {
-              const previews =
-                pendingEditKey.getState(view.state)?.previews ?? [];
-              if (previews !== last) {
+              const state = pendingEditKey.getState(view.state);
+              const previews = state?.previews ?? [];
+              const applied = state?.applied ?? [];
+              if (previews !== last || applied !== lastApplied) {
                 last = previews;
-                options.onPreviewsChange?.(previews);
+                lastApplied = applied;
+                options.onPreviewsChange?.(
+                  previews,
+                  appliedCallIds(view.state),
+                );
               }
             },
           };

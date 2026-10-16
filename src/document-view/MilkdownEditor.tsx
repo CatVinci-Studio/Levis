@@ -367,8 +367,8 @@ export function MilkdownEditor({
         {
           onAccept: (callId) => pendingEditActionsRef.current.onAccept(callId),
           onReject: (callId) => pendingEditActionsRef.current.onReject(callId),
-          onPreviewsChange: (previews) =>
-            pendingEditActionsRef.current.onPreviewsChange(previews),
+          onPreviewsChange: (previews, applied) =>
+            pendingEditActionsRef.current.onPreviewsChange(previews, applied),
           getFocusedCallId: () =>
             pendingEditActionsRef.current.getFocusedCallId(),
           onDecide: (callId, index, take) =>

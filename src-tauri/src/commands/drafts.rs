@@ -62,7 +62,7 @@ pub async fn save_draft_snapshot(
 /// Recovery is a LAUNCH-time question - "what did the last run leave behind
 /// that was never resolved" - but the drain is per-window, and a window can
 /// be created at any time. Once the app is up, every snapshot on disk belongs
-/// to a live, dirty tab in some window, so a window opened later (Cmd+T)
+/// to a live, dirty tab in some window, so a window opened later (New Window)
 /// would "recover" documents that are still open and unsaved elsewhere -
 /// duplicating them, and deleting the snapshot that was protecting the
 /// original. The destructive drain alone doesn't prevent this: the first

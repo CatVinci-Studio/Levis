@@ -626,6 +626,7 @@ export function ChatBody({
         busy={busy}
         labels={labels}
         defaultMode={defaultMode}
+        carryMode={variant !== "quick"}
         allowPlan={variant !== "quick"}
         compact={variant === "quick"}
         focusOnOpen={variant === "quick" || !phone}

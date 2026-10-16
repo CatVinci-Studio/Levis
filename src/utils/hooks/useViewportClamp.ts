@@ -7,6 +7,9 @@ export interface ViewportClampOptions {
    *  toward the top edge instead - for popups whose input row should stay
    *  put while a message list accumulates above it. */
   grow?: "down" | "up";
+  /** A right edge short of the window's (the editor beside the AI panel),
+   *  read at each clamp. */
+  right?: () => number | undefined;
 }
 
 /**
@@ -23,7 +26,9 @@ export function useViewportClamp(
   y: number,
   options: ViewportClampOptions = {},
 ): { left: number; top: number } {
-  const { margin = 8, grow = "down" } = options;
+  const { margin = 8, grow = "down", right } = options;
+  const rightRef = useRef(right);
+  rightRef.current = right;
   const [pos, setPos] = useState({ left: x, top: y });
   // Established on the first clamp of a given (x, y) when grow === "up" -
   // the bottom edge that later growth pivots around instead of `y` itself.
@@ -55,7 +60,13 @@ export function useViewportClamp(
       if (grow === "up" && bottomAnchor.current === null)
         bottomAnchor.current = top + height;
       setPos({
-        left: Math.max(margin, Math.min(x, window.innerWidth - width - margin)),
+        left: Math.max(
+          margin,
+          Math.min(
+            x,
+            (rightRef.current?.() ?? window.innerWidth) - width - margin,
+          ),
+        ),
         top,
       });
     };

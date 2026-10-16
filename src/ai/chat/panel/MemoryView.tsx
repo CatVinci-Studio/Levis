@@ -99,12 +99,14 @@ export function MemorySections({
         {info.library.length > 0 ? (
           <div className="memory-library">
             {info.library.map((entry) => {
+              // An entry with nothing in it yet isn't sent anywhere.
               const used =
-                entry.include === "always" ||
-                (entry.include !== "never" &&
-                  [entry.name, ...entry.aliases].some(
-                    (name) => name && documentText.includes(name),
-                  ));
+                entry.body.trim() !== "" &&
+                (entry.include === "always" ||
+                  (entry.include !== "never" &&
+                    [entry.name, ...entry.aliases].some(
+                      (name) => name && documentText.includes(name),
+                    )));
               return (
                 <button
                   type="button"

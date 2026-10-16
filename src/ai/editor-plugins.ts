@@ -18,7 +18,7 @@ import type { RevisionDisplay, Settings } from "../settings/SettingsContext";
 export interface PendingEditCallbacks {
   onAccept: (callId: string) => void;
   onReject: (callId: string) => void;
-  onPreviewsChange: (previews: PendingPreview[]) => void;
+  onPreviewsChange: (previews: PendingPreview[], applied: string[]) => void;
   /** Live read of the Quick Ask nav bar's current pointer - see
    *  createPendingEditPlugin's option of the same name. */
   getFocusedCallId: () => string | null;

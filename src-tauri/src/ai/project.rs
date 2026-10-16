@@ -289,10 +289,10 @@ pub fn read_library(root: &Path) -> Vec<LibraryEntry> {
                 continue;
             };
             let file = format!("{folder}/library/{stem}.md");
-            let entry = parse_library_entry(&file, stem, &content);
-            if !entry.body.is_empty() {
-                by_stem.insert(stem.to_string(), entry);
-            }
+            // An entry with nothing written in it yet is still listed (the
+            // Memory tab showed nothing after New library entry, as if it
+            // had failed); relevant_library leaves it out of requests.
+            by_stem.insert(stem.to_string(), parse_library_entry(&file, stem, &content));
         }
     }
     by_stem.into_values().collect()
@@ -330,7 +330,7 @@ pub fn relevant_library<'a>(library: &'a [LibraryEntry], context: &str) -> Vec<&
     let haystack = context.to_lowercase();
     let mut picked = Vec::new();
     let mut used = 0;
-    for entry in library {
+    for entry in library.iter().filter(|e| !e.body.is_empty()) {
         let hit = match entry.include {
             LibraryInclude::Always => true,
             LibraryInclude::Never => false,
@@ -519,9 +519,19 @@ mod tests {
             std::fs::create_dir_all(full.parent().unwrap()).unwrap();
             std::fs::write(full, body).unwrap();
         }
+        std::fs::write(
+            dir.join(".textus/library/new.md"),
+            "---\nname: New\n---\n<!-- what to know about New -->\n",
+        )
+        .unwrap();
         let library = read_library(&dir);
         let bodies: Vec<_> = library.iter().map(|e| e.body.as_str()).collect();
-        assert_eq!(bodies, ["Textus Lin.", "Levis Wu."]);
+        assert_eq!(bodies, ["Textus Lin.", "", "Levis Wu."]);
+        // Listed, but never sent: nothing is written in it yet.
+        assert!(relevant_library(&library, "New and Lin")
+            .iter()
+            .all(|e| e.name != "New"));
+        let library: Vec<_> = library.into_iter().filter(|e| e.name != "New").collect();
         assert_eq!(library[1].file, ".levis/library/wu.md");
         assert_eq!(read_style(&dir).as_deref(), Some("Short sentences."));
         // "Learn my style" and "Open style profile" write .textus/style.md.

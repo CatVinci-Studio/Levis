@@ -1,3 +1,4 @@
+import { closeHistory } from "@milkdown/kit/prose/history";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { parseMarkdownSource } from "../../editor/markdown/parse-markdown-source";
@@ -320,19 +321,31 @@ export function usePendingEdits(run: EditorRunner) {
   /** Wired (via a ref-indirected callback, see MilkdownEditor) to the
    *  plugin's onPreviewsChange - the only path React learns about a preview
    *  the plugin silently dropped because the document changed under it. */
-  const syncFromPlugin = useCallback((next: PendingPreview[]) => {
-    const nextIds = new Set(next.map((p) => p.callId));
-    const dropped = [...knownIds.current].filter((id) => !nextIds.has(id));
-    knownIds.current = nextIds;
-    setPreviews(next);
-    if (dropped.length > 0) {
+  const syncFromPlugin = useCallback(
+    (next: PendingPreview[], applied: string[] = []) => {
+      const nextIds = new Set(next.map((p) => p.callId));
+      const dropped = [...knownIds.current].filter((id) => !nextIds.has(id));
+      knownIds.current = nextIds;
+      setPreviews(next);
       setStatuses((prev) => {
-        const copy = { ...prev };
-        for (const id of dropped) if (!copy[id]) copy[id] = "invalid";
-        return copy;
+        let copy: Record<string, PendingStatus> | null = null;
+        const set = (id: string, status: PendingStatus | null) => {
+          copy ??= { ...prev };
+          if (status) copy[id] = status;
+          else delete copy[id];
+        };
+        for (const id of dropped)
+          if (!prev[id]) set(id, applied.includes(id) ? "accepted" : "invalid");
+        // An undo put an accepted proposal back on offer, a redo applied
+        // it again: its card follows (pending-edit-plugin's `applied`).
+        for (const id of nextIds) if (prev[id] === "accepted") set(id, null);
+        for (const id of applied)
+          if (prev[id] !== "accepted" && !nextIds.has(id)) set(id, "accepted");
+        return copy ?? prev;
       });
-    }
-  }, []);
+    },
+    [],
+  );
 
   const showPreviews = useCallback(
     (
@@ -533,7 +546,11 @@ export function usePendingEdits(run: EditorRunner) {
         // Same transaction: one undo step restores the document exactly,
         // and the decoration is gone the instant the edit lands (no orphan
         // frame where a stale preview paints over the just-applied text).
-        tr.setMeta(pendingEditKey, { type: "remove", callId });
+        tr.setMeta(pendingEditKey, { type: "remove", callId, applied: true });
+        // Its own undo step, never merged with typing just before it: an
+        // undo then lands exactly on the text it replaced, which is what
+        // brings the proposal back (pending-edit-plugin's `applied`).
+        closeHistory(tr);
         view.dispatch(tr.scrollIntoView());
         // A second proposal in the same paragraph resolved to the same whole
         // block, so this edit changed the text it was waiting on and the
