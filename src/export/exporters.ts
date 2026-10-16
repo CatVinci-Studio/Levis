@@ -255,7 +255,12 @@ const EXPORT_FIT_CSS =
 // bottom margin (export.rs): text stays clear of the seams, at the cost of
 // plain margins on a tinted theme. Every platform ends up near 20mm all
 // round, the margin of a printed page.
-function pdfLayoutCss(page: PageGeometry | null): string {
+//
+// WebKitGTK paints the root background only as far as the document reaches,
+// so the last sheet ended in white below the text. A body shadow paints
+// past the content without adding layout height (no extra blank page);
+// the print clips it to each sheet's printable area.
+export function pdfLayoutCss(page: PageGeometry | null): string {
   const side = Math.round((page?.width ?? 595) * 0.094);
   return (
     ":root { -webkit-print-color-adjust: exact; print-color-adjust: exact; } " +
@@ -268,7 +273,8 @@ function pdfLayoutCss(page: PageGeometry | null): string {
     `.editor-content, .editor-content.typewriter-active { max-width: none; padding: ${page ? page.margin : 0}px ${side}px 0; } ` +
     (page
       ? ""
-      : "pre, blockquote, table, img, .math-block-wrapper, .mermaid-preview, .md-alert { break-inside: avoid; } " +
+      : "body { box-shadow: 0 0 0 4000px var(--editor-bg, var(--bg)); } " +
+        "pre, blockquote, table, img, .math-block-wrapper, .mermaid-preview, .md-alert { break-inside: avoid; } " +
         // WebKitGTK's print-to-file ignores break-inside on a block, and cut
         // a display formula in two at the seam; an inline-block it never
         // splits.

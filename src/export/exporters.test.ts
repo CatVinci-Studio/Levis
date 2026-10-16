@@ -22,7 +22,8 @@ vi.mock("../ui/app-dialog", () => ({
 
 import type { Strings } from "../i18n/strings";
 import type { DocTab } from "../document/doc-tabs";
-import { cloneEditorContent, exportPdf } from "./exporters";
+import { cloneEditorContent, exportPdf, pdfLayoutCss } from "./exporters";
+import { MAC_PAGE } from "./paginate";
 
 function editor(html: string): HTMLElement {
   const root = document.createElement("div");
@@ -84,6 +85,20 @@ describe("cloneEditorContent", () => {
       "inline",
     );
     expect(html).toContain('src="asset://localhost/a.png"');
+  });
+});
+
+describe("pdfLayoutCss", () => {
+  it("carries the theme background past the content on Linux's last sheet", () => {
+    // No pinned page geometry (Linux): nothing fills the last sheet to a
+    // page multiple, so the body's shadow has to.
+    expect(pdfLayoutCss(null)).toMatch(
+      /body \{ box-shadow: 0 0 0 \d+px var\(--editor-bg, var\(--bg\)\); \}/,
+    );
+  });
+
+  it("leaves paginated renders to their tail spacer", () => {
+    expect(pdfLayoutCss(MAC_PAGE)).not.toContain("box-shadow");
   });
 });
 
