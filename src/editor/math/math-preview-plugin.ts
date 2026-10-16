@@ -39,6 +39,25 @@ function renderKatex(value: string, displayMode: boolean): string {
   return html;
 }
 
+// Empty room in the document under the formula, which the floating preview
+// sits over so it never covers text. Hung below the caret on its own, it
+// landed on the next line once the column was narrow enough for that line
+// to run under it. display: none until the preview shows; place() sizes it.
+// A block's room is a block between its panel and the next paragraph; an
+// inline formula's is a zero-width inline-block hung from the top of its
+// line, which deepens that one line.
+const ROOM = "math-preview-room";
+function blockRoom(): HTMLElement {
+  const el = document.createElement("div");
+  el.className = `${ROOM} ${ROOM}-block`;
+  return el;
+}
+function inlineRoom(): HTMLElement {
+  const el = document.createElement("span");
+  el.className = `${ROOM} ${ROOM}-inline`;
+  return el;
+}
+
 function buildDecorations(state: EditorState, enabled: boolean): RevealState {
   if (!enabled) return emptyReveal;
   return buildReveal(state, (touches) => collectDecorations(state, touches));
@@ -60,7 +79,20 @@ function collectDecorations(
     // reveals the raw source with its synthesized $ / $$ delimiters - the
     // KaTeX swap below must stay out of the way for exactly that range, so
     // both sides share the same predicate.
-    if (touches(from, to)) return;
+    if (touches(from, to)) {
+      // The live preview's room (see place()): there whenever the source
+      // is revealed, not only while the caret is inside it, because this
+      // set is only rebuilt when cursorTouches flips.
+      const block = node.type.name === "math_block";
+      decorations.push(
+        Decoration.widget(to, block ? blockRoom : inlineRoom, {
+          side: 1,
+          key: block ? "math-room:B" : "math-room:I",
+          ignoreSelection: true,
+        }),
+      );
+      return;
+    }
 
     const displayMode = node.type.name === "math_block";
     const html = renderKatex(node.textContent, displayMode);
@@ -104,12 +136,12 @@ function collectDecorations(
 }
 
 function findMathNodeAtSelection(state: EditorState): {
-  node: { type: { name: string }; textContent: string };
+  node: { type: { name: string }; textContent: string; nodeSize: number };
   from: number;
 } | null {
   const { selection } = state;
   let found: {
-    node: { type: { name: string }; textContent: string };
+    node: { type: { name: string }; textContent: string; nodeSize: number };
     from: number;
   } | null = null;
   // Only nodes the selection lies in can contain it.
@@ -185,11 +217,24 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             }
             delete floatEl.dataset.state;
           };
+          // The room closes with the box, not before it: the text does not
+          // slide back under a box that is still fading out. (Leaving the
+          // formula removes the room widget at once anyway.)
+          const closeRooms = (keep?: HTMLElement) => {
+            editorView.dom
+              .querySelectorAll<HTMLElement>(`.${ROOM}`)
+              .forEach((el) => {
+                if (el === keep) return;
+                el.style.display = "";
+                el.style.height = "";
+              });
+          };
           const hide = () => {
             cancelShow();
             if (floatEl.style.display === "none" || hideTimer !== null) return;
             if (!motionAllowed()) {
               floatEl.style.display = "none";
+              closeRooms();
               return;
             }
             floatEl.dataset.state = "closing";
@@ -197,6 +242,7 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
               hideTimer = null;
               delete floatEl.dataset.state;
               floatEl.style.display = "none";
+              closeRooms();
             }, duration("--dur-fast"));
           };
 
@@ -229,31 +275,89 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
               displayMode,
             );
             floatEl.style.display = "block";
-            place(view);
+            // Brought into view as it opens and as typing grows it; a
+            // scroll or a column move (follow) only re-places it, or it
+            // would fight the user's own scrolling.
+            place(view, true);
           }
 
-          function place(view: EditorView) {
-            // Anchored below the cursor's current line (not the node's
-            // start), so it tracks along as you type a multi-line block, and
-            // matches how every other popup in this app (grammar fixes,
-            // inline chat) appears below rather than above. Then clamped to
-            // the viewport: pulled back from the right edge, and flipped
-            // above the cursor when it would run off the bottom.
-            const coords = view.coordsAtPos(view.state.selection.from);
-            floatEl.style.left = `${Math.max(4, coords.left)}px`;
-            floatEl.style.top = `${coords.bottom + 10}px`;
-            const rect = floatEl.getBoundingClientRect();
-            if (rect.right > window.innerWidth - 8) {
-              floatEl.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`;
+          /** The room widget after the formula at `from`. */
+          function roomOf(view: EditorView, from: number): HTMLElement | null {
+            let el = view.nodeDOM(from)?.nextSibling ?? null;
+            // Past the closing "$" (an inline formula's delimiter widget).
+            for (let i = 0; el && i < 3; i++, el = el.nextSibling) {
+              if (el instanceof HTMLElement && el.classList.contains(ROOM))
+                return el;
             }
-            const above = rect.bottom > window.innerHeight - 8;
+            return null;
+          }
+
+          function place(view: EditorView, reveal = false) {
+            const found = findMathNodeAtSelection(view.state);
+            if (!found) return;
+            const block = found.node.type.name === "math_block";
+            const end = found.from + found.node.nodeSize - 1;
+            // Below the formula, which matches how every other popup in this
+            // app (grammar fixes, inline chat) appears below rather than
+            // above: under a block's panel, centred on it; under the line an
+            // inline formula ends on, starting at the caret so it tracks
+            // along as you type. offsetWidth/Height, not the rect: the
+            // pop-in plays as a scale.
+            const width = floatEl.offsetWidth;
+            const height = floatEl.offsetHeight;
+            const caret = view.coordsAtPos(view.state.selection.from);
+            const panel = block
+              ? (view.nodeDOM(found.from) as HTMLElement | null)
+              : null;
+            const panelBox = panel?.getBoundingClientRect();
+            let top: number;
+            let left: number;
+            if (panelBox) {
+              top = panelBox.bottom + 10;
+              left = panelBox.left + (panelBox.width - width) / 2;
+            } else {
+              top = view.coordsAtPos(end, -1).bottom + 10;
+              left = caret.left;
+            }
+            left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+
+            // The room it sits over, so the text below moves down out of its
+            // way. Measured from the room's own top (the panel's margin, or
+            // the top of the line) and in layout px: the column is zoomed
+            // with CSS zoom, the box (in <body>) is not.
+            const room = roomOf(view, found.from);
+            closeRooms(room ?? undefined);
+            if (room) {
+              room.style.display = block ? "flow-root" : "inline-block";
+              const roomTop = room.getBoundingClientRect().top;
+              const host = room.parentElement!;
+              const scale =
+                host.getBoundingClientRect().width /
+                Math.max(1, host.offsetWidth);
+              const need = Math.max(0, top + height + 6 - roomTop) / scale;
+              room.style.height = `${Math.ceil(need)}px`;
+              if (reveal) room.scrollIntoView({ block: "nearest" });
+              // Scrolling (or the room itself) moved the formula.
+              if (panel) top = panel.getBoundingClientRect().bottom + 10;
+              else top = view.coordsAtPos(end, -1).bottom + 10;
+            }
+
+            // Flipped above the caret only when even the room is cut off
+            // (a window shorter than the box needs).
+            const above = top + height > window.innerHeight - 8;
             if (above) {
-              floatEl.style.top = `${Math.max(8, coords.top - rect.height - 10)}px`;
+              const lineTop = panel
+                ? panel.getBoundingClientRect().top
+                : view.coordsAtPos(view.state.selection.from).top;
+              top = Math.max(8, lineTop - height - 10);
             }
-            // It grows out of the corner nearest the caret.
+            floatEl.style.left = `${left}px`;
+            floatEl.style.top = `${top}px`;
+            // It grows out of the corner nearest the caret (a block's, out
+            // of the middle of its panel's edge).
             floatEl.style.setProperty(
               "--transform-origin",
-              above ? "bottom left" : "top left",
+              `${above ? "bottom" : "top"} ${block ? "center" : "left"}`,
             );
           }
 
