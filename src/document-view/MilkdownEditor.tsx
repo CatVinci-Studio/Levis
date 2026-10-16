@@ -78,21 +78,15 @@ import { ContextMenu } from "../editor/ContextMenu";
 import { BottomCard } from "../ui/BottomCard";
 import { usePhoneLayout } from "../ui/usePhoneLayout";
 import { InsertTableDialog } from "../editor/tables/InsertTableDialog";
-import {
-  ImageNameDialog,
-  type ImageNameRequest,
-} from "../editor/images/ImageNameDialog";
+import { ImageNameDialog } from "../editor/images/ImageNameDialog";
+import { useImageNameRequest } from "../editor/images/useImageNameRequest";
 import { FindReplaceBar } from "../editor/find/FindReplaceBar";
 import { useFindReplace } from "../editor/find/useFindReplace";
 import { Presence, PresenceDiv } from "../ui/usePresence";
 import { SparkleIcon } from "../ui/icons";
 import { revealPosition } from "../editor/reveal-position";
-import {
-  applyEditorCaret,
-  readEditorCaret,
-  registerCaretReporter,
-  takePendingCaret,
-} from "../editor/modes/mode-switch";
+import { useModeSwitchCaret } from "../editor/modes/useModeSwitchCaret";
+import { useFocusModeRefresh } from "../editor/modes/useFocusModeRefresh";
 import { useEditorRunner } from "../editor/useEditorRunner";
 import { useEditorClipboard } from "../editor/useEditorClipboard";
 import { useAiActions } from "../ai/writing/useAiActions";
@@ -157,7 +151,6 @@ import {
   EDIT_ACTION_EVENT,
   TUTORIAL_MOCK_GHOST_EVENT,
   TUTORIAL_MOCK_GRAMMAR_EVENT,
-  ZEN_MODE_EVENT,
 } from "../utils/events";
 import { showGhostSuggestion } from "../ai/writing/ghost-text-plugin";
 import { showGrammarIssues } from "../ai/writing/grammar-check-plugin";
@@ -228,8 +221,8 @@ export function MilkdownEditor({
     phone?: boolean;
   } | null>(null);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
-  const [imageNameRequest, setImageNameRequest] =
-    useState<ImageNameRequest | null>(null);
+  const { imageNameRequest, requestImageName, closeImageNameDialog } =
+    useImageNameRequest();
   // The Quick Ask zone widget's DOM container (quick-ask-widget-plugin) -
   // null whenever no widget is in the document. InlineChat portals into it,
   // so the panel's actual pixels sit wherever ProseMirror placed the
@@ -307,21 +300,6 @@ export function MilkdownEditor({
   }>({ onChange: () => {}, onBadge: () => {} });
   // Defined further down (useGrammarPopover); read through a ref here.
   const grammarCaretRef = useRef<() => void>(() => {});
-
-  const requestImageName = useCallback(
-    (stem: string, extension: string) =>
-      new Promise<string | null>((resolve) =>
-        setImageNameRequest({ stem, extension, resolve }),
-      ),
-    [],
-  );
-
-  const closeImageNameDialog = useCallback((stem: string | null) => {
-    setImageNameRequest((request) => {
-      request?.resolve(stem);
-      return null;
-    });
-  }, []);
 
   useEditor(
     (root) =>
@@ -1139,27 +1117,7 @@ export function MilkdownEditor({
     if (!inlineChat.visible || decidableCount === 0) setChatGuard(null);
   }, [inlineChat.visible, decidableCount]);
 
-  // Source/WYSIWYG switches keep the caret and scroll position
-  // (mode-switch.ts): while on screen this editor can report where its
-  // caret is, and on mounting it takes the caret the source view left.
-  useEffect(() => {
-    if (!isActive) return;
-    return registerCaretReporter(
-      (markdown) => run((ctx) => readEditorCaret(ctx, markdown)) ?? null,
-    );
-  }, [isActive, run]);
-  const runReady = run(() => true) === true;
-  useEffect(() => {
-    if (!isActive || !runReady) return;
-    const caret = takePendingCaret();
-    if (!caret) return;
-    // After layout, so coordinates for the scroll correction exist.
-    requestAnimationFrame(() =>
-      run((ctx) => applyEditorCaret(ctx, initialValue, caret)),
-    );
-    // Once per mount: the caret is handed across a single switch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, runReady]);
+  useModeSwitchCaret(run, isActive, initialValue);
 
   // Where the Quick Ask panel renders: the zone widget in the document, or
   // on a phone the page itself, docked - for the active tab only, since
@@ -1232,23 +1190,7 @@ export function MilkdownEditor({
       openAgentConversation();
     }
   }
-  // Typewriter and zen focus are drawn from editor state, but toggled from
-  // outside it: an empty transaction makes their plugins recompute (centre
-  // now, dim now) instead of waiting for the next keystroke.
-  const refreshEditor = useCallback(
-    () =>
-      run((ctx) => {
-        const view = ctx.get(editorViewCtx);
-        view.dispatch(view.state.tr.setMeta("textus-refresh", true));
-      }),
-    [run],
-  );
-  useEffect(() => {
-    if (isActive) refreshEditor();
-  }, [settings.typewriterMode, isActive, refreshEditor]);
-  useWindowEvent(ZEN_MODE_EVENT, () => {
-    if (isActive) refreshEditor();
-  });
+  useFocusModeRefresh(run, isActive, settings.typewriterMode);
   const grammar = useGrammarPopover(run, () => t.grammarApplyStale);
   // A phone has no hover and no arrow keys - a tap on an underline is the
   // way in, so there the caret opens the suggestion only right after a
