@@ -464,3 +464,43 @@ test("h4 to h6 are never smaller than the text, and h6 is lighter than h5 (#58)"
   expect(h5.color).toBe(p.color);
   expect(h6.color).not.toBe(h5.color);
 });
+
+test("source mode: body-sized text, centred on a whole pixel, unchanged by focus (#61)", async ({
+  page,
+}) => {
+  // An odd leftover beside the 680px column: `margin: auto` put the
+  // textarea at x.5, which WebKitGTK blurs once the textarea has focus.
+  await page.setViewportSize({ width: 1181, height: 780 });
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, "Some text.");
+  const bodySize = await page
+    .locator('[data-active-tab="true"] .milkdown p')
+    .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  await emit(page, "menu-toggle-source-mode");
+  const textarea = page.locator(
+    '[data-active-tab="true"] textarea.source-view',
+  );
+  await expect(textarea).toBeVisible();
+  const look = () =>
+    textarea.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        left: el.getBoundingClientRect().left,
+        size: parseFloat(cs.fontSize),
+        transform: cs.transform,
+        willChange: cs.willChange,
+        filter: cs.filter,
+        opacity: cs.opacity,
+      };
+    });
+  const before = await look();
+  expect(before.size).toBeGreaterThanOrEqual(16);
+  expect(before.size).toBeGreaterThanOrEqual(bodySize - 0.5);
+  expect(Number.isInteger(before.left)).toBe(true);
+  await textarea.click();
+  await expect(textarea).toBeFocused();
+  const after = await look();
+  expect(after).toEqual(before);
+  expect(after.transform).toBe("none");
+  expect(after.willChange).toBe("auto");
+});
