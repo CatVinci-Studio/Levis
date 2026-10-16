@@ -82,8 +82,10 @@ as_builder "$work" makepkg -sf --noconfirm
 if [ "$previous_pkg" = levis-bin ]; then
   # replaces= only acts on a sync upgrade, so serve the new package from a
   # file:// repository listed before the others and upgrade the system.
-  local_repo=/home/builder/textus-local-repo
-  mkdir -p "$local_repo"
+  # Outside /home/builder (mode 700): pacman downloads as its unprivileged
+  # DownloadUser, which could not read the database there.
+  local_repo=/srv/textus-local-repo
+  install -d -m 755 "$local_repo"
   cp "$work/$pkgfile" "$local_repo/"
   repo-add "$local_repo/textus-local.db.tar.gz" "$local_repo/$pkgfile"
   cp /etc/pacman.conf /etc/pacman.conf.orig
