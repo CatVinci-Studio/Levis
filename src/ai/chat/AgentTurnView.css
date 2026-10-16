@@ -355,9 +355,9 @@ button.agent-context-chip:hover {
   gap: 6px;
   margin: 6px 0;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--danger, #c1495a) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
   border-radius: var(--radius-surface);
-  background: color-mix(in srgb, var(--danger, #c1495a) 7%, transparent);
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
   font-size: var(--text-md);
   line-height: 1.5;
   color: var(--editor-text);

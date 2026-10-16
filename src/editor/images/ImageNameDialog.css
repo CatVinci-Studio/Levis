@@ -60,7 +60,7 @@
 
 .image-name-error {
   margin-top: 7px;
-  color: var(--danger, #c1495a);
+  color: var(--danger);
   font-size: var(--text-sm);
 }
 

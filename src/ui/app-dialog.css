@@ -62,11 +62,11 @@
 }
 
 .app-dialog-error {
-  color: var(--danger, #c1495a);
+  color: var(--danger);
 }
 
 .app-dialog-warning {
-  color: color-mix(in srgb, #b7791f 80%, var(--editor-text));
+  color: var(--warning-color);
 }
 
 .close-prompt-buttons {

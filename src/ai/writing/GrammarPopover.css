@@ -131,7 +131,7 @@
 
 .grammar-popover-error {
   font-size: var(--text-sm);
-  color: var(--danger, #dc2626);
+  color: var(--danger);
 }
 
 .grammar-popover-ignore {

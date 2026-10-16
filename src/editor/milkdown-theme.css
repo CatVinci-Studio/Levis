@@ -418,7 +418,7 @@
 }
 
 .grammar-issue {
-  text-decoration: underline wavy #c1495a;
+  text-decoration: underline wavy var(--danger);
   text-underline-offset: 3px;
   cursor: pointer;
 }

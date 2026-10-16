@@ -80,7 +80,7 @@
   position: relative;
   display: inline-flex;
   padding: 2px;
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--editor-text) 6%, transparent);
 }
 
@@ -89,7 +89,7 @@
   top: 2px;
   bottom: 2px;
   left: 2px;
-  border-radius: 7px;
+  border-radius: var(--radius-small);
   background: var(--editor-bg, var(--bg));
   box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
   transition:
@@ -117,7 +117,7 @@
 .agent-panel-tabs button:focus-visible {
   outline: 2px solid var(--editor-accent);
   outline-offset: -2px;
-  border-radius: 7px;
+  border-radius: var(--radius-small);
 }
 
 .agent-panel-actions {

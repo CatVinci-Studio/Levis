@@ -410,10 +410,10 @@ button.settings-inline-button {
 .settings-error {
   padding: 8px 10px;
   margin: 8px 0;
-  border-left: 2px solid var(--danger, #c1495a);
+  border-left: 2px solid var(--danger);
   border-radius: 0 var(--radius-control) var(--radius-control) 0;
-  background: color-mix(in srgb, #c1495a 10%, transparent);
-  color: var(--danger, #c1495a);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
   font-size: var(--text-md);
   word-break: break-word;
 }
@@ -421,10 +421,10 @@ button.settings-inline-button {
 .settings-success {
   padding: 8px 10px;
   margin: 8px 0;
-  border-left: 2px solid #5f8b4c;
+  border-left: 2px solid var(--success-color);
   border-radius: 0 var(--radius-control) var(--radius-control) 0;
-  background: color-mix(in srgb, #5f8b4c 10%, transparent);
-  color: #5f8b4c;
+  background: color-mix(in srgb, var(--success-color) 10%, transparent);
+  color: var(--success-color);
   font-size: var(--text-md);
 }
 

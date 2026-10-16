@@ -806,7 +806,7 @@
 }
 
 .agent-proposal-status-invalid {
-  color: var(--danger, #dc2626);
+  color: var(--danger);
 }
 
 .agent-proposal-actions {
