@@ -23,9 +23,9 @@
 
 - [ ] 在 App Store Connect 新建 App：平台 iOS，名称 `Textus - Markdown Editor`，主要语言英语，套装 ID `com.catvinci.textus`，SKU 例如 `textus-ios`。如果套装 ID 在下拉框里找不到，告诉我，我用 API 注册。
 - [ ] 在网页上填写新 App 的“App 隐私”（照抄 Levis 那份）。
-- [ ] 在 Windows 上试装 Textus 测试版和 Levis 0.9.8：重点看从 Levis 导入数据、自动更新、Levis 0.9.8 的提示。
+- [x] 在 Windows 上试装 Textus 测试版和 Levis 0.9.8：重点看从 Levis 导入数据、自动更新、Levis 0.9.8 的提示。
 - [ ] 定发布日期。
-- [ ] 确认 App 审核用的演示 API 密钥（沿用 Levis 的，或另开一个限额的）。
+- [x] App 审核用的演示 API 密钥：由你在提交审核时自己填写。
 
 ### 自动
 
@@ -63,7 +63,7 @@
 - [ ] 核对：Release 里同时有 `textus-latest.json`（1.0.0）和 `latest.json`（0.9.8）；`brew install --cask catvinci-studio/tap/textus` 能装；Arch 能从 levis-bin 升级到 textus-bin。
 - [ ] **dev 跟上 main**：把 `main` 合进 `dev`（快进），之后的开发都从 Textus 继续。删掉 `v1.0.0-ready` 和 `feat/levis-0.9.8-bridge`。仓库只剩 `main`、`dev` 和存档 `archive/levis`。
 
-### 4. iOS（自动 + 你）
+### 4. iOS（自动 + 你，晚于桌面版几天单独发）
 
 - [ ] 推送标签 `ios-v1.0.0`，构建上传到新 App 的 TestFlight（自动）。
 - [ ] 用 API 填写商店信息：中英文描述、副标题、关键词、截图、分级、免费、不在中国大陆上架、欧盟非商家身份、审核说明和演示密钥（自动）。
