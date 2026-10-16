@@ -779,3 +779,17 @@ test("list items aren't positioned, so WebKit's IME commit can't prune them", as
     .evaluateAll((items) => items.map((li) => getComputedStyle(li).position));
   expect(positions).toEqual(["static", "static", "static"]);
 });
+
+test("Enter in a table's last row starts the new row at its first cell", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| a | b |\n|---|---|\n| 1 | 2 |\n");
+  await page.locator(".milkdown td").nth(1).click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("x");
+  await expect(
+    page.locator(".milkdown tr").nth(2).locator("td").first(),
+  ).toHaveText("x");
+});
