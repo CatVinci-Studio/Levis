@@ -7,6 +7,7 @@ import { installDevTauriShim } from "./dev/tauri-shim";
 import { publishWindowChrome } from "./platform/window-chrome";
 import { WindowEdges } from "./app/WindowEdges";
 import { installWebviewGuards } from "./ui/webview-guards";
+import { installScrollReveal } from "./ui/scroll-reveal";
 import { restoreFolderAccess } from "./platform/ios-files";
 import { installMobileViewport } from "./platform/mobile-viewport";
 import { flushWhenHidden } from "./storage/pending-writes";
@@ -14,6 +15,7 @@ import "./mobile/styles/index.css";
 
 installDevTauriShim();
 installWebviewGuards();
+installScrollReveal();
 // Held-back storage writes go out when iOS sends the app to the background
 // (a closing window waits for them instead - storage/pending-writes.ts).
 flushWhenHidden();

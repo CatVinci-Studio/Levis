@@ -756,6 +756,24 @@ input[type="checkbox"].ui-check:checked {
   background: transparent;
 }
 
+/* The document's own bar shows only while it scrolls (ui/scroll-reveal.ts
+   sets .is-scrolling), or under the pointer so it can still be dragged:
+   with the AI panel open, a bar always on screen ran down the middle of
+   the window. */
+:is(.editor-scroll, .source-view):not(
+    .is-scrolling
+  )::-webkit-scrollbar-thumb:not(:hover) {
+  background-color: transparent;
+}
+
+/* WebKit restyles a scrollbar only when its element's own style changes,
+   and a class that touches nothing but the pseudo-element doesn't count:
+   the thumb stayed as it was. A property with no visible effect here (no
+   columns) makes the change real. */
+:is(.editor-scroll, .source-view).is-scrolling {
+  column-rule-color: transparent;
+}
+
 /* Materials: translucent, blurred surfaces only where content scrolls
    under chrome - menus, popovers, the find bar, the phone's keyboard
    toolbar and Quick Ask dock - and only on macOS and iOS. WebKitGTK
