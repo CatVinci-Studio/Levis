@@ -76,7 +76,8 @@
 - [ ] 官网 `v1.0.0` 分支合进 `main`，Cloudflare Pages 自动部署正式站。
 - [ ] 用 API 给 Pages 项目 `levis-homepage` 加上自定义域名 `textus.catvinci.com`（`catvinci.com` 在同一个 Cloudflare 账号下，wrangler 已登录）。
 - [ ] 在官网项目里加一段 Pages 中间件，把 `levis.catvinci.com` 的所有页面 301 跳转到 `textus.catvinci.com` 的对应页面（当前登录权限不能改 DNS 和重定向规则，用中间件实现，效果相同）。
-- [ ] 公司主页 catvinci.com（仓库 `CatVinci-Studio/catvinci-homepage`，Cloudflare Pages 随 main 自动部署）：把已推送的 `textus` 分支合进 `main`。产品卡片换成 Textus 的图标、介绍和链接（textus.catvinci.com、GitHub 的 Textus 仓库），中英文都改。
+- [ ] 公司主页 catvinci.com（`CatVinci-Studio/catvinci-homepage`，Cloudflare Pages 随 main 自动部署）和组织主页（`CatVinci-Studio/.github` 的 profile/README.md）：两个仓库本地都已备好分支 `fresh`，各是一个以你的身份（ChengAo Shen <chengao_shen@ieee.org>）提交的全新提交，用它强制推送覆盖 `main`，替换原来署名 0xNullAI 的历史（本地在 `~/Documents/Enjoyment/catvinci/`）。新官网是羽毛笔同一套风格的单页：新的猫与月桂徽标、标语 Per aspera ad astra、产品卡片换成 Textus、底部写 Supported by the Anthropic Startup Program。须在仓库改名为 Textus 之后做（链接指向 Textus 仓库）。
+- [ ] GitHub 组织头像换成新徽标（你在网页上传：`~/Documents/Enjoyment/catvinci/brand/catvinci-mark-square.png`）。
 - [ ] 核对：两个域名都能打开，旧域名跳到新域名，下载按钮指向 Textus 1.0.0 的安装包。 catvinci.com 的“产品”里显示 Textus。
 
 ### 6. 发布后检查（自动）
