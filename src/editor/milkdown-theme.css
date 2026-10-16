@@ -694,16 +694,10 @@
   animation: motion-pop-in var(--dur-base) var(--ease-out);
 }
 
-/* The room the preview sits over (math-preview-plugin.ts sizes and shows
-   it). The inline one hangs from the top of its line, so it deepens the line
-   without moving it, and takes no width. */
+/* The room a block formula's preview sits over (math-preview-plugin.ts
+   sizes and shows it). */
 .math-preview-room {
   display: none;
-}
-
-.math-preview-room-inline {
-  width: 0;
-  vertical-align: top;
 }
 
 .math-float-preview[data-state="closing"] {

@@ -39,22 +39,18 @@ function renderKatex(value: string, displayMode: boolean): string {
   return html;
 }
 
-// Empty room in the document under the formula, which the floating preview
-// sits over so it never covers text. Hung below the caret on its own, it
-// landed on the next line once the column was narrow enough for that line
-// to run under it. display: none until the preview shows; place() sizes it.
-// A block's room is a block between its panel and the next paragraph; an
-// inline formula's is a zero-width inline-block hung from the top of its
-// line, which deepens that one line.
+// Empty room in the document under a block formula, which the floating
+// preview sits over so it doesn't cover the paragraph after it. Hung below
+// the panel on its own, it landed on that paragraph once the column was
+// narrow enough for its first line to run under it. display: none until the
+// preview shows; place() sizes it. A block between the panel and the next
+// paragraph. An inline formula gets none: its preview is brief, and room
+// for it would make the lines below jump each time the caret passes
+// through - it floats over the text instead, as it always has.
 const ROOM = "math-preview-room";
 function blockRoom(): HTMLElement {
   const el = document.createElement("div");
-  el.className = `${ROOM} ${ROOM}-block`;
-  return el;
-}
-function inlineRoom(): HTMLElement {
-  const el = document.createElement("span");
-  el.className = `${ROOM} ${ROOM}-inline`;
+  el.className = ROOM;
   return el;
 }
 
@@ -80,17 +76,17 @@ function collectDecorations(
     // KaTeX swap below must stay out of the way for exactly that range, so
     // both sides share the same predicate.
     if (touches(from, to)) {
-      // The live preview's room (see place()): there whenever the source
-      // is revealed, not only while the caret is inside it, because this
-      // set is only rebuilt when cursorTouches flips.
-      const block = node.type.name === "math_block";
-      decorations.push(
-        Decoration.widget(to, block ? blockRoom : inlineRoom, {
-          side: 1,
-          key: block ? "math-room:B" : "math-room:I",
-          ignoreSelection: true,
-        }),
-      );
+      // A block's live preview room (see place()): there whenever the
+      // source is revealed, not only while the caret is inside it, because
+      // this set is only rebuilt when cursorTouches flips.
+      if (node.type.name === "math_block")
+        decorations.push(
+          Decoration.widget(to, blockRoom, {
+            side: 1,
+            key: "math-room",
+            ignoreSelection: true,
+          }),
+        );
       return;
     }
 
@@ -281,10 +277,10 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             place(view, true);
           }
 
-          /** The room widget after the formula at `from`. */
+          /** The room widget after the block formula at `from` (an inline
+           *  formula has none). */
           function roomOf(view: EditorView, from: number): HTMLElement | null {
             let el = view.nodeDOM(from)?.nextSibling ?? null;
-            // Past the closing "$" (an inline formula's delimiter widget).
             for (let i = 0; el && i < 3; i++, el = el.nextSibling) {
               if (el instanceof HTMLElement && el.classList.contains(ROOM))
                 return el;
@@ -321,14 +317,14 @@ export function createMathPreviewPlugin(options: { enabled: () => boolean }) {
             }
             left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
 
-            // The room it sits over, so the text below moves down out of its
-            // way. Measured from the room's own top (the panel's margin, or
-            // the top of the line) and in layout px: the column is zoomed
+            // A block's room, which it sits over so the paragraph below
+            // moves down out of its way. Measured from the room's own top
+            // (the panel's margin) and in layout px: the column is zoomed
             // with CSS zoom, the box (in <body>) is not.
             const room = roomOf(view, found.from);
             closeRooms(room ?? undefined);
             if (room) {
-              room.style.display = block ? "flow-root" : "inline-block";
+              room.style.display = "flow-root";
               const roomTop = room.getBoundingClientRect().top;
               const host = room.parentElement!;
               const scale =

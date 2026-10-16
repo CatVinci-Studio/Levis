@@ -429,8 +429,9 @@ const PREVIEW_DOC = [
   "Inline $\\frac{a}{b} + \\sqrt{c}$ math in a sentence long enough to wrap onto a second line under the formula, and a third.",
 ].join("\n\n");
 
-/** Opens the block formula (caret at its end) and then the inline one
- *  (caret inside it), checking the preview each time. */
+/** Opens the block formula (caret at its end): its preview must not cover
+ *  text. Then the inline one (caret inside it): its preview floats, brief,
+ *  and the text around it must not move for it. */
 async function expectPreviewsClear(page: Page) {
   const preview = page.locator(".math-float-preview");
   await page.locator('[data-active-tab="true"] .math-block-rendered').click();
@@ -442,15 +443,25 @@ async function expectPreviewsClear(page: Page) {
   );
   // Its render's own mousedown handler puts the caret inside (a click's
   // centre point can land on the paragraph around the KaTeX box).
+  const lastLine = page
+    .locator('[data-active-tab="true"] .ProseMirror p')
+    .last();
+  await page.locator('[data-active-tab="true"] .ProseMirror p').first().click();
+  await expect(preview).toBeHidden();
+  const before = (await lastLine.boundingBox())!;
   await page
     .locator('[data-active-tab="true"] .math-inline-rendered')
     .dispatchEvent("mousedown");
   await page.keyboard.press("ArrowLeft");
   await expect(preview).toBeVisible();
   await page.waitForTimeout(400);
-  expect(await previewCoversText(page), "inline preview covers text").toBe(
-    false,
-  );
+  // Revealing the source may rewrap its own line; nothing grows to make
+  // room for the preview, so the paragraph's height stays within a line.
+  const after = (await lastLine.boundingBox())!;
+  expect(after.height - before.height).toBeLessThan(40);
+  await expect(
+    page.locator('[data-active-tab="true"] .math-preview-room:visible'),
+  ).toHaveCount(0);
   // Out of the formula, its room closes again.
   await page.locator('[data-active-tab="true"] .ProseMirror p').first().click();
   await expect(preview).toBeHidden();
@@ -459,7 +470,7 @@ async function expectPreviewsClear(page: Page) {
   ).toHaveCount(0);
 }
 
-test("the math preview never covers the text around its formula", async ({
+test("a block formula's preview never covers the text below; an inline one floats", async ({
   page,
 }) => {
   await openApp(page, { settings: { language: "en" } });
