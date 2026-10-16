@@ -29,8 +29,13 @@
 
 <p align="center">
   <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/CatVinci-Studio/Textus/total"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/CatVinci-Studio/Textus"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/CatVinci-Studio/Textus/ci.yml?branch=main&label=CI"></a>
+  <img alt="languages" src="https://img.shields.io/badge/languages-10-blue">
+  <a href="https://textus.catvinci.com"><img alt="website" src="https://img.shields.io/badge/website-textus.catvinci.com-8a6d3b"></a>
 </p>
 
 https://github.com/user-attachments/assets/56473ad9-5cb0-4608-b3c8-30882420edcd
