@@ -2120,6 +2120,8 @@ export function MilkdownEditor({
             onNewConversation={startPanelConversation}
             onPopOut={canDetachChat ? popOutPanel : undefined}
             onClose={() => agentPanel.setOpen(false)}
+            tab={agentPanel.tab}
+            onTabChange={agentPanel.setTab}
             memory={() => (
               <ProjectBar
                 docPath={filePath}
