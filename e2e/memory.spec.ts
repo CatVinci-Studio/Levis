@@ -50,3 +50,31 @@ test("a new library entry opens with the panel still on Memory", async ({
   );
   await expect(page.locator(".agent-panel-memory")).toBeVisible();
 });
+
+test("a new library entry shows its template's comment as a note, not markup", async ({
+  page,
+}) => {
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  // What projectLibraryTemplate writes (i18n/locales/en.ts).
+  const note =
+    "Facts Textus AI should keep consistent whenever Lin or an alias comes up. Comments like this one are never sent.";
+  await mockInvoke(page, {
+    load_agent_workspace: workspace([]),
+    ensure_project_file: ENTRY_PATH,
+    read_text_file: `---\nname: Lin\naliases: []\ninclude: detected\n---\n\n<!-- ${note} -->\n\n`,
+  });
+  await createEntry(page, "Lin");
+  await expect(page.locator(".tab-pill")).toHaveCount(2);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await expect(editor.locator(".raw-html-comment")).toHaveText(note);
+  await expect(editor).not.toContainText("<!--", { useInnerText: true });
+  // The caret on it gives the markup back, to edit.
+  await editor.locator(".raw-html-comment").click();
+  await expect(editor).toContainText(`<!-- ${note} -->`, {
+    useInnerText: true,
+  });
+  await expect(editor.locator(".raw-html-comment")).toHaveCount(0);
+});
