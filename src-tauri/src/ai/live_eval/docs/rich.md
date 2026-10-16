@@ -5,7 +5,7 @@ tags: [design, sync]
 
 # Sync engine notes
 
-> \[!NOTE]
+> [!NOTE]
 > These notes describe the version that shipped in March, and they are kept here so that anyone who joins the team later can understand why the sync engine works the way it does today.
 
 ## Status

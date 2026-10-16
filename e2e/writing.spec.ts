@@ -340,3 +340,101 @@ test("typed dollar amounts stay text; a typed formula still forms", async ({
   }
   await expect(paragraphs.nth(3).locator(".math-inline")).toHaveCount(2);
 });
+
+test("clicking a diagram opens its own source after text is added above", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(
+    page,
+    "Top.\n\n```mermaid\ngraph TD\n  A1-->B1\n```\n\n```mermaid\ngraph TD\n  A2-->B2\n```\n\nEnd.",
+  );
+  const previews = page.locator(".mermaid-preview");
+  await expect(previews).toHaveCount(2, { timeout: 10_000 });
+  // Lengthen the paragraph above: the diagrams' widgets are kept, their
+  // blocks move.
+  await page.locator(".ProseMirror p", { hasText: "Top." }).click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" More words above both diagrams.");
+  await previews.nth(1).click();
+  const hidden = page.locator(".ProseMirror .mermaid-source-hidden");
+  await expect(hidden.filter({ hasText: "A2-->B2" })).toHaveCount(0);
+  await expect(hidden.filter({ hasText: "A1-->B1" })).toHaveCount(1);
+});
+
+test("a table's menu stays open while it scrolls on a short window", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 360 });
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, "| a | b |\n| --- | --- |\n| c | d |\n\nEnd.");
+  await page
+    .locator(".ProseMirror td", { hasText: "d" })
+    .click({ button: "right" });
+  const menu = page.locator(".context-menu");
+  await expect(menu).toBeVisible();
+  const scrollable = await menu.evaluate(
+    (el) => el.scrollHeight > el.clientHeight,
+  );
+  expect(scrollable).toBe(true);
+  await menu.hover();
+  await page.mouse.wheel(0, 400);
+  await expect
+    .poll(() => menu.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(menu).toBeVisible();
+});
+
+/** A deliberate Shift+Enter: Shift held first, as a writer does. (Shift
+ *  and Enter pressed together count as Enter - see block-keys-plugin.ts.) */
+async function shiftEnter(page: Page) {
+  await page.keyboard.down("Shift");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("Enter");
+  await page.keyboard.up("Shift");
+}
+
+test("Shift+Enter mid-line in a paragraph ending in a break adds a break", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "zh" } });
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("1、时间");
+  await shiftEnter(page);
+  // Back up from the new empty line to between 时 and 间.
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await shiftEnter(page);
+  const shape = await editor.evaluate((el) =>
+    Array.from(el.querySelectorAll(":scope > p")).map((p) =>
+      Array.from(p.childNodes)
+        .map((n) =>
+          n.nodeName === "BR"
+            ? (n as Element).classList.contains("ProseMirror-trailingBreak")
+              ? ""
+              : "<br>"
+            : n.textContent,
+        )
+        .join(""),
+    ),
+  );
+  expect(shape).toEqual(["1、时<br>间<br>"]);
+});
+
+test("Shift pressed together with Enter starts a new paragraph", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "zh" } });
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("7、很少用agent");
+  // The Pinyin 中/英 Shift tap overlapping the Enter after a Latin word.
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("8、");
+  await expect(editor.locator(":scope > p")).toHaveText([
+    "7、很少用agent",
+    "8、",
+  ]);
+  await expect(editor.locator('br[data-type="hardbreak"]')).toHaveCount(0);
+});

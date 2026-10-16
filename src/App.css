@@ -1,5 +1,61 @@
 @import "./ui/design-system.css";
 
+/* Chinese and Japanese punctuation that Unicode shares with Latin text -
+   the curly double quotes, the ellipsis and the dash - is drawn by the
+   first face in the stack that has it. On a Mac that is San Francisco (or
+   Georgia in the Paper theme): slanted Latin quotes, an ellipsis of low
+   dots narrower than a character (…… reads as six dots on the baseline)
+   and a short dash (—— breaks in two). These faces take just those
+   characters from the CJK face, as a Chinese or Japanese Mac draws them:
+   the ellipsis and the dash a full character wide and centred. They lead
+   the stacks when the UI is in Chinese or Japanese (--font-cjk-punct
+   below). Single quotes stay Latin: ’ is the apostrophe of English text
+   too. */
+@font-face {
+  font-family: "Textus Punct SC";
+  src:
+    local("PingFang SC"), local("PingFangSC-Regular"),
+    local("Noto Sans CJK SC"), local("Noto Sans SC"),
+    local("Source Han Sans SC"), local("Microsoft YaHei");
+  unicode-range: U+2014, U+201C-201D, U+2026;
+}
+@font-face {
+  font-family: "Textus Punct TC";
+  src:
+    local("PingFang TC"), local("PingFangTC-Regular"),
+    local("Noto Sans CJK TC"), local("Noto Sans TC"),
+    local("Source Han Sans TC"), local("Microsoft JhengHei");
+  unicode-range: U+2014, U+201C-201D, U+2026;
+}
+@font-face {
+  font-family: "Textus Punct JP";
+  src:
+    local("Hiragino Sans"), local("HiraginoSans-W3"), local("Noto Sans CJK JP"),
+    local("Noto Sans JP"), local("Source Han Sans JP"), local("Yu Gothic");
+  unicode-range: U+2014, U+201C-201D, U+2026;
+}
+@font-face {
+  font-family: "Textus Punct Serif SC";
+  src:
+    local("Songti SC"), local("STSongti-SC-Regular"),
+    local("Noto Serif CJK SC"), local("Source Han Serif SC"), local("SimSun");
+  unicode-range: U+2014, U+201C-201D, U+2026;
+}
+@font-face {
+  font-family: "Textus Punct Serif TC";
+  src:
+    local("Songti TC"), local("STSongti-TC-Regular"),
+    local("Noto Serif CJK TC"), local("Source Han Serif TC"), local("PMingLiU");
+  unicode-range: U+2014, U+201C-201D, U+2026;
+}
+@font-face {
+  font-family: "Textus Punct Serif JP";
+  src:
+    local("Hiragino Mincho ProN"), local("HiraMinProN-W3"),
+    local("Noto Serif CJK JP"), local("Source Han Serif JP"), local("Yu Mincho");
+  unicode-range: U+2014, U+201C-201D, U+2026;
+}
+
 :root {
   /* "Noto Sans CJK SC" / "Source Han Sans SC" are what Linux distributions
      install (Arch's noto-fonts-cjk, adobe-source-han-sans); "Noto Sans SC"
@@ -28,7 +84,13 @@
      comes first: a CJK face draws ’ “ ” full-width too, which put a gap
      after each apostrophe of French text ("d’ habitants"). */
   --font-text-sans: Inter, system-ui, var(--font-cjk-sans);
-  --font-sans: -apple-system, "SF Pro Text", var(--font-text-sans), sans-serif;
+  /* A family that doesn't exist: outside a Chinese or Japanese UI the
+     punctuation faces above stay out of the stacks. */
+  --font-cjk-punct: "Textus No Punct";
+  --font-cjk-punct-serif: "Textus No Punct";
+  --font-sans:
+    var(--font-cjk-punct), -apple-system, "SF Pro Text", var(--font-text-sans),
+    sans-serif;
   --font-mono: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, monospace;
 
   color-scheme: light;
@@ -107,23 +169,41 @@
    would otherwise put syllable breaks back. A word too long for its line
    still wraps: overflow-wrap is inherited from the root, and break-word
    (not anywhere) leaves min-content widths alone, so a label in a flex
-   row isn't squeezed into mid-word breaks. The document itself is left
-   out: its language isn't the UI's, and keep-all stops Chinese or
-   Japanese text breaking anywhere but at punctuation. */
+   row isn't squeezed into mid-word breaks. The document is included (a
+   Korean UI mostly writes Korean; a Chinese or Japanese paragraph in it
+   still wraps where it reaches the edge), except table cells: a column is
+   as wide as its longest unbreakable run, and keep-all made a Chinese
+   cell one run, so the table outgrew the page. */
 :root:lang(ko) {
   overflow-wrap: break-word;
 }
 
-:root:lang(ko) *:not(.editor-content *, .source-view *) {
+:root:lang(ko) * {
   word-break: keep-all;
 }
 
-:root:lang(ko) :is(.editor-content, .source-view) {
+:root:lang(ko) :is(.editor-content, .source-view) :is(td, th),
+:root:lang(ko) :is(.editor-content, .source-view) :is(td, th) * {
   word-break: normal;
 }
 
 :root:is(:lang(zh), :lang(ja), :lang(ko)) {
   --font-text-sans: var(--font-cjk-sans), Inter, system-ui;
+}
+
+:root:lang(zh) {
+  --font-cjk-punct: "Textus Punct SC";
+  --font-cjk-punct-serif: "Textus Punct Serif SC";
+}
+
+:root:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK), :lang(zh-MO)) {
+  --font-cjk-punct: "Textus Punct TC";
+  --font-cjk-punct-serif: "Textus Punct Serif TC";
+}
+
+:root:lang(ja) {
+  --font-cjk-punct: "Textus Punct JP";
+  --font-cjk-punct-serif: "Textus Punct Serif JP";
 }
 
 /* Dark palette applies when the system prefers dark (and the user hasn't
@@ -1078,7 +1158,8 @@ body {
   .ghost-text,
   .quick-ask-anchor,
   .pending-insert,
-  .image-resize-handle {
+  .image-resize-handle,
+  .frontmatter-block {
     display: none !important;
   }
 

@@ -8,16 +8,25 @@ import {
   type GrammarDecorationSpec,
 } from "./grammar-check-plugin";
 import { findUniqueTextRange } from "./doc-text";
+import { grammarKind } from "./grammar-kind";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import type { GrammarPopoverInfo } from "./GrammarPopover";
 import type { EditorRunner } from "../editor/useEditorRunner";
 
-/** The popover for one underline, placed at (x, y). */
+/** The popover for one underline, placed at (x, y), with where it stands
+ *  among the paragraph's other underlines. */
 function popoverFor(
   deco: Decoration,
   x: number,
   y: number,
+  siblings: Decoration[] = [deco],
+  state?: EditorState,
 ): GrammarPopoverInfo {
   const spec = deco.spec as GrammarDecorationSpec;
+  const shown = state ? withContext(state, deco, spec) : null;
+  const index = siblings.findIndex(
+    (d) => d.from === deco.from && d.to === deco.to,
+  );
   return {
     x,
     y,
@@ -26,7 +35,51 @@ function popoverFor(
     issue: spec.issue,
     suggestion: spec.suggestion,
     original: spec.original,
+    kind: grammarKind(spec.original, spec.suggestion, spec.rule),
+    shownOriginal: shown?.original,
+    shownSuggestion: shown?.suggestion,
+    index: Math.max(0, index),
+    count: siblings.length,
   };
+}
+
+const CJK_CHAR =
+  /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]$/u;
+
+/**
+ * How a one-character CJK fix reads on the card: the checker narrows the
+ * span to what changes (必竟 -> 毕竟 arrives as 必 -> 毕), which alone says
+ * little. The card shows it with the character beside it - after it, or
+ * before it at a paragraph's end - while Apply still changes only the one.
+ */
+function withContext(
+  state: EditorState,
+  deco: Decoration,
+  spec: GrammarDecorationSpec,
+): { original: string; suggestion: string } | null {
+  const original = spec.original ?? "";
+  if ([...original].length !== 1 || !CJK_CHAR.test(original)) return null;
+  const $pos = state.doc.resolve(deco.from);
+  const end = $pos.end();
+  const start = $pos.start();
+  const next = deco.to < end ? state.doc.textBetween(deco.to, deco.to + 1) : "";
+  if (CJK_CHAR.test(next))
+    return { original: original + next, suggestion: spec.suggestion + next };
+  const prev =
+    deco.from > start ? state.doc.textBetween(deco.from - 1, deco.from) : "";
+  if (CJK_CHAR.test(prev))
+    return { original: prev + original, suggestion: prev + spec.suggestion };
+  return null;
+}
+
+/** The underlines in the same paragraph as `deco`, in order. */
+function siblingsOf(state: EditorState, deco: Decoration): Decoration[] {
+  const $pos = state.doc.resolve(deco.from);
+  const start = $pos.start();
+  const end = $pos.end();
+  return ((grammarKey.getState(state)?.find(start, end) ?? []) as Decoration[])
+    .slice()
+    .sort((a, b) => a.from - b.from);
 }
 
 /**
@@ -61,7 +114,15 @@ export function useGrammarPopover(
         if (!deco) return;
         const rect = target.getBoundingClientRect();
         setApplyError(null);
-        setPopover(popoverFor(deco, rect.left, rect.bottom + 6));
+        setPopover(
+          popoverFor(
+            deco,
+            rect.left,
+            rect.bottom + 6,
+            siblingsOf(view.state, deco),
+            view.state,
+          ),
+        );
       });
     },
     [run],
@@ -99,7 +160,13 @@ export function useGrammarPopover(
       setPopover((prev) =>
         prev?.from === deco.from && prev.to === deco.to
           ? prev
-          : popoverFor(deco, coords.left, coords.bottom + 6),
+          : popoverFor(
+              deco,
+              coords.left,
+              coords.bottom + 6,
+              siblingsOf(view.state, deco),
+              view.state,
+            ),
       );
     });
   }, [run]);
@@ -115,6 +182,28 @@ export function useGrammarPopover(
     );
     setPopover(null);
   }, [popover, run]);
+
+  /** To the paragraph's previous or next underline (the card's ‹ ›). */
+  const step = useCallback(
+    (delta: 1 | -1) => {
+      if (!popover) return;
+      run((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const here = grammarIssueAt(view.state, popover.from);
+        if (!here) return;
+        const all = siblingsOf(view.state, here);
+        const i = all.findIndex((d) => d.from === here.from);
+        const next = all[(i + delta + all.length) % all.length];
+        if (!next) return;
+        const coords = view.coordsAtPos(next.from);
+        setApplyError(null);
+        setPopover(
+          popoverFor(next, coords.left, coords.bottom + 6, all, view.state),
+        );
+      });
+    },
+    [popover, run],
+  );
 
   const cancelHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -185,5 +274,6 @@ export function useGrammarPopover(
     applyFix,
     onCaretMove,
     ignore,
+    step,
   };
 }

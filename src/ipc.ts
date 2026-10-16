@@ -209,6 +209,15 @@ export const storage = {
 };
 
 // ---------------------------------------------------------------------------
+// opener plugin (opener:default allows http(s) URLs)
+// ---------------------------------------------------------------------------
+
+export const opener = {
+  /** Opens a web page in the default browser. */
+  openUrl: (url: string) => call<void>("plugin:opener|open_url", { url }),
+};
+
+// ---------------------------------------------------------------------------
 // window / tab-drag (src-tauri/src/tab_drag.rs, App's pending-open queue)
 // ---------------------------------------------------------------------------
 

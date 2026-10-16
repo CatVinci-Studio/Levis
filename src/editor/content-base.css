@@ -145,6 +145,39 @@
     border-top: 1px solid var(--editor-border);
   }
 
+  /* Footnotes: the reference a small raised number, each definition its
+     number then its text on one line, in the note's smaller size - not
+     the browser's bare <dl>, which puts the number on a line of its own. */
+  .milkdown sup[data-type="footnote_reference"] {
+    font-size: 0.75em;
+    line-height: 0;
+    color: var(--editor-accent);
+  }
+
+  .milkdown dl[data-type="footnote_definition"] {
+    display: flex;
+    gap: 0.6em;
+    margin: 0.35em 0;
+    font-size: 0.9em;
+    color: var(--editor-muted);
+  }
+
+  .milkdown dl[data-type="footnote_definition"] > dt {
+    flex: none;
+    min-width: 1.2em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .milkdown dl[data-type="footnote_definition"] > dd {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .milkdown dl[data-type="footnote_definition"] > dd > p {
+    margin: 0;
+  }
+
   .milkdown code {
     font-family: var(--font-mono);
     font-variant-ligatures: normal;

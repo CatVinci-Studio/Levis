@@ -32,5 +32,5 @@ Completion tone = 補完のトーン
 Ask = 質問
 Edit = 編集
 Plan = 計画
-Accept = 承認
+Accept = 適用
 Reject = 却下

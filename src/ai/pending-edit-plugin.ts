@@ -6,6 +6,19 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { $prose } from "@milkdown/kit/utils";
 import { renderMarkdownInlineHtml } from "./markdown-render";
 import type { EditProposal } from "./types";
+import type { SentenceHunk } from "./chat/sentence-diff";
+import type { RevisionDisplay } from "../settings/SettingsContext";
+
+/** One changed sentence (group) of a rewrite shown sentence by sentence:
+ *  where its original stands in the document, what replaces it, and the
+ *  writer's call on it - null until they make one (taken on Accept). */
+export interface PendingSentence {
+  from: number;
+  to: number;
+  before: string;
+  after: string;
+  take: boolean | null;
+}
 
 /**
  * One propose_edit tool call, resolved to a live document range (see
@@ -44,6 +57,17 @@ export interface PendingPreview {
    *  determined uniquely - e.g. the anchor spans more than one block. */
   strikeFrom?: number;
   strikeTo?: number;
+  /** A rewrite located sentence by sentence (sentence-locate.ts): the whole
+   *  sentence diff (what Accept composes from) and, per change, its range
+   *  and decision. Drawn once the preview settles - while it streams, the
+   *  typewriter shows the new text whole. Absent: shown and decided whole. */
+  sentences?: { hunks: SentenceHunk[]; changes: PendingSentence[] };
+}
+
+/** Accept's text for a sentence-by-sentence preview: the original with the
+ *  changes the writer didn't turn down (undecided ones are taken). */
+export function sentenceTake(p: PendingPreview): boolean[] | null {
+  return p.sentences ? p.sentences.changes.map((c) => c.take !== false) : null;
 }
 
 // --- Typewriter reveal for the green pending-insert widget --------------
@@ -237,7 +261,12 @@ type PendingMeta =
   | { type: "clear" }
   /** The typewriter finished revealing this preview's text - it may now be
    *  decided on (dispatched by maybeSettle, never from outside). */
-  | { type: "settle"; callId: string };
+  | { type: "settle"; callId: string }
+  /** The writer took (true) or kept the original of (false) one sentence,
+   *  or took the call back (null) - the in-text ✓ / ✕ and the card's. */
+  | { type: "decide"; callId: string; index: number; take: boolean | null }
+  /** The review bar's pointer moved: redraw the outline. */
+  | { type: "refocus" };
 
 interface PendingState {
   previews: PendingPreview[];
@@ -328,7 +357,193 @@ function textWidget(
  * safe, if coarser, degradation of the same "old text struck, new text
  * follows immediately" reading.
  */
-function decorationsFor(p: PendingPreview, animate: boolean): Decoration[] {
+const CHECK_SVG =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+const CROSS_SVG =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+
+export interface SentencePickLabels {
+  take: string;
+  keep: string;
+}
+
+/**
+ * A sentence-by-sentence preview: each changed sentence struck where it
+ * stands, its replacement right after it, and a ✓ / ✕ pair to take it or
+ * keep the original. Kept sentences read as the original again (the new
+ * text dims and is struck instead). Unchanged sentences get nothing.
+ *
+ * The widgets' keys carry the decision, so a decision redraws them and
+ * their CSS entrance runs as the change of state; `--i` staggers the
+ * first appearance sentence by sentence.
+ */
+function sentenceDecorations(
+  p: PendingPreview,
+  changes: PendingSentence[],
+  hooks: SentenceHooks,
+): Decoration[] {
+  const decos: Decoration[] = [];
+  const labels = hooks.labels();
+  const focused = hooks.focused();
+  changes.forEach((c, index) => {
+    const state =
+      c.take === false ? "kept" : c.take === true ? "taken" : "open";
+    const isFocused = focused?.callId === p.callId && focused.index === index;
+    const stagger = `--i: ${index}`;
+    if (c.from < c.to)
+      decos.push(
+        Decoration.inline(c.from, c.to, {
+          class: `pending-delete pending-sentence pending-sentence-${state}${isFocused ? " pending-sentence-focus" : ""}`,
+          style: stagger,
+          "data-call": p.callId,
+          "data-index": String(index),
+        }),
+      );
+    const display = hooks.display();
+    const mark = (cls: string) =>
+      Decoration.widget(
+        c.to,
+        () => {
+          const el = document.createElement("span");
+          el.className = cls;
+          el.dataset.call = p.callId;
+          el.dataset.index = String(index);
+          return el;
+        },
+        {
+          side: 1,
+          key: `pending-mark-${p.callId}-${index}-${state}-${display}`,
+        },
+      );
+    // The original in the text, the replacement and its ✓ / ✕ a card in
+    // the margin (ReviewMargin.tsx); a pure insertion marked by a caret.
+    if (display === "original") {
+      if (c.from === c.to)
+        decos.push(mark(`pending-insert-mark pending-sentence-${state}`));
+      return;
+    }
+    // The replacement in the text, as it would read - the original in the
+    // margin ("new"), or nowhere ("final": only the result, its decision
+    // left to the review bar and the AI card). A kept sentence is simply
+    // the original again.
+    if (display === "new" || display === "final") {
+      if (state === "kept") {
+        if (c.from < c.to && display === "new")
+          decos.push(
+            Decoration.inline(c.from, c.to, {
+              class: "pending-sentence-kept-original",
+              "data-call": p.callId,
+              "data-index": String(index),
+            }),
+          );
+        else if (display === "new")
+          decos.push(mark("pending-insert-mark pending-sentence-kept"));
+        return;
+      }
+      if (c.from < c.to)
+        decos.push(
+          Decoration.inline(c.from, c.to, { class: "pending-sentence-hidden" }),
+        );
+      if (c.after.trim())
+        decos.push(
+          Decoration.widget(
+            c.to,
+            () => {
+              const span = document.createElement("span");
+              span.className = `pending-insert pending-sentence-new pending-sentence-${state}${display === "final" ? " pending-sentence-final" : ""}${isFocused ? " pending-sentence-focus" : ""}`;
+              span.contentEditable = "false";
+              span.dataset.call = p.callId;
+              span.dataset.index = String(index);
+              span.setAttribute("style", stagger);
+              span.innerHTML = renderMarkdownInlineHtml(c.after.trim());
+              return span;
+            },
+            {
+              side: 1,
+              key: `pending-new-${p.callId}-${index}-${state}-${isFocused}-${display}`,
+            },
+          ),
+        );
+      else if (display === "new")
+        decos.push(mark(`pending-delete-mark pending-sentence-${state}`));
+      return;
+    }
+    if (c.after.trim())
+      decos.push(
+        Decoration.widget(
+          c.to,
+          () => {
+            const span = document.createElement("span");
+            span.className = `pending-insert pending-sentence-new pending-sentence-${state}${isFocused ? " pending-sentence-focus" : ""}`;
+            span.contentEditable = "false";
+            span.setAttribute("style", stagger);
+            span.innerHTML = renderMarkdownInlineHtml(c.after.trim());
+            return span;
+          },
+          {
+            side: 1,
+            key: `pending-new-${p.callId}-${index}-${state}-${isFocused}`,
+          },
+        ),
+      );
+    decos.push(
+      Decoration.widget(
+        c.to,
+        () => {
+          const pick = document.createElement("span");
+          pick.className = `pending-pick pending-pick-${state}`;
+          pick.contentEditable = "false";
+          pick.setAttribute("style", stagger);
+          const button = (take: boolean) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = take ? "pending-pick-take" : "pending-pick-keep";
+            b.innerHTML = take ? CHECK_SVG : CROSS_SVG;
+            const label = take ? labels.take : labels.keep;
+            b.title = label;
+            b.setAttribute("aria-label", label);
+            b.setAttribute("aria-pressed", String(c.take === take));
+            // The caret stays where it was: a click here decides, it
+            // doesn't move into the text.
+            b.addEventListener("mousedown", (e) => e.preventDefault());
+            b.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              hooks.decide(p.callId, index, c.take === take ? null : take);
+            });
+            return b;
+          };
+          pick.append(button(true), button(false));
+          return pick;
+        },
+        {
+          side: 2,
+          key: `pending-pick-${p.callId}-${index}-${state}`,
+          ignoreSelection: true,
+          stopEvent: () => true,
+        },
+      ),
+    );
+  });
+  return decos;
+}
+
+interface SentenceHooks {
+  /** How a rewrite is drawn (revision-display.ts): Word's markup views. */
+  display: () => RevisionDisplay;
+  labels: () => SentencePickLabels;
+  decide: (callId: string, index: number, take: boolean | null) => void;
+  /** The sentence the review bar points at, outlined in the text. */
+  focused: () => { callId: string; index: number } | null;
+}
+
+function decorationsFor(
+  p: PendingPreview,
+  animate: boolean,
+  hooks: SentenceHooks,
+): Decoration[] {
+  if (p.sentences && !p.streaming)
+    return sentenceDecorations(p, p.sentences.changes, hooks);
   const decos: Decoration[] = [];
   // Only actions that actually remove text get the strikethrough; an
   // insert_before/insert_after keeps the anchor blocks verbatim, so striking
@@ -365,10 +580,11 @@ function buildDecorations(
   doc: ProseNode,
   previews: PendingPreview[],
   animate: boolean,
+  hooks: SentenceHooks,
 ): DecorationSet {
   return DecorationSet.create(
     doc,
-    previews.flatMap((p) => decorationsFor(p, animate)),
+    previews.flatMap((p) => decorationsFor(p, animate, hooks)),
   );
 }
 
@@ -407,6 +623,14 @@ function mapPreviews(
           : tr.mapping.map(p.strikeFrom, -1),
       strikeTo:
         p.strikeTo === undefined ? undefined : tr.mapping.map(p.strikeTo, 1),
+      sentences: p.sentences && {
+        hunks: p.sentences.hunks,
+        changes: p.sentences.changes.map((c) => ({
+          ...c,
+          from: tr.mapping.map(c.from, -1),
+          to: tr.mapping.map(c.to, 1),
+        })),
+      },
     });
   }
   return { survivors, changed };
@@ -447,8 +671,24 @@ export function createPendingEditPlugin(options: {
   /** Live read of the Quick Ask nav bar's current pointer (usePendingEdits'
    *  `focusedPreview`) - see `onAccept`/`onReject` above. */
   getFocusedCallId?: () => string | null;
+  /** A ✓ / ✕ in the text was clicked (usePendingEdits.decide). */
+  onDecide?: (callId: string, index: number, take: boolean | null) => void;
+  /** The ✓ / ✕ buttons' names, read live (the UI language can change). */
+  sentenceLabels?: () => SentencePickLabels;
+  /** The sentence the review bar points at (usePendingEdits). */
+  getFocusedSentence?: () => { callId: string; index: number } | null;
+  /** How a rewrite is drawn, already fallen back to "inline" where there
+   *  is no margin - read live; a "refocus" meta redraws after it changes. */
+  revisionDisplay?: () => RevisionDisplay;
 }) {
   const animate = () => options.animationEnabled?.() ?? false;
+  const hooks: SentenceHooks = {
+    display: () => options.revisionDisplay?.() ?? "inline",
+    labels: () =>
+      options.sentenceLabels?.() ?? { take: "Accept", keep: "Keep original" },
+    decide: (callId, index, take) => options.onDecide?.(callId, index, take),
+    focused: () => options.getFocusedSentence?.() ?? null,
+  };
   /** Whatever left the preview list takes its typewriter state with it. */
   const dropRemovedAnimations = (
     prev: PendingPreview[],
@@ -486,7 +726,12 @@ export function createPendingEditPlugin(options: {
               ];
               return {
                 previews,
-                decoration: buildDecorations(tr.doc, previews, animate()),
+                decoration: buildDecorations(
+                  tr.doc,
+                  previews,
+                  animate(),
+                  hooks,
+                ),
               };
             }
             if (meta?.type === "settle") {
@@ -501,7 +746,47 @@ export function createPendingEditPlugin(options: {
               );
               return {
                 previews,
-                decoration: buildDecorations(tr.doc, previews, animate()),
+                decoration: buildDecorations(
+                  tr.doc,
+                  previews,
+                  animate(),
+                  hooks,
+                ),
+              };
+            }
+            if (meta?.type === "decide") {
+              const previews = prev.previews.map((p) =>
+                p.callId === meta.callId && p.sentences
+                  ? {
+                      ...p,
+                      sentences: {
+                        hunks: p.sentences.hunks,
+                        changes: p.sentences.changes.map((c, i) =>
+                          i === meta.index ? { ...c, take: meta.take } : c,
+                        ),
+                      },
+                    }
+                  : p,
+              );
+              return {
+                previews,
+                decoration: buildDecorations(
+                  tr.doc,
+                  previews,
+                  animate(),
+                  hooks,
+                ),
+              };
+            }
+            if (meta?.type === "refocus") {
+              return {
+                previews: prev.previews,
+                decoration: buildDecorations(
+                  tr.doc,
+                  prev.previews,
+                  animate(),
+                  hooks,
+                ),
               };
             }
             if (meta?.type === "remove") {
@@ -519,7 +804,12 @@ export function createPendingEditPlugin(options: {
               dropRemovedAnimations(prev.previews, previews);
               return {
                 previews,
-                decoration: buildDecorations(tr.doc, previews, animate()),
+                decoration: buildDecorations(
+                  tr.doc,
+                  previews,
+                  animate(),
+                  hooks,
+                ),
               };
             }
             if (meta?.type === "clear") {
@@ -547,7 +837,12 @@ export function createPendingEditPlugin(options: {
               dropRemovedAnimations(prev.previews, survivors);
               return {
                 previews: survivors,
-                decoration: buildDecorations(tr.doc, survivors, animate()),
+                decoration: buildDecorations(
+                  tr.doc,
+                  survivors,
+                  animate(),
+                  hooks,
+                ),
               };
             }
             return prev;

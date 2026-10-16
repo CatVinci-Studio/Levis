@@ -33,7 +33,8 @@
   --editor-accent: #9a5628;
   --editor-code-bg: #f1e9d8;
   /* The CJK faces follow <html lang> (App.css). */
-  --editor-font: Georgia, var(--font-cjk-serif), serif;
+  --editor-font:
+    var(--font-cjk-punct-serif), Georgia, var(--font-cjk-serif), serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -68,7 +69,9 @@
   --editor-quote-border: #3568d4;
   --editor-accent: #3467d2;
   --editor-code-bg: #eef1f5;
-  --editor-font: -apple-system, "Inter", var(--font-text-sans), sans-serif;
+  --editor-font:
+    var(--font-cjk-punct), -apple-system, "Inter", var(--font-text-sans),
+    sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -103,7 +106,9 @@
   --editor-quote-border: #4c7a4c;
   --editor-accent: #487448;
   --editor-code-bg: #e9efe3;
-  --editor-font: -apple-system, "Inter", var(--font-text-sans), sans-serif;
+  --editor-font:
+    var(--font-cjk-punct), -apple-system, "Inter", var(--font-text-sans),
+    sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {

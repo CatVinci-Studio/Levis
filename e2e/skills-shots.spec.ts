@@ -5,7 +5,7 @@ import { openApp, PHONE } from "./helpers";
 // four UI languages, desktop and phone - for review, not a baseline. Runs
 // only with LEVIS_SHOTS_DIR set to where the PNGs go:
 //
-//   LEVIS_SHOTS_DIR=../levis-shots/creative npx playwright test skills-shots
+//   LEVIS_SHOTS_DIR=../assets/creative npx playwright test skills-shots
 
 const DIR = process.env.LEVIS_SHOTS_DIR;
 const LANGUAGES = ["zh", "en", "ja", "de"];

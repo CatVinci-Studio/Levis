@@ -1,6 +1,8 @@
 import { useRef, type CSSProperties } from "react";
 import { useViewportClamp } from "../utils/useViewportClamp";
 import { usePresenceProps } from "../ui/usePresence";
+import { ChevronIcon } from "../ui/icons";
+import type { GrammarKind } from "./grammar-kind";
 import "./GrammarPopover.css";
 
 export interface GrammarPopoverInfo {
@@ -12,27 +14,64 @@ export interface GrammarPopoverInfo {
   suggestion: string;
   /** Exact text the range must still contain for Apply to act. */
   original?: string;
+  /** What kind of slip it is (grammar-kind.ts), for the label. */
+  kind: GrammarKind;
+  /** How the card shows the fix when it differs from what is replaced (a
+   *  one-character CJK fix, shown with its neighbour). */
+  shownOriginal?: string;
+  shownSuggestion?: string;
+  /** Where it stands among the paragraph's underlines. */
+  index: number;
+  count: number;
+}
+
+export interface GrammarPopoverLabels {
+  grammarKinds: Record<GrammarKind, string>;
+  /** "Change to “{s}”". */
+  grammarApplyTo: string;
+  grammarApply: string;
+  grammarIgnore: string;
+  grammarPrevious: string;
+  grammarNext: string;
 }
 
 interface GrammarPopoverProps {
   info: GrammarPopoverInfo;
-  applyLabel: string;
-  ignoreLabel: string;
+  labels: GrammarPopoverLabels;
   /** Why the last Apply click did nothing (stale text) - shown in place of the button. */
   error: string | null;
   onApply: () => void;
   onIgnore: () => void;
+  onStep: (delta: 1 | -1) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
 
+/** "Change to “毕竟”" - or plain "Apply" for a fix that deletes, or one too
+ *  long to name on a button. */
+export function applyLabel(
+  labels: Pick<GrammarPopoverLabels, "grammarApplyTo" | "grammarApply">,
+  suggestion: string,
+): string {
+  const s = suggestion.trim();
+  return s && [...s].length <= 16
+    ? labels.grammarApplyTo.replace("{s}", s)
+    : labels.grammarApply;
+}
+
+/**
+ * The card under a grammar underline: what kind of slip it is, the wrong
+ * words → the fix, the checker's note, then the fix itself as the button
+ * (Alt+Enter, written on it) beside Ignore. With more than one underline
+ * in the paragraph, ‹ 1/3 › steps between them.
+ */
 export function GrammarPopover({
   info,
-  applyLabel,
-  ignoreLabel,
+  labels,
   error,
   onApply,
   onIgnore,
+  onStep,
   onMouseEnter,
   onMouseLeave,
 }: GrammarPopoverProps) {
@@ -52,21 +91,50 @@ export function GrammarPopover({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="grammar-popover-issue">{info.issue}</div>
-      <div className="grammar-popover-suggestion">{info.suggestion}</div>
+      <div className="grammar-popover-head">
+        <span className={`grammar-kind grammar-kind-${info.kind}`}>
+          {labels.grammarKinds[info.kind]}
+        </span>
+        <span className="grammar-popover-fix">
+          {info.original && <s>{info.shownOriginal ?? info.original}</s>}
+          {info.original && <span aria-hidden="true"> → </span>}
+          <b>{info.shownSuggestion ?? (info.suggestion || "\u2205")}</b>
+        </span>
+        {info.count > 1 && (
+          <span className="grammar-popover-nav">
+            <button
+              type="button"
+              aria-label={labels.grammarPrevious}
+              title={labels.grammarPrevious}
+              onClick={() => onStep(-1)}
+            >
+              <ChevronIcon className="grammar-popover-prev" />
+            </button>
+            <span>
+              {info.index + 1}/{info.count}
+            </span>
+            <button
+              type="button"
+              aria-label={labels.grammarNext}
+              title={labels.grammarNext}
+              onClick={() => onStep(1)}
+            >
+              <ChevronIcon />
+            </button>
+          </span>
+        )}
+      </div>
+      {info.issue && <div className="grammar-popover-issue">{info.issue}</div>}
       {error ? (
         <div className="grammar-popover-error">{error}</div>
       ) : (
         <div className="grammar-popover-actions">
-          <button
-            className="grammar-popover-apply"
-            onClick={onApply}
-            title="Alt+Enter"
-          >
-            {applyLabel}
+          <button className="grammar-popover-apply" onClick={onApply}>
+            {applyLabel(labels, info.shownSuggestion ?? info.suggestion)}
+            <kbd>Alt+Enter</kbd>
           </button>
           <button className="grammar-popover-ignore" onClick={onIgnore}>
-            {ignoreLabel}
+            {labels.grammarIgnore}
           </button>
         </div>
       )}

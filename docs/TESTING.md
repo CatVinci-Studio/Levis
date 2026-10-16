@@ -8,6 +8,7 @@ cd src-tauri && cargo test --workspace # app crate + aicompat
 npm run test:visual                    # Playwright: the UI in Chromium
 scripts/smoke-linux.sh --build         # the built Linux app and its .deb
 npm run screenshots:readme             # regenerate the README screenshots
+npm run screenshots:website            # the website's app screenshots (e2e/website/)
 cd src-tauri && cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
                                        # real Anthropic API (costs money - docs/AI-EVAL.md)
 ```

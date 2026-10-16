@@ -47,6 +47,7 @@ import { useTutorial } from "./onboarding/useTutorial";
 import { TutorialExperience } from "./onboarding/TutorialExperience";
 import { SIDEBAR_TAB } from "./onboarding/tutorial-evaluation";
 import { LanguageWelcome } from "./onboarding/LanguageWelcome";
+import { useTextusNotice } from "./settings/textus-notice";
 import { useTutorialDocumentEvaluation } from "./onboarding/useTutorialDocumentEvaluation";
 import { TabBar } from "./TabBar";
 import { countWords } from "./utils/word-count";
@@ -211,6 +212,17 @@ function App() {
   const appUpdate = useAppUpdate();
   useZoom(settings.zoom, (zoom) => setSettings({ zoom }));
   const tutorial = useTutorial();
+  // Levis 0.9.8, the last Levis: once, the news that it is now Textus.
+  const markTextusNoticeShown = useCallback(
+    () => setSettings({ textusNoticeShown: true }),
+    [setSettings],
+  );
+  useTextusNotice(
+    t,
+    settings.languageChosen && !tutorial.active,
+    settings.textusNoticeShown,
+    markTextusNoticeShown,
+  );
   const startTutorial = tutorial.start;
   const stopTutorial = tutorial.exit;
   const evaluateTutorialDocumentChange = useTutorialDocumentEvaluation(

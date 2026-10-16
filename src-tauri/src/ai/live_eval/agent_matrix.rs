@@ -426,9 +426,9 @@ fn structure_cases() -> Vec<AgentCase> {
     let code = section("```python", "1)\n```");
     let mermaid = section("```mermaid", "Log store]\n```");
     let details = section("<details>", "</details>");
-    // The editor writes the alert marker escaped (`> \[!NOTE]`) - what the
+    // The alert marker as the editor writes it (`> [!NOTE]`) - what the
     // model sees in the app.
-    let note = section("> \\[!NOTE]", "today.");
+    let note = section("> [!NOTE]", "today.");
     let front = section("---\ntitle", "sync]\n---");
     let image = section("![Architecture", "architecture.png)");
 

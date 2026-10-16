@@ -13,7 +13,7 @@ import { parseProposal } from "./proposal";
 import { refusedProposalIds } from "../proposal-status";
 import { classifyAiError, type AiErrorKind } from "../error-messages";
 import { diffLines } from "./line-diff";
-import { composeSentences, diffSentences } from "./sentence-diff";
+import type { PendingSentence } from "../pending-edit-plugin";
 import { FlipOnChange } from "../../ui/flip";
 
 /** The statuses a card reaches by being decided, which collapse it. */
@@ -41,37 +41,6 @@ function parseComment(
   }
 }
 
-/**
- * Partial acceptance of a rewrite: the changed sentences (groups), for the
- * card to offer each with a checkbox. Null when there are fewer than two -
- * one change is just Accept or Reject.
- */
-function useSentenceChanges(
-  callId: string,
-  proposal: EditProposal,
-  original: ((callId: string) => string | null) | undefined,
-  /** Only a pending proposal has a preview to read the original from. */
-  pending: boolean,
-) {
-  return useMemo(() => {
-    if (
-      !pending ||
-      !original ||
-      (proposal.action !== "replace" && proposal.action !== "replace_selection")
-    )
-      return null;
-    const before = original(callId);
-    if (before === null || proposal.text === undefined) return null;
-    const hunks = diffSentences(before, proposal.text);
-    const changes = hunks.filter((h) => h.kind === "change");
-    return changes.length < 2 ? null : { hunks, changes };
-    // The original is read once the preview is pending (`original` arrives
-    // then); it can't change while it stays pending - the preview would be
-    // dropped.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callId, proposal, pending]);
-}
-
 export interface ChatMessagesLabels extends AgentTurnLabels {
   thinking: string;
   proposalTitle: string;
@@ -88,18 +57,24 @@ export interface ChatMessagesLabels extends AgentTurnLabels {
   diffShow: string;
   actionNames: Record<EditAction, string>;
   retry: string;
-  /** "Choose sentences ({n})" toggle on a multi-sentence rewrite. */
-  proposalPickSentences: string;
-  /** The Accept button while only some sentence changes are ticked:
-   *  "{k}" of "{n}". */
+  /** The Accept button while some sentences are kept as written: "{k}" of
+   *  "{n}". */
   proposalAcceptSome: string;
-  /** An add_comment card's jump-to-passage button. */
+  /** How many sentences a rewrite changes: "{n} changes". */
+  proposalChangeCount: string;
+  /** The ✓ / ✕ on a sentence (the card's and the text's). */
+  proposalTakeSentence: string;
+  proposalKeepSentence: string;
+  /** Scrolls the document to the proposal. */
+  proposalShowInText: string;
+  /** An add_comment card's title and jump-to-passage link. */
+  commentTitle: string;
   commentLocate: string;
   /** Plain-language help per kind of provider failure (ErrorRow). */
   aiErrors: Record<AiErrorKind, string>;
 }
 
-interface ChatMessagesProps {
+export interface ChatMessagesProps {
   history: AgentTurn[];
   /** Live view of the in-flight exchange (turns landed so far + assistant
    *  prose being generated). Null when idle - and on providers without
@@ -112,10 +87,19 @@ interface ChatMessagesProps {
   proposalStatus: (callId: string) => PendingStatus;
   /** `text`: a partial acceptance - see useSentenceChanges. */
   onAcceptProposal: (callId: string, text?: string) => void;
-  /** What a pending rewrite would replace (usePendingEdits.originalText);
-   *  absent where the document isn't reachable (the detached window), which
-   *  hides the per-sentence picker. */
-  proposalOriginal?: (callId: string) => string | null;
+  /** A pending rewrite's sentences and the writer's call on each
+   *  (usePendingEdits.sentences); absent where the document isn't reachable
+   *  (the detached window), which shows the card without them. */
+  proposalSentences?: (callId: string) => PendingSentence[] | null;
+  /** A ✓ / ✕ on a card's sentence - the same decision as in the text. */
+  onDecideSentence?: (
+    callId: string,
+    index: number,
+    take: boolean | null,
+  ) => void;
+  /** Scrolls the document to a proposal's sentence (index -1: the whole
+   *  proposal). */
+  onRevealProposal?: (callId: string, index: number) => void;
   /** Jumps to an add_comment card's passage in the document; absent where
    *  the document isn't reachable (the detached window). */
   onLocateText?: (anchor: string, context?: string) => void;
@@ -157,7 +141,9 @@ export function ChatMessages({
   onRejectProposal,
   onRelocateProposal,
   proposalActions = true,
-  proposalOriginal,
+  proposalSentences,
+  onDecideSentence,
+  onRevealProposal,
   onLocateText,
   canRetry,
   onRetry,
@@ -255,7 +241,13 @@ export function ChatMessages({
               style={style}
               selectedText={selectedText}
               labels={labels}
-              original={proposalOriginal}
+              sentences={
+                status === "pending"
+                  ? (proposalSentences?.(turn.call_id) ?? null)
+                  : null
+              }
+              onDecide={onDecideSentence}
+              onReveal={onRevealProposal}
               onAccept={onAcceptProposal}
               onReject={onRejectProposal}
               onRelocate={onRelocateProposal}
@@ -273,21 +265,31 @@ export function ChatMessages({
                 className={`agent-comment${reveal ? " turn-reveal" : ""}`}
                 style={style}
               >
+                <div className="agent-proposal-head">
+                  <span className="agent-comment-icon" aria-hidden="true">
+                    <svg viewBox="0 0 16 16">
+                      <path d="M3 3.5h10v7H7l-3 2.5v-2.5H3z" />
+                    </svg>
+                  </span>
+                  <span className="agent-proposal-title">
+                    {labels.commentTitle}
+                  </span>
+                  {onLocateText && (
+                    <button
+                      type="button"
+                      className="agent-proposal-link agent-proposal-show"
+                      onClick={() =>
+                        onLocateText(comment.anchor, comment.context)
+                      }
+                    >
+                      {labels.commentLocate}
+                    </button>
+                  )}
+                </div>
                 <blockquote className="agent-comment-quote">
                   {comment.anchor}
                 </blockquote>
                 <div className="agent-comment-text">{comment.comment}</div>
-                {onLocateText && (
-                  <button
-                    type="button"
-                    className="inline-chat-action"
-                    onClick={() =>
-                      onLocateText(comment.anchor, comment.context)
-                    }
-                  >
-                    {labels.commentLocate}
-                  </button>
-                )}
               </div>
             );
           }
@@ -381,19 +383,30 @@ export function ErrorRow({
   );
 }
 
+const CHECK = (
+  <svg viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3.5 8.5l3 3 6-7" />
+  </svg>
+);
+const CROSS = (
+  <svg viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M4 4l8 8M12 4l-8 8" />
+  </svg>
+);
+
 /**
- * One propose_edit call: a header with what kind of edit it is and its
- * "+X −Y" size, the model's reason, and one row of controls.
+ * One propose_edit call: what kind of edit it is and how many sentences it
+ * changes, the model's reason, and one row of controls.
  *
- * The full line diff stays collapsed behind the size chips - the document
- * already paints the change as red/green marks. The one state that opens
- * it is `invalid`: an anchor that couldn't be located leaves NO
+ * The document is where an edit is read and decided: the text shows each
+ * changed sentence struck with its replacement and a ✓ / ✕ (pending-edit-
+ * plugin.ts). The card mirrors those sentences as a numbered list with the
+ * same ✓ / ✕ - one decision, shown in both places - and its Accept takes
+ * whatever wasn't kept ("Accept 1 of 2").
+ *
+ * The full line diff stays collapsed behind the size chips. The one state
+ * that opens it is `invalid`: an anchor that couldn't be located leaves NO
  * in-document preview, so the card is then the only view of the content.
- *
- * A rewrite of several sentences can be taken in part: "Choose sentences"
- * lists the changes with checkboxes, and the same Accept button then
- * applies only the ticked ones ("Accept 1 of 2") - one accept button, not
- * a second one for the partial case.
  */
 function ProposalCard({
   callId,
@@ -403,7 +416,9 @@ function ProposalCard({
   style,
   selectedText,
   labels,
-  original,
+  sentences,
+  onDecide,
+  onReveal,
   onAccept,
   onReject,
   onRelocate,
@@ -416,7 +431,9 @@ function ProposalCard({
   style: CSSProperties | undefined;
   selectedText: string | null;
   labels: ChatMessagesLabels;
-  original?: (callId: string) => string | null;
+  sentences: PendingSentence[] | null;
+  onDecide?: (callId: string, index: number, take: boolean | null) => void;
+  onReveal?: (callId: string, index: number) => void;
   onAccept: (callId: string, text?: string) => void;
   onReject: (callId: string) => void;
   onRelocate: (proposal: EditProposal) => void;
@@ -452,17 +469,8 @@ function ProposalCard({
   const added = lines.filter((line) => line.kind === "add").length;
   const removed = lines.filter((line) => line.kind === "remove").length;
 
-  const sentences = useSentenceChanges(
-    callId,
-    proposal,
-    original,
-    status === "pending",
-  );
-  const [picking, setPicking] = useState(false);
-  const [take, setTake] = useState<boolean[]>([]);
-  const chosen = sentences?.changes.map((_, k) => take[k] ?? true) ?? [];
-  const chosenCount = chosen.filter(Boolean).length;
-  const partial = picking && !!sentences && chosenCount < chosen.length;
+  const taken = sentences?.filter((s) => s.take !== false).length ?? 0;
+  const partial = !!sentences && taken < sentences.length;
 
   return (
     <div
@@ -471,27 +479,52 @@ function ProposalCard({
       style={style}
     >
       <div className="agent-proposal-head">
-        <span className="agent-proposal-title">
-          {labels.proposalTitle} · {labels.actionNames[proposal.action]}
+        <span className="agent-proposal-icon" aria-hidden="true">
+          {CHECK}
         </span>
-        <button
-          type="button"
-          className="agent-diff-summary"
-          aria-expanded={diffOpen}
-          title={diffOpen ? labels.diffCollapse : labels.diffShow}
-          onClick={() => setDiffOpen(!diffOpen)}
-        >
-          {added > 0 && (
-            <span className="agent-diff-chip agent-diff-add">+{added}</span>
-          )}
-          {removed > 0 && (
-            <span className="agent-diff-chip agent-diff-remove">
-              {"\u2212"}
-              {removed}
-            </span>
-          )}
-          <span className="agent-diff-caret" aria-hidden="true" />
-        </button>
+        <span className="agent-proposal-title">
+          {labels.proposalTitle}
+          <span className="agent-proposal-kind">
+            {" · "}
+            {sentences && sentences.length > 1
+              ? labels.proposalChangeCount.replace(
+                  "{n}",
+                  String(sentences.length),
+                )
+              : labels.actionNames[proposal.action]}
+          </span>
+        </span>
+        {/* Listed sentence by sentence below, the size chips (the full
+            diff's toggle) only crowd the head - kept for the rest. */}
+        {!(sentences && sentences.length > 1) && (
+          <button
+            type="button"
+            className="agent-diff-summary"
+            aria-expanded={diffOpen}
+            title={diffOpen ? labels.diffCollapse : labels.diffShow}
+            onClick={() => setDiffOpen(!diffOpen)}
+          >
+            {added > 0 && (
+              <span className="agent-diff-chip agent-diff-add">+{added}</span>
+            )}
+            {removed > 0 && (
+              <span className="agent-diff-chip agent-diff-remove">
+                {"\u2212"}
+                {removed}
+              </span>
+            )}
+            <span className="agent-diff-caret" aria-hidden="true" />
+          </button>
+        )}
+        {status === "pending" && onReveal && (
+          <button
+            type="button"
+            className="agent-proposal-link agent-proposal-show"
+            onClick={() => onReveal(callId, -1)}
+          >
+            {labels.proposalShowInText}
+          </button>
+        )}
       </div>
       {proposal.reason && (
         <div className="agent-proposal-reason">{proposal.reason}</div>
@@ -508,54 +541,68 @@ function ProposalCard({
           ))}
         </div>
       )}
-      {picking && sentences && (
-        <ul className="agent-proposal-picker-list">
-          {sentences.changes.map((hunk, k) => (
-            <li key={k}>
-              <label>
-                <input
-                  type="checkbox"
-                  className="ui-check"
-                  checked={chosen[k]}
-                  onChange={(e) => {
-                    const next = [...chosen];
-                    next[k] = e.target.checked;
-                    setTake(next);
-                  }}
-                />
-                <span>
-                  {hunk.before.trim() && (
-                    <del className="agent-proposal-picker-before">
-                      {hunk.before.trim()}
-                    </del>
-                  )}
-                  {hunk.after.trim() && (
-                    <ins className="agent-proposal-picker-after">
-                      {hunk.after.trim()}
-                    </ins>
-                  )}
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
+      {sentences && sentences.length > 1 && (
+        <ol className="agent-proposal-sentences">
+          {sentences.map((s, k) => {
+            const state =
+              s.take === false ? "kept" : s.take === true ? "taken" : "open";
+            return (
+              <li key={k} data-state={state}>
+                <button
+                  type="button"
+                  className="agent-proposal-sentence"
+                  onClick={() => onReveal?.(callId, k)}
+                >
+                  <span className="agent-proposal-num">{k + 1}</span>
+                  <span className="agent-proposal-sentence-text">
+                    {(state === "kept" ? s.before : s.after).trim() ||
+                      s.before.trim()}
+                  </span>
+                </button>
+                {actions && onDecide && (
+                  <span className="agent-proposal-pick">
+                    <button
+                      type="button"
+                      className="pending-pick-take"
+                      aria-pressed={s.take === true}
+                      aria-label={labels.proposalTakeSentence}
+                      title={labels.proposalTakeSentence}
+                      onClick={() =>
+                        onDecide(callId, k, s.take === true ? null : true)
+                      }
+                    >
+                      {CHECK}
+                    </button>
+                    <button
+                      type="button"
+                      className="pending-pick-keep"
+                      aria-pressed={s.take === false}
+                      aria-label={labels.proposalKeepSentence}
+                      title={labels.proposalKeepSentence}
+                      onClick={() =>
+                        onDecide(callId, k, s.take === false ? null : false)
+                      }
+                    >
+                      {CROSS}
+                    </button>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
       )}
       {status === "pending" ? (
         actions && (
           <div className="agent-proposal-actions">
             <button
               className="inline-chat-action inline-chat-action-primary"
-              disabled={partial && chosenCount === 0}
-              onClick={() =>
-                partial && sentences
-                  ? onAccept(callId, composeSentences(sentences.hunks, chosen))
-                  : onAccept(callId)
-              }
+              onClick={() => onAccept(callId)}
             >
-              {partial
+              {partial && sentences
                 ? labels.proposalAcceptSome
-                    .replace("{k}", String(chosenCount))
-                    .replace("{n}", String(chosen.length))
+                    .replace("{k}", String(taken))
+                    .replace("{n}", String(sentences.length))
                 : labels.proposalAccept}
             </button>
             <button
@@ -564,19 +611,6 @@ function ProposalCard({
             >
               {labels.proposalReject}
             </button>
-            {sentences && (
-              <button
-                type="button"
-                className="agent-proposal-link agent-proposal-picker-toggle"
-                aria-expanded={picking}
-                onClick={() => setPicking(!picking)}
-              >
-                {labels.proposalPickSentences.replace(
-                  "{n}",
-                  String(sentences.changes.length),
-                )}
-              </button>
-            )}
           </div>
         )
       ) : status === "invalid" ? (

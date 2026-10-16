@@ -9,7 +9,10 @@ import {
   type NewDocumentMode,
   type ContentWidth,
   type ProxyType,
+  REVISION_DISPLAYS,
+  type RevisionDisplay,
 } from "./SettingsContext";
+import { revisionDisplayName } from "../ai/revision-display";
 import { LANGS, LANG_NAMES, type Lang, type TextKey } from "../i18n/strings";
 import {
   SettingRow,
@@ -18,7 +21,11 @@ import {
   VERBATIM_INPUT,
 } from "./sections/controls";
 import { ChevronIcon, CloseIcon } from "../ui/icons";
-import { UpdateSection, CliCommandSection } from "./sections/general";
+import {
+  UpdateSection,
+  CliCommandSection,
+  TextusNoticeSection,
+} from "./sections/general";
 import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
@@ -196,6 +203,7 @@ export function SettingsPanel({
 
           <SettingsGroup title={t.generalSystemLabel}>
             {canInstallCliCommand && <CliCommandSection t={t} />}
+            <TextusNoticeSection t={t} />
             <UpdateSection t={t} />
           </SettingsGroup>
         </>
@@ -388,6 +396,24 @@ export function SettingsPanel({
                     <option value="ask">{t.agentModeAsk}</option>
                     <option value="edit">{t.agentModeEdit}</option>
                     <option value="plan">{t.agentModePlan}</option>
+                  </Select>
+                </SettingRow>
+                <SettingRow label={t.revisionDisplayLabel}>
+                  <Select
+                    className="settings-select"
+                    aria-label={t.revisionDisplayLabel}
+                    value={settings.revisionDisplay}
+                    onChange={(e) =>
+                      setSettings({
+                        revisionDisplay: e.target.value as RevisionDisplay,
+                      })
+                    }
+                  >
+                    {REVISION_DISPLAYS.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {revisionDisplayName(t, mode)}
+                      </option>
+                    ))}
                   </Select>
                 </SettingRow>
                 <ToggleRow
