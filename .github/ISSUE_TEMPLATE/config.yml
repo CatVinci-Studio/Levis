@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions and chat / 提问与交流
+    url: https://textus.catvinci.com/discord
+    about: Ask how to do something, or talk with other people who use Textus, on our Discord. / 使用问题和交流，请到我们的 Discord。
   - name: Website / 官网
     url: https://textus.catvinci.com
     about: Downloads and an overview of what the app does. / 下载与功能介绍。
