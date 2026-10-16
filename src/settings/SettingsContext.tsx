@@ -147,6 +147,9 @@ export interface Settings {
   /** False only on a fresh install, until the language welcome screen is
    *  confirmed. Existing installations are migrated to true. */
   languageChosen: boolean;
+  /** The "Levis is now Textus" notice was seen (Levis 0.9.8, the last
+   *  Levis - settings/textus-notice.ts). */
+  textusNoticeShown: boolean;
   /// Appearance: follow the OS, or pin light/dark. Independent of `themeId`.
   theme: ThemeMode;
   enableCompletion: boolean;
@@ -262,6 +265,7 @@ export interface Settings {
 const DEFAULT_SETTINGS: Settings = {
   language: "en",
   languageChosen: false,
+  textusNoticeShown: false,
   theme: "system",
   enableCompletion: true,
   enableGrammarCheck: true,

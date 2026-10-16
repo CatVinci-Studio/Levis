@@ -113,6 +113,7 @@ const SETTINGS = {
   language: "ja",
   languageChosen: true,
   onboardingShown: true,
+  textusNoticeShown: true,
   theme: "dark",
   themeId: "paper",
   contentWidth: "full",

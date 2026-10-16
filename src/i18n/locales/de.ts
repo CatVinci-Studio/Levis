@@ -212,6 +212,14 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   outlineCollapse: "Einklappen",
   outlineExpand: "Ausklappen",
   wordsUnit: "Wörter",
+  textusNoticeTitle: "Aus Levis wird Textus",
+  textusNoticeText:
+    "Textus ist die neue Version von Levis, mit neuem Namen und neuem Symbol. Dies ist die letzte Version von Levis. Deine Dokumente bleiben, wo sie sind, und beim ersten Start bietet Textus an, deine Einstellungen, deinen Verlauf und deine Schlüssel zu übernehmen.",
+  textusNoticeOk: "Textus holen",
+  textusNoticeLater: "Später",
+  textusNoticeRow: "Aus Levis wird Textus",
+  textusNoticeRowHint:
+    "Dies ist die letzte Version von Levis. Textus übernimmt deine Einstellungen, deinen Verlauf und deine Schlüssel.",
   alertNote: "Hinweis",
   alertTip: "Tipp",
   alertImportant: "Wichtig",

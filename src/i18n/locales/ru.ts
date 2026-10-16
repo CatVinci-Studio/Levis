@@ -216,6 +216,14 @@ export default {
   outlineCollapse: "Свернуть",
   outlineExpand: "Развернуть",
   wordsUnit: "сл.",
+  textusNoticeTitle: "Levis теперь Textus",
+  textusNoticeText:
+    "Textus — новая версия Levis, с новым названием и значком. Это последняя версия Levis. Ваши документы остаются на своих местах, а при первом запуске Textus предложит перенести настройки, историю и ключи.",
+  textusNoticeOk: "Скачать Textus",
+  textusNoticeLater: "Позже",
+  textusNoticeRow: "Levis теперь Textus",
+  textusNoticeRowHint:
+    "Это последняя версия Levis. Textus может перенести ваши настройки, историю и ключи.",
   alertNote: "Примечание",
   alertTip: "Совет",
   alertImportant: "Важно",

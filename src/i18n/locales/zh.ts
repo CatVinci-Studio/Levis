@@ -197,6 +197,14 @@ export default {
   outlineCollapse: "折叠",
   outlineExpand: "展开",
   wordsUnit: "字",
+  textusNoticeTitle: "Levis 已升级为 Textus",
+  textusNoticeText:
+    "Textus 是 Levis 的新版本，换了新名字和新图标。这是 Levis 的最后一个版本。你的文档都留在原处；Textus 首次启动时，会提示你导入设置、历史记录和密钥。",
+  textusNoticeOk: "获取 Textus",
+  textusNoticeLater: "以后再说",
+  textusNoticeRow: "Levis 已升级为 Textus",
+  textusNoticeRowHint:
+    "这是 Levis 的最后一个版本。Textus 可以导入你的设置、历史记录和密钥。",
   alertNote: "备注",
   alertTip: "提示",
   alertImportant: "重要",

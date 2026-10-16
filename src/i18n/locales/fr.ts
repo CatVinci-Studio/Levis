@@ -225,6 +225,14 @@ utiliser une.
   outlineCollapse: "Replier",
   outlineExpand: "Déplier",
   wordsUnit: "mots",
+  textusNoticeTitle: "Levis devient Textus",
+  textusNoticeText:
+    "Textus est la nouvelle version de Levis, avec un nouveau nom et une nouvelle icône. Ceci est la dernière version de Levis. Vos documents restent où ils sont, et au premier lancement, Textus propose de récupérer vos réglages, votre historique et vos clés.",
+  textusNoticeOk: "Obtenir Textus",
+  textusNoticeLater: "Plus tard",
+  textusNoticeRow: "Levis devient Textus",
+  textusNoticeRowHint:
+    "Ceci est la dernière version de Levis. Textus peut récupérer vos réglages, votre historique et vos clés.",
   alertNote: "Remarque",
   alertTip: "Astuce",
   alertImportant: "Important",
