@@ -816,12 +816,17 @@ pub fn boot_script(app: &AppHandle, label: &str) -> String {
     let (settings, rev) = stores.settings.snapshot();
     let (ui_state, _) = stores.ui_state.snapshot();
     let theme_css = user_theme_css(app, &settings);
+    #[cfg(target_os = "macos")]
+    let titlebar_height = crate::native_titlebar_height();
+    #[cfg(not(target_os = "macos"))]
+    let titlebar_height: Option<f64> = None;
     let boot = json!({
         "settings": settings,
         "rev": rev,
         "uiState": ui_state,
         "legacyImport": stores.legacy_import_pending(),
         "label": label,
+        "titlebarHeight": titlebar_height,
     });
     format!(
         "{}\n;window.__textusBoot({boot}, {theme_css});",

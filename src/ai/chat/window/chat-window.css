@@ -32,6 +32,12 @@
   padding: 0 6px;
 }
 
+/* Level with the traffic lights, as the editor's .window-bar is
+   (app/window-bar.css). */
+:root[data-window-chrome="native"] .chat-window-header {
+  padding-top: max(0px, var(--native-titlebar-height, 28px) - 28px);
+}
+
 /* This row's padding is 6px, not the editor bar's 12px, so the caption's
    edge-to-edge offset has to be re-cancelled to match. */
 :root[data-window-chrome="app"] .chat-window-header .window-caption {

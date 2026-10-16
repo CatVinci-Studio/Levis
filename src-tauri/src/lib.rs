@@ -278,6 +278,39 @@ pub(crate) fn build_with_app_chrome(
     Ok(window)
 }
 
+/// The height of a native title bar, in points: what the traffic lights are
+/// centred in, under the overlay title bar as much as in a plain one. 28 up
+/// to macOS 15, 32 from macOS 26 - where the lights came out 2pt below the
+/// title of our 28px row. The boot script hands it to the frontend
+/// (`--native-titlebar-height`, app/window-bar.css), which lines the row's
+/// contents up with the lights.
+///
+/// Asked of AppKit rather than keyed off the OS version, and moving our row
+/// rather than the lights: Tauri's `traffic_light_position` did nothing on
+/// macOS 26 (AppKit lays the title bar out again once the window shows).
+///
+/// AppKit wants the main thread. The main window is built there, in setup,
+/// so the answer is cached before any window built off it (the detached
+/// chat, from an async command) needs one; until then, None - the
+/// stylesheet's 28px.
+#[cfg(target_os = "macos")]
+pub(crate) fn native_titlebar_height() -> Option<f64> {
+    use objc2_app_kit::{NSWindow, NSWindowStyleMask};
+    use objc2_core_foundation::{CGPoint, CGRect, CGSize};
+    static HEIGHT: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    if let Some(height) = HEIGHT.get() {
+        return Some(*height);
+    }
+    let mtm = objc2::MainThreadMarker::new()?;
+    let content = CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(100.0, 100.0));
+    let style = NSWindowStyleMask::Titled
+        | NSWindowStyleMask::Closable
+        | NSWindowStyleMask::Miniaturizable
+        | NSWindowStyleMask::Resizable;
+    let frame = NSWindow::frameRectForContentRect_styleMask(content, style, mtm);
+    Some(*HEIGHT.get_or_init(|| frame.size.height - content.size.height))
+}
+
 /// Whether this process talks to a Wayland compositor rather than X11 (or
 /// XWayland). Wayland has no client-side window positions and no
 /// always-on-top, which the detached chat relies on elsewhere.
