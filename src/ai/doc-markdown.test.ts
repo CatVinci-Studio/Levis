@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { Schema } from "@milkdown/kit/prose/model";
 import {
+  textRange,
   composeMarkdownEdit,
   documentMarkdown,
   findMarkdownMatch,
@@ -261,5 +263,32 @@ describe("findMarkdownMatch typography fallback", () => {
     expect(m).not.toBeNull();
     expect(composeMarkdownEdit(m, "replace", "He waved.")).toBe("He waved.");
     expect(findMarkdownMatch(doc, "Then left;quietly.")).not.toBeNull();
+  });
+});
+
+describe("textRange", () => {
+  const schema = new Schema({
+    nodes: {
+      doc: { content: "paragraph+" },
+      paragraph: { content: "text*" },
+      text: {},
+    },
+  });
+  const p = (t: string) => schema.node("paragraph", null, schema.text(t));
+  // "one" 0..5 (text 1-4), "two" 5..10 (6-9), "six" 10..15 (11-14)
+  const doc = schema.node("doc", null, [p("one"), p("two"), p("six")]);
+
+  it("drops the next paragraph's start a triple click takes in", () => {
+    expect(textRange(doc, 6, 11)).toEqual({ from: 6, to: 9 });
+  });
+
+  it("drops the previous paragraph's end a selection starts at", () => {
+    expect(textRange(doc, 4, 9)).toEqual({ from: 6, to: 9 });
+  });
+
+  it("keeps a range across paragraphs, and one inside a paragraph", () => {
+    expect(textRange(doc, 2, 8)).toEqual({ from: 2, to: 8 });
+    expect(textRange(doc, 1, 14)).toEqual({ from: 1, to: 14 });
+    expect(textRange(doc, 6, 8)).toEqual({ from: 6, to: 8 });
   });
 });

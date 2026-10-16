@@ -175,7 +175,9 @@ export function ProjectBar({
     run(t.projectOpening, async () => {
       setNaming(false);
       setEntryName("");
-      const template = t.projectLibraryTemplate.replace("{name}", name.trim());
+      const template = t.projectLibraryTemplate
+        .split("{name}")
+        .join(name.trim());
       openInTab(
         await ai.ensureProjectFile(
           docPath,

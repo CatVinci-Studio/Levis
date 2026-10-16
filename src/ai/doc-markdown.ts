@@ -2,7 +2,7 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import { isCjk } from "../utils/cjk";
 import { serializerCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
-import type { EditorState } from "@milkdown/kit/prose/state";
+import { Selection, type EditorState } from "@milkdown/kit/prose/state";
 import { escapeRegExp } from "../utils/regexp";
 import type { EditAction } from "./types";
 
@@ -62,12 +62,54 @@ export function readSelection(ctx: Ctx, state: EditorState): SelectionSnapshot {
   if (selection.empty) {
     return { selectedText: null, selectionMarkdown: null, range: null };
   }
-  const range = { from: selection.from, to: selection.to };
+  const range = textRange(doc, selection.from, selection.to);
   return {
     selectedText: doc.textBetween(range.from, range.to, " "),
     selectionMarkdown: serializeRange(ctx, doc, range.from, range.to),
     range,
   };
+}
+
+/**
+ * A selection's bounds without the block edges it only grazes. A triple
+ * click selects a paragraph up to the START of the next one, so the range
+ * crossed a block boundary it didn't mean: the model's rewrite replaced
+ * that boundary too, and accepting it joined the paragraph to the next.
+ * Each end steps back over empty block edges into the text it selected.
+ */
+export function textRange(
+  doc: ProseNode,
+  from: number,
+  to: number,
+): { from: number; to: number } {
+  let end = to;
+  for (;;) {
+    const $end = doc.resolve(end);
+    if (end <= from || !$end.parent.isTextblock || $end.parentOffset > 0) break;
+    const prev = textblockEdge(doc, $end.before(), -1);
+    if (prev === null || prev < from) break;
+    end = prev;
+  }
+  let start = from;
+  for (;;) {
+    const $start = doc.resolve(start);
+    if (
+      start >= end ||
+      !$start.parent.isTextblock ||
+      $start.parentOffset < $start.parent.content.size
+    )
+      break;
+    const next = textblockEdge(doc, $start.after(), 1);
+    if (next === null || next > end) break;
+    start = next;
+  }
+  return start < end ? { from: start, to: end } : { from, to };
+}
+
+/** The end (dir -1) of the textblock before `pos`, or the start (dir 1)
+ *  of the one after it. */
+function textblockEdge(doc: ProseNode, pos: number, dir: -1 | 1) {
+  return Selection.findFrom(doc.resolve(pos), dir, true)?.from ?? null;
 }
 
 /** The innermost heading above `pos` - the section being worked in. */
