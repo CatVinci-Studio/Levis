@@ -348,6 +348,10 @@ export async function exportPdf(tab: DocTab, t: Strings): Promise<void> {
     });
     void exportDoc.revealInDir(picked);
   } catch (err) {
+    // Off before the message: the overlay sits above the app's dialogs, so
+    // left up it covered the error and its button, and the spinner never
+    // stopped (#62).
+    overlay.remove();
     await showMessage(`${t.pdfFailed} ${errorText(err)}`, {
       title: t.exportFailedTitle,
       tone: "error",

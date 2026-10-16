@@ -1,9 +1,28 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../platform/ipc", () => ({ exportDoc: {}, fs: {} }));
+const mocks = vi.hoisted(() => ({
+  exportDoc: {
+    exportSaveDialog: vi.fn(),
+    exportPdfNative: vi.fn(),
+    revealInDir: vi.fn(),
+  },
+  showMessage: vi.fn(),
+}));
 
-import { cloneEditorContent } from "./exporters";
+vi.mock("../platform/ipc", () => ({ exportDoc: mocks.exportDoc, fs: {} }));
+vi.mock("../platform/capabilities", () => ({
+  canExportPdf: true,
+  canExportWithPandoc: true,
+}));
+vi.mock("../ui/app-dialog", () => ({
+  showMessage: mocks.showMessage,
+  showConfirm: vi.fn(),
+}));
+
+import type { Strings } from "../i18n/strings";
+import type { DocTab } from "../document/doc-tabs";
+import { cloneEditorContent, exportPdf } from "./exporters";
 
 function editor(html: string): HTMLElement {
   const root = document.createElement("div");
@@ -65,5 +84,36 @@ describe("cloneEditorContent", () => {
       "inline",
     );
     expect(html).toContain('src="asset://localhost/a.png"');
+  });
+});
+
+describe("exportPdf", () => {
+  const t = {
+    pdfPreparing: "Preparing PDF…",
+    pdfFailed: "Couldn't prepare the PDF:",
+    exportFailedTitle: "Export failed",
+  } as Strings;
+  const tab = { id: "1", path: "/docs/a.md" } as DocTab;
+
+  it("takes the progress overlay down before it reports a failure", async () => {
+    document.body.innerHTML =
+      '<div data-active-tab="true"><div class="milkdown"><p>x</p></div></div>';
+    mocks.exportDoc.exportSaveDialog.mockResolvedValue("/tmp/a.pdf");
+    mocks.exportDoc.exportPdfNative.mockRejectedValue("Printer not found");
+    let overlayUnderMessage: Element | null = null;
+    mocks.showMessage.mockImplementation(async () => {
+      overlayUnderMessage = document.querySelector(".pdf-export-overlay");
+    });
+
+    await exportPdf(tab, t);
+
+    expect(mocks.showMessage).toHaveBeenCalledWith(
+      expect.stringContaining("Printer not found"),
+      expect.objectContaining({ tone: "error" }),
+    );
+    // The overlay sits above the app's dialogs: left up, it covered the
+    // message and its button, and the spinner never stopped (#62).
+    expect(overlayUnderMessage).toBeNull();
+    expect(document.querySelector(".pdf-export-overlay")).toBeNull();
   });
 });
