@@ -52,10 +52,19 @@ export const taskListClickPlugin = $prose(
 const CJK_TASK = /^\s*[【［[]\s*([xX√✓]?)\s*[】］\]]\s*$/;
 const CJK_TASK_PARAGRAPH = /^\s*[-*+]\s*[【［[]\s*([xX√✓]?)\s*[】］\]]\s*$/;
 
-// The document right after a conversion: a space typed while it's still
-// the current one is the separator of "[ ] " (the GFM spelling, which now
-// converts at the "]") and is dropped rather than starting the item.
-const convertedDoc = new WeakMap<EditorView, ProseNode>();
+// The document and caret right after a conversion: a space typed while
+// both are still current is the separator of "[ ] " (the GFM spelling,
+// which now converts at the "]") and is dropped rather than starting the
+// item. The caret too: a click elsewhere changes no document, and the
+// next space typed there was swallowed.
+const converted = new WeakMap<EditorView, { doc: ProseNode; pos: number }>();
+
+function markConverted(view: EditorView) {
+  converted.set(view, {
+    doc: view.state.doc,
+    pos: view.state.selection.head,
+  });
+}
 
 function convertCjkTask(
   view: EditorView,
@@ -79,7 +88,7 @@ function convertCjkTask(
         checked: match[1] !== "",
       });
     view.dispatch(tr.scrollIntoView());
-    convertedDoc.set(view, view.state.doc);
+    markConverted(view);
     return true;
   }
 
@@ -103,7 +112,7 @@ function convertCjkTask(
   // Inside the new paragraph: list, item, paragraph openings.
   tr.setSelection(TextSelection.create(tr.doc, before + 3));
   view.dispatch(tr.scrollIntoView());
-  convertedDoc.set(view, view.state.doc);
+  markConverted(view);
   return true;
 }
 
@@ -113,8 +122,11 @@ export const cjkTaskInputPlugin = $prose(
       props: {
         handleTextInput(view, from, to, text) {
           if (view.composing) return false;
-          const justConverted = convertedDoc.get(view) === view.state.doc;
-          convertedDoc.delete(view);
+          const last = converted.get(view);
+          converted.delete(view);
+          const justConverted =
+            last?.doc === view.state.doc &&
+            last.pos === view.state.selection.head;
           if (justConverted && text === " ") return true;
           const { $from } = view.state.selection;
           if ($from.parent.type.name !== "paragraph") return false;
