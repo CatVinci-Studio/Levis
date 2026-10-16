@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Editor } from "@milkdown/kit/core";
 import { createTestEditor } from "../../document-view/editor-test-harness";
-import { commentCalls, reviewNotesKey } from "./review-notes-plugin";
+import {
+  commentCalls,
+  numberNotes,
+  reviewNotesKey,
+} from "./review-notes-plugin";
 
 let editor: Editor | null = null;
 afterEach(() => {
@@ -40,6 +44,33 @@ describe("review notes", () => {
     ]);
   });
 
+  // The badge "2" is the chat's second note card, wherever in the text
+  // its passage is - and a later note never renumbers the ones on screen.
+  it("are numbered in the order they were left, not by position", () => {
+    const first = numberNotes(
+      [],
+      [
+        { id: "late", from: 40, to: 45, comment: "a" },
+        { id: "early", from: 1, to: 5, comment: "b" },
+      ],
+    );
+    expect(first.map((n) => [n.id, n.num])).toEqual([
+      ["late", 1],
+      ["early", 2],
+    ]);
+    const next = numberNotes(first, [
+      { id: "earliest", from: 0, to: 1, comment: "c" },
+    ]);
+    expect(next.map((n) => [n.id, n.num])).toEqual([
+      ["late", 1],
+      ["early", 2],
+      ["earliest", 3],
+    ]);
+    expect(
+      numberNotes([], [{ id: "x", from: 0, to: 1, comment: "d" }])[0].num,
+    ).toBe(1);
+  });
+
   it("stay on their passage through edits and go with it", async () => {
     editor = await createTestEditor("Alpha beta gamma.\n");
     const state = () =>
@@ -52,7 +83,7 @@ describe("review notes", () => {
       view.dispatch(
         view.state.tr.setMeta(reviewNotesKey, {
           type: "set",
-          notes: [{ id: "n", from: 7, to: 11, comment: "?" }],
+          notes: [{ id: "n", from: 7, to: 11, comment: "?", num: 1 }],
         }),
       );
       view.dispatch(view.state.tr.insertText("Oh ", 1));

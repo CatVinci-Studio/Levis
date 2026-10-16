@@ -169,6 +169,100 @@ test("accepting one of two proposals in a paragraph keeps the other", async ({
   );
 });
 
+test("a narrow window numbers the notes as the chat lists them", async ({
+  page,
+}) => {
+  // No room for a margin: the notes sit behind numbered badges.
+  await page.setViewportSize({ width: 900, height: 780 });
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  await pasteMarkdown(page, "First paragraph here.\n\nSecond paragraph here.");
+  const comment = (id: string, anchor: string, text: string) => [
+    {
+      kind: "ToolCall",
+      call_id: id,
+      name: "add_comment",
+      arguments: JSON.stringify({ anchor, comment: text }),
+    },
+    { kind: "ToolResult", call_id: id, output: "Comment added" },
+  ];
+  // Left in the opposite order to the text's.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "Review" },
+      ...comment("c1", "Second paragraph", "About the second."),
+      ...comment("c2", "First paragraph", "About the first."),
+      { kind: "Assistant", text: "Two notes." },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Review");
+  await composer.press("Enter");
+  const badges = page.locator(".milkdown .review-badge");
+  await expect(badges).toHaveCount(2);
+  // In the text's order: the first paragraph's note was left second.
+  await expect(badges).toHaveText(["2", "1"]);
+  await expect(page.locator(".agent-comment .agent-comment-num")).toHaveText([
+    "1",
+    "2",
+  ]);
+  await expect(page.locator(".agent-comment").first()).toContainText(
+    "About the second.",
+  );
+});
+
+test("an undone edit's card still counts what it removes", async ({ page }) => {
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  await pasteMarkdown(page, "The cat sat on the mat.\n\nThe end.");
+  // A rewrite of the selection: the card compares it with the selection
+  // the request went out with.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      {
+        kind: "User",
+        text: "<selected-text>\nThe cat sat on the mat.\n</selected-text>\n\nFix it",
+      },
+      {
+        kind: "ToolCall",
+        call_id: "u1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace_selection",
+          text: "The cat slept on the mat.",
+        }),
+      },
+      { kind: "ToolResult", call_id: "u1", output: "Edit proposed" },
+      { kind: "Assistant", text: "Done." },
+    ],
+  });
+  await page.locator(".milkdown p").first().click({ clickCount: 3 });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Fix it");
+  await composer.press("Enter");
+  const chips = page.locator(".agent-proposal .agent-diff-summary");
+  await expect(chips).toHaveText("+1−1");
+  await page
+    .locator(".agent-proposal-actions .inline-chat-action-primary")
+    .click();
+  await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
+  await expect(page.locator(".milkdown p").first()).toHaveText(
+    "The cat slept on the mat.",
+  );
+  // Undone, the edit is on offer again; the caret then moves on and
+  // nothing is selected any more.
+  await page.locator(".milkdown .ProseMirror").focus();
+  await page.keyboard.press("Control+z");
+  await expect(page.locator(".agent-proposal-status-accepted")).toHaveCount(0);
+  await page.locator(".milkdown p").last().click();
+  await expect(page.locator(".agent-proposal-actions")).toBeVisible();
+  await expect(chips).toHaveText("+1−1");
+});
+
 test("a broken diagram leaves no mermaid node in the page", async ({
   page,
 }) => {
@@ -523,6 +617,7 @@ test("full-width 【】 turns a line into a task, the way [ ] does", async ({
   await page.keyboard.press("Enter");
   await pasteMarkdown(page, "- 【】");
   await expect(tasks).toHaveCount(2);
+});
 
 test("h4 to h6 are never smaller than the text, and h6 is lighter than h5 (#58)", async ({
   page,
@@ -588,4 +683,28 @@ test("source mode: body-sized text, centred on a whole pixel, unchanged by focus
   expect(after).toEqual(before);
   expect(after.transform).toBe("none");
   expect(after.willChange).toBe("auto");
+});
+
+test("Escape that closes the context menu keeps the grey suggestion", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "The plan");
+  await page.locator(".milkdown p").first().click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" works");
+  const ghost = page.locator(".ghost-text");
+  await expect(ghost).toHaveCount(1);
+  await page.locator(".milkdown p").first().click({ button: "right" });
+  const menu = page.locator(".context-menu");
+  await expect(menu).toBeVisible();
+  // The menu listens from a tick after it opens, and Chromium runs a key
+  // press ahead of a waiting timer: let that tick pass first.
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(ghost).toHaveCount(1);
+  // The next Escape is the editor's again.
+  await page.keyboard.press("Escape");
+  await expect(ghost).toHaveCount(0);
 });

@@ -1089,6 +1089,8 @@ function App() {
       open={agentPresence.mounted}
       setOpen={agentPanel.setOpen}
       container={agentPanelEl}
+      tab={agentPanel.tab}
+      setTab={agentPanel.setTab}
     >
       <FlipOnChange
         watch={`${panelOpen} ${agentPresence.mounted} ${zenMode}`}
