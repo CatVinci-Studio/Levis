@@ -958,9 +958,26 @@
   counter-reset: textus-ol var(--textus-ol-start);
 }
 
+/* No `position: relative` on the item, and that is load-bearing: WebKit
+   (Safari and WebKitGTK alike) commits an IME composition by deleting the
+   preedit first, and when that leaves a POSITIONED element empty it removes
+   the element outright - the <p> and its <li>, the first word typed into a
+   fresh item - so the line split into an empty item plus one with the text
+   (ProseMirror#934; composition-prune-guard-plugin.ts is the fallback). So
+   the markers below are absolutely positioned without a positioned parent:
+   with no top/left they sit at their static position, the start of the
+   item's first line, and margins and a translate place them from there -
+   the same spots the old right: 100% / top offsets gave. prosemirror.css
+   positions every item itself (".ProseMirror li"), hence the override. */
 .milkdown ol > li,
 .milkdown ul > li {
   list-style: none;
+  position: static;
+}
+
+/* A node-selected item still anchors prosemirror.css's outline ::after;
+   there's no composition in progress while a whole item is selected. */
+.milkdown li.ProseMirror-selectednode {
   position: relative;
 }
 
@@ -974,16 +991,16 @@
 .milkdown ol > li::before,
 .milkdown ul > li:not([data-item-type="task"])::before {
   position: absolute;
-  right: 100%;
   pointer-events: none;
 }
 
 /* The gap is the trailing NBSP - the same suffix the native marker carries
-   inside its own box, so right-aligning against the content edge lands the
-   digits where they used to sit rather than at some hand-picked margin. */
+   inside its own box, so right-aligning against the content edge (the
+   translate) lands the digits where they used to sit rather than at some
+   hand-picked margin. */
 .milkdown ol > li::before {
   content: counter(textus-ol) ".\00a0";
-  top: 0;
+  transform: translateX(-100%);
   white-space: nowrap;
 }
 
@@ -991,16 +1008,16 @@
    marker is a geometric shape WebKit paints itself, noticeably larger than
    the bullet characters most text fonts carry - swapping in the glyphs
    visibly shrank every list dot (and made the size depend on the content
-   font). Same box-drawing idiom as the task checkbox below. The `top`
+   font). Same box-drawing idiom as the task checkbox below. The margin-top
    values centre on the first line of a 1.8 line-height row (0.9em minus
    half the shape); like the checkbox's 0.4em, they assume the .milkdown
    line-height. */
 .milkdown ul > li:not([data-item-type="task"])::before {
   content: "";
-  margin-right: 0.4em;
   width: 0.34em;
   height: 0.34em;
-  top: 0.73em;
+  margin-top: 0.73em;
+  transform: translateX(calc(-100% - 0.4em));
   border-radius: 50%;
   background: currentColor;
   box-sizing: border-box;
@@ -1017,20 +1034,19 @@
   border-radius: 0;
   width: 0.3em;
   height: 0.3em;
-  top: 0.75em;
+  margin-top: 0.75em;
 }
 
 .milkdown li[data-item-type="task"] {
   list-style: none;
-  position: relative;
   padding-left: 1.5em;
 }
 
 .milkdown li[data-item-type="task"]::before {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0.4em;
+  margin-left: -1.5em;
+  margin-top: 0.4em;
   width: 0.95em;
   height: 0.95em;
   border: 1.5px solid var(--editor-muted);
@@ -1039,22 +1055,14 @@
   box-sizing: border-box;
 }
 
+/* The tick is part of the box rather than an ::after of its own: an
+   ::after comes after the item's content, so without a positioned item to
+   place it against it would sit below the text instead of in the box. */
 .milkdown li[data-item-type="task"][data-checked="true"]::before {
-  background: var(--editor-accent);
+  background: var(--editor-accent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.2l3.1 3 6-6.2' fill='none' stroke='white' stroke-width='2.3' stroke-linecap='square'/%3E%3C/svg%3E")
+    center / 100% no-repeat;
   border-color: var(--editor-accent);
-}
-
-.milkdown li[data-item-type="task"][data-checked="true"]::after {
-  content: "";
-  position: absolute;
-  left: 0.24em;
-  top: 0.55em;
-  width: 0.5em;
-  height: 0.24em;
-  border-left: 2px solid white;
-  border-bottom: 2px solid white;
-  transform: rotate(-45deg);
-  pointer-events: none;
 }
 
 .milkdown li[data-item-type="task"][data-checked="true"] > p {

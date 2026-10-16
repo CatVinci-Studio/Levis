@@ -745,3 +745,17 @@ test("Escape that closes the context menu keeps the grey suggestion", async ({
   await page.keyboard.press("Escape");
   await expect(ghost).toHaveCount(0);
 });
+
+test("list items aren't positioned, so WebKit's IME commit can't prune them", async ({
+  page,
+}) => {
+  // WebKit removes an element emptied by deleteCompositionText only when
+  // it's positioned (see composition-prune-guard-plugin.ts); the markers
+  // must keep working without it.
+  await openApp(page);
+  await pasteMarkdown(page, "- a\n\n1. b\n\n- [x] c\n");
+  const positions = await page
+    .locator(".milkdown li")
+    .evaluateAll((items) => items.map((li) => getComputedStyle(li).position));
+  expect(positions).toEqual(["static", "static", "static"]);
+});
