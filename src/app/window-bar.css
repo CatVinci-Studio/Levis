@@ -39,6 +39,15 @@
   padding: 0 12px 0 12px;
 }
 
+/* macOS centres the traffic lights in a native title bar, not in this row:
+   28pt tall up to macOS 15, so the two agreed, but 32pt from macOS 26, where
+   the lights sat 2pt below the title. The row keeps its 28px height for the
+   reason above; its contents drop to the lights' centre instead. The boot
+   script sets the variable (native_titlebar_height in src-tauri/src/lib.rs). */
+:root[data-window-chrome="native"] .window-bar {
+  padding-top: max(0px, var(--native-titlebar-height, 28px) - 28px);
+}
+
 /* Modal backdrops stop at the window bar instead of covering it. Where the
    app draws the caption (Windows/Linux) that bar holds the only minimize/
    maximize/close buttons and the window's drag area, so a full-window

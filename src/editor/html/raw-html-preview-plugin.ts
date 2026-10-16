@@ -87,6 +87,22 @@ function fragmentWidget(
   };
 }
 
+const COMMENT_RE = /^(\s*<!--\s*)([\s\S]*?)(\s*-->\s*)$/;
+
+/** Where an HTML node that is one whole comment keeps its text, as offsets
+ *  into it: the body without the markers and the blank lines around it.
+ *  Null for anything else. */
+export function commentParts(
+  text: string,
+): { bodyFrom: number; bodyTo: number } | null {
+  const match = COMMENT_RE.exec(text);
+  // "<!-- a --> <b>x</b> <!-- b -->" isn't one comment: its middle has a
+  // closing marker of its own.
+  if (!match || match[2].includes("-->")) return null;
+  const bodyFrom = match[1].length;
+  return { bodyFrom, bodyTo: bodyFrom + match[2].length };
+}
+
 /** The href of a paired <a ...> open tag, scheme-validated by the same
  *  sanitizer whitelist - shown as a hover title on the styled range. */
 function pairedLinkTitle(openTag: string): string | undefined {
@@ -179,6 +195,30 @@ function decorateTextblock(
 
   for (const item of fragments) {
     if (touches(item.from, item.to)) continue;
+    const comment = commentParts(item.text);
+    if (comment) {
+      // A note to the reader of the source - the project templates
+      // (.textus/style.md, library entries, agent.md) explain themselves
+      // in one, and the AI never sees it. The sanitizer drops comments,
+      // so it used to stay as raw "<!-- … -->"; it reads as a quiet note
+      // instead, its markers back under the caret.
+      const start = item.from + 1;
+      decorations.push(
+        Decoration.inline(start, start + comment.bodyFrom, {
+          class: "raw-html-source-hidden",
+        }),
+        Decoration.inline(start + comment.bodyTo, item.to - 1, {
+          class: "raw-html-source-hidden",
+        }),
+      );
+      if (comment.bodyTo > comment.bodyFrom)
+        decorations.push(
+          Decoration.inline(start + comment.bodyFrom, start + comment.bodyTo, {
+            class: "raw-html-comment",
+          }),
+        );
+      continue;
+    }
     const rendered = renderWhitelistedHtml(item.text);
     // Not whitelisted (or unparsable): raw text stays visible, the
     // existing fallback for anything outside the whitelist.

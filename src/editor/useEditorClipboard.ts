@@ -5,6 +5,7 @@ import { AllSelection } from "@milkdown/kit/prose/state";
 import type { EditorRunner } from "./useEditorRunner";
 import { recordClipboardEntry } from "../clipboard/history";
 import { parseMarkdownSource } from "./markdown/parse-markdown-source";
+import { bareUrl, insertUrlLink } from "./markdown/paste-url";
 
 export interface EditorClipboard {
   copyOrCut: (cut: boolean) => void;
@@ -55,6 +56,11 @@ export function useEditorClipboard(run: EditorRunner): EditorClipboard {
     (text: string) => {
       run((ctx) => {
         const view = ctx.get(editorViewCtx);
+        const url = bareUrl(text);
+        if (url !== null && insertUrlLink(view, url)) {
+          view.focus();
+          return;
+        }
         let inserted = false;
         const doc = parseMarkdownSource(ctx, text);
         if (doc && doc.content.size > 0) {

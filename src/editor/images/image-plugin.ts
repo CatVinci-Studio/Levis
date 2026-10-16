@@ -1,7 +1,7 @@
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
-import type { Node as ProseNode } from "@milkdown/kit/prose/model";
+import type { Node as ProseNode, Slice } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { showMessage } from "../../ui/app-dialog";
@@ -9,6 +9,7 @@ import { dirname } from "../../utils/path";
 import { fs } from "../../platform/ipc";
 import type { Settings, ImageNamingMode } from "../../settings/SettingsContext";
 import { isScopedUrl, scopedImageSrc } from "../../platform/ios-files";
+import { imageFilesFromClipboard, imageMimeForPath } from "./pasted-files";
 
 /**
  * Image support, Typora-style, in two halves:
@@ -18,7 +19,9 @@ import { isScopedUrl, scopedImageSrc } from "../../platform/ios-files";
  *   save_pasted_image command, and an image node with the relative
  *   "assets/<name>" src is inserted - so the markdown stays portable.
  *   Unsaved drafts have no folder yet; their images land in the app data
- *   dir with an absolute src instead.
+ *   dir with an absolute src instead, moved next to the document when it
+ *   is first saved (image-migration.ts). An image FILE copied in a file
+ *   manager is stored the same way (pasted-files.ts).
  *
  * - RENDER: the webview can't load local files directly, so a nodeView
  *   rewrites local srcs through Tauri's asset protocol at display time -
@@ -107,7 +110,7 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/tiff": "tiff",
 };
 
-function fileToBase64(file: File): Promise<string> {
+function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -115,7 +118,7 @@ function fileToBase64(file: File): Promise<string> {
       resolve(url.slice(url.indexOf(",") + 1));
     };
     reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(blob);
   });
 }
 
@@ -139,56 +142,170 @@ function automaticImageStem(): string {
   return `${stamp}-${random}`;
 }
 
-export function imageStemForMode(file: File, mode: ImageNamingMode): string {
+export function imageStemForMode(
+  file: { name: string },
+  mode: ImageNamingMode,
+): string {
   return mode === "auto" ? automaticImageStem() : safeImageStem(file.name);
+}
+
+/** An image to store. Its bytes are read only once it is known to be
+ *  wanted, since a file-manager copy only names a file on disk. */
+interface PastedImage {
+  name: string;
+  type: string;
+  base64: () => Promise<string>;
+}
+
+interface ImageStore {
+  docPath: () => string | null;
+  settings: () => Settings;
+  requestName: (stem: string, extension: string) => Promise<string | null>;
+  onError: () => string;
+}
+
+/** Saves one image the way Settings > Images says - into the document's
+ *  assets/ folder, or up to the image host - and returns the src to
+ *  write; null when it can't be stored or the user cancelled naming it. */
+async function storeImage(
+  image: PastedImage,
+  store: ImageStore,
+): Promise<string | null> {
+  const ext = EXT_BY_MIME[image.type];
+  if (!ext) return null;
+  const current = store.settings();
+  if (current.imageStorageMode === "image-host") {
+    if (!current.imageUploadEndpoint.trim())
+      throw new Error("image host upload endpoint is not configured");
+    let stem = imageStemForMode(image, current.imageNamingMode);
+    if (current.imageNamingMode === "ask") {
+      const chosen = await store.requestName(stem, ext);
+      if (chosen === null) return null;
+      stem = safeImageStem(chosen);
+    }
+    const { src } = await fs.uploadImage(
+      await image.base64(),
+      image.type,
+      `${stem}.${ext}`,
+      current.imageUploadEndpoint,
+      current.imageUploadUrlField || "url",
+    );
+    return src;
+  }
+  const { src } = await fs.savePastedImage(
+    store.docPath(),
+    await image.base64(),
+    ext,
+  );
+  return src;
+}
+
+function reportFailure(err: unknown, store: ImageStore): void {
+  console.error("saving pasted image failed:", err);
+  void showMessage(store.onError(), { tone: "error" });
 }
 
 async function saveAndInsertImages(
   view: EditorView,
-  files: File[],
-  docPath: string | null,
-  settings: () => Settings,
-  requestName: (stem: string, extension: string) => Promise<string | null>,
-  onError: () => string,
+  images: PastedImage[],
+  store: ImageStore,
 ): Promise<void> {
-  for (const file of files) {
-    const ext = EXT_BY_MIME[file.type];
-    if (!ext) continue;
+  for (const image of images) {
     try {
-      const current = settings();
-      const data = await fileToBase64(file);
-      let src: string;
-      if (current.imageStorageMode === "image-host") {
-        if (!current.imageUploadEndpoint.trim())
-          throw new Error("image host upload endpoint is not configured");
-        let stem = imageStemForMode(file, current.imageNamingMode);
-        if (current.imageNamingMode === "ask") {
-          const chosen = await requestName(stem, ext);
-          if (chosen === null) continue;
-          stem = safeImageStem(chosen);
-        }
-        ({ src } = await fs.uploadImage(
-          data,
-          file.type,
-          `${stem}.${ext}`,
-          current.imageUploadEndpoint,
-          current.imageUploadUrlField || "url",
-        ));
-      } else {
-        ({ src } = await fs.savePastedImage(docPath, data, ext));
-      }
-      const image = view.state.schema.nodes.image;
-      if (!image) return;
+      const src = await storeImage(image, store);
+      if (src === null) continue;
+      const node = view.state.schema.nodes.image;
+      if (!node) return;
       view.dispatch(
         view.state.tr
-          .replaceSelectionWith(image.create({ src }))
+          .replaceSelectionWith(node.create({ src }))
           .scrollIntoView(),
       );
     } catch (err) {
-      console.error("saving pasted image failed:", err);
-      void showMessage(onError(), { tone: "error" });
+      reportFailure(err, store);
     }
   }
+}
+
+/** The `blob:` srcs of the images in a slice. */
+function blobImageSrcs(slice: Slice): string[] {
+  const srcs = new Set<string>();
+  slice.content.descendants((node) => {
+    const src: unknown = node.attrs.src;
+    if (
+      node.type.name === "image" &&
+      typeof src === "string" &&
+      src.startsWith("blob:")
+    )
+      srcs.add(src);
+  });
+  return [...srcs];
+}
+
+/**
+ * Stores each `blob:` image a paste just inserted and points it at the
+ * stored copy. WebKitGTK hands a pasted screenshot to the page as HTML -
+ * `<img src="blob:tauri://localhost/...">` - with no image file on the
+ * clipboard event, so the file branch of handlePaste never saw it and the
+ * blob URL went into the markdown: an image that showed until the document
+ * was reopened, and then was gone (issue #59). The blob stays readable
+ * while the page lives, which is all storing it needs.
+ */
+async function storeBlobImages(
+  view: EditorView,
+  srcs: string[],
+  store: ImageStore,
+): Promise<void> {
+  for (const blobSrc of srcs) {
+    try {
+      const blob = await (await fetch(blobSrc)).blob();
+      // WebKit makes these blobs from a bitmap, as PNG; an untyped one is
+      // taken for PNG too rather than left to vanish.
+      const type = blob.type.startsWith("image/") ? blob.type : "image/png";
+      const src = await storeImage(
+        { name: "image", type, base64: () => blobToBase64(blob) },
+        store,
+      );
+      if (src === null) continue;
+      const { tr } = view.state;
+      view.state.doc.descendants((node, pos) => {
+        if (node.type.name === "image" && node.attrs.src === blobSrc)
+          tr.setNodeMarkup(pos, undefined, { ...node.attrs, src });
+      });
+      if (tr.docChanged) view.dispatch(tr);
+    } catch (err) {
+      reportFailure(err, store);
+    }
+  }
+}
+
+/** The link targets of a slice that holds links and nothing else. */
+function onlyLinkHrefs(slice: Slice): string[] {
+  const hrefs: string[] = [];
+  let other = false;
+  slice.content.descendants((node) => {
+    if (other) return false;
+    if (node.isText) {
+      const href = node.marks.find((mark) => mark.type.name === "link")?.attrs
+        .href as string | undefined;
+      if (href) {
+        if (hrefs[hrefs.length - 1] !== href) hrefs.push(href);
+      } else if (node.text?.trim()) other = true;
+    } else if (node.isLeaf && node.type.name !== "hardbreak") other = true;
+    return true;
+  });
+  return other ? [] : hrefs;
+}
+
+/** An image file on disk, read through the backend once it's stored. */
+function fileImage(path: string): PastedImage {
+  return {
+    name: path.slice(
+      Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1,
+    ),
+    type: imageMimeForPath(path) ?? "",
+    base64: () => fs.readBinaryFileBase64(path),
+  };
 }
 
 /** A paragraph holding nothing but images (and line breaks between them):
@@ -332,12 +449,7 @@ function createImageView(
   };
 }
 
-export function createImagePlugin(options: {
-  docPath: () => string | null;
-  settings: () => Settings;
-  requestName: (stem: string, extension: string) => Promise<string | null>;
-  onError: () => string;
-}) {
+export function createImagePlugin(options: ImageStore) {
   return $prose(
     () =>
       new Plugin<DecorationSet>({
@@ -349,25 +461,57 @@ export function createImagePlugin(options: {
         },
         props: {
           decorations: (state) => imageParagraphKey.getState(state),
-          handlePaste(view, event) {
-            const items = Array.from(event.clipboardData?.items ?? []);
-            const files = items
+          handlePaste(view, event, slice) {
+            const data = event.clipboardData;
+            const items = Array.from(data?.items ?? []);
+            let files = items
               .filter(
                 (item) =>
                   item.kind === "file" && item.type.startsWith("image/"),
               )
               .map((item) => item.getAsFile())
               .filter((f): f is File => f !== null);
-            if (files.length === 0) return false;
-            void saveAndInsertImages(
-              view,
-              files,
-              options.docPath(),
-              options.settings,
-              options.requestName,
-              options.onError,
-            );
-            return true;
+            // Some webviews list a pasted file under `files` alone.
+            if (files.length === 0)
+              files = Array.from(data?.files ?? []).filter((f) =>
+                f.type.startsWith("image/"),
+              );
+            if (files.length > 0) {
+              void saveAndInsertImages(
+                view,
+                files.map((file) => ({
+                  name: file.name,
+                  type: file.type,
+                  base64: () => blobToBase64(file),
+                })),
+                options,
+              );
+              return true;
+            }
+
+            // Image files copied in a file manager: inserted as images and
+            // stored like a pasted bitmap, instead of as file:// links.
+            const paths = imageFilesFromClipboard({
+              uriList: data?.getData("text/uri-list"),
+              gnomeCopiedFiles: data?.getData("x-special/gnome-copied-files"),
+              linkHrefs: onlyLinkHrefs(slice),
+            });
+            if (paths.length > 0) {
+              void saveAndInsertImages(view, paths.map(fileImage), options);
+              return true;
+            }
+
+            // A bitmap that reached us as HTML: paste it as it is, so the
+            // image shows at once, then swap its blob: src for a stored one.
+            const blobs = blobImageSrcs(slice);
+            if (blobs.length > 0) {
+              view.dispatch(
+                view.state.tr.replaceSelection(slice).scrollIntoView(),
+              );
+              void storeBlobImages(view, blobs, options);
+              return true;
+            }
+            return false;
           },
           nodeViews: {
             image: (node, view, getPos) =>

@@ -169,6 +169,100 @@ test("accepting one of two proposals in a paragraph keeps the other", async ({
   );
 });
 
+test("a narrow window numbers the notes as the chat lists them", async ({
+  page,
+}) => {
+  // No room for a margin: the notes sit behind numbered badges.
+  await page.setViewportSize({ width: 900, height: 780 });
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  await pasteMarkdown(page, "First paragraph here.\n\nSecond paragraph here.");
+  const comment = (id: string, anchor: string, text: string) => [
+    {
+      kind: "ToolCall",
+      call_id: id,
+      name: "add_comment",
+      arguments: JSON.stringify({ anchor, comment: text }),
+    },
+    { kind: "ToolResult", call_id: id, output: "Comment added" },
+  ];
+  // Left in the opposite order to the text's.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "Review" },
+      ...comment("c1", "Second paragraph", "About the second."),
+      ...comment("c2", "First paragraph", "About the first."),
+      { kind: "Assistant", text: "Two notes." },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Review");
+  await composer.press("Enter");
+  const badges = page.locator(".milkdown .review-badge");
+  await expect(badges).toHaveCount(2);
+  // In the text's order: the first paragraph's note was left second.
+  await expect(badges).toHaveText(["2", "1"]);
+  await expect(page.locator(".agent-comment .agent-comment-num")).toHaveText([
+    "1",
+    "2",
+  ]);
+  await expect(page.locator(".agent-comment").first()).toContainText(
+    "About the second.",
+  );
+});
+
+test("an undone edit's card still counts what it removes", async ({ page }) => {
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  await pasteMarkdown(page, "The cat sat on the mat.\n\nThe end.");
+  // A rewrite of the selection: the card compares it with the selection
+  // the request went out with.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      {
+        kind: "User",
+        text: "<selected-text>\nThe cat sat on the mat.\n</selected-text>\n\nFix it",
+      },
+      {
+        kind: "ToolCall",
+        call_id: "u1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace_selection",
+          text: "The cat slept on the mat.",
+        }),
+      },
+      { kind: "ToolResult", call_id: "u1", output: "Edit proposed" },
+      { kind: "Assistant", text: "Done." },
+    ],
+  });
+  await page.locator(".milkdown p").first().click({ clickCount: 3 });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Fix it");
+  await composer.press("Enter");
+  const chips = page.locator(".agent-proposal .agent-diff-summary");
+  await expect(chips).toHaveText("+1−1");
+  await page
+    .locator(".agent-proposal-actions .inline-chat-action-primary")
+    .click();
+  await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
+  await expect(page.locator(".milkdown p").first()).toHaveText(
+    "The cat slept on the mat.",
+  );
+  // Undone, the edit is on offer again; the caret then moves on and
+  // nothing is selected any more.
+  await page.locator(".milkdown .ProseMirror").focus();
+  await page.keyboard.press("Control+z");
+  await expect(page.locator(".agent-proposal-status-accepted")).toHaveCount(0);
+  await page.locator(".milkdown p").last().click();
+  await expect(page.locator(".agent-proposal-actions")).toBeVisible();
+  await expect(chips).toHaveText("+1−1");
+});
+
 test("a broken diagram leaves no mermaid node in the page", async ({
   page,
 }) => {
@@ -385,6 +479,43 @@ test("a table's menu stays open while it scrolls on a short window", async ({
   await expect(menu).toBeVisible();
 });
 
+test("the wheel over a table scrolls the page, not the table", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  const filler = Array.from(
+    { length: 20 },
+    (_, i) => `Paragraph ${i} with some words to fill the page out.`,
+  ).join("\n\n");
+  await pasteMarkdown(
+    page,
+    `${filler}\n\n| a | b |\n| --- | --- |\n| the plan | d |\n\n${filler}`,
+  );
+  const cell = page.locator(".ProseMirror td", { hasText: "the plan" });
+  await cell.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await cell.click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Control+Shift+Space");
+  await expect(page.locator(".ghost-text")).toHaveCount(1);
+  // The table's box a little shorter than the table, as a suggestion
+  // wrapping the cell to a fractional height can leave it. A stylesheet,
+  // not the element's style: ProseMirror redraws a node view whose
+  // attributes change under it.
+  const box = page.locator(".table-scroll");
+  const height = await box.evaluate((el) => el.getBoundingClientRect().height);
+  await page.addStyleTag({
+    content: `.table-scroll { height: ${height - 20}px; }`,
+  });
+  const scroller = page.locator('[data-active-tab="true"] .editor-scroll');
+  const before = await scroller.evaluate((el) => el.scrollTop);
+  await box.hover();
+  await page.mouse.wheel(0, 40);
+  await expect
+    .poll(() => scroller.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(before);
+  expect(await box.evaluate((el) => el.scrollTop)).toBe(0);
+});
+
 /** A deliberate Shift+Enter: Shift held first, as a writer does. (Shift
  *  and Enter pressed together count as Enter - see block-keys-plugin.ts.) */
 async function shiftEnter(page: Page) {
@@ -437,4 +568,228 @@ test("Shift pressed together with Enter starts a new paragraph", async ({
     "8、",
   ]);
   await expect(editor.locator('br[data-type="hardbreak"]')).toHaveCount(0);
+});
+
+test("an IME commit into a fresh task item stays in that item", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("- [ ] ");
+  // WebKitGTK's commit, replayed: the preedit is deleted (and WebKit prunes
+  // the emptied <p> and <li>, leaving a <br> in the list - done by hand
+  // here, Chromium doesn't), then the committed text is inserted.
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    // Chromium blanks an inputType it doesn't implement; only WebKit has
+    // deleteCompositionText.
+    const deleteEvent = (type: string) =>
+      Object.defineProperty(new InputEvent(type), "inputType", {
+        value: "deleteCompositionText",
+      });
+    root.dispatchEvent(new CompositionEvent("compositionstart"));
+    document.execCommand("insertText", false, "ni hao");
+    const li = root.querySelector("li")!;
+    root.dispatchEvent(deleteEvent("beforeinput"));
+    li.replaceWith(document.createElement("br"));
+    root.dispatchEvent(deleteEvent("input"));
+    document.execCommand("insertText", false, "你好");
+    root.dispatchEvent(
+      new CompositionEvent("compositionend", { data: "你好" }),
+    );
+  });
+  await page.keyboard.type("!");
+  const items = editor.locator('li[data-item-type="task"]');
+  await expect(items).toHaveCount(1);
+  await expect(items.first()).toHaveText("你好!");
+});
+
+test("hovering a column border doesn't change the table's height", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| a | b |\n|---|---|\n| 1 | 2 |\n");
+  const table = page.locator(".milkdown table");
+  const before = (await table.boundingBox())!.height;
+  const cell = (await page.locator(".milkdown td").first().boundingBox())!;
+  await page.mouse.move(cell.x + cell.width - 1, cell.y + cell.height / 2);
+  await expect(page.locator(".column-resize-handle").first()).toBeAttached();
+  expect((await table.boundingBox())!.height).toBe(before);
+});
+
+test("full-width 【】 turns a line into a task, the way [ ] does", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  const tasks = editor.locator('li[data-item-type="task"]');
+  // A whole "-【】" committed by an IME into a plain paragraph (first, before
+  // the dev shim's ghost suggestion sits at the caret).
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    root.dispatchEvent(new CompositionEvent("compositionstart"));
+    document.execCommand("insertText", false, "-【】");
+    root.dispatchEvent(
+      new CompositionEvent("compositionend", { data: "-【】" }),
+    );
+  });
+  await expect(tasks).toHaveCount(1);
+  await page.keyboard.type("买菜", { delay: 30 });
+  await expect(tasks.nth(0)).toHaveText("买菜");
+  // Typed: "- " makes the bullet, 【x】 then makes it a checked task.
+  await page.keyboard.press("Enter", { delay: 30 });
+  await page.keyboard.press("Enter", { delay: 30 });
+  await page.keyboard.type("- 【x】写稿", { delay: 30 });
+  await expect(tasks).toHaveCount(2);
+  await expect(tasks.nth(1)).toHaveAttribute("data-checked", "true");
+  await expect(tasks.nth(1)).toHaveText("写稿");
+  // Pasted text stays as written.
+  await page.keyboard.press("Enter", { delay: 30 });
+  await page.keyboard.press("Enter", { delay: 30 });
+  await pasteMarkdown(page, "- 【】");
+  await expect(tasks).toHaveCount(2);
+});
+
+test("h4 to h6 are never smaller than the text, and h6 is lighter than h5 (#58)", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(
+    page,
+    "#### Four\n\n##### Five\n\n###### Six\n\nBody text.",
+  );
+  const style = (selector: string) =>
+    page
+      .locator(`[data-active-tab="true"] .milkdown ${selector}`)
+      .evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { size: parseFloat(cs.fontSize), color: cs.color };
+      });
+  const p = await style("p");
+  const h4 = await style("h4");
+  const h5 = await style("h5");
+  const h6 = await style("h6");
+  expect(h4.size).toBeGreaterThan(p.size);
+  expect(h5.size).toBe(p.size);
+  expect(h6.size).toBe(p.size);
+  expect(h5.color).toBe(p.color);
+  expect(h6.color).not.toBe(h5.color);
+});
+
+test("source mode: body-sized text, centred on a whole pixel, unchanged by focus (#61)", async ({
+  page,
+}) => {
+  // An odd leftover beside the 680px column: `margin: auto` put the
+  // textarea at x.5, which WebKitGTK blurs once the textarea has focus.
+  await page.setViewportSize({ width: 1181, height: 780 });
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, "Some text.");
+  const bodySize = await page
+    .locator('[data-active-tab="true"] .milkdown p')
+    .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  await emit(page, "menu-toggle-source-mode");
+  const textarea = page.locator(
+    '[data-active-tab="true"] textarea.source-view',
+  );
+  await expect(textarea).toBeVisible();
+  const look = () =>
+    textarea.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        left: el.getBoundingClientRect().left,
+        size: parseFloat(cs.fontSize),
+        transform: cs.transform,
+        willChange: cs.willChange,
+        filter: cs.filter,
+        opacity: cs.opacity,
+      };
+    });
+  const before = await look();
+  expect(before.size).toBeGreaterThanOrEqual(16);
+  expect(before.size).toBeGreaterThanOrEqual(bodySize - 0.5);
+  expect(Number.isInteger(before.left)).toBe(true);
+  await textarea.click();
+  await expect(textarea).toBeFocused();
+  const after = await look();
+  expect(after).toEqual(before);
+  expect(after.transform).toBe("none");
+  expect(after.willChange).toBe("auto");
+});
+
+test("Escape that closes the context menu keeps the grey suggestion", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "The plan");
+  await page.locator(".milkdown p").first().click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" works");
+  const ghost = page.locator(".ghost-text");
+  await expect(ghost).toHaveCount(1);
+  await page.locator(".milkdown p").first().click({ button: "right" });
+  const menu = page.locator(".context-menu");
+  await expect(menu).toBeVisible();
+  // The menu listens from a tick after it opens, and Chromium runs a key
+  // press ahead of a waiting timer: let that tick pass first.
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(ghost).toHaveCount(1);
+  // The next Escape is the editor's again.
+  await page.keyboard.press("Escape");
+  await expect(ghost).toHaveCount(0);
+});
+
+test("ASCII - [] and -[] make tasks too; the space after - [ ] is eaten", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  const tasks = editor.locator('li[data-item-type="task"]');
+  await page.keyboard.type("- [ ] milk");
+  await expect(tasks.nth(0)).toHaveText("milk");
+  for (const spelling of ["- []", "-[]", "-[x]"]) {
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type(spelling + "eggs");
+  }
+  await expect(tasks).toHaveCount(4);
+  await expect(tasks.nth(1)).toHaveText("eggs");
+  await expect(tasks.nth(2)).toHaveText("eggs");
+  await expect(tasks.nth(3)).toHaveAttribute("data-checked", "true");
+});
+
+test("list items aren't positioned, so WebKit's IME commit can't prune them", async ({
+  page,
+}) => {
+  // WebKit removes an element emptied by deleteCompositionText only when
+  // it's positioned (see composition-prune-guard-plugin.ts); the markers
+  // must keep working without it.
+  await openApp(page);
+  await pasteMarkdown(page, "- a\n\n1. b\n\n- [x] c\n");
+  const positions = await page
+    .locator(".milkdown li")
+    .evaluateAll((items) => items.map((li) => getComputedStyle(li).position));
+  expect(positions).toEqual(["static", "static", "static"]);
+});
+
+test("Enter in a table's last row starts the new row at its first cell", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| a | b |\n|---|---|\n| 1 | 2 |\n");
+  await page.locator(".milkdown td").nth(1).click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("x");
+  await expect(
+    page.locator(".milkdown tr").nth(2).locator("td").first(),
+  ).toHaveText("x");
 });

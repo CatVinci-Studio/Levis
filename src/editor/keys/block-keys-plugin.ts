@@ -117,8 +117,9 @@ function selectCell(
   return tr.setSelection(Selection.near(tr.doc.resolve(cellEnd), -1));
 }
 
-/** Enter in a table cell: down a row; on the last row, a new row; on a new
- *  last row left empty, out of the table (the row goes with it). */
+/** Enter in a table cell: down a row; on the last row, a new row with the
+ *  cursor in its first cell, like a new line; on a new last row left empty,
+ *  out of the table (the row goes with it). */
 export const enterInTable: Command = (state, dispatch) => {
   if (!isInTable(state) || state.selection instanceof CellSelection)
     return false;
@@ -156,12 +157,7 @@ export const enterInTable: Command = (state, dispatch) => {
   if (dispatch)
     addRowAfter(state, (tr) =>
       dispatch(
-        selectCell(
-          tr,
-          rect.tableStart,
-          rect.top + 1,
-          rect.left,
-        ).scrollIntoView(),
+        selectCell(tr, rect.tableStart, rect.top + 1, 0).scrollIntoView(),
       ),
     );
   return true;

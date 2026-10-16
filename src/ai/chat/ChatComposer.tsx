@@ -592,7 +592,7 @@ export function ChatComposer({
               <Select
                 className="inline-chat-mode"
                 value={mode}
-                aria-label={labels.modeAsk}
+                aria-label={labels.modeLabel}
                 onChange={(event) => setMode(event.target.value as AgentMode)}
               >
                 {modes.map(([value, label]) => (

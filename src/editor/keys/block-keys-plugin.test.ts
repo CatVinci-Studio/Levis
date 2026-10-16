@@ -148,14 +148,14 @@ describe("enterInTable", () => {
     expect(cursorText(next)).toBe("b");
   });
 
-  it("adds a row below the last one, keeping the column", () => {
+  it("adds a row below the last one, cursor in its first cell", () => {
     const next = run(
       enterInTable,
       stateAt(docOf(table(["h1", "h2"], ["a", "b"])), "b"),
     )!;
     const t = next.doc.firstChild!;
     expect(t.childCount).toBe(3);
-    expect(next.selection.$from.index(-2)).toBe(1);
+    expect(next.selection.$from.index(-2)).toBe(0);
     expect(next.selection.$from.index(-3)).toBe(2);
   });
 

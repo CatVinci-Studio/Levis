@@ -17,7 +17,7 @@ export interface AgentPanelLabels {
   tabMemory: string;
 }
 
-type Tab = "chat" | "memory";
+export type AgentPanelTab = "chat" | "memory";
 
 /**
  * The docked panel's chrome: one header row - the Conversation / Memory
@@ -34,6 +34,8 @@ export function AgentPanelView({
   onPopOut,
   onClose,
   memory,
+  tab,
+  onTabChange: setTab,
   children,
 }: {
   labels: AgentPanelLabels;
@@ -44,9 +46,12 @@ export function AgentPanelView({
   onClose: () => void;
   /** The Memory tab's content, drawn only while it shows. */
   memory?: () => ReactNode;
+  /** The tab showing - kept by the panel's frame (agent-panel.tsx), so it
+   *  survives the switch to another document's editor. */
+  tab: AgentPanelTab;
+  onTabChange: (tab: AgentPanelTab) => void;
   children: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("chat");
   const tabsRef = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState<CSSProperties>({});
   // The sliding pill behind the selected tab: measured, so it fits each
@@ -61,7 +66,7 @@ export function AgentPanelView({
         transform: `translateX(${on.offsetLeft - 2}px)`,
       });
   }, [tab, labels.tabChat, labels.tabMemory]);
-  const tabButton = (id: Tab, label: string) => (
+  const tabButton = (id: AgentPanelTab, label: string) => (
     <button
       type="button"
       role="tab"

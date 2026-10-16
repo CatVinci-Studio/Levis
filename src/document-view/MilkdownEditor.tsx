@@ -128,6 +128,7 @@ import {
 } from "../ai/margin/ReviewMargin";
 import {
   commentCalls,
+  numberNotes,
   reviewNotesKey,
   type ReviewNote,
 } from "../ai/margin/review-notes-plugin";
@@ -1635,6 +1636,9 @@ export function MilkdownEditor({
   // cleared.
   const [notes, setNotes] = useState<ReviewNote[]>([]);
   const notesRef = useLatest(notes);
+  // Behind numbered badges (no room for a margin): the chat's note cards
+  // then carry the same numbers.
+  const [notesBadged, setNotesBadged] = useState(false);
   const [hotNote, setHotNote] = useState<string | null>(null);
   const [openNote, setOpenNote] = useState<{
     id: string;
@@ -1674,7 +1678,7 @@ export function MilkdownEditor({
       const current = reviewNotesKey.getState(view.state)?.notes ?? [];
       const wanted = comments.filter((c) => !doneNotes.current.has(c.id));
       const keep = current.filter((n) => wanted.some((w) => w.id === n.id));
-      const added: ReviewNote[] = [];
+      const added: Omit<ReviewNote, "num">[] = [];
       for (const c of wanted) {
         if (keep.some((n) => n.id === c.id) || lostNotes.current.has(c.id))
           continue;
@@ -1689,7 +1693,7 @@ export function MilkdownEditor({
       view.dispatch(
         view.state.tr.setMeta(reviewNotesKey, {
           type: "set",
-          notes: [...keep, ...added].sort((a, b) => a.from - b.from),
+          notes: numberNotes(keep, added).sort((a, b) => a.from - b.from),
         }),
       );
     });
@@ -1753,6 +1757,7 @@ export function MilkdownEditor({
   // replacements back into the text.
   function setNotesCompact(compact: boolean) {
     noMarginRef.current = compact;
+    setNotesBadged(compact);
     run((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dispatch(
@@ -2120,6 +2125,8 @@ export function MilkdownEditor({
             onNewConversation={startPanelConversation}
             onPopOut={canDetachChat ? popOutPanel : undefined}
             onClose={() => agentPanel.setOpen(false)}
+            tab={agentPanel.tab}
+            onTabChange={agentPanel.setTab}
             memory={() => (
               <ProjectBar
                 docPath={filePath}
@@ -2165,6 +2172,11 @@ export function MilkdownEditor({
               onRevealProposal={revealProposal}
               pendingBar={false}
               onLocateText={locateText}
+              noteNumber={(id) =>
+                notesBadged
+                  ? (notes.find((n) => n.id === id)?.num ?? null)
+                  : null
+              }
               onRejectProposal={pendingEdits.reject}
               onAcceptAll={pendingEdits.acceptAll}
               onRejectAll={pendingEdits.rejectAll}

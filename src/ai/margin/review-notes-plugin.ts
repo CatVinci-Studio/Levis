@@ -15,6 +15,24 @@ export interface ReviewNote {
   from: number;
   to: number;
   comment: string;
+  /** Its badge's number - also shown on its card in the chat (numberNotes). */
+  num: number;
+}
+
+/**
+ * Numbers newly placed notes after the ones already in the text, in the
+ * order the AI left them - the order the chat lists their cards in, so the
+ * badge "2" is the chat's second note. Numbered by position in the text
+ * they matched nothing on the other side, and every note after a new one
+ * placed earlier in the text was renumbered under the writer's eyes. Back
+ * to 1 once none is left.
+ */
+export function numberNotes(
+  kept: readonly ReviewNote[],
+  added: readonly Omit<ReviewNote, "num">[],
+): ReviewNote[] {
+  let last = kept.reduce((max, note) => Math.max(max, note.num), 0);
+  return [...kept, ...added.map((note) => ({ ...note, num: ++last }))];
 }
 
 type NotesMeta =
@@ -42,7 +60,7 @@ function build(
   onBadge: (id: string, el: HTMLElement) => void,
 ): DecorationSet {
   const decos: Decoration[] = [];
-  notes.forEach((note, i) => {
+  notes.forEach((note) => {
     decos.push(
       Decoration.inline(note.from, note.to, {
         class: `review-anchor${hot === note.id ? " review-anchor-hot" : ""}`,
@@ -59,7 +77,7 @@ function build(
             badge.className = "review-badge";
             badge.contentEditable = "false";
             badge.dataset.note = note.id;
-            badge.textContent = String(i + 1);
+            badge.textContent = String(note.num);
             badge.addEventListener("mousedown", (e) => e.preventDefault());
             badge.addEventListener("click", (e) => {
               e.preventDefault();
@@ -70,7 +88,7 @@ function build(
           },
           {
             side: 1,
-            key: `review-badge-${note.id}-${i}`,
+            key: `review-badge-${note.id}-${note.num}`,
             ignoreSelection: true,
             stopEvent: () => true,
           },

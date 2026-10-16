@@ -11,6 +11,7 @@ import {
 import { flushSync } from "react-dom";
 import { getUiState, setUiState } from "../../../storage/ui-state";
 import { animate, duration } from "../../../ui/motion";
+import type { AgentPanelTab } from "./AgentPanelView";
 import "./agent-panel.css";
 import "../inline-chat.css";
 
@@ -31,11 +32,20 @@ export interface AgentPanelFrame {
   setOpen: (open: boolean) => void;
   /** The element the active editor portals into; null while closed. */
   container: HTMLElement | null;
+  /** Which of the panel's tabs shows. The frame's, not each editor's:
+   *  every document tab draws its own panel, and one kept per editor put
+   *  the panel back on Conversation whenever another document came to
+   *  the front - opening a new library entry from Memory did exactly that,
+   *  hiding the entry just made. */
+  tab: AgentPanelTab;
+  setTab: (tab: AgentPanelTab) => void;
 }
 
 const AgentPanelContext = createContext<AgentPanelFrame>({
   setOpen: () => {},
   container: null,
+  tab: "chat",
+  setTab: () => {},
 });
 
 export function useAgentPanel(): AgentPanelFrame {
@@ -64,9 +74,13 @@ export function useAgentPanelState() {
       ? clampWidth(stored)
       : DEFAULT_WIDTH;
   });
+  const [tab, setTab] = useState<AgentPanelTab>("chat");
   const setOpen = useCallback((next: boolean) => {
     setOpenState(next);
     setUiState("agentPanelOpen", next);
+    // Whatever opens the panel - the shortcut, Ask AI, a restored chat,
+    // "ask about this note" - wants the conversation.
+    if (next) setTab("chat");
   }, []);
   const setWidth = useCallback((next: number) => {
     const clamped = clampWidth(next);
@@ -74,23 +88,27 @@ export function useAgentPanelState() {
     setUiState("agentPanelWidth", Math.round(clamped));
   }, []);
   const toggle = useCallback(() => setOpen(!open), [open, setOpen]);
-  return { open, setOpen, toggle, width, setWidth };
+  return { open, setOpen, toggle, width, setWidth, tab, setTab };
 }
 
 export function AgentPanelProvider({
   open,
   setOpen,
   container,
+  tab,
+  setTab,
   children,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   container: HTMLElement | null;
+  tab: AgentPanelTab;
+  setTab: (tab: AgentPanelTab) => void;
   children: ReactNode;
 }) {
   const value = useMemo(
-    () => ({ setOpen, container: open ? container : null }),
-    [open, setOpen, container],
+    () => ({ setOpen, container: open ? container : null, tab, setTab }),
+    [open, setOpen, container, tab, setTab],
   );
   return (
     <AgentPanelContext.Provider value={value}>

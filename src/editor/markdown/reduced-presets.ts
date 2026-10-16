@@ -22,6 +22,7 @@ import {
   syncListOrderPlugin,
 } from "@milkdown/kit/preset/commonmark";
 import {
+  autoInsertSpanPlugin,
   gfm,
   strikethroughSchema,
   strikethroughAttr,
@@ -29,6 +30,7 @@ import {
   strikethroughKeymap,
   toggleStrikethroughCommand,
 } from "@milkdown/kit/preset/gfm";
+import { isLinuxPlatform } from "../../platform/os";
 
 // Bold/italic/strikethrough/inline code are handled by our own md_span /
 // md_code_span nodes instead (see md-span-schema.ts) - real, always-editable
@@ -97,12 +99,21 @@ const excludedCommonmarkPieces = [
   syncListOrderPlugin,
 ].flat();
 
+// autoInsertSpanPlugin (prosemirror-safari-ime-span) is left out on Linux.
+// It keys off navigator.vendor "Apple Computer", which WebKitGTK reports
+// too, and parks an empty <span> widget at the caret for the length of a
+// composition - Safari's fix for its commit pruning an emptied node. On
+// WebKitGTK it doesn't stop that pruning (composition-prune-guard-plugin
+// does), and the widget is redrawn beside the preedit on every keystroke:
+// a commit then left it inside the text, splitting "ni hao" into "n" and
+// "i hao" across two list items.
 const excludedGfmPieces = [
   strikethroughSchema,
   strikethroughAttr,
   strikethroughInputRule,
   strikethroughKeymap,
   toggleStrikethroughCommand,
+  ...(isLinuxPlatform() ? [autoInsertSpanPlugin] : []),
 ].flat();
 
 const excludedCommonmarkSet = new Set<unknown>(excludedCommonmarkPieces);

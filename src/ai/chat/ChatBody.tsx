@@ -86,6 +86,8 @@ export interface ChatBodyProps {
   pendingBar?: boolean;
   /** See ChatMessages' onLocateText. */
   onLocateText?: (anchor: string, context?: string) => void;
+  /** See ChatMessages' noteNumber. */
+  noteNumber?: (callId: string) => number | null;
   onRejectProposal: (callId: string) => void;
   onAcceptAll: () => void;
   onRejectAll: () => void;
@@ -216,6 +218,7 @@ export function ChatBody({
   onRevealProposal,
   pendingBar = true,
   onLocateText,
+  noteNumber,
   onRejectProposal,
   onAcceptAll,
   onRejectAll,
@@ -514,6 +517,7 @@ export function ChatBody({
                     onDecideSentence={onDecideSentence}
                     onRevealProposal={onRevealProposal}
                     onLocateText={onLocateText}
+                    noteNumber={noteNumber}
                     onRejectProposal={onRejectProposal}
                     onRelocateProposal={handleRelocate}
                     canRetry={!!retryable}
@@ -548,6 +552,7 @@ export function ChatBody({
                 onDecideSentence={onDecideSentence}
                 onRevealProposal={onRevealProposal}
                 onLocateText={onLocateText}
+                noteNumber={noteNumber}
                 onRejectProposal={onRejectProposal}
                 onRelocateProposal={handleRelocate}
                 canRetry={!!retryable}

@@ -50,6 +50,22 @@ export function useCloseOnOutsideClick<T extends HTMLElement>(
       e.stopPropagation();
       onClose();
     }
+    // An Escape pressed outside the overlay - the editor keeps the focus
+    // while its context menu is open - is taken before it reaches its
+    // target: bubbling, the editor's own Escape (clear the suggestion)
+    // had already run by the time the menu heard it. One pressed inside
+    // still bubbles, so a field in the overlay (a rename box, an open
+    // Select) can keep its Escape for itself.
+    function onKeyDownOutside(e: KeyboardEvent) {
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (
+        target instanceof Element &&
+        target.closest("[data-floating-select], [data-floating-menu]")
+      )
+        return;
+      onKeyDown(e);
+    }
     const id = setTimeout(() => {
       document.addEventListener("mousedown", onPointerDown, true);
       // iOS sends no mousedown for a tap on something that isn't clickable
@@ -57,13 +73,19 @@ export function useCloseOnOutsideClick<T extends HTMLElement>(
       // stayed open under a finger that tapped beside it. A touch's
       // pointerdown arrives wherever it lands.
       document.addEventListener("pointerdown", onPointerDown, true);
-      if (closeOnEscape) document.addEventListener("keydown", onKeyDown);
+      if (closeOnEscape) {
+        document.addEventListener("keydown", onKeyDownOutside, true);
+        document.addEventListener("keydown", onKeyDown);
+      }
     }, 0);
     return () => {
       clearTimeout(id);
       document.removeEventListener("mousedown", onPointerDown, true);
       document.removeEventListener("pointerdown", onPointerDown, true);
-      if (closeOnEscape) document.removeEventListener("keydown", onKeyDown);
+      if (closeOnEscape) {
+        document.removeEventListener("keydown", onKeyDownOutside, true);
+        document.removeEventListener("keydown", onKeyDown);
+      }
     };
   }, [onClose, closeOnEscape, open]);
 

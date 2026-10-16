@@ -150,8 +150,14 @@ describe("ChatComposer selection chip", () => {
 
   it("sends the selected interaction mode and web-search choice", () => {
     const { onSend } = renderComposer();
-    fireEvent.click(screen.getByRole("combobox", { name: "Ask" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Mode" }));
     fireEvent.click(screen.getByRole("option", { name: "Plan" }));
+    // Named for what it picks, not for one of its choices: a screen
+    // reader used to hear "Ask" over a picker set to Plan.
+    expect(screen.queryByRole("combobox", { name: "Ask" })).toBeNull();
+    expect(
+      screen.getByRole("combobox", { name: "Mode" }).textContent,
+    ).toContain("Plan");
     fireEvent.click(screen.getByLabelText("Web search"));
     fireEvent.change(screen.getByPlaceholderText("Ask anything"), {
       target: { value: "research this" },
