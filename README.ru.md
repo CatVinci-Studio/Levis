@@ -33,6 +33,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
+https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
+
 <p align="center">
   <img src="docs/images/readme/ru/hero.png" alt="Textus с открытым романом «Анна Каренина» и заметками читателя. Textus AI сокращает заметки по предложениям, каждая правка на полях, и оставляет комментарий рядом с текстом." width="860" /><br>
   <sub><i>«Анна Каренина»</i>, Лев Толстой</sub>
