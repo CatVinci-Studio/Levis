@@ -327,6 +327,36 @@ jobs:
   # its own, so pointing it at an rc would hand that build to every `brew
   # upgrade` - the same mistake marking the GitHub release as a pre-release
   # exists to prevent. Rebuilds of an older tag: that would downgrade.
+  # The website's download buttons serve the installers from our own R2
+  # bucket (textus.catvinci.com/download/), not from GitHub, which is slow
+  # or unreachable from some networks. Copies this release there and points
+  # the bucket's manifest.json at it. Needs the CLOUDFLARE_API_TOKEN secret
+  # (an API token with R2 edit on the account); without it the job only
+  # warns, and scripts/mirror-downloads.sh can be run by hand.
+  mirror-downloads:
+    needs: publish
+    if: ${{ needs.publish.outputs.newest-stable == 'true' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 49abb4d436c552f6e4497b1782fc9beb
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Copy the installers to textus.catvinci.com/download
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN is not set: the website still downloads the previous version. Run scripts/mirror-downloads.sh $RELEASE_TAG by hand."
+            exit 0
+          fi
+          scripts/mirror-downloads.sh "$RELEASE_TAG"
+
   update-homebrew-tap:
     needs: publish
     if: ${{ needs.publish.outputs.newest-stable == 'true' }}
