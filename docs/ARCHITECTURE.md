@@ -38,7 +38,7 @@ window to render (the editor window, or the detached chat window).
 
 | Folder           | Holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `app/`           | `App.tsx` (tab state, open / save / close, wiring), `TabBar`, `WindowBar`, the app-drawn menu (`AppMenu`, `app-menu-model`), native menu events (`menu-bridge`), global shortcuts, zoom, update notice, tab drag between windows. `App.css` is the main window's ordered stylesheet index.                                                                                                                                                                                                 |
+| `app/`           | `App.tsx` (the window's composition) and the hooks it calls (tabs, open / save / close, side panels, zen, source modes), `TabBar`, `WindowBar`, the app-drawn menu (`AppMenu`, `app-menu-model`), native menu events (`menu-bridge`), global shortcuts, zoom, update notice, tab drag between windows. `App.css` is the main window's ordered stylesheet index.                                                                                                                            |
 | `document-view/` | `MilkdownEditor.tsx` - one tab's editor with everything attached (AI panel, Quick Ask, review margin, grammar card, tutorial hooks). `editor-extensions.ts` puts the editor core and the AI plugins together. `EditorPane` switches between WYSIWYG, source and split view.                                                                                                                                                                                                                |
 | `document/`      | A document's life outside the editor: the tab model (`doc-tabs`), draft autosave and recovery, restoring the last session, reloading after an outside change, default file names, the iPhone's recent-documents list.                                                                                                                                                                                                                                                                      |
 | `editor/`        | The Markdown editor. Core plugins register in `editor-extensions.ts`, in load order. Subfolders by feature: `markdown/` (parse, save, paste, front matter, alerts, render to HTML), `marks/` (Typora-style inline delimiters), `math/`, `code/`, `tables/`, `images/`, `html/`, `find/`, `modes/` (source, split, typewriter, zen), `keys/` (key handling per platform).                                                                                                                   |
@@ -94,11 +94,15 @@ A shape that exists on both sides (`AgentTurn`, `ChatAttachment`,
 `StreamEvent`, ...) carries a comment on each side naming the other; change
 both together.
 
-## Large files
+## Where things meet
 
-Two modules are large because they are where things meet, not because they
-do one thing badly: `document-view/MilkdownEditor.tsx` (one tab's editor and
-every AI surface attached to it) and `app/App.tsx` (tab state and the window's
-commands). When you add to them, prefer a hook or component in the feature's
-own folder that they call - as `WindowBar`, `useDraftAutosave` or
-`useApplyAppearance` are - over more code in the file itself.
+`document-view/MilkdownEditor.tsx` (one tab's editor and every AI surface
+attached to it) and `app/App.tsx` (tab state and the window's commands) are
+where everything meets, and are kept as compositions: each calls hooks and
+renders components that live beside it (`document-view/use*.ts`,
+`app/use*.ts`, `app/Sidebar.tsx`, `app/MainPane.tsx`...) or in the feature's
+own folder (`ai/margin/useReviewNotes.ts`, `editor/modes/...`). Both were
+split this way in 1.0.2, from about 2,260 and 1,520 lines. When you add to
+them, add a hook or component in the same way - as `WindowBar`,
+`useDraftAutosave` or `useApplyAppearance` are - rather than more code in
+the file itself, and keep the hooks' call order.
