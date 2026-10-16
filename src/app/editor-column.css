@@ -61,6 +61,17 @@
   width: 100%;
   max-width: var(--content-width);
   margin: 0 auto;
+  /* Centred on a whole pixel. `auto` splits an odd leftover into two
+     half pixels, and WebKitGTK composites a focused textarea's scroller as
+     a layer of its own: at x.5 that layer is resampled and the text goes
+     soft the moment you click in (#61). The step is in the node's own
+     zoomed px, hence the divide, so the edge lands whole on screen at any
+     zoom. Browsers without round() keep the plain auto above. */
+  margin-left: round(
+    down,
+    calc((100% - min(100%, var(--content-width))) / 2),
+    calc(1px / var(--content-zoom, 1))
+  );
   padding: 3rem 1.5rem 6rem;
   border: none;
   outline: none;
@@ -68,6 +79,9 @@
   background: var(--editor-bg, var(--bg));
   color: var(--editor-text);
   font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  /* The rich editor's size at the standard column (content-base.css), so
+     switching modes doesn't drop the text to UI size. rem, so an imported
+     theme's `html { font-size }` reaches it; zoom scales it as above. */
+  font-size: 1.03125rem;
   line-height: 1.7;
 }
