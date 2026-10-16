@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Editor } from "@milkdown/kit/core";
 import { editorViewCtx, serializerCtx } from "@milkdown/kit/core";
 import { createTestEditor } from "../../document-view/editor-test-harness";
+import { unwrittenImageSrcs } from "./markdown-output";
 
 const editors: Editor[] = [];
 afterEach(async () => {
@@ -75,6 +76,19 @@ describe("saved markdown stays as written", () => {
       return ctx.get(serializerCtx)(view.state.doc);
     });
     expect(saved).toBe("- [ ] \n- [x] \n  - [ ] \n");
+  });
+
+  it("leaves out a pasted image whose file is still being stored", async () => {
+    const blob = "blob:tauri://localhost/0b6e";
+    unwrittenImageSrcs.add(blob);
+    try {
+      expect(await roundTrip(`a ![](${blob}) b ![](x.png)\n`)).toBe(
+        "a  b ![](x.png)\n",
+      );
+    } finally {
+      unwrittenImageSrcs.delete(blob);
+    }
+    expect(await roundTrip(`![](${blob})\n`)).toBe(`![](${blob})\n`);
   });
 
   it("escapes an alert marker that doesn't open a quote", async () => {

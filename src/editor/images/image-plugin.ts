@@ -1,4 +1,4 @@
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, type Transaction } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import type { Node as ProseNode, Slice } from "@milkdown/kit/prose/model";
@@ -10,6 +10,7 @@ import { fs } from "../../platform/ipc";
 import type { Settings, ImageNamingMode } from "../../settings/SettingsContext";
 import { isScopedUrl, scopedImageSrc } from "../../platform/ios-files";
 import { imageFilesFromClipboard, imageMimeForPath } from "./pasted-files";
+import { unwrittenImageSrcs } from "../markdown/markdown-output";
 
 /**
  * Image support, Typora-style, in two halves:
@@ -255,7 +256,9 @@ async function storeBlobImages(
   view: EditorView,
   srcs: string[],
   store: ImageStore,
+  stored: Map<string, string>,
 ): Promise<void> {
+  for (const blobSrc of srcs) unwrittenImageSrcs.add(blobSrc);
   for (const blobSrc of srcs) {
     try {
       const blob = await (await fetch(blobSrc)).blob();
@@ -267,16 +270,54 @@ async function storeBlobImages(
         store,
       );
       if (src === null) continue;
-      const { tr } = view.state;
-      view.state.doc.descendants((node, pos) => {
-        if (node.type.name === "image" && node.attrs.src === blobSrc)
-          tr.setNodeMarkup(pos, undefined, { ...node.attrs, src });
-      });
-      if (tr.docChanged) view.dispatch(tr);
+      stored.set(blobSrc, src);
+      const tr = swapStoredBlobs(view.state.tr, stored, [
+        [0, view.state.doc.content.size],
+      ]);
+      if (tr) view.dispatch(tr);
     } catch (err) {
       reportFailure(err, store);
+    } finally {
+      unwrittenImageSrcs.delete(blobSrc);
     }
   }
+}
+
+/**
+ * Points every image in `ranges` whose src is a stored blob at the stored
+ * file. Outside the history: the swap is not an edit of the user's, and as
+ * its own undo step (a store slower than the history's grouping delay) an
+ * undo put the blob: src back - an image that showed until reopen, issue
+ * #59 again. An undo or redo can still bring a blob: image back (one
+ * undone before its store landed, then redone), so the swap also runs on
+ * whatever a transaction changes (appendTransaction below).
+ */
+function swapStoredBlobs(
+  tr: Transaction,
+  stored: Map<string, string>,
+  ranges: [number, number][],
+): Transaction | null {
+  if (stored.size === 0) return null;
+  for (const [from, to] of ranges)
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      const src = stored.get(node.attrs.src as string);
+      if (node.type.name === "image" && src)
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, src });
+    });
+  return tr.docChanged ? tr.setMeta("addToHistory", false) : null;
+}
+
+/** The ranges of the final document that `trs` replaced. */
+function changedRanges(trs: readonly Transaction[]): [number, number][] {
+  let ranges: [number, number][] = [];
+  for (const tr of trs)
+    for (const map of tr.mapping.maps) {
+      ranges = ranges.map(([from, to]) => [map.map(from, -1), map.map(to, 1)]);
+      map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+        ranges.push([newStart, newEnd]);
+      });
+    }
+  return ranges;
 }
 
 /** The link targets of a slice that holds links and nothing else. */
@@ -450,74 +491,78 @@ function createImageView(
 }
 
 export function createImagePlugin(options: ImageStore) {
-  return $prose(
-    () =>
-      new Plugin<DecorationSet>({
-        key: imageParagraphKey,
-        state: {
-          init: (_config, state) => imageParagraphDecorations(state.doc),
-          apply: (tr, previous) =>
-            tr.docChanged ? imageParagraphDecorations(tr.doc) : previous,
-        },
-        props: {
-          decorations: (state) => imageParagraphKey.getState(state),
-          handlePaste(view, event, slice) {
-            const data = event.clipboardData;
-            const items = Array.from(data?.items ?? []);
-            let files = items
-              .filter(
-                (item) =>
-                  item.kind === "file" && item.type.startsWith("image/"),
-              )
-              .map((item) => item.getAsFile())
-              .filter((f): f is File => f !== null);
-            // Some webviews list a pasted file under `files` alone.
-            if (files.length === 0)
-              files = Array.from(data?.files ?? []).filter((f) =>
-                f.type.startsWith("image/"),
-              );
-            if (files.length > 0) {
-              void saveAndInsertImages(
-                view,
-                files.map((file) => ({
-                  name: file.name,
-                  type: file.type,
-                  base64: () => blobToBase64(file),
-                })),
-                options,
-              );
-              return true;
-            }
+  return $prose(() => {
+    // Each pasted blob: src and the stored src that replaced it.
+    const storedBlobs = new Map<string, string>();
+    return new Plugin<DecorationSet>({
+      key: imageParagraphKey,
+      state: {
+        init: (_config, state) => imageParagraphDecorations(state.doc),
+        apply: (tr, previous) =>
+          tr.docChanged ? imageParagraphDecorations(tr.doc) : previous,
+      },
+      appendTransaction: (trs, _old, state) =>
+        trs.some((tr) => tr.docChanged)
+          ? swapStoredBlobs(state.tr, storedBlobs, changedRanges(trs))
+          : null,
+      props: {
+        decorations: (state) => imageParagraphKey.getState(state),
+        handlePaste(view, event, slice) {
+          const data = event.clipboardData;
+          const items = Array.from(data?.items ?? []);
+          let files = items
+            .filter(
+              (item) => item.kind === "file" && item.type.startsWith("image/"),
+            )
+            .map((item) => item.getAsFile())
+            .filter((f): f is File => f !== null);
+          // Some webviews list a pasted file under `files` alone.
+          if (files.length === 0)
+            files = Array.from(data?.files ?? []).filter((f) =>
+              f.type.startsWith("image/"),
+            );
+          if (files.length > 0) {
+            void saveAndInsertImages(
+              view,
+              files.map((file) => ({
+                name: file.name,
+                type: file.type,
+                base64: () => blobToBase64(file),
+              })),
+              options,
+            );
+            return true;
+          }
 
-            // Image files copied in a file manager: inserted as images and
-            // stored like a pasted bitmap, instead of as file:// links.
-            const paths = imageFilesFromClipboard({
-              uriList: data?.getData("text/uri-list"),
-              gnomeCopiedFiles: data?.getData("x-special/gnome-copied-files"),
-              linkHrefs: onlyLinkHrefs(slice),
-            });
-            if (paths.length > 0) {
-              void saveAndInsertImages(view, paths.map(fileImage), options);
-              return true;
-            }
+          // Image files copied in a file manager: inserted as images and
+          // stored like a pasted bitmap, instead of as file:// links.
+          const paths = imageFilesFromClipboard({
+            uriList: data?.getData("text/uri-list"),
+            gnomeCopiedFiles: data?.getData("x-special/gnome-copied-files"),
+            linkHrefs: onlyLinkHrefs(slice),
+          });
+          if (paths.length > 0) {
+            void saveAndInsertImages(view, paths.map(fileImage), options);
+            return true;
+          }
 
-            // A bitmap that reached us as HTML: paste it as it is, so the
-            // image shows at once, then swap its blob: src for a stored one.
-            const blobs = blobImageSrcs(slice);
-            if (blobs.length > 0) {
-              view.dispatch(
-                view.state.tr.replaceSelection(slice).scrollIntoView(),
-              );
-              void storeBlobImages(view, blobs, options);
-              return true;
-            }
-            return false;
-          },
-          nodeViews: {
-            image: (node, view, getPos) =>
-              createImageView(node, view, getPos, options.docPath),
-          },
+          // A bitmap that reached us as HTML: paste it as it is, so the
+          // image shows at once, then swap its blob: src for a stored one.
+          const blobs = blobImageSrcs(slice);
+          if (blobs.length > 0) {
+            view.dispatch(
+              view.state.tr.replaceSelection(slice).scrollIntoView(),
+            );
+            void storeBlobImages(view, blobs, options, storedBlobs);
+            return true;
+          }
+          return false;
         },
-      }),
-  );
+        nodeViews: {
+          image: (node, view, getPos) =>
+            createImageView(node, view, getPos, options.docPath),
+        },
+      },
+    });
+  });
 }

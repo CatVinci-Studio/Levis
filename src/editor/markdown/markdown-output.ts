@@ -264,6 +264,31 @@ const link = Object.assign(
 );
 
 /**
+ * Image srcs that are shown but never written: a pasted screenshot's
+ * `blob:` URL while its file is still being stored (image-plugin.ts).
+ * A blob: URL names memory of this page alone, so a save made in that
+ * window wrote an image that was gone on reopen (issue #59's failure).
+ * Left out instead; the swap to the stored path changes the document
+ * again, so it is dirty and the next save writes the image.
+ */
+export const unwrittenImageSrcs = new Set<string>();
+
+const defaultImage = defaultHandlers.image as PeekingHandle;
+
+const image = Object.assign(
+  ((node, parent, state, info) =>
+    unwrittenImageSrcs.has(node.url)
+      ? ""
+      : defaultImage(node, parent, state, info)) as Handle,
+  {
+    peek: ((node, parent, state, info) =>
+      unwrittenImageSrcs.has(node.url)
+        ? ""
+        : defaultImage.peek(node, parent, state, info)) as Handle,
+  },
+);
+
+/**
  * The bullet the document's own lists use ("-", "*" or "+"), by majority,
  * or null when it has none. remark writes "*" whatever the file had, so
  * the first edit to a README written with "-" rewrote every bullet in it
@@ -312,6 +337,7 @@ export function configureMarkdownOutput(ctx: Ctx): void {
       thematicBreak,
       list,
       link,
+      image,
       text: keepAlertMarker(
         (options.handlers?.text as Handle | undefined) ?? defaultHandlers.text,
       ),
