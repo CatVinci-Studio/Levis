@@ -438,3 +438,29 @@ test("Shift pressed together with Enter starts a new paragraph", async ({
   ]);
   await expect(editor.locator('br[data-type="hardbreak"]')).toHaveCount(0);
 });
+
+test("h4 to h6 are never smaller than the text, and h6 is lighter than h5 (#58)", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(
+    page,
+    "#### Four\n\n##### Five\n\n###### Six\n\nBody text.",
+  );
+  const style = (selector: string) =>
+    page
+      .locator(`[data-active-tab="true"] .milkdown ${selector}`)
+      .evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { size: parseFloat(cs.fontSize), color: cs.color };
+      });
+  const p = await style("p");
+  const h4 = await style("h4");
+  const h5 = await style("h5");
+  const h6 = await style("h6");
+  expect(h4.size).toBeGreaterThan(p.size);
+  expect(h5.size).toBe(p.size);
+  expect(h6.size).toBe(p.size);
+  expect(h5.color).toBe(p.color);
+  expect(h6.color).not.toBe(h5.color);
+});
