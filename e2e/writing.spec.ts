@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mockInvoke, openApp, pasteMarkdown } from "./helpers";
+import {
+  PHONE,
+  mockInvoke,
+  openApp,
+  openPhone,
+  pasteMarkdown,
+} from "./helpers";
 
 function emit(page: Page, name: string, payload?: unknown) {
   return page.evaluate(
@@ -384,6 +390,108 @@ test("the math preview follows its formula when the column moves", async ({
   await expect
     .poll(async () => (await preview.boundingBox())!.x)
     .not.toBe(before.x);
+});
+
+/** Whether the math preview's box overlaps any document text (outside the
+ *  formula's own source) in the active tab. */
+function previewCoversText(page: Page) {
+  return page.evaluate(() => {
+    const box = document
+      .querySelector(".math-float-preview")!
+      .getBoundingClientRect();
+    const root = document.querySelector(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.textContent?.trim()) continue;
+      if (n.parentElement?.closest(".math-inline, .math-block")) continue;
+      range.selectNodeContents(n);
+      for (const r of Array.from(range.getClientRects())) {
+        if (
+          r.left < box.right &&
+          r.right > box.left &&
+          r.top < box.bottom &&
+          r.bottom > box.top
+        )
+          return true;
+      }
+    }
+    return false;
+  });
+}
+
+const PREVIEW_DOC = [
+  "A line above the formula, long enough to run across the whole column and onto a second line of text.",
+  "$$\ne^{ix} = \\cos x + i\\sin x\n$$",
+  "A line below the formula, long enough to run across the whole column and onto a second line of text.",
+  "Inline $\\frac{a}{b} + \\sqrt{c}$ math in a sentence long enough to wrap onto a second line under the formula, and a third.",
+].join("\n\n");
+
+/** Opens the block formula (caret at its end): its preview must not cover
+ *  text. Then the inline one (caret inside it): its preview floats, brief,
+ *  and the text around it must not move for it. */
+async function expectPreviewsClear(page: Page) {
+  const preview = page.locator(".math-float-preview");
+  await page.locator('[data-active-tab="true"] .math-block-rendered').click();
+  await page.keyboard.press("End");
+  await expect(preview).toBeVisible();
+  await page.waitForTimeout(400);
+  expect(await previewCoversText(page), "block preview covers text").toBe(
+    false,
+  );
+  // Its render's own mousedown handler puts the caret inside (a click's
+  // centre point can land on the paragraph around the KaTeX box).
+  const lastLine = page
+    .locator('[data-active-tab="true"] .ProseMirror p')
+    .last();
+  await page.locator('[data-active-tab="true"] .ProseMirror p').first().click();
+  await expect(preview).toBeHidden();
+  const before = (await lastLine.boundingBox())!;
+  await page
+    .locator('[data-active-tab="true"] .math-inline-rendered')
+    .dispatchEvent("mousedown");
+  await page.keyboard.press("ArrowLeft");
+  await expect(preview).toBeVisible();
+  await page.waitForTimeout(400);
+  // Revealing the source may rewrap its own line; nothing grows to make
+  // room for the preview, so the paragraph's height stays within a line.
+  const after = (await lastLine.boundingBox())!;
+  expect(after.height - before.height).toBeLessThan(40);
+  await expect(
+    page.locator('[data-active-tab="true"] .math-preview-room:visible'),
+  ).toHaveCount(0);
+  // Out of the formula, its room closes again.
+  await page.locator('[data-active-tab="true"] .ProseMirror p').first().click();
+  await expect(preview).toBeHidden();
+  await expect(
+    page.locator('[data-active-tab="true"] .math-preview-room:visible'),
+  ).toHaveCount(0);
+}
+
+test("a block formula's preview never covers the text below; an inline one floats", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, PREVIEW_DOC);
+  await expectPreviewsClear(page);
+  // A narrow window, and zoomed in.
+  await page.setViewportSize({ width: 620, height: 800 });
+  await expectPreviewsClear(page);
+  await emit(page, "menu-zoom-in");
+  await emit(page, "menu-zoom-in");
+  await page.waitForTimeout(200);
+  await expectPreviewsClear(page);
+});
+
+test.describe("phone", () => {
+  test.use(PHONE);
+  test("the math preview never covers text on the phone", async ({ page }) => {
+    await openPhone(page);
+    await pasteMarkdown(page, PREVIEW_DOC);
+    await expectPreviewsClear(page);
+  });
 });
 
 test("a note's body starts flush with the lines under it", async ({ page }) => {
