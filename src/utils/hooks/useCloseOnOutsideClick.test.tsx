@@ -31,6 +31,45 @@ describe("useCloseOnOutsideClick", () => {
     window.removeEventListener("keydown", later);
   });
 
+  // The editor keeps the focus under its context menu; its own Escape
+  // (clear the grey suggestion) must not run as well.
+  it("takes an Escape from outside before the focused element hears it", async () => {
+    const onClose = vi.fn();
+    const editor = document.createElement("div");
+    const editorEscape = vi.fn();
+    editor.addEventListener("keydown", editorEscape);
+    document.body.appendChild(editor);
+    render(<Overlay open onClose={onClose} />);
+    await settle();
+    editor.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(editorEscape).not.toHaveBeenCalled();
+    editor.remove();
+  });
+
+  it("lets a field inside the overlay keep its own Escape", async () => {
+    const onClose = vi.fn();
+    function WithField() {
+      const ref = useCloseOnOutsideClick<HTMLDivElement>(onClose, true, true);
+      return (
+        <div ref={ref}>
+          <input
+            data-testid="field"
+            onKeyDown={(e) => e.key === "Escape" && e.stopPropagation()}
+          />
+        </div>
+      );
+    }
+    const { getByTestId } = render(<WithField />);
+    await settle();
+    getByTestId("field").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("leaves Escape and clicks alone while closed", async () => {
     const onClose = vi.fn();
     const later = vi.fn();

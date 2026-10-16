@@ -438,3 +438,27 @@ test("Shift pressed together with Enter starts a new paragraph", async ({
   ]);
   await expect(editor.locator('br[data-type="hardbreak"]')).toHaveCount(0);
 });
+
+test("Escape that closes the context menu keeps the grey suggestion", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "The plan");
+  await page.locator(".milkdown p").first().click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" works");
+  const ghost = page.locator(".ghost-text");
+  await expect(ghost).toHaveCount(1);
+  await page.locator(".milkdown p").first().click({ button: "right" });
+  const menu = page.locator(".context-menu");
+  await expect(menu).toBeVisible();
+  // The menu listens from a tick after it opens, and Chromium runs a key
+  // press ahead of a waiting timer: let that tick pass first.
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(ghost).toHaveCount(1);
+  // The next Escape is the editor's again.
+  await page.keyboard.press("Escape");
+  await expect(ghost).toHaveCount(0);
+});
