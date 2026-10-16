@@ -45,8 +45,42 @@ const toBoolean = (spread: unknown) => spread === true || spread === "true";
 const list: Handle = (node, parent, state, info) => {
   node.spread = toBoolean(node.spread);
   for (const item of node.children) item.spread = toBoolean(item.spread);
-  return defaultHandlers.list(node, parent, state, info);
+  const listItem = state.handlers.listItem;
+  state.handlers.listItem = withEmptyTasks(listItem);
+  try {
+    return defaultHandlers.list(node, parent, state, info);
+  } finally {
+    state.handlers.listItem = listItem;
+  }
 };
+
+/**
+ * Writes a task item with no text yet as `- [ ] `. remark-gfm's handler
+ * puts the box after the bullet's following space, and an empty item has
+ * none: the box was dropped (a plain "-" saved), or - with a nested list
+ * under it - landed at the start of the next line, "[x]   - child", which
+ * reads back as a different document. The box is written here instead,
+ * around remark-gfm's handler (which this wraps for the one list, so its
+ * handling of every other item stays), and read back by
+ * remarkEmptyTaskItems (task-list-plugin.ts).
+ */
+function withEmptyTasks(listItem: Handle): Handle {
+  return (node, parent, state, info) => {
+    const head = node.children[0];
+    const empty =
+      typeof node.checked === "boolean" &&
+      // Milkdown hands an empty paragraph over with no `children` at all.
+      (!head ||
+        (head.type === "paragraph" &&
+          !(head.children as unknown[] | undefined)?.length));
+    if (!empty) return listItem(node, parent, state, info);
+    const plain = listItem({ ...node, checked: null }, parent, state, info);
+    return plain.replace(
+      /^([*+-]|\d+[.)])/,
+      `$1 [${node.checked ? "x" : " "}] `,
+    );
+  };
+}
 
 /**
  * Which markdown syntax a link was written in, kept on the mark so a save

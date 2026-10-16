@@ -40,6 +40,7 @@ import { headingMarkerPlugin } from "./marks/heading-marker-plugin";
 import { macNavigationPlugin } from "./keys/mac-navigation-plugin";
 import {
   cjkTaskInputPlugin,
+  remarkEmptyTaskItems,
   taskListClickPlugin,
 } from "./markdown/task-list-plugin";
 import { syntaxHighlightPlugin } from "./code/syntax-highlight-plugin";
@@ -158,6 +159,7 @@ export function withEditorCore(
 
       // Block-level niceties.
       .use(headingMarkerPlugin)
+      .use(remarkEmptyTaskItems)
       .use(taskListClickPlugin)
       .use(cjkTaskInputPlugin)
       .use(syntaxHighlightPlugin)

@@ -1,9 +1,57 @@
-import { $prose } from "@milkdown/kit/utils";
+import { $prose, $remark } from "@milkdown/kit/utils";
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 const CHECKBOX_HIT_WIDTH = 24;
+
+/**
+ * Reads `- [ ] ` and `- [x] ` with nothing after the box as empty task
+ * items. GFM takes a box with no text for literal text - "[ ]" in a plain
+ * bullet - yet that is exactly what an item made here and saved before its
+ * text was typed looks like (markdown-output.ts writes it so, as Typora
+ * does), so the checkbox was gone on the next open. Only an unescaped box:
+ * `- \[ ]` is text the user wrote, and its source runs longer than "[ ]".
+ */
+const EMPTY_TASK = /^\[([ xX])\]$/;
+
+function readEmptyTaskItems(node: MdastNode): void {
+  if (node.type === "listItem" && node.checked == null) {
+    const paragraph = node.children?.[0];
+    const text =
+      paragraph?.type === "paragraph" && paragraph.children?.length === 1
+        ? paragraph.children[0]
+        : null;
+    const match =
+      text?.type === "text" ? EMPTY_TASK.exec(text.value ?? "") : null;
+    const start = text?.position?.start.offset;
+    const end = text?.position?.end.offset;
+    if (
+      match &&
+      paragraph &&
+      start !== undefined &&
+      end !== undefined &&
+      end - start === match[0].length
+    ) {
+      node.checked = match[1] !== " ";
+      paragraph.children = [];
+    }
+  }
+  node.children?.forEach(readEmptyTaskItems);
+}
+
+interface MdastNode {
+  type: string;
+  value?: string;
+  checked?: boolean | null;
+  children?: MdastNode[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+}
+
+export const remarkEmptyTaskItems = $remark(
+  "remark-empty-task-items",
+  () => () => (tree: MdastNode) => readEmptyTaskItems(tree),
+);
 
 /**
  * Milkdown's gfm preset only marks task list items with a `data-checked`
