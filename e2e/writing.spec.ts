@@ -169,6 +169,56 @@ test("accepting one of two proposals in a paragraph keeps the other", async ({
   );
 });
 
+test("an undone edit's card still counts what it removes", async ({ page }) => {
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  await pasteMarkdown(page, "The cat sat on the mat.\n\nThe end.");
+  // A rewrite of the selection: the card compares it with the selection
+  // the request went out with.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      {
+        kind: "User",
+        text: "<selected-text>\nThe cat sat on the mat.\n</selected-text>\n\nFix it",
+      },
+      {
+        kind: "ToolCall",
+        call_id: "u1",
+        name: "propose_edit",
+        arguments: JSON.stringify({
+          action: "replace_selection",
+          text: "The cat slept on the mat.",
+        }),
+      },
+      { kind: "ToolResult", call_id: "u1", output: "Edit proposed" },
+      { kind: "Assistant", text: "Done." },
+    ],
+  });
+  await page.locator(".milkdown p").first().click({ clickCount: 3 });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Fix it");
+  await composer.press("Enter");
+  const chips = page.locator(".agent-proposal .agent-diff-summary");
+  await expect(chips).toHaveText("+1−1");
+  await page
+    .locator(".agent-proposal-actions .inline-chat-action-primary")
+    .click();
+  await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
+  await expect(page.locator(".milkdown p").first()).toHaveText(
+    "The cat slept on the mat.",
+  );
+  // Undone, the edit is on offer again; the caret then moves on and
+  // nothing is selected any more.
+  await page.locator(".milkdown .ProseMirror").focus();
+  await page.keyboard.press("Control+z");
+  await expect(page.locator(".agent-proposal-status-accepted")).toHaveCount(0);
+  await page.locator(".milkdown p").last().click();
+  await expect(page.locator(".agent-proposal-actions")).toBeVisible();
+  await expect(chips).toHaveText("+1−1");
+});
+
 test("a broken diagram leaves no mermaid node in the page", async ({
   page,
 }) => {

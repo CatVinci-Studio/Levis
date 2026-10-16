@@ -10,6 +10,7 @@ import type { AgentTurn, EditAction, EditProposal } from "../types";
 import type { PendingStatus } from "../revision/usePendingEdits";
 import type { StreamingState } from "./useAgentConversation";
 import { parseProposal } from "./proposal";
+import { parseUserMessage } from "./user-message";
 import { refusedProposalIds } from "../revision/proposal-status";
 import { classifyAiError, type AiErrorKind } from "../error-messages";
 import { diffLines } from "./line-diff";
@@ -172,11 +173,25 @@ export function ChatMessages({
   // Filled while rendering: a comment's tool result renders nothing (the
   // card is the result), and it always follows its call in the list.
   const commentIds = new Set<string>();
+  // With each, the selection its request went out with - what a
+  // replace_selection rewrites. Not the live one: that is gone the moment
+  // the caret moves, as it does after an undo puts the edit back on offer,
+  // and the card then counted the rewrite as all addition ("+1", no "−1").
   const parsedProposals = useMemo(() => {
-    const map = new Map<string, EditProposal | null>();
-    for (const turn of shown)
-      if (turn.kind === "ToolCall" && turn.name === "propose_edit")
-        map.set(turn.call_id, parseProposal(turn.arguments));
+    const map = new Map<
+      string,
+      { proposal: EditProposal | null; sentSelection: string | null }
+    >();
+    let sentSelection: string | null = null;
+    for (const turn of shown) {
+      if (turn.kind === "User")
+        sentSelection = parseUserMessage(turn.text).selection;
+      else if (turn.kind === "ToolCall" && turn.name === "propose_edit")
+        map.set(turn.call_id, {
+          proposal: parseProposal(turn.arguments),
+          sentSelection,
+        });
+    }
     return map;
   }, [shown]);
   // A call the backend refused (tools.rs) was never a proposal: the model
@@ -222,8 +237,9 @@ export function ChatMessages({
         )
           return null;
         if (turn.kind === "ToolCall" && turn.name === "propose_edit") {
-          const proposal = parsedProposals.get(turn.call_id);
-          if (!proposal)
+          const parsed = parsedProposals.get(turn.call_id);
+          const proposal = parsed?.proposal;
+          if (!parsed || !proposal)
             return <AgentTurnView key={i} turn={turn} labels={labels} />;
           const known = proposalStatus(turn.call_id);
           // While a request runs, a card can render a beat before its
@@ -239,7 +255,7 @@ export function ChatMessages({
               status={status}
               reveal={reveal}
               style={style}
-              selectedText={selectedText}
+              selectedText={parsed.sentSelection ?? selectedText}
               labels={labels}
               sentences={
                 status === "pending"
