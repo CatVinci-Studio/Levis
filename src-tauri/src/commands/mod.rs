@@ -15,6 +15,7 @@ pub mod drafts;
 pub mod export;
 pub mod fs;
 pub mod image_host;
+pub mod links;
 #[cfg(desktop)]
 pub mod prefs;
 pub mod recents;

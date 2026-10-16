@@ -66,9 +66,3 @@ export function documentsDir(): Promise<string> {
 export function knownDocumentsDir(): string | null {
   return known;
 }
-
-/** Forgets the folder, for tests. */
-export function resetDocumentsDirForTests(): void {
-  known = null;
-  loading = null;
-}

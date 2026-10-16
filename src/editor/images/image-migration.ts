@@ -29,10 +29,10 @@ function replaceAll(content: string, from: string, to: string): string {
 /**
  * A draft's pasted images live in the app's data dir with an absolute src
  * (see fs.rs's save_pasted_image) until the document itself is saved
- * somewhere real - called right after a first save (App.tsx's saveTabAs) to
- * move them into a `assets/` folder next to the document and rewrite the
- * markdown to the new relative paths. A no-op (empty result) for documents
- * with no draft-origin images, which is the common case.
+ * somewhere real - called right after a first save (app/useSaveTabs.ts's
+ * saveTabAs) to move them into a `assets/` folder next to the document and
+ * rewrite the markdown to the new relative paths. A no-op (empty result)
+ * for documents with no draft-origin images, which is the common case.
  */
 export async function migrateDraftImages(
   docPath: string,

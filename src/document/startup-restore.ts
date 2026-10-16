@@ -56,7 +56,7 @@ export function useStartupRestore(opts: StartupRestoreOptions): void {
     // a remount it went on showing the blank tab's empty document while the
     // tab held the file: the word count right, the page empty, and typing
     // there would have replaced the file's text on the next save. Moving
-    // reloadKey on remounts it on the new content, as App.tsx's
+    // reloadKey on remounts it on the new content, as app/useFileOpening.ts's
     // replaceTabWithFile does; before the editor has mounted it costs
     // nothing.
     const loadIntoInitialTab = (doc: Partial<DocTab>) =>

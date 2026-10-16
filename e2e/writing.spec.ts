@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mockInvoke, openApp, pasteMarkdown } from "./helpers";
+import {
+  PHONE,
+  mockInvoke,
+  openApp,
+  openPhone,
+  pasteMarkdown,
+} from "./helpers";
 
 function emit(page: Page, name: string, payload?: unknown) {
   return page.evaluate(
@@ -386,6 +392,108 @@ test("the math preview follows its formula when the column moves", async ({
     .not.toBe(before.x);
 });
 
+/** Whether the math preview's box overlaps any document text (outside the
+ *  formula's own source) in the active tab. */
+function previewCoversText(page: Page) {
+  return page.evaluate(() => {
+    const box = document
+      .querySelector(".math-float-preview")!
+      .getBoundingClientRect();
+    const root = document.querySelector(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.textContent?.trim()) continue;
+      if (n.parentElement?.closest(".math-inline, .math-block")) continue;
+      range.selectNodeContents(n);
+      for (const r of Array.from(range.getClientRects())) {
+        if (
+          r.left < box.right &&
+          r.right > box.left &&
+          r.top < box.bottom &&
+          r.bottom > box.top
+        )
+          return true;
+      }
+    }
+    return false;
+  });
+}
+
+const PREVIEW_DOC = [
+  "A line above the formula, long enough to run across the whole column and onto a second line of text.",
+  "$$\ne^{ix} = \\cos x + i\\sin x\n$$",
+  "A line below the formula, long enough to run across the whole column and onto a second line of text.",
+  "Inline $\\frac{a}{b} + \\sqrt{c}$ math in a sentence long enough to wrap onto a second line under the formula, and a third.",
+].join("\n\n");
+
+/** Opens the block formula (caret at its end): its preview must not cover
+ *  text. Then the inline one (caret inside it): its preview floats, brief,
+ *  and the text around it must not move for it. */
+async function expectPreviewsClear(page: Page) {
+  const preview = page.locator(".math-float-preview");
+  await page.locator('[data-active-tab="true"] .math-block-rendered').click();
+  await page.keyboard.press("End");
+  await expect(preview).toBeVisible();
+  await page.waitForTimeout(400);
+  expect(await previewCoversText(page), "block preview covers text").toBe(
+    false,
+  );
+  // Its render's own mousedown handler puts the caret inside (a click's
+  // centre point can land on the paragraph around the KaTeX box).
+  const lastLine = page
+    .locator('[data-active-tab="true"] .ProseMirror p')
+    .last();
+  await page.locator('[data-active-tab="true"] .ProseMirror p').first().click();
+  await expect(preview).toBeHidden();
+  const before = (await lastLine.boundingBox())!;
+  await page
+    .locator('[data-active-tab="true"] .math-inline-rendered')
+    .dispatchEvent("mousedown");
+  await page.keyboard.press("ArrowLeft");
+  await expect(preview).toBeVisible();
+  await page.waitForTimeout(400);
+  // Revealing the source may rewrap its own line; nothing grows to make
+  // room for the preview, so the paragraph's height stays within a line.
+  const after = (await lastLine.boundingBox())!;
+  expect(after.height - before.height).toBeLessThan(40);
+  await expect(
+    page.locator('[data-active-tab="true"] .math-preview-room:visible'),
+  ).toHaveCount(0);
+  // Out of the formula, its room closes again.
+  await page.locator('[data-active-tab="true"] .ProseMirror p').first().click();
+  await expect(preview).toBeHidden();
+  await expect(
+    page.locator('[data-active-tab="true"] .math-preview-room:visible'),
+  ).toHaveCount(0);
+}
+
+test("a block formula's preview never covers the text below; an inline one floats", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, PREVIEW_DOC);
+  await expectPreviewsClear(page);
+  // A narrow window, and zoomed in.
+  await page.setViewportSize({ width: 620, height: 800 });
+  await expectPreviewsClear(page);
+  await emit(page, "menu-zoom-in");
+  await emit(page, "menu-zoom-in");
+  await page.waitForTimeout(200);
+  await expectPreviewsClear(page);
+});
+
+test.describe("phone", () => {
+  test.use(PHONE);
+  test("the math preview never covers text on the phone", async ({ page }) => {
+    await openPhone(page);
+    await pasteMarkdown(page, PREVIEW_DOC);
+    await expectPreviewsClear(page);
+  });
+});
+
 test("a note's body starts flush with the lines under it", async ({ page }) => {
   await openApp(page, { settings: { language: "en" } });
   await pasteMarkdown(
@@ -607,6 +715,53 @@ test("an IME commit into a fresh task item stays in that item", async ({
   await expect(items.first()).toHaveText("你好!");
 });
 
+test("repairing a pruned IME commit leaves a real empty item alone", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  // Three task items: an empty one, "a", and a fresh one to compose in.
+  await pasteMarkdown(page, "- [ ] e\n- [ ] a\n- [ ] x");
+  const caretAfter = (index: number) =>
+    page.evaluate((i) => {
+      const p = document.querySelectorAll(
+        '[data-active-tab="true"] .ProseMirror li p',
+      )[i];
+      getSelection()!.collapse(p.firstChild, 1);
+    }, index);
+  await caretAfter(0);
+  await page.keyboard.press("Backspace");
+  await caretAfter(2);
+  await page.keyboard.press("Backspace");
+  const items = editor.locator('li[data-item-type="task"]');
+  await expect(items).toHaveText(["", "a", ""]);
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    const deleteEvent = (type: string) =>
+      Object.defineProperty(new InputEvent(type), "inputType", {
+        value: "deleteCompositionText",
+      });
+    root.dispatchEvent(new CompositionEvent("compositionstart"));
+    document.execCommand("insertText", false, "ni hao");
+    const [, before, fresh] = Array.from(root.querySelectorAll("li"));
+    root.dispatchEvent(deleteEvent("beforeinput"));
+    // The pruned item's recorded neighbour goes too, so the guard can't
+    // place the item by it - and must not take the empty first item for
+    // the stand-in WebKit leaves.
+    before.remove();
+    fresh.replaceWith(document.createElement("br"));
+    root.dispatchEvent(deleteEvent("input"));
+    document.execCommand("insertText", false, "你好");
+    root.dispatchEvent(
+      new CompositionEvent("compositionend", { data: "你好" }),
+    );
+  });
+  await page.keyboard.type("!");
+  await expect(items).toHaveText(["", "你好!"]);
+});
+
 test("hovering a column border doesn't change the table's height", async ({
   page,
 }) => {
@@ -792,4 +947,116 @@ test("Enter in a table's last row starts the new row at its first cell", async (
   await expect(
     page.locator(".milkdown tr").nth(2).locator("td").first(),
   ).toHaveText("x");
+});
+
+/** Text-line index of a source textarea at viewport y, from its own
+ *  scroll metrics (the content zoom scales screen px by 1/zoom). Assumes
+ *  lines too short to wrap. */
+async function sourceLineAt(page: Page, y: number): Promise<number> {
+  return page.evaluate((y) => {
+    const ta = document.querySelector<HTMLTextAreaElement>(
+      '[data-active-tab="true"] textarea.source-view',
+    )!;
+    const zoom = Number(
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--content-zoom",
+      ) || 1,
+    );
+    const style = getComputedStyle(ta);
+    const padTop = parseFloat(style.paddingTop);
+    const lines = ta.value.split("\n").length;
+    const lineHeight =
+      (ta.scrollHeight - padTop - parseFloat(style.paddingBottom)) / lines;
+    const top = ta.getBoundingClientRect().top;
+    return Math.floor((ta.scrollTop + (y - top) / zoom - padTop) / lineHeight);
+  }, y);
+}
+
+async function wheelZoom(page: Page, x: number, y: number, steps: number) {
+  await page.mouse.move(x, y);
+  await page.keyboard.down("Control");
+  for (let i = 0; i < steps; i++) await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(250);
+}
+
+const shortLines = Array.from({ length: 200 }, (_, i) => `Line ${i}`).join(
+  "\n\n",
+);
+
+test("mod+wheel in source mode keeps the line under the pointer", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, shortLines);
+  await emit(page, "menu-toggle-source-mode");
+  const source = page.locator('[data-active-tab="true"] textarea.source-view');
+  // Entering source mode scrolls the caret into view a moment later (on a
+  // slow machine, after a scroll set here): set the position until it holds,
+  // or that late scroll moves the text after `before` is read.
+  await expect
+    .poll(async () => {
+      const top = await source.evaluate((ta) => {
+        ta.scrollTop = Math.round(ta.scrollHeight / 3);
+        return ta.scrollTop;
+      });
+      await page.waitForTimeout(150);
+      return top > 0 && (await source.evaluate((ta) => ta.scrollTop)) === top;
+    })
+    .toBe(true);
+  const box = (await source.boundingBox())!;
+  const y = box.y + box.height * 0.3;
+  const before = await sourceLineAt(page, y);
+  await wheelZoom(page, box.x + box.width / 2, y, 5);
+  expect(Math.abs((await sourceLineAt(page, y)) - before)).toBeLessThanOrEqual(
+    1,
+  );
+});
+
+test("split view: mod+wheel holds the pane under the pointer, the other follows", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  await pasteMarkdown(page, longDoc([{ at: 40, text: "## Anchor line" }]));
+  await emit(page, "menu-toggle-split-view");
+  const preview = page.locator('[data-active-tab="true"] .split-preview');
+  const heading = preview.locator("h2", { hasText: "Anchor line" });
+  await heading.evaluate((el) =>
+    el.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  await page.waitForTimeout(250);
+  const ratio = () =>
+    page.evaluate(() => {
+      const r = (el: Element) =>
+        el.scrollTop / Math.max(1, el.scrollHeight - el.clientHeight);
+      return {
+        source: r(
+          document.querySelector('[data-active-tab="true"] .split-source')!,
+        ),
+        preview: r(
+          document.querySelector('[data-active-tab="true"] .split-preview')!,
+        ),
+      };
+    });
+  // Over the preview: its heading stays put.
+  const before = (await heading.boundingBox())!;
+  const pane = (await preview.boundingBox())!;
+  await wheelZoom(
+    page,
+    pane.x + pane.width / 2,
+    before.y + before.height / 2,
+    4,
+  );
+  const after = (await heading.boundingBox())!;
+  expect(Math.abs(after.y - before.y)).toBeLessThan(24);
+  // ...and the source followed it in proportion, as on a scroll.
+  let r = await ratio();
+  expect(Math.abs(r.source - r.preview)).toBeLessThan(0.02);
+  // Over the source, the preview follows it the same way.
+  const sbox = (await page
+    .locator('[data-active-tab="true"] .split-source')
+    .boundingBox())!;
+  await wheelZoom(page, sbox.x + sbox.width / 2, sbox.y + sbox.height / 2, 3);
+  r = await ratio();
+  expect(Math.abs(r.source - r.preview)).toBeLessThan(0.02);
 });

@@ -35,7 +35,7 @@ const LINUX_MENU_ACCELERATORS: Record<string, string> = {
  * The window-wide keyboard shortcuts: the fixed OS-convention ones (save,
  * close tab, fullscreen, and the native menu's accelerators where that menu
  * can't fire them) plus the configurable settings.shortcuts entries.
- * Pulled out of App.tsx; every action it triggers still lives there.
+ * Pulled out of App.tsx; every action it triggers is handed in from there.
  */
 export function useGlobalShortcuts(opts: {
   activeTabId: string;

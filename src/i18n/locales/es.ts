@@ -543,6 +543,7 @@ para usar una.
   menuHelpWelcome: "Bienvenida y tutorial",
   menuHelpMarkdown: "Guía de Markdown",
   menuHelpAgent: "Guía de funciones de IA",
+  menuHelpCommunity: "Comunidad en Discord",
   windowMinimize: "Minimizar",
   windowMaximize: "Maximizar",
   windowRestore: "Restaurar",

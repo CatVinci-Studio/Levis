@@ -11,9 +11,9 @@ import { unlistenAll } from "../utils/tauri-events";
 // snapshot (its mtime was unreadable when the document was read) just
 // adopts the current mtime as its baseline.
 //
-// `liveTabs` is App.tsx's: a clean-looking tab can still hold an edit the
-// editor hasn't reported yet, and reloading it would remount the editor
-// over that edit.
+// `liveTabs` is app/useTabState.ts's: a clean-looking tab can still hold an
+// edit the editor hasn't reported yet, and reloading it would remount the
+// editor over that edit.
 export function useExternalChangeReload(
   liveTabs: () => DocTab[],
   updateTab: (id: string, patch: Partial<DocTab>) => void,

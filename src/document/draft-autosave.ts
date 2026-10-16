@@ -27,11 +27,11 @@ interface Pending {
  * privacy section's own "Clear" button is what removes them).
  *
  * Returns a cancel function that drops every scheduled-but-unflushed
- * snapshot write. For the window-teardown paths in App.tsx (whole-window
- * close, last-tab removeTab): those clear the on-disk snapshots and then
- * destroy() the window, and a debounce timer firing in that gap would
- * silently re-save what was just cleared - resurrecting a discarded
- * document as a "recovered draft" on the next launch.
+ * snapshot write. For the window-teardown paths in app/close-flow.ts
+ * (whole-window close, last-tab removeTab): those clear the on-disk
+ * snapshots and then destroy() the window, and a debounce timer firing in
+ * that gap would silently re-save what was just cleared - resurrecting a
+ * discarded document as a "recovered draft" on the next launch.
  */
 export function useDraftAutosave(tabs: DocTab[], enabled: boolean): () => void {
   const pendingRef = useRef<Map<string, Pending>>(new Map());

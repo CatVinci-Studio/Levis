@@ -529,6 +529,7 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   menuHelpWelcome: "Boas-vindas e Tutorial",
   menuHelpMarkdown: "Guia de Markdown",
   menuHelpAgent: "Guia dos Recursos de IA",
+  menuHelpCommunity: "Comunidade no Discord",
   windowMinimize: "Minimizar",
   windowMaximize: "Maximizar",
   windowRestore: "Restaurar",

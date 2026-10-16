@@ -9,10 +9,8 @@ import { useSettings } from "../settings/SettingsContext";
 import type { TableAction } from "../editor/editor-menu";
 import {
   BulletListIcon,
-  CopyIcon,
   MoreIcon,
   NumberedListIcon,
-  PasteIcon,
   TableEditIcon,
   TrashIcon,
   UndoIcon,
@@ -32,7 +30,8 @@ import "./KeyboardToolbar.css";
 
 /**
  * The strip above the iPhone keyboard while the document is being edited:
- * undo, copy and paste; then whatever fits where the caret is - formatting
+ * undo (copy and paste are the system's own long-press menu, used too
+ * rarely to keep two buttons here); then whatever fits where the caret is - formatting
  * without typing Markdown symbols in text, adding and deleting rows and
  * columns in a table, widths and delete on a tapped image; "More" for the
  * rest of the editor's right-click menu; and Quick Ask at the caret. A
@@ -203,8 +202,6 @@ export function KeyboardToolbar() {
 
   const editGroup: Button[] = [
     { label: t.menuUndo, content: <UndoIcon />, run: edit("undo") },
-    { label: t.copy, content: <CopyIcon />, run: edit("copy") },
-    { label: t.paste, content: <PasteIcon />, run: edit("paste") },
   ];
 
   // In a table or on an image, the buttons for it stand where the text

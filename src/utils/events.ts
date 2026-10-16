@@ -5,6 +5,9 @@ export const TRIGGER_COMPLETION_EVENT = "textus:trigger-completion";
 export const TRIGGER_GRAMMAR_CHECK_EVENT = "textus:trigger-grammar-check";
 export const TOGGLE_FLOATING_CHAT_EVENT = "textus:toggle-floating-chat";
 export const TOGGLE_FIND_REPLACE_EVENT = "textus:toggle-find-replace";
+/// Closes the find bar if it is open: the iPhone's sidebar drawer opens
+/// over the top of the page, where the bar sits.
+export const CLOSE_FIND_REPLACE_EVENT = "textus:close-find-replace";
 
 /// detail: the markdown text to insert at the cursor (clipboard history panel).
 export const INSERT_CLIPBOARD_TEXT_EVENT = "textus:insert-clipboard-text";

@@ -1,0 +1,132 @@
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { isIOSApp } from "../platform/capabilities";
+import { keyboardUp, whenKeyboardDown } from "../mobile/keyboard";
+import { usePresence } from "../ui/usePresence";
+import { CLOSE_FIND_REPLACE_EVENT } from "../utils/events";
+import { useAgentPanelState } from "../ai/chat/panel/agent-panel";
+
+export type PanelMode = "tree" | "outline" | "clipboard" | "chat";
+
+/** The sidebar's width (sidebar-frame.css .sidebar) and the narrowest text column
+ *  the docked panel may leave beside it. */
+const SIDEBAR_WIDTH = 240;
+const MIN_TEXT_COLUMN = 420;
+
+function subscribeWindowResize(onChange: () => void) {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+}
+
+/**
+ * The layout state of the two side panels around the document: the sidebar
+ * on the left (open, which tab it shows) and the docked Agent panel on the
+ * right (open, width, whether it lies over the page, the phone's bottom
+ * sheet). Pulled out of App.tsx, which renders both frames.
+ */
+export function useSidePanels() {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const toggleSidebar = useCallback(() => setPanelOpen((v) => !v), []);
+  // On iOS the sidebar is a drawer over the page, and the find bar sits at
+  // the top of the page: they would overlap, so opening one closes the bar.
+  useEffect(() => {
+    if (isIOSApp && panelOpen)
+      window.dispatchEvent(new CustomEvent(CLOSE_FIND_REPLACE_EVENT));
+  }, [panelOpen]);
+  // The docked Agent panel on the right (ai/chat/panel/agent-panel.tsx). App owns
+  // the frame; the active tab's editor renders its conversation into it.
+  const agentPanel = useAgentPanelState();
+  // With the sidebar and the docked panel both open, a small window left
+  // the text column ~120px wide - a word a line. Below this much room for
+  // the text the panel lies over the page instead, as it does on a narrow
+  // window (agent-panel.css).
+  const windowWidth = useSyncExternalStore(subscribeWindowResize, () =>
+    typeof window === "undefined" ? 0 : window.innerWidth,
+  );
+  const agentOverlays =
+    !isIOSApp &&
+    panelOpen &&
+    windowWidth - SIDEBAR_WIDTH - agentPanel.width < MIN_TEXT_COLUMN;
+  const [agentPanelEl, setAgentPanelEl] = useState<HTMLElement | null>(null);
+  // On a phone, opening the sheet puts the keyboard away in one movement:
+  // the document gives up focus here and the sheet's input doesn't take it
+  // (ChatComposer's focusOnOpen), where handing focus from one to the other
+  // dropped the keyboard and raised it again.
+  // And with the keyboard up, the sheet rises once it has gone: laid out
+  // in a web view still growing back to full height under it, the sheet's
+  // top jumped and its composer arrived late from below.
+  const pendingAgentOpen = useRef<(() => void) | null>(null);
+  const toggleAgentPanel = useCallback(() => {
+    if (pendingAgentOpen.current) {
+      // A second tap while it waits: it stays closed.
+      pendingAgentOpen.current();
+      pendingAgentOpen.current = null;
+      return;
+    }
+    if (isIOSApp && !agentPanel.open) {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+      if (keyboardUp()) {
+        pendingAgentOpen.current = whenKeyboardDown(() => {
+          pendingAgentOpen.current = null;
+          agentPanel.setOpen(true);
+        });
+        return;
+      }
+    }
+    agentPanel.toggle();
+  }, [agentPanel]);
+  // Both side panels play their way out before their contents go: the
+  // sidebar slides back over the editor, the AI panel fades off its edge.
+  // The editor makes its room (or takes it back) at once, gliding there
+  // (App.tsx's FlipOnChange) rather than reflowing on every frame.
+  const sidebarPresence = usePresence(panelOpen, { exitMs: 250 });
+  const sidebarClosing = sidebarPresence.state === "closing";
+  const agentPresence = usePresence(agentPanel.open, { exitMs: 250 });
+  const agentClosing = agentPresence.state === "closing";
+  // The phone's AI sheet leaves where it stood: closing with the keyboard
+  // up, the web view grew back under it as the keyboard went and its
+  // height (a share of the view) jumped the top up ~170pt in one frame.
+  useLayoutEffect(() => {
+    const sheet = document.querySelector<HTMLElement>("aside.agent-panel");
+    if (!isIOSApp || !sheet) return;
+    if (!agentClosing) {
+      for (const prop of ["top", "bottom", "height"])
+        sheet.style.removeProperty(prop);
+      return;
+    }
+    if (getComputedStyle(sheet).position !== "fixed") return;
+    const box = sheet.getBoundingClientRect();
+    sheet.style.top = `${box.top}px`;
+    sheet.style.bottom = "auto";
+    sheet.style.height = `${box.height}px`;
+  }, [agentClosing]);
+  // iPhone: whether the AI bottom sheet is pulled up to full height.
+  const [sheetFull, setSheetFull] = useState(false);
+  const [panelMode, setPanelMode] = useState<PanelMode>("tree");
+
+  return {
+    panelOpen,
+    setPanelOpen,
+    toggleSidebar,
+    agentPanel,
+    agentOverlays,
+    agentPanelEl,
+    setAgentPanelEl,
+    toggleAgentPanel,
+    sidebarPresence,
+    sidebarClosing,
+    agentPresence,
+    agentClosing,
+    sheetFull,
+    setSheetFull,
+    panelMode,
+    setPanelMode,
+  };
+}

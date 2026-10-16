@@ -14,7 +14,7 @@ import type { Strings } from "../i18n/strings";
 
 export interface MenuBridgeHandlers {
   activeTabId: string;
-  /** App.tsx's liveTabs: read inside event handlers, not captured at
+  /** useTabState.ts's liveTabs: read inside event handlers, not captured at
    *  effect-setup time, and with the editors' pending edits flushed so an
    *  export carries what is on screen. */
   liveTabs: () => DocTab[];

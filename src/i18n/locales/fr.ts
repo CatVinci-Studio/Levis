@@ -547,6 +547,7 @@ utiliser une.
   menuHelpWelcome: "Bienvenue et tutoriel",
   menuHelpMarkdown: "Guide Markdown",
   menuHelpAgent: "Guide des fonctions IA",
+  menuHelpCommunity: "Communauté Discord",
   windowMinimize: "Réduire",
   windowMaximize: "Agrandir",
   windowRestore: "Niveau inférieur",
