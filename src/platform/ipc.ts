@@ -523,9 +523,9 @@ export interface AgentWorkspaceInfo {
 // ---------------------------------------------------------------------------
 // Writing conventions (src-tauri/src/ai/rules/profile.rs)
 
-/** The settings.json key of the global writing conventions default. */
-export const WRITING_CONVENTIONS_KEY = "writingConventions";
-/** Its default value, and the per-language value meaning "no choice". */
+/** The default of the global writing conventions setting
+ *  (`writingConventions` in settings.json), and the per-language value
+ *  meaning "no choice". */
 export const WRITING_CONVENTIONS_AUTOMATIC = "automatic";
 
 /** A document language as the rules engine names it. */

@@ -58,15 +58,6 @@ export function prefersReducedMotion(): boolean {
   );
 }
 
-/** Calls `onChange` whenever the reduced-motion setting flips. */
-export function onReducedMotionChange(onChange: () => void): () => void {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function")
-    return () => {};
-  const query = window.matchMedia(REDUCE_QUERY);
-  query.addEventListener?.("change", onChange);
-  return () => query.removeEventListener?.("change", onChange);
-}
-
 let probe: HTMLElement | null = null;
 
 /** True where a stylesheet has switched CSS animation off wholesale - the
