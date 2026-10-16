@@ -25,6 +25,7 @@ const PERSIST_DELAY_MS = 400;
 /// lib.dom because no other engine implements them.
 interface WebKitGestureEvent extends UIEvent {
   readonly scale: number;
+  readonly clientX: number;
   readonly clientY: number;
 }
 
@@ -50,6 +51,100 @@ function blockAt(content: Element, line: number): Element | null {
   return null;
 }
 
+/// Where a zoom step is held still: the rich editor's scroller, split
+/// view's preview (both scroll rendered blocks), or a source textarea
+/// (source mode, or split view's left pane), which scrolls itself.
+type Pane =
+  | { kind: "rendered"; scroller: HTMLElement; content: Element }
+  | { kind: "source"; scroller: HTMLTextAreaElement };
+
+/// The pane under the pointer, else the focused one, else the first on
+/// screen. In split view the two panes sit side by side, hence the x.
+function zoomPane(x: number | null, y: number | null): Pane | null {
+  const tab = '[data-active-tab="true"]';
+  const panes: Pane[] = [];
+  for (const selector of [`${tab} .editor-scroll`, `${tab} .split-preview`]) {
+    const scroller = document.querySelector<HTMLElement>(selector);
+    const content = scroller?.querySelector(".milkdown");
+    if (scroller && content)
+      panes.push({ kind: "rendered", scroller, content });
+  }
+  const source = document.querySelector<HTMLTextAreaElement>(
+    `${tab} textarea.source-view`,
+  );
+  if (source) panes.push({ kind: "source", scroller: source });
+  const shown = panes.filter((pane) => {
+    const box = pane.scroller.getBoundingClientRect();
+    return box.width > 0 && box.height > 0;
+  });
+  const under = (pane: Pane) => {
+    const box = pane.scroller.getBoundingClientRect();
+    return (
+      (x === null || (x >= box.left && x <= box.right)) &&
+      y !== null &&
+      y >= box.top &&
+      y <= box.bottom
+    );
+  };
+  return (
+    shown.find(under) ??
+    shown.find((pane) => pane.scroller.contains(document.activeElement)) ??
+    shown[0] ??
+    null
+  );
+}
+
+/// Sets the zoom so the line at viewport y `line` of a rendered pane stays
+/// at `line`. The block under it keeps the same share of its height.
+/// Scaling the distance into the content alone drifted: where the column
+/// widens with the zoom the text rewraps, so the content does not grow in
+/// proportion.
+function holdRendered(
+  { scroller, content }: { scroller: HTMLElement; content: Element },
+  line: number,
+  prev: number,
+  next: number,
+  setZoomVar: () => void,
+) {
+  const block = blockAt(content, line);
+  if (block) {
+    const was = block.getBoundingClientRect();
+    const share = was.height > 0 ? (line - was.top) / was.height : 0;
+    setZoomVar();
+    const now = block.getBoundingClientRect();
+    scroller.scrollTop += now.top + share * now.height - line;
+    return;
+  }
+  // Below the last block: the column's padding is outside the zoomed node,
+  // so only the distance INTO the content scales.
+  const top = scroller.getBoundingClientRect().top;
+  const anchor = line - top;
+  const contentTop = () =>
+    content.getBoundingClientRect().top - top + scroller.scrollTop;
+  const before = contentTop();
+  const into = Math.max(0, scroller.scrollTop + anchor - before);
+  setZoomVar();
+  scroller.scrollTop = contentTop() + (into * next) / prev - anchor;
+}
+
+/// The same for a source textarea, which scrolls in the zoomed node's own
+/// px (a screen px is 1/zoom of one). Its width doesn't grow with the zoom
+/// the way the text does, so long lines rewrap and no fixed offset stays on
+/// the same line - the anchor keeps its share of the whole text height.
+function holdSource(
+  source: HTMLTextAreaElement,
+  line: number,
+  prev: number,
+  next: number,
+  setZoomVar: () => void,
+) {
+  const anchor = line - source.getBoundingClientRect().top;
+  const share =
+    (source.scrollTop + anchor / prev) / Math.max(1, source.scrollHeight);
+  setZoomVar();
+  source.scrollTop = share * source.scrollHeight - anchor / next;
+}
+
 /**
  * Applies `initialZoom` on mount and owns every zoom input for this window.
  * The live value lives in a ref (not React state) - pinch updates arrive per
@@ -65,62 +160,43 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
   useEffect(() => {
     let raf = 0;
     let persistTimer: ReturnType<typeof setTimeout> | undefined;
-    // The zoom actually on screen, and the viewport y the next apply should
-    // hold still (the pointer for wheel/pinch; null = the pane's centre).
+    // The zoom actually on screen, and the viewport point the next apply
+    // should hold still (the pointer for wheel/pinch; null = the focused
+    // pane's centre).
     let appliedZoom = 1;
+    let anchorClientX: number | null = null;
     let anchorClientY: number | null = null;
 
     const apply = () => {
       const next = zoomRef.current;
       const prev = appliedZoom;
       appliedZoom = next;
+      const setZoomVar = () =>
+        document.documentElement.style.setProperty(
+          "--content-zoom",
+          String(next),
+        );
       // Zooming scales the content's height but leaves scrollTop alone, so
-      // without this the text under the pointer slides up or down with
-      // every step. Hold the anchor's document position fixed instead.
-      const scroller = document.querySelector<HTMLElement>(
-        '[data-active-tab="true"] .editor-scroll',
-      );
-      const content = scroller?.querySelector(".milkdown");
-      if (!scroller || !content || prev === next) {
-        document.documentElement.style.setProperty(
-          "--content-zoom",
-          String(next),
-        );
+      // without holding a line still the text under the pointer slides up
+      // or down with every step.
+      const pane =
+        prev === next ? null : zoomPane(anchorClientX, anchorClientY);
+      if (!pane) {
+        setZoomVar();
         return;
       }
-      const box = scroller.getBoundingClientRect();
-      const anchor = Math.min(
-        box.height,
-        Math.max(0, (anchorClientY ?? box.top + box.height / 2) - box.top),
+      const box = pane.scroller.getBoundingClientRect();
+      const line = Math.min(
+        box.bottom,
+        Math.max(box.top, anchorClientY ?? box.top + box.height / 2),
       );
-      // The block under the anchor stays under it, at the same share of
-      // its height. Scaling the distance into the content alone drifted:
-      // where the column widens with the zoom the text rewraps, so the
-      // content does not grow in proportion.
-      const line = box.top + anchor;
-      const block = blockAt(content, line);
-      if (block) {
-        const was = block.getBoundingClientRect();
-        const share = was.height > 0 ? (line - was.top) / was.height : 0;
-        document.documentElement.style.setProperty(
-          "--content-zoom",
-          String(next),
-        );
-        const now = block.getBoundingClientRect();
-        scroller.scrollTop += now.top + share * now.height - line;
-        return;
-      }
-      // The column's padding is outside the zoomed node, so only the
-      // distance INTO the content scales.
-      const contentTop = () =>
-        content.getBoundingClientRect().top - box.top + scroller.scrollTop;
-      const before = contentTop();
-      const into = Math.max(0, scroller.scrollTop + anchor - before);
-      document.documentElement.style.setProperty(
-        "--content-zoom",
-        String(next),
-      );
-      scroller.scrollTop = contentTop() + (into * next) / prev - anchor;
+      if (pane.kind === "source")
+        holdSource(pane.scroller, line, prev, next, setZoomVar);
+      else holdRendered(pane, line, prev, next, setZoomVar);
+      // Split view keeps its panes in step on scroll (SplitView.tsx), and
+      // the held pane may not have moved at all: let the other follow it.
+      if (pane.scroller.closest(".split-view"))
+        pane.scroller.dispatchEvent(new Event("scroll"));
     };
 
     const applyFrame = () => {
@@ -144,9 +220,10 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     const setZoom = (
       zoom: number,
       snapped = true,
-      clientY: number | null = null,
+      point: { clientX: number; clientY: number } | null = null,
     ) => {
-      anchorClientY = clientY;
+      anchorClientX = point?.clientX ?? null;
+      anchorClientY = point?.clientY ?? null;
       zoomRef.current = snapped ? snap(zoom) : clamp(zoom);
       if (!raf) raf = requestAnimationFrame(applyFrame);
       clearTimeout(persistTimer);
@@ -171,12 +248,12 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     };
     const onGestureChange = (e: Event) => {
       e.preventDefault();
-      const { scale, clientY } = e as WebKitGestureEvent;
-      if (scale > 0) setZoom(pinchBase * scale, false, clientY);
+      const { scale } = e as WebKitGestureEvent;
+      if (scale > 0) setZoom(pinchBase * scale, false, e as WebKitGestureEvent);
     };
     const onGestureEnd = (e: Event) => {
       e.preventDefault();
-      setZoom(zoomRef.current, true, (e as WebKitGestureEvent).clientY);
+      setZoom(zoomRef.current, true, e as WebKitGestureEvent);
     };
 
     // mod+wheel zoom (plain scrolling passes through untouched). The
@@ -186,7 +263,7 @@ export function useZoom(initialZoom: number, persist: (zoom: number) => void) {
     const onWheel = (e: WheelEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
       e.preventDefault();
-      setZoom(zoomRef.current * Math.exp(-e.deltaY * 0.0015), true, e.clientY);
+      setZoom(zoomRef.current * Math.exp(-e.deltaY * 0.0015), true, e);
     };
 
     window.addEventListener("gesturestart", onGestureStart);
