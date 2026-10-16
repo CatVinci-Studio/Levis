@@ -87,6 +87,14 @@ function convertCjkTask(
   const { bullet_list, list_item, paragraph } = state.schema.nodes;
   if (!match || item?.type.name === "list_item") return false;
   if (!bullet_list || !list_item || !paragraph) return false;
+  // Only where a list can stand in for the paragraph. A table cell holds
+  // a paragraph and nothing else: replacing it there split the table in
+  // two around a list, emptying the cells of the row it was typed in.
+  const index = $from.index($from.depth - 1);
+  if (
+    !$from.node($from.depth - 1).canReplaceWith(index, index + 1, bullet_list)
+  )
+    return false;
   const list = bullet_list.create(null, [
     list_item.create({ checked: match[1] !== "" }, paragraph.create()),
   ]);
