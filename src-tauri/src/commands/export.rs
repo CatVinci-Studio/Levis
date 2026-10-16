@@ -416,6 +416,16 @@ mod pdf_offscreen {
         }
     }
 
+    /// The name GTK's file backend gives its printer. WebKit picks the
+    /// printer by exact name, and GTK translates this one (gtk30's
+    /// "Print to File" - "打印到文件" in Chinese), so the English literal
+    /// failed with "Printer not found" under every non-English locale
+    /// (#62). Looked up through the same catalog GTK names it from.
+    #[cfg(target_os = "linux")]
+    fn file_printer_name() -> String {
+        gtk::glib::dgettext(Some("gtk30"), "Print to File").to_string()
+    }
+
     #[cfg(target_os = "linux")]
     fn render_to_file(window: &tauri::WebviewWindow, output_path: &str, done: Done) {
         use webkit2gtk::{PrintOperation, PrintOperationExt};
@@ -431,7 +441,7 @@ mod pdf_offscreen {
             // GTK's file backend: the job goes to a PDF file, never a printer,
             // and no dialog is shown because `print()` is not `run_dialog()`.
             let settings = gtk::PrintSettings::new();
-            settings.set_printer("Print to File");
+            settings.set_printer(&file_printer_name());
             settings.set(gtk::PRINT_SETTINGS_OUTPUT_FILE_FORMAT.as_str(), Some("pdf"));
             settings.set(gtk::PRINT_SETTINGS_OUTPUT_URI.as_str(), Some(uri.as_str()));
             let setup = gtk::PageSetup::new();
