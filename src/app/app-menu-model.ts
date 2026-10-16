@@ -51,6 +51,7 @@ export type NativeMenuId =
   | `export-pandoc:${string}`
   | `insert-block:${string}`
   | `help-doc:${string}`
+  | "help-community"
   // The phone menu's own (buildMobileMenu): emitted by emitMenuEvent, with
   // no menu.rs counterpart.
   | "share"
@@ -334,6 +335,11 @@ export function buildAppMenu(
         "separator",
         { label: t.menuHelpMarkdown, action: { native: "help-doc:markdown" } },
         { label: t.menuHelpAgent, action: { native: "help-doc:agent" } },
+        "separator",
+        {
+          label: t.menuHelpCommunity,
+          action: { native: "help-community" },
+        },
       ],
     },
     "separator",

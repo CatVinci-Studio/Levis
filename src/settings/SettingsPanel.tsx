@@ -26,6 +26,7 @@ import {
   CliCommandSection,
   LevisImportSection,
 } from "./sections/general";
+import { links } from "../platform/ipc";
 import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
 import {
@@ -199,6 +200,10 @@ export function SettingsPanel({
               onOpen={() => openHelp("markdown")}
             />
             <HelpRow label={t.menuHelpAgent} onOpen={() => openHelp("agent")} />
+            <HelpRow
+              label={t.menuHelpCommunity}
+              onOpen={() => void links.openCommunityPage()}
+            />
           </SettingsGroup>
 
           <SettingsGroup title={t.generalSystemLabel}>

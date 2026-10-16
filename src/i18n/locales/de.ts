@@ -531,6 +531,7 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   menuHelpWelcome: "Willkommen und Einführung",
   menuHelpMarkdown: "Markdown-Anleitung",
   menuHelpAgent: "Anleitung zu KI-Funktionen",
+  menuHelpCommunity: "Discord-Community",
   windowMinimize: "Minimieren",
   windowMaximize: "Maximieren",
   windowRestore: "Wiederherstellen",
