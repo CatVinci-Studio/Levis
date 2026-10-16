@@ -88,6 +88,14 @@ const documentMarked = new Marked({
   gfm: true,
   breaks: false,
   extensions: [mathBlock, mathInline],
+  // `[](https://...)` shows its URL, as it does in the editor
+  // (markdown-output.ts) - rendered empty, the link was there but invisible.
+  walkTokens: (token) => {
+    if (token.type === "link" && token.tokens?.length === 0)
+      token.tokens = [
+        { type: "text", raw: token.href, text: token.href, escaped: false },
+      ];
+  },
 });
 
 /** A whole document -> sanitized HTML, for the split view's preview. YAML

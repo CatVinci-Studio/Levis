@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { renderMarkdownHtml } from "./render-html";
+import { renderDocumentHtml, renderMarkdownHtml } from "./render-html";
 
 describe("renderMarkdownHtml", () => {
   it("renders inline and display math with KaTeX", () => {
@@ -47,5 +47,16 @@ describe("renderMarkdownHtml", () => {
     const html = renderMarkdownHtml("梯度：\n$$\nx^2\n$$\n结束");
     expect(html).not.toContain("$$");
     expect(html).toContain("katex-display");
+  });
+});
+
+describe("renderDocumentHtml", () => {
+  it("shows an empty-text link's URL", () => {
+    expect(renderDocumentHtml("see [](https://x.org/a) here")).toContain(
+      '<a href="https://x.org/a">https://x.org/a</a>',
+    );
+    expect(renderDocumentHtml("[text](https://x.org/a)")).toContain(
+      '<a href="https://x.org/a">text</a>',
+    );
   });
 });
