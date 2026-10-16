@@ -755,6 +755,8 @@ export const ai = {
       docPath: null,
       workspaceRoot: null,
     },
+    /** The app's language: the explanations are written in it. */
+    uiLanguage: string | null = null,
   ) =>
     call<GrammarIssue[]>("ai_grammar_check", {
       provider,
@@ -763,6 +765,7 @@ export const ai = {
       model,
       docPath: project.docPath,
       workspaceRoot: project.workspaceRoot,
+      uiLanguage,
     }),
   agentMessage: ({
     onEvent,

@@ -53,7 +53,7 @@ pub(crate) fn nfc(t: &Text, ctx: &Ctx, out: &mut Out) {
                 i,
                 i + 1,
                 "",
-                messages::get("shared.nfc.invisible", ctx.lang, &[]),
+                messages::get("shared.nfc.invisible", ctx.messages, &[]),
             );
             i += 1;
             continue;
@@ -72,7 +72,7 @@ pub(crate) fn nfc(t: &Text, ctx: &Ctx, out: &mut Out) {
                     i,
                     j,
                     composed,
-                    messages::get("shared.nfc.compose", ctx.lang, &[]),
+                    messages::get("shared.nfc.compose", ctx.messages, &[]),
                 );
             }
         }
@@ -137,7 +137,7 @@ fn space_before_punct(t: &Text, ctx: &Ctx, out: &mut Out) {
             s,
             i + 1,
             c.to_string(),
-            messages::get("shared.space-before-punct", ctx.lang, &[]),
+            messages::get("shared.space-before-punct", ctx.messages, &[]),
         );
     }
 }
@@ -167,7 +167,7 @@ pub(crate) fn double_space(t: &Text, ctx: &Ctx, out: &mut Out) {
                     from,
                     to,
                     fixed,
-                    messages::get("shared.double-space", ctx.lang, &[]),
+                    messages::get("shared.double-space", ctx.messages, &[]),
                 );
             }
             i = j;
@@ -227,7 +227,7 @@ fn doubled_word(t: &Text, ctx: &Ctx, out: &mut Out) {
             a1,
             b2,
             w1.clone(),
-            messages::get("shared.doubled-word", ctx.lang, &[&w1]),
+            messages::get("shared.doubled-word", ctx.messages, &[&w1]),
         );
     }
 }
@@ -281,7 +281,7 @@ fn residue(t: &Text, ctx: &Ctx, out: &mut Out) {
                         "shared.residue",
                         i,
                         i + p.len(),
-                        messages::get("shared.residue", ctx.lang, &[]),
+                        messages::get("shared.residue", ctx.messages, &[]),
                     );
                 }
             }
@@ -293,7 +293,7 @@ fn residue(t: &Text, ctx: &Ctx, out: &mut Out) {
                 "shared.residue",
                 a,
                 b,
-                messages::get("shared.residue", ctx.lang, &[]),
+                messages::get("shared.residue", ctx.messages, &[]),
             );
         }
     }
@@ -351,7 +351,7 @@ fn library_name(t: &Text, ctx: &Ctx, out: &mut Out) {
                         a,
                         a + w.len(),
                         name.clone(),
-                        messages::get("shared.library-name", ctx.lang, &[name]),
+                        messages::get("shared.library-name", ctx.messages, &[name]),
                     );
                 }
             }
@@ -376,7 +376,7 @@ fn library_name(t: &Text, ctx: &Ctx, out: &mut Out) {
                         i,
                         i + 3,
                         name.clone(),
-                        messages::get("shared.library-name", ctx.lang, &[name]),
+                        messages::get("shared.library-name", ctx.messages, &[name]),
                     );
                 }
             }

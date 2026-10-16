@@ -145,7 +145,7 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
     }
     let mut checks = Checks::default();
     let mut usage = harness::Usage::default();
-    let instructions = grammar_instructions(Some(case.strictness));
+    let instructions = grammar_instructions(Some(case.strictness), None);
     // Two attempts, as ai_grammar_check makes on a malformed reply.
     let (mut raw, mut latency, mut parsed) = (String::new(), 0, Err(String::new()));
     let mut attempts = 0;
@@ -166,6 +166,7 @@ pub fn run_case(auth: &AnthropicAuth, case: &GrammarCase, model: &str) -> Record
                     Some(case.strictness),
                     &crate::ai::rules::Conventions::default(),
                     &[],
+                    None,
                 );
                 raw = reply.text;
             }

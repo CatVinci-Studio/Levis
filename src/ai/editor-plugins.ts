@@ -90,6 +90,7 @@ export function withAiPlugins(
         model: () =>
           settings.current.writingModels[settings.current.aiProvider] || null,
         strictness: () => settings.current.grammarStrictness,
+        uiLanguage: () => settings.current.language,
         project: () => ({
           docPath: docPath.current,
           workspaceRoot: settings.current.agentWorkspaceRoot || null,

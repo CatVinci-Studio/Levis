@@ -143,6 +143,9 @@ impl Block {
 /// What a rule knows besides the text.
 pub(crate) struct Ctx<'a> {
     pub lang: Lang,
+    /// The language a shared rule's message is written in: the app's, so a
+    /// writer reads it in the language they chose - else the text's.
+    pub messages: Lang,
     pub profile: &'a Profile,
     /// Convention counts for the document (or, in the grammar check, the
     /// paragraph): what "the document's own majority" means.
@@ -276,7 +279,22 @@ pub(crate) fn tidy(mut found: Vec<Finding>) -> Vec<Finding> {
 /// One paragraph's findings for the grammar check: the language detected
 /// from the text, the profile from `conv`, and only the rules that run in
 /// the grammar check at `level`.
+// The text's own language for messages; the app calls check_for.
+#[cfg(test)]
 pub fn check(text: &str, conv: &Conventions, level: Level, library: &[String]) -> Vec<Finding> {
+    check_for(text, conv, level, library, None)
+}
+
+/// [`check`], with the shared rules' messages in the app's language
+/// (`ui`, a code from src/i18n/langs.ts) rather than the text's.
+pub fn check_for(
+    text: &str,
+    conv: &Conventions,
+    level: Level,
+    library: &[String],
+    ui: Option<&str>,
+) -> Vec<Finding> {
+    let messages = ui.and_then(|code| Lang::ALL.into_iter().find(|l| l.ui_code() == code));
     check_as(
         text,
         detect::guess(text),
@@ -284,6 +302,7 @@ pub fn check(text: &str, conv: &Conventions, level: Level, library: &[String]) -
         level,
         library,
         registry::GC,
+        messages,
     )
 }
 
@@ -294,6 +313,7 @@ pub(crate) fn check_as(
     level: Level,
     library: &[String],
     site: u8,
+    messages: Option<Lang>,
 ) -> Vec<Finding> {
     let t = Text::new(text);
     let Some(lang) = lang else {
@@ -302,6 +322,7 @@ pub(crate) fn check_as(
         let stats = Stats::default();
         let ctx = Ctx {
             lang: Lang::En,
+            messages: messages.unwrap_or(Lang::En),
             profile: &profile,
             stats: &stats,
             block: Block::Unknown,
@@ -317,6 +338,7 @@ pub(crate) fn check_as(
     stats.count(&t, lang);
     let ctx = Ctx {
         lang,
+        messages: messages.unwrap_or(lang),
         profile: &profile,
         stats: &stats,
         block: Block::Unknown,
@@ -404,6 +426,7 @@ pub(crate) mod testing {
         let library = ["Elizabeth".to_string(), "林黛玉".to_string()];
         let ctx = Ctx {
             lang,
+            messages: lang,
             profile: &profile,
             stats: &stats,
             block,
@@ -448,6 +471,26 @@ mod tests {
         assert!(allowed(r("en.punct.dash-style"), Level::Standard, true));
         assert!(!allowed(r("en.punct.dash-style"), Level::Standard, false));
         assert!(allowed(r("tw.gongwen.year"), Level::Standard, false));
+    }
+
+    #[test]
+    fn shared_messages_follow_the_apps_language() {
+        let conv = Conventions::default();
+        let text = "This sentence has  two spaces in the middle of it, written in English.";
+        let message = |ui| {
+            check_for(text, &conv, Level::Standard, &[], ui)
+                .into_iter()
+                .find(|f| f.rule.starts_with("shared."))
+                .map(|f| f.message)
+                .expect("a double space")
+        };
+        let english = message(None);
+        let chinese = message(Some("zh"));
+        assert_ne!(english, chinese, "the app's language, not the text's");
+        assert_eq!(
+            chinese,
+            messages::get("shared.double-space", Lang::ZhHans, &[])
+        );
     }
 
     #[test]

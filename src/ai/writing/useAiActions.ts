@@ -98,6 +98,7 @@ export function useAiActions(
             docPath: getDocPath(),
             workspaceRoot: getSettings().agentWorkspaceRoot || null,
           },
+          getSettings().language,
         ),
         getT().aiWorkingGrammar,
       );

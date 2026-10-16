@@ -61,6 +61,8 @@ export async function triggerGrammarCheckNow(
     docPath: null,
     workspaceRoot: null,
   },
+  /** The app's language, for the explanations. */
+  uiLanguage: string | null = null,
 ): Promise<void> {
   const { $from } = view.state.selection;
   const para = $from.parent;
@@ -76,6 +78,7 @@ export async function triggerGrammarCheckNow(
     strictness,
     model,
     project,
+    uiLanguage,
   );
   if (!paragraphUnchanged(view, contentStart, text)) {
     throw new AiNoticeError("grammar-paragraph-changed");
@@ -248,6 +251,8 @@ export function createGrammarCheckPlugin(options: {
   /** The document's project folder, for its writing conventions profile
    *  (style.md front matter) and library names. */
   project?: () => { docPath: string | null; workspaceRoot: string | null };
+  /** The app's language, which the explanations are written in. */
+  uiLanguage?: () => string;
 }) {
   const debounced = createDebouncedTask(DEBOUNCE_MS);
 
@@ -344,6 +349,7 @@ export function createGrammarCheckPlugin(options: {
                     options.strictness(),
                     options.model(),
                     options.project?.(),
+                    options.uiLanguage?.() ?? null,
                   );
                 } catch (err) {
                   // Not logged in, offline, or bad model output - stays quiet in
