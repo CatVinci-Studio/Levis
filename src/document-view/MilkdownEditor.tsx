@@ -52,7 +52,7 @@ import {
   withEditorExtensions,
   type PendingEditCallbacks,
 } from "./editor-extensions";
-import { GrammarPopover, applyLabel } from "../ai/writing/GrammarPopover";
+import { GrammarSuggestion } from "../ai/writing/GrammarSuggestion";
 import { InlineChat } from "../ai/chat/quick-ask/InlineChat";
 import { ChatBody } from "../ai/chat/ChatBody";
 import { AgentPanelView } from "../ai/chat/panel/AgentPanelView";
@@ -75,7 +75,6 @@ import {
 } from "../editor/review-focus";
 import { readChatContext } from "../ai/chat/live-context";
 import { ContextMenu } from "../editor/ContextMenu";
-import { BottomCard } from "../ui/BottomCard";
 import { usePhoneLayout } from "../ui/usePhoneLayout";
 import { InsertTableDialog } from "../editor/tables/InsertTableDialog";
 import { ImageNameDialog } from "../editor/images/ImageNameDialog";
@@ -99,7 +98,6 @@ import { setChatSelection } from "../ai/chat/quick-ask/chat-selection-plugin";
 import { setQuickAskWidget } from "../ai/chat/quick-ask/quick-ask-widget-plugin";
 import { keepClearOfDock } from "../ai/chat/quick-ask/quick-ask-dock";
 import {
-  locateAnchor,
   usePendingEdits,
   type SelectionTarget,
 } from "../ai/revision/usePendingEdits";
@@ -115,17 +113,10 @@ import {
   effectiveRevisionDisplay,
   revisionDisplayName,
 } from "../ai/revision/revision-display";
-import {
-  NotePopover,
-  ReviewMargin,
-  type MarginItem,
-} from "../ai/margin/ReviewMargin";
-import {
-  commentCalls,
-  numberNotes,
-  reviewNotesKey,
-  type ReviewNote,
-} from "../ai/margin/review-notes-plugin";
+import { ReviewMargin } from "../ai/margin/ReviewMargin";
+import { OpenReviewNote } from "../ai/margin/OpenReviewNote";
+import { useReviewNotes } from "../ai/margin/useReviewNotes";
+import type { ReviewNote } from "../ai/margin/review-notes-plugin";
 import { isRefusal } from "../ai/revision/proposal-status";
 import type { StreamEvent } from "../platform/ipc";
 import { useGrammarPopover } from "../ai/writing/useGrammarPopover";
@@ -1482,34 +1473,6 @@ export function MilkdownEditor({
     conversation.reset();
   }
 
-  // A comment card's "Show in document": select the passage and bring it
-  // into view, so the feedback can be read against the text it is about.
-  function locateText(anchor: string, context?: string) {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      const range = locateAnchor(ctx, view.state.doc, anchor, context);
-      if (!range) {
-        showAiNotice(t.commentNotFound);
-        return;
-      }
-      view.dispatch(
-        view.state.tr.setSelection(
-          TextSelection.create(view.state.doc, range.from, range.to),
-        ),
-      );
-      view.focus();
-      revealPosition(view, range.from);
-      // Its note in the margin lights up with it for a moment.
-      const note = notesRef.current.find(
-        (n) => n.from < range.to && range.from < n.to,
-      );
-      if (note) {
-        setNoteHot(`note:${note.id}`);
-        window.setTimeout(() => setNoteHot(null), 1600);
-      }
-    });
-  }
-
   // The review bar (ai/revision/ReviewBar.tsx) floats over the bottom of the pane
   // this editor scrolls in, while there is anything to decide - except
   // while Quick Ask, which has its own, is open, and on a phone while the
@@ -1557,203 +1520,20 @@ export function MilkdownEditor({
     if (stop) run((ctx) => revealPosition(ctx.get(editorViewCtx), stop.from));
   }
 
-  const grammarLabels = useMemo(
-    () => ({
-      grammarKinds: {
-        spelling: t.grammarKindSpelling,
-        grammar: t.grammarKindGrammar,
-        punctuation: t.grammarKindPunctuation,
-        rules: t.grammarKindRules,
-      },
-      grammarApplyTo: t.grammarApplyTo,
-      grammarApply: t.grammarApply,
-      grammarIgnore: t.grammarIgnore,
-      grammarPrevious: t.grammarPrevious,
-      grammarNext: t.grammarNext,
-    }),
-    [t],
-  );
-
-  // Review notes (ai/margin/review-notes-plugin.ts, ai/margin/ReviewMargin.tsx): every
-  // add_comment of this tab's conversations, pinned to its passage and
-  // drawn in the margin - until it is marked done, or its conversation is
-  // cleared.
-  const [notes, setNotes] = useState<ReviewNote[]>([]);
-  const notesRef = useLatest(notes);
-  // Behind numbered badges (no room for a margin): the chat's note cards
-  // then carry the same numbers.
-  const [notesBadged, setNotesBadged] = useState(false);
-  const [hotNote, setHotNote] = useState<string | null>(null);
-  const [openNote, setOpenNote] = useState<{
-    id: string;
-    x: number;
-    y: number;
-  } | null>(null);
-  const doneNotes = useRef(new Set<string>());
-  const lostNotes = useRef(new Set<string>());
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
   const [contentEl, setContentEl] = useState<HTMLElement | null>(null);
-  const [editorView, setEditorView] = useState<EditorView | null>(null);
-  useEffect(() => {
-    reviewNotesRef.current = {
-      onChange: setNotes,
-      onBadge: (id, el) => {
-        const r = el.getBoundingClientRect();
-        setOpenNote({ id, x: r.left, y: r.bottom + 6 });
-      },
-    };
-  }, []);
-  const panelTurns = conversation.streaming?.turns;
-  const quickTurns = quickConversation.streaming?.turns;
-  const comments = useMemo(
-    () =>
-      commentCalls([
-        ...conversation.history,
-        ...(panelTurns ?? []),
-        ...quickConversation.history,
-        ...(quickTurns ?? []),
-      ]),
-    [conversation.history, panelTurns, quickConversation.history, quickTurns],
-  );
-  useEffect(() => {
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      setEditorView(view);
-      const current = reviewNotesKey.getState(view.state)?.notes ?? [];
-      const wanted = comments.filter((c) => !doneNotes.current.has(c.id));
-      const keep = current.filter((n) => wanted.some((w) => w.id === n.id));
-      const added: Omit<ReviewNote, "num">[] = [];
-      for (const c of wanted) {
-        if (keep.some((n) => n.id === c.id) || lostNotes.current.has(c.id))
-          continue;
-        const range = locateAnchor(ctx, view.state.doc, c.anchor, c.context);
-        if (!range || range.from >= range.to) {
-          lostNotes.current.add(c.id);
-          continue;
-        }
-        added.push({ id: c.id, ...range, comment: c.comment });
-      }
-      if (added.length === 0 && keep.length === current.length) return;
-      view.dispatch(
-        view.state.tr.setMeta(reviewNotesKey, {
-          type: "set",
-          notes: numberNotes(keep, added).sort((a, b) => a.from - b.from),
-        }),
-      );
-    });
-  }, [comments, run]);
-
-  // What the pointer is on - a margin card or its passage ("note:<id>",
-  // "rev:<callId>:<index>"): both light up together.
-  function setNoteHot(key: string | null) {
-    setHotNote(key);
-    const id = key?.startsWith("note:") ? key.slice(5) : null;
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      view.dispatch(view.state.tr.setMeta(reviewNotesKey, { type: "hot", id }));
-      for (const el of view.dom.querySelectorAll(".pending-sentence-hot"))
-        el.classList.remove("pending-sentence-hot");
-      if (key?.startsWith("rev:")) {
-        const [, callId, index] = key.split(":");
-        for (const el of view.dom.querySelectorAll(
-          `[data-call="${CSS.escape(callId)}"][data-index="${index}"]`,
-        ))
-          el.classList.add("pending-sentence-hot");
-      }
-    });
-  }
-
-  function doneNote(id: string) {
-    doneNotes.current.add(id);
-    setOpenNote(null);
-    setHotNote(null);
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      view.dispatch(
-        view.state.tr.setMeta(reviewNotesKey, { type: "remove", id }),
-      );
-    });
-  }
-
-  // "Ask about it": into the AI panel's composer, the note quoted, for the
-  // writer to finish the question.
-  function askAboutNote(note: ReviewNote) {
-    setOpenNote(null);
-    agentPanel.setOpen(true);
-    const text = t.reviewNoteAskPrefix.replace("{comment}", note.comment);
-    window.setTimeout(() => {
-      const box = document.querySelector<HTMLTextAreaElement>(
-        ".agent-panel-view textarea",
-      );
-      if (!box) return;
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        "value",
-      )?.set;
-      setter?.call(box, text);
-      box.dispatchEvent(new Event("input", { bubbles: true }));
-      box.focus();
-      box.setSelectionRange(text.length, text.length);
-    }, 60);
-  }
-
-  // No room for a margin: notes go behind badges and a rewrite's
-  // replacements back into the text.
-  function setNotesCompact(compact: boolean) {
-    noMarginRef.current = compact;
-    setNotesBadged(compact);
-    run((ctx) => {
-      const view = ctx.get(editorViewCtx);
-      view.dispatch(
-        view.state.tr.setMeta(reviewNotesKey, { type: "compact", compact }),
-      );
-      view.dispatch(view.state.tr.setMeta(pendingEditKey, { type: "refocus" }));
-    });
-    if (!compact) setOpenNote(null);
-  }
-
-  // The margin's items: the notes, then each pending sentence numbered in
-  // the review bar's order.
-  const marginItems = useMemo<MarginItem[]>(() => {
-    const items: MarginItem[] = notes.map((note) => ({
-      kind: "note",
-      key: `note:${note.id}`,
-      note,
-    }));
-    const display = settings.revisionDisplay;
-    pendingEdits.reviewStops.forEach((stop, i) => {
-      if (stop.index < 0) return;
-      if (display !== "original" && display !== "new") return;
-      const preview = pendingEdits.decidable.find(
-        (p) => p.callId === stop.callId,
-      );
-      const c = preview?.sentences?.changes[stop.index];
-      if (!c) return;
-      items.push({
-        kind: "revision",
-        key: `rev:${stop.callId}:${stop.index}`,
-        callId: stop.callId,
-        index: stop.index,
-        num: i + 1,
-        from: c.from,
-        to: c.to,
-        after: c.after,
-        before: c.before,
-        shows: display,
-        take: c.take,
-      });
-    });
-    return items;
-  }, [
-    notes,
-    pendingEdits.reviewStops,
-    pendingEdits.decidable,
-    settings.revisionDisplay,
-  ]);
-
-  const openNoteData = openNote
-    ? (notes.find((n) => n.id === openNote.id) ?? null)
-    : null;
+  const notes = useReviewNotes({
+    run,
+    reviewNotesRef,
+    noMarginRef,
+    conversation,
+    quickConversation,
+    pendingEdits,
+    revisionDisplay: settings.revisionDisplay,
+    agentPanel,
+    t,
+    showAiNotice,
+  });
 
   // A card's sentence or "Show in text": point the review bar there and
   // bring it into view.
@@ -1796,22 +1576,7 @@ export function MilkdownEditor({
           ? undefined
           : (e) => {
               grammar.onMouseOver(e);
-              // The margin's cards are portaled out but bubble here: they
-              // set their own hover.
-              if ((e.target as HTMLElement).closest?.(".review-note")) return;
-              const target = e.target as HTMLElement;
-              const anchor = target.closest?.(
-                ".review-anchor",
-              ) as HTMLElement | null;
-              const sentence = target.closest?.(
-                "[data-call][data-index]",
-              ) as HTMLElement | null;
-              const key = anchor?.dataset.note
-                ? `note:${anchor.dataset.note}`
-                : sentence?.dataset.call
-                  ? `rev:${sentence.dataset.call}:${sentence.dataset.index}`
-                  : null;
-              if (key !== hotNote) setNoteHot(key);
+              notes.hoverNotes(e.target as HTMLElement);
             }
       }
       onMouseOut={phone ? undefined : grammar.onMouseOut}
@@ -1821,65 +1586,30 @@ export function MilkdownEditor({
       <Milkdown />
       {isActive && scrollEl && contentEl && (
         <ReviewMargin
-          view={editorView}
-          items={marginItems}
-          hot={hotNote}
+          view={notes.editorView}
+          items={notes.marginItems}
+          hot={notes.hotNote}
           scrollEl={scrollEl}
           contentEl={contentEl}
           labels={t}
-          onHot={setNoteHot}
-          onDone={doneNote}
-          onAsk={askAboutNote}
+          onHot={notes.setNoteHot}
+          onDone={notes.doneNote}
+          onAsk={notes.askAboutNote}
           onDecide={pendingEdits.decide}
-          onCompact={setNotesCompact}
+          onCompact={notes.setNotesCompact}
           layoutKey={pendingEdits.previews}
         />
       )}
-      {openNoteData && openNote && !phone && (
-        <NotePopover
-          note={openNoteData}
-          x={openNote.x}
-          y={openNote.y}
-          labels={t}
-          onDone={doneNote}
-          onAsk={askAboutNote}
-          onClose={() => setOpenNote(null)}
-        />
-      )}
-      <Presence show={!!openNoteData && phone} exitMs={250}>
-        {openNoteData && phone && (
-          <BottomCard
-            label={t.reviewNoteBy}
-            actions={[
-              {
-                label: t.reviewNoteAsk,
-                onSelect: () => askAboutNote(openNoteData),
-              },
-              {
-                label: t.reviewNoteDone,
-                primary: true,
-                onSelect: () => doneNote(openNoteData.id),
-              },
-            ]}
-            onClose={() => setOpenNote(null)}
-          >
-            <div className="bottom-card-kicker">
-              <span className="review-note-mark" aria-hidden="true">
-                AI
-              </span>
-              {t.reviewNoteBy}
-            </div>
-            <p className="bottom-card-quote">
-              {editorView?.state.doc.textBetween(
-                openNoteData.from,
-                openNoteData.to,
-                " ",
-              )}
-            </p>
-            {openNoteData.comment}
-          </BottomCard>
-        )}
-      </Presence>
+      <OpenReviewNote
+        note={notes.openNoteData}
+        at={notes.openNote}
+        phone={phone}
+        editorView={notes.editorView}
+        t={t}
+        onDone={notes.doneNote}
+        onAsk={notes.askAboutNote}
+        onClose={() => notes.setOpenNote(null)}
+      />
       {paneEl &&
         createPortal(
           <Presence show={reviewBarShown} exitMs={200}>
@@ -1995,66 +1725,12 @@ export function MilkdownEditor({
           />
         )}
       </Presence>
-      <Presence show={!!grammar.popover && phone} exitMs={250}>
-        {grammar.popover && phone && (
-          // The phone's form: a card from the bottom with the fix as its
-          // main button, as iOS offers a spelling replacement. A fix that
-          // no longer fits the text says so in the notice, the card having
-          // closed on the tap.
-          <BottomCard
-            label={grammarLabels.grammarKinds[grammar.popover.kind]}
-            actions={[
-              { label: t.grammarIgnore, onSelect: grammar.ignore },
-              {
-                label: applyLabel(
-                  grammarLabels,
-                  grammar.popover.shownSuggestion ?? grammar.popover.suggestion,
-                ),
-                primary: true,
-                onSelect: () => {
-                  if (!grammar.applyFix()) showAiNotice(t.grammarApplyStale);
-                },
-              },
-            ]}
-            onClose={grammar.hide}
-          >
-            <span
-              className={`grammar-kind grammar-kind-${grammar.popover.kind}`}
-            >
-              {grammarLabels.grammarKinds[grammar.popover.kind]}
-            </span>
-            <div className="grammar-card-fix">
-              {grammar.popover.original && (
-                <s>
-                  {grammar.popover.shownOriginal ?? grammar.popover.original}
-                </s>
-              )}
-              {grammar.popover.original && " → "}
-              <b>
-                {grammar.popover.shownSuggestion ??
-                  (grammar.popover.suggestion || "\u2205")}
-              </b>
-            </div>
-            {grammar.popover.issue && (
-              <div className="grammar-card-issue">{grammar.popover.issue}</div>
-            )}
-          </BottomCard>
-        )}
-      </Presence>
-      <Presence show={!!grammar.popover && !phone} exitMs={120}>
-        {grammar.popover && !phone && (
-          <GrammarPopover
-            info={grammar.popover}
-            labels={grammarLabels}
-            error={grammar.applyError}
-            onApply={grammar.applyFix}
-            onIgnore={grammar.ignore}
-            onStep={grammar.step}
-            onMouseEnter={grammar.cancelHide}
-            onMouseLeave={grammar.hide}
-          />
-        )}
-      </Presence>
+      <GrammarSuggestion
+        grammar={grammar}
+        phone={phone}
+        t={t}
+        onStale={() => showAiNotice(t.grammarApplyStale)}
+      />
       {panelContainer &&
         createPortal(
           <AgentPanelView
@@ -2115,10 +1791,10 @@ export function MilkdownEditor({
               onDecideSentence={pendingEdits.decide}
               onRevealProposal={revealProposal}
               pendingBar={false}
-              onLocateText={locateText}
+              onLocateText={notes.locateText}
               noteNumber={(id) =>
-                notesBadged
-                  ? (notes.find((n) => n.id === id)?.num ?? null)
+                notes.notesBadged
+                  ? (notes.notes.find((n) => n.id === id)?.num ?? null)
                   : null
               }
               onRejectProposal={pendingEdits.reject}
