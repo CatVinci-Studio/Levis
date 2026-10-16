@@ -357,9 +357,10 @@ export function buildAppMenu(
  * The iPhone's menu, behind the title row's button. One flat list: a
  * flyout has nowhere to go on a 400-point-wide screen, and most of the
  * desktop menu is not there to offer - windows, exports through PDF or
- * pandoc, zoom (pinch), split view (no room for two panes). Undo and the
- * clipboard are on the keyboard toolbar (mobile/KeyboardToolbar.tsx). Recent
- * documents have their own page (Documents, mobile/DocumentList.tsx).
+ * pandoc, zoom (pinch), split view (no room for two panes). Undo is on
+ * the keyboard toolbar (mobile/KeyboardToolbar.tsx), the clipboard in the
+ * system's long-press menu. Recent documents have their own page
+ * (Documents, mobile/DocumentList.tsx).
  */
 export function buildMobileMenu(
   t: Strings,

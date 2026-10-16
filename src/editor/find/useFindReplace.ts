@@ -159,6 +159,19 @@ export function useFindReplace(run: EditorRunner) {
     setStatus(IDLE_STATUS);
   }, [run]);
 
+  /** Closes the bar without handing focus back to the document: something
+   *  else is taking the screen (the iPhone's sidebar drawer), and focusing
+   *  the page there would bring the keyboard up under it. */
+  const dismiss = useCallback(() => {
+    if (!open) return;
+    run((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setMeta(findReplaceKey, { type: "clear" }));
+    });
+    setOpen(false);
+    setStatus(IDLE_STATUS);
+  }, [open, run]);
+
   const toggle = useCallback(() => {
     // Opening with a kept query re-searches via the dispatch effect above.
     if (open) close();
@@ -195,6 +208,7 @@ export function useFindReplace(run: EditorRunner) {
     replaceOne,
     replaceAll,
     close,
+    dismiss,
     toggle,
   };
 }

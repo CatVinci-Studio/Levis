@@ -145,6 +145,7 @@ import {
   TRIGGER_GRAMMAR_CHECK_EVENT,
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_FIND_REPLACE_EVENT,
+  CLOSE_FIND_REPLACE_EVENT,
   INSERT_CLIPBOARD_TEXT_EVENT,
   RESTORE_CHAT_EVENT,
   INSERT_BLOCK_EVENT,
@@ -1340,6 +1341,7 @@ export function MilkdownEditor({
     TOGGLE_FIND_REPLACE_EVENT,
     () => isOnScreen() && findReplace.toggle(),
   );
+  useWindowEvent(CLOSE_FIND_REPLACE_EVENT, () => findReplace.dismiss());
 
   // The tutorial's completion step: the user typed the target text, show
   // the pre-written continuation as ghost text (Tab-accept and clear-on-

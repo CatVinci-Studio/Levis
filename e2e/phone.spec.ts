@@ -330,3 +330,36 @@ test("document thumbnails are the page's colour in dark mode", async ({
   expect(sheet).not.toBe("rgb(255, 255, 255)");
   expect(text).not.toBe(sheet);
 });
+
+test("the keyboard toolbar leaves copy and paste to the system's menu", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await pasteMarkdown(page, "plain words");
+  await page.locator('[data-active-tab="true"] .milkdown p').first().click();
+  const toolbar = page.getByRole("toolbar", { name: "Formatting" });
+  await expect(toolbar.getByRole("button", { name: "Undo" })).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Copy" })).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: "Paste" })).toHaveCount(0);
+});
+
+test("opening the sidebar closes the find bar, without bringing the keyboard up", async ({
+  page,
+}) => {
+  await openPhone(page);
+  await pasteMarkdown(page, "plain words");
+  await page.evaluate(() =>
+    window.dispatchEvent(new CustomEvent("textus:toggle-find-replace")),
+  );
+  const bar = page.locator(".find-replace-bar");
+  await expect(bar).toBeVisible();
+  await page.locator(".window-menu-button").tap();
+  await page.getByRole("menuitemcheckbox", { name: "Sidebar" }).tap();
+  await expect(page.locator(".sidebar")).not.toHaveClass(/sidebar-collapsed/);
+  await expect(bar).toHaveCount(0);
+  // The document didn't take the focus back (that would raise the keyboard).
+  const editorFocused = await page.evaluate(
+    () => !!document.activeElement?.closest(".ProseMirror"),
+  );
+  expect(editorFocused).toBe(false);
+});

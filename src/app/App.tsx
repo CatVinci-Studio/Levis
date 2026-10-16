@@ -91,7 +91,11 @@ import { FlipOnChange } from "../ui/flip";
 import { SplitView } from "../editor/modes/SplitView";
 import { SourceTextarea } from "../editor/modes/SourceTextarea";
 import { useWindowEvent } from "../utils/hooks/useWindowEvent";
-import { OPEN_FILE_IN_TAB_EVENT, ZEN_MODE_EVENT } from "../utils/events";
+import {
+  CLOSE_FIND_REPLACE_EVENT,
+  OPEN_FILE_IN_TAB_EVENT,
+  ZEN_MODE_EVENT,
+} from "../utils/events";
 import {
   AgentPanelProvider,
   AgentPanelResizer,
@@ -159,6 +163,12 @@ function App() {
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const toggleSidebar = useCallback(() => setPanelOpen((v) => !v), []);
+  // On iOS the sidebar is a drawer over the page, and the find bar sits at
+  // the top of the page: they would overlap, so opening one closes the bar.
+  useEffect(() => {
+    if (isIOSApp && panelOpen)
+      window.dispatchEvent(new CustomEvent(CLOSE_FIND_REPLACE_EVENT));
+  }, [panelOpen]);
   // The docked Agent panel on the right (ai/chat/panel/agent-panel.tsx). App owns
   // the frame; the active tab's editor renders its conversation into it.
   const agentPanel = useAgentPanelState();
