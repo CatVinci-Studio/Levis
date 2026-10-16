@@ -246,10 +246,10 @@
   }
 }
 
-/* Narrow windows - or a small one with the sidebar open too (App.tsx's
-   agentOverlays): the editor keeps priority; the panel overlays it instead
-   of squeezing the text column to nothing - in from the window's edge on
-   a spring, and back out. */
+/* Narrow windows - or a small one with the sidebar open too
+   (useSidePanels.ts's agentOverlays): the editor keeps priority; the panel
+   overlays it instead of squeezing the text column to nothing - in from
+   the window's edge on a spring, and back out. */
 .agent-panel.agent-panel-overlay {
   position: absolute;
   top: 0;

@@ -59,8 +59,9 @@ export interface DragHoverPreview {
 
 export function useTabDragMerge(opts: {
   tabsRef: MutableRefObject<DocTab[]>;
-  /** App.tsx's liveTabs - a handed-off document must carry the edit the
-   *  editor's debounce still holds, or it is lost with this window's copy. */
+  /** useTabState.ts's liveTabs - a handed-off document must carry the edit
+   *  the editor's debounce still holds, or it is lost with this window's
+   *  copy. */
   liveTabs: () => DocTab[];
   t: Strings;
   removeTab: (id: string) => void;

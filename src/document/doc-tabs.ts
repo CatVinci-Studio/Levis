@@ -12,7 +12,7 @@ const HELP_GUIDES = import.meta.glob<string>("../help/*-guide.*.md", {
   eager: true,
 });
 
-// The document-tab data model shared by App.tsx (tab state) and
+// The document-tab data model shared by app/useTabState.ts (tab state) and
 // useTabDragMerge.ts (tabs in flight between windows).
 
 // Mirrors the doc ids Rust puts in its Help menu ids (menu.rs
