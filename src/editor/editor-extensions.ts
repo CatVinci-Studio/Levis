@@ -51,6 +51,7 @@ import { tabExtendPlugin } from "./keys/tab-extend-plugin";
 import { escapeTrailingBlockPlugin } from "./markdown/escape-trailing-block-plugin";
 import { codeBlockIndentPlugin } from "./code/code-block-indent-plugin";
 import { pasteMarkdownSourcePlugin } from "./markdown/paste-markdown-plugin";
+import { pasteUrlPlugin } from "./markdown/paste-url";
 import { clipboardHistoryPlugin } from "../clipboard/history-plugin";
 import { createImagePlugin } from "./images/image-plugin";
 import { createTypewriterPlugin } from "./modes/typewriter-plugin";
@@ -170,8 +171,8 @@ export function withEditorCore(
       )
 
       // Editing infrastructure. handlePaste props run in registration
-      // order: images (binary, most specific) first, then markdown-source
-      // text, then milkdown's own clipboard plugin.
+      // order: images (binary, most specific) first, then a lone URL, then
+      // markdown-source text, then milkdown's own clipboard plugin.
       .use(history)
       .use(
         createImagePlugin({
@@ -181,6 +182,7 @@ export function withEditorCore(
           onError: onImagePasteError,
         }),
       )
+      .use(pasteUrlPlugin)
       .use(pasteMarkdownSourcePlugin)
       .use(clipboard)
       .use(clipboardHistoryPlugin)

@@ -46,6 +46,10 @@ describe("saved markdown stays as written", () => {
     ["a highlight", "一段==高亮==文字\n"],
     ["a footnote", "正文[^1]\n\n[^1]: 脚注\n"],
     ["an image width", '![图](a.png "{textus-width=30%}")\n'],
+    ["an autolink", "See <https://x.org/a> here\n"],
+    ["a link whose text is its URL", "[https://x.org/a](https://x.org/a)\n"],
+    ["an empty-text link", "See [](https://x.org/a) here\n"],
+    ["a titled empty-text link", '[](https://x.org/a "t")\n'],
   ])("keeps %s", async (_name, markdown) => {
     expect(await roundTrip(markdown)).toBe(markdown);
   });
@@ -69,6 +73,21 @@ describe("saved markdown stays as written", () => {
     );
     expect(await roundTrip("costs $5 and $6\n")).toBe("costs \\$5 and \\$6\n");
     expect(await roundTrip("a $ x$ b\n")).toBe("a \\$ x\\$ b\n");
+  });
+
+  it("shows an empty-text link's URL as its text", async () => {
+    const editor = await createTestEditor("[](https://x.org/a)\n");
+    editors.push(editor);
+    const text = editor.action(
+      (ctx) => ctx.get(editorViewCtx).state.doc.textContent,
+    );
+    expect(text).toBe("https://x.org/a");
+  });
+
+  it("writes a bare URL as an autolink, as before", async () => {
+    expect(await roundTrip("See https://x.org/a here\n")).toBe(
+      "See <https://x.org/a> here\n",
+    );
   });
 
   it("writes a thematic break as '---', but '***' as the first block", async () => {
