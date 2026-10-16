@@ -44,23 +44,48 @@ function ancestry(view: EditorView): Link[] {
   return node === view.dom ? links : [];
 }
 
-/** Puts `link.node` back between its old siblings, dropping whatever the
- *  delete left in its place: WebKit's placeholder <br>, and in a table row
- *  an empty stand-in for the cell it took out. */
-function reattach({ node, parent, prev, next }: Link) {
-  const start =
-    prev?.parentNode === parent ? prev.nextSibling : parent.firstChild;
-  const end = next?.parentNode === parent ? next : null;
-  for (let child = start; child && child !== end;) {
-    const following = child.nextSibling;
-    const placeholder =
-      child.nodeName === "BR" ||
-      (child.nodeType === Node.TEXT_NODE && !child.textContent) ||
-      (child.nodeName === node.nodeName && !child.textContent);
-    if (placeholder) parent.removeChild(child);
-    child = following;
+/** Whether `child` is what WebKit leaves where it pruned `node`: its
+ *  placeholder <br>, an empty text node, or (in a table row) an empty
+ *  stand-in of the same tag. Never an element ProseMirror rendered - a
+ *  pmViewDesc marks those - since a real empty list item looks the same,
+ *  and removing it took it out of the document. */
+function isStandIn(child: Node, node: Node): boolean {
+  if ((child as { pmViewDesc?: unknown }).pmViewDesc) return false;
+  return (
+    child.nodeName === "BR" ||
+    (child.nodeType === Node.TEXT_NODE && !child.textContent) ||
+    (child.nodeName === node.nodeName && !child.textContent)
+  );
+}
+
+/** Puts `link.node` back between its old siblings, dropping the stand-ins
+ *  the delete left in its place. Placed by whichever neighbour is still
+ *  there; with that one alone, only the node right beside it can be the
+ *  stand-in - scanning on to the parent's first or last child reached
+ *  elements that were never near the composition. With neither, the
+ *  place is unknown and the node stays out (ProseMirror redraws it). */
+function reattach({ node, parent, prev, next }: Link): void {
+  const prevHere = prev === null || prev.parentNode === parent;
+  const nextHere = next === null || next.parentNode === parent;
+  if (!prevHere && !nextHere) return;
+  const afterPrev = () => (prev ? prev.nextSibling : parent.firstChild);
+  const gap: Node[] = [];
+  if (prevHere && nextHere)
+    for (let child = afterPrev(); child && child !== next;) {
+      gap.push(child);
+      child = child.nextSibling;
+    }
+  else {
+    const beside = prevHere
+      ? afterPrev()
+      : next
+        ? next.previousSibling
+        : parent.lastChild;
+    if (beside) gap.push(beside);
   }
-  parent.insertBefore(node, end);
+  for (const child of gap)
+    if (isStandIn(child, node)) parent.removeChild(child);
+  parent.insertBefore(node, nextHere ? next : afterPrev());
 }
 
 function restorePrunedComposition(view: EditorView, links: Link[]) {
@@ -76,9 +101,21 @@ function restorePrunedComposition(view: EditorView, links: Link[]) {
   // neighbour before the delete is that placeholder.
   for (const { node, prev, next } of links) {
     const before = node.previousSibling;
-    if (before && before !== prev && before.nodeName === "BR") before.remove();
+    if (
+      before &&
+      before !== prev &&
+      before.nodeName === "BR" &&
+      isStandIn(before, node)
+    )
+      before.remove();
     const after = node.nextSibling;
-    if (after && after !== next && after.nodeName === "BR") after.remove();
+    if (
+      after &&
+      after !== next &&
+      after.nodeName === "BR" &&
+      isStandIn(after, node)
+    )
+      after.remove();
   }
   if (!block.isConnected) return false;
   // WebKit detached the subtree with the preedit still in it. Only an

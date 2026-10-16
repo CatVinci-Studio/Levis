@@ -715,6 +715,53 @@ test("an IME commit into a fresh task item stays in that item", async ({
   await expect(items.first()).toHaveText("你好!");
 });
 
+test("repairing a pruned IME commit leaves a real empty item alone", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  // Three task items: an empty one, "a", and a fresh one to compose in.
+  await pasteMarkdown(page, "- [ ] e\n- [ ] a\n- [ ] x");
+  const caretAfter = (index: number) =>
+    page.evaluate((i) => {
+      const p = document.querySelectorAll(
+        '[data-active-tab="true"] .ProseMirror li p',
+      )[i];
+      getSelection()!.collapse(p.firstChild, 1);
+    }, index);
+  await caretAfter(0);
+  await page.keyboard.press("Backspace");
+  await caretAfter(2);
+  await page.keyboard.press("Backspace");
+  const items = editor.locator('li[data-item-type="task"]');
+  await expect(items).toHaveText(["", "a", ""]);
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    const deleteEvent = (type: string) =>
+      Object.defineProperty(new InputEvent(type), "inputType", {
+        value: "deleteCompositionText",
+      });
+    root.dispatchEvent(new CompositionEvent("compositionstart"));
+    document.execCommand("insertText", false, "ni hao");
+    const [, before, fresh] = Array.from(root.querySelectorAll("li"));
+    root.dispatchEvent(deleteEvent("beforeinput"));
+    // The pruned item's recorded neighbour goes too, so the guard can't
+    // place the item by it - and must not take the empty first item for
+    // the stand-in WebKit leaves.
+    before.remove();
+    fresh.replaceWith(document.createElement("br"));
+    root.dispatchEvent(deleteEvent("input"));
+    document.execCommand("insertText", false, "你好");
+    root.dispatchEvent(
+      new CompositionEvent("compositionend", { data: "你好" }),
+    );
+  });
+  await page.keyboard.type("!");
+  await expect(items).toHaveText(["", "你好!"]);
+});
+
 test("hovering a column border doesn't change the table's height", async ({
   page,
 }) => {

@@ -1,9 +1,57 @@
-import { $prose } from "@milkdown/kit/utils";
+import { $prose, $remark } from "@milkdown/kit/utils";
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 const CHECKBOX_HIT_WIDTH = 24;
+
+/**
+ * Reads `- [ ] ` and `- [x] ` with nothing after the box as empty task
+ * items. GFM takes a box with no text for literal text - "[ ]" in a plain
+ * bullet - yet that is exactly what an item made here and saved before its
+ * text was typed looks like (markdown-output.ts writes it so, as Typora
+ * does), so the checkbox was gone on the next open. Only an unescaped box:
+ * `- \[ ]` is text the user wrote, and its source runs longer than "[ ]".
+ */
+const EMPTY_TASK = /^\[([ xX])\]$/;
+
+function readEmptyTaskItems(node: MdastNode): void {
+  if (node.type === "listItem" && node.checked == null) {
+    const paragraph = node.children?.[0];
+    const text =
+      paragraph?.type === "paragraph" && paragraph.children?.length === 1
+        ? paragraph.children[0]
+        : null;
+    const match =
+      text?.type === "text" ? EMPTY_TASK.exec(text.value ?? "") : null;
+    const start = text?.position?.start.offset;
+    const end = text?.position?.end.offset;
+    if (
+      match &&
+      paragraph &&
+      start !== undefined &&
+      end !== undefined &&
+      end - start === match[0].length
+    ) {
+      node.checked = match[1] !== " ";
+      paragraph.children = [];
+    }
+  }
+  node.children?.forEach(readEmptyTaskItems);
+}
+
+interface MdastNode {
+  type: string;
+  value?: string;
+  checked?: boolean | null;
+  children?: MdastNode[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+}
+
+export const remarkEmptyTaskItems = $remark(
+  "remark-empty-task-items",
+  () => () => (tree: MdastNode) => readEmptyTaskItems(tree),
+);
 
 /**
  * Milkdown's gfm preset only marks task list items with a `data-checked`
@@ -52,10 +100,19 @@ export const taskListClickPlugin = $prose(
 const CJK_TASK = /^\s*[【［[]\s*([xX√✓]?)\s*[】］\]]\s*$/;
 const CJK_TASK_PARAGRAPH = /^\s*[-*+]\s*[【［[]\s*([xX√✓]?)\s*[】］\]]\s*$/;
 
-// The document right after a conversion: a space typed while it's still
-// the current one is the separator of "[ ] " (the GFM spelling, which now
-// converts at the "]") and is dropped rather than starting the item.
-const convertedDoc = new WeakMap<EditorView, ProseNode>();
+// The document and caret right after a conversion: a space typed while
+// both are still current is the separator of "[ ] " (the GFM spelling,
+// which now converts at the "]") and is dropped rather than starting the
+// item. The caret too: a click elsewhere changes no document, and the
+// next space typed there was swallowed.
+const converted = new WeakMap<EditorView, { doc: ProseNode; pos: number }>();
+
+function markConverted(view: EditorView) {
+  converted.set(view, {
+    doc: view.state.doc,
+    pos: view.state.selection.head,
+  });
+}
 
 function convertCjkTask(
   view: EditorView,
@@ -79,7 +136,7 @@ function convertCjkTask(
         checked: match[1] !== "",
       });
     view.dispatch(tr.scrollIntoView());
-    convertedDoc.set(view, view.state.doc);
+    markConverted(view);
     return true;
   }
 
@@ -87,6 +144,14 @@ function convertCjkTask(
   const { bullet_list, list_item, paragraph } = state.schema.nodes;
   if (!match || item?.type.name === "list_item") return false;
   if (!bullet_list || !list_item || !paragraph) return false;
+  // Only where a list can stand in for the paragraph. A table cell holds
+  // a paragraph and nothing else: replacing it there split the table in
+  // two around a list, emptying the cells of the row it was typed in.
+  const index = $from.index($from.depth - 1);
+  if (
+    !$from.node($from.depth - 1).canReplaceWith(index, index + 1, bullet_list)
+  )
+    return false;
   const list = bullet_list.create(null, [
     list_item.create({ checked: match[1] !== "" }, paragraph.create()),
   ]);
@@ -95,7 +160,7 @@ function convertCjkTask(
   // Inside the new paragraph: list, item, paragraph openings.
   tr.setSelection(TextSelection.create(tr.doc, before + 3));
   view.dispatch(tr.scrollIntoView());
-  convertedDoc.set(view, view.state.doc);
+  markConverted(view);
   return true;
 }
 
@@ -105,8 +170,11 @@ export const cjkTaskInputPlugin = $prose(
       props: {
         handleTextInput(view, from, to, text) {
           if (view.composing) return false;
-          const justConverted = convertedDoc.get(view) === view.state.doc;
-          convertedDoc.delete(view);
+          const last = converted.get(view);
+          converted.delete(view);
+          const justConverted =
+            last?.doc === view.state.doc &&
+            last.pos === view.state.selection.head;
           if (justConverted && text === " ") return true;
           const { $from } = view.state.selection;
           if ($from.parent.type.name !== "paragraph") return false;

@@ -97,6 +97,68 @@ test("a screenshot pasted as a blob: image is stored in assets/", async ({
   await expect.poll(() => sourceOf(page)).toBe("![](assets/shot.png)");
 });
 
+/** Holds the next save_pasted_image until `releaseSave` - a slow disk or
+ *  image host - and pastes a screenshot the way WebKitGTK hands it over. */
+async function pasteScreenshotWithSlowSave(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      __devInvokeResults: Record<string, unknown>;
+      __releaseSave: () => void;
+    };
+    w.__devInvokeResults = {
+      save_pasted_image: new Promise((resolve) => {
+        w.__releaseSave = () => resolve({ src: "assets/shot.png" });
+      }),
+    };
+  });
+  const blobUrl = await page.evaluate((b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+  }, PNG);
+  await paste(page, { "text/html": `<img src="${blobUrl}">` });
+}
+
+function releaseSave(page: Page) {
+  return page.evaluate(() =>
+    (window as unknown as { __releaseSave: () => void }).__releaseSave(),
+  );
+}
+
+/** The srcs the document's images have (not the asset: URLs shown). */
+function imageSrcs(page: Page): Promise<string[]> {
+  return page
+    .locator(`${editor} .image-view img`)
+    .evaluateAll((imgs) =>
+      imgs.map((img) => (img as HTMLImageElement).dataset.docSrc ?? ""),
+    );
+}
+
+test("undo after a slow screenshot save never brings its blob: src back", async ({
+  page,
+}) => {
+  await pasteScreenshotWithSlowSave(page);
+  // Past the history's grouping delay, so the swap would be its own step.
+  await page.waitForTimeout(800);
+  await releaseSave(page);
+  await expect.poll(() => imageSrcs(page)).toEqual(["assets/shot.png"]);
+  await page.keyboard.press("Control+z");
+  await expect.poll(() => imageSrcs(page)).toEqual([]);
+  await page.keyboard.press("Control+Shift+z");
+  await expect.poll(() => imageSrcs(page)).toEqual(["assets/shot.png"]);
+});
+
+test("a screenshot undone before its save lands comes back stored on redo", async ({
+  page,
+}) => {
+  await pasteScreenshotWithSlowSave(page);
+  await page.keyboard.press("Control+z");
+  await expect.poll(() => imageSrcs(page)).toEqual([]);
+  await releaseSave(page);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Control+Shift+z");
+  await expect.poll(() => imageSrcs(page)).toEqual(["assets/shot.png"]);
+});
+
 test("an image file copied in the file manager is pasted as an image", async ({
   page,
 }) => {

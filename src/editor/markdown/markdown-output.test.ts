@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Editor } from "@milkdown/kit/core";
 import { editorViewCtx, serializerCtx } from "@milkdown/kit/core";
 import { createTestEditor } from "../../document-view/editor-test-harness";
+import { unwrittenImageSrcs } from "./markdown-output";
 
 const editors: Editor[] = [];
 afterEach(async () => {
@@ -27,6 +28,12 @@ describe("saved markdown stays as written", () => {
     ["dash bullets", "- 一\n- 二\n  - 子\n"],
     ["plus bullets", "+ a\n+ b\n"],
     ["dash task items", "- [ ] 待办\n- [x] 完成\n"],
+    ["empty task items", "- [ ] \n- [x] \n"],
+    [
+      "a nested empty task item",
+      "- [ ] 待办\n  - [ ] \n- [x] \n  - [x] 完成\n",
+    ],
+    ["an escaped box, which is text", "- \\[ ]\n"],
     ["an ordered list", "1. 一\n2. 二\n"],
     ["a list starting at 3", "3. 三\n4. 四\n"],
     ["CJK bold", "中文**加粗**中文\n"],
@@ -52,6 +59,36 @@ describe("saved markdown stays as written", () => {
     ["a titled empty-text link", '[](https://x.org/a "t")\n'],
   ])("keeps %s", async (_name, markdown) => {
     expect(await roundTrip(markdown)).toBe(markdown);
+  });
+
+  it("keeps the box of a task item whose text isn't typed yet", async () => {
+    const editor = await createTestEditor("- [ ] a\n- [x] b\n  - [ ] c\n");
+    editors.push(editor);
+    const saved = editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const texts: [number, number][] = [];
+      view.state.doc.descendants((node, pos) => {
+        if (node.isText) texts.push([pos, pos + node.nodeSize]);
+      });
+      const tr = view.state.tr;
+      for (const [from, to] of texts.reverse()) tr.delete(from, to);
+      view.dispatch(tr);
+      return ctx.get(serializerCtx)(view.state.doc);
+    });
+    expect(saved).toBe("- [ ] \n- [x] \n  - [ ] \n");
+  });
+
+  it("leaves out a pasted image whose file is still being stored", async () => {
+    const blob = "blob:tauri://localhost/0b6e";
+    unwrittenImageSrcs.add(blob);
+    try {
+      expect(await roundTrip(`a ![](${blob}) b ![](x.png)\n`)).toBe(
+        "a  b ![](x.png)\n",
+      );
+    } finally {
+      unwrittenImageSrcs.delete(blob);
+    }
+    expect(await roundTrip(`![](${blob})\n`)).toBe(`![](${blob})\n`);
   });
 
   it("escapes an alert marker that doesn't open a quote", async () => {

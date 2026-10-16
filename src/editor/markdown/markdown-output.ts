@@ -45,8 +45,42 @@ const toBoolean = (spread: unknown) => spread === true || spread === "true";
 const list: Handle = (node, parent, state, info) => {
   node.spread = toBoolean(node.spread);
   for (const item of node.children) item.spread = toBoolean(item.spread);
-  return defaultHandlers.list(node, parent, state, info);
+  const listItem = state.handlers.listItem;
+  state.handlers.listItem = withEmptyTasks(listItem);
+  try {
+    return defaultHandlers.list(node, parent, state, info);
+  } finally {
+    state.handlers.listItem = listItem;
+  }
 };
+
+/**
+ * Writes a task item with no text yet as `- [ ] `. remark-gfm's handler
+ * puts the box after the bullet's following space, and an empty item has
+ * none: the box was dropped (a plain "-" saved), or - with a nested list
+ * under it - landed at the start of the next line, "[x]   - child", which
+ * reads back as a different document. The box is written here instead,
+ * around remark-gfm's handler (which this wraps for the one list, so its
+ * handling of every other item stays), and read back by
+ * remarkEmptyTaskItems (task-list-plugin.ts).
+ */
+function withEmptyTasks(listItem: Handle): Handle {
+  return (node, parent, state, info) => {
+    const head = node.children[0];
+    const empty =
+      typeof node.checked === "boolean" &&
+      // Milkdown hands an empty paragraph over with no `children` at all.
+      (!head ||
+        (head.type === "paragraph" &&
+          !(head.children as unknown[] | undefined)?.length));
+    if (!empty) return listItem(node, parent, state, info);
+    const plain = listItem({ ...node, checked: null }, parent, state, info);
+    return plain.replace(
+      /^([*+-]|\d+[.)])/,
+      `$1 [${node.checked ? "x" : " "}] `,
+    );
+  };
+}
 
 /**
  * Which markdown syntax a link was written in, kept on the mark so a save
@@ -230,6 +264,31 @@ const link = Object.assign(
 );
 
 /**
+ * Image srcs that are shown but never written: a pasted screenshot's
+ * `blob:` URL while its file is still being stored (image-plugin.ts).
+ * A blob: URL names memory of this page alone, so a save made in that
+ * window wrote an image that was gone on reopen (issue #59's failure).
+ * Left out instead; the swap to the stored path changes the document
+ * again, so it is dirty and the next save writes the image.
+ */
+export const unwrittenImageSrcs = new Set<string>();
+
+const defaultImage = defaultHandlers.image as PeekingHandle;
+
+const image = Object.assign(
+  ((node, parent, state, info) =>
+    unwrittenImageSrcs.has(node.url)
+      ? ""
+      : defaultImage(node, parent, state, info)) as Handle,
+  {
+    peek: ((node, parent, state, info) =>
+      unwrittenImageSrcs.has(node.url)
+        ? ""
+        : defaultImage.peek(node, parent, state, info)) as Handle,
+  },
+);
+
+/**
  * The bullet the document's own lists use ("-", "*" or "+"), by majority,
  * or null when it has none. remark writes "*" whatever the file had, so
  * the first edit to a README written with "-" rewrote every bullet in it
@@ -278,6 +337,7 @@ export function configureMarkdownOutput(ctx: Ctx): void {
       thematicBreak,
       list,
       link,
+      image,
       text: keepAlertMarker(
         (options.handlers?.text as Handle | undefined) ?? defaultHandlers.text,
       ),
