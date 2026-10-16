@@ -104,6 +104,10 @@ export interface ChatMessagesProps {
   /** Jumps to an add_comment card's passage in the document; absent where
    *  the document isn't reachable (the detached window). */
   onLocateText?: (anchor: string, context?: string) => void;
+  /** The number on an add_comment note's badge in the text, for its card
+   *  to show the same; null while the note has none (a margin has room
+   *  for it, or it was never placed). */
+  noteNumber?: (callId: string) => number | null;
   onRejectProposal: (callId: string) => void;
   /** Asks the model to re-propose an edit whose anchor went stale. */
   onRelocateProposal: (proposal: EditProposal) => void;
@@ -146,6 +150,7 @@ export function ChatMessages({
   onDecideSentence,
   onRevealProposal,
   onLocateText,
+  noteNumber,
   canRetry,
   onRetry,
 }: ChatMessagesProps) {
@@ -275,6 +280,7 @@ export function ChatMessages({
           const comment = parseComment(turn.arguments);
           if (comment) {
             commentIds.add(turn.call_id);
+            const num = noteNumber?.(turn.call_id) ?? null;
             return (
               <div
                 key={i}
@@ -282,11 +288,17 @@ export function ChatMessages({
                 style={style}
               >
                 <div className="agent-proposal-head">
-                  <span className="agent-comment-icon" aria-hidden="true">
-                    <svg viewBox="0 0 16 16">
-                      <path d="M3 3.5h10v7H7l-3 2.5v-2.5H3z" />
-                    </svg>
-                  </span>
+                  {/* Where the text shows the note as a numbered badge,
+                      the card wears the same number in its place. */}
+                  {num !== null ? (
+                    <span className="agent-comment-num">{num}</span>
+                  ) : (
+                    <span className="agent-comment-icon" aria-hidden="true">
+                      <svg viewBox="0 0 16 16">
+                        <path d="M3 3.5h10v7H7l-3 2.5v-2.5H3z" />
+                      </svg>
+                    </span>
+                  )}
                   <span className="agent-proposal-title">
                     {labels.commentTitle}
                   </span>

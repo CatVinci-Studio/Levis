@@ -169,6 +169,50 @@ test("accepting one of two proposals in a paragraph keeps the other", async ({
   );
 });
 
+test("a narrow window numbers the notes as the chat lists them", async ({
+  page,
+}) => {
+  // No room for a margin: the notes sit behind numbered badges.
+  await page.setViewportSize({ width: 900, height: 780 });
+  await openApp(page, {
+    settings: { language: "en" },
+    storage: { "levis-agent-panel-open": "1" },
+  });
+  await pasteMarkdown(page, "First paragraph here.\n\nSecond paragraph here.");
+  const comment = (id: string, anchor: string, text: string) => [
+    {
+      kind: "ToolCall",
+      call_id: id,
+      name: "add_comment",
+      arguments: JSON.stringify({ anchor, comment: text }),
+    },
+    { kind: "ToolResult", call_id: id, output: "Comment added" },
+  ];
+  // Left in the opposite order to the text's.
+  await mockInvoke(page, {
+    ai_agent_message: [
+      { kind: "User", text: "Review" },
+      ...comment("c1", "Second paragraph", "About the second."),
+      ...comment("c2", "First paragraph", "About the first."),
+      { kind: "Assistant", text: "Two notes." },
+    ],
+  });
+  const composer = page.locator(".agent-panel-view textarea");
+  await composer.fill("Review");
+  await composer.press("Enter");
+  const badges = page.locator(".milkdown .review-badge");
+  await expect(badges).toHaveCount(2);
+  // In the text's order: the first paragraph's note was left second.
+  await expect(badges).toHaveText(["2", "1"]);
+  await expect(page.locator(".agent-comment .agent-comment-num")).toHaveText([
+    "1",
+    "2",
+  ]);
+  await expect(page.locator(".agent-comment").first()).toContainText(
+    "About the second.",
+  );
+});
+
 test("an undone edit's card still counts what it removes", async ({ page }) => {
   await openApp(page, {
     settings: { language: "en" },

@@ -1323,6 +1323,20 @@ li[data-state="kept"] .agent-proposal-sentence-text {
   stroke-linejoin: round;
 }
 
+/* The note's badge in the text (ReviewMargin.css .review-badge), same
+   number, same disc. */
+.agent-comment-num {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--review-note-line);
+  color: #fff;
+  font: 700 10.5px/1 var(--font-ui, sans-serif);
+}
+
 .agent-comment .agent-proposal-show {
   margin-left: auto;
   font-size: var(--text-xs);
