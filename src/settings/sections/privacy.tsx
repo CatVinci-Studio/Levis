@@ -4,9 +4,9 @@ import type { Strings } from "../../i18n/strings";
 import { SettingRow, ToggleRow } from "./controls";
 import { showConfirm } from "../../ui/app-dialog";
 import { CheckIcon } from "../../ui/icons";
-import { clearAllConversations } from "../../ai/chat-history";
-import { clearClipboardHistory } from "../../utils/clipboard-history";
-import { drafts } from "../../ipc";
+import { clearAllConversations } from "../../ai/chat/chat-history";
+import { clearClipboardHistory } from "../../clipboard/history";
+import { drafts } from "../../platform/ipc";
 
 // Settings > Privacy: each kind of locally-stored history/recovery data gets
 // its own on/off switch plus an explicit clear for what's already there -

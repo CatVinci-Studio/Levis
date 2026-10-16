@@ -3,8 +3,8 @@ import { editorViewCtx, serializerCtx } from "@milkdown/kit/core";
 import { Slice } from "@milkdown/kit/prose/model";
 import { AllSelection } from "@milkdown/kit/prose/state";
 import type { EditorRunner } from "./useEditorRunner";
-import { recordClipboardEntry } from "../utils/clipboard-history";
-import { parseMarkdownSource } from "./parse-markdown-source";
+import { recordClipboardEntry } from "../clipboard/history";
+import { parseMarkdownSource } from "./markdown/parse-markdown-source";
 
 export interface EditorClipboard {
   copyOrCut: (cut: boolean) => void;

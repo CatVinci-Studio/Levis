@@ -51,7 +51,6 @@ export async function openApp(
           language: "zh",
           languageChosen: true,
           onboardingShown: true,
-          textusNoticeShown: true,
           ...settings,
         }),
       );

@@ -9,21 +9,21 @@ description: >-
   estilo académico, style académique, wissenschaftlich, научный стиль).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "format"
-  levis-packs: "contract standards#academic standards#numbers"
-  levis-sources: "Our own text. Summarised from GB/T 7713.2-2022, GB/T 7714-2025, CY/T 174-2019, APA 7, MLA 9 and Chicago 18 (summarised only); BIPM SI Brochure (CC BY 4.0); hedging ideas from Kiterlin (MIT) and the Manchester Academic Phrasebank (category idea only)."
-  levis-aliases-en: "academic, paper"
-  levis-aliases-zh: "学术润色, 论文润色, 学术"
-  levis-aliases-zh-Hant: "學術潤飾, 論文潤飾"
-  levis-aliases-ja: "論文の推敲, 論文, 学術"
-  levis-aliases-ko: "논문, 학술"
-  levis-aliases-es: "académico"
-  levis-aliases-fr: "académique"
-  levis-aliases-de: "wissenschaftlich"
-  levis-aliases-ru: "научный"
-  levis-aliases-pt: "acadêmico"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "format"
+  textus-packs: "contract standards#academic standards#numbers"
+  textus-sources: "Our own text. Summarised from GB/T 7713.2-2022, GB/T 7714-2025, CY/T 174-2019, APA 7, MLA 9 and Chicago 18 (summarised only); BIPM SI Brochure (CC BY 4.0); hedging ideas from Kiterlin (MIT) and the Manchester Academic Phrasebank (category idea only)."
+  textus-aliases-en: "academic, paper"
+  textus-aliases-zh: "学术润色, 论文润色, 学术"
+  textus-aliases-zh-Hant: "學術潤飾, 論文潤飾"
+  textus-aliases-ja: "論文の推敲, 論文, 学術"
+  textus-aliases-ko: "논문, 학술"
+  textus-aliases-es: "académico"
+  textus-aliases-fr: "académique"
+  textus-aliases-de: "wissenschaftlich"
+  textus-aliases-ru: "научный"
+  textus-aliases-pt: "acadêmico"
 ---
 
 # Academic polish

@@ -1,4 +1,4 @@
-import type { GrammarIssue } from "../ai/grammar-check-plugin";
+import type { GrammarIssue } from "../ai/writing/grammar-check-plugin";
 import type { TutorialStepId } from "./tutorial-steps";
 
 /** Detail of TUTORIAL_MOCK_GRAMMAR_EVENT: the practice sentence the issues'

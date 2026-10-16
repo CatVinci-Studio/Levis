@@ -4,9 +4,9 @@ description: >-
   Writing conventions for Korean: spacing and punctuation (한글 맞춤법, 문장 부호), spelling and loanwords, dialogue, register and workplace honorifics, letters, 공문서, ad disclosure and AI tells.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Quoted or summarised from 한글 맞춤법 (문장 부호 included), 외래어 표기법, 국어기본법 제14조 and 행정업무의 운영 및 혁신에 관한 규정 시행규칙 (unprotected official texts); 국립국어원 해설 and 표준 언어 예절 (summarised); 공정위 2024 guideline (summarised); k-skill and im-not-ai (MIT, ideas)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Quoted or summarised from 한글 맞춤법 (문장 부호 included), 외래어 표기법, 국어기본법 제14조 and 행정업무의 운영 및 혁신에 관한 규정 시행규칙 (unprotected official texts); 국립국어원 해설 and 표준 언어 예절 (summarised); 공정위 2024 guideline (summarised); k-skill and im-not-ai (MIT, ideas)."
 ---
 
 ## typography

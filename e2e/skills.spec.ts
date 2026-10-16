@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { openApp, PHONE } from "./helpers";
 
 // The composer's `/` and `@` pickers and Settings' skills, against the dev
-// shim's skill list (src/dev-tauri-shim.ts: the 18 built-ins and one skill
+// shim's skill list (dev/tauri-shim.ts: the 18 built-ins and one skill
 // of the user's own).
 
-const AI_NAME = "Levis AI";
+const AI_NAME = "Textus AI";
 
 /** Opens the app with the AI panel open, in `language`. */
 async function openWithPanel(page: Page, language: string) {
@@ -159,7 +159,7 @@ test.describe("the @ picker", () => {
   });
 });
 
-test.describe("Settings > Levis AI skills", () => {
+test.describe("Settings > Textus AI skills", () => {
   test("a built-in turned off leaves the / menu", async ({ page }) => {
     const input = await openWithPanel(page, "en");
     const panel = await openSettings(page);

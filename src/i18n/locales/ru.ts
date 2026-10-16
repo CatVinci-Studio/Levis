@@ -73,7 +73,7 @@ export default {
   Термины       Пиши «интернет» со строчной буквы.
   Контекст      Я пишу научно-популярные лонгриды для широкой публики.
 
-Инструкции только для одного проекта пишутся в его файле .levis/agent.md
+Инструкции только для одного проекта пишутся в его файле .textus/agent.md
 (меню проекта на панели ИИ > Изменить инструкции проекта).
 Отправляются и те и другие; при расхождении приоритет у проектных.
 
@@ -140,6 +140,9 @@ export default {
   toolReadFile: "Чтение файла {arg}",
   toolUseSkill: "Применение навыка {arg}",
   toolAddComment: "Добавление комментария",
+  toolCheckConventions: "Проверка правил оформления",
+  toolMeasureText: "Подсчёт слов",
+  toolWorking: "Обработка",
   menuToggleSplitView: "Разделённый вид",
   shortcutToggleSplitView: "Разделённый вид (код | просмотр)",
   menuToggleZenMode: "Режим дзен",
@@ -216,14 +219,35 @@ export default {
   outlineCollapse: "Свернуть",
   outlineExpand: "Развернуть",
   wordsUnit: "сл.",
-  textusNoticeTitle: "Levis теперь Textus",
-  textusNoticeText:
-    "Textus — новая версия Levis, с новым названием и значком. Это последняя версия Levis. Ваши документы остаются на своих местах, а при первом запуске Textus предложит перенести настройки, историю и ключи.",
-  textusNoticeOk: "Скачать Textus",
-  textusNoticeLater: "Позже",
-  textusNoticeRow: "Levis теперь Textus",
-  textusNoticeRowHint:
-    "Это последняя версия Levis. Textus может перенести ваши настройки, историю и ключи.",
+  levisImportTitle: "Перенести данные из Levis?",
+  levisImportText:
+    "Textus — новая версия Levis. На этом компьютере есть ваши настройки, инструкции для письма и история из Levis. Перенос только копирует их; в Levis всё остаётся.",
+  levisImportOk: "Перенести",
+  levisImportLater: "Не сейчас",
+  levisImportKeysTitle: "Скопировать и ключи API, и входы в аккаунты?",
+  levisImportKeysText:
+    "Ключи API из Levis и входы в ChatGPT или Claude тоже можно перенести. Скопированные файлы сможете читать только вы.",
+  levisImportKeysOk: "Скопировать",
+  levisImportKeysSkip: "Не копировать",
+  levisImportDone: "Перенесено из Levis: {items}.",
+  levisImportNothing:
+    "Переносить нечего: в Textus уже есть всё, что есть в Levis.",
+  levisImportFailed: "Некоторые файлы скопировать не удалось:",
+  levisImportRow: "Перенести из Levis",
+  levisImportRowHint:
+    "Копирует настройки, историю, темы и другое. В Levis всё остаётся.",
+  levisImportButton: "Перенести…",
+  levisImportNone: "На этом компьютере нет данных Levis.",
+  levisItemSettings: "настройки",
+  levisItemChatHistory: "разговоры с ИИ",
+  levisItemClipboardHistory: "история буфера обмена",
+  levisItemThemes: "темы",
+  levisItemWritingInstructions: "инструкции для письма",
+  levisItemSkills: "навыки",
+  levisItemRecentFiles: "недавние файлы",
+  levisItemSession: "открытые документы",
+  levisItemDrafts: "несохранённые черновики",
+  levisItemCredentials: "ключи API и входы в аккаунты",
   alertNote: "Примечание",
   alertTip: "Совет",
   alertImportant: "Важно",
@@ -565,8 +589,8 @@ export default {
   updateDownloading: "Загрузка обновления…",
   updateFailed: "Не удалось обновить:",
   updateViaPackageManager: `${APP_NAME} установлен через менеджер пакетов. Обновите его там.`,
-  cliCommandLabel: "Команда «levis» для терминала",
-  cliCommandHint: `Позволяет открывать ${APP_NAME} (или файл) из терминала, например levis README.md`,
+  cliCommandLabel: "Команда «textus» для терминала",
+  cliCommandHint: `Позволяет открывать ${APP_NAME} (или файл) из терминала, например textus README.md`,
   cliCommandInstalled: "Установлена",
   cliCommandNotInstalled: "Не установлена",
   cliCommandInstallButton: "Установить",
@@ -693,6 +717,10 @@ export default {
   fileChangedOnDiskMessage:
     "Этот файл изменён на диске другой программой. При сохранении эти изменения будут перезаписаны.",
   fileChangedOnDiskOverwrite: "Перезаписать",
+  saveFailedTitle: "Не удалось сохранить",
+  saveFailedMessage: "«{name}» не сохранён. Ваши изменения остались на месте.",
+  saveReadOnlyHint:
+    "Файл доступен только для чтения. Сохраните изменения в новый файл через «Сохранить как».",
   unsavedIndicator: "Несохранённые изменения",
   largeDocBadge: "Большой документ",
   largeDocHint:

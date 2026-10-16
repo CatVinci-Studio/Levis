@@ -6,12 +6,12 @@ import { mockInvoke, openApp, openPhone, PHONE } from "./helpers";
 // - on desktop and phone, light and dark, for review rather than as a
 // baseline. The sample is a reader's own notes on a classic: the AI edits
 // the notes, and the quoted original is never touched. Runs only with
-// LEVIS_SHOTS_DIR set to where the PNGs go:
+// TEXTUS_SHOTS_DIR set to where the PNGs go:
 //
-//   LEVIS_SHOTS_DIR=../assets/working/ai-design/shots npx playwright test ai-design-shots
+//   TEXTUS_SHOTS_DIR=../assets/working/ai-design/shots npx playwright test ai-design-shots
 
-const DIR = process.env.LEVIS_SHOTS_DIR;
-test.skip(!DIR, "set LEVIS_SHOTS_DIR to take the screenshots");
+const DIR = process.env.TEXTUS_SHOTS_DIR;
+test.skip(!DIR, "set TEXTUS_SHOTS_DIR to take the screenshots");
 
 const QUOTE =
   "宝玉看罢，因笑道：“这个妹妹我曾见过的。”贾母笑道：“可又是胡说，你又何曾见过他？”";
@@ -92,7 +92,7 @@ async function grammar(page: Page) {
   await page.evaluate(
     (target) =>
       window.dispatchEvent(
-        new CustomEvent("levis:tutorial-mock-grammar", {
+        new CustomEvent("textus:tutorial-mock-grammar", {
           detail: {
             target,
             issues: [
@@ -269,7 +269,7 @@ test("theme imported typora", async ({ page }) => {
   // Apply the theme's derived chrome the way an import does.
   await page.evaluate(async (css) => {
     // The dev server's own module, as the app loads it.
-    const url = "/src/utils/theme-chrome.ts";
+    const url = "/src/theme/theme-chrome.ts";
     const mod = (await import(/* @vite-ignore */ url)) as {
       applyThemeChrome: (css: string, dark: boolean) => void;
     };

@@ -384,7 +384,7 @@ fn extract(path: &Path, bytes: u64) -> Result<ChatAttachment, String> {
         "pptx" => extract_pptx(path)?,
         "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" => extract_spreadsheet(path)?,
         _ => std::fs::read_to_string(path).map_err(|_| {
-            format!("`{name}` isn't a text file, and Levis can't read this format yet.")
+            format!("`{name}` isn't a text file, and Textus can't read this format yet.")
         })?,
     };
 

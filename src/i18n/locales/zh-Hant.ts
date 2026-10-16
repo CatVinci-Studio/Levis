@@ -64,7 +64,7 @@ export default {
   用詞    使用臺灣慣用語：寫「影片」，不寫「視頻」。
   背景    我為一般讀者撰寫長篇科普報導。
 
-只適用於單一專案的指示，寫在該專案的 .levis/agent.md 中（AI 面板的
+只適用於單一專案的指示，寫在該專案的 .textus/agent.md 中（AI 面板的
 專案選單 > 編輯本專案的寫作指示）。兩份都會傳送；內容衝突時，以
 專案的為準。
 
@@ -131,6 +131,9 @@ export default {
   toolReadFile: "讀取 {arg}",
   toolUseSkill: "使用技能 {arg}",
   toolAddComment: "新增批註",
+  toolCheckConventions: "檢查寫作規範",
+  toolMeasureText: "統計字數",
+  toolWorking: "處理中",
   menuToggleSplitView: "分割檢視",
   shortcutToggleSplitView: "切換分割檢視（原始碼 | 預覽）",
   menuToggleZenMode: "禪模式",
@@ -196,15 +199,35 @@ export default {
   treeOpen: "開啟",
   outlineCollapse: "收合",
   outlineExpand: "展開",
+  levisImportTitle: "匯入 Levis 的資料？",
+  levisImportText:
+    "Textus 是 Levis 的新版本。這台電腦上有你在 Levis 中的設定、寫作要求和歷史紀錄。匯入只會複製，Levis 裡的內容保持不變。",
+  levisImportOk: "匯入",
+  levisImportLater: "暫不匯入",
+  levisImportKeysTitle: "一併複製 API 金鑰和登入狀態？",
+  levisImportKeysText:
+    "Levis 中的 API 金鑰，以及 ChatGPT 或 Claude 的登入狀態也可以一併複製。複製過來的檔案只有你本人可讀。",
+  levisImportKeysOk: "一併複製",
+  levisImportKeysSkip: "不複製",
+  levisImportDone: "已從 Levis 匯入：{items}。",
+  levisImportNothing: "沒有需要匯入的新內容：Levis 的資料 Textus 都已經有了。",
+  levisImportFailed: "有些檔案沒能複製：",
+  levisImportRow: "從 Levis 匯入",
+  levisImportRowHint:
+    "複製設定、歷史紀錄、主題等內容，Levis 裡的內容保持不變。",
+  levisImportButton: "匯入…",
+  levisImportNone: "這台電腦上沒有 Levis 的資料。",
+  levisItemSettings: "設定",
+  levisItemChatHistory: "AI 對話",
+  levisItemClipboardHistory: "剪貼簿歷史",
+  levisItemThemes: "主題",
+  levisItemWritingInstructions: "寫作要求",
+  levisItemSkills: "技能",
+  levisItemRecentFiles: "最近開啟的檔案",
+  levisItemSession: "開啟的文件",
+  levisItemDrafts: "未儲存的草稿",
+  levisItemCredentials: "API 金鑰及登入狀態",
   wordsUnit: "字",
-  textusNoticeTitle: "Levis 已升級為 Textus",
-  textusNoticeText:
-    "Textus 是 Levis 的新版本，換了新名字和新圖示。這是 Levis 的最後一個版本。你的文件都留在原處；Textus 首次啟動時，會提示你匯入設定、歷史紀錄和金鑰。",
-  textusNoticeOk: "取得 Textus",
-  textusNoticeLater: "以後再說",
-  textusNoticeRow: "Levis 已升級為 Textus",
-  textusNoticeRowHint:
-    "這是 Levis 的最後一個版本。Textus 可以匯入你的設定、歷史紀錄和金鑰。",
   alertNote: "備註",
   alertTip: "提示",
   alertImportant: "重要",
@@ -530,8 +553,8 @@ export default {
   updateDownloading: "正在下載更新…",
   updateFailed: "更新失敗：",
   updateViaPackageManager: `${APP_NAME} 是透過套件管理工具安裝的，需在該工具中更新。`,
-  cliCommandLabel: "終端機指令「levis」",
-  cliCommandHint: `可在終端機中開啟 ${APP_NAME}（或某個檔案），例如 levis README.md`,
+  cliCommandLabel: "終端機指令「textus」",
+  cliCommandHint: `可在終端機中開啟 ${APP_NAME}（或某個檔案），例如 textus README.md`,
   cliCommandInstalled: "已安裝",
   cliCommandNotInstalled: "未安裝",
   cliCommandInstallButton: "安裝",
@@ -650,6 +673,9 @@ export default {
   fileChangedOnDiskMessage:
     "其他程式已修改磁碟上的這個檔案。儲存會覆寫那些變更。",
   fileChangedOnDiskOverwrite: "覆寫",
+  saveFailedTitle: "無法儲存",
+  saveFailedMessage: "「{name}」沒有儲存，你的修改仍保留在這裡。",
+  saveReadOnlyHint: "這個檔案是唯讀的。可以用「另存新檔」把修改儲存到新檔案。",
   unsavedIndicator: "未儲存的變更",
   largeDocBadge: "大型文件",
   largeDocHint:

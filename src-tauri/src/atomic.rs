@@ -48,7 +48,35 @@ fn sync_parent_dir(target: &Path) {
     let _ = target;
 }
 
+/// What replacing an existing file has to carry over: where it really is
+/// (a symlink is written through, not replaced by a regular file) and its
+/// permissions (the new file would otherwise get the default mode, and a
+/// read-only file would quietly become writable). A read-only file is not
+/// replaced at all: the user made it so, and the save says why it failed.
+fn existing_target(target: &Path) -> std::io::Result<(PathBuf, Option<std::fs::Permissions>)> {
+    let real = match std::fs::canonicalize(target) {
+        Ok(real) => real,
+        Err(_) => return Ok((target.to_path_buf(), None)),
+    };
+    let permissions = std::fs::metadata(&real)?.permissions();
+    if permissions.readonly() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            format!("{} is read-only", real.display()),
+        ));
+    }
+    Ok((real, Some(permissions)))
+}
+
 fn write_via_temp(target: &Path, contents: &[u8], secret: bool) -> std::io::Result<()> {
+    // Secrets always get a fresh owner-only file; anything else keeps what
+    // the file it replaces had.
+    let (real, permissions) = if secret {
+        (target.to_path_buf(), None)
+    } else {
+        existing_target(target)?
+    };
+    let target = real.as_path();
     let tmp = tmp_path(target);
     let result = (|| {
         let mut options = std::fs::OpenOptions::new();
@@ -62,6 +90,9 @@ fn write_via_temp(target: &Path, contents: &[u8], secret: bool) -> std::io::Resu
         let _ = secret;
         let mut file = options.open(&tmp)?;
         file.write_all(contents)?;
+        if let Some(permissions) = permissions {
+            file.set_permissions(permissions)?;
+        }
         file.sync_all()?;
         drop(file);
         std::fs::rename(&tmp, target)
@@ -172,12 +203,12 @@ mod tests {
 
     #[test]
     fn temp_files_are_unique_private_and_removed_on_drop() {
-        let a = TempFile::create("levis-test-", ".html", "<p>a</p>").unwrap();
-        let b = TempFile::create("levis-test-", ".html", "<p>b</p>").unwrap();
+        let a = TempFile::create("textus-test-", ".html", "<p>a</p>").unwrap();
+        let b = TempFile::create("textus-test-", ".html", "<p>b</p>").unwrap();
         assert_ne!(a.path(), b.path());
         assert_eq!(std::fs::read_to_string(a.path()).unwrap(), "<p>a</p>");
         let name = a.path().file_name().unwrap().to_str().unwrap();
-        assert!(name.starts_with("levis-test-") && name.ends_with(".html"));
+        assert!(name.starts_with("textus-test-") && name.ends_with(".html"));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -190,7 +221,7 @@ mod tests {
     }
 
     fn scratch_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("levis-atomic-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("textus-atomic-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -237,12 +268,54 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    // Unix only: modes and symlinks.
+    #[cfg(unix)]
+    #[test]
+    fn a_replaced_file_keeps_its_mode_and_a_read_only_one_is_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch_dir("mode");
+        let shared = dir.join("shared.md");
+        std::fs::write(&shared, "one").unwrap();
+        std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o664)).unwrap();
+        write_sync(&shared, "two").unwrap();
+        assert_eq!(std::fs::read_to_string(&shared).unwrap(), "two");
+        let mode = std::fs::metadata(&shared).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o664, "the mode it had, not the default");
+
+        let locked = dir.join("locked.md");
+        std::fs::write(&locked, "keep").unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let err = write_sync(&locked, "lost").unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(std::fs::read_to_string(&locked).unwrap(), "keep");
+        assert!(leftovers(&dir).is_empty());
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_is_written_through_not_replaced() {
+        let dir = scratch_dir("link");
+        let real = dir.join("real.md");
+        let link = dir.join("link.md");
+        std::fs::write(&real, "one").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        write_sync(&link, "two").unwrap();
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "two");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     // Unix only: what it checks is the file mode, which Windows doesn't have.
     #[cfg(unix)]
     #[test]
     fn secrets_are_owner_only_and_replace_atomically() {
         use std::os::unix::fs::PermissionsExt;
-        let path = std::env::temp_dir().join(format!("levis-secret-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!("textus-secret-{}.json", std::process::id()));
         write_secret_sync(&path, "one").unwrap();
         write_secret_sync(&path, "two").unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "two");

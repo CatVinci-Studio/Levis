@@ -9,21 +9,21 @@ description: >-
   整合性, 설정 오류, continuidad, cohérence, Kontinuität, нестыковки).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "check"
-  levis-packs: "contract craft#fiction"
-  levis-sources: "Our own text."
-  levis-aliases-en: "consistency"
-  levis-aliases-zh: "检查前后一致, 设定检查, 前后矛盾"
-  levis-aliases-zh-Hant: "檢查前後一致, 設定檢查"
-  levis-aliases-ja: "設定の整合性チェック, 整合性"
-  levis-aliases-ko: "설정 확인"
-  levis-aliases-es: "continuidad"
-  levis-aliases-fr: "cohérence"
-  levis-aliases-de: "widersprüche"
-  levis-aliases-ru: "нестыковки"
-  levis-aliases-pt: "continuidade"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "check"
+  textus-packs: "contract craft#fiction"
+  textus-sources: "Our own text."
+  textus-aliases-en: "consistency"
+  textus-aliases-zh: "检查前后一致, 设定检查, 前后矛盾"
+  textus-aliases-zh-Hant: "檢查前後一致, 設定檢查"
+  textus-aliases-ja: "設定の整合性チェック, 整合性"
+  textus-aliases-ko: "설정 확인"
+  textus-aliases-es: "continuidad"
+  textus-aliases-fr: "cohérence"
+  textus-aliases-de: "widersprüche"
+  textus-aliases-ru: "нестыковки"
+  textus-aliases-pt: "continuidade"
 ---
 
 # Check continuity

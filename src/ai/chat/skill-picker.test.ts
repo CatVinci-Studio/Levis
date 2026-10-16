@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SkillListItem } from "../../ipc";
+import type { SkillListItem } from "../../platform/ipc";
 import { BUILTIN_SKILLS } from "../skills/builtin";
 import {
   MENTION_TRIGGER,

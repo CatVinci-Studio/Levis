@@ -69,7 +69,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   용어    ‘컨텐츠’가 아니라 ‘콘텐츠’로 쓴다.
   배경    일반 독자를 위한 긴 과학 기사를 쓴다.
 
-한 프로젝트에만 해당하는 지침은 그 프로젝트의 .levis/agent.md에
+한 프로젝트에만 해당하는 지침은 그 프로젝트의 .textus/agent.md에
 적습니다(AI 패널의 프로젝트 메뉴 > 프로젝트 글쓰기 지침 편집).
 두 지침이 모두 전송되며, 서로 다르면 프로젝트 지침이 우선합니다.
 
@@ -136,6 +136,9 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   toolReadFile: "{arg} 읽는 중",
   toolUseSkill: "{arg} 스킬 사용 중",
   toolAddComment: "댓글 추가 중",
+  toolCheckConventions: "작성 규칙 확인 중",
+  toolMeasureText: "글자 수 세는 중",
+  toolWorking: "처리 중",
   menuToggleSplitView: "분할 보기",
   shortcutToggleSplitView: "분할 보기 전환(소스 | 미리 보기)",
   menuToggleZenMode: "젠 모드",
@@ -206,14 +209,35 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   outlineCollapse: "접기",
   outlineExpand: "펼치기",
   wordsUnit: "단어",
-  textusNoticeTitle: "Levis가 Textus가 되었습니다",
-  textusNoticeText:
-    "Textus는 이름과 아이콘이 새로워진 Levis의 새 버전입니다. 이번이 Levis의 마지막 버전입니다. 문서는 그 자리에 그대로 있고, Textus를 처음 실행하면 설정, 기록, 키를 가져오도록 안내합니다.",
-  textusNoticeOk: "Textus 받기",
-  textusNoticeLater: "나중에",
-  textusNoticeRow: "Levis가 Textus가 되었습니다",
-  textusNoticeRowHint:
-    "이번이 Levis의 마지막 버전입니다. 설정, 기록, 키를 Textus로 가져올 수 있습니다.",
+  levisImportTitle: "Levis 데이터를 가져올까요?",
+  levisImportText:
+    "Textus는 Levis의 새 버전입니다. 이 컴퓨터에 Levis의 설정, 작성 지침, 기록이 있습니다. 가져오기는 복사만 하며 Levis의 데이터는 그대로 남습니다.",
+  levisImportOk: "가져오기",
+  levisImportLater: "나중에",
+  levisImportKeysTitle: "API 키와 로그인도 복사할까요?",
+  levisImportKeysText:
+    "Levis의 API 키와 ChatGPT 또는 Claude 로그인도 함께 복사할 수 있습니다. 복사한 파일은 본인만 읽을 수 있습니다.",
+  levisImportKeysOk: "복사하기",
+  levisImportKeysSkip: "복사하지 않기",
+  levisImportDone: "Levis에서 가져왔습니다: {items}.",
+  levisImportNothing:
+    "새로 가져올 데이터가 없습니다. Levis의 데이터가 이미 Textus에 있습니다.",
+  levisImportFailed: "복사하지 못한 파일이 있습니다:",
+  levisImportRow: "Levis에서 가져오기",
+  levisImportRowHint:
+    "설정, 기록, 테마 등을 복사합니다. Levis의 데이터는 그대로 남습니다.",
+  levisImportButton: "가져오기…",
+  levisImportNone: "이 컴퓨터에 Levis 데이터가 없습니다.",
+  levisItemSettings: "설정",
+  levisItemChatHistory: "AI 대화",
+  levisItemClipboardHistory: "클립보드 기록",
+  levisItemThemes: "테마",
+  levisItemWritingInstructions: "작성 지침",
+  levisItemSkills: "스킬",
+  levisItemRecentFiles: "최근 파일",
+  levisItemSession: "열려 있던 문서",
+  levisItemDrafts: "저장하지 않은 초안",
+  levisItemCredentials: "API 키와 로그인",
   alertNote: "참고",
   alertTip: "팁",
   alertImportant: "중요",
@@ -545,8 +569,8 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   updateDownloading: "업데이트 다운로드 중…",
   updateFailed: "업데이트 실패:",
   updateViaPackageManager: `${APP_NAME} 앱은 패키지 관리자로 설치되었습니다. 업데이트도 패키지 관리자에서 하세요.`,
-  cliCommandLabel: "'levis' 터미널 명령어",
-  cliCommandHint: `터미널에서 ${APP_NAME} 또는 파일을 열 수 있습니다. 예: levis README.md`,
+  cliCommandLabel: "'textus' 터미널 명령어",
+  cliCommandHint: `터미널에서 ${APP_NAME} 또는 파일을 열 수 있습니다. 예: textus README.md`,
   cliCommandInstalled: "설치됨",
   cliCommandNotInstalled: "설치 안 됨",
   cliCommandInstallButton: "설치",
@@ -669,6 +693,11 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   fileChangedOnDiskMessage:
     "다른 프로그램이 디스크에 있는 이 파일을 변경했습니다. 저장하면 그 변경 내용을 덮어씁니다.",
   fileChangedOnDiskOverwrite: "덮어쓰기",
+  saveFailedTitle: "저장하지 못함",
+  saveFailedMessage:
+    "‘{name}’ 문서를 저장하지 못했습니다. 변경 내용은 그대로 남아 있습니다.",
+  saveReadOnlyHint:
+    "읽기 전용 파일입니다. ‘다른 이름으로 저장’으로 새 파일에 저장할 수 있습니다.",
   unsavedIndicator: "저장하지 않은 변경 사항",
   largeDocBadge: "큰 문서",
   largeDocHint:

@@ -1,5 +1,5 @@
 import { plural, type Lang, type Strings } from "../../i18n/strings";
-import type { InlineChatLabels } from "./InlineChat";
+import type { InlineChatLabels } from "./quick-ask/InlineChat";
 import { pickerLabels } from "./ComposerPicker";
 
 /**
@@ -64,6 +64,10 @@ export function chatLabels(t: Strings, lang: Lang): InlineChatLabels {
       read_file: t.toolReadFile,
       use_skill: t.toolUseSkill,
       add_comment: t.toolAddComment,
+      check_conventions: t.toolCheckConventions,
+      measure_text: t.toolMeasureText,
+      // Any tool without its own line: a word, not its internal name.
+      "*": t.toolWorking,
       // The edit being written, in words: Quick Ask's status line showed
       // the raw "propose_edit…". The ellipsis is added after it.
       propose_edit: t.proposalStatusStreaming.replace(/…$/, ""),

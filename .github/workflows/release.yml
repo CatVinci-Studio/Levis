@@ -15,7 +15,7 @@ env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
   # The one place the product's name is spelled for this workflow: the
   # release title and the DMG the Homebrew cask points at.
-  PRODUCT_NAME: Levis
+  PRODUCT_NAME: Textus
 
 permissions:
   contents: write
@@ -52,6 +52,13 @@ jobs:
 
       - name: Tag matches the app version
         run: node scripts/check-versions.mjs --root tagged --tag "$RELEASE_TAG"
+
+      # The tagged app reads textus-latest.json and its workflow keeps
+      # tauri-action from uploading latest.json - the manifest every Levis
+      # install reads (scripts/updater-manifest.mjs). This also refuses a
+      # rebuild of an old Levis tag from this workflow.
+      - name: Updater never serves Levis's manifest
+        run: node scripts/updater-manifest.mjs check --root tagged
 
       # Required for a newly pushed stable tag. A rebuild of a tag from
       # before release notes were kept (0.8.10 and older) only warns.
@@ -141,9 +148,10 @@ jobs:
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Signs the updater artifacts (latest.json + .sig files) so
-          # installed apps can verify downloads against the pubkey baked
-          # into tauri.conf.json.
+          # Signs the updater artifacts (the .sig files) so installed apps
+          # can verify downloads against the pubkey baked into
+          # tauri.conf.json. It is Levis's key, reused: that is why Textus
+          # must never publish a latest.json (see includeUpdaterJson below).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # macOS code signing + notarization (Gatekeeper). tauri-action
@@ -169,28 +177,35 @@ jobs:
           # from everyone else: the updater endpoint in tauri.conf.json points
           # at `releases/latest/...`, and GitHub's "latest" excludes
           # pre-releases - so a stable install never even sees this build's
-          # latest.json. Without this the tag pattern below (v*.*.*) matches
+          # manifest. Without this the tag pattern below (v*.*.*) matches
           # an rc tag too and would ship it to every user as the new stable.
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          # Never upload latest.json: Levis 0.9.x installs read that name
+          # from this repository (the old CatVinci-Studio/Levis URL
+          # redirects here) and trust the same signing key, so they would
+          # install Textus over themselves. The publish job writes
+          # textus-latest.json from the uploaded .sig files instead.
+          # scripts/updater-manifest.mjs check fails if this line goes.
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
 
-      # levis-bin (packaging/arch/PKGBUILD) installs this tarball. Its
-      # binary is a second build with LEVIS_DISTRIBUTION=aur: it reports new
+      # textus-bin (packaging/arch/PKGBUILD) installs this tarball. Its
+      # binary is a second build with TEXTUS_DISTRIBUTION=aur: it reports new
       # versions but does not install them, because pacman owns /usr/bin.
-      # --no-bundle recompiles only the levis crate and skips the installers.
+      # --no-bundle recompiles only the textus crate and skips the installers.
       - name: Build and upload AUR tarball
         if: matrix.platform == 'ubuntu-22.04'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LEVIS_DISTRIBUTION: aur
+          TEXTUS_DISTRIBUTION: aur
         run: |
           npx tauri build --no-bundle
           scripts/package-linux-tarball.sh "${RELEASE_TAG#v}" \
-            src-tauri/target/release/levis dist-aur
+            src-tauri/target/release/textus dist-aur
           gh release upload "$RELEASE_TAG" dist-aur/* --clobber
 
-  # Builds and tests levis-bin and attaches it to the draft (see
+  # Builds and tests textus-bin and attaches it to the draft (see
   # arch-package.yml). Before publish, so a broken package keeps the whole
   # release a draft.
   arch-package:
@@ -213,28 +228,60 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      # The updater reads latest.json from the newest release the moment it
-      # is published. Each platform's build merges its entry into the
-      # draft's copy; one that silently failed to (a race, an upload error)
-      # would leave every user of that platform without the update.
-      - name: Check the draft's updater manifest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The updater reads textus-latest.json from the newest release the
+      # moment it is published. It is written here, once every platform's
+      # signed artifacts are on the draft, from their .sig files: each
+      # artifact's URL is the release's download URL plus its asset name.
+      # A platform whose build silently failed to upload (a race, an upload
+      # error) has no .sig, and the build step fails rather than leave every
+      # user of that platform without the update.
+      - name: Write the updater manifest (textus-latest.json)
         run: |
-          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP"
-          manifest="$RUNNER_TEMP/latest.json"
-          jq '{version, platforms: (.platforms | keys)}' "$manifest"
-          version=$(jq -r .version "$manifest")
-          if [ "$version" != "${RELEASE_TAG#v}" ]; then
-            echo "::error::latest.json says $version, the tag is $RELEASE_TAG"
-            exit 1
+          sigs="$RUNNER_TEMP/sigs"
+          mkdir -p "$sigs"
+          gh release download "$RELEASE_TAG" --pattern '*.sig' --dir "$sigs" --clobber
+          notes="docs/releases/${RELEASE_TAG#v}.md"
+          node scripts/updater-manifest.mjs build \
+            --version "${RELEASE_TAG#v}" \
+            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}" \
+            --sig-dir "$sigs" \
+            $([ -f "$notes" ] && printf -- '--notes-file %s' "$notes") \
+            --out "$RUNNER_TEMP/textus-latest.json"
+          jq '{version, platforms: (.platforms | keys)}' "$RUNNER_TEMP/textus-latest.json"
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/textus-latest.json" --clobber
+
+      # Levis installs read latest.json from the newest release (the old
+      # repository URL redirects here). Once this release is "Latest", the
+      # copy of the last Levis release's own manifest keeps them updating to
+      # that Levis - which points its user to Textus. It names only Levis
+      # assets on that tag, so nothing here can install Textus over Levis.
+      # The last Levis release must be out first; this step fails until it is.
+      - name: Carry the last Levis release's manifest (latest.json)
+        run: |
+          last=$(node -e "import('./scripts/updater-manifest.mjs').then(m => console.log(m.LEVIS_LAST_TAG))")
+          mkdir -p "$RUNNER_TEMP/levis"
+          gh release download "$last" --pattern latest.json --dir "$RUNNER_TEMP/levis" --clobber
+          node scripts/updater-manifest.mjs bridge --levis-manifest "$RUNNER_TEMP/levis/latest.json"
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/levis/latest.json" --clobber
+
+      # The last gate before anything is public: the release's latest.json
+      # (whatever is there now) must be the last Levis release's. Anything
+      # else would be installed by every Levis install (same signing key).
+      - name: latest.json is the last Levis release's
+        run: |
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' \
+            > "$RUNNER_TEMP/assets.txt"
+          check=()
+          if grep -qx latest.json "$RUNNER_TEMP/assets.txt"; then
+            mkdir -p "$RUNNER_TEMP/now"
+            gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/now" --clobber
+            check=(--levis-manifest "$RUNNER_TEMP/now/latest.json")
           fi
-          for platform in darwin-aarch64 windows-x86_64 linux-x86_64; do
-            if ! jq -e --arg p "$platform" \
-              '.platforms[$p] | (.url | length > 0) and (.signature | length > 0)' \
-              "$manifest" >/dev/null; then
-              echo "::error::latest.json has no signed $platform entry"
-              exit 1
-            fi
-          done
+          node scripts/updater-manifest.mjs guard --assets-file "$RUNNER_TEMP/assets.txt" "${check[@]}"
 
       # A workflow_dispatch rebuild of an old tag republishes that release,
       # but making it "Latest" or pointing the cask or arch-repo at it
@@ -272,7 +319,7 @@ jobs:
           fi
 
   # Points the Homebrew cask (CatVinci-Studio/homebrew-tap) at the DMG this
-  # release just published, so `brew install --cask catvinci-studio/tap/levis`
+  # release just published, so `brew install --cask catvinci-studio/tap/textus`
   # always serves the newest version. Pushes via a write deploy key on the
   # tap repo (GITHUB_TOKEN can't push to another repository).
   #
@@ -286,6 +333,12 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
+      # packaging/homebrew/textus.rb, for the first release's rename.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          path: app
+
       - name: Update cask version and sha256
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
@@ -298,9 +351,9 @@ jobs:
           fi
           VERSION="${RELEASE_TAG#v}"
           # The release was published seconds ago; let the CDN catch up.
-          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o levis.dmg \
-            "https://github.com/CatVinci-Studio/Levis/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
-          SHA=$(sha256sum levis.dmg | cut -d' ' -f1)
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o textus.dmg \
+            "https://github.com/CatVinci-Studio/Textus/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
+          SHA=$(sha256sum textus.dmg | cut -d' ' -f1)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           printf '%s\n' "$TAP_DEPLOY_KEY" > ~/.ssh/tap_key
@@ -308,20 +361,33 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key"
           git clone git@github.com:CatVinci-Studio/homebrew-tap.git
           cd homebrew-tap
-          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/levis.rb
-          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/levis.rb
+          # The first Textus release renames the levis cask (Levis is
+          # Textus's name before 1.0.0) in this same commit, so the tap
+          # never has a textus cask pointing at an unpublished DMG, and
+          # cask_renames.json moves `brew upgrade` users from levis to
+          # textus. See packaging/homebrew/README.md.
+          if [ ! -f Casks/textus.rb ]; then
+            cp ../app/packaging/homebrew/textus.rb Casks/textus.rb
+            if [ -f Casks/levis.rb ]; then git rm -q Casks/levis.rb; fi
+            [ -f cask_renames.json ] || echo '{}' > cask_renames.json
+            jq --indent 2 '. + {"levis": "textus"}' cask_renames.json > cask_renames.json.new
+            mv cask_renames.json.new cask_renames.json
+            git add Casks/textus.rb cask_renames.json
+          fi
+          sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/textus.rb
+          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/textus.rb
           # A rerun after a successful push has nothing to commit.
-          if git diff --quiet; then
+          if git diff HEAD --quiet; then
             echo "The cask already serves ${VERSION}"
             exit 0
           fi
           git -c user.name="github-actions[bot]" \
               -c user.email="github-actions[bot]@users.noreply.github.com" \
-              commit -am "levis ${VERSION}"
+              commit -am "textus ${VERSION}"
           git push
 
   # Asks the [catvinci] pacman repository (CatVinci-Studio/arch-repo) to
-  # serve the levis-bin this release carries (see update-arch-repo.yml).
+  # serve the textus-bin this release carries (see update-arch-repo.yml).
   # Only for the newest stable tag, like the Homebrew cask: pacman sorts
   # 0.9.0_rc.1 above 0.9.0, and an older tag would downgrade.
   update-arch-repo:

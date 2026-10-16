@@ -342,6 +342,7 @@ pub(crate) fn check_document_with(
         let profile = conv.profile_for(lang);
         let ctx = Ctx {
             lang,
+            messages: lang,
             profile: &profile,
             stats: stats.get(&lang).unwrap_or(&empty),
             block: parsed.blocks[i].kind,

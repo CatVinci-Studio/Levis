@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Lang, Strings } from "../../i18n/strings";
-import { tapKeepingFocus } from "../../mobile/tap";
+import { tapKeepingFocus } from "../../ui/tap";
 import type { PickerGroupId } from "./skill-picker";
 
 /** The pickers' words, in the UI language (chat-labels.ts). */

@@ -3,6 +3,39 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+// The layers of src/, lowest first: a folder imports from its own layer and
+// the ones below, never above (docs/ARCHITECTURE.md). Type-only imports are
+// allowed across layers - they leave nothing behind at runtime.
+const above = (folders) => ({
+  "@typescript-eslint/no-restricted-imports": [
+    "error",
+    {
+      patterns: folders.map((folder) => ({
+        // Relative paths only: "@tauri-apps/api/app" is a package.
+        group: [".", "..", "../..", "../../.."].flatMap((up) => [
+          `${up}/${folder}`,
+          `${up}/${folder}/**`,
+        ]),
+        allowTypeImports: true,
+        message: `${folder}/ is a higher layer; see docs/ARCHITECTURE.md.`,
+      })),
+    },
+  ],
+});
+const FEATURES = [
+  "ai",
+  "clipboard",
+  "document",
+  "editor",
+  "export",
+  "mobile",
+  "onboarding",
+  "settings",
+  "sidebar",
+  "theme",
+];
+const SHELL = ["app", "document-view"];
+
 export default tseslint.config(
   {
     ignores: [
@@ -35,6 +68,36 @@ export default tseslint.config(
       "react-hooks/static-components": "off",
       "react-hooks/exhaustive-deps": "error",
     },
+  },
+  {
+    files: ["src/{utils,platform,i18n,storage}/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.*"],
+    rules: above([...SHELL, ...FEATURES, "ui"]),
+  },
+  {
+    files: ["src/ui/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.*"],
+    rules: above([...SHELL, ...FEATURES.filter((f) => f !== "settings")]),
+  },
+  {
+    files: ["src/editor/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.*"],
+    rules: above([
+      ...SHELL,
+      "ai",
+      "document",
+      "export",
+      "mobile",
+      "onboarding",
+      "sidebar",
+    ]),
+  },
+  {
+    files: [
+      "src/{ai,clipboard,document,export,mobile,onboarding,settings,sidebar,theme}/**/*.{ts,tsx}",
+    ],
+    ignores: ["**/*.test.*"],
+    rules: above(SHELL),
   },
   {
     files: ["vite.config.ts", "eslint.config.js", "scripts/**/*.mjs"],

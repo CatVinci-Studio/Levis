@@ -9,21 +9,21 @@ description: >-
   お知らせ・公用文, 공문/공지, aviso, avis, Bekanntmachung, уведомление).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "format"
-  levis-packs: "contract craft#plain standards#official standards#numbers"
-  levis-sources: "Our own text. Rules quoted or summarised from 党政机关公文处理工作条例 (2012), GB/T 9704-2012 (summarised), 行政院 文書處理手冊, 公用文作成の考え方 (文化庁), 행정업무의 운영 및 혁신에 관한 규정 시행규칙, Decreto 9.758/2019, Lei 15.263/2025 and GOV.UK (OGL v3.0)."
-  levis-aliases-en: "notice, announcement"
-  levis-aliases-zh: "公文与通知, 公文, 通知, 请示, 函"
-  levis-aliases-zh-Hant: "公文與通知, 公文, 函, 簽"
-  levis-aliases-ja: "お知らせ・公用文, 公用文, お知らせ"
-  levis-aliases-ko: "공문, 공지"
-  levis-aliases-es: "aviso, comunicado"
-  levis-aliases-fr: "avis, note"
-  levis-aliases-de: "bekanntmachung, aushang"
-  levis-aliases-ru: "объявление"
-  levis-aliases-pt: "aviso, ofício"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "format"
+  textus-packs: "contract craft#plain standards#official standards#numbers"
+  textus-sources: "Our own text. Rules quoted or summarised from 党政机关公文处理工作条例 (2012), GB/T 9704-2012 (summarised), 行政院 文書處理手冊, 公用文作成の考え方 (文化庁), 행정업무의 운영 및 혁신에 관한 규정 시행규칙, Decreto 9.758/2019, Lei 15.263/2025 and GOV.UK (OGL v3.0)."
+  textus-aliases-en: "notice, announcement"
+  textus-aliases-zh: "公文与通知, 公文, 通知, 请示, 函"
+  textus-aliases-zh-Hant: "公文與通知, 公文, 函, 簽"
+  textus-aliases-ja: "お知らせ・公用文, 公用文, お知らせ"
+  textus-aliases-ko: "공문, 공지"
+  textus-aliases-es: "aviso, comunicado"
+  textus-aliases-fr: "avis, note"
+  textus-aliases-de: "bekanntmachung, aushang"
+  textus-aliases-ru: "объявление"
+  textus-aliases-pt: "aviso, ofício"
 ---
 
 # Notice or official document

@@ -2,7 +2,7 @@
 /// strings like "mod+shift+g" - "mod" stands for Cmd on macOS (and on an
 /// iPhone/iPad keyboard, see modIsMeta) and Ctrl everywhere else, so the
 /// same stored string works cross-platform.
-import { modIsMeta } from "./platform";
+import { modIsMeta } from "../platform/os";
 const MODIFIER_KEYS = new Set(["control", "meta", "alt", "shift", "altgraph"]);
 
 /// Builds a normalized combo string from a KeyboardEvent. Returns null while
@@ -103,8 +103,7 @@ const RESERVED_COMBOS = new Set([
 export function isReservedCombo(combo: string): boolean {
   return (
     RESERVED_COMBOS.has(combo) ||
-    (modIsMeta()
-      ? combo === "mod+t"
-      : combo === "mod+shift+n" || combo === "alt+f4")
+    combo === "mod+shift+n" ||
+    (!modIsMeta() && combo === "alt+f4")
   );
 }

@@ -35,7 +35,7 @@ describe.each(LANGS)("AI concept copy in %s", (lang) => {
   });
 
   it("every Settings path names a page that exists", () => {
-    // The AI page is AI_NAME ("Levis AI"); messages that sent the user to
+    // The AI page is AI_NAME ("Textus AI"); messages that sent the user to
     // "Settings → AI" pointed at a page that was renamed in 0.9.7.
     const settings = t.settingsTitle;
     const pages = [

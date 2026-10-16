@@ -1,5 +1,5 @@
 import type { Strings } from "../i18n/strings";
-import type { MockAgentReply } from "../ai/useAgentConversation";
+import type { MockAgentReply } from "../ai/chat/useAgentConversation";
 
 /**
  * Builds the provider-free Agent used only by the newcomer guide. Keeping

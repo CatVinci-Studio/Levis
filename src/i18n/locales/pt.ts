@@ -72,7 +72,7 @@ Vale a pena escrever aqui, por exemplo:
   Termos       Escreva “e-mail”, nunca “email”.
   Contexto     Escrevo reportagens longas de divulgação científica para o público geral.
 
-Instruções para um só projeto ficam no .levis/agent.md desse projeto
+Instruções para um só projeto ficam no .textus/agent.md desse projeto
 (menu do projeto no painel de IA > Editar instruções de escrita do projeto).
 Os dois são enviados; quando divergem, vale o do projeto.
 
@@ -139,6 +139,9 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   toolReadFile: "Lendo {arg}",
   toolUseSkill: "Usando a habilidade {arg}",
   toolAddComment: "Adicionando um comentário",
+  toolCheckConventions: "Verificando as convenções de escrita",
+  toolMeasureText: "Contando as palavras",
+  toolWorking: "Processando",
   menuToggleSplitView: "Visualização Dividida",
   shortcutToggleSplitView: "Alternar visualização dividida (código | prévia)",
   menuToggleZenMode: "Modo Zen",
@@ -213,14 +216,35 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   outlineCollapse: "Recolher",
   outlineExpand: "Expandir",
   wordsUnit: "palavras",
-  textusNoticeTitle: "O Levis agora é Textus",
-  textusNoticeText:
-    "O Textus é a nova versão do Levis, com nome e ícone novos. Esta é a última versão do Levis. Seus documentos continuam onde estão e, ao abrir pela primeira vez, o Textus oferece trazer suas configurações, seu histórico e suas chaves.",
-  textusNoticeOk: "Baixar o Textus",
-  textusNoticeLater: "Depois",
-  textusNoticeRow: "O Levis agora é Textus",
-  textusNoticeRowHint:
-    "Esta é a última versão do Levis. O Textus pode trazer suas configurações, seu histórico e suas chaves.",
+  levisImportTitle: "Trazer seus dados do Levis?",
+  levisImportText:
+    "O Textus é a nova versão do Levis. Neste computador estão suas configurações, instruções de escrita e histórico do Levis. A importação só faz uma cópia; o Levis continua com tudo.",
+  levisImportOk: "Importar",
+  levisImportLater: "Agora não",
+  levisImportKeysTitle: "Copiar também as chaves de API e os logins?",
+  levisImportKeysText:
+    "Suas chaves de API do Levis e seus logins no ChatGPT ou no Claude também podem vir. Só você consegue ler os arquivos copiados.",
+  levisImportKeysOk: "Copiar",
+  levisImportKeysSkip: "Não copiar",
+  levisImportDone: "Importado do Levis: {items}.",
+  levisImportNothing:
+    "Nada novo para importar: o Textus já tem tudo o que o Levis tem.",
+  levisImportFailed: "Alguns arquivos não puderam ser copiados:",
+  levisImportRow: "Importar do Levis",
+  levisImportRowHint:
+    "Copia configurações, histórico, temas e mais. O Levis continua com tudo.",
+  levisImportButton: "Importar…",
+  levisImportNone: "Não há dados do Levis neste computador.",
+  levisItemSettings: "configurações",
+  levisItemChatHistory: "conversas com a IA",
+  levisItemClipboardHistory: "histórico da área de transferência",
+  levisItemThemes: "temas",
+  levisItemWritingInstructions: "instruções de escrita",
+  levisItemSkills: "habilidades",
+  levisItemRecentFiles: "arquivos recentes",
+  levisItemSession: "documentos abertos",
+  levisItemDrafts: "rascunhos não salvos",
+  levisItemCredentials: "chaves de API e logins",
   alertNote: "Nota",
   alertTip: "Dica",
   alertImportant: "Importante",
@@ -560,8 +584,8 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   updateDownloading: "Baixando a atualização…",
   updateFailed: "Falha na atualização:",
   updateViaPackageManager: `O ${APP_NAME} foi instalado pelo seu gerenciador de pacotes. Atualize-o por lá.`,
-  cliCommandLabel: "Comando de terminal 'levis'",
-  cliCommandHint: `Permite abrir o ${APP_NAME} (ou um arquivo) pelo terminal, por exemplo: levis README.md`,
+  cliCommandLabel: "Comando de terminal 'textus'",
+  cliCommandHint: `Permite abrir o ${APP_NAME} (ou um arquivo) pelo terminal, por exemplo: textus README.md`,
   cliCommandInstalled: "Instalado",
   cliCommandNotInstalled: "Não instalado",
   cliCommandInstallButton: "Instalar",
@@ -688,6 +712,10 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   fileChangedOnDiskMessage:
     "Outro programa alterou este arquivo no disco. Se você salvar, essas alterações serão substituídas.",
   fileChangedOnDiskOverwrite: "Substituir",
+  saveFailedTitle: "Não foi possível salvar",
+  saveFailedMessage: "“{name}” não foi salvo. Suas alterações continuam aqui.",
+  saveReadOnlyHint:
+    "O arquivo é somente leitura. Use Salvar Como para guardar suas alterações em um arquivo novo.",
   unsavedIndicator: "Alterações não salvas",
   largeDocBadge: "Documento grande",
   largeDocHint:

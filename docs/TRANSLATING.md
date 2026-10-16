@@ -67,8 +67,8 @@ export default {
 
 - **The app's and the AI's names come from `names.ts`**, never written out:
   `` `Willkommen bei ${APP_NAME}` ``, `` `Einstellungen > ${AI_NAME}` `` -
-  use a template literal wherever `en.ts` does. They change at the Textus
-  rename, in one place. (The terminal command `levis` and the `.levis`
+  use a template literal wherever `en.ts` does, so a rename happens in
+  one place. (The terminal command `textus` and the `.textus`
   folder are file names, not the product's name: keep them as they are.)
 - **Count strings are plural forms**, an object with one entry per plural
   category of your language, each saying `{n}`:
@@ -226,7 +226,7 @@ npm run check       # the same plus types, lint and formatting
 cd src-tauri && cargo test   # ai-names and style-headings against your strings and guide
 ```
 
-`src/i18n/skills/skills.test.ts` checks the skill labels, hints and
+`src/ai/skills/texts/skills.test.ts` checks the skill labels, hints and
 aliases. `src/i18n/strings.test.ts` fails on a key English doesn't have, a value of
 the wrong kind, an empty string, a placeholder kept or added wrongly, a
 missing or unknown plural form, or - once `complete = true` - any key not

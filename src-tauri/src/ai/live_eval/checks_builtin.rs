@@ -60,7 +60,7 @@ pub fn measure(metric: Metric, text: &str) -> usize {
 }
 
 /// A token twitter-text would link: a scheme URL, or a bare domain with a
-/// letter TLD (`levis.app`, `example.com/path`).
+/// letter TLD (`textus.app`, `example.com/path`).
 fn is_url(token: &str) -> bool {
     let t = token.trim_end_matches(|c: char| ".,;:!?)]}\"'”’".contains(c));
     if t.starts_with("http://") || t.starts_with("https://") {
@@ -591,8 +591,8 @@ mod tests {
     fn x_counts_cjk_double_and_urls_as_23() {
         assert_eq!(x_weighted("hello world"), 11);
         assert_eq!(x_weighted("你好"), 4);
-        assert_eq!(x_weighted("see levis.app"), 4 + 23);
-        assert_eq!(x_weighted("see https://levis.app/download."), 4 + 23 + 1);
+        assert_eq!(x_weighted("see textus.app"), 4 + 23);
+        assert_eq!(x_weighted("see https://textus.app/download."), 4 + 23 + 1);
         // 2,000 and 1.0 are not links.
         assert_eq!(x_weighted("2,000 testers, v1.0"), 19);
         // One emoji, a skin tone, a ZWJ family: 2 each.
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn urls_need_a_letter_tld_and_a_name() {
-        assert!(is_url("levis.app"));
+        assert!(is_url("textus.app"));
         assert!(is_url("example.com/path),"));
         assert!(!is_url("e.g."));
         assert!(!is_url("1.0"));

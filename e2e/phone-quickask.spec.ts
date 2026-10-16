@@ -95,7 +95,7 @@ test("the mode picker is a segmented control on a phone", async ({ page }) => {
   await expect(dock.locator("select")).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  // The Levis AI sheet's composer: all three, and 44pt buttons.
+  // The Textus AI sheet's composer: all three, and 44pt buttons.
   await page.locator(".window-bar-toggle").tap();
   const sheet = page.locator(".agent-panel");
   await expect(

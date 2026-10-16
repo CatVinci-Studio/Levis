@@ -277,7 +277,7 @@ export function ChatTabIcon({ className }: IconProps) {
   );
 }
 
-/** Levis AI itself: a four-pointed spark, with a small one beside it (the
+/** Textus AI itself: a four-pointed spark, with a small one beside it (the
  *  AI panel's empty state). */
 export function SparkleIcon({ className }: IconProps) {
   return (
@@ -560,7 +560,7 @@ export function RefreshIcon({ className }: IconProps) {
 }
 
 /* The window caption, drawn only where the app owns the frame - Windows, see
-   ui/window-chrome.ts. These four deliberately break the 16-unit stroked
+   platform/window-chrome.ts. These four deliberately break the 16-unit stroked
    grid the rest of the set keeps to: Windows caption glyphs are a fixed
    10x10 hairline shape that every other app on the desktop draws the same
    way, and a rounder, heavier "house style" close button next to the

@@ -3,13 +3,13 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { Strings } from "../../i18n/strings";
 import type { AiProvider } from "../SettingsContext";
 import { useSettings } from "../SettingsContext";
-import { useCloseOnOutsideClick } from "../../utils/useCloseOnOutsideClick";
+import { useCloseOnOutsideClick } from "../../utils/hooks/useCloseOnOutsideClick";
 import {
   useProviderCatalog,
   type ProviderCatalogEntry,
 } from "../../ai/provider-catalog";
 import { ChevronIcon } from "../../ui/icons";
-import { auth, type CustomEndpointConfig } from "../../ipc";
+import { auth, type CustomEndpointConfig } from "../../platform/ipc";
 import { Select } from "../../ui/Select";
 import { isIOSApp } from "../../platform/capabilities";
 import { VERBATIM_INPUT } from "./controls";

@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { AgentSkill, ChatAttachment } from "../types";
 import { resolveSkillMessage } from "./proposal";
-import { ai, type SkillListItem } from "../../ipc";
+import { ai, type SkillListItem } from "../../platform/ipc";
 import { resolveStrings } from "../../i18n/strings";
 import {
   ComposerPicker,
@@ -35,6 +35,7 @@ import { errorText } from "../../utils/error-text";
 import { basename } from "../../utils/path";
 import { useActiveProvider } from "../provider-catalog";
 import type { AgentMode } from "../../settings/SettingsContext";
+import { initialMode, rememberMode } from "./last-mode";
 import {
   CloseIcon,
   GenericFileIcon,
@@ -43,7 +44,7 @@ import {
   SearchIcon,
 } from "../../ui/icons";
 import { Select } from "../../ui/Select";
-import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { usePhoneLayout } from "../../ui/usePhoneLayout";
 
 export interface ChatComposerLabels {
   /** Accessible name of the selection chip's remove button. */
@@ -92,6 +93,9 @@ interface ChatComposerProps {
   busy: boolean;
   labels: ChatComposerLabels;
   defaultMode: AgentMode;
+  /** The panel and the detached window: the mode picked carries over to
+   *  the next conversation (last-mode.ts). Quick Ask keeps its own. */
+  carryMode?: boolean;
   /** Whether Plan is offered. Quick Ask, a command bar for changing the
    *  text in front of you, leaves it out - planning belongs in the full
    *  conversation. */
@@ -136,6 +140,7 @@ export function ChatComposer({
   busy,
   labels,
   defaultMode,
+  carryMode = false,
   allowPlan = true,
   compact = false,
   focusOnOpen = true,
@@ -160,7 +165,13 @@ export function ChatComposer({
   const [skillList, setSkillList] = useState<SkillListItem[] | null>(null);
   const [recent, setRecent] = useState<string[]>(recentSkills);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const [mode, setMode] = useState<AgentMode>(defaultMode);
+  const [mode, setModeState] = useState<AgentMode>(() =>
+    carryMode ? initialMode(defaultMode) : defaultMode,
+  );
+  const setMode = (next: AgentMode) => {
+    setModeState(next);
+    if (carryMode) rememberMode(next, defaultMode);
+  };
   const [webSearch, setWebSearch] = useState(defaultWebSearch);
   // Why an attachment couldn't be used ("this PDF has no text layer", "too
   // large", ...). Shown, never swallowed: the previous version caught and
@@ -183,7 +194,7 @@ export function ChatComposer({
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Skills come from the agent workspace on disk (global dir + the workspace
-  // root's .levis/skills). Loaded fresh each time the chat opens, so editing
+  // root's .textus/skills). Loaded fresh each time the chat opens, so editing
   // a skill file takes effect on the next chat without a restart.
   useEffect(() => {
     let cancelled = false;

@@ -19,14 +19,14 @@ import {
   type Settings,
   useSettings,
 } from "./SettingsContext";
-import { storage } from "../ipc";
+import { storage } from "../platform/ipc";
 import { resetBootForTests } from "../storage/boot";
 import {
   flushPendingWrites,
   resetPendingWritesForTests,
 } from "../storage/pending-writes";
 import { resetUiStateForTests } from "../storage/ui-state";
-import { installTestLocalStorage } from "../test-local-storage";
+import { installTestLocalStorage } from "../dev/test-local-storage";
 
 // The file-backed path: what runs when Rust booted the window with a
 // snapshot (src/storage/boot.ts). The localStorage fallback is covered by
@@ -34,7 +34,7 @@ import { installTestLocalStorage } from "../test-local-storage";
 
 const handlers: Record<string, (event: { payload: unknown }) => void> = {};
 
-vi.mock("../ipc", () => ({
+vi.mock("../platform/ipc", () => ({
   ai: { setAiProxy: vi.fn().mockResolvedValue(null) },
   themes: { loadThemeCss: vi.fn().mockResolvedValue(null) },
   storage: {

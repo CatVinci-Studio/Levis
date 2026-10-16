@@ -1,4 +1,4 @@
-# Contributing to Levis
+# Contributing to Textus
 
 Thanks for taking the time. This is a Tauri app: a React + TypeScript
 frontend in `src/`, a Rust backend in `src-tauri/`, and a provider-agnostic
@@ -15,7 +15,7 @@ You need a stable Rust toolchain and Node 22+. Linux also needs
 `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`.
 
 `npm run dev` alone serves the frontend at <http://localhost:1420> in a plain
-browser. A dev-only shim (`src/dev-tauri-shim.ts`) stubs the Tauri IPC so the
+browser. A dev-only shim (`dev/tauri-shim.ts`) stubs the Tauri IPC so the
 editor still mounts, which makes UI work fast to iterate on - but anything
 touching the backend (attachments, windows, AI requests) needs the real app.
 
@@ -67,6 +67,10 @@ from the code:
 > was still open and unsaved.
 
 ## Code style
+
+**Know where code goes.** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) maps
+the folders and the layers they sit in. A folder never imports from a layer
+above it; `npm run lint` fails if one does.
 
 Formatting is automated, so it is not worth discussing. What is worth
 discussing:
@@ -154,7 +158,7 @@ rest of the documentation.
 4. Tag `vX.Y.Z` and push the tag. `.github/workflows/release.yml` checks
    that the tag matches the version in those files, then builds,
    signs and notarizes for macOS/Windows/Linux, publishes the GitHub release,
-   points the Homebrew cask at it, and sends the tested `levis-bin` package
+   points the Homebrew cask at it, and sends the tested `textus-bin` package
    to the `[catvinci]` pacman repository in `CatVinci-Studio/arch-repo` (see
    `packaging/arch/README.md`).
 
@@ -163,8 +167,19 @@ is published as a GitHub pre-release. The version files carry the same
 suffix (`0.9.0-rc.1`): the tag check compares the whole version, and
 release notes are only required for stable tags. It skips the Homebrew
 cask and the `[catvinci]` pacman repository, so it reaches nobody who did not
-go looking for it - the in-app updater reads `releases/latest`, which
+go looking for it - the in-app updater reads
+`releases/latest/download/textus-latest.json`, and `releases/latest`
 excludes pre-releases.
+
+**Updater manifest**: Textus's manifest is `textus-latest.json`, never
+`latest.json`. Levis 0.9.x installs read `latest.json` from this repository
+(the old `CatVinci-Studio/Levis` URL redirects here) and trust the same
+signing key, so a `latest.json` on a Textus release would install Textus over
+Levis. tauri-action runs with `includeUpdaterJson: false`; the publish job
+writes `textus-latest.json` from the draft's `.sig` files
+(`scripts/updater-manifest.mjs build`) and refuses to publish a draft that
+has a `latest.json` (`... guard`). `npm run check` runs `... check`, which
+fails if the updater endpoint or the workflow drifts back.
 
 **Rebuilds**: running the Release workflow by hand on an existing tag
 rebuilds and republishes that release. The Homebrew cask and the pacman

@@ -1,5 +1,5 @@
 //! Writing conventions as the app uses them: the effective profile for a
-//! document (the project's `.levis/style.md` front matter, then the
+//! document (the project's `.textus/style.md` front matter, then the
 //! `writingConventions` setting, then Automatic - rules::profile), and the
 //! commands the frontend calls for the settings row, an offline document
 //! check and platform counts.

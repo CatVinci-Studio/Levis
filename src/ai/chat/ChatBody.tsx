@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type {
   AgentConversation,
   AgentRequestOptions,
-} from "../useAgentConversation";
+} from "./useAgentConversation";
 import type { AgentMode } from "../../settings/SettingsContext";
-import type { PendingStatus } from "../usePendingEdits";
+import type { PendingStatus } from "../revision/usePendingEdits";
 import type {
   AgentTurn,
   ChatAttachment,
@@ -23,11 +23,11 @@ import { MarkdownText } from "../MarkdownText";
 import {
   QuickAskPendingBar,
   type QuickAskPendingBarLabels,
-} from "./QuickAskPendingBar";
+} from "./quick-ask/QuickAskPendingBar";
 import { parseProposal } from "./proposal";
-import { refusedProposalIds } from "../proposal-status";
-import { toolActivityText } from "../AgentTurnView";
-import { usePhoneLayout } from "../../mobile/usePhoneLayout";
+import { refusedProposalIds } from "../revision/proposal-status";
+import { toolActivityText } from "./AgentTurnView";
+import { usePhoneLayout } from "../../ui/usePhoneLayout";
 import { Presence, PresenceDiv } from "../../ui/usePresence";
 import { scrollBehavior } from "../../ui/motion";
 import {
@@ -626,6 +626,7 @@ export function ChatBody({
         busy={busy}
         labels={labels}
         defaultMode={defaultMode}
+        carryMode={variant !== "quick"}
         allowPlan={variant !== "quick"}
         compact={variant === "quick"}
         focusOnOpen={variant === "quick" || !phone}

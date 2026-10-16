@@ -8,21 +8,21 @@ description: >-
   (描写, 描写する, 묘사, describir, décrire, beschreiben, описать).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "write"
-  levis-packs: "contract craft#fiction standards#ai-tells"
-  levis-sources: "Our own text. Show vs tell summarised from Wikipedia; vague-word and four-character-stack patterns from Humanizer-zh (MIT), ideas only."
-  levis-aliases-en: "scene, character"
-  levis-aliases-zh: "描写人物或场景, 描写, 场景描写, 人物描写"
-  levis-aliases-zh-Hant: "描寫人物或場景, 描寫"
-  levis-aliases-ja: "情景・人物を描写, 描写"
-  levis-aliases-ko: "묘사"
-  levis-aliases-es: "describir"
-  levis-aliases-fr: "décrire"
-  levis-aliases-de: "beschreiben"
-  levis-aliases-ru: "описать"
-  levis-aliases-pt: "descrever"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "write"
+  textus-packs: "contract craft#fiction standards#ai-tells"
+  textus-sources: "Our own text. Show vs tell summarised from Wikipedia; vague-word and four-character-stack patterns from Humanizer-zh (MIT), ideas only."
+  textus-aliases-en: "scene, character"
+  textus-aliases-zh: "描写人物或场景, 描写, 场景描写, 人物描写"
+  textus-aliases-zh-Hant: "描寫人物或場景, 描寫"
+  textus-aliases-ja: "情景・人物を描写, 描写"
+  textus-aliases-ko: "묘사"
+  textus-aliases-es: "describir"
+  textus-aliases-fr: "décrire"
+  textus-aliases-de: "beschreiben"
+  textus-aliases-ru: "описать"
+  textus-aliases-pt: "descrever"
 ---
 
 # Describe a scene or character

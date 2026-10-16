@@ -1,7 +1,7 @@
-import type { SkillListItem } from "../../ipc";
+import type { SkillListItem } from "../../platform/ipc";
 import type { Lang } from "../../i18n/langs";
 import { LANGS } from "../../i18n/langs";
-import { SKILL_TEXTS } from "../../i18n/skills";
+import { SKILL_TEXTS } from "../skills/texts";
 import {
   BUILTIN_SKILLS,
   SKILL_CATEGORIES,

@@ -8,21 +8,21 @@ description: >-
   (标题/起标题, 見出し・タイトル, 제목, título, titre, Überschrift, заголовок).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "format"
-  levis-packs: "contract craft#platforms"
-  levis-sources: "Our own text. Length limits from GOV.UK (OGL v3.0), the WeChat API documentation (facts) and GB/T 7713.2 (summarised); case styles summarised from Chicago 18, AP, APA and MLA; 网络信息内容生态治理规定 Art. 7."
-  levis-aliases-en: "title, subject"
-  levis-aliases-zh: "起标题, 标题, 题目"
-  levis-aliases-zh-Hant: "下標題, 標題"
-  levis-aliases-ja: "見出し・タイトル, タイトル, 見出し, 件名"
-  levis-aliases-ko: "제목"
-  levis-aliases-es: "título"
-  levis-aliases-fr: "titre"
-  levis-aliases-de: "überschrift, titel"
-  levis-aliases-ru: "заголовок"
-  levis-aliases-pt: "título, manchete"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "format"
+  textus-packs: "contract craft#platforms"
+  textus-sources: "Our own text. Length limits from GOV.UK (OGL v3.0), the WeChat API documentation (facts) and GB/T 7713.2 (summarised); case styles summarised from Chicago 18, AP, APA and MLA; 网络信息内容生态治理规定 Art. 7."
+  textus-aliases-en: "title, subject"
+  textus-aliases-zh: "起标题, 标题, 题目"
+  textus-aliases-zh-Hant: "下標題, 標題"
+  textus-aliases-ja: "見出し・タイトル, タイトル, 見出し, 件名"
+  textus-aliases-ko: "제목"
+  textus-aliases-es: "título"
+  textus-aliases-fr: "titre"
+  textus-aliases-de: "überschrift, titel"
+  textus-aliases-ru: "заголовок"
+  textus-aliases-pt: "título, manchete"
 ---
 
 # Headline or title

@@ -182,7 +182,7 @@ pub fn completion(before: &str, text: &str) -> String {
     }
     let combined = format!("{context}{text}");
     let k = context.chars().count();
-    let found = super::check_as(&combined, lang, &conv, Level::Standard, &[], CP);
+    let found = super::check_as(&combined, lang, &conv, Level::Standard, &[], CP, None);
     let mut fixes: Vec<Finding> = Vec::new();
     for mut f in found {
         if !allowed.contains(&f.rule) || f.suggestion.is_none() {

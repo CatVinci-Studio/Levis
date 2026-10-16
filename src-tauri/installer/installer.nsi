@@ -1,10 +1,10 @@
-; Levis' copy of tauri-bundler's NSIS installer template.
+; Textus' copy of tauri-bundler's NSIS installer template.
 ;
 ; Vendored from tauri-cli v2.11.4:
 ;   crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi
 ; and pointed at by `bundle > windows > nsis > template` in
 ; tauri.windows.conf.json. It is the upstream file VERBATIM apart from the
-; one block marked "Levis:" below, so re-syncing after a CLI upgrade is a
+; one block marked "Textus:" below, so re-syncing after a CLI upgrade is a
 ; diff against that tag's copy plus re-applying that block. The {{handlebars}}
 ; placeholders are filled in by the bundler - leave them alone.
 ;
@@ -271,7 +271,7 @@ Function PageReinstall
     Abort
   ${EndIf}
 
-  ; Levis: reinstalling the same version, or upgrading, needs no decision
+  ; Textus: reinstalling the same version, or upgrading, needs no decision
   ; from the user - skip the page and install straight over the existing
   ; copy, which is exactly what an in-app update already does. Upstream
   ; always asks, and "do you want to uninstall first" in front of an ordinary
@@ -432,7 +432,7 @@ Var AppStartMenuFolder
 
 ; 8. Finish page
 ;
-; Levis: upstream sets MUI_FINISHPAGE_NOAUTOCLOSE here, keeping the progress
+; Textus: upstream sets MUI_FINISHPAGE_NOAUTOCLOSE here, keeping the progress
 ; page up with a Next button once the copy is done "because the installation
 ; page has useful info that can be used debug any issues with the installer".
 ; That is a click the user has to make on every single install to be shown a

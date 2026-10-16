@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { useTutorial } from "./useTutorial";
-import { installTestLocalStorage } from "../test-local-storage";
+import { installTestLocalStorage } from "../dev/test-local-storage";
 
 describe("useTutorial navigation", () => {
   beforeAll(installTestLocalStorage);

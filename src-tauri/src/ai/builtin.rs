@@ -14,7 +14,7 @@
 //! needs no resource path or file access (iOS included) and the app never
 //! writes it. A skill is an Agent Skills file (frontmatter + body, parsed
 //! by workspace::parse_skill_file); the user's global skills/ and the
-//! project's .levis/skills/ override a built-in of the same name
+//! project's .textus/skills/ override a built-in of the same name
 //! (workspace::load_layers), Customize… copies one there, and Settings can
 //! turn one off.
 //!
@@ -22,7 +22,7 @@
 //! language's pack (`typography`, `numbers`, `words`, `dialogue`,
 //! `register`, `letters`, `official`, `academic`, `social`, `ai-tells`), so
 //! a skill asks for `standards#dialogue` whatever the document's language.
-//! The sections a skill lists in `levis-packs` are appended to its body
+//! The sections a skill lists in `textus-packs` are appended to its body
 //! when it is used - by `/name` (expand_message) or use_skill - so there is
 //! no second round trip to fetch them; the model can also load any section
 //! with `use_skill("standards-fr#dialogue")` (load_reference).
@@ -84,7 +84,7 @@ pub fn builtin_skills_attribution() -> &'static str {
     ATTRIBUTION
 }
 
-/// The `/` menu's groups, in menu order (`levis-category`).
+/// The `/` menu's groups, in menu order (`textus-category`).
 pub(crate) const CATEGORY_ORDER: &[&str] = &["write", "revise", "check", "format"];
 
 /// The built-in skills, parsed once.
@@ -114,10 +114,10 @@ pub(crate) fn raw(name: &str) -> Option<&'static str> {
         .map(|(_, text)| *text)
 }
 
-/// A built-in skill's file with `levis-based-on` added under `metadata:`,
+/// A built-in skill's file with `textus-based-on` added under `metadata:`,
 /// for the copy Customize… writes.
 pub(crate) fn with_based_on(raw: &str, based_on: &str) -> String {
-    let line = format!("  levis-based-on: \"{based_on}\"");
+    let line = format!("  textus-based-on: \"{based_on}\"");
     let mut out = Vec::new();
     let mut added = false;
     for l in raw.lines() {
@@ -663,8 +663,8 @@ fn render_references(
 }
 
 /// A skill's instructions as the model gets them: the body, then the pack
-/// sections it declares (`levis-packs`) for the document's language, and
-/// for a translation the target language's (`levis-target-packs`, when
+/// sections it declares (`textus-packs`) for the document's language, and
+/// for a translation the target language's (`textus-target-packs`, when
 /// `request` names the target). A skill without packs is just its body.
 /// `profile` is the writing-conventions profile, when one is set (None
 /// until that setting exists: every variant is kept and the header says to
@@ -945,11 +945,11 @@ mod tests {
                 "{stem}"
             );
             for key in [
-                "levis-version",
-                "levis-invocation",
-                "levis-category",
-                "levis-packs",
-                "levis-sources",
+                "textus-version",
+                "textus-invocation",
+                "textus-category",
+                "textus-packs",
+                "textus-sources",
             ] {
                 assert!(fm.metadata.contains_key(key), "{stem}: metadata {key}");
             }
@@ -1059,7 +1059,7 @@ mod tests {
                 Some("MIT"),
                 "{stem}"
             );
-            assert!(fm.metadata.contains_key("levis-sources"), "{stem}");
+            assert!(fm.metadata.contains_key("textus-sources"), "{stem}");
             let pack = pack(stem).unwrap();
             assert!(!pack.sections.is_empty(), "{stem}");
             for (name, body) in &pack.sections {
@@ -1136,7 +1136,7 @@ mod tests {
         let mut sources = String::new();
         for (_, text) in SKILL_FILES.iter().chain(PACK_FILES) {
             let (fm, _) = split_frontmatter(text);
-            sources.push_str(fm.unwrap().metadata.get("levis-sources").unwrap());
+            sources.push_str(fm.unwrap().metadata.get("textus-sources").unwrap());
             sources.push('\n');
         }
         let needs: &[(&str, &str)] = &[

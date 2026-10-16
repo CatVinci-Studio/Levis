@@ -1,0 +1,174 @@
+/* Clipboard-history sidebar panel. Entries are hairline-separated rather
+   than gap-separated: a clipboard entry is several clamped lines of the
+   user's own prose, so without a rule where one ends and the next begins,
+   two entries read as one run-on block. */
+.clipboard-history {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.clipboard-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 4px 6px;
+}
+
+.clipboard-clear {
+  border: none;
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--sidebar-text);
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-control);
+}
+
+.clipboard-clear:hover {
+  background: var(--sidebar-hover);
+  opacity: 1;
+}
+
+.clipboard-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--sidebar-text);
+  line-height: 1.45;
+}
+
+.clipboard-entry + .clipboard-entry {
+  border-top: 1px solid var(--editor-border);
+}
+
+.clipboard-entry:hover {
+  background: var(--sidebar-hover);
+}
+
+.clipboard-entry-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.clipboard-entry-copy {
+  border: none;
+  background: none;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  border-radius: var(--radius-control);
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.clipboard-entry:hover .clipboard-entry-copy {
+  opacity: 0.7;
+}
+
+.clipboard-entry-copy:hover {
+  opacity: 1 !important;
+}
+
+.clipboard-empty {
+  padding: 16px 12px;
+  font-size: var(--text-sm);
+  color: var(--sidebar-text);
+  opacity: 0.65;
+}
+
+/* Chat-history sidebar panel - visually a sibling of the clipboard panel. */
+.chat-history-group-title {
+  padding: 10px 12px 4px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--sidebar-text);
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Same separated-list treatment as .clipboard-history above - the two sit in
+   the same sidebar and shouldn't read as different kinds of list. */
+.chat-history {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.chat-history-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--sidebar-text);
+  line-height: 1.45;
+}
+
+.chat-history-entry + .chat-history-entry {
+  border-top: 1px solid var(--editor-border);
+}
+
+.chat-history-entry:hover {
+  background: var(--sidebar-hover);
+}
+
+.chat-history-entry-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chat-history-entry-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-history-entry-meta {
+  font-size: var(--text-xs);
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-history-entry-delete {
+  border: none;
+  background: none;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  border-radius: var(--radius-control);
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.chat-history-entry:hover .chat-history-entry-delete {
+  opacity: 0.7;
+}
+
+.chat-history-entry-delete:hover {
+  opacity: 1 !important;
+}

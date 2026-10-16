@@ -75,6 +75,7 @@
   --ui-primary: var(--editor-text, var(--chrome-text, #24272e));
   --ui-on-primary: var(--editor-bg, var(--bg, #fff));
   --success-color: #24734d;
+  --warning-color: #9a6212;
   --danger-fill: #be364b;
   --overlay-bg: rgb(20 27 40 / 30%);
   --shadow-popover: 0 4px 16px rgb(20 27 40 / 10%);
@@ -99,6 +100,7 @@
     --chrome-subtle: #20242c;
     --chrome-primary: #4168ce;
     --success-color: #79cba1;
+    --warning-color: #e3b35f;
     --danger: #f18b99;
     --danger-fill: #d0465a;
     --overlay-bg: rgb(0 0 0 / 48%);
@@ -113,6 +115,7 @@
   --chrome-subtle: #20242c;
   --chrome-primary: #4168ce;
   --success-color: #79cba1;
+  --warning-color: #e3b35f;
   --danger: #f18b99;
   --danger-fill: #d0465a;
   --overlay-bg: rgb(0 0 0 / 48%);
@@ -169,7 +172,7 @@
 
 /* High contrast: a thicker ring (important, over the surfaces that draw
    their own), and hairlines in the muted text colour. Tripled :root to
-   outrank the light and dark palettes in App.css. */
+   outrank the light and dark palettes in base.css. */
 @media (prefers-contrast: more) {
   :where(
     button,
@@ -751,6 +754,24 @@ input[type="checkbox"].ui-check:checked {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* The document's own bar shows only while it scrolls (ui/scroll-reveal.ts
+   sets .is-scrolling), or under the pointer so it can still be dragged:
+   with the AI panel open, a bar always on screen ran down the middle of
+   the window. */
+:is(.editor-scroll, .source-view):not(
+    .is-scrolling
+  )::-webkit-scrollbar-thumb:not(:hover) {
+  background-color: transparent;
+}
+
+/* WebKit restyles a scrollbar only when its element's own style changes,
+   and a class that touches nothing but the pseudo-element doesn't count:
+   the thumb stayed as it was. A property with no visible effect here (no
+   columns) makes the change real. */
+:is(.editor-scroll, .source-view).is-scrolling {
+  column-rule-color: transparent;
 }
 
 /* Materials: translucent, blurred surfaces only where content scrolls

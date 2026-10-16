@@ -61,7 +61,7 @@ pub async fn detect_pandoc() -> Option<String> {
 ///
 /// The reader is commonmark_x trimmed to the editor's dialect: it brings
 /// bracketed spans and attributes, which the markdown handed over uses for
-/// highlights and image widths (export-pandoc-markdown.ts), plus dollar
+/// highlights and image widths (pandoc-markdown.ts), plus dollar
 /// math, YAML front matter, footnotes, task lists, tables and alerts.
 /// Extensions the editor doesn't have are off, so text means what it says
 /// in the editor: no smart quotes, no `~sub~` / `^sup^` (Chinese writes
@@ -186,7 +186,7 @@ pub async fn reveal_in_dir(app: tauri::AppHandle, path: String) -> Result<(), St
 /// and never paints an @page margin - so a themed background either stopped
 /// in white bands at every page edge, or, with zero margins, text ran flush
 /// into each page seam. Instead the frontend lays the document out at A4
-/// width with its own page margins (export-paginate.ts), this renders it with
+/// width with its own page margins (paginate.ts), this renders it with
 /// WKWebView's createPDF at exactly 1 CSS px = 1 pt, and PDFKit cuts that one
 /// tall page into A4 sheets. WKWebView is main-thread-only, so this
 /// dispatches there and waits for the file to be written.
@@ -263,7 +263,7 @@ mod pdf_offscreen {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
     /// A4 in inches; with scale 1 and no margins Chromium lays it out at
-    /// 794 x 1122 CSS px - WINDOWS_PAGE in src/export-paginate.ts, which
+    /// 794 x 1122 CSS px - WINDOWS_PAGE in export/paginate.ts, which
     /// paginates the document at that size. Change both together.
     #[cfg(windows)]
     const PAGE_WIDTH_IN: f64 = 8.27;
@@ -313,7 +313,7 @@ mod pdf_offscreen {
     ) -> Result<(), String> {
         let id = crate::next_window_id();
         // Removed when `page` drops, however this returns.
-        let page = crate::atomic::TempFile::create("levis-pdf-export-", ".html", html)
+        let page = crate::atomic::TempFile::create("textus-pdf-export-", ".html", html)
             .map_err(|e| e.to_string())?;
         let label = format!("{}{id}", super::PDF_EXPORT_LABEL_PREFIX);
 
@@ -436,8 +436,11 @@ mod pdf_offscreen {
             settings.set(gtk::PRINT_SETTINGS_OUTPUT_URI.as_str(), Some(uri.as_str()));
             let setup = gtk::PageSetup::new();
             setup.set_paper_size(&gtk::PaperSize::new(Some(gtk::PAPER_NAME_A4.as_str())));
-            setup.set_top_margin(0.0, gtk::Unit::Mm);
-            setup.set_bottom_margin(0.0, gtk::Unit::Mm);
+            // Top and bottom margins here, not in CSS: WebKitGTK ignores an
+            // @page margin, and text ran to the sheet's edge. The sides are
+            // the page's own padding (exporters.ts's pdfLayoutCss), ~20mm too.
+            setup.set_top_margin(20.0, gtk::Unit::Mm);
+            setup.set_bottom_margin(20.0, gtk::Unit::Mm);
             setup.set_left_margin(0.0, gtk::Unit::Mm);
             setup.set_right_margin(0.0, gtk::Unit::Mm);
             operation.set_print_settings(&settings);
@@ -479,7 +482,7 @@ mod pdf_macos {
 
     // A4 in PostScript points (1pt = 1/72"); createPDF renders 1 CSS px as 1pt,
     // so this is also the page in CSS px. Mirrored by MAC_PAGE in
-    // src/export-paginate.ts, which lays the document out at this size - change
+    // export/paginate.ts, which lays the document out at this size - change
     // both together.
     const PAPER_WIDTH: f64 = 595.0;
     const PAPER_HEIGHT: f64 = 842.0;

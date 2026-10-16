@@ -1,6 +1,6 @@
-# Markdown-Anleitung für Levis
+# Markdown-Anleitung für Textus
 
-Willkommen. Dieses eingebaute Dokument zeigt, welche Markdown-Elemente Levis darstellt. Es ist nur ein ungespeicherter Entwurf – bearbeite es nach Belieben, probiere alles aus und schließe es danach, ohne zu speichern.
+Willkommen. Dieses eingebaute Dokument zeigt, welche Markdown-Elemente Textus darstellt. Es ist nur ein ungespeicherter Entwurf – bearbeite es nach Belieben, probiere alles aus und schließe es danach, ohne zu speichern.
 
 > [!TIP]
 > Mit `Cmd+/` wechselst du zwischen WYSIWYG und Quellcodemodus und siehst die Syntax hinter jedem Beispiel hier.
@@ -25,7 +25,7 @@ Hinweise im GitHub-Stil:
 
 **Fett** (`**Text**`), *kursiv* (`*Text*`), ***fett und kursiv***, ~~durchgestrichen~~ (`~~Text~~`), ==hervorgehoben== (`==Text==`) und `Inline-Code`.
 
-Links sehen so aus: [das Levis-Repository](https://github.com/CatVinci-Studio/Levis). Auch HTML im Text wird dargestellt, etwa Tasten wie <kbd>Cmd</kbd> + <kbd>S</kbd>.
+Links sehen so aus: [das Textus-Repository](https://github.com/CatVinci-Studio/Textus). Auch HTML im Text wird dargestellt, etwa Tasten wie <kbd>Cmd</kbd> + <kbd>S</kbd>.
 
 Formeln im Text: die Äquivalenz von Masse und Energie $E = mc^2$, die eulersche Identität $e^{i\pi} + 1 = 0$.
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "Hallo, Levis!";
+    let greeting = "Hallo, Textus!";
     println!("{greeting}");
 }
 ```
@@ -113,16 +113,16 @@ Ein Sequenzdiagramm:
 ```mermaid
 sequenceDiagram
     participant Du
-    participant Levis
-    Du->>Levis: Markdown tippen
-    Levis-->>Du: Sofort dargestellt
+    participant Textus
+    Du->>Textus: Markdown tippen
+    Textus-->>Du: Sofort dargestellt
 ```
 
 ## Bilder
 
-Füge ein Bild direkt aus der Zwischenablage ein – Levis speichert es in einem Ordner `assets/` neben dem Dokument und fügt den Verweis ein. Oder schreib ihn von Hand:
+Füge ein Bild direkt aus der Zwischenablage ein – Textus speichert es in einem Ordner `assets/` neben dem Dokument und fügt den Verweis ein. Oder schreib ihn von Hand:
 
-Unter **Einstellungen → Editor & Design → Bilder** kannst du neu eingefügte Bilder stattdessen an deinen eigenen Bildhoster senden. Der Endpunkt empfängt `multipart/form-data` mit einem Feld `file` und kann die öffentliche URL entweder als reinen Text oder in einem einstellbaren JSON-Feld zurückgeben. Hochgeladene Dateien können automatisch umbenannt werden oder ihren Originalnamen behalten, oder Levis fragt dich vor jedem Upload nach einem Namen. Wenn du den Speicherort wechselst, bleiben vorhandene Bildverweise unverändert.
+Unter **Einstellungen → Editor & Design → Bilder** kannst du neu eingefügte Bilder stattdessen an deinen eigenen Bildhoster senden. Der Endpunkt empfängt `multipart/form-data` mit einem Feld `file` und kann die öffentliche URL entweder als reinen Text oder in einem einstellbaren JSON-Feld zurückgeben. Hochgeladene Dateien können automatisch umbenannt werden oder ihren Originalnamen behalten, oder Textus fragt dich vor jedem Upload nach einem Namen. Wenn du den Speicherort wechselst, bleiben vorhandene Bildverweise unverändert.
 
 ```markdown
 ![Alternativtext](assets/screenshot.png)
@@ -130,7 +130,7 @@ Unter **Einstellungen → Editor & Design → Bilder** kannst du neu eingefügte
 
 ## Ansichten und Modi
 
-Neben dem WYSIWYG-Editor und dem Quellcodemodus (`Cmd+/`) bietet Levis drei Arten zu schreiben (unter Windows und Linux `Ctrl` statt `Cmd`; die aktuellen Belegungen stehen unter Einstellungen → Tastenkürzel):
+Neben dem WYSIWYG-Editor und dem Quellcodemodus (`Cmd+/`) bietet Textus drei Arten zu schreiben (unter Windows und Linux `Ctrl` statt `Cmd`; die aktuellen Belegungen stehen unter Einstellungen → Tastenkürzel):
 
 - **Geteilte Ansicht** (`Cmd+Shift+E`): links der Markdown-Quelltext, rechts die gerenderte Vorschau, beide scrollen gemeinsam.
 - **Schreibmaschinenmodus** (Einstellungen → Editor & Design → Ansicht): Die Zeile, in der du tippst, bleibt in der Mitte des Fensters – im Editor, im Quellcodemodus und in der geteilten Ansicht.

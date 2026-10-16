@@ -1,6 +1,6 @@
-# Guide Markdown de Levis
+# Guide Markdown de Textus
 
-Bienvenue dans ce document intégré, qui présente le rendu Markdown pris en charge par Levis. Ce n'est qu'un brouillon non enregistré : modifiez-le et faites des essais librement, puis fermez-le sans l'enregistrer.
+Bienvenue dans ce document intégré, qui présente le rendu Markdown pris en charge par Textus. Ce n'est qu'un brouillon non enregistré : modifiez-le et faites des essais librement, puis fermez-le sans l'enregistrer.
 
 > [!TIP]
 > Appuyez sur `Cmd+/` pour basculer entre le mode WYSIWYG et le mode source, et voir la syntaxe brute de chaque exemple.
@@ -25,7 +25,7 @@ Les encadrés de style GitHub :
 
 **Gras** (`**texte**`), *italique* (`*texte*`), ***gras italique***, ~~barré~~ (`~~texte~~`), ==surligné== (`==texte==`) et `code en ligne`.
 
-Les liens s'écrivent ainsi : [le dépôt de Levis](https://github.com/CatVinci-Studio/Levis). Le HTML en ligne s'affiche aussi, par exemple les touches du clavier <kbd>Cmd</kbd> + <kbd>S</kbd>.
+Les liens s'écrivent ainsi : [le dépôt de Textus](https://github.com/CatVinci-Studio/Textus). Le HTML en ligne s'affiche aussi, par exemple les touches du clavier <kbd>Cmd</kbd> + <kbd>S</kbd>.
 
 Formules en ligne : l'équivalence masse-énergie $E = mc^2$, l'identité d'Euler $e^{i\pi} + 1 = 0$.
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "Bonjour, Levis";
+    let greeting = "Bonjour, Textus";
     println!("{greeting}");
 }
 ```
@@ -113,14 +113,14 @@ Un diagramme de séquence :
 ```mermaid
 sequenceDiagram
     participant Vous
-    participant Levis
-    Vous->>Levis: Saisie en Markdown
-    Levis-->>Vous: Rendu en direct
+    participant Textus
+    Vous->>Textus: Saisie en Markdown
+    Textus-->>Vous: Rendu en direct
 ```
 
 ## Images
 
-Collez une image directement depuis le presse-papiers : Levis l'enregistre dans un dossier `assets/` à côté du document et insère la référence. Vous pouvez aussi l'écrire à la main :
+Collez une image directement depuis le presse-papiers : Textus l'enregistre dans un dossier `assets/` à côté du document et insère la référence. Vous pouvez aussi l'écrire à la main :
 
 Dans **Réglages → Éditeur et apparence → Images**, vous pouvez plutôt envoyer les images nouvellement collées vers votre propre hébergeur d'images. L'URL d'envoi reçoit des données `multipart/form-data` avec un champ `file` et peut renvoyer l'URL publique soit en texte brut, soit dans un champ JSON configurable. Les fichiers envoyés peuvent être renommés automatiquement, garder leur nom d'origine, ou vous demander un nom avant chaque envoi. Les références d'images existantes ne sont jamais modifiées quand vous changez de mode de stockage.
 
@@ -130,7 +130,7 @@ Dans **Réglages → Éditeur et apparence → Images**, vous pouvez plutôt env
 
 ## Vues et modes
 
-Outre l'éditeur WYSIWYG et le mode source (`Cmd+/`), Levis offre trois façons d'écrire (sous Windows et Linux, utilisez `Ctrl` au lieu de `Cmd` ; Réglages → Raccourcis indique les raccourcis en vigueur) :
+Outre l'éditeur WYSIWYG et le mode source (`Cmd+/`), Textus offre trois façons d'écrire (sous Windows et Linux, utilisez `Ctrl` au lieu de `Cmd` ; Réglages → Raccourcis indique les raccourcis en vigueur) :
 
 - **Vue partagée** (`Cmd+Shift+E`) : la source Markdown à gauche, l'aperçu mis en forme à droite, qui défilent ensemble.
 - **Mode machine à écrire** (Réglages → Éditeur et apparence → Affichage) : la ligne que vous tapez reste au milieu de la fenêtre, dans l'éditeur, en mode source comme en vue partagée.

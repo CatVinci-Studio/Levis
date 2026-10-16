@@ -8,22 +8,22 @@ description: >-
   (翻译/译成, 翻訳, 번역, traducir, traduire, übersetzen, перевести, traduzir).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "revise"
-  levis-packs: "contract"
-  levis-target-packs: "typography numbers register"
-  levis-sources: "Our own text. Name and term rules summarised from 외래어 표기법, 外来語の表記, GB/T 28039 and OpenCC phrase logic (Apache-2.0, ideas); translationese patterns from k-skill, im-not-ai and Humanizer-zh (MIT, ideas)."
-  levis-aliases-en: "translate"
-  levis-aliases-zh: "翻译润色, 翻译, 译成"
-  levis-aliases-zh-Hant: "翻譯潤飾, 翻譯"
-  levis-aliases-ja: "翻訳して整える, 翻訳"
-  levis-aliases-ko: "번역"
-  levis-aliases-es: "traducir"
-  levis-aliases-fr: "traduire"
-  levis-aliases-de: "übersetzen"
-  levis-aliases-ru: "перевести"
-  levis-aliases-pt: "traduzir"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "revise"
+  textus-packs: "contract"
+  textus-target-packs: "typography numbers register"
+  textus-sources: "Our own text. Name and term rules summarised from 외래어 표기법, 外来語の表記, GB/T 28039 and OpenCC phrase logic (Apache-2.0, ideas); translationese patterns from k-skill, im-not-ai and Humanizer-zh (MIT, ideas)."
+  textus-aliases-en: "translate"
+  textus-aliases-zh: "翻译润色, 翻译, 译成"
+  textus-aliases-zh-Hant: "翻譯潤飾, 翻譯"
+  textus-aliases-ja: "翻訳して整える, 翻訳"
+  textus-aliases-ko: "번역"
+  textus-aliases-es: "traducir"
+  textus-aliases-fr: "traduire"
+  textus-aliases-de: "übersetzen"
+  textus-aliases-ru: "перевести"
+  textus-aliases-pt: "traduzir"
 ---
 
 # Translate and polish

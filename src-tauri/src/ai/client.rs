@@ -154,7 +154,7 @@ const COMPLETION_LENGTH_LONG: &str = "Length: the writer explicitly asked for a 
 
 /// What the frontend knows about the cursor beyond the raw text around it
 /// (ghost-text-plugin.ts's completionHints). Mirrors CompletionHints in
-/// src/ipc.ts.
+/// platform/ipc.ts.
 #[derive(Deserialize, Default)]
 pub struct CompletionHints {
     #[serde(default)]
@@ -673,7 +673,7 @@ const GRAMMAR_INSTRUCTIONS: &str = "You are a grammar and clarity checker embedd
 - `issues`: one object for each change you made in `corrected`:
   - `original`: the wrong words copied verbatim from the paragraph, together with a word or two around them - enough that this exact text occurs only once in the paragraph and the fix reads naturally (\"a honest opinion\", \"高兴的跳\", \"hat uns lange warten lassen\").
   - `suggestion`: that same stretch as it reads in `corrected` (\"an honest opinion\", \"高兴地跳\"). To delete a doubled word, leave it out (\"that the the value\" -> \"that the value\").
-  - `issue`: one short sentence in the paragraph's language and with its punctuation (full-width in Chinese and Japanese, quoting with “ ” or 「」), naming what was wrong and why (\"'honest' starts with a vowel sound\"). It names the form in `corrected` as the right one, and only that form.
+  - `issue`: one short sentence in {ISSUE_LANGUAGE}, with that language's punctuation (full-width in Chinese and Japanese, quoting with “ ” or 「」), naming what was wrong and why (\"'honest' starts with a vowel sound\"). It names the form in `corrected` as the right one, and only that form.
   Never quote overlapping text in two objects: when two mistakes are close together, fix both in one.
 
 Be precise: change only what you are confident is wrong, never a hallucinated issue or a preference disguised as a fix. Leave alone: proper nouns, names and invented or brand words, even if unfamiliar; direct quotations and deliberately non-standard phrasing (dialogue, dialect, emphasis); numbers, code-like tokens and URLs - skip those tokens themselves, but still check the words around them. A term in another language or script (早会, Slack) is left as it is too, and the grammar around it is checked as usual - a pronoun still agrees with its noun.
@@ -987,7 +987,7 @@ fn validate_issues(issues: Vec<GrammarIssue>, paragraph: &str) -> Vec<GrammarIss
 }
 
 #[tauri::command]
-// Six optional inputs at the IPC boundary, like ai_complete's.
+// Seven optional inputs at the IPC boundary, like ai_complete's.
 #[allow(clippy::too_many_arguments)]
 pub async fn ai_grammar_check(
     app: AppHandle,
@@ -996,10 +996,12 @@ pub async fn ai_grammar_check(
     strictness: Option<String>,
     model: Option<String>,
     // The document and the chosen project folder, for the writing
-    // conventions profile (.levis/style.md) and the library names the rules
+    // conventions profile (.textus/style.md) and the library names the rules
     // check; both optional, so an older caller gets Automatic.
     doc_path: Option<String>,
     workspace_root: Option<String>,
+    // The app's language, for the explanations (grammar_instructions).
+    ui_language: Option<String>,
 ) -> Result<Vec<GrammarIssue>, String> {
     let workspace = cached_workspace(&app, doc_path, workspace_root);
     let conventions = crate::ai::conventions::for_workspace(&app, &workspace);
@@ -1008,7 +1010,7 @@ pub async fn ai_grammar_check(
         call(
             &app,
             &provider,
-            grammar_instructions(strictness.as_deref()),
+            grammar_instructions(strictness.as_deref(), ui_language.as_deref()),
             grammar_user_text(&paragraph),
             model.as_deref(),
         )
@@ -1017,7 +1019,9 @@ pub async fn ai_grammar_check(
     // returns something that isn't the issue array (the live eval caught a
     // bare `[10, ...]`), and a second sample almost always parses.
     let strictness = strictness.as_deref();
-    let finish = |raw: &str| finish_grammar(raw, &paragraph, strictness, &conventions, &library);
+    let ui = ui_language.as_deref();
+    let finish =
+        |raw: &str| finish_grammar(raw, &paragraph, strictness, &conventions, &library, ui);
     match finish(&ask().await?) {
         Ok(issues) => Ok(issues),
         Err(_) => finish(&ask().await?),
@@ -1045,11 +1049,12 @@ pub(crate) fn finish_grammar(
     strictness: Option<&str>,
     conventions: &crate::ai::rules::Conventions,
     library: &[String],
+    ui_language: Option<&str>,
 ) -> Result<Vec<GrammarIssue>, String> {
     use crate::ai::rules;
     let mut issues = parse_grammar_reply(raw, paragraph)?;
     let level = rules::Level::from_setting(strictness);
-    for found in rules::check(paragraph, conventions, level, library) {
+    for found in rules::check_for(paragraph, conventions, level, library, ui_language) {
         let Some(suggestion) = found.suggestion else {
             continue;
         };
@@ -1075,9 +1080,30 @@ pub(crate) fn finish_grammar(
 
 /// The grammar check's system prompt for a strictness level - shared with
 /// the live eval (live_eval.rs), like completion_prompt.
-pub(crate) fn grammar_instructions(strictness: Option<&str>) -> String {
+///
+/// The explanation is written in the app's language (`ui_language`, a code
+/// from src/i18n/langs.ts): it is read by the writer, who chose that
+/// language for the app, whatever the paragraph is written in. Without one
+/// (the live eval) it follows the paragraph.
+pub(crate) fn grammar_instructions(strictness: Option<&str>, ui_language: Option<&str>) -> String {
+    let language = ui_language
+        .and_then(|code| {
+            crate::ai::ui_language::UI_LANGUAGES
+                .iter()
+                .find(|l| l.code == code)
+        })
+        .map_or_else(
+            || "the paragraph's language".to_string(),
+            |l| {
+                format!(
+                    "{} (the language of the writer's app, whatever language the paragraph is in)",
+                    l.english
+                )
+            },
+        );
     format!(
-        "{GRAMMAR_INSTRUCTIONS}\n\n{}",
+        "{}\n\n{}",
+        GRAMMAR_INSTRUCTIONS.replace("{ISSUE_LANGUAGE}", &language),
         strictness_instructions(strictness)
     )
 }
@@ -1094,6 +1120,17 @@ pub(crate) fn parse_grammar_reply(raw: &str, paragraph: &str) -> Result<Vec<Gram
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn grammar_explanations_are_in_the_apps_language() {
+        let zh = grammar_instructions(None, Some("zh"));
+        assert!(zh.contains("one short sentence in Chinese (the language of the writer's app"));
+        assert!(!zh.contains("{ISSUE_LANGUAGE}"));
+        // No UI language (the live eval) or an unknown one: the paragraph's.
+        assert!(grammar_instructions(None, None)
+            .contains("one short sentence in the paragraph's language"));
+        assert!(grammar_instructions(None, Some("xx")).contains("the paragraph's language"));
+    }
 
     #[test]
     fn completion_user_text_puts_hints_before_the_cursor_split() {
@@ -1611,7 +1648,7 @@ mod tests {
         use crate::ai::rules::Conventions;
         let conv = Conventions::default();
         let finish = |model: &str, p: &str, level: &str| {
-            finish_grammar(model, p, Some(level), &conv, &[]).unwrap()
+            finish_grammar(model, p, Some(level), &conv, &[], None).unwrap()
         };
         let p = "今天下午开会,大家讨论了三个问题.第一个是明年的预算。";
         let model = "{\"corrected\": \"\", \"issues\": [{\"original\": \"问题.第一个\", \"suggestion\": \"问题。第一个\", \"issue\": \"句号\"}]}";

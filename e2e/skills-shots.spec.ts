@@ -3,14 +3,14 @@ import { openApp, PHONE } from "./helpers";
 
 // Screenshots of the `/` menu, the `@` empty state and Settings' skills in
 // four UI languages, desktop and phone - for review, not a baseline. Runs
-// only with LEVIS_SHOTS_DIR set to where the PNGs go:
+// only with TEXTUS_SHOTS_DIR set to where the PNGs go:
 //
-//   LEVIS_SHOTS_DIR=../assets/creative npx playwright test skills-shots
+//   TEXTUS_SHOTS_DIR=../assets/creative npx playwright test skills-shots
 
-const DIR = process.env.LEVIS_SHOTS_DIR;
+const DIR = process.env.TEXTUS_SHOTS_DIR;
 const LANGUAGES = ["zh", "en", "ja", "de"];
 
-test.skip(!DIR, "set LEVIS_SHOTS_DIR to take the screenshots");
+test.skip(!DIR, "set TEXTUS_SHOTS_DIR to take the screenshots");
 
 async function open(page: Page, language: string, phone: boolean) {
   if (phone)

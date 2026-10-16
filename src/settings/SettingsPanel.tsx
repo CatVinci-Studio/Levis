@@ -12,7 +12,7 @@ import {
   REVISION_DISPLAYS,
   type RevisionDisplay,
 } from "./SettingsContext";
-import { revisionDisplayName } from "../ai/revision-display";
+import { revisionDisplayName } from "../ai/revision/revision-display";
 import { LANGS, LANG_NAMES, type Lang, type TextKey } from "../i18n/strings";
 import {
   SettingRow,
@@ -24,7 +24,7 @@ import { ChevronIcon, CloseIcon } from "../ui/icons";
 import {
   UpdateSection,
   CliCommandSection,
-  TextusNoticeSection,
+  LevisImportSection,
 } from "./sections/general";
 import { ThemeSection } from "./sections/theme";
 import { ProviderListPanel } from "./sections/providers";
@@ -47,8 +47,8 @@ import "./SettingsPanel.css";
 import { useModalDialog } from "../ui/useModalDialog";
 import { usePresenceProps } from "../ui/usePresence";
 import { Select } from "../ui/Select";
-import { emitMenuEvent } from "../ui/app-menu-actions";
-import type { MenuChecks } from "../ui/app-menu-model";
+import { emitMenuEvent } from "../platform/menu-events";
+import type { MenuChecks } from "../app/app-menu-model";
 import {
   canDetachChat,
   canInstallCliCommand,
@@ -203,7 +203,7 @@ export function SettingsPanel({
 
           <SettingsGroup title={t.generalSystemLabel}>
             {canInstallCliCommand && <CliCommandSection t={t} />}
-            <TextusNoticeSection t={t} />
+            <LevisImportSection t={t} lang={settings.language} />
             <UpdateSection t={t} />
           </SettingsGroup>
         </>

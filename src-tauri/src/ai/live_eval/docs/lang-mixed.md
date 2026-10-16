@@ -1,4 +1,4 @@
-# Levis 迁移复盘
+# Textus 迁移复盘
 
 三月份我们把 editor 从 Electron 迁移到了 Tauri，目标是减小安装包体积并加快冷启动。
 

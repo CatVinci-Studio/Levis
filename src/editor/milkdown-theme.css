@@ -24,7 +24,7 @@
 }
 
 /* A click anywhere below the text still lands in it: the page's height,
-   less the column's padding above and below it (App.css .editor-content,
+   less the column's padding above and below it (app/editor-column.css .editor-content,
    3rem + 6rem) - with only 6rem off, an empty document scrolled by 48px
    and showed a scrollbar. Divided by the zoom, which scales this node's
    lengths (useZoom.ts). */
@@ -418,7 +418,7 @@
 }
 
 .grammar-issue {
-  text-decoration: underline wavy #c1495a;
+  text-decoration: underline wavy var(--danger);
   text-underline-offset: 3px;
   cursor: pointer;
 }
@@ -928,7 +928,7 @@
    nothing keeps current: Milkdown's syncListOrderPlugin, which did (a
    keystroke late), is left out of the preset - see reduced-presets.ts for
    the IME breakage it caused. A counter is derived from the DOM itself and
-   cannot lag; --levis-ol-start carries a list's
+   cannot lag; --textus-ol-start carries a list's
    `start` (see orderedListAttr in MilkdownEditor.tsx), which is the one thing
    the structure alone doesn't say. Bullets are keyed off the parent element
    rather than the item's own data-list-type, which can go stale when a list
@@ -938,8 +938,8 @@
      so a nested list inside an "3. " one would otherwise pick up its parent's
      start and begin at 4. The inline style the attr writes still wins over
      this rule for the list that actually has a start. */
-  --levis-ol-start: 0;
-  counter-reset: levis-ol var(--levis-ol-start);
+  --textus-ol-start: 0;
+  counter-reset: textus-ol var(--textus-ol-start);
 }
 
 .milkdown ol > li,
@@ -949,7 +949,7 @@
 }
 
 .milkdown ol > li {
-  counter-increment: levis-ol;
+  counter-increment: textus-ol;
 }
 
 /* Deliberately no `color`: a native ::marker paints in the inherited text
@@ -966,7 +966,7 @@
    inside its own box, so right-aligning against the content edge lands the
    digits where they used to sit rather than at some hand-picked margin. */
 .milkdown ol > li::before {
-  content: counter(levis-ol) ".\00a0";
+  content: counter(textus-ol) ".\00a0";
   top: 0;
   white-space: nowrap;
 }

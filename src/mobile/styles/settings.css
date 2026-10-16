@@ -5,7 +5,7 @@
    tabs along the top (SettingsPanel.css's narrow layout). */
 
 /* Done, as iOS writes it: a word in the accent colour, on the iPad's
-   dialog too. It is also a .text-button, whose sidebar rule (App.css)
+   dialog too. It is also a .text-button, whose sidebar rule (app/sidebar-frame.css)
    stretches it across the whole header with a border and a bottom margin. */
 :root[data-window-chrome="mobile"] .settings-done-button {
   width: auto;
@@ -89,7 +89,7 @@
   }
 
   /* Four tabs across one screen, English's "Editor & Appearance" and
-     "Levis AI" included: the tightest spacing that still fits them on a
+     "Textus AI" included: the tightest spacing that still fits them on a
      375pt iPhone. */
   :root[data-window-chrome="mobile"] .settings-nav {
     padding: 8px 8px;

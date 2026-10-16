@@ -64,7 +64,7 @@ export default {
   格式    数字一律用阿拉伯数字。
   背景    我写面向大众读者的科普长文。
 
-只针对某个项目的要求，写在那个项目的 .levis/agent.md 里（AI 面板的
+只针对某个项目的要求，写在那个项目的 .textus/agent.md 里（AI 面板的
 项目菜单 > 编辑本项目的写作要求）。两份都会发送；有冲突时以项目的
 为准。
 
@@ -131,6 +131,9 @@ export default {
   toolReadFile: "读取 {arg}",
   toolUseSkill: "使用技能 {arg}",
   toolAddComment: "添加批注",
+  toolCheckConventions: "检查写作规范",
+  toolMeasureText: "统计字数",
+  toolWorking: "处理中",
   menuToggleSplitView: "分屏视图",
   shortcutToggleSplitView: "切换分屏视图（源码 | 预览）",
   menuToggleZenMode: "禅模式",
@@ -196,15 +199,35 @@ export default {
   treeOpen: "打开",
   outlineCollapse: "折叠",
   outlineExpand: "展开",
+  levisImportTitle: "导入 Levis 的数据？",
+  levisImportText:
+    "Textus 是 Levis 的新版本。这台电脑上有你在 Levis 中的设置、写作要求和历史记录。导入只会复制，Levis 里的内容保持不变。",
+  levisImportOk: "导入",
+  levisImportLater: "暂不导入",
+  levisImportKeysTitle: "同时复制 API 密钥和登录状态？",
+  levisImportKeysText:
+    "Levis 中的 API 密钥，以及 ChatGPT 或 Claude 的登录状态也可以一并复制。复制过来的文件只有你本人可读。",
+  levisImportKeysOk: "一并复制",
+  levisImportKeysSkip: "不复制",
+  levisImportDone: "已从 Levis 导入：{items}。",
+  levisImportNothing: "没有需要导入的新内容：Levis 的数据 Textus 都已经有了。",
+  levisImportFailed: "有些文件没能复制：",
+  levisImportRow: "从 Levis 导入",
+  levisImportRowHint:
+    "复制设置、历史记录、主题等内容，Levis 里的内容保持不变。",
+  levisImportButton: "导入…",
+  levisImportNone: "这台电脑上没有 Levis 的数据。",
+  levisItemSettings: "设置",
+  levisItemChatHistory: "AI 对话",
+  levisItemClipboardHistory: "剪贴板历史",
+  levisItemThemes: "主题",
+  levisItemWritingInstructions: "写作要求",
+  levisItemSkills: "技能",
+  levisItemRecentFiles: "最近打开的文件",
+  levisItemSession: "打开的文档",
+  levisItemDrafts: "未保存的草稿",
+  levisItemCredentials: "API 密钥及登录状态",
   wordsUnit: "字",
-  textusNoticeTitle: "Levis 已升级为 Textus",
-  textusNoticeText:
-    "Textus 是 Levis 的新版本，换了新名字和新图标。这是 Levis 的最后一个版本。你的文档都留在原处；Textus 首次启动时，会提示你导入设置、历史记录和密钥。",
-  textusNoticeOk: "获取 Textus",
-  textusNoticeLater: "以后再说",
-  textusNoticeRow: "Levis 已升级为 Textus",
-  textusNoticeRowHint:
-    "这是 Levis 的最后一个版本。Textus 可以导入你的设置、历史记录和密钥。",
   alertNote: "备注",
   alertTip: "提示",
   alertImportant: "重要",
@@ -530,8 +553,8 @@ export default {
   updateDownloading: "正在下载更新…",
   updateFailed: "更新失败:",
   updateViaPackageManager: `${APP_NAME} 由系统包管理器安装，请用包管理器更新。`,
-  cliCommandLabel: "终端 'levis' 命令",
-  cliCommandHint: `在终端中用 levis 打开 ${APP_NAME}，或 levis README.md 打开指定文件`,
+  cliCommandLabel: "终端 'textus' 命令",
+  cliCommandHint: `在终端中用 textus 打开 ${APP_NAME}，或 textus README.md 打开指定文件`,
   cliCommandInstalled: "已安装",
   cliCommandNotInstalled: "未安装",
   cliCommandInstallButton: "安装",
@@ -647,6 +670,9 @@ export default {
   fileChangedOnDiskTitle: "文件已在磁盘上被修改",
   fileChangedOnDiskMessage: "该文件已被其他程序修改。保存将覆盖磁盘上的更改。",
   fileChangedOnDiskOverwrite: "覆盖",
+  saveFailedTitle: "无法保存",
+  saveFailedMessage: "“{name}”没有保存，你的修改仍然保留在这里。",
+  saveReadOnlyHint: "这个文件是只读的。可以用“另存为”把修改保存到新文件。",
   unsavedIndicator: "有未保存的更改",
   largeDocBadge: "大文档模式",
   largeDocHint:

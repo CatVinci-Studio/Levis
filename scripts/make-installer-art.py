@@ -74,7 +74,7 @@ def sidebar() -> Image.Image:
     mark = icon(76)
     img.paste(mark, ((164 - 76) // 2, 46), mark)
 
-    centred(draw, 146, "Levis", font(SERIF, 30), GOLD, 164)
+    centred(draw, 146, "Textus", font(SERIF, 30), GOLD, 164)
     draw.line([(52, 190), (112, 190)], fill=GOLD, width=1)
     centred(draw, 204, "Markdown Editor", font(SANS, 11), MUTED, 164)
 

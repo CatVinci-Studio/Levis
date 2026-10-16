@@ -70,7 +70,7 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   用語    「ユーザー」と書き、「ユーザ」とは書かない。
   背景    一般読者向けの科学記事を書いている。
 
-特定のプロジェクトだけの指示は、そのプロジェクトの .levis/agent.md
+特定のプロジェクトだけの指示は、そのプロジェクトの .textus/agent.md
 に書きます。AIパネルのプロジェクトメニューにある
 「このプロジェクトの執筆の指示を編集」で開けます。両方が送られ、
 食い違う点はプロジェクトの指示が優先されます。
@@ -138,6 +138,9 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   toolReadFile: "{arg} を読む",
   toolUseSkill: "スキル {arg} を使用",
   toolAddComment: "コメントを追加",
+  toolCheckConventions: "表記ルールを確認",
+  toolMeasureText: "文字数を数える",
+  toolWorking: "処理中",
   menuToggleSplitView: "分割表示",
   shortcutToggleSplitView: "分割表示の切り替え（ソース | プレビュー）",
   menuToggleZenMode: "禅モード",
@@ -207,15 +210,36 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   treeOpen: "開く",
   outlineCollapse: "折りたたむ",
   outlineExpand: "展開",
+  levisImportTitle: "Levis のデータを引き継ぎますか？",
+  levisImportText:
+    "Textus は Levis の新しいバージョンです。このコンピュータには Levis の設定、執筆の指示、履歴があります。引き継ぎはコピーするだけで、Levis 側のデータはそのまま残ります。",
+  levisImportOk: "引き継ぐ",
+  levisImportLater: "今はしない",
+  levisImportKeysTitle: "API キーとサインインもコピーしますか？",
+  levisImportKeysText:
+    "Levis の API キーと、ChatGPT や Claude へのサインインもコピーできます。コピーしたファイルはあなただけが読めます。",
+  levisImportKeysOk: "コピーする",
+  levisImportKeysSkip: "コピーしない",
+  levisImportDone: "Levis から引き継ぎました：{items}。",
+  levisImportNothing:
+    "引き継ぐ新しいデータはありません。Levis のデータはすでに Textus にあります。",
+  levisImportFailed: "コピーできなかったファイルがあります：",
+  levisImportRow: "Levis から引き継ぐ",
+  levisImportRowHint:
+    "設定、履歴、テーマなどをコピーします。Levis 側のデータはそのまま残ります。",
+  levisImportButton: "引き継ぐ…",
+  levisImportNone: "このコンピュータに Levis のデータはありません。",
+  levisItemSettings: "設定",
+  levisItemChatHistory: "AI との会話",
+  levisItemClipboardHistory: "クリップボード履歴",
+  levisItemThemes: "テーマ",
+  levisItemWritingInstructions: "執筆の指示",
+  levisItemSkills: "スキル",
+  levisItemRecentFiles: "最近使ったファイル",
+  levisItemSession: "開いていた文書",
+  levisItemDrafts: "未保存の下書き",
+  levisItemCredentials: "API キーやサインイン",
   wordsUnit: "字",
-  textusNoticeTitle: "Levis は Textus になりました",
-  textusNoticeText:
-    "Textus は Levis の新しいバージョンで、名前とアイコンが新しくなりました。これが Levis の最後のバージョンです。文書はそのままの場所に残り、Textus は初回起動時に設定・履歴・キーの引き継ぎを案内します。",
-  textusNoticeOk: "Textus を入手",
-  textusNoticeLater: "あとで",
-  textusNoticeRow: "Levis は Textus になりました",
-  textusNoticeRowHint:
-    "これが Levis の最後のバージョンです。Textus に設定・履歴・キーを引き継げます。",
   alertNote: "メモ",
   alertTip: "ヒント",
   alertImportant: "重要",
@@ -548,8 +572,8 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   updateDownloading: "アップデートをダウンロード中…",
   updateFailed: "アップデートに失敗しました：",
   updateViaPackageManager: `${APP_NAME} はパッケージマネージャーでインストールされています。そちらで更新してください。`,
-  cliCommandLabel: "ターミナル 'levis' コマンド",
-  cliCommandHint: `ターミナルから${APP_NAME}（またはファイル）を開けます。例：levis README.md`,
+  cliCommandLabel: "ターミナル 'textus' コマンド",
+  cliCommandHint: `ターミナルから${APP_NAME}（またはファイル）を開けます。例：textus README.md`,
   cliCommandInstalled: "インストール済み",
   cliCommandNotInstalled: "未インストール",
   cliCommandInstallButton: "インストール",
@@ -675,6 +699,11 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   fileChangedOnDiskMessage:
     "このファイルは他のプログラムによって変更されています。保存するとその変更が上書きされます。",
   fileChangedOnDiskOverwrite: "上書き",
+  saveFailedTitle: "保存できませんでした",
+  saveFailedMessage:
+    "「{name}」は保存されていません。変更内容はそのまま残っています。",
+  saveReadOnlyHint:
+    "このファイルは読み取り専用です。「別名で保存」で新しいファイルに保存できます。",
   unsavedIndicator: "未保存の変更",
   largeDocBadge: "大きな文書",
   largeDocHint:

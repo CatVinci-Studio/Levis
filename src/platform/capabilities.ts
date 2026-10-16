@@ -1,4 +1,4 @@
-import { isDesktop, isIOSPlatform, isMacPlatform } from "../utils/platform";
+import { isDesktop, isIOSPlatform, isMacPlatform } from "./os";
 
 /**
  * What this build of the app can do - the ONE place the desktop/iOS split
@@ -10,7 +10,7 @@ import { isDesktop, isIOSPlatform, isMacPlatform } from "../utils/platform";
  * docs/ios/code-map.zh.md): every flag below that is false on iOS stands for
  * Rust commands, plugins or window APIs that are not compiled or not
  * registered there, so calling them would only ever reject. The desktop-only
- * command wrappers in src/ipc.ts check {@link isDesktopApp} as a backstop.
+ * command wrappers in platform/ipc.ts check {@link isDesktopApp} as a backstop.
  *
  * Read once at module load: a webview does not change platforms, and a
  * hook would only re-render consumers for a value that cannot change.
@@ -68,5 +68,5 @@ export const canRevealInFileManager = isDesktopApp;
  *  (platform/ios-files.ts) on iOS. */
 export const canPickFolder = isDesktopApp || isIOSApp;
 
-/** Settings' "install the `levis` terminal command" (cli.rs). */
+/** Settings' "install the `textus` terminal command" (cli.rs). */
 export const canInstallCliCommand = isDesktopApp;

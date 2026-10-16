@@ -4,14 +4,14 @@
 
    The rules:
    - Every selector starts with :root[data-window-chrome="mobile"]
-     (ui/window-chrome.ts sets it on iOS). That prefix is also what makes
+     (platform/window-chrome.ts sets it on iOS). That prefix is also what makes
      an override win: it outranks the desktop rule it replaces on
      specificity, so nothing here depends on load order - the editor's own
      stylesheets arrive later, in its lazily loaded chunk.
    - Rules for any touch (iPhone and iPad) sit at the top level; phone
      forms - drawer, sheets, docked Quick Ask, full-screen settings - sit
      inside @media (max-width: 760px), the width usePhoneLayout()
-     (mobile/usePhoneLayout.ts) switches the components at.
+     (ui/usePhoneLayout.ts) switches the components at.
    - One file per area, below. A component that exists only on the phone
      (ActionSheet, PhoneNavBar, KeyboardToolbar, DocumentList) keeps its
      stylesheet beside it instead. */

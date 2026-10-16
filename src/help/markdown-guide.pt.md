@@ -1,6 +1,6 @@
-# Guia de Markdown do Levis
+# Guia de Markdown do Textus
 
-Este documento integrado mostra a renderização de Markdown que o Levis oferece. É só um rascunho não salvo: edite e experimente à vontade e depois feche sem salvar.
+Este documento integrado mostra a renderização de Markdown que o Textus oferece. É só um rascunho não salvo: edite e experimente à vontade e depois feche sem salvar.
 
 > [!TIP]
 > Pressione `Cmd+/` para alternar entre o modo WYSIWYG e o modo código-fonte e ver a sintaxe por trás de qualquer exemplo deste guia.
@@ -25,7 +25,7 @@ Alertas no estilo do GitHub:
 
 **Negrito** (`**texto**`), *itálico* (`*texto*`), ***negrito e itálico***, ~~tachado~~ (`~~texto~~`), ==destaque== (`==texto==`) e `código no texto`.
 
-Links ficam assim: [o repositório do Levis](https://github.com/CatVinci-Studio/Levis). HTML no meio do texto também é renderizado, por exemplo as teclas <kbd>Cmd</kbd> + <kbd>S</kbd>.
+Links ficam assim: [o repositório do Textus](https://github.com/CatVinci-Studio/Textus). HTML no meio do texto também é renderizado, por exemplo as teclas <kbd>Cmd</kbd> + <kbd>S</kbd>.
 
 Fórmulas no texto: a equivalência massa-energia $E = mc^2$ e a identidade de Euler $e^{i\pi} + 1 = 0$.
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "Olá, Levis!";
+    let greeting = "Olá, Textus!";
     println!("{greeting}");
 }
 ```
@@ -113,14 +113,14 @@ Um diagrama de sequência:
 ```mermaid
 sequenceDiagram
     participant Você
-    participant Levis
-    Você->>Levis: Digita Markdown
-    Levis-->>Você: Renderiza ao vivo
+    participant Textus
+    Você->>Textus: Digita Markdown
+    Textus-->>Você: Renderiza ao vivo
 ```
 
 ## Imagens
 
-Cole uma imagem direto da área de transferência: o Levis a salva em uma pasta `assets/` ao lado do documento e insere a referência. Ou escreva à mão:
+Cole uma imagem direto da área de transferência: o Textus a salva em uma pasta `assets/` ao lado do documento e insere a referência. Ou escreva à mão:
 
 Em **Ajustes → Editor e aparência → Imagens**, você pode, em vez disso, enviar as imagens que colar para o seu próprio serviço de hospedagem de imagens. O endpoint recebe `multipart/form-data` com um campo `file` e pode devolver a URL pública como texto simples ou em um campo JSON configurável. Os arquivos enviados podem ser renomeados automaticamente, manter o nome original ou pedir um nome antes de cada envio. As referências a imagens que já existem nunca mudam quando você troca o modo de armazenamento.
 
@@ -130,7 +130,7 @@ Em **Ajustes → Editor e aparência → Imagens**, você pode, em vez disso, en
 
 ## Visualizações e modos
 
-Além do editor WYSIWYG e do modo código-fonte (`Cmd+/`), o Levis tem três maneiras de escrever (no Windows e no Linux, use `Ctrl` no lugar de `Cmd`; Ajustes → Atalhos mostra as combinações atuais):
+Além do editor WYSIWYG e do modo código-fonte (`Cmd+/`), o Textus tem três maneiras de escrever (no Windows e no Linux, use `Ctrl` no lugar de `Cmd`; Ajustes → Atalhos mostra as combinações atuais):
 
 - **Visualização dividida** (`Cmd+Shift+E`): o código-fonte Markdown à esquerda e a prévia renderizada à direita, rolando juntos.
 - **Modo máquina de escrever** (Ajustes → Editor e aparência → Visualização): a linha que você está digitando fica no meio da janela, no editor, no modo código-fonte e na visualização dividida.

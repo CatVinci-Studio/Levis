@@ -1,4 +1,4 @@
-//! Provider-agnostic OAuth and API client logic for Levis's AI features.
+//! Provider-agnostic OAuth and API client logic for Textus's AI features.
 //!
 //! This crate knows nothing about Tauri commands or credential file storage -
 //! it just knows how to run a PKCE login against each provider and how to

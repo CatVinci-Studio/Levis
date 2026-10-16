@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Levis",
-  "version": "0.9.8",
-  "identifier": "com.chengaoshen.levis",
+  "productName": "Textus",
+  "version": "1.0.0",
+  "identifier": "com.catvinci.textus",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -15,7 +15,7 @@
       {
         "label": "main",
         "create": false,
-        "title": "Levis",
+        "title": "Textus",
         "width": 800,
         "height": 600,
         "minWidth": 480,
@@ -36,7 +36,7 @@
     "active": true,
     "targets": "all",
     "copyright": "© 2026 CatVinci Studio",
-    "homepage": "https://github.com/CatVinci-Studio/Levis",
+    "homepage": "https://github.com/CatVinci-Studio/Textus",
     "fileAssociations": [
       {
         "ext": ["md", "markdown"],
@@ -62,7 +62,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZGQjI1MzU1RkRGODBDNkIKUldSckRQajlWVk95Yjc1VDNTZktOOUlSYy85aDlLLzZnNUJQdG1VamwzTDRvby81eWZKOG1GTmsK",
       "endpoints": [
-        "https://github.com/CatVinci-Studio/Levis/releases/latest/download/latest.json"
+        "https://github.com/CatVinci-Studio/Textus/releases/latest/download/textus-latest.json"
       ]
     }
   }

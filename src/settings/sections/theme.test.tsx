@@ -10,7 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveStrings } from "../../i18n/strings";
 import { ThemeSection } from "./theme";
-import { fs, themes } from "../../ipc";
+import { fs, themes } from "../../platform/ipc";
 const mock = vi.hoisted(() => ({
   setSettings: vi.fn(),
   settings: {
@@ -22,13 +22,15 @@ const mock = vi.hoisted(() => ({
 vi.mock("../SettingsContext", () => ({
   useSettings: () => mock,
   THEME_MODES: ["system", "light", "dark"],
+}));
+vi.mock("../../theme/builtin-themes", () => ({
   BUILTIN_CONTENT_THEMES: [{ id: "default", nameKey: "themeNameDefault" }],
 }));
-vi.mock("../../ipc", () => ({
+vi.mock("../../platform/ipc", () => ({
   fs: { openCssFileDialog: vi.fn() },
   themes: { deleteTheme: vi.fn(), saveThemeCss: vi.fn() },
 }));
-vi.mock("../../utils/theme-import", () => ({
+vi.mock("../../theme/theme-import", () => ({
   importThemeCss: vi.fn().mockResolvedValue("body{}"),
 }));
 afterEach(cleanup);

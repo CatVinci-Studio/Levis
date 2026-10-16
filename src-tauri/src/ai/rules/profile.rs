@@ -5,7 +5,7 @@
 //! `fr-CA`: language (and script), then region, then an optional preset.
 //! It comes from, in order:
 //!
-//! 1. the project's `.levis/style.md` front matter (`conventions:`, one
+//! 1. the project's `.textus/style.md` front matter (`conventions:`, one
 //!    value or several separated by commas, plus option keys such as
 //!    `cjk-latin-space: on`) - [`ProjectConventions::from_style`];
 //! 2. the global setting `writingConventions` in settings.json - either
@@ -34,7 +34,7 @@ pub const AUTOMATIC: &str = "automatic";
 
 /// Per language: its key in the setting, the profile Automatic uses (None:
 /// universal rules and consistency checks only) and the profiles a user can
-/// choose. Mirrored by WRITING_CONVENTIONS in src/ipc.ts (a test keeps the
+/// choose. Mirrored by WRITING_CONVENTIONS in platform/ipc.ts (a test keeps the
 /// two the same).
 pub const LANGUAGE_PROFILES: &[(Lang, Option<&str>, &[&str])] = &[
     (
@@ -93,7 +93,7 @@ pub const LANGUAGE_PROFILES: &[(Lang, Option<&str>, &[&str])] = &[
 ];
 
 /// Options a profile can override, with their values (the first is the
-/// default). Keys as in `.levis/style.md` front matter and in the
+/// default). Keys as in `.textus/style.md` front matter and in the
 /// setting's `options` object.
 pub const OPTIONS: &[(&str, &[&str])] = &[
     ("cjk-latin-space", &["auto", "on", "off", "layout"]),
@@ -238,7 +238,7 @@ impl Profile {
     }
 }
 
-/// What `.levis/style.md` says about conventions.
+/// What `.textus/style.md` says about conventions.
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectConventions {
@@ -453,7 +453,7 @@ mod tests {
 
     #[test]
     fn the_frontend_list_mirrors_this_one() {
-        let ipc = include_str!("../../../../src/ipc.ts");
+        let ipc = include_str!("../../../../src/platform/ipc.ts");
         let start = ipc.find("export const WRITING_CONVENTIONS:").unwrap();
         let block = &ipc[start..start + ipc[start..].find("\n};").unwrap()];
         for (lang, auto, profiles) in LANGUAGE_PROFILES {
@@ -462,7 +462,7 @@ mod tests {
             let at = block
                 .find(&format!("{key}:"))
                 .or_else(|| block.find(&bare))
-                .unwrap_or_else(|| panic!("{} missing in src/ipc.ts", lang.code()));
+                .unwrap_or_else(|| panic!("{} missing in platform/ipc.ts", lang.code()));
             let entry = &block[at..];
             let entry = &entry[..entry.find("},").map_or(entry.len(), |e| e + 2)];
             match auto {

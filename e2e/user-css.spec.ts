@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { openApp, pasteMarkdown } from "./helpers";
 
 // Imported Typora themes and Custom CSS (Settings > Editor & Appearance):
-// a theme applies as a whole in either appearance, Levis's ornaments step
+// a theme applies as a whole in either appearance, Textus's ornaments step
 // aside for it, the user's CSS wins over both, Export -> Import keeps the
 // look, and the one cascade layer that makes all that work stays intact.
 // The fixture themes (fixtures/themes/) imitate the shapes real themes
@@ -91,7 +91,7 @@ async function installThemeBackend(
           case "delete_theme":
             return null;
           case "export_save_dialog":
-            return "/exports/levis-theme.css";
+            return "/exports/textus-theme.css";
           case "write_text_file":
             written[String(args.path)] = String(args.contents);
             return null;
@@ -124,7 +124,7 @@ async function importTheme(page: Page, path: string) {
   const dialog = await openSettings(page);
   await dialog.getByRole("button", { name: "Import CSS…" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-user-theme", "");
-  await expect(page.locator("#levis-imported-chrome")).toHaveCount(1);
+  await expect(page.locator("#textus-imported-chrome")).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 }
@@ -227,7 +227,7 @@ for (const [name, theme] of Object.entries(THEMES)) {
     for (const mode of ["Light", "Dark"] as const) {
       await setAppearance(page, mode);
       await expect(page.locator("html")).toHaveAttribute("data-user-theme", "");
-      // Levis's ornaments are off under an imported theme.
+      // Textus's ornaments are off under an imported theme.
       expect(await computed(page, "#write h4::before", "content")).toBe("none");
       expect(await computed(page, "#write h3", "border-left-style")).toBe(
         "none",
@@ -314,17 +314,17 @@ test("custom CSS wins over an imported theme, --* variables included", async ({
   const order = await page.evaluate(() =>
     Array.from(document.head.querySelectorAll("style[id]")).map((s) => s.id),
   );
-  expect(order.indexOf("levis-user-css")).toBeGreaterThan(
-    order.indexOf("levis-custom-theme"),
+  expect(order.indexOf("textus-user-css")).toBeGreaterThan(
+    order.indexOf("textus-custom-theme"),
   );
-  expect(order.indexOf("levis-user-css")).toBeGreaterThan(
-    order.indexOf("levis-imported-chrome"),
+  expect(order.indexOf("textus-user-css")).toBeGreaterThan(
+    order.indexOf("textus-imported-chrome"),
   );
   await setAppearance(page, "Dark");
   await expectCustomCssWins(page, "imported dark");
 });
 
-test("the document's look sits in the one levis-content layer", async ({
+test("the document's look sits in the one textus-content layer", async ({
   page,
 }) => {
   await openApp(page, { settings: { language: "en" } });
@@ -379,7 +379,7 @@ test("the document's look sits in the one levis-content layer", async ({
       const href =
         node?.getAttribute("data-vite-dev-id") ?? node?.id ?? sheet.href ?? "";
       // The theme and the user's CSS are unlayered on purpose.
-      if (/levis-(custom-theme|user-css|imported-chrome)/.test(href)) continue;
+      if (/textus-(custom-theme|user-css|imported-chrome)/.test(href)) continue;
       // So is the test harness's own no-animation sheet.
       if (!href.includes("/src/")) continue;
       walk(sheet.cssRules, href, false);
@@ -390,10 +390,27 @@ test("the document's look sits in the one levis-content layer", async ({
       unlayered,
     };
   });
-  expect(report.layers).toEqual(["levis-content"]);
+  expect(report.layers).toEqual(["textus-content"]);
   expect(report.layeredFrom).toHaveLength(1);
   expect(report.layeredFrom[0]).toContain("content-base.css");
   expect(report.unlayered).toEqual([]);
+});
+
+// Levis called the layer levis-content. CSS written for it still works: a
+// rule in `@layer levis-content` now lands in a layer declared after the
+// app's, so it overrides the built-in look (unlayered CSS still wins over
+// both).
+test("CSS written for Levis's levis-content layer still overrides the look", async ({
+  page,
+}) => {
+  await openApp(page, {
+    settings: {
+      language: "en",
+      customCss: "@layer levis-content { h2 { color: rgb(9, 8, 7); } }",
+    },
+  });
+  await pasteMarkdown(page, DOC);
+  expect(await computed(page, "#write h2", "color")).toBe("rgb(9, 8, 7)");
 });
 
 test("export then import keeps the ornaments and fonts, readable in dark", async ({
@@ -427,7 +444,7 @@ test("export then import keeps the ornaments and fonts, readable in dark", async
           window as unknown as {
             __themeStore: { written: Record<string, string> };
           }
-        ).__themeStore.written["/exports/levis-theme.css"],
+        ).__themeStore.written["/exports/textus-theme.css"],
     )
     .then((h) => h.jsonValue() as Promise<string>);
   await page.keyboard.press("Escape");
@@ -436,7 +453,7 @@ test("export then import keeps the ornaments and fonts, readable in dark", async
   expect(css).toMatch(/^\s*--editor-bg:\s*\S/m);
   expect(css).toMatch(/^\s*--editor-font:\s*\S/m);
 
-  await importTheme(page, "/exports/levis-theme.css");
+  await importTheme(page, "/exports/textus-theme.css");
   for (const mode of ["Light", "Dark"] as const) {
     await setAppearance(page, mode);
     for (let i = 0; i < ORNAMENTS.length; i++) {

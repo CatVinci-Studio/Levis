@@ -1,7 +1,7 @@
 //! Tabs in flight between windows: the floating tab drag, its pill window,
 //! and the native mouse tracking behind both drag flows (a tab pulled off a
 //! tab bar, or a whole single-tab window dragged by its title bar). The
-//! frontend counterpart is src/useTabDragMerge.ts.
+//! frontend counterpart is app/useTabDragMerge.ts.
 
 use std::collections::HashMap;
 use std::sync::Mutex;

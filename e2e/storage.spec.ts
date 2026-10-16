@@ -22,7 +22,7 @@ interface DevStorage {
   patches: Record<string, unknown>[];
   fills: Record<string, unknown>[];
   /** Every command in order, plus "<command>:done" for each storage write
-   *  answered (src/dev-tauri-shim.ts). */
+   *  answered (dev/tauri-shim.ts). */
   log: string[];
   uiState: Record<string, unknown>;
   histories: Record<string, { text?: string }[]>;
@@ -62,9 +62,9 @@ async function bootLikeRust(
       new Function(script)();
       (
         window as unknown as {
-          __levisBoot: (boot: unknown, css: unknown) => void;
+          __textusBoot: (boot: unknown, css: unknown) => void;
         }
-      ).__levisBoot(snapshot, themeCss);
+      ).__textusBoot(snapshot, themeCss);
       // What the document looked like before any of the app's own code
       // ran: "interactive" is reached once the HTML is parsed, before the
       // (deferred) module scripts execute.
@@ -78,12 +78,12 @@ async function bootLikeRust(
           userTheme: root.getAttribute("data-user-theme"),
           lang: root.getAttribute("lang"),
           themeCss:
-            document.getElementById("levis-custom-theme")?.textContent ?? null,
+            document.getElementById("textus-custom-theme")?.textContent ?? null,
           chrome:
-            document.getElementById("levis-imported-chrome")?.textContent ??
+            document.getElementById("textus-imported-chrome")?.textContent ??
             null,
           customCss:
-            document.getElementById("levis-user-css")?.textContent ?? null,
+            document.getElementById("textus-user-css")?.textContent ?? null,
           // The user's CSS goes last, after the page's own styles.
           lastInHead: document.head.lastElementChild?.id ?? null,
         };
@@ -113,7 +113,6 @@ const SETTINGS = {
   language: "ja",
   languageChosen: true,
   onboardingShown: true,
-  textusNoticeShown: true,
   theme: "dark",
   themeId: "paper",
   contentWidth: "full",
@@ -137,16 +136,18 @@ test("the boot script puts the appearance on the document before the app runs", 
     themeCss: null,
     chrome: null,
     customCss: SETTINGS.customCss,
-    lastInHead: "levis-user-css",
+    lastInHead: "textus-user-css",
   });
   // The snapshot, not localStorage (which openApp seeded with zh/light).
   const html = page.locator("html");
   await expect(html).toHaveAttribute("data-theme", "dark");
   await expect(html).toHaveAttribute("lang", "ja");
   // React took over the boot script's <style> rather than adding another.
-  await expect(page.locator("style#levis-user-css")).toHaveCount(1);
+  await expect(page.locator("style#textus-user-css")).toHaveCount(1);
   expect(
-    await page.locator("style#levis-user-css").evaluate((el) => el.textContent),
+    await page
+      .locator("style#textus-user-css")
+      .evaluate((el) => el.textContent),
   ).toBe(SETTINGS.customCss);
 });
 
@@ -180,7 +181,7 @@ test("an imported theme is on the first frame, in the variant for the appearance
   );
   expect(first.userTheme).toBe("");
   expect(first.contentTheme).toBeNull();
-  expect(first.lastInHead).toBe("levis-user-css");
+  expect(first.lastInHead).toBe("textus-user-css");
 });
 
 test("a change goes to Rust as a patch of that field alone", async ({
@@ -386,7 +387,7 @@ test("a window booted with no settings fills in defaults, never over newer value
 });
 
 /** An imported theme, and the app chrome colours the frontend last derived
- *  from it (utils/theme-chrome.ts), as ui-state.json remembers them. */
+ *  from it (theme/theme-chrome.ts), as ui-state.json remembers them. */
 const THEME_CSS = "#write { color: rgb(1, 2, 3); }";
 const CHROME = ":root { --sidebar-bg: rgb(10, 20, 30) !important; }";
 const themed = (theme: string) => ({
@@ -422,17 +423,17 @@ test("the imported theme's chrome colours are on the first frame too", async ({
   await openApp(page);
   const first = await firstPaint(page);
   expect(first.chrome).toBe(CHROME);
-  expect(first.lastInHead).toBe("levis-user-css");
+  expect(first.lastInHead).toBe("textus-user-css");
   // The frontend derives them afresh and keeps that order: the user's CSS
   // after them, so the first frame and the next agree on who wins.
   await expect
     .poll(() =>
       page.evaluate(() => {
         const ids = Array.from(document.head.children, (el) => el.id);
-        const chrome = document.getElementById("levis-imported-chrome");
+        const chrome = document.getElementById("textus-imported-chrome");
         return (
           !!chrome?.textContent?.includes("--editor-bg") &&
-          ids.indexOf("levis-imported-chrome") < ids.indexOf("levis-user-css")
+          ids.indexOf("textus-imported-chrome") < ids.indexOf("textus-user-css")
         );
       }),
     )

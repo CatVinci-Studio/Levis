@@ -8,21 +8,21 @@
 //! Run from src-tauri/ (docs/AI-EVAL.md has the full guide and results):
 //!   cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
 //! The built-in skills suite alone, automatic checks only:
-//!   LEVIS_EVAL_JUDGE=0 cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
+//!   TEXTUS_EVAL_JUDGE=0 cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
 //!
 //! Knobs, all optional:
-//!   LEVIS_ANTHROPIC_KEY_FILE  key file (default: .anthropic-api-key.local at
+//!   TEXTUS_ANTHROPIC_KEY_FILE  key file (default: .anthropic-api-key.local at
 //!                             the repository root, git-ignored)
-//!   LEVIS_EVAL_FILTER         only cases whose id contains one of these
+//!   TEXTUS_EVAL_FILTER         only cases whose id contains one of these
 //!                             comma-separated substrings
-//!   LEVIS_EVAL_AGENT_MODEL    run the agent matrix on another model
-//!   LEVIS_EVAL_WRITING_MODEL  run completion/grammar on another model
-//!   LEVIS_EVAL_JUDGE=0        skip the judge (automatic checks only)
-//!   LEVIS_EVAL_JOBS           concurrent cases (default 6)
-//!   LEVIS_EVAL_OUT            where the per-suite .jsonl/.md results go
+//!   TEXTUS_EVAL_AGENT_MODEL    run the agent matrix on another model
+//!   TEXTUS_EVAL_WRITING_MODEL  run completion/grammar on another model
+//!   TEXTUS_EVAL_JUDGE=0        skip the judge (automatic checks only)
+//!   TEXTUS_EVAL_JOBS           concurrent cases (default 6)
+//!   TEXTUS_EVAL_OUT            where the per-suite .jsonl/.md results go
 //!                             (default: a fresh folder under the temp dir)
-//!   LEVIS_EVAL_BUDGET_USD     stop starting cases once the run has spent this
-//!   LEVIS_EVAL_SPEND_FILE     a {"spent_usd", "runs"} ledger each suite adds to
+//!   TEXTUS_EVAL_BUDGET_USD     stop starting cases once the run has spent this
+//!   TEXTUS_EVAL_SPEND_FILE     a {"spent_usd", "runs"} ledger each suite adds to
 //!
 //! Without a key, every test prints a notice and passes vacuously.
 
@@ -83,7 +83,7 @@ fn assert_clean(suite: &str, records: Vec<Record>) {
     );
 }
 
-/// Every agent case on the shipped agent model (or LEVIS_EVAL_AGENT_MODEL).
+/// Every agent case on the shipped agent model (or TEXTUS_EVAL_AGENT_MODEL).
 #[test]
 #[ignore = "live API - see module docs"]
 fn live_agent_matrix() {
@@ -259,7 +259,7 @@ fn live_agent_caches_across_steps() {
 }
 
 /// Free, no key needed: prints every case id per suite (after
-/// LEVIS_EVAL_FILTER) - what a run would send, for sizing it first.
+/// TEXTUS_EVAL_FILTER) - what a run would send, for sizing it first.
 #[test]
 #[ignore = "prints the case list"]
 fn list_eval_cases() {
@@ -287,7 +287,7 @@ fn list_eval_cases() {
 }
 
 /// Free, no key needed: the built-in skills suite one case per line (id,
-/// mode, the user's language, the message), after LEVIS_EVAL_FILTER, with
+/// mode, the user's language, the message), after TEXTUS_EVAL_FILTER, with
 /// a per-group count and a cost estimate - for choosing a filter before a
 /// paid run.
 #[test]
@@ -314,7 +314,7 @@ fn list_builtin_cases() {
             .collect::<Vec<_>>()
             .join(", ")
     );
-    // Round-2 averages: $0.02-0.03 an agent case with LEVIS_EVAL_JUDGE=0.
+    // Round-2 averages: $0.02-0.03 an agent case with TEXTUS_EVAL_JUDGE=0.
     println!(
         "estimated cost without the judge: ${:.2}-{:.2}",
         cases.len() as f64 * 0.02,

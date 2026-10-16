@@ -5,15 +5,15 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { AgentTurnView, type AgentTurnLabels } from "../AgentTurnView";
+import { AgentTurnView, type AgentTurnLabels } from "./AgentTurnView";
 import type { AgentTurn, EditAction, EditProposal } from "../types";
-import type { PendingStatus } from "../usePendingEdits";
-import type { StreamingState } from "../useAgentConversation";
+import type { PendingStatus } from "../revision/usePendingEdits";
+import type { StreamingState } from "./useAgentConversation";
 import { parseProposal } from "./proposal";
-import { refusedProposalIds } from "../proposal-status";
+import { refusedProposalIds } from "../revision/proposal-status";
 import { classifyAiError, type AiErrorKind } from "../error-messages";
 import { diffLines } from "./line-diff";
-import type { PendingSentence } from "../pending-edit-plugin";
+import type { PendingSentence } from "../revision/pending-edit-plugin";
 import { FlipOnChange } from "../../ui/flip";
 
 /** The statuses a card reaches by being decided, which collapse it. */

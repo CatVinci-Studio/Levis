@@ -16,7 +16,7 @@ use crate::ai::client::{
 use aicompat::providers::anthropic::AnthropicAuth;
 use serde_json::json;
 
-/// src/ai/completion-style.ts's TONE_DIRECTIVES, word for word -
+/// src/ai/writing/completion-style.ts's TONE_DIRECTIVES, word for word -
 /// `tone_directives_match_the_frontend` below keeps the two in step.
 pub const TONES: &[(&str, Option<&str>)] = &[
     ("default", None),
@@ -52,7 +52,7 @@ pub struct CompletionCase {
     /// The word the cursor sits inside, as it must read once accepted.
     pub completes: Option<&'static str>,
     pub rubric: &'static str,
-    /// The project's style profile (.levis/style.md), when one is active.
+    /// The project's style profile (.textus/style.md), when one is active.
     pub style_profile: Option<&'static str>,
     /// Text that must not appear in the suggestion (a banned word, a
     /// punctuation mark the profile rules out).
@@ -644,7 +644,7 @@ pub fn run_case(auth: &AnthropicAuth, case: &CompletionCase, model: &str) -> Rec
 mod tests {
     #[test]
     fn tone_directives_match_the_frontend() {
-        let ts = include_str!("../../../../src/ai/completion-style.ts");
+        let ts = include_str!("../../../../src/ai/writing/completion-style.ts");
         for (tone, directive) in super::TONES {
             assert!(
                 ts.contains(&format!("{tone}:")),

@@ -1,6 +1,6 @@
-//! "Install 'levis' command in PATH" - the same idea as VS Code's command
+//! "Install 'textus' command in PATH" - the same idea as VS Code's command
 //! palette entry. Only macOS is supported: the installed script shells out to
-//! `open -a Levis`, which reuses a running instance via the Apple
+//! `open -a Textus`, which reuses a running instance via the Apple
 //! open-documents event already handled in `lib.rs`, instead of spawning a
 //! second, unrelated process the way exec'ing the bundled binary directly
 //! would.
@@ -9,7 +9,7 @@
 use crate::app_identity::APP_NAME;
 
 #[cfg(target_os = "macos")]
-const CLI_BIN_PATH: &str = "/usr/local/bin/levis";
+const CLI_BIN_PATH: &str = "/usr/local/bin/textus";
 
 #[cfg(target_os = "macos")]
 fn script_content() -> String {
@@ -57,7 +57,7 @@ pub fn install() -> Result<(), String> {
     // A fresh, owner-only file (atomic::TempFile): the admin shell copies
     // whatever is at this path into /usr/local/bin, so it must be ours and
     // stay ours. Removed when `tmp` drops.
-    let tmp = crate::atomic::TempFile::create("levis-cli-install-", "", script_content())
+    let tmp = crate::atomic::TempFile::create("textus-cli-install-", "", script_content())
         .map_err(|e| e.to_string())?;
     let shell_cmd = format!(
         "mkdir -p /usr/local/bin && cp '{}' '{CLI_BIN_PATH}' && chmod 755 '{CLI_BIN_PATH}'",
@@ -66,7 +66,7 @@ pub fn install() -> Result<(), String> {
     let escaped = shell_cmd.replace('\\', "\\\\").replace('"', "\\\"");
     let apple_script = format!(
         "do shell script \"{escaped}\" with administrator privileges with prompt \
-         \"{APP_NAME} wants to install the 'levis' command in /usr/local/bin.\""
+         \"{APP_NAME} wants to install the 'textus' command in /usr/local/bin.\""
     );
     let result = std::process::Command::new("osascript")
         .arg("-e")
@@ -96,7 +96,7 @@ pub fn try_silent_install() {}
 
 #[cfg(not(target_os = "macos"))]
 pub fn install() -> Result<(), String> {
-    Err("Installing the 'levis' command is only supported on macOS.".into())
+    Err("Installing the 'textus' command is only supported on macOS.".into())
 }
 
 #[tauri::command]

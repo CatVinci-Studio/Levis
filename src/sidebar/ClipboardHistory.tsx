@@ -4,7 +4,7 @@ import {
   useClipboardHistory,
   clearClipboardHistory,
   recordClipboardEntry,
-} from "../utils/clipboard-history";
+} from "../clipboard/history";
 import { INSERT_CLIPBOARD_TEXT_EVENT } from "../utils/events";
 
 const PREVIEW_MAX_CHARS = 120;
@@ -18,7 +18,7 @@ function preview(text: string): string {
 
 /**
  * Sidebar panel over the rolling clipboard history (see
- * utils/clipboard-history.ts for what gets recorded). Clicking an entry
+ * clipboard/history.ts for what gets recorded). Clicking an entry
  * inserts it at the cursor like a paste; the copy button puts it back on
  * the system clipboard for use elsewhere.
  */

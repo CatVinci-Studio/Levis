@@ -192,6 +192,15 @@ test("the last sentence decided in the text applies the edit", async ({
   );
   await expect(page.locator(".milkdown")).toContainText("共访谈四十六位居民。");
   await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
+
+  // Undo puts the proposal back on offer, redo applies it again.
+  await page.locator(".milkdown .ProseMirror").focus();
+  await page.keyboard.press("Control+z");
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(2);
+  await expect(page.locator(".agent-proposal-status-accepted")).toHaveCount(0);
+  await page.keyboard.press("Control+Shift+z");
+  await expect(page.locator(".milkdown .pending-pick")).toHaveCount(0);
+  await expect(page.locator(".agent-proposal-status-accepted")).toBeVisible();
 });
 
 test("an accepted new table row and nested item land inside the table and list", async ({
@@ -524,7 +533,9 @@ test("the phone toolbar's block buttons toggle: H steps through levels, lists an
   const toggle = (kind: string) =>
     page.evaluate(
       (detail) =>
-        window.dispatchEvent(new CustomEvent("levis:toggle-block", { detail })),
+        window.dispatchEvent(
+          new CustomEvent("textus:toggle-block", { detail }),
+        ),
       kind,
     );
   for (const tag of ["h1", "h2", "h3"]) {
@@ -650,6 +661,22 @@ test("Select Row from the right-click menu highlights the clicked row", async ({
   expect(tint).not.toBe("rgba(0, 0, 0, 0)");
 });
 
+test("a right-click on a paragraph while editing a table shows the paragraph's menu", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| h1 | h2 |\n|---|---|\n| a | b |\n\nbelow");
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.locator("td", { hasText: "a" }).click();
+  await editor.locator(":scope > p", { hasText: "below" }).click({
+    button: "right",
+  });
+  await expect(page.locator(".context-menu-item").first()).toBeVisible();
+  await expect(
+    page.locator(".context-menu-item", { hasText: "选中整行" }),
+  ).toHaveCount(0);
+});
+
 test("a one-character CJK fix reads with its neighbour on the grammar card", async ({
   page,
 }) => {
@@ -658,7 +685,7 @@ test("a one-character CJK fix reads with its neighbour on the grammar card", asy
   await page.waitForTimeout(300);
   await page.evaluate(() =>
     window.dispatchEvent(
-      new CustomEvent("levis:tutorial-mock-grammar", {
+      new CustomEvent("textus:tutorial-mock-grammar", {
         detail: {
           target: "黛玉必竟寄人篱下，所以步步留心。",
           issues: [

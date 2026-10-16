@@ -9,21 +9,21 @@ description: >-
   SNS投稿, SNS 게시물, publicación, publication, Beitrag, пост).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "format"
-  levis-packs: "contract craft#platforms standards#social"
-  levis-sources: "Our own text. Platform limits are facts from the platforms' documentation (dated in the craft pack); disclosure rules summarised from FTC 16 CFR 255 (public domain), ASA/CAP, 消費者庁 告示第19号, 공정위 2024 guideline, 中华人民共和国广告法 and 互联网广告管理办法."
-  levis-aliases-en: "post, tweet, caption"
-  levis-aliases-zh: "社媒文案, 朋友圈, 小红书, 公众号, 微博"
-  levis-aliases-zh-Hant: "社群貼文, 貼文"
-  levis-aliases-ja: "SNS投稿, 投稿, ポスト"
-  levis-aliases-ko: "게시물"
-  levis-aliases-es: "publicación, post"
-  levis-aliases-fr: "publication, post"
-  levis-aliases-de: "beitrag, post"
-  levis-aliases-ru: "пост"
-  levis-aliases-pt: "post, legenda"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "format"
+  textus-packs: "contract craft#platforms standards#social"
+  textus-sources: "Our own text. Platform limits are facts from the platforms' documentation (dated in the craft pack); disclosure rules summarised from FTC 16 CFR 255 (public domain), ASA/CAP, 消費者庁 告示第19号, 공정위 2024 guideline, 中华人民共和国广告法 and 互联网广告管理办法."
+  textus-aliases-en: "post, tweet, caption"
+  textus-aliases-zh: "社媒文案, 朋友圈, 小红书, 公众号, 微博"
+  textus-aliases-zh-Hant: "社群貼文, 貼文"
+  textus-aliases-ja: "SNS投稿, 投稿, ポスト"
+  textus-aliases-ko: "게시물"
+  textus-aliases-es: "publicación, post"
+  textus-aliases-fr: "publication, post"
+  textus-aliases-de: "beitrag, post"
+  textus-aliases-ru: "пост"
+  textus-aliases-pt: "post, legenda"
 ---
 
 # Social post

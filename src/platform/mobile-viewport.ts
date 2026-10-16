@@ -7,7 +7,7 @@ import { isIOSApp } from "./capabilities";
  * stays available.
  *
  * The keyboard itself is handled natively: the web view is shortened by
- * the height it covers (plugins/levis-files, KeyboardFit.swift), so the
+ * the height it covers (plugins/textus-files, KeyboardFit.swift), so the
  * page never has to scroll out from under it.
  */
 export function installMobileViewport(): void {

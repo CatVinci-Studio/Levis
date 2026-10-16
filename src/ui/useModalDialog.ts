@@ -1,5 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
-import { usePhoneLayout } from "../mobile/usePhoneLayout";
+import { usePhoneLayout } from "./usePhoneLayout";
 import { usePresenceState } from "./usePresence";
 
 // `summary` is a <details> toggle: without it Settings' folded Advanced

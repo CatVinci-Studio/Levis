@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Textus
+Comment=AI-native WYSIWYG Markdown editor
+Exec=textus %F
+Icon=textus
+StartupWMClass=textus
+Terminal=false
+Categories=Utility;TextEditor;
+MimeType=text/markdown;text/x-markdown;

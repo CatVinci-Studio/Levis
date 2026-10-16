@@ -8,21 +8,21 @@ description: >-
   développer, ausbauen, расширить).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "user-only"
-  levis-category: "revise"
-  levis-packs: "contract standards#ai-tells"
-  levis-sources: "Our own text. Plain-language habits from the Federal Plain Language Guidelines (public domain) and GOV.UK guidance (OGL v3.0), summarised."
-  levis-aliases-en: "elaborate"
-  levis-aliases-zh: "扩写, 展开, 扩充"
-  levis-aliases-zh-Hant: "擴寫, 展開"
-  levis-aliases-ja: "膨らませる, 加筆"
-  levis-aliases-ko: "늘려 쓰기, 확장"
-  levis-aliases-es: "ampliar, desarrollar"
-  levis-aliases-fr: "développer, étoffer"
-  levis-aliases-de: "ausbauen, erweitern"
-  levis-aliases-ru: "расширить, развернуть"
-  levis-aliases-pt: "expandir, desenvolver"
+  textus-version: "1"
+  textus-invocation: "user-only"
+  textus-category: "revise"
+  textus-packs: "contract standards#ai-tells"
+  textus-sources: "Our own text. Plain-language habits from the Federal Plain Language Guidelines (public domain) and GOV.UK guidance (OGL v3.0), summarised."
+  textus-aliases-en: "elaborate"
+  textus-aliases-zh: "扩写, 展开, 扩充"
+  textus-aliases-zh-Hant: "擴寫, 展開"
+  textus-aliases-ja: "膨らませる, 加筆"
+  textus-aliases-ko: "늘려 쓰기, 확장"
+  textus-aliases-es: "ampliar, desarrollar"
+  textus-aliases-fr: "développer, étoffer"
+  textus-aliases-de: "ausbauen, erweitern"
+  textus-aliases-ru: "расширить, развернуть"
+  textus-aliases-pt: "expandir, desenvolver"
 ---
 
 # Expand

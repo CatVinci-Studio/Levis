@@ -6,9 +6,9 @@
 //!
 //! - localStorage belongs to the webview engine, keyed by app identifier and
 //!   stored in a different format on every platform (SQLite under WebKitGTK
-//!   and WKWebView, LevelDB under WebView2). At 1.0.0 the app becomes Textus
-//!   with a new identifier; it can import a Levis user's data by copying a
-//!   few files, but not by reaching into another app's browser profile.
+//!   and WKWebView, LevelDB under WebView2). At 1.0.0 Levis became Textus
+//!   with a new identifier; Textus can import a Levis user's data by copying
+//!   a few files, but not by reaching into another app's browser profile.
 //! - Every window wrote the WHOLE settings object (and whole history arrays)
 //!   back on every change, so two windows changing different things raced
 //!   and the slower one silently undid the other.
@@ -45,7 +45,7 @@ const FLUSH_DELAY: Duration = Duration::from_millis(250);
 /// Debug builds get their own files: a dev build shares the installed app's
 /// identifier, hence its config directory, and must not rewrite the real
 /// settings with whatever a development session left behind.
-fn file_name(stem: &str) -> String {
+pub(crate) fn file_name(stem: &str) -> String {
     if cfg!(debug_assertions) {
         format!("{stem}.dev.json")
     } else {
@@ -117,7 +117,7 @@ impl Store {
             // the real data - nor write it at all (see `unreadable`).
             Err(e) => {
                 eprintln!(
-                    "levis: cannot read {}: {e}; using defaults for this session and leaving the file alone",
+                    "textus: cannot read {}: {e}; using defaults for this session and leaving the file alone",
                     path.display()
                 );
                 unreadable = true;
@@ -174,7 +174,7 @@ impl Store {
             // schedules another write instead of being left unwritten.
             store.flush_scheduled.store(false, Ordering::Release);
             if let Err(e) = store.flush() {
-                eprintln!("levis: cannot write {}: {e}", store.path.display());
+                eprintln!("textus: cannot write {}: {e}", store.path.display());
             }
         });
     }
@@ -296,11 +296,11 @@ fn move_aside(path: &Path) {
     let aside = path.with_file_name(format!("{name}.corrupt-{stamp}"));
     match std::fs::rename(path, &aside) {
         Ok(()) => eprintln!(
-            "levis: {} was unreadable; moved to {} and starting from defaults",
+            "textus: {} was unreadable; moved to {} and starting from defaults",
             path.display(),
             aside.display()
         ),
-        Err(e) => eprintln!("levis: cannot move aside {}: {e}", path.display()),
+        Err(e) => eprintln!("textus: cannot move aside {}: {e}", path.display()),
     }
 }
 
@@ -335,7 +335,7 @@ fn as_list(payload: &mut Value) -> &mut Vec<Value> {
 // ---------------------------------------------------------------------------
 
 /// The two histories. Their caps match what the frontend kept in
-/// localStorage (src/ai/chat-history.ts, src/utils/clipboard-history.ts);
+/// localStorage (src/ai/chat/chat-history.ts, src/clipboard/history.ts);
 /// they're enforced here too because this is now the one writer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -599,10 +599,49 @@ impl Stores {
         true
     }
 
+    /// Takes a Levis installation's settings, UI state and histories (see
+    /// levis_import.rs): the user asked for them, so Levis's value wins for
+    /// every settings and UI-state field Levis has, and its conversations
+    /// and clipboard entries join the ones Textus already holds (Textus's
+    /// copy wins a tie). Fields only Textus has stay. Written at once.
+    pub fn import_levis(&self, payload: LegacyPayload) {
+        // A pending localStorage import (no settings.json at launch) would
+        // later undo this one; Textus's webview never had Levis's
+        // localStorage anyway.
+        self.legacy.lock().unwrap().pending = false;
+        if let Some(settings) = payload.settings {
+            self.settings.update(|p| merge_top_level(p, &settings));
+        }
+        if let Some(state) = payload.ui_state {
+            self.ui_state.update(|p| merge_top_level(p, &state));
+        }
+        for (kind, entries) in [
+            (HistoryKind::Chat, payload.chat_history),
+            (HistoryKind::Clipboard, payload.clipboard_history),
+        ] {
+            let Some(entries) = entries else { continue };
+            self.history(kind).update(|p| {
+                let list = as_list(p);
+                let seen: HashSet<String> = list
+                    .iter()
+                    .filter_map(|e| kind.key_of(e).map(str::to_owned))
+                    .collect();
+                list.extend(
+                    entries
+                        .into_iter()
+                        .filter(|e| kind.valid(e))
+                        .filter(|e| kind.key_of(e).is_some_and(|k| !seen.contains(k))),
+                );
+                kind.tidy(list);
+            });
+        }
+        self.flush_all();
+    }
+
     pub fn flush_all(&self) {
         for store in [&self.settings, &self.ui_state, &self.chat, &self.clipboard] {
             if let Err(e) = store.flush() {
-                eprintln!("levis: cannot write {}: {e}", store.path.display());
+                eprintln!("textus: cannot write {}: {e}", store.path.display());
             }
         }
     }
@@ -615,6 +654,46 @@ pub struct LegacyPayload {
     pub ui_state: Option<Map<String, Value>>,
     pub chat_history: Option<Vec<Value>>,
     pub clipboard_history: Option<Vec<Value>>,
+}
+
+/// A settings, UI-state or history file as another installation wrote it
+/// (Levis's, for the import): its payload under `key`, or `None` when the
+/// file is missing or isn't one. A newer `schemaVersion` is read
+/// best-effort, like Textus reads its own: unknown fields are kept.
+pub fn read_store_file(path: &Path, key: &str, empty: &Value) -> Option<Value> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    parse(&raw, key, empty).map(|(payload, _)| payload)
+}
+
+/// After an import replaced settings, UI state and histories underneath
+/// every window: each window adopts the whole settings object and reloads
+/// both histories, and the native appearance follows the imported theme.
+pub fn broadcast_reload(app: &AppHandle) {
+    let Some(stores) = app.try_state::<Stores>() else {
+        return;
+    };
+    let (value, rev) = stores.settings.snapshot();
+    theme_changed(app);
+    emit_to_all(
+        app,
+        "settings-changed",
+        SettingsChanged {
+            rev,
+            patch: value.as_object().cloned().unwrap_or_default(),
+            from: String::new(),
+        },
+    );
+    for kind in [HistoryKind::Chat, HistoryKind::Clipboard] {
+        emit_to_all(
+            app,
+            "history-changed",
+            HistoryChanged {
+                kind,
+                op: HistoryOp::Reload,
+                from: String::new(),
+            },
+        );
+    }
 }
 
 /// Loads every store into app state. Called first thing in setup(), before
@@ -647,7 +726,7 @@ fn theme_changed(app: &AppHandle) {
 ///
 /// It decides a new window's first frames: until its page has painted
 /// (some 125 ms), a WKWebView shows a background that follows the app's
-/// appearance, not the page. So with Levis pinned to Dark on a light Mac,
+/// appearance, not the page. So with Textus pinned to Dark on a light Mac,
 /// every window opened white for a moment however early the boot script
 /// put the theme on the document. It also gives scrollbars, context menus,
 /// open/save panels and the page's prefers-color-scheme the same appearance
@@ -745,7 +824,7 @@ pub fn boot_script(app: &AppHandle, label: &str) -> String {
         "label": label,
     });
     format!(
-        "{}\n;window.__levisBoot({boot}, {theme_css});",
+        "{}\n;window.__textusBoot({boot}, {theme_css});",
         include_str!("boot.js")
     )
 }
@@ -825,7 +904,7 @@ pub fn with_boot<'a, R: tauri::Runtime, M: Manager<R>>(
 }
 
 /// The colour a window shows before its page has painted, for a pinned
-/// appearance: the page's own background (App.css's `--bg`, and what
+/// appearance: the page's own background (ui/base.css's `--bg`, and what
 /// index.html paints before any stylesheet loads).
 ///
 /// On Linux the GTK window and the WebKit view start in their own colours -
@@ -1112,7 +1191,7 @@ mod tests {
     /// A fresh, empty directory per test.
     fn temp_dir() -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "levis-settings-test-{}-{}",
+            "textus-settings-test-{}-{}",
             std::process::id(),
             DIR_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
@@ -1439,11 +1518,11 @@ mod tests {
     #[test]
     fn a_pinned_appearance_gives_windows_the_page_background() {
         // Checked against the page itself, not restated here: a window must
-        // open in exactly the colour index.html paints first and App.css's
+        // open in exactly the colour index.html paints first and ui/base.css's
         // --bg keeps, or the change is a flash of its own. A failure here
         // means one of the three moved without the others.
         let index = include_str!("../../index.html");
-        let app_css = include_str!("../../src/App.css");
+        let app_css = include_str!("../../src/ui/base.css");
         for (theme, app_css_rule) in [
             ("dark", ":root[data-theme=\"dark\"] {"),
             ("light", ":root {"),
@@ -1464,7 +1543,7 @@ mod tests {
             assert_eq!(
                 css_value(app_css, app_css_rule, "--bg:"),
                 hex,
-                "App.css, {theme}"
+                "ui/base.css, {theme}"
             );
         }
         // "system", missing or unreadable: the toolkit's own default.

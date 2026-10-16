@@ -1,123 +1,197 @@
-<!-- The English README is the reference: README.zh.md and README.ja.md
-     follow its structure section by section (scripts/check-readmes.mjs). -->
+<!-- The English README is the reference: every README.<lang>.md follows its
+     structure section by section (scripts/check-readmes.mjs). It follows the
+     website: hero, download, writing, Textus AI, privacy, questions. -->
 
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Levis" width="120" height="120" />
+  <img src="src-tauri/icons/icon.png" alt="Textus" width="120" height="120" />
 </p>
 
-<h1 align="center">Levis</h1>
+<h1 align="center">Textus</h1>
 
 <p align="center">
-  <strong>A WYSIWYG Markdown editor with an AI that reviews instead of rewriting.</strong><br>
-  Open source and light. The AI continues, checks and suggests; every change waits for your yes.
-</p>
-
-<p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><strong>Download</strong></a> ·
-  <a href="./README.zh.md">中文</a> ·
-  <a href="./README.ja.md">日本語</a>
+  <strong>The next-generation Markdown editor.</strong><br>
+  You hold the pen. AI keeps your ink flowing.
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Levis"></a>
+  <a href="https://textus.catvinci.com"><strong>Website</strong></a> ·
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>Download</strong></a>
+</p>
+
+<p align="center">
+  English ·
+  <a href="./README.zh.md">简体中文</a> ·
+  <a href="./README.zh-Hant.md">繁體中文</a> ·
+  <a href="./README.ja.md">日本語</a> ·
+  <a href="./README.ko.md">한국어</a> ·
+  <a href="./README.es.md">Español</a> ·
+  <a href="./README.fr.md">Français</a> ·
+  <a href="./README.de.md">Deutsch</a> ·
+  <a href="./README.ru.md">Русский</a> ·
+  <a href="./README.pt.md">Português</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/en/agent.png" alt="The AI panel beside a document: a proposed edit with its reason, chosen sentence by sentence, and a comment on the opening line" width="860" />
+  <img src="docs/images/readme/en/hero.png" alt="Textus with Hamlet and the reader’s notes on it open. Textus AI tightens the notes sentence by sentence, each change in the margin, and pins a review note beside the play." width="860" /><br>
+  <sub><i>Hamlet</i>, William Shakespeare</sub>
 </p>
 
-## Features
+## Get Textus
 
-### The editor
+Free and open source, under the MIT license.
 
-- **True WYSIWYG.** Markdown marks appear only where the cursor is; everywhere else you read the finished page.
-- Tables, math, Mermaid diagrams, syntax-highlighted code, footnotes, task lists and GitHub alerts.
-- **Split view** (source beside a live preview), **typewriter mode** (the line you are writing stays centred) and **zen mode** (just the text, the current paragraph in focus).
-- Tabs and windows, find and replace, Typora theme import and your own CSS.
-- Export to PDF and HTML, or to Word, OpenDocument and RTF with [Pandoc](https://pandoc.org).
+| Platform              | Download                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| macOS · Apple Silicon | [Download .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
+| Windows · x64         | [Download .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
+| Linux · x64           | [Download .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · Also as .deb · .rpm |
 
-<p align="center">
-  <img src="docs/images/readme/en/split.png" alt="Split view" width="49%" />
-  <img src="docs/images/readme/en/zen.png" alt="Zen mode" width="49%" />
-</p>
-
-### AI that stays out of the way
-
-- **Continuation** as grey text: Tab takes it all, Ctrl/⌘+→ one word at a time; ask for alternatives and cycle them.
-- **Grammar check** underlines issues in the paragraph you are in; Alt+Enter applies a fix.
-- **AI panel** beside the document: ask about it, or ask for edits. Each edit arrives as a proposal with its reason, shown in the document - accept it, reject it, or take only the sentences you want. Ask for a review and you get comments instead of edits.
-- **Quick Ask** on a selection, right where you are writing.
-
-<p align="center">
-  <img src="docs/images/readme/en/completion.png" alt="A continuation offered as grey text" width="860" />
-</p>
-
-### Your project, your voice
-
-- **Project folder**: save a document and its folder becomes the project folder, or choose another. The AI can read and search the text files there, and `@` brings one into the conversation.
-- **Style profile** (`.levis/style.md`): **Learn my style** drafts it from samples you pick, so continuations and edits sound like you.
-- **Library** (`.levis/library/`): characters, places and terms. The entries a passage mentions go to the AI with it, so names and facts stay consistent.
-- **Writing instructions** (`agent.md`) and **skills** (`/name`): standing rules for every conversation, and reusable instructions you call by name - for all your documents or for one project.
-
-### Providers and privacy
-
-- OpenAI, Anthropic, Google Gemini, DeepSeek, xAI, Mistral, Groq, OpenRouter, Moonshot, Zhipu, Qwen, Ollama (local) or any OpenAI-compatible endpoint.
-- Sign in with your ChatGPT or Claude account, or use an API key.
-- Requests go straight from your computer to the provider you choose; keys and sign-ins are stored only on your computer. With Ollama nothing leaves it.
-
-## Install
-
-macOS (Apple Silicon) via [Homebrew](https://brew.sh):
+Or with Homebrew:
 
 ```sh
-brew install --cask catvinci-studio/tap/levis
+brew install --cask catvinci-studio/tap/textus
 ```
 
-Arch Linux via the signed [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman repository (once; `sudo pacman -Syu` then keeps Levis up to date):
+Arch Linux via the signed [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman repository (once; `sudo pacman -Syu` then keeps Textus up to date):
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) levis-bin
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
 ```
 
-Or download an installer from [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest):
+iPhone and iPad: coming soon. [All releases on GitHub](https://github.com/CatVinci-Studio/Textus/releases)
 
-| Platform              | Installer                                                                |
-| --------------------- | ------------------------------------------------------------------------ |
-| macOS (Apple Silicon) | `Levis_X.Y.Z_aarch64.dmg`                                                |
-| Windows               | `Levis_X.Y.Z_x64-setup.exe`                                              |
-| Linux                 | `Levis_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Levis-X.Y.Z-1.x86_64.rpm` |
+## Writing
+
+Every Markdown mark, rendered as you write. Point at a line to see its Markdown.
+
+<p align="center">
+  <img src="docs/images/readme/en/markdown.png" alt="What you see is what you get." width="860" />
+</p>
+
+Math renders as you type, tables line up, and a few lines of text draw a diagram.
+
+<p align="center">
+  <img src="docs/images/readme/en/math.png" alt="Formulas, tables, diagrams – done in a snap." width="860" />
+</p>
+
+### Your writing style? Your call
+
+Four writing modes, any theme you like – Typora themes included.
+
+| Writing modes    | What it does                                         |
+| ---------------- | ---------------------------------------------------- |
+| Zen Mode         | Everything but your words steps away                 |
+| Typewriter Mode  | The line you are writing stays at the same height    |
+| Split View       | Markdown on one side, the finished page on the other |
+| Source Code Mode | The whole document as plain Markdown                 |
+
+<p align="center">
+  <img src="docs/images/readme/en/split.png" alt="Split View" width="49%" />
+  <img src="docs/images/readme/en/zen.png" alt="Zen Mode" width="49%" />
+</p>
+
+Export to PDF, Word, HTML and more.
+
+## Textus AI
+
+Your writing assistant. It writes with you.
+
+### While you write
+
+Pause, and the next words appear in grey. Tab takes them. Typos and grammar are flagged as you write, along with your own conventions. Alt+Enter fixes them.
+
+### When you ask
+
+Edits arrive as proposals, each with a reason. Take one whole, or sentence by sentence. Comments pinned to the lines they mean. Notes, not rewrites. Tighten, proofread, translate, change the tone and more, one slash away.
+
+### It knows you
+
+It learns your style, remembers your characters and places, and follows your instructions.
+
+### Any LLM you like
+
+Textus works with more than 20 LLMs, and with any LLM that offers an OpenAI-compatible API.
+
+OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · Any OpenAI-compatible endpoint
+
+<p align="center">
+  <img src="docs/images/readme/en/settings.png" alt="Any LLM you like." width="860" />
+</p>
+
+## What you write is yours alone
+
+Your writing stays yours. Textus is built so that it can, and its code is open so that anyone can check.
+
+Documents are plain Markdown files, kept wherever you choose. API keys and sign-ins are stored only on your computer. AI requests travel directly from your device to the provider you pick. Download it and write. There is nothing to sign up for. No analytics, no telemetry, no ads. MIT-licensed and public, line by line, so anyone can verify all of this. With a local model through Ollama, your words never leave your computer.
+
+## Questions
+
+<details>
+<summary><strong>Is Textus free?</strong></summary>
+
+Yes. It is free and open source under the MIT license, with no account and no subscription. If you use Textus AI, your provider bills you directly, or not at all with a local model.
+
+</details>
+
+<details>
+<summary><strong>Which platforms does it run on?</strong></summary>
+
+macOS on Apple Silicon, Windows and Linux. iPhone and iPad are coming.
+
+</details>
+
+<details>
+<summary><strong>Do I need an AI account?</strong></summary>
+
+No. The editor works fully without AI. For Textus AI, connect a provider of your own: sign in with ChatGPT or Claude, add an API key, or run a local model with Ollama.
+
+</details>
+
+<details>
+<summary><strong>Does it work offline?</strong></summary>
+
+The editor does, completely. Textus AI needs your provider, unless you run a local model.
+
+</details>
+
+<details>
+<summary><strong>Is it plain Markdown? What can I export?</strong></summary>
+
+Yes: plain .md files, with tables, task lists, footnotes, math and Mermaid. You can export to PDF, Word, HTML and more.
+
+</details>
 
 ## Quick start
 
-1. Launch Levis. It opens on a blank draft; you only need a file when you save.
-2. Open **Settings → Levis AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
-3. Start typing. A continuation appears as grey text when you pause; Tab accepts it.
+1. Launch Textus. It opens on a blank draft; you only need a file when you save.
+2. Open **Settings → Textus AI**, choose a provider, and sign in or paste a key under **Login & credentials**.
+3. Start typing. A continuation appears in grey when you pause; Tab accepts it.
 4. Open the AI panel with the chat button in the window bar. **Help → AI Features Guide** covers the rest.
 
-| Action                    | Shortcut                     |
-| ------------------------- | ---------------------------- |
-| AI panel                  | Ctrl/⌘+Shift+L               |
-| Quick Ask                 | Ctrl/⌘+Shift+K               |
-| Continue writing          | Ctrl/⌘+Shift+Space           |
-| Check grammar             | Ctrl/⌘+Shift+G               |
-| Accept a pending edit     | Ctrl/⌘+Enter                 |
-| Split view                | Ctrl/⌘+Shift+E               |
-| Zen mode                  | Ctrl/⌘+Shift+J (Esc to exit) |
-| Source mode               | Ctrl/⌘+/                     |
+| Action                 | Shortcut                     |
+| ---------------------- | ---------------------------- |
+| AI panel               | Ctrl/⌘+Shift+L               |
+| Quick Ask              | Ctrl/⌘+Shift+K               |
+| Suggest completion now | Ctrl/⌘+Shift+Space           |
+| Check grammar now      | Ctrl/⌘+Shift+G               |
+| Accept a pending edit  | Ctrl/⌘+Enter                 |
+| Split View             | Ctrl/⌘+Shift+E               |
+| Zen Mode               | Ctrl/⌘+Shift+J (Esc to exit) |
+| Source Code Mode       | Ctrl/⌘+/                     |
 
 All of them can be changed in **Settings → Shortcuts**.
-
-## Why Levis
-
-Writing Markdown should feel like writing, not like editing a file: no preview pane to glance at, no syntax in the way. Levis is open source and small, and its AI is built for writers who want to stay the author - it suggests, explains, and leaves every decision to you.
 
 ## Build from source
 
 ```bash
-git clone https://github.com/CatVinci-Studio/Levis.git
-cd Levis
+git clone https://github.com/CatVinci-Studio/Textus.git
+cd Textus
 npm install
 
 npm run tauri dev     # full Tauri app (Rust shell + Vite renderer)
@@ -129,7 +203,7 @@ Requires [Node.js](https://nodejs.org) 22+, [Rust](https://rustup.rs) (stable), 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks CI runs, commit conventions and the release process. [docs/TESTING.md](docs/TESTING.md) maps what the test suites cover - and what they deliberately don't.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks CI runs, commit conventions and the release process. [docs/TESTING.md](docs/TESTING.md) maps what the test suites cover – and what they deliberately don't. Contributions are discussed in English or Chinese.
 
 ## License
 

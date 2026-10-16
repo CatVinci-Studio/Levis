@@ -11,7 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveStrings } from "../../i18n/strings";
 import type { ProviderCatalogEntry } from "../../ai/provider-catalog";
-import { auth, type CustomEndpointConfig } from "../../ipc";
+import { auth, type CustomEndpointConfig } from "../../platform/ipc";
 import {
   CustomProviderPanel,
   ProviderAuthPanel,
@@ -50,7 +50,7 @@ vi.mock("../../ai/provider-catalog", async (importOriginal) => {
   return { ...actual, useProviderCatalog: () => providerMocks.catalog };
 });
 
-vi.mock("../../ipc", () => ({
+vi.mock("../../platform/ipc", () => ({
   auth: {
     providerApiKeyStatus: vi.fn().mockResolvedValue(false),
     setProviderApiKey: vi.fn().mockResolvedValue(undefined),

@@ -1,5 +1,5 @@
 /* The AI composer on an iPhone (ChatComposer.tsx), in the docked Quick Ask
-   and the Levis AI sheet alike: every control a 44pt target - Apple's
+   and the Textus AI sheet alike: every control a 44pt target - Apple's
    minimum - and no :hover left stuck on whatever was tapped last. Phone
    width only, like the rest of the phone layout (mobile/styles): an iPad
    keeps the desktop's compact composer. */

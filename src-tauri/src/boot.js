@@ -11,8 +11,8 @@
 //    second copies.
 //
 // Plain JavaScript with no imports: it is injected as a string.
-window.__levisBoot = function (boot, themeCss) {
-  delete window.__levisBoot;
+window.__textusBoot = function (boot, themeCss) {
+  delete window.__textusBoot;
   window.__BOOT__ = boot;
   var settings = boot.settings || {};
 
@@ -91,15 +91,15 @@ window.__levisBoot = function (boot, themeCss) {
       // (applyUserTheme() in SettingsContext.tsx).
       if (dark && !themeCss.dark)
         document.documentElement.setAttribute("data-light-page", "");
-      // adaptTyporaCss() in src/settings/typora-compat.ts.
+      // adaptTyporaCss() in src/theme/typora-compat.ts.
       var css = source.replace(
         /\bthead\b(?:\s*>?\s*tr\b)?/g,
         "tr[data-is-header]",
       );
-      addStyle("levis-custom-theme", css);
+      addStyle("textus-custom-theme", css);
       // The app's own colours (sidebar, background, accents) as the
       // frontend last derived them from this stylesheet in this appearance
-      // - applyThemeChrome() in src/utils/theme-chrome.ts, which needs a
+      // - applyThemeChrome() in src/theme/theme-chrome.ts, which needs a
       // CSS engine to work them out, so they're remembered in ui-state.json
       // (ThemeChromeCache in src/storage/ui-state.ts) rather than computed
       // here. Anything else: none, and the frontend applies them a moment
@@ -112,13 +112,13 @@ window.__levisBoot = function (boot, themeCss) {
         chrome.sourceLength === source.length &&
         typeof chrome.css === "string"
       )
-        addStyle("levis-imported-chrome", chrome.css);
+        addStyle("textus-imported-chrome", chrome.css);
     }
     if (settings.customCss && String(settings.customCss).trim()) {
-      addStyle("levis-user-css", String(settings.customCss));
+      addStyle("textus-user-css", String(settings.customCss));
       // promoteCustomProperties() in SettingsContext.tsx: the user's `--*`
       // beat the imported chrome's !important ones.
-      var userSheet = document.getElementById("levis-user-css").sheet;
+      var userSheet = document.getElementById("textus-user-css").sheet;
       if (userSheet) promote(userSheet.cssRules);
     }
   }

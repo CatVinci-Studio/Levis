@@ -18,7 +18,7 @@
     box-shadow: var(--shadow-drawer);
   }
 
-  /* A drawer: the page keeps its width under it (App.css's chain, with
+  /* A drawer: the page keeps its width under it (app/sidebar-frame.css's chain, with
      the prefix on top to outrank it). */
   :root[data-window-chrome="mobile"]:not(.zen)
     .sidebar:not(.sidebar-collapsed)
@@ -53,7 +53,7 @@
   background: none;
 }
 
-/* A long press on a file opens Levis's own menu (FileTree.tsx), not the
+/* A long press on a file opens Textus's own menu (FileTree.tsx), not the
    system's link callout, and doesn't select the label. */
 :root[data-window-chrome="mobile"] .tree-row {
   -webkit-touch-callout: none;

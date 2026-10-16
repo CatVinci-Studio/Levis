@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ai } from "../ipc";
+import { ai } from "../platform/ipc";
 import { useSettings } from "../settings/SettingsContext";
 
 /**
@@ -99,7 +99,7 @@ export function useActiveProvider(): ProviderCatalogEntry | undefined {
 }
 
 /// Shared catalog fetch (fallback -> real list once it resolves) - both the
-/// provider picker and the Levis AI page's chat model picker need the same
+/// provider picker and the Textus AI page's chat model picker need the same
 /// data, so this is the one place that owns fetching it.
 export function useProviderCatalog(): ProviderCatalogEntry[] {
   const [catalog, setCatalog] =

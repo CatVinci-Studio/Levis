@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { openApp, pasteMarkdown } from "./helpers";
 
 /**
- * Levis AI's edits as they really arrive: streamed over the onEvent channel
+ * Textus AI's edits as they really arrive: streamed over the onEvent channel
  * (toolStart, argument fragments, then each completed turn), not only as
  * the final turn list the other tests hand back.
  */

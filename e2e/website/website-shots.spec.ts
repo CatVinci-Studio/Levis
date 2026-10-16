@@ -8,8 +8,9 @@
  * Each shot is <out>/<lang>/<name>.png (2880x1800) with a 1920-wide
  * <name>.webp beside it:
  *   hero      a classic text and a reader's note on it, the AI panel beside
- *             them with one proposed edit (its reason, the sentence picker
- *             open) and one review comment
+ *             them with one proposed edit to the note (its reason and its
+ *             two sentences, in the margin as well when there is room) and
+ *             one review comment on the classic
  *   split     split view: the Markdown source beside the page
  *   zen       zen mode, the passage being read lit
  *   math      a KaTeX formula block, inline math and a Mermaid mind map
@@ -1055,19 +1056,15 @@ for (const lang of LANGS) {
           { kind: "Assistant", text: s.reply },
         ],
       });
-      await expect(page.locator(".project-bar-name")).toHaveText(s.folder);
       const composer = page.locator(".agent-panel-view textarea");
       await composer.fill(s.ask);
       await composer.press("Enter");
       await expect(page.locator(".agent-comment")).toBeVisible();
       await expect(page.locator(".agent-proposal-reason")).toHaveText(s.reason);
-      await page.locator(".agent-proposal-picker-toggle").click();
-      await expect(page.locator(".agent-proposal-picker-list li")).toHaveCount(
-        2,
-      );
-      await expect(page.locator(".milkdown .pending-insert")).toHaveText(
-        s.edited,
-      );
+      // The rewrite sentence by sentence: marked in the text, listed in
+      // the card - and, with room for it, in the margin with the note.
+      await expect(page.locator(".milkdown .pending-sentence")).toHaveCount(2);
+      await expect(page.locator(".agent-proposal-sentences li")).toHaveCount(2);
       // The proposal's buttons and its sentence picker on one row: a label
       // too long for it drops onto a row of its own, a band of nothing.
       const middles = await page

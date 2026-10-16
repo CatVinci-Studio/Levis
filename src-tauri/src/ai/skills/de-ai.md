@@ -9,21 +9,21 @@ description: >-
   стиль ИИ).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "both"
-  levis-category: "revise"
-  levis-packs: "contract standards#ai-tells"
-  levis-sources: "Our own text. Patterns summarised from Wikipedia 'Signs of AI writing' (CC BY-SA, summarised only), Kobak et al. 2025 (CC BY 4.0, word frequencies), blader/humanizer, avoid-ai-writing, Humanizer-zh, yomiyasu, k-skill, im-not-ai and Kiterlin (MIT, ideas), 科普中国 2025 (summarised). rnskill ra-人话 (CC BY-NC) ideas only, no text."
-  levis-aliases-en: "ai-tone"
-  levis-aliases-zh: "去AI味, AI味"
-  levis-aliases-zh-Hant: "去AI味"
-  levis-aliases-ja: "AIっぽさを消す, AIっぽさ"
-  levis-aliases-ko: "AI티, AI 말투"
-  levis-aliases-es: "tono-ia"
-  levis-aliases-fr: "ton-ia"
-  levis-aliases-de: "ki-ton"
-  levis-aliases-ru: "без-ии"
-  levis-aliases-pt: "tom-ia"
+  textus-version: "1"
+  textus-invocation: "both"
+  textus-category: "revise"
+  textus-packs: "contract standards#ai-tells"
+  textus-sources: "Our own text. Patterns summarised from Wikipedia 'Signs of AI writing' (CC BY-SA, summarised only), Kobak et al. 2025 (CC BY 4.0, word frequencies), blader/humanizer, avoid-ai-writing, Humanizer-zh, yomiyasu, k-skill, im-not-ai and Kiterlin (MIT, ideas), 科普中国 2025 (summarised). rnskill ra-人话 (CC BY-NC) ideas only, no text."
+  textus-aliases-en: "ai-tone"
+  textus-aliases-zh: "去AI味, AI味"
+  textus-aliases-zh-Hant: "去AI味"
+  textus-aliases-ja: "AIっぽさを消す, AIっぽさ"
+  textus-aliases-ko: "AI티, AI 말투"
+  textus-aliases-es: "tono-ia"
+  textus-aliases-fr: "ton-ia"
+  textus-aliases-de: "ki-ton"
+  textus-aliases-ru: "без-ии"
+  textus-aliases-pt: "tom-ia"
 ---
 
 # Remove AI tone

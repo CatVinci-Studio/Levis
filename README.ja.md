@@ -1,135 +1,206 @@
-<!-- 構成は README.md と節ごとに対応しています（scripts/check-readmes.mjs で確認）。 -->
-
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Levis" width="120" height="120" />
+  <img src="src-tauri/icons/icon.png" alt="Textus" width="120" height="120" />
 </p>
 
-<h1 align="center">Levis</h1>
+<h1 align="center">Textus</h1>
 
 <p align="center">
-  <strong>書き換えるのではなく、提案する AI を備えた WYSIWYG Markdown エディタ。</strong><br>
-  オープンソースで軽量。AI は続きを書き、文法を確かめ、修正を提案します。変更はすべて、あなたが決めます。
+  <strong>次世代のMarkdownエディタ</strong><br>
+  筆をとるのは、あなた。墨を磨るのは、AI。
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><strong>ダウンロード</strong></a> ·
+  <a href="https://textus.catvinci.com"><strong>公式サイト</strong></a> ·
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><strong>ダウンロード</strong></a>
+</p>
+
+<p align="center">
   <a href="./README.md">English</a> ·
-  <a href="./README.zh.md">中文</a>
+  <a href="./README.zh.md">简体中文</a> ·
+  <a href="./README.zh-Hant.md">繁體中文</a> ·
+  日本語 ·
+  <a href="./README.ko.md">한국어</a> ·
+  <a href="./README.es.md">Español</a> ·
+  <a href="./README.fr.md">Français</a> ·
+  <a href="./README.de.md">Deutsch</a> ·
+  <a href="./README.ru.md">Русский</a> ·
+  <a href="./README.pt.md">Português</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/CatVinci-Studio/Levis/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Levis"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/ja/agent.png" alt="文書の横の AI パネル：理由付きの編集提案、文ごとの選択、書き出しへのコメント" width="860" />
+  <img src="docs/images/readme/ja/hero.png" alt="『吾輩は猫である』と読書メモを開いたTextus。Textus AIがメモを一文ずつ簡潔にし、修正は余白に並び、本文の横にはレビューのコメントが付いている。" width="860" /><br>
+  <sub>夏目漱石『吾輩は猫である』</sub>
 </p>
 
-## 特長
+## Textusを入手
 
-### エディタ
+無料のオープンソース。MITライセンスで公開しています。
 
-- **本当の WYSIWYG**：Markdown の記号はカーソルのある場所にだけ表示され、それ以外は仕上がった紙面として読めます。
-- 表、数式、Mermaid 図、シンタックスハイライト、脚注、タスクリスト、GitHub アラート。
-- **分割表示**（ソースとライブプレビューを並べる）、**タイプライターモード**（書いている行を常に中央に）、**禅モード**（文章だけを残し、今の段落に集中）。
-- タブと複数ウィンドウ、検索と置換、Typora テーマの読み込み、独自の CSS。
-- PDF と HTML に書き出し。[Pandoc](https://pandoc.org) があれば Word、OpenDocument、RTF にも書き出せます。
+| プラットフォーム          | ダウンロード                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| macOS · Appleシリコン | [.dmgをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
+| Windows · x64     | [.exeをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
+| Linux · x64       | [.AppImageをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest) · ほかの形式も .deb · .rpm |
+
+Homebrewでもインストールできます：
+
+```sh
+brew install --cask catvinci-studio/tap/textus
+```
+
+Arch Linux は署名付きの [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman リポジトリで（設定は一度だけ。以後は `sudo pacman -Syu` で Textus も最新に保たれます）：
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) textus-bin
+```
+
+iPhone版とiPad版も、まもなく登場します。[すべてのリリースをGitHubで見る](https://github.com/CatVinci-Studio/Textus/releases)
+
+## 執筆
+
+Markdownの記法は、書いたそばから仕上がりの姿に。行にポインタを合わせると、元の記法が現れます。
+
+<p align="center">
+  <img src="docs/images/readme/ja/markdown.png" alt="見たまま、書ける。" width="860" />
+</p>
+
+数式はその場で表示され、表はきれいに揃います。数行のテキストが、そのまま図になります。
+
+<p align="center">
+  <img src="docs/images/readme/ja/math.png" alt="数式も、表も、図も、すぐできる" width="860" />
+</p>
+
+### 書き方は？お好きなように
+
+4つの書き方を自在に切り替え、テーマもすぐに変えられます。Typoraのテーマもそのまま使えます。
+
+| 執筆モード      | どうなるか                   |
+| ---------- | ----------------------- |
+| 禅モード       | 文字以外のすべてが退きます           |
+| タイプライターモード | 書いている行がいつも同じ高さにとどまります   |
+| 分割表示       | Markdown と仕上がりを並べて見られます |
+| ソースコードモード  | 文書全体を Markdown のまま扱えます  |
 
 <p align="center">
   <img src="docs/images/readme/ja/split.png" alt="分割表示" width="49%" />
   <img src="docs/images/readme/ja/zen.png" alt="禅モード" width="49%" />
 </p>
 
-### 邪魔をしない AI
+PDF、Word、HTMLなどに書き出せます。
 
-- **続き書き**は灰色の文字で表示されます。Tab ですべて、Ctrl/⌘+→ で一語ずつ受け入れます。候補を複数出して切り替えることもできます。
-- **文法チェック**は今いる段落の問題に下線を引き、Alt+Enter で修正します。
-- **AI パネル**は文書の横に開きます。文書について質問することも、編集を頼むこともできます。編集は理由付きの提案として文書内に表示され、承認・却下のほか、必要な文だけを選んで適用できます。推敲を頼むと、書き換えではなくコメントが届きます。
-- **クイック質問**：選択した文章について、書いているその場で尋ねられます。
+## Textus AI
+
+あなたの執筆アシスタント。一緒に書いていきます。
+
+### 書いているとき
+
+手を止めると、続きの言葉が灰色で現れます。Tabキーで採用。誤字や文法の誤りを、書きながら指摘。あなたの表記ルールも確かめます。Alt+Enterで修正。
+
+### 頼んだとき
+
+修正は、理由を添えた提案として届きます。まとめて適用することも、一文ずつ選ぶこともできます。コメントは、該当する行に付きます。書き直すのではなく、助言として。簡潔にする、校正、翻訳、口調を変えるなど。スラッシュひとつで呼び出せます。
+
+### あなたを知っている
+
+あなたの文体を学び、人物や場所の設定を覚え、執筆の指示に従います。
+
+### LLMは、お好きなものを
+
+Textus は20種類以上のLLMに対応し、OpenAI互換のAPIを備えたLLMならどれでも使えます。
+
+OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · OpenRouter · Kimi · GLM · Qwen · Ollama · OpenAI互換のあらゆるエンドポイント
 
 <p align="center">
-  <img src="docs/images/readme/ja/completion.png" alt="灰色の文字で表示される続き書き" width="860" />
+  <img src="docs/images/readme/ja/settings.png" alt="LLMは、お好きなものを" width="860" />
 </p>
 
-### あなたのプロジェクト、あなたの文体
+## あなたが書いたものは、あなただけのもの
 
-- **プロジェクトフォルダー**：文書を保存すると、そのフォルダーがプロジェクトフォルダーになります（別のフォルダーも選べます）。AI はその中のテキストファイルを読み、検索でき、`@` でファイルを会話に加えられます。
-- **文体プロファイル**（`.levis/style.md`）：**文体を学習**で、選んだ見本から下書きされます。続き書きも編集もあなたの書き方に沿います。
-- **ライブラリ**（`.levis/library/`）：人物、場所、用語。文章が触れている項目だけが AI に渡されるので、名前や設定がぶれません。
-- **執筆の指示**（`agent.md`）と**スキル**（`/名前`）：毎回の会話で守らせる常設のルールと、名前で呼び出す再利用できる指示。すべての文書にも、1つのプロジェクトだけにも設定できます。
+あなたの文章は、あなたのもの。Textusはそのために設計され、コードもすべて公開しています。
 
-### サービスとプライバシー
+文書は普通のMarkdownファイル。置き場所はあなたが決めます。APIキーとサインイン情報は、あなたのコンピューターにだけ保存されます。AIへのリクエストは、デバイスから選んだプロバイダーへ直接届きます。ダウンロードして、書くだけ。登録するものは何もありません。分析も、テレメトリーも、広告もありません。MITライセンスで一行残らず公開。ここに書いたことは、誰でも確かめられます。 Ollamaでローカルモデルを使えば、あなたの言葉がコンピューターの外へ出ることはありません。
 
-- OpenAI、Anthropic、Google Gemini、DeepSeek、xAI、Mistral、Groq、OpenRouter、Moonshot、智谱、通義千問、Ollama（ローカル）、および OpenAI 互換の任意のエンドポイントに対応。
-- ChatGPT や Claude のアカウントでサインインするか、API キーを使えます。
-- リクエストはあなたのコンピューターから選んだサービスへ直接送られます。キーとサインイン情報はコンピューター内にだけ保存されます。Ollama を使えば、内容は外に出ません。
+## よくある質問
 
-## インストール
+<details>
+<summary><strong>Textusは無料ですか？</strong></summary>
 
-macOS（Apple Silicon）は [Homebrew](https://brew.sh) で：
+はい。MITライセンスのオープンソースで、アカウントもサブスクリプションも要りません。Textus AIの利用料は、選んだプロバイダーから直接請求されます。ローカルモデルなら費用はかかりません。
 
-```sh
-brew install --cask catvinci-studio/tap/levis
-```
+</details>
 
-Arch Linux は署名付きの [`[catvinci]`](https://github.com/CatVinci-Studio/arch-repo) pacman リポジトリから（設定は一度だけ。以後は `sudo pacman -Syu` で Levis も更新されます）：
+<details>
+<summary><strong>どの環境で使えますか？</strong></summary>
 
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/CatVinci-Studio/arch-repo/main/install.sh) levis-bin
-```
+Appleシリコン搭載のmacOS、Windows、Linuxです。iPhone版とiPad版も準備中です。
 
-または [Releases](https://github.com/CatVinci-Studio/Levis/releases/latest) からインストーラーをダウンロードしてください：
+</details>
 
-| プラットフォーム       | インストーラー                                                           |
-| ---------------------- | ------------------------------------------------------------------------ |
-| macOS（Apple Silicon） | `Levis_X.Y.Z_aarch64.dmg`                                                |
-| Windows                | `Levis_X.Y.Z_x64-setup.exe`                                              |
-| Linux                  | `Levis_X.Y.Z_amd64.AppImage` · `_amd64.deb` · `Levis-X.Y.Z-1.x86_64.rpm` |
+<details>
+<summary><strong>AIのアカウントは必要ですか？</strong></summary>
 
-## クイックスタート
+いいえ。エディタの機能は、AIなしですべて使えます。Textus AIを使うときは、ご自身のプロバイダーを接続します。ChatGPTやClaudeでのサインイン、APIキーの入力、Ollamaによるローカルモデルのどれでも使えます。
 
-1. Levis を起動すると、空の下書きが開きます。ファイルが必要になるのは保存するときだけです。
-2. **設定 → Levis AI** でサービスを選び、**ログインと認証** でサインインするかキーを入力します。
-3. 書き始めます。手を止めると続き書きが灰色の文字で表示され、Tab で受け入れます。
-4. ウィンドウ上部のチャットボタンで AI パネルを開きます。そのほかは **ヘルプ → AI 機能ガイド** をご覧ください。
+</details>
 
-| 操作                   | ショートカット                    |
-| ---------------------- | --------------------------------- |
-| AI パネル              | Ctrl/⌘+Shift+L                    |
-| クイック質問           | Ctrl/⌘+Shift+K                    |
-| 続きを書く             | Ctrl/⌘+Shift+Space                |
-| 文法チェック           | Ctrl/⌘+Shift+G                    |
-| 保留中の編集を承認     | Ctrl/⌘+Enter                      |
-| 分割表示               | Ctrl/⌘+Shift+E                    |
-| 禅モード               | Ctrl/⌘+Shift+J（Esc で終了）      |
-| ソースモード           | Ctrl/⌘+/                          |
+<details>
+<summary><strong>オフラインでも使えますか？</strong></summary>
 
-いずれも **設定 → ショートカット** で変更できます。
+エディタはすべての機能が使えます。Textus AIにはプロバイダーへの接続が必要ですが、ローカルモデルならオフラインでも動きます。
 
-## なぜ Levis か
+</details>
 
-Markdown を書くことは、ファイルを編集することではなく、文章を書くことであってほしい。プレビューを見比べる必要も、記号に邪魔されることもなく。Levis はオープンソースで小さく、その AI は書き手であり続けたい人のために作られています。提案し、理由を示し、決めるのは常にあなたです。
+<details>
+<summary><strong>普通のMarkdownで、書き出しもできますか？</strong></summary>
+
+はい、普通の.mdファイルです。表、タスクリスト、脚注、数式、Mermaidに対応し、PDF、Word、HTMLなどに書き出せます。
+
+</details>
+
+## はじめかた
+
+1. Textus を起動します。白紙の下書きから始まり、ファイルが必要になるのは保存するときだけです。
+2. **設定 → Textus AI** を開いてプロバイダーを選び、**ログインと認証** でサインインするかキーを貼り付けます。
+3. 書き始めましょう。手を止めると続きが灰色で現れ、Tab で採用できます。
+4. ウィンドウバーのチャットボタンでAIパネルを開きます。詳しくは **ヘルプ → AI 機能ガイド** を。
+
+| 操作         | ショートカット                  |
+| ---------- | ------------------------ |
+| AIパネル      | Ctrl/⌘+Shift+L           |
+| クイック質問     | Ctrl/⌘+Shift+K           |
+| 今すぐ補完を提案   | Ctrl/⌘+Shift+Space       |
+| 今すぐ文法をチェック | Ctrl/⌘+Shift+G           |
+| 保留中の編集を適用  | Ctrl/⌘+Enter             |
+| 分割表示       | Ctrl/⌘+Shift+E           |
+| 禅モード       | Ctrl/⌘+Shift+J (Esc で終了) |
+| ソースコードモード  | Ctrl/⌘+/                 |
+
+どれも **設定 → ショートカット** で変更できます。
 
 ## ソースからビルド
 
 ```bash
-git clone https://github.com/CatVinci-Studio/Levis.git
-cd Levis
+git clone https://github.com/CatVinci-Studio/Textus.git
+cd Textus
 npm install
 
-npm run tauri dev     # Tauri アプリ全体（Rust シェル + Vite レンダラー）
-npm run tauri build   # .dmg / -setup.exe（NSIS）/ .AppImage / .deb / .rpm を作成
-npm run build         # フロントエンドのみ：型チェック（tsc）+ vite build
+npm run tauri dev     # full Tauri app (Rust shell + Vite renderer)
+npm run tauri build   # bundle .dmg / -setup.exe (NSIS) / .AppImage / .deb / .rpm
+npm run build         # frontend only: type-check (tsc) + vite build
 ```
 
-[Node.js](https://nodejs.org) 22 以上、[Rust](https://rustup.rs)（stable）、各プラットフォームのビルドツール（macOS は Xcode コマンドラインツール、Linux は `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`、Windows は MSVC Build Tools）が必要です。
+[Node.js](https://nodejs.org) 22 以上、[Rust](https://rustup.rs)（stable）、各プラットフォームのビルドツール（macOS は Xcode CLT、Linux は `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`、Windows は MSVC Build Tools）が必要です。
 
 ## コントリビュート
 
-CI で実行されるチェック、コミット規約、リリース手順は [CONTRIBUTING.md](CONTRIBUTING.md)（英語）を参照してください。[docs/TESTING.md](docs/TESTING.md) には、各テストが何を確認し、何を意図的に確認していないかをまとめています。
+CI が実行するチェック、コミットの規約、リリースの手順は [CONTRIBUTING.md](CONTRIBUTING.md) を、テストが何を対象にし、何をあえて対象外にしているかは [docs/TESTING.md](docs/TESTING.md) をご覧ください。やり取りは英語か中国語でお願いします。
 
-## License
+## ライセンス
 
 [MIT](./LICENSE) © CatVinci Studio

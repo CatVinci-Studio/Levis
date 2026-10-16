@@ -1,6 +1,6 @@
 # AI evaluation
 
-How every AI feature in Levis is evaluated against the real Anthropic API,
+How every AI feature in Textus is evaluated against the real Anthropic API,
 what the first full evaluation found, what was changed because of it, and
 what is still weak. The suite lives in `src-tauri/src/ai/live_eval.rs` and
 `src-tauri/src/ai/live_eval/`; this document is its guide and its record.
@@ -20,18 +20,18 @@ round-2 groups so runs stay comparable: `workspace/` is the project folder,
 `agentmd/` the writing instructions, `style/` the style profile and "Learn
 my style".
 
-| Concept                                                                               | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                            | Where it lives                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Project folder** (项目文件夹 / プロジェクトフォルダー; in code, the workspace root) | The one folder Levis AI may read (`list_files`, `read_file`, `search_files`, @-mentions), and whose `.levis/` folder holds the project's settings. The open document's own folder by default (`RootSource::DocumentFolder`), or one the user chose (`Chosen`). An unsaved draft with no chosen folder has none (`None`): no file tools are offered, and the agent says why and how to fix it. A home folder or drive root is never used (`TooBroad`). | The project menu (the folder name in the bar under the AI panel's header: Choose project folder…), or Settings > Levis AI > Project Folder; resolved by `workspace::load_from` |
-| **Writing instructions** (写作要求 / 執筆の指示, agent.md)                            | Standing rules sent with every conversation: the global ones, then the project's, which win where they conflict (their section says so when both exist).                                                                                                                                                                                                                                                                                              | The global config folder's `agent.md`; `.levis/agent.md` (Edit project writing instructions)                                                                                   |
-| **Skills** (技能 / スキル)                                                            | Reusable instructions: the index (name + description) is in the prompt, the body loads with `use_skill` - or arrives already expanded in a `<skill name="...">` block when the user types `/name`. A project skill shadows a global one of the same name.                                                                                                                                                                                             | `agent/skills/*.md`; `.levis/skills/*.md`                                                                                                                                      |
-| **Library** (资料库 / ライブラリ)                                                     | Facts about characters, places and terms. An entry is sent when the request, selection or text around the cursor mentions its name or an alias (`include: detected`), always, or never. It is a constraint on what is written, not text to recite.                                                                                                                                                                                                    | `.levis/library/*.md` (New library entry…)                                                                                                                                     |
-| **Style profile** (文风档案 / 文体プロファイル)                                       | How the author writes - voice, sentence rhythm, word choice, punctuation, what they never do - which both the agent and inline completion follow for every document in the project folder. Its concrete limits (sentence length, banned words or punctuation) are rules; its habits apply where they read naturally and never override the request (an expansion still gets longer) or the sense of the text.                                         | `.levis/style.md`                                                                                                                                                              |
-| **Learn my style** (学习我的文风 / 文体を学習)                                        | Drafts the style profile from samples of the author's own writing (`project::learn_style`, `STYLE_INSTRUCTIONS`), in the samples' language, with the headings of the app's own template in en, zh and ja; the author reviews and edits it in a tab. The previous profile is kept as `style.previous.md`.                                                                                                                                              | The project menu: Learn my style from samples…                                                                                                                                 |
-| **Global config folder** (全局配置文件夹 / グローバル設定フォルダー)                  | The app's folder for the writing instructions and skills that apply to every document. No style profile or library: those belong to a project.                                                                                                                                                                                                                                                                                                        | `agent/` in the app config dir; Settings > Levis AI > Global Config Folder                                                                                                     |
-| **Completion tone**                                                                   | A preset register for inline completion only (formal, casual, academic, concise), the same in every document. It sets the register; the style profile is the author's own voice.                                                                                                                                                                                                                                                                      | Settings > Levis AI > Writing Assistance (`completion-style.ts`)                                                                                                               |
-| **Ask / Edit / Plan mode** (询问 / 编辑 / 计划; 質問 / 編集 / 計画)                   | The panel's modes: Ask reads, answers and comments, with no edit tool; Edit can propose edits; Plan writes a plan without editing. An edit asked for in Ask mode gets the text in the reply and a pointer to Edit mode.                                                                                                                                                                                                                               | The composer's mode picker                                                                                                                                                     |
-| **Quick Ask**                                                                         | The chat bar under the current paragraph: the same agent and prompt, opened in Edit mode on the selection it captured; each follow-up is sent against that range as mapped through accepted edits.                                                                                                                                                                                                                                                    | Cmd+Shift+K                                                                                                                                                                    |
+| Concept                                                                               | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                              | Where it lives                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Project folder** (项目文件夹 / プロジェクトフォルダー; in code, the workspace root) | The one folder Textus AI may read (`list_files`, `read_file`, `search_files`, @-mentions), and whose `.textus/` folder holds the project's settings. The open document's own folder by default (`RootSource::DocumentFolder`), or one the user chose (`Chosen`). An unsaved draft with no chosen folder has none (`None`): no file tools are offered, and the agent says why and how to fix it. A home folder or drive root is never used (`TooBroad`). | The project menu (the folder name in the bar under the AI panel's header: Choose project folder…), or Settings > Textus AI > Project Folder; resolved by `workspace::load_from` |
+| **Writing instructions** (写作要求 / 執筆の指示, agent.md)                            | Standing rules sent with every conversation: the global ones, then the project's, which win where they conflict (their section says so when both exist).                                                                                                                                                                                                                                                                                                | The global config folder's `agent.md`; `.textus/agent.md` (Edit project writing instructions)                                                                                   |
+| **Skills** (技能 / スキル)                                                            | Reusable instructions: the index (name + description) is in the prompt, the body loads with `use_skill` - or arrives already expanded in a `<skill name="...">` block when the user types `/name`. A project skill shadows a global one of the same name.                                                                                                                                                                                               | `agent/skills/*.md`; `.textus/skills/*.md`                                                                                                                                      |
+| **Library** (资料库 / ライブラリ)                                                     | Facts about characters, places and terms. An entry is sent when the request, selection or text around the cursor mentions its name or an alias (`include: detected`), always, or never. It is a constraint on what is written, not text to recite.                                                                                                                                                                                                      | `.textus/library/*.md` (New library entry…)                                                                                                                                     |
+| **Style profile** (文风档案 / 文体プロファイル)                                       | How the author writes - voice, sentence rhythm, word choice, punctuation, what they never do - which both the agent and inline completion follow for every document in the project folder. Its concrete limits (sentence length, banned words or punctuation) are rules; its habits apply where they read naturally and never override the request (an expansion still gets longer) or the sense of the text.                                           | `.textus/style.md`                                                                                                                                                              |
+| **Learn my style** (学习我的文风 / 文体を学習)                                        | Drafts the style profile from samples of the author's own writing (`project::learn_style`, `STYLE_INSTRUCTIONS`), in the samples' language, with the headings of the app's own template in en, zh and ja; the author reviews and edits it in a tab. The previous profile is kept as `style.previous.md`.                                                                                                                                                | The project menu: Learn my style from samples…                                                                                                                                  |
+| **Global config folder** (全局配置文件夹 / グローバル設定フォルダー)                  | The app's folder for the writing instructions and skills that apply to every document. No style profile or library: those belong to a project.                                                                                                                                                                                                                                                                                                          | `agent/` in the app config dir; Settings > Textus AI > Global Config Folder                                                                                                     |
+| **Completion tone**                                                                   | A preset register for inline completion only (formal, casual, academic, concise), the same in every document. It sets the register; the style profile is the author's own voice.                                                                                                                                                                                                                                                                        | Settings > Textus AI > Writing Assistance (`completion-style.ts`)                                                                                                               |
+| **Ask / Edit / Plan mode** (询问 / 编辑 / 计划; 質問 / 編集 / 計画)                   | The panel's modes: Ask reads, answers and comments, with no edit tool; Edit can propose edits; Plan writes a plan without editing. An edit asked for in Ask mode gets the text in the reply and a pointer to Edit mode.                                                                                                                                                                                                                                 | The composer's mode picker                                                                                                                                                      |
+| **Quick Ask**                                                                         | The chat bar under the current paragraph: the same agent and prompt, opened in Edit mode on the selection it captured; each follow-up is sent against that range as mapped through accepted edits.                                                                                                                                                                                                                                                      | Cmd+Shift+K                                                                                                                                                                     |
 
 ## What is evaluated
 
@@ -82,8 +82,8 @@ workspace and writing-style features explicit.
 - **Workspace**: the folder the AI may read - the open document's own
   folder by default, or the folder picked in the panel - with project files
   (`list_files`/`read_file`/`search_files`), the library
-  (`.levis/library/*.md`, entries sent when their name or an alias is
-  mentioned), `.levis/agent.md`, `.levis/skills/*.md`, plus the global
+  (`.textus/library/*.md`, entries sent when their name or an alias is
+  mentioned), `.textus/agent.md`, `.textus/skills/*.md`, plus the global
   config folder (`agent/` in the app config dir) whose agent.md and skills
   apply everywhere and are shadowed by the project's. Each case builds the
   folders on disk and loads them through `workspace::load_from` (the app's
@@ -204,7 +204,7 @@ the name says it measured nothing.
 
 ```sh
 cargo test --lib live_eval::list_builtin_cases -- --ignored --nocapture
-LEVIS_EVAL_FILTER=builtin/proofread/,route/none/ cargo test --lib live_eval::list_builtin_cases -- --ignored --nocapture
+TEXTUS_EVAL_FILTER=builtin/proofread/,route/none/ cargo test --lib live_eval::list_builtin_cases -- --ignored --nocapture
 ```
 
 It prints one line per case (id, mode, user language, message), the count
@@ -212,15 +212,15 @@ per group and an estimate at $0.02-0.03 a case without the judge. Then run
 the automatic checks only, filtered, under a budget:
 
 ```sh
-LEVIS_EVAL_JUDGE=0 LEVIS_EVAL_BUDGET_USD=1 LEVIS_EVAL_FILTER=builtin/dialogue/ \
+TEXTUS_EVAL_JUDGE=0 TEXTUS_EVAL_BUDGET_USD=1 TEXTUS_EVAL_FILTER=builtin/dialogue/ \
   cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
-LEVIS_EVAL_JUDGE=0 LEVIS_EVAL_BUDGET_USD=4 LEVIS_EVAL_SPEND_FILE=~/levis-eval-spend.json \
+TEXTUS_EVAL_JUDGE=0 TEXTUS_EVAL_BUDGET_USD=4 TEXTUS_EVAL_SPEND_FILE=~/textus-eval-spend.json \
   cargo test --lib live_eval::live_agent_builtin -- --ignored --nocapture
 ```
 
-The whole suite is about $2 at list prices with `LEVIS_EVAL_JUDGE=0`
-(76 cases); `LEVIS_EVAL_FILTER=builtin/` or `route/` runs one half. The
-judge (`LEVIS_EVAL_JUDGE` unset) roughly doubles the cost; the cheaper
+The whole suite is about $2 at list prices with `TEXTUS_EVAL_JUDGE=0`
+(76 cases); `TEXTUS_EVAL_FILTER=builtin/` or `route/` runs one half. The
+judge (`TEXTUS_EVAL_JUDGE` unset) roughly doubles the cost; the cheaper
 way is to judge the `agent-builtin.jsonl` rows afterwards with subagents,
 each row carrying its rubric and the judge's material. Pass bar: every automatic check;
 judge good or acceptable on at least 90% of each skill's cases; routing
@@ -279,7 +279,7 @@ none in at least 95%.
 **Judging** (reported, not asserted). Round 1 had Opus 5.5 grade
 faithfulness, helpfulness, minimality, tone and correctness from 1 to 5
 against each case's rubric, through the API. Since round 2 the runs use
-`LEVIS_EVAL_JUDGE=0` and the grading is done by Claude subagents reading the
+`TEXTUS_EVAL_JUDGE=0` and the grading is done by Claude subagents reading the
 recorded rows (`<suite>.jsonl` carries everything a judge needs: input,
 every tool call and result, the composed diff, the shown completion, the
 applied grammar fixes, and the rubric), on the same five criteria with a
@@ -293,29 +293,29 @@ there for runs that want it.
 From `src-tauri/`:
 
 ```sh
-LEVIS_ANTHROPIC_KEY_FILE=/path/to/key cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
+TEXTUS_ANTHROPIC_KEY_FILE=/path/to/key cargo test --lib live_eval -- --ignored --nocapture --test-threads=1
 ```
 
 `--test-threads=1` runs the suites one after another; each suite runs six
 cases at a time itself. Useful variables:
 
-| Variable                   | Effect                                                                |
-| -------------------------- | --------------------------------------------------------------------- |
-| `LEVIS_EVAL_FILTER`        | Only cases whose id contains one of these comma-separated substrings  |
-| `LEVIS_EVAL_AGENT_MODEL`   | Run the agent matrix on another model                                 |
-| `LEVIS_EVAL_WRITING_MODEL` | Run completion and grammar on another model                           |
-| `LEVIS_EVAL_JUDGE=0`       | Automatic checks only (much cheaper, about a third of the requests)   |
-| `LEVIS_EVAL_JOBS`          | Concurrent cases (default 6)                                          |
-| `LEVIS_EVAL_OUT`           | Output folder (default: a new folder under the system temp dir)       |
-| `LEVIS_EVAL_BUDGET_USD`    | Stop starting cases once this run has spent this much (list prices)   |
-| `LEVIS_EVAL_SPEND_FILE`    | A `{"spent_usd", "runs"}` ledger each finished suite adds its cost to |
+| Variable                    | Effect                                                                |
+| --------------------------- | --------------------------------------------------------------------- |
+| `TEXTUS_EVAL_FILTER`        | Only cases whose id contains one of these comma-separated substrings  |
+| `TEXTUS_EVAL_AGENT_MODEL`   | Run the agent matrix on another model                                 |
+| `TEXTUS_EVAL_WRITING_MODEL` | Run completion and grammar on another model                           |
+| `TEXTUS_EVAL_JUDGE=0`       | Automatic checks only (much cheaper, about a third of the requests)   |
+| `TEXTUS_EVAL_JOBS`          | Concurrent cases (default 6)                                          |
+| `TEXTUS_EVAL_OUT`           | Output folder (default: a new folder under the system temp dir)       |
+| `TEXTUS_EVAL_BUDGET_USD`    | Stop starting cases once this run has spent this much (list prices)   |
+| `TEXTUS_EVAL_SPEND_FILE`    | A `{"spent_usd", "runs"}` ledger each finished suite adds its cost to |
 
 Single suites: `cargo test --lib live_eval::live_agent_matrix -- --ignored --nocapture`
 (also `live_agent_builtin`, `live_completion_matrix`, `live_grammar_matrix`,
 `live_agent_model_comparison`, `live_writing_model_comparison`,
 `live_agent_caches_across_steps`, `live_lists_every_model`).
 `live_eval::list_eval_cases` is free and needs no key: it prints every case
-id per suite after `LEVIS_EVAL_FILTER`, for sizing a run before paying for it;
+id per suite after `TEXTUS_EVAL_FILTER`, for sizing a run before paying for it;
 `live_eval::list_builtin_cases` does the same for the built-in skills suite
 in more detail (see "Built-in skills suite").
 
@@ -344,10 +344,10 @@ nothing about the prompts.
 
 Budget: every request's usage is recorded and priced (Sonnet 5.5 $2 / $10
 per million input / output tokens, cache writes $2.50 and reads $0.20;
-Haiku 5.5 $0.10 / $0.50). With `LEVIS_EVAL_JUDGE=0` the round-2 baseline
+Haiku 5.5 $0.10 / $0.50). With `TEXTUS_EVAL_JUDGE=0` the round-2 baseline
 cost about $0.01 for completion, $0.01 for grammar and a few dollars for
 the 150 agent cases (see Results); an agent case averages about $0.02-0.03.
-Prefer `LEVIS_EVAL_FILTER` while iterating, set `LEVIS_EVAL_BUDGET_USD`,
+Prefer `TEXTUS_EVAL_FILTER` while iterating, set `TEXTUS_EVAL_BUDGET_USD`,
 and run the whole matrix before and after a change. Completion and grammar
 cost about a cent per full suite, so iterate on them with the whole suite.
 The test binary's artifact name doesn't depend on the checkout, so with a
@@ -396,10 +396,10 @@ which re-sent a read result uncached on the step after it). OpenAI
 (Responses API) and chat-completions servers (DeepSeek, Qwen, Kimi, ...)
 cache prefixes on their own and get the same stable history; nothing is
 sent for them. No `prompt_cache_key`: OpenAI routes requests by their first
-tokens, which every Levis request shares, and the key only matters past
+tokens, which every Textus request shares, and the key only matters past
 about 15 requests a minute on one prefix.
 
-Measured with `LEVIS_EVAL_FILTER=five-turn LEVIS_EVAL_JUDGE=0` (Sonnet 5.5;
+Measured with `TEXTUS_EVAL_FILTER=five-turn TEXTUS_EVAL_JUDGE=0` (Sonnet 5.5;
 before = run3, after = `ai-eval/cache`), tokens read / written per message,
 both of its requests together:
 
@@ -575,7 +575,7 @@ UI]`: the agent had invented "the 连续性 skill"); the project section
   `process_talk` flags replies that describe how proposals fit together.
 
 **Re-run (run4-fix, automatic checks only).** Only the affected cases,
-`LEVIS_EVAL_JUDGE=0`, outputs read by hand:
+`TEXTUS_EVAL_JUDGE=0`, outputs read by hand:
 
 | Run                                  | Cases |               All checks passed | Before (same cases) |
 | ------------------------------------ | ----: | ------------------------------: | ------------------: |
@@ -670,10 +670,10 @@ What the judges found across rows, and what was changed for it:
 1. **The agent pointed at UI that isn't there**: both unsaved-draft
    replies sent the user to the project menu, but without a project folder
    the project bar shows nothing (a folder too broad shows only a notice).
-   `workspace_section` now names only Settings > Levis AI > Project Folder
+   `workspace_section` now names only Settings > Textus AI > Project Folder
    then, and says the bar appears once there is a project folder.
 2. **Labels it wasn't given never came up**: answers told users to write a
-   hidden `.levis/style.md` by hand and gave no way back after choosing a
+   hidden `.textus/style.md` by hand and gave no way back after choosing a
    folder. The prompt now names Create style profile, Open style profile,
    the Style chip, Use the document's folder, Accept and Reject; says the
    library goes by the user's message or the open document (it said "the
@@ -725,7 +725,7 @@ went on from the cursor without writing the word out in five of the 19
 judged cases, which the join won't place, so 12 of 19 passed (run3: 16)
 and `ru/heading` still got the word alone (`run3-fix/try-word-in-before`).
 
-Re-run with `LEVIS_EVAL_JUDGE=0`, only the judged cases, output in
+Re-run with `TEXTUS_EVAL_JUDGE=0`, only the judged cases, output in
 `../assets/ai-eval/run3-fix`:
 
 | Suite                       | run3 (same cases) | run3-fix |   Cost |
@@ -740,7 +740,7 @@ of 34 and came out at 269 characters with its parallel list intact. The
 one failure is a Chinese reply quoting with ASCII marks
 (`style/cross/en-profile-zh-doc`, which passed in the two earlier
 re-runs). Read from the rows: the unsaved drafts name only Settings >
-Levis AI > Project Folder; concept answers are short, use Create style
+Textus AI > Project Folder; concept answers are short, use Create style
 profile, the Style chip and completion, and say to choose a folder that
 holds both; no glosses; `meeting/en/to-tasks` no longer mentions `*`; the
 English request under a Chinese profile got English replies in all three
@@ -761,9 +761,9 @@ $17.12 of the $19 cap.
 ### Round 2 integration (run3)
 
 Branch `integrate/ai-0.9.7`: `dev` (with #48) plus #42 (the concept model:
-UI, guides, `.levis/agent.md` as its own layer) and #47 (the round-2
+UI, guides, `.textus/agent.md` as its own layer) and #47 (the round-2
 fixes), merged so that every place uses #42's names. Agent Sonnet 5.5,
-writing Haiku 5.5, `LEVIS_EVAL_JUDGE=0`, output in
+writing Haiku 5.5, `TEXTUS_EVAL_JUDGE=0`, output in
 `../assets/ai-eval/run3` (its `cases-index.json` has all 250 rows).
 
 What the merge changed for the model:
@@ -783,7 +783,7 @@ What the merge changed for the model:
   (`agentmd/global-plus-workspace`); `<!-- -->` comments are stripped from
   style.md and library entries.
 - **UI**: errors and tutorial cards that sent the user to "Settings → AI"
-  now name the Levis AI page (from `AI_NAME`), with a test over every
+  now name the Textus AI page (from `AI_NAME`), with a test over every
   Settings path in the UI copy.
 - **Cases**: a new `concept/` group (8 cases: en, zh, ja) asks how to make
   the agent write like the user, remember characters, follow rules
@@ -825,11 +825,11 @@ agent cases run2 also ran, run3 passes 41 and replies are a little shorter
 
 Read from the rows: the concept answers name the menu item and the
 Settings row in the user's language ("在项目菜单里选“新建资料库条目…”",
-"設定 > Levis AI > プロジェクトフォルダー", "Settings > Levis AI > Writing
+"設定 > Textus AI > プロジェクトフォルダー", "Settings > Textus AI > Writing
 Instructions (agent.md) > Edit agent.md"), keep the style profile and the
 writing instructions apart ("文风档案管你怎么写，写作要求管我该怎么做"), and
 say what the project folder holds now. The unsaved-draft replies point to
-the project menu and Settings > Levis AI > Project Folder in the UI's
+the project menu and Settings > Textus AI > Project Folder in the UI's
 words - but an unsaved draft has no project bar, so the menu isn't there
 (fixed after judging, below).
 
@@ -841,7 +841,7 @@ reading the rows, no API cost.
 ### Round 2 after the fixes (run2)
 
 Branch `fix/ai-eval-round2`, agent Sonnet 5.5, writing Haiku 5.5,
-`LEVIS_EVAL_JUDGE=0`, output in `../assets/ai-eval/run2`. Completion and
+`TEXTUS_EVAL_JUDGE=0`, output in `../assets/ai-eval/run2`. Completion and
 grammar were re-run whole (a cent each; the join and parsing changes touch
 every case). The agent re-run covers the 61 cases that failed a check or
 that the run1 judges didn't rate good, plus 16 that were good as a
@@ -925,7 +925,7 @@ Judging: subagents, no API cost.
 
 Current `dev` with every 0.9.7 change, including round 1's prompt edits
 (never verified live until now); agent Sonnet 5.5, writing Haiku 5.5,
-`LEVIS_EVAL_JUDGE=0` (the scoring is done by reading the recorded rows).
+`TEXTUS_EVAL_JUDGE=0` (the scoring is done by reading the recorded rows).
 Run at commit `8450f44`; the checker fixes listed below came after it.
 
 | Suite      |    Pass | p50 / p90 ms | Requests |   Cost |
@@ -1047,7 +1047,7 @@ tuned prompts erased; Haiku's after-tuning score is promising, but its
 baseline failures were the kind the prompt only partly prevents, and 17
 cases are too few to move the default to a model a tenth the price on.
 Re-run the comparison with the full matrix
-(`LEVIS_EVAL_AGENT_MODEL=claude-haiku-5-5`) before reconsidering.
+(`TEXTUS_EVAL_AGENT_MODEL=claude-haiku-5-5`) before reconsidering.
 
 #### Completion (Haiku 5.5, before only)
 
@@ -1098,7 +1098,7 @@ Listed with the results they came from: Results > Round 4 (root causes and fixes
 Grouped by root cause, each fixed at the layer where it lives. Every
 deterministic change has unit tests (`client.rs`, `checks.rs`, `agent.rs`,
 `harness.rs`, `doc-markdown.test.ts`, `grammar-check-plugin.test.ts`,
-`chat/proposal.test.ts`).
+`ai/chat/proposal.test.ts`).
 
 1. **Completion: the join** (`client.rs`). The model no longer decides
    whether to repeat a word. `word_at_cursor` takes the word the cursor is
@@ -1187,7 +1187,7 @@ deterministic change has unit tests (`client.rs`, `checks.rs`, `agent.rs`,
    none because the draft is unsaved, or none because the folder is too
    broad - with the UI's names and where to change it (the AI panel's
    folder row, Choose project folder… / 选择项目文件夹…, or Settings >
-   Levis AI), and what to tell the user; the file tools are only mentioned
+   Textus AI), and what to tell the user; the file tools are only mentioned
    when they are offered. It also learns what the writing instructions,
    skills, the library, the style profile, "Learn my style" and the
    Ask/Edit/Plan modes are called. Ask mode names Edit mode as the way to

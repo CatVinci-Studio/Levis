@@ -79,7 +79,7 @@ Ce qu'il est utile d'écrire ici, par exemple\u00a0:
                 pour le grand public.
 
 Les instructions propres à un seul projet vont dans le fichier
-.levis/agent.md de ce projet (dans le panneau IA, menu du projet >
+.textus/agent.md de ce projet (dans le panneau IA, menu du projet >
 Modifier les instructions d'écriture du projet). Les deux sont
 envoyées\u202f; en cas de contradiction, celles du projet l'emportent.
 
@@ -148,6 +148,9 @@ utiliser une.
   toolReadFile: "Lecture de {arg}",
   toolUseSkill: "Utilisation de la compétence {arg}",
   toolAddComment: "Ajout d'un commentaire",
+  toolCheckConventions: "Vérification des conventions d'écriture",
+  toolMeasureText: "Comptage des mots",
+  toolWorking: "Traitement en cours",
   menuToggleSplitView: "Vue partagée",
   shortcutToggleSplitView:
     "Activer/désactiver la vue partagée (source | aperçu)",
@@ -225,14 +228,35 @@ utiliser une.
   outlineCollapse: "Replier",
   outlineExpand: "Déplier",
   wordsUnit: "mots",
-  textusNoticeTitle: "Levis devient Textus",
-  textusNoticeText:
-    "Textus est la nouvelle version de Levis, avec un nouveau nom et une nouvelle icône. Ceci est la dernière version de Levis. Vos documents restent où ils sont, et au premier lancement, Textus propose de récupérer vos réglages, votre historique et vos clés.",
-  textusNoticeOk: "Obtenir Textus",
-  textusNoticeLater: "Plus tard",
-  textusNoticeRow: "Levis devient Textus",
-  textusNoticeRowHint:
-    "Ceci est la dernière version de Levis. Textus peut récupérer vos réglages, votre historique et vos clés.",
+  levisImportTitle: "Récupérer vos données de Levis ?",
+  levisImportText:
+    "Textus est la nouvelle version de Levis. Vos réglages, instructions d’écriture et historique de Levis se trouvent sur cet ordinateur. L’import se contente de les copier ; Levis garde tout.",
+  levisImportOk: "Importer",
+  levisImportLater: "Plus tard",
+  levisImportKeysTitle: "Copier aussi les clés d’API et les connexions ?",
+  levisImportKeysText:
+    "Vos clés d’API de Levis et vos connexions à ChatGPT ou Claude peuvent suivre. Les fichiers copiés ne sont lisibles que par vous.",
+  levisImportKeysOk: "Les copier",
+  levisImportKeysSkip: "Ne pas les copier",
+  levisImportDone: "Importé depuis Levis : {items}.",
+  levisImportNothing:
+    "Rien de nouveau à importer : Textus a déjà tout ce que Levis possède.",
+  levisImportFailed: "Certains fichiers n’ont pas pu être copiés :",
+  levisImportRow: "Importer depuis Levis",
+  levisImportRowHint:
+    "Copie réglages, historique, thèmes et plus encore. Levis garde tout.",
+  levisImportButton: "Importer…",
+  levisImportNone: "Aucune donnée de Levis sur cet ordinateur.",
+  levisItemSettings: "réglages",
+  levisItemChatHistory: "conversations avec l’IA",
+  levisItemClipboardHistory: "historique du presse-papiers",
+  levisItemThemes: "thèmes",
+  levisItemWritingInstructions: "instructions d’écriture",
+  levisItemSkills: "compétences",
+  levisItemRecentFiles: "fichiers récents",
+  levisItemSession: "documents ouverts",
+  levisItemDrafts: "brouillons non enregistrés",
+  levisItemCredentials: "clés d’API et connexions",
   alertNote: "Remarque",
   alertTip: "Astuce",
   alertImportant: "Important",
@@ -578,8 +602,8 @@ utiliser une.
   updateDownloading: "Téléchargement de la mise à jour…",
   updateFailed: "Échec de la mise à jour\u00a0:",
   updateViaPackageManager: `${APP_NAME} a été installé par votre gestionnaire de paquets. Mettez-le à jour depuis celui-ci.`,
-  cliCommandLabel: "Commande de terminal «\u00a0levis\u00a0»",
-  cliCommandHint: `Permet d'ouvrir ${APP_NAME} (ou un fichier) depuis le terminal, par exemple\u00a0: levis README.md`,
+  cliCommandLabel: "Commande de terminal «\u00a0textus\u00a0»",
+  cliCommandHint: `Permet d'ouvrir ${APP_NAME} (ou un fichier) depuis le terminal, par exemple\u00a0: textus README.md`,
   cliCommandInstalled: "Installée",
   cliCommandNotInstalled: "Non installée",
   cliCommandInstallButton: "Installer",
@@ -711,6 +735,11 @@ utiliser une.
   fileChangedOnDiskMessage:
     "Ce fichier a été modifié sur le disque par une autre application. L'enregistrer écrasera ces modifications.",
   fileChangedOnDiskOverwrite: "Écraser",
+  saveFailedTitle: "Enregistrement impossible",
+  saveFailedMessage:
+    "«\u00a0{name}\u00a0» n'a pas été enregistré. Vos modifications sont conservées.",
+  saveReadOnlyHint:
+    "Ce fichier est en lecture seule. Utilisez Enregistrer sous pour conserver vos modifications dans un nouveau fichier.",
   unsavedIndicator: "Modifications non enregistrées",
   largeDocBadge: "Document volumineux",
   largeDocHint:

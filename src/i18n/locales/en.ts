@@ -73,7 +73,7 @@ Worth writing here, for example:
   Terms        Write "e-mail", never "email".
   Background   I write long-form science journalism for a general audience.
 
-Instructions for one project only go in that project's .levis/agent.md
+Instructions for one project only go in that project's .textus/agent.md
 (the AI panel's project menu > Edit project writing instructions).
 Both are sent; where they disagree, the project's win.
 
@@ -140,6 +140,9 @@ type /name in a conversation to use one.
   toolReadFile: "Reading {arg}",
   toolUseSkill: "Using the skill {arg}",
   toolAddComment: "Adding a comment",
+  toolCheckConventions: "Checking the writing conventions",
+  toolMeasureText: "Counting the words",
+  toolWorking: "Working",
   menuToggleSplitView: "Split View",
   shortcutToggleSplitView: "Toggle split view (source | preview)",
   menuToggleZenMode: "Zen Mode",
@@ -210,14 +213,35 @@ type /name in a conversation to use one.
   outlineCollapse: "Collapse",
   outlineExpand: "Expand",
   wordsUnit: "words",
-  textusNoticeTitle: "Levis is now Textus",
-  textusNoticeText:
-    "Textus is the new version of Levis, with a new name and a new icon. This is the last version of Levis. Your documents stay where they are, and on its first launch Textus offers to bring over your settings, history and keys.",
-  textusNoticeOk: "Get Textus",
-  textusNoticeLater: "Later",
-  textusNoticeRow: "Levis is now Textus",
-  textusNoticeRowHint:
-    "This is the last version of Levis. Textus brings over your settings, history and keys.",
+  levisImportTitle: "Bring over your Levis data?",
+  levisImportText:
+    "Textus is the new version of Levis. Your Levis settings, writing instructions and history are on this computer. Importing copies them; Levis keeps everything.",
+  levisImportOk: "Import",
+  levisImportLater: "Not now",
+  levisImportKeysTitle: "Also copy API keys and sign-ins?",
+  levisImportKeysText:
+    "Your Levis API keys and ChatGPT or Claude sign-ins can come along. The copied files stay readable only by you.",
+  levisImportKeysOk: "Copy them",
+  levisImportKeysSkip: "Leave them",
+  levisImportDone: "Imported from Levis: {items}.",
+  levisImportNothing:
+    "Nothing new to import: Textus already has what Levis has.",
+  levisImportFailed: "Some files couldn’t be copied:",
+  levisImportRow: "Import from Levis",
+  levisImportRowHint:
+    "Copies settings, history, themes and more. Levis keeps everything.",
+  levisImportButton: "Import…",
+  levisImportNone: "No Levis data on this computer.",
+  levisItemSettings: "settings",
+  levisItemChatHistory: "AI conversations",
+  levisItemClipboardHistory: "clipboard history",
+  levisItemThemes: "themes",
+  levisItemWritingInstructions: "writing instructions",
+  levisItemSkills: "skills",
+  levisItemRecentFiles: "recent files",
+  levisItemSession: "open documents",
+  levisItemDrafts: "unsaved drafts",
+  levisItemCredentials: "API keys and sign-ins",
   alertNote: "Note",
   alertTip: "Tip",
   alertImportant: "Important",
@@ -556,8 +580,8 @@ type /name in a conversation to use one.
   updateDownloading: "Downloading update…",
   updateFailed: "Update failed:",
   updateViaPackageManager: `${APP_NAME} was installed by your package manager. Update it there.`,
-  cliCommandLabel: "'levis' Terminal Command",
-  cliCommandHint: `Lets you open ${APP_NAME} (or a file) from the terminal, e.g. levis README.md`,
+  cliCommandLabel: "'textus' Terminal Command",
+  cliCommandHint: `Lets you open ${APP_NAME} (or a file) from the terminal, e.g. textus README.md`,
   cliCommandInstalled: "Installed",
   cliCommandNotInstalled: "Not installed",
   cliCommandInstallButton: "Install",
@@ -682,6 +706,10 @@ type /name in a conversation to use one.
   fileChangedOnDiskMessage:
     "This file has been changed on disk by another program. Saving will overwrite those changes.",
   fileChangedOnDiskOverwrite: "Overwrite",
+  saveFailedTitle: "Couldn't Save",
+  saveFailedMessage: "“{name}” wasn't saved. Your changes are still here.",
+  saveReadOnlyHint:
+    "The file is read-only. Use Save As to keep your changes in a new file.",
   unsavedIndicator: "Unsaved changes",
   largeDocBadge: "Large document",
   largeDocHint:

@@ -9,21 +9,21 @@ description: >-
   ton, Ton, тон).
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "user-only"
-  levis-category: "revise"
-  levis-packs: "contract craft#plain standards#register"
-  levis-sources: "Our own text. Plain language summarised from the Federal Plain Language Guidelines, GOV.UK (OGL v3.0) and digital.gov; politeness rules summarised from 敬語の指針 and 公用文作成の考え方 (文化庁), 국어기본법, Decreto 9.758/2019, Lei 15.263/2025 and DIN SPEC 33429."
-  levis-aliases-en: "tone, formal, plain"
-  levis-aliases-zh: "调整语气, 语气, 改正式"
-  levis-aliases-zh-Hant: "調整語氣, 語氣"
-  levis-aliases-ja: "口調を変える, 口調, 敬体, 常体"
-  levis-aliases-ko: "어조, 말투"
-  levis-aliases-es: "tono"
-  levis-aliases-fr: "ton"
-  levis-aliases-de: "ton"
-  levis-aliases-ru: "тон"
-  levis-aliases-pt: "tom"
+  textus-version: "1"
+  textus-invocation: "user-only"
+  textus-category: "revise"
+  textus-packs: "contract craft#plain standards#register"
+  textus-sources: "Our own text. Plain language summarised from the Federal Plain Language Guidelines, GOV.UK (OGL v3.0) and digital.gov; politeness rules summarised from 敬語の指針 and 公用文作成の考え方 (文化庁), 국어기본법, Decreto 9.758/2019, Lei 15.263/2025 and DIN SPEC 33429."
+  textus-aliases-en: "tone, formal, plain"
+  textus-aliases-zh: "调整语气, 语气, 改正式"
+  textus-aliases-zh-Hant: "調整語氣, 語氣"
+  textus-aliases-ja: "口調を変える, 口調, 敬体, 常体"
+  textus-aliases-ko: "어조, 말투"
+  textus-aliases-es: "tono"
+  textus-aliases-fr: "ton"
+  textus-aliases-de: "ton"
+  textus-aliases-ru: "тон"
+  textus-aliases-pt: "tom"
 ---
 
 # Change tone

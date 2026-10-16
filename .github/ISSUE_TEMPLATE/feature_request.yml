@@ -5,9 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please search [existing issues](https://github.com/CatVinci-Studio/Levis/issues?q=is%3Aissue) first; a 👍 on a matching one helps us see what matters. English or Chinese are both fine.
+        Please search [existing issues](https://github.com/CatVinci-Studio/Textus/issues?q=is%3Aissue) first; a 👍 on a matching one helps us see what matters. English or Chinese are both fine.
 
-        提交前请先搜索[已有的 issue](https://github.com/CatVinci-Studio/Levis/issues?q=is%3Aissue)，给相同的建议点 👍 能帮我们判断优先级。中文或英文都可以。
+        提交前请先搜索[已有的 issue](https://github.com/CatVinci-Studio/Textus/issues?q=is%3Aissue)，给相同的建议点 👍 能帮我们判断优先级。中文或英文都可以。
 
   - type: textarea
     id: problem

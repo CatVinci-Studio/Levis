@@ -8,7 +8,7 @@
 
 [Apple Developer › Identifiers](https://developer.apple.com/account/resources/identifiers/list)：
 
-- iOS 版和 macOS 版用同一个套装 ID `com.chengaoshen.levis`（`tauri.conf.json` 的 `identifier`）。这个 ID 会在改名 Textus（1.0.0）时换成 `com.catvinci.textus`，届时要在这里注册新的 App ID，并在 App Store Connect 新建对应的 App；在那之前不要改它。App ID 不区分平台；macOS 版用 Developer ID 签名、不走 App Store，所以这里可能还没有注册过，没有就新注册一个。共用同一个 ID，将来 macOS 版上 Mac App Store 时，可以和 iOS 版合并成同一个商品（Universal Purchase）。
+- iOS 版和 macOS 版用同一个套装 ID `com.catvinci.textus`（`tauri.conf.json` 的 `identifier`）。1.0.0 改名 Textus 时从 Levis 的 `com.chengaoshen.levis` 换成了它，所以要在这里注册新的 App ID，并在 App Store Connect 新建对应的 App（旧的 Levis 记录不再使用）。App ID 不区分平台；macOS 版用 Developer ID 签名、不走 App Store，所以这里可能还没有注册过，没有就新注册一个。共用同一个 ID，将来 macOS 版上 Mac App Store 时，可以和 iOS 版合并成同一个商品（Universal Purchase）。
 - Capabilities 不需要额外开启。以后要用 iCloud 容器时再加 iCloud。
 
 ### 2. 在 App Store Connect 新建 App
@@ -16,10 +16,10 @@
 [App Store Connect › 我的 App](https://appstoreconnect.apple.com/apps) › ＋ › 新建 App：
 
 - 平台：iOS
-- 名称：Levis - Markdown Editor（"Levis"已被占用；中文本地化名称另填）
+- 名称：Textus - Markdown Editor（App Store 上已有名为 "TextUs" 的应用；中文本地化名称另填）
 - 主要语言：英文（另加简体中文本地化）
-- 套装 ID：`com.chengaoshen.levis`（改名 Textus 时换成 `com.catvinci.textus`，见上）
-- SKU：例如 `levis-ios`
+- 套装 ID：`com.catvinci.textus`（见上）
+- SKU：例如 `textus-ios`
 - 创建后在 App › 价格与销售范围里，取消"在 Apple 芯片 Mac 上提供"：Mac 上已经有原生的 macOS 版，不要让 iPad 版在 Mac App Store 里重复出现。
 
 ### 3. 创建 App Store Connect API 密钥
@@ -30,7 +30,7 @@ App Store Connect › 用户和访问 › 集成 › App Store Connect API：
 
 然后在团队密钥 › ＋：
 
-- 名称：例如 `Levis CI`；访问权限：**管理（Admin）**。CI 用苹果云端管理的分发证书签名，只有 Admin 密钥能用它；选"App 管理"会在签名一步失败。
+- 名称：例如 `Textus CI`；访问权限：**管理（Admin）**。CI 用苹果云端管理的分发证书签名，只有 Admin 密钥能用它；选"App 管理"会在签名一步失败。
 - 记下 **Issuer ID** 和 **密钥 ID**，下载 `AuthKey_<密钥ID>.p8`。这个文件只能下载一次，请妥善保存。
 
 ### 4. 欧盟交易商身份
@@ -76,7 +76,7 @@ GitHub 仓库 › Settings › Secrets and variables › Actions，新增：
 
 - **描述、关键词、副标题、宣传文本**：可以从 README 的"特点"改写。
 - **支持网址**：`https://levis.catvinci.com`；**隐私政策网址**：需要一个页面，可以放在官网 `/privacy`。
-- **App 隐私**问卷：Levis 不收集数据，选"不收集数据"。AI 请求是用户自己配置的服务商，直接从设备发出，不经过我们的服务器。
+- **App 隐私**问卷：Textus 不收集数据，选"不收集数据"。AI 请求是用户自己配置的服务商，直接从设备发出，不经过我们的服务器。
 - **年龄分级**：4+。
 - **出口合规**：只用 HTTPS 等标准加密，已在 `src-tauri/Info.ios.plist` 里声明 `ITSAppUsesNonExemptEncryption = false`（只用 HTTPS 等标准加密），上传后不会再问。
 - **审核备注**：说明 AI 功能需要用户自己的 API Key，并提供一个测试用的 Key 或说明如何使用 Ollama 等方式；没有 Key 时编辑器本身可以完整使用。

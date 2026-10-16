@@ -4,9 +4,9 @@ description: >-
   Writing conventions for Traditional Chinese (Taiwan by default, Hong Kong noted): typography and punctuation, numbers, words, dialogue, register, 公文 函, and AI tells.
 license: MIT
 metadata:
-  levis-version: "1"
-  levis-invocation: "hidden"
-  levis-sources: "Our own text. Summarised from 教育部《重訂標點符號手冊》 (summarised only, never quoted); quoted or summarised from 行政院 文書處理手冊 and 公文書橫式書寫數字使用原則 (government documents); OpenCC phrase data (Apache-2.0, ideas); W3C clreq (W3C licence); Humanizer-zh (MIT, ideas)."
+  textus-version: "1"
+  textus-invocation: "hidden"
+  textus-sources: "Our own text. Summarised from 教育部《重訂標點符號手冊》 (summarised only, never quoted); quoted or summarised from 行政院 文書處理手冊 and 公文書橫式書寫數字使用原則 (government documents); OpenCC phrase data (Apache-2.0, ideas); W3C clreq (W3C licence); Humanizer-zh (MIT, ideas)."
 ---
 
 ## typography

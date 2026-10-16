@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { LANGS, resolveStrings } from "../i18n/strings";
-import { installTestLocalStorage } from "../test-local-storage";
+import { installTestLocalStorage } from "../dev/test-local-storage";
 import { useTutorial } from "./useTutorial";
 import { useTutorialDocumentEvaluation } from "./useTutorialDocumentEvaluation";
 import { TUTORIAL_STEPS } from "./tutorial-steps";

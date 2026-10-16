@@ -1,10 +1,10 @@
 import { useSettings } from "../settings/SettingsContext";
 import { localeOf } from "../i18n/strings";
-import { useChatHistory, deleteConversation } from "../ai/chat-history";
+import { useChatHistory, deleteConversation } from "../ai/chat/chat-history";
 import { RESTORE_CHAT_EVENT } from "../utils/events";
 import { CloseIcon } from "../ui/icons";
 import { basename, dirname } from "../utils/path";
-import type { ChatHistoryEntry } from "../ai/chat-history";
+import type { ChatHistoryEntry } from "../ai/chat/chat-history";
 
 /** Conversations by the folder their document lives in - the project they
  *  belong to - most recently active group first. Unsaved drafts form one
@@ -21,7 +21,7 @@ export function groupByProject(
 }
 
 /**
- * Sidebar panel over the saved agent conversations (see ai/chat-history.ts),
+ * Sidebar panel over the saved agent conversations (see ai/chat/chat-history.ts),
  * grouped by project folder. Clicking an entry restores it as the live
  * conversation in the Agent panel (via RESTORE_CHAT_EVENT - same decoupling
  * as the clipboard panel's insert event).

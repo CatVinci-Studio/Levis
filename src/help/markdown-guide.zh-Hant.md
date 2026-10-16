@@ -1,6 +1,6 @@
-# Levis Markdown 指南
+# Textus Markdown 指南
 
-這份內建文件示範 Levis 支援的 Markdown 呈現效果。它只是一份未儲存的草稿，可以隨意編輯、試驗，關閉時選擇不儲存即可。
+這份內建文件示範 Textus 支援的 Markdown 呈現效果。它只是一份未儲存的草稿，可以隨意編輯、試驗，關閉時選擇不儲存即可。
 
 > [!TIP]
 > 按 `Cmd+/` 可在所見即所得與原始碼模式之間切換，看看每個範例背後的原始語法。
@@ -25,7 +25,7 @@ GitHub 風格的提示區塊：
 
 **粗體**（`**文字**`）、*斜體*（`*文字*`）、***粗斜體***、~~刪除線~~（`~~文字~~`）、==醒目提示==（`==文字==`），以及 `行內程式碼`。
 
-連結的寫法：[Levis 的原始碼存放庫](https://github.com/CatVinci-Studio/Levis)。行內 HTML 也會呈現，例如鍵盤按鍵 <kbd>Cmd</kbd> + <kbd>S</kbd>。
+連結的寫法：[Textus 的原始碼存放庫](https://github.com/CatVinci-Studio/Textus)。行內 HTML 也會呈現，例如鍵盤按鍵 <kbd>Cmd</kbd> + <kbd>S</kbd>。
 
 行內數學公式：質能等價 $E = mc^2$，歐拉恆等式 $e^{i\pi} + 1 = 0$。
 
@@ -69,7 +69,7 @@ def fib(n: int) -> int:
 
 ```rust
 fn main() {
-    let greeting = "你好，Levis";
+    let greeting = "你好，Textus";
     println!("{greeting}");
 }
 ```
@@ -113,14 +113,14 @@ gantt
 ```mermaid
 sequenceDiagram
     participant 你
-    participant Levis
-    你->>Levis: 輸入 Markdown
-    Levis-->>你: 即時呈現
+    participant Textus
+    你->>Textus: 輸入 Markdown
+    Textus-->>你: 即時呈現
 ```
 
 ## 圖片
 
-直接從剪貼簿貼上圖片，Levis 會把它存進文件旁邊的 `assets/` 資料夾，並插入參照。也可以手動撰寫：
+直接從剪貼簿貼上圖片，Textus 會把它存進文件旁邊的 `assets/` 資料夾，並插入參照。也可以手動撰寫：
 
 在**設定 → 編輯器與外觀 → 圖片**中，可以改為將新貼上的圖片上傳到你自己的圖片託管服務。上傳端點會以 `multipart/form-data` 的 `file` 欄位接收圖片，並以純文字回傳公開 URL，或將 URL 放在可自訂的 JSON 欄位中。上傳的檔案可以自動重新命名、保留原始檔名，或在每次上傳前詢問你。切換儲存方式時，既有的圖片參照都不會改變。
 
@@ -130,7 +130,7 @@ sequenceDiagram
 
 ## 檢視與模式
 
-除了所見即所得編輯器和原始碼模式（`Cmd+/`），Levis 還有三種寫作方式（在 Windows 和 Linux 上以 `Ctrl` 取代 `Cmd`；目前的按鍵設定可在「設定 → 快速鍵」中查看）：
+除了所見即所得編輯器和原始碼模式（`Cmd+/`），Textus 還有三種寫作方式（在 Windows 和 Linux 上以 `Ctrl` 取代 `Cmd`；目前的按鍵設定可在「設定 → 快速鍵」中查看）：
 
 - **分割檢視**（`Cmd+Shift+E`）：左邊是 Markdown 原始碼，右邊是呈現後的預覽，兩邊同步捲動。
 - **打字機模式**（設定 → 編輯器與外觀 → 檢視）：正在輸入的那一行始終保持在視窗中央——在編輯器、原始碼模式和分割檢視中都適用。

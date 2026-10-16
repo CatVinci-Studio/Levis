@@ -94,7 +94,7 @@ impl Engine for RulesEngine {
             Level::Strict => rules::Level::Strict,
         };
         let lang = rules::Lang::from_code(lang).or_else(|| rules::detect::guess(text));
-        rules::check_as(text, lang, &conv, level, &[], rules::registry::GC)
+        rules::check_as(text, lang, &conv, level, &[], rules::registry::GC, None)
             .into_iter()
             .map(|f| Finding {
                 rule: f.rule.to_string(),

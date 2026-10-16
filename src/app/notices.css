@@ -1,0 +1,49 @@
+/* Bottom-right notice when a newer release exists - update runs only when
+   the user clicks, and the app relaunches itself afterwards. */
+.update-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--radius-surface);
+  background: var(--bg);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--text-md);
+}
+
+.update-toast-secondary {
+  background: transparent;
+  color: var(--editor-muted, inherit);
+}
+
+/* Startup notice that a crash/force-quit's unsaved content was recovered as
+   extra tabs (see draft-autosave.ts) - opposite corner from .update-toast so
+   the two never overlap if both happen to show at once. */
+.draft-restored-toast {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--radius-surface);
+  background: var(--bg);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--text-md);
+}
+
+.unsaved-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--editor-accent);
+  flex-shrink: 0;
+}

@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
-import { useCloseOnOutsideClick } from "../utils/useCloseOnOutsideClick";
-import { useViewportClamp } from "../utils/useViewportClamp";
-import { ActionSheet } from "../mobile/ActionSheet";
-import { usePhoneLayout } from "../mobile/usePhoneLayout";
+import { useCloseOnOutsideClick } from "../utils/hooks/useCloseOnOutsideClick";
+import { useViewportClamp } from "../utils/hooks/useViewportClamp";
+import { ActionSheet } from "../ui/ActionSheet";
+import { usePhoneLayout } from "../ui/usePhoneLayout";
 import { usePresenceProps, usePresenceState } from "../ui/usePresence";
 import "./ContextMenu.css";
 
@@ -23,7 +23,7 @@ interface ContextMenuProps {
 }
 
 /** A menu at the pointer - or, on a phone, the same items as an action
- *  sheet from the bottom edge (mobile/ActionSheet.tsx). Render it inside a
+ *  sheet from the bottom edge (ui/ActionSheet.tsx). Render it inside a
  *  Presence (ui/usePresence.ts) for its exit. */
 export function ContextMenu(props: ContextMenuProps) {
   const phone = usePhoneLayout();
@@ -56,6 +56,11 @@ function PointerMenu({ x, y, items, onClose }: ContextMenuProps) {
       {...presence}
       className="context-menu floating-surface"
       style={{ ...pos, ...origin }}
+      // A press on an item doesn't take the focus: on Linux the button
+      // kept it, and once the menu closed it fell to the page - Tab then
+      // left the document instead of taking the suggestion that "Continue
+      // writing" had just put there.
+      onMouseDown={(e) => e.preventDefault()}
     >
       {items.map((item, i) =>
         item === "separator" ? (

@@ -4,13 +4,14 @@ import { getVersion } from "@tauri-apps/api/app";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Strings } from "../../i18n/strings";
-import { cli } from "../../ipc";
+import { cli } from "../../platform/ipc";
 import { flushPendingWrites } from "../../storage/pending-writes";
-import { selfUpdateAllowed } from "../../utils/distribution";
+import { selfUpdateAllowed } from "../../platform/distribution";
 import { canAutoUpdate } from "../../platform/capabilities";
 import { SettingRow } from "./controls";
-import { showTextusNotice } from "../textus-notice";
-import { isIOSApp } from "../../platform/capabilities";
+import { levisImport, type LevisImportStatus } from "../../platform/ipc";
+import type { Lang } from "../../i18n/strings";
+import { itemList, runLevisImport } from "../levis-import";
 
 // The General category's sections beyond plain settings rows.
 
@@ -19,7 +20,7 @@ import { isIOSApp } from "../../platform/capabilities";
  * check (useAppUpdate) is silent about being up to date and about errors;
  * a manual check is the opposite - the user asked, so "already latest" and
  * failures both get an explicit answer here. A package-manager build only
- * reports the new version - see utils/distribution.ts.
+ * reports the new version - see platform/distribution.ts.
  */
 export function UpdateSection({ t }: { t: Strings }) {
   const [version, setVersion] = useState("");
@@ -167,16 +168,37 @@ export function CliCommandSection({ t }: { t: Strings }) {
   );
 }
 
-/** Levis 0.9.8: where Textus, the next version, is (settings/textus-notice.ts). */
-export function TextusNoticeSection({ t }: { t: Strings }) {
-  if (isIOSApp) return null;
+/** Settings > General: bring a Levis installation in (again) - the same
+ *  flow the first launch offers (settings/levis-import.ts). Shown only
+ *  where there is a Levis installation to read. */
+export function LevisImportSection({ t, lang }: { t: Strings; lang: Lang }) {
+  const [status, setStatus] = useState<LevisImportStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    levisImport
+      .status()
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+  if (!status?.supported || status.items.length === 0) return null;
   return (
-    <SettingRow label={t.textusNoticeRow} hint={t.textusNoticeRowHint}>
+    <SettingRow
+      label={t.levisImportRow}
+      hint={`${t.levisImportRowHint} (${itemList(t, lang, status.items)})`}
+    >
       <button
         className="text-button settings-inline-button"
-        onClick={() => void showTextusNotice(t)}
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await runLevisImport(t, lang, status);
+          } finally {
+            setBusy(false);
+          }
+        }}
       >
-        {t.textusNoticeOk}
+        {t.levisImportButton}
       </button>
     </SettingRow>
   );

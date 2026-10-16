@@ -75,7 +75,7 @@ Was hier zum Beispiel hingehört:
   Hintergrund  Ich schreibe lange Wissenschaftsreportagen für ein breites Publikum.
 
 Anweisungen, die nur für ein Projekt gelten, gehören in dessen
-.levis/agent.md (Projektmenü im KI-Bereich > Projekt-Schreibanweisungen bearbeiten).
+.textus/agent.md (Projektmenü im KI-Bereich > Projekt-Schreibanweisungen bearbeiten).
 Beide werden gesendet; wo sie sich widersprechen, gelten die des Projekts.
 
 Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
@@ -141,6 +141,9 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   toolReadFile: "Liest {arg}",
   toolUseSkill: "Verwendet den Skill {arg}",
   toolAddComment: "Fügt einen Kommentar hinzu",
+  toolCheckConventions: "Prüft die Schreibkonventionen",
+  toolMeasureText: "Zählt die Wörter",
+  toolWorking: "Arbeitet",
   menuToggleSplitView: "Geteilte Ansicht",
   shortcutToggleSplitView: "Geteilte Ansicht ein/aus (Quelle | Vorschau)",
   menuToggleZenMode: "Zen-Modus",
@@ -212,14 +215,35 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   outlineCollapse: "Einklappen",
   outlineExpand: "Ausklappen",
   wordsUnit: "Wörter",
-  textusNoticeTitle: "Aus Levis wird Textus",
-  textusNoticeText:
-    "Textus ist die neue Version von Levis, mit neuem Namen und neuem Symbol. Dies ist die letzte Version von Levis. Deine Dokumente bleiben, wo sie sind, und beim ersten Start bietet Textus an, deine Einstellungen, deinen Verlauf und deine Schlüssel zu übernehmen.",
-  textusNoticeOk: "Textus holen",
-  textusNoticeLater: "Später",
-  textusNoticeRow: "Aus Levis wird Textus",
-  textusNoticeRowHint:
-    "Dies ist die letzte Version von Levis. Textus übernimmt deine Einstellungen, deinen Verlauf und deine Schlüssel.",
+  levisImportTitle: "Daten aus Levis übernehmen?",
+  levisImportText:
+    "Textus ist die neue Version von Levis. Auf diesem Computer liegen deine Einstellungen, Schreibanweisungen und dein Verlauf aus Levis. Die Übernahme kopiert sie nur; in Levis bleibt alles erhalten.",
+  levisImportOk: "Übernehmen",
+  levisImportLater: "Jetzt nicht",
+  levisImportKeysTitle: "Auch API-Schlüssel und Anmeldungen kopieren?",
+  levisImportKeysText:
+    "Deine API-Schlüssel aus Levis und deine Anmeldungen bei ChatGPT oder Claude können mitkommen. Die kopierten Dateien kannst nur du lesen.",
+  levisImportKeysOk: "Kopieren",
+  levisImportKeysSkip: "Nicht kopieren",
+  levisImportDone: "Aus Levis übernommen: {items}.",
+  levisImportNothing:
+    "Nichts Neues zu übernehmen: Textus hat bereits alles, was Levis hat.",
+  levisImportFailed: "Einige Dateien ließen sich nicht kopieren:",
+  levisImportRow: "Aus Levis übernehmen",
+  levisImportRowHint:
+    "Kopiert Einstellungen, Verlauf, Designs und mehr. In Levis bleibt alles erhalten.",
+  levisImportButton: "Übernehmen…",
+  levisImportNone: "Auf diesem Computer gibt es keine Daten aus Levis.",
+  levisItemSettings: "Einstellungen",
+  levisItemChatHistory: "KI-Unterhaltungen",
+  levisItemClipboardHistory: "Zwischenablage-Verlauf",
+  levisItemThemes: "Designs",
+  levisItemWritingInstructions: "Schreibanweisungen",
+  levisItemSkills: "Skills",
+  levisItemRecentFiles: "zuletzt geöffnete Dateien",
+  levisItemSession: "geöffnete Dokumente",
+  levisItemDrafts: "ungespeicherte Entwürfe",
+  levisItemCredentials: "API-Schlüssel und Anmeldungen",
   alertNote: "Hinweis",
   alertTip: "Tipp",
   alertImportant: "Wichtig",
@@ -561,8 +585,8 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   updateDownloading: "Update wird geladen…",
   updateFailed: "Update fehlgeschlagen:",
   updateViaPackageManager: `${APP_NAME} wurde über deinen Paketmanager installiert. Aktualisiere es dort.`,
-  cliCommandLabel: "Terminalbefehl „levis“",
-  cliCommandHint: `Öffnet ${APP_NAME} (oder eine Datei) aus dem Terminal, etwa mit levis README.md`,
+  cliCommandLabel: "Terminalbefehl „textus“",
+  cliCommandHint: `Öffnet ${APP_NAME} (oder eine Datei) aus dem Terminal, etwa mit textus README.md`,
   cliCommandInstalled: "Installiert",
   cliCommandNotInstalled: "Nicht installiert",
   cliCommandInstallButton: "Installieren",
@@ -691,6 +715,11 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   fileChangedOnDiskMessage:
     "Diese Datei wurde von einem anderen Programm geändert. Beim Speichern werden diese Änderungen überschrieben.",
   fileChangedOnDiskOverwrite: "Überschreiben",
+  saveFailedTitle: "Speichern fehlgeschlagen",
+  saveFailedMessage:
+    "„{name}“ wurde nicht gespeichert. Deine Änderungen sind noch da.",
+  saveReadOnlyHint:
+    "Die Datei ist schreibgeschützt. Mit „Speichern unter“ sicherst du deine Änderungen in einer neuen Datei.",
   unsavedIndicator: "Nicht gespeicherte Änderungen",
   largeDocBadge: "Großes Dokument",
   largeDocHint:

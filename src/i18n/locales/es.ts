@@ -78,7 +78,7 @@ Ejemplos de lo que conviene escribir aquí:
   Contexto     Escribo reportajes científicos extensos para el
                público general.
 
-Las instrucciones para un solo proyecto van en el .levis/agent.md de
+Las instrucciones para un solo proyecto van en el .textus/agent.md de
 ese proyecto (en el panel de IA, menú del proyecto >
 Editar instrucciones de escritura del proyecto). Se envían ambas; si
 se contradicen, prevalecen las del proyecto.
@@ -147,6 +147,9 @@ para usar una.
   toolReadFile: "Leyendo {arg}",
   toolUseSkill: "Usando la habilidad {arg}",
   toolAddComment: "Añadiendo un comentario",
+  toolCheckConventions: "Comprobando las convenciones de escritura",
+  toolMeasureText: "Contando las palabras",
+  toolWorking: "Trabajando",
   menuToggleSplitView: "Vista dividida",
   shortcutToggleSplitView: "Vista dividida (código | vista previa)",
   menuToggleZenMode: "Modo zen",
@@ -222,14 +225,36 @@ para usar una.
   outlineCollapse: "Contraer",
   outlineExpand: "Expandir",
   wordsUnit: "palabras",
-  textusNoticeTitle: "Levis ahora es Textus",
-  textusNoticeText:
-    "Textus es la nueva versión de Levis, con un nombre y un icono nuevos. Esta es la última versión de Levis. Tus documentos se quedan donde están y, al abrirse por primera vez, Textus te ofrece traer tus ajustes, tu historial y tus claves.",
-  textusNoticeOk: "Obtener Textus",
-  textusNoticeLater: "Más tarde",
-  textusNoticeRow: "Levis ahora es Textus",
-  textusNoticeRowHint:
-    "Esta es la última versión de Levis. Textus puede traer tus ajustes, tu historial y tus claves.",
+  levisImportTitle: "¿Traer tus datos de Levis?",
+  levisImportText:
+    "Textus es la nueva versión de Levis. En este equipo están tus ajustes, instrucciones de escritura e historial de Levis. Importarlos solo los copia; Levis lo conserva todo.",
+  levisImportOk: "Importar",
+  levisImportLater: "Ahora no",
+  levisImportKeysTitle:
+    "¿Copiar también las claves de API y los inicios de sesión?",
+  levisImportKeysText:
+    "También puedes traer tus claves de API de Levis y tus sesiones de ChatGPT o Claude. Los archivos copiados solo los puedes leer tú.",
+  levisImportKeysOk: "Copiarlos",
+  levisImportKeysSkip: "No copiarlos",
+  levisImportDone: "Importado de Levis: {items}.",
+  levisImportNothing:
+    "No hay nada nuevo que importar: Textus ya tiene lo que tiene Levis.",
+  levisImportFailed: "Algunos archivos no se pudieron copiar:",
+  levisImportRow: "Importar de Levis",
+  levisImportRowHint:
+    "Copia ajustes, historial, temas y más. Levis lo conserva todo.",
+  levisImportButton: "Importar…",
+  levisImportNone: "No hay datos de Levis en este equipo.",
+  levisItemSettings: "ajustes",
+  levisItemChatHistory: "conversaciones con la IA",
+  levisItemClipboardHistory: "historial del portapapeles",
+  levisItemThemes: "temas",
+  levisItemWritingInstructions: "instrucciones de escritura",
+  levisItemSkills: "habilidades",
+  levisItemRecentFiles: "archivos recientes",
+  levisItemSession: "documentos abiertos",
+  levisItemDrafts: "borradores sin guardar",
+  levisItemCredentials: "claves de API e inicios de sesión",
   alertNote: "Nota",
   alertTip: "Consejo",
   alertImportant: "Importante",
@@ -573,8 +598,8 @@ para usar una.
   updateDownloading: "Descargando la actualización…",
   updateFailed: "No se pudo actualizar:",
   updateViaPackageManager: `${APP_NAME} se instaló con tu gestor de paquetes. Actualízalo desde ahí.`,
-  cliCommandLabel: "Comando de terminal «levis»",
-  cliCommandHint: `Permite abrir ${APP_NAME} (o un archivo) desde la línea de comandos, p. ej., levis README.md`,
+  cliCommandLabel: "Comando de terminal «textus»",
+  cliCommandHint: `Permite abrir ${APP_NAME} (o un archivo) desde la línea de comandos, p. ej., textus README.md`,
   cliCommandInstalled: "Instalado",
   cliCommandNotInstalled: "No instalado",
   cliCommandInstallButton: "Instalar",
@@ -703,6 +728,10 @@ para usar una.
   fileChangedOnDiskMessage:
     "Otro programa modificó este archivo en el disco. Si guardas, se sobrescribirán esos cambios.",
   fileChangedOnDiskOverwrite: "Sobrescribir",
+  saveFailedTitle: "No se pudo guardar",
+  saveFailedMessage: "«{name}» no se guardó. Tus cambios siguen aquí.",
+  saveReadOnlyHint:
+    "El archivo es de solo lectura. Usa Guardar como para conservar tus cambios en un archivo nuevo.",
   unsavedIndicator: "Cambios sin guardar",
   largeDocBadge: "Documento grande",
   largeDocHint:

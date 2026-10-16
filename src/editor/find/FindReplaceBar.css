@@ -1,0 +1,167 @@
+/* Under the 28px window bar (not over the title and word count), and left
+   of a docked Textus AI panel rather than over its header and close button -
+   App.tsx sets --docked-panel-width while one is docked. */
+.find-replace-bar {
+  position: fixed;
+  top: 40px;
+  right: calc(24px + var(--docked-panel-width, 0px));
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Card look (background/border/radius/shadow) comes from .floating-surface. */
+  padding: 6px 8px;
+  font-size: var(--text-md);
+  animation: motion-drop-in var(--dur-base) var(--ease-out);
+}
+
+.find-replace-bar[data-state="closing"] {
+  animation: motion-lift-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+/* The replace row fades in under the find row; the bar's own growth is
+   not animated. */
+.find-replace-row + .find-replace-row {
+  animation: motion-fade-in var(--dur-fast) var(--ease-out);
+}
+
+.find-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.find-replace-chevron {
+  flex: none;
+  width: 18px;
+  height: 26px;
+  border: none !important;
+  padding: 0 !important;
+  color: var(--editor-muted);
+  background: transparent;
+  transition: transform var(--dur-fast) var(--ease-standard);
+  /* The chevron is now an SVG, so the button has to centre it rather than
+     rely on a glyph's own line box. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.find-replace-chevron-open {
+  transform: rotate(90deg);
+}
+
+.find-replace-chevron-spacer {
+  flex: none;
+  width: 18px;
+}
+
+.find-replace-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--radius-control);
+}
+
+.find-replace-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 2px;
+  border: none;
+  background: transparent;
+  color: var(--editor-text);
+  font: inherit;
+}
+
+.find-replace-input:focus {
+  outline: none;
+}
+
+.find-replace-count {
+  flex: none;
+  color: var(--editor-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  /* Counts change in place without their digits shifting. */
+  font-variant-numeric: tabular-nums;
+}
+
+.find-replace-count-error {
+  color: var(--danger);
+}
+
+.find-replace-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Prev / next / close hold icons, not glyphs, so their buttons centre the
+   SVG instead of inheriting a text button's baseline padding. */
+.find-replace-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.find-replace-bar button {
+  border: 1px solid var(--editor-border);
+  border-radius: var(--radius-control);
+  padding: 4px 7px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  background: transparent;
+  color: var(--editor-text);
+}
+
+.find-replace-bar button:hover:not(:disabled) {
+  background: var(--editor-code-bg);
+}
+
+.find-replace-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.find-replace-toggle {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: var(--radius-control) !important;
+  font-size: var(--text-xs) !important;
+  line-height: 1;
+  color: var(--editor-muted);
+}
+
+.find-replace-toggle-active {
+  background: var(--chrome-primary) !important;
+  color: #fff !important;
+}
+
+.find-replace-close {
+  border: none !important;
+  line-height: 1;
+  padding: 4px 6px !important;
+  color: var(--editor-muted);
+}
+
+/* Prev/next share one arrow (see ArrowUpIcon); this is the "next" half. */
+.find-replace-arrow-down {
+  transform: rotate(180deg);
+}
+
+.find-match {
+  background: rgba(255, 212, 0, 0.4);
+  border-radius: var(--md-radius-sm);
+}
+
+.find-match-active {
+  background: rgba(255, 140, 0, 0.55);
+}

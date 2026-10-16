@@ -27,7 +27,7 @@ import {
   TOGGLE_FLOATING_CHAT_EVENT,
   TOGGLE_MARK_EVENT,
 } from "../utils/events";
-import { pressKeepingFocus } from "./tap";
+import { pressKeepingFocus } from "../ui/tap";
 import "./KeyboardToolbar.css";
 
 /**
@@ -37,7 +37,7 @@ import "./KeyboardToolbar.css";
  * columns in a table, widths and delete on a tapped image; "More" for the
  * rest of the editor's right-click menu; and Quick Ask at the caret. A
  * phone has no right-click (a long press brings up the system's text
- * menu, not Levis's) and no hover, so this strip is how a finger reaches
+ * menu, not Textus's) and no hover, so this strip is how a finger reaches
  * what the desktop keeps in menus and hover controls.
  *
  * The buttons keep the editor's focus, so the keyboard stays up and the

@@ -52,7 +52,7 @@ pub struct DiskWorkspace {
 }
 
 /// "Learn my style": the picked sample files, where the profile is
-/// written (the project's .levis/style.md, read back by the workspace
+/// written (the project's .textus/style.md, read back by the workspace
 /// load), and checks on the generated profile.
 #[derive(Clone)]
 pub struct LearnStyle {
@@ -631,7 +631,7 @@ fn structure_cases() -> Vec<AgentCase> {
 
 /// The interview notes the project-files case reads.
 fn project_dir() -> String {
-    let dir = std::env::temp_dir().join(format!("levis-eval-project-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("textus-eval-project-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("notes")).unwrap();
     std::fs::write(
         dir.join("notes/interviews.md"),
@@ -944,11 +944,11 @@ fn workspace_cases() -> Vec<AgentCase> {
     });
     cases.push(AgentCase::new("style/profile-followed", Lang::En, Lang::En, en, "Expand the last line into a short paragraph of four or five sentences about the author visits.", e, "A style profile asks for short sentences (≤14 words), present tense, no -ly adverbs, no em dashes, no rhetorical questions. Expect the last line expanded into 4-5 sentences that follow it, without inventing specific facts (names, dates) the document doesn't support.").workspace(ws));
 
-    // Library: names and facts from .levis/library.
+    // Library: names and facts from .textus/library.
     let story = "# Chapter 3\n\nThe ferry was late again. Mira stood at the end of the dock with her notebook, counting the gulls out of habit.\n\nBehind her, the harbour office was already closing.\n";
     let ws = AgentWorkspace {
         library: vec![crate::ai::project::parse_library_entry(
-            ".levis/library/mira.md",
+            ".textus/library/mira.md",
             "mira",
             "---\nname: Mira Okafor\naliases: [Mira]\n---\nThe narrator. Marine biologist, 34, left-handed. Afraid of deep water since a diving accident at 19 - she never swims, and avoids looking straight down from boats.",
         )],
@@ -958,7 +958,7 @@ fn workspace_cases() -> Vec<AgentCase> {
     e.doc_has = s(&["Mira"]);
     let ws_zh = AgentWorkspace {
         library: vec![crate::ai::project::parse_library_entry(
-            ".levis/library/lin.md",
+            ".textus/library/lin.md",
             "lin",
             "---\nname: 林晚\naliases: [晚晚]\n---\n林晚是中学语文老师，三十二岁，从不喝咖啡。",
         )],
