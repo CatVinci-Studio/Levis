@@ -106,7 +106,13 @@
   .milkdown blockquote > :last-child,
   .milkdown li > :last-child,
   .milkdown td > :last-child,
-  .milkdown th > :last-child {
+  .milkdown th > :last-child,
+  /* The column-resize handle (milkdown-theme.css) is a widget appended to
+     the hovered cell, which would otherwise make the paragraph before it
+     no longer the last child - its margin came back and the whole row
+     grew while the border was hovered. */
+  .milkdown td > :has(+ .column-resize-handle:last-child),
+  .milkdown th > :has(+ .column-resize-handle:last-child) {
     margin-bottom: 0;
   }
 

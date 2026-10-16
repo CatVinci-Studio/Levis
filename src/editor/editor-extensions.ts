@@ -26,6 +26,7 @@ import { mdSpanAutopairPlugin } from "./marks/md-span-autopair-plugin";
 import { formatShortcutPlugin } from "./keys/format-shortcut-plugin";
 import { enclosurePlugin } from "./marks/enclosure";
 import { linuxImeEnterPlugin } from "./keys/linux-ime-enter-plugin";
+import { compositionPruneGuardPlugin } from "./keys/composition-prune-guard-plugin";
 import { configureMarkdownOutput } from "./markdown/markdown-output";
 import {
   remarkMathPlugin,
@@ -37,7 +38,10 @@ import { mathAutopairPlugin } from "./math/math-autopair-plugin";
 import { createMathPreviewPlugin } from "./math/math-preview-plugin";
 import { headingMarkerPlugin } from "./marks/heading-marker-plugin";
 import { macNavigationPlugin } from "./keys/mac-navigation-plugin";
-import { taskListClickPlugin } from "./markdown/task-list-plugin";
+import {
+  cjkTaskInputPlugin,
+  taskListClickPlugin,
+} from "./markdown/task-list-plugin";
 import { syntaxHighlightPlugin } from "./code/syntax-highlight-plugin";
 import { codeBlockLanguageView } from "./code/code-block-language-view";
 import { tableColumnResizing, tableHoverView } from "./tables/table-hover-view";
@@ -87,6 +91,7 @@ export function withEditorCore(
       .config(configureMarkdownOutput)
       .use(macNavigationPlugin)
       .use(linuxImeEnterPlugin)
+      .use(compositionPruneGuardPlugin)
       // Markdown baseline: commonmark/GFM with bold/italic/strike marks
       // stripped - those are node-based below.
       .use(commonmarkWithoutMarks)
@@ -153,6 +158,7 @@ export function withEditorCore(
       // Block-level niceties.
       .use(headingMarkerPlugin)
       .use(taskListClickPlugin)
+      .use(cjkTaskInputPlugin)
       .use(syntaxHighlightPlugin)
       .use(codeBlockLanguageView)
       .use(tableHoverView)

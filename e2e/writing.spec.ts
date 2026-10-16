@@ -438,3 +438,89 @@ test("Shift pressed together with Enter starts a new paragraph", async ({
   ]);
   await expect(editor.locator('br[data-type="hardbreak"]')).toHaveCount(0);
 });
+
+test("an IME commit into a fresh task item stays in that item", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  await page.keyboard.type("- [ ] ");
+  // WebKitGTK's commit, replayed: the preedit is deleted (and WebKit prunes
+  // the emptied <p> and <li>, leaving a <br> in the list - done by hand
+  // here, Chromium doesn't), then the committed text is inserted.
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    // Chromium blanks an inputType it doesn't implement; only WebKit has
+    // deleteCompositionText.
+    const deleteEvent = (type: string) =>
+      Object.defineProperty(new InputEvent(type), "inputType", {
+        value: "deleteCompositionText",
+      });
+    root.dispatchEvent(new CompositionEvent("compositionstart"));
+    document.execCommand("insertText", false, "ni hao");
+    const li = root.querySelector("li")!;
+    root.dispatchEvent(deleteEvent("beforeinput"));
+    li.replaceWith(document.createElement("br"));
+    root.dispatchEvent(deleteEvent("input"));
+    document.execCommand("insertText", false, "你好");
+    root.dispatchEvent(
+      new CompositionEvent("compositionend", { data: "你好" }),
+    );
+  });
+  await page.keyboard.type("!");
+  const items = editor.locator('li[data-item-type="task"]');
+  await expect(items).toHaveCount(1);
+  await expect(items.first()).toHaveText("你好!");
+});
+
+test("hovering a column border doesn't change the table's height", async ({
+  page,
+}) => {
+  await openApp(page);
+  await pasteMarkdown(page, "| a | b |\n|---|---|\n| 1 | 2 |\n");
+  const table = page.locator(".milkdown table");
+  const before = (await table.boundingBox())!.height;
+  const cell = (await page.locator(".milkdown td").first().boundingBox())!;
+  await page.mouse.move(cell.x + cell.width - 1, cell.y + cell.height / 2);
+  await expect(page.locator(".column-resize-handle").first()).toBeAttached();
+  expect((await table.boundingBox())!.height).toBe(before);
+});
+
+test("full-width 【】 turns a line into a task, the way [ ] does", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator('[data-active-tab="true"] .ProseMirror');
+  await editor.click();
+  const tasks = editor.locator('li[data-item-type="task"]');
+  // A whole "-【】" committed by an IME into a plain paragraph (first, before
+  // the dev shim's ghost suggestion sits at the caret).
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-active-tab="true"] .ProseMirror',
+    )!;
+    root.dispatchEvent(new CompositionEvent("compositionstart"));
+    document.execCommand("insertText", false, "-【】");
+    root.dispatchEvent(
+      new CompositionEvent("compositionend", { data: "-【】" }),
+    );
+  });
+  await expect(tasks).toHaveCount(1);
+  await page.keyboard.type("买菜");
+  await expect(tasks.nth(0)).toHaveText("买菜");
+  // Typed: "- " makes the bullet, 【x】 then makes it a checked task.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("- 【x】写稿");
+  await expect(tasks).toHaveCount(2);
+  await expect(tasks.nth(1)).toHaveAttribute("data-checked", "true");
+  await expect(tasks.nth(1)).toHaveText("写稿");
+  // Pasted text stays as written.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await pasteMarkdown(page, "- 【】");
+  await expect(tasks).toHaveCount(2);
+});
