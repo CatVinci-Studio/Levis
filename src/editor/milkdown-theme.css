@@ -1100,10 +1100,22 @@
 /* A table whose content can't wrap narrower than the text column (long
    URLs, many columns, or resized columns adding up past it) scrolls inside
    it instead of spilling past the page (#15). The "+" buttons stay outside
-   this box, where it can't clip them. */
+   this box, where it can't clip them.
+
+   Sideways only. `overflow-x: auto` alone makes overflow-y auto as well,
+   so the box was a vertical scroller too: the moment its content stood
+   any taller than it, a wheel over the table went to the table and the
+   page under it stopped, and WebKit keeps the rest of a gesture on the box
+   it started on. A suggestion wrapping a cell gives the table odd
+   fractional heights, which is the best explanation found for the page
+   that, on Linux, "wouldn't scroll" over a table after a completion until
+   Escape took the suggestion away. A hidden axis is never a wheel target;
+   overflow-x already clipped both ways, so nothing that showed before is
+   cut off now. */
 .table-scroll {
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .table-add-row-btn,

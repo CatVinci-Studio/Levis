@@ -385,6 +385,43 @@ test("a table's menu stays open while it scrolls on a short window", async ({
   await expect(menu).toBeVisible();
 });
 
+test("the wheel over a table scrolls the page, not the table", async ({
+  page,
+}) => {
+  await openApp(page, { settings: { language: "en" } });
+  const filler = Array.from(
+    { length: 20 },
+    (_, i) => `Paragraph ${i} with some words to fill the page out.`,
+  ).join("\n\n");
+  await pasteMarkdown(
+    page,
+    `${filler}\n\n| a | b |\n| --- | --- |\n| the plan | d |\n\n${filler}`,
+  );
+  const cell = page.locator(".ProseMirror td", { hasText: "the plan" });
+  await cell.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await cell.click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Control+Shift+Space");
+  await expect(page.locator(".ghost-text")).toHaveCount(1);
+  // The table's box a little shorter than the table, as a suggestion
+  // wrapping the cell to a fractional height can leave it. A stylesheet,
+  // not the element's style: ProseMirror redraws a node view whose
+  // attributes change under it.
+  const box = page.locator(".table-scroll");
+  const height = await box.evaluate((el) => el.getBoundingClientRect().height);
+  await page.addStyleTag({
+    content: `.table-scroll { height: ${height - 20}px; }`,
+  });
+  const scroller = page.locator('[data-active-tab="true"] .editor-scroll');
+  const before = await scroller.evaluate((el) => el.scrollTop);
+  await box.hover();
+  await page.mouse.wheel(0, 40);
+  await expect
+    .poll(() => scroller.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(before);
+  expect(await box.evaluate((el) => el.scrollTop)).toBe(0);
+});
+
 /** A deliberate Shift+Enter: Shift held first, as a writer does. (Shift
  *  and Enter pressed together count as Enter - see block-keys-plugin.ts.) */
 async function shiftEnter(page: Page) {
