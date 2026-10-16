@@ -1,0 +1,82 @@
+import { isIOSApp } from "../platform/capabilities";
+import type { PresenceHandle } from "../ui/usePresence";
+import {
+  AgentPanelResizer,
+  AgentPanelSheetGrip,
+} from "../ai/chat/panel/agent-panel";
+import type { Strings } from "../i18n/strings";
+
+/** The docked Agent panel's frame on the right (a bottom sheet on a
+ *  phone). App owns the frame; the active tab's editor renders its
+ *  conversation into the mount point here. */
+export function AgentPanelDock({
+  presence,
+  closing,
+  overlays,
+  sheetFull,
+  onSheetFullChange,
+  width,
+  onResize,
+  onClose,
+  mountRef,
+  sourceMode,
+  onToggleSourceMode,
+  t,
+}: {
+  presence: PresenceHandle;
+  closing: boolean;
+  /** Lies over the page instead of beside it (useSidePanels). */
+  overlays: boolean;
+  sheetFull: boolean;
+  onSheetFullChange: (full: boolean) => void;
+  width: number;
+  onResize: (width: number) => void;
+  onClose: () => void;
+  mountRef: (el: HTMLElement | null) => void;
+  /** The active tab is in source mode or split view. */
+  sourceMode: boolean;
+  onToggleSourceMode: () => void;
+  t: Strings;
+}) {
+  return (
+    <aside
+      ref={presence.ref}
+      data-state={presence.state}
+      inert={closing || undefined}
+      className={`agent-panel${sheetFull ? " agent-panel-sheet-full" : ""}${overlays ? " agent-panel-overlay" : ""}`}
+      style={{ width }}
+    >
+      {/* Phone widths: the panel is a bottom sheet (mobile/styles)
+        and this is its handle; hidden elsewhere. */}
+      {isIOSApp && (
+        <AgentPanelSheetGrip
+          full={sheetFull}
+          onFullChange={onSheetFullChange}
+          onClose={onClose}
+          label={t.agentPanelSheet}
+        />
+      )}
+      <AgentPanelResizer
+        width={width}
+        onResize={onResize}
+        label={t.agentPanelResize}
+      />
+      <div className="agent-panel-mount" ref={mountRef} />
+      {/* The conversation lives in the rich editor (each tab's
+        MilkdownEditor renders it here); source mode and split view
+        have none to render, so say so instead of an empty column. */}
+      {sourceMode && (
+        <div className="agent-panel-placeholder">
+          <p>{t.agentPanelSourceMode}</p>
+          <button
+            type="button"
+            className="text-button"
+            onClick={onToggleSourceMode}
+          >
+            {t.agentPanelBackToEditor}
+          </button>
+        </div>
+      )}
+    </aside>
+  );
+}
