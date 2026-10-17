@@ -35,6 +35,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
   <a href="https://github.com/CatVinci-Studio/Textus/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/CatVinci-Studio/Textus/ci.yml?branch=main&label=CI"></a>
   <a href="https://textus.catvinci.com/discord"><img alt="Discord" src="https://img.shields.io/discord/1560734722219311294?label=Discord&logo=discord&logoColor=white&color=5865F2"></a>
+  <a href="https://textus.catvinci.com/qq"><img alt="QQ" src="https://img.shields.io/badge/QQ-1128285004-12B7F5?logo=qq&logoColor=white"></a>
+  <a href="https://textus.catvinci.com/wechat"><img alt="WeChat" src="https://img.shields.io/badge/WeChat-group-07C160?logo=wechat&logoColor=white"></a>
   <img alt="languages" src="https://img.shields.io/badge/languages-10-blue">
   <a href="https://textus.catvinci.com"><img alt="website" src="https://img.shields.io/badge/website-textus.catvinci.com-8a6d3b"></a>
 </p>
@@ -205,6 +207,13 @@ npm run build         # frontend only: type-check (tsc) + vite build
 ```
 
 Necesitas [Node.js](https://nodejs.org) 22 o posterior, [Rust](https://rustup.rs) (stable) y las herramientas de compilación de cada plataforma (Xcode CLT en macOS; `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf` en Linux; MSVC Build Tools en Windows).
+
+## Comunidad
+
+- [Discord](https://textus.catvinci.com/discord): novedades, ayuda y comentarios, en inglés.
+- En chino: [grupo de QQ](https://textus.catvinci.com/qq) (1128285004) · [grupo de WeChat](https://textus.catvinci.com/wechat)
+
+Los errores y las sugerencias son bienvenidos en [GitHub Issues](https://github.com/CatVinci-Studio/Textus/issues).
 
 ## Contribuir
 
