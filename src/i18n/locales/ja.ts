@@ -337,6 +337,9 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   chatAttachmentTruncated: "（一部のみ）",
   chatAttachmentNoVision: `このプロバイダーは画像を読めません。「設定 > ${AI_NAME}」でプロバイダーを変更するか、文書を添付してください。`,
   aiGrammarLabel: "文法チェックを有効にする",
+  aiDiaryLabel: "魔法の日記",
+  aiDiaryHint:
+    "ほかの AI 機能に代わるイースターエッグです。段落の末尾で Enter を押すと送信され、書き終えた返事は 10 秒後に消えて、また入力できます。上下キーで過去の返事を表示し、Esc で中止します。原文は文書内に残ります。",
   aiAskLabel: `${AI_NAME} チャット`,
   aiAskToggleLabel: `${AI_NAME} チャットを有効にする`,
   accountLabelTemplate: "{name}アカウント",

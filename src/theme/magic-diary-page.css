@@ -1,0 +1,620 @@
+/* The Magic Diary's room (src/ai/magic-diary).
+
+   With the diary on, the window stops being an editor and becomes the book
+   it is written in: every surface yellowed and faded, the chrome included -
+   a sidebar in cold blue next to sepia prose would give the trick away in
+   one glance. Driven by html[data-magic-diary], set in
+   theme/apply-appearance.ts alongside data-theme and data-content-theme.
+
+   Almost all of it is the app's own colour variables, which is why it holds
+   across every built-in theme and every panel without naming any of them.
+   Only the grain and the vignette are drawn on top, as one fixed layer
+   under the content but over the colour.
+
+   Follows content-themes.css's three-block convention - base, "system"
+   dark, pinned dark - because these have to win against ui/base.css's own
+   :root and :root[data-theme="dark"] blocks, and only the same specificity
+   in a later file does that without !important. */
+
+html[data-magic-diary] {
+  --bg: #efe4c8;
+  --chrome-text: #4a3a22;
+  --chrome-muted: #8a7551;
+  --chrome-accent: #9a6a2c;
+  --editor-text: #4a3823;
+  --editor-muted: #8b7757;
+  --editor-accent: #9a6a2c;
+  --editor-border: #ddcda6;
+  --editor-quote-border: #b99a63;
+  --editor-code-bg: #e6d8b6;
+  --editor-highlight-bg: #e9d489;
+  --danger: #a8462f;
+
+  --sidebar-bg: #e7dbba;
+  --sidebar-text: #5d4a2c;
+  --sidebar-hover: #ddcfa8;
+  --sidebar-active: #e3cfa2;
+  --sidebar-active-text: #40311b;
+  --border-color: #d8c7a0;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-magic-diary]:not([data-theme="light"]) {
+    --bg: #241d13;
+    --chrome-text: #d9c9a4;
+    --chrome-muted: #9c8a67;
+    --chrome-accent: #c79a52;
+    --editor-text: #dccca6;
+    --editor-muted: #9a8865;
+    --editor-accent: #c79a52;
+    --editor-border: #453720;
+    --editor-quote-border: #4d3e26;
+    --editor-code-bg: #2f2718;
+    --editor-highlight-bg: #4d3f1c;
+    --danger: #cf7a5f;
+
+    --sidebar-bg: #1f190f;
+    --sidebar-text: #c2b18a;
+    --sidebar-hover: #2f2717;
+    --sidebar-active: #3b3018;
+    --sidebar-active-text: #e6d6ae;
+    --border-color: #453720;
+  }
+}
+
+html[data-theme="dark"][data-magic-diary] {
+  --bg: #241d13;
+  --chrome-text: #d9c9a4;
+  --chrome-muted: #9c8a67;
+  --chrome-accent: #c79a52;
+  --editor-text: #dccca6;
+  --editor-muted: #9a8865;
+  --editor-accent: #c79a52;
+  --editor-border: #453720;
+  --editor-quote-border: #4d3e26;
+  --editor-code-bg: #2f2718;
+  --editor-highlight-bg: #4d3f1c;
+  --danger: #cf7a5f;
+
+  --sidebar-bg: #1f190f;
+  --sidebar-text: #c2b18a;
+  --sidebar-hover: #2f2717;
+  --sidebar-active: #3b3018;
+  --sidebar-active-text: #e6d6ae;
+  --border-color: #453720;
+}
+
+/* The tooth of the paper, and the darkening at the edges of a page that
+   has been handled a long time. Fixed so it does not scroll with the
+   document - a grain that moved with the text read as a screen door.
+
+   Above the app chrome (the window bar is z-index 45) and below the
+   overlays (the lowest of which is 100), so the whole window is one sheet
+   while a dialog opened over it still reads as a dialog.
+
+   Two layers in one: a fine speckle from layered gradients at angles that
+   do not share a period (an inline SVG noise would be one more asset to
+   ship and one more thing to fail to decode - and at these alphas the
+   crosshatch that comes out is the paper, not a grid), and a vignette that
+   keeps the reading column the brightest thing on screen. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  display: none;
+  background-image:
+    radial-gradient(
+      ellipse 100% 100% at 50% 45%,
+      transparent 50%,
+      #7350201a 100%
+    ),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23765b32' opacity='.055' filter='url(%23n)' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+html[data-magic-diary] body::before {
+  display: block;
+  animation: magic-diary-paper-in 900ms var(--ease-out) both;
+}
+
+/* The window takes the age on rather than snapping to it. */
+@keyframes magic-diary-paper-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The reader is looking at a page, not at an app, so the text column sits
+   on a sheet rather than floating on a flat field. Just the reading area:
+   the editor's own padding, so the sheet does not fight a zoom or a narrow
+   window. */
+html[data-magic-diary] .milkdown .ProseMirror {
+  font-family:
+    var(--font-cjk-punct-serif), "Iowan Old Style", "Palatino Linotype",
+    Palatino, Georgia, var(--font-cjk-serif), serif;
+}
+
+/* Type set by hand is not set flush to the edge of the block; a little
+   leading-out keeps the page from looking like a screenshot of a word
+   processor. */
+html[data-magic-diary] .milkdown .ProseMirror > * {
+  transition:
+    color 700ms var(--ease-standard),
+    opacity 700ms var(--ease-standard);
+}
+
+/* Flex centering responds to every newly written line, including multiline
+   answers, instead of estimating the center with viewport padding. */
+html[data-magic-diary] .editor-scroll {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: clip;
+  overscroll-behavior: none;
+}
+html[data-magic-diary] .editor-content {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding-block: min(3rem, 8dvh);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+html[data-magic-diary] .milkdown .ProseMirror {
+  min-height: 0;
+}
+html[data-magic-diary] .milkdown .ProseMirror > p {
+  margin-block: 0;
+}
+html[data-magic-diary] .milkdown .ProseMirror .magic-diary-archived {
+  display: none;
+}
+html[data-magic-diary] .magic-diary-busy {
+  caret-color: transparent;
+}
+html[data-magic-diary] .magic-diary-draft-hidden {
+  display: none;
+}
+html[data-magic-diary] .milkdown .ProseMirror .magic-diary-reply {
+  display: block;
+  margin: 0;
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html[data-magic-diary] .milkdown .ProseMirror .magic-diary-ink {
+  display: block;
+  font-style: normal;
+  font-size: 1.08em;
+  letter-spacing: 0.035em;
+  line-height: 1.9;
+}
+html[data-magic-diary] .magic-footprint-layer {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.magic-footprint-layer {
+  display: none;
+}
+.magic-foot {
+  position: absolute;
+  width: 19px;
+  height: 10px;
+  translate: -50% -50%;
+  color: var(--editor-text, #4a3823);
+  opacity: 0;
+  animation: magic-foot-fade 2400ms ease-out both;
+}
+.magic-foot svg {
+  display: block;
+  fill: currentColor;
+}
+@keyframes magic-foot-fade {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.38;
+  }
+  40% {
+    opacity: 0.24;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-magic-diary] body::before {
+    animation: none;
+  }
+  html[data-magic-diary] .magic-footprint-layer {
+    display: none;
+  }
+}
+
+/* The visitor's final pair stays faintly present while the ink is written. */
+.magic-footprint-layer[data-stage="standing"]
+  .magic-foot:nth-last-child(-n + 2) {
+  animation: none;
+  opacity: 0.2;
+}
+html[data-magic-diary] .empty-doc-placeholder::before {
+  content: "";
+}
+
+html[data-magic-diary] .editor-content .milkdown {
+  min-width: 0;
+  zoom: calc(var(--content-zoom, 1) * var(--diary-fit, 1));
+}
+
+/* A faint map legend, kept in the paper's margins. */
+.magic-map-landmarks {
+  position: absolute;
+  inset: 0;
+  opacity: 0.8;
+  transition: opacity 900ms ease;
+}
+.magic-map-landmark {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 84px;
+  color: var(--editor-text);
+  opacity: 0.24;
+  font:
+    10px/1.8 Georgia,
+    "Kaiti SC",
+    STKaiti,
+    serif;
+  letter-spacing: 0.2em;
+}
+.magic-map-landmark svg {
+  display: block;
+}
+.magic-map-landmark i {
+  width: 28px;
+  border-top: 1px solid currentColor;
+  margin-top: 5px;
+  opacity: 0.4;
+}
+.magic-map-landmark-0 {
+  left: clamp(48px, 5vw, 92px);
+  top: 124px;
+  rotate: -3deg;
+}
+.magic-map-landmark-1 {
+  right: clamp(48px, 5vw, 92px);
+  top: 124px;
+  rotate: 2deg;
+}
+.magic-map-landmark-2 {
+  left: clamp(48px, 5vw, 92px);
+  bottom: 76px;
+  rotate: 2deg;
+}
+.magic-map-landmark-3 {
+  right: clamp(48px, 5vw, 92px);
+  bottom: 76px;
+  rotate: -2deg;
+}
+.magic-footprint-layer:is([data-stage="approach"], [data-stage="standing"])
+  .magic-map-landmarks {
+  opacity: 0.25;
+}
+.magic-visitor-foot {
+  position: absolute;
+  width: 19px;
+  height: 10px;
+  translate: -50% -50%;
+  color: var(--editor-muted);
+  animation: magic-foot-fade 2400ms ease-out both;
+}
+.magic-visitor-foot svg {
+  display: block;
+  fill: currentColor;
+  opacity: 0.65;
+}
+.magic-map-visitor {
+  position: absolute;
+  width: 25px;
+  height: 25px;
+  translate: -50% -50%;
+  color: color-mix(in srgb, var(--editor-text) 70%, var(--chrome-accent));
+  animation: magic-map-materialize 1200ms ease both;
+}
+.magic-map-visitor > svg {
+  display: block;
+  opacity: 0.62;
+}
+.magic-map-visitor-wisp > svg {
+  animation: magic-map-drift 3.5s ease-in-out infinite;
+}
+.magic-map-visitor-beast[data-phase="greeting"] > svg {
+  animation: magic-map-pounce 800ms ease-in-out 3;
+}
+.magic-map-visitor[data-phase="departing"] {
+  animation: magic-map-depart 3900ms ease-in forwards;
+}
+.magic-map-visitor-name {
+  position: absolute;
+  top: 29px;
+  left: 50%;
+  width: max-content;
+  max-width: 110px;
+  translate: -50% 0;
+  opacity: 0.5;
+  font:
+    10px/1.5 Georgia,
+    "Kaiti SC",
+    STKaiti,
+    serif;
+  letter-spacing: 0.12em;
+}
+.magic-map-visitor[data-phase="greeting"] .magic-map-visitor-name {
+  opacity: 0.8;
+}
+.magic-map-ripple {
+  position: absolute;
+  inset: -9px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  animation: magic-map-ripple 2400ms ease-out both;
+}
+.magic-map-reaction {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  translate: -50% -50%;
+  color: var(--chrome-accent);
+  animation: magic-map-ward 2400ms ease-in-out both;
+}
+.magic-map-shield {
+  color: color-mix(in srgb, var(--editor-text) 55%, #b18a41);
+}
+.magic-footprint-layer[data-stage="encounter"]
+  .magic-foot:nth-last-child(-n + 2) {
+  animation: none;
+  opacity: 0.24;
+}
+@keyframes magic-map-materialize {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes magic-map-drift {
+  0%,
+  100% {
+    transform: rotate(-12deg) scale(0.85);
+  }
+  50% {
+    transform: rotate(12deg) scale(1.08);
+  }
+}
+@keyframes magic-map-pounce {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.22) rotate(-8deg);
+  }
+  65% {
+    transform: scale(0.95) rotate(5deg);
+  }
+}
+@keyframes magic-map-ripple {
+  from {
+    opacity: 0.6;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+@keyframes magic-map-ward {
+  0% {
+    opacity: 0;
+    transform: scale(0.75) rotate(-12deg);
+  }
+  22%,
+  65% {
+    opacity: 0.65;
+    transform: scale(1) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12) rotate(8deg);
+  }
+}
+@keyframes magic-map-depart {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (max-width: 760px), (max-height: 540px) {
+  .magic-map-landmark {
+    opacity: 0.15;
+    scale: 0.75;
+  }
+  .magic-map-landmark-0,
+  .magic-map-landmark-1 {
+    top: 92px;
+  }
+  .magic-map-landmark-2,
+  .magic-map-landmark-3 {
+    bottom: 44px;
+  }
+}
+
+/* Buildings are optional destinations off the perimeter. They wake only
+   when chosen for a visit, then settle back into the old map. */
+.magic-map-landmark {
+  transition:
+    opacity 900ms ease,
+    color 900ms ease,
+    filter 900ms ease;
+}
+.magic-map-landmark[data-visit="approaching"] {
+  opacity: 0.65;
+  color: var(--chrome-accent);
+}
+.magic-map-landmark[data-visit="active"] {
+  opacity: 0.95;
+  color: var(--editor-text);
+  filter: drop-shadow(
+    0 0 9px color-mix(in srgb, var(--chrome-accent) 25%, transparent)
+  );
+}
+.magic-map-landmark[data-visit="departing"] {
+  opacity: 0.5;
+}
+.magic-map-landmark[data-visit="active"] > svg {
+  opacity: 0.38;
+}
+.magic-map-landmark[data-visit] > i {
+  width: 48px;
+  opacity: 0.7;
+  transition: width 900ms ease;
+}
+.magic-footprint-layer[data-stage="landmark"]
+  .magic-foot:nth-last-child(-n + 2) {
+  animation: none;
+  opacity: 0.28;
+}
+.magic-landmark-event {
+  position: absolute;
+  top: -25px;
+  left: -8px;
+  width: 100px;
+  color: var(--chrome-accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: magic-map-materialize 650ms ease both;
+}
+.magic-landmark-event > svg {
+  display: block;
+  overflow: visible;
+}
+.magic-landmark-event > span {
+  width: max-content;
+  max-width: 135px;
+  margin-top: 20px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--editor-text);
+}
+.magic-landmark-event-0 > svg {
+  animation: magic-star-chart 3900ms ease-in-out both;
+}
+.magic-turning-page {
+  transform-origin: 50px 60px;
+  animation: magic-turn-page 1300ms ease-in-out 3;
+}
+.magic-clock-hands {
+  transform-origin: 50px 50px;
+  animation: magic-clock-turn 3900ms ease-in-out both;
+}
+.magic-forest-spark {
+  animation: magic-firefly 1700ms ease-in-out 2;
+}
+.magic-landmark-variant-1 .magic-clock-hands {
+  animation-direction: reverse;
+}
+.magic-landmark-variant-1 .magic-forest-spark {
+  animation-duration: 2200ms;
+}
+.magic-landmark-event-0.magic-landmark-variant-1 > svg {
+  animation-direction: reverse;
+}
+@keyframes magic-star-chart {
+  from {
+    transform: rotate(-18deg) scale(0.8);
+    opacity: 0.3;
+  }
+  45%,
+  75% {
+    opacity: 0.9;
+  }
+  to {
+    transform: rotate(18deg) scale(1.05);
+    opacity: 0.6;
+  }
+}
+@keyframes magic-turn-page {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.65) skewY(-5deg);
+  }
+}
+@keyframes magic-clock-turn {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes magic-firefly {
+  0%,
+  100% {
+    opacity: 0.2;
+    translate: 0 3px;
+  }
+  50% {
+    opacity: 0.95;
+    translate: 0 -4px;
+  }
+}
+
+/* A waiting pen remains visible even before the editor has focus and after
+   the operating system would stop blinking its native idle caret. */
+html[data-magic-diary] .magic-diary-has-caret {
+  caret-color: transparent;
+}
+.magic-diary-input-caret {
+  position: fixed;
+  z-index: 54;
+  width: 1.5px;
+  min-height: 12px;
+  background: var(--editor-text, #4a3823);
+  pointer-events: none;
+  user-select: none;
+  animation: magic-diary-input-blink 1100ms step-end infinite;
+}
+@keyframes magic-diary-input-blink {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0;
+  }
+}

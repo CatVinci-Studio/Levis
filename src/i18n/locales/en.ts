@@ -337,6 +337,9 @@ type /name in a conversation to use one.
   chatAttachmentTruncated: "(shortened)",
   chatAttachmentNoVision: `This provider can't read images. Switch provider in Settings > ${AI_NAME}, or attach a document instead.`,
   aiGrammarLabel: "Enable grammar check",
+  aiDiaryLabel: "Magic Diary",
+  aiDiaryHint:
+    "An easter egg that stands the other AI features down. Enter at the end of a paragraph sends it; the finished answer stays for 10 seconds, then fades so you can write again. Up/Down recalls earlier answers; Escape cancels. Your original text stays in the document.",
   aiAskLabel: `${AI_NAME} Chat`,
   aiAskToggleLabel: `Enable ${AI_NAME} chat`,
   accountLabelTemplate: "{name} Account",
