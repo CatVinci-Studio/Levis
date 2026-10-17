@@ -722,13 +722,20 @@ test("repairing a pruned IME commit leaves a real empty item alone", async ({
   const editor = page.locator('[data-active-tab="true"] .ProseMirror');
   // Three task items: an empty one, "a", and a fresh one to compose in.
   await pasteMarkdown(page, "- [ ] e\n- [ ] a\n- [ ] x");
+  // ProseMirror takes a caret set this way from the selectionchange that
+  // follows it - a key pressed before that lands where the caret was.
   const caretAfter = (index: number) =>
-    page.evaluate((i) => {
-      const p = document.querySelectorAll(
-        '[data-active-tab="true"] .ProseMirror li p',
-      )[i];
-      getSelection()!.collapse(p.firstChild, 1);
-    }, index);
+    page.evaluate(
+      (i) =>
+        new Promise<void>((resolve) => {
+          const p = document.querySelectorAll(
+            '[data-active-tab="true"] .ProseMirror li p',
+          )[i];
+          getSelection()!.collapse(p.firstChild, 1);
+          requestAnimationFrame(() => setTimeout(resolve, 30));
+        }),
+      index,
+    );
   await caretAfter(0);
   await page.keyboard.press("Backspace");
   await caretAfter(2);

@@ -53,6 +53,7 @@ https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
 | プラットフォーム          | ダウンロード                                                                                             |
 | ----------------- | -------------------------------------------------------------------------------------------------- |
 | macOS · Appleシリコン | [.dmgをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
+| macOS · Intel     | [.dmgをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
 | Windows · x64     | [.exeをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest)                           |
 | Linux · x64       | [.AppImageをダウンロード](https://github.com/CatVinci-Studio/Textus/releases/latest) · ほかの形式も .deb · .rpm |
 
@@ -146,7 +147,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 <details>
 <summary><strong>どの環境で使えますか？</strong></summary>
 
-Appleシリコン搭載のmacOS、Windows、Linuxです。iPhone版とiPad版も準備中です。
+macOS（AppleシリコンとIntel）、Windows、Linuxです。iPhone版とiPad版も準備中です。
 
 </details>
 

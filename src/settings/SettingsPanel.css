@@ -275,6 +275,23 @@ button.settings-danger-button {
   overflow-wrap: anywhere;
 }
 
+/* The sign-in page's address, for when no browser opened: selectable in
+   full (the rest of Settings is not), wrapping anywhere - it is one long
+   word. */
+.settings-login-url {
+  display: block;
+  margin-top: 6px;
+  max-width: 420px;
+  max-height: 4.5em;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--editor-text);
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* Toggles render as switches, not native checkboxes - the single clearest
    "this is a settings panel" affordance, and it reads at a glance. */
 .settings-row input[type="checkbox"] {

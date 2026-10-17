@@ -20,7 +20,7 @@ export CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-49abb4d436c552f6e4497b178
 work="$(mktemp -d)"
 trap 'echo "downloaded files left in $work"' EXIT
 gh release download "$tag" --repo "$repo" --dir "$work" \
-  --pattern '*_aarch64.dmg' --pattern '*-setup.exe' --pattern '*.AppImage' \
+  --pattern '*_aarch64.dmg' --pattern '*_x64.dmg' --pattern '*-setup.exe' --pattern '*.AppImage' \
   --pattern '*.deb' --pattern '*.rpm'
 
 # One object up, retried: a large upload now and then drops its connection.
@@ -41,6 +41,7 @@ for f in "$work"/*; do
   name="$(basename "$f")"
   case "$name" in
     *_aarch64.dmg) key[mac]="$name" ;;
+    *_x64.dmg) key[mac-intel]="$name" ;;
     *-setup.exe) key[windows]="$name" ;;
     *.AppImage) key[linux]="$name" ;;
     *.deb) key[deb]="$name" ;;
@@ -56,7 +57,7 @@ manifest="$work/manifest.json"
 {
   printf '{\n  "tag": "%s",\n  "version": "%s",\n  "files": {\n' "$tag" "${tag#v}"
   first=1
-  for p in mac windows linux deb rpm; do
+  for p in mac mac-intel windows linux deb rpm; do
     [ -n "${key[$p]:-}" ] || continue
     [ $first = 1 ] || printf ',\n'
     printf '    "%s": "releases/%s/%s"' "$p" "$tag" "${key[$p]}"

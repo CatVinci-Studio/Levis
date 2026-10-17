@@ -53,6 +53,7 @@ https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
 | 平台               | 下載                                                                                          |
 | ---------------- | ------------------------------------------------------------------------------------------- |
 | macOS · Apple 晶片 | [下載 .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                        |
+| macOS · Intel    | [下載 .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                        |
 | Windows · x64    | [下載 .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                        |
 | Linux · x64      | [下載 .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · 另提供 .deb · .rpm |
 
@@ -146,7 +147,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 <details>
 <summary><strong>支援哪些平台？</strong></summary>
 
-支援 macOS（Apple 晶片）、Windows 與 Linux。iPhone 與 iPad 版即將推出。
+支援 macOS（Apple 晶片與 Intel）、Windows 與 Linux。iPhone 與 iPad 版即將推出。
 
 </details>
 

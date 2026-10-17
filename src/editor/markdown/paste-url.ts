@@ -24,28 +24,48 @@ export function bareUrl(text: string): string | null {
     : null;
 }
 
-/** Inserts `url` as a link over the selection; false when there is no link
- *  mark here (inside code, say), so the caller pastes it as text. */
+/** Pastes `url` as a link: over selected text, that text becomes a link to
+ *  it (the way most editors take a URL pasted on a selection); with the
+ *  caret inside an existing link, it goes in as that link's text - a new
+ *  link there split the old one in three around it; anywhere else, a new
+ *  link whose text is the URL. False when there is no link mark here
+ *  (inside code, say), so the caller pastes it as text. */
 export function insertUrlLink(view: EditorView, url: string): boolean {
   const { state } = view;
   const link = state.schema.marks.link;
-  const $from = state.selection.$from;
+  const { $from, $to, empty, from, to } = state.selection;
   if (
     !link ||
     $from.parent.type.spec.code ||
     !$from.parent.type.allowsMarkType(link)
   )
     return false;
-  view.dispatch(
-    state.tr
-      .replaceSelectionWith(
-        state.schema.text(url, [link.create({ href: url })]),
-        false,
-      )
+  const tr = state.tr;
+  if (
+    !empty &&
+    $from.sameParent($to) &&
+    state.doc.textBetween(from, to).trim()
+  ) {
+    // The selected words keep their text and take the URL; an old link on
+    // them is replaced rather than nested.
+    tr.removeMark(from, to, link).addMark(from, to, link.create({ href: url }));
+    view.dispatch(tr.scrollIntoView());
+    return true;
+  }
+  const inLink =
+    empty &&
+    link.isInSet($from.marks()) &&
+    $from.nodeAfter !== null &&
+    link.isInSet($from.nodeAfter.marks);
+  if (inLink) tr.replaceSelectionWith(state.schema.text(url), true);
+  else
+    tr.replaceSelectionWith(
+      state.schema.text(url, [link.create({ href: url })]),
+      false,
+    )
       // Typing straight after the pasted URL should not extend the link.
-      .setStoredMarks([])
-      .scrollIntoView(),
-  );
+      .setStoredMarks([]);
+  view.dispatch(tr.scrollIntoView());
   return true;
 }
 

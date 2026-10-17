@@ -124,6 +124,58 @@ describe("ProviderAuthPanel", () => {
   });
 });
 
+describe("account sign-in", () => {
+  const anthropic = {
+    ...google,
+    id: "anthropic",
+    label: "Claude",
+    auth: ["oauth"],
+  } as ProviderCatalogEntry;
+
+  it("offers the sign-in link while it waits, for when no browser opens", async () => {
+    let finish: (s: { configured: boolean }) => void = () => {};
+    vi.mocked(auth.oauthLogin).mockImplementation((_id, onUrl) => {
+      onUrl?.("https://claude.example/oauth/authorize?state=abc");
+      return new Promise((resolve) => (finish = resolve));
+    });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(
+      <ProviderAuthPanel
+        t={resolveStrings("en")}
+        entry={anthropic}
+        onStatusChange={() => {}}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign in with Claude" }),
+    );
+    expect(
+      await screen.findByText(
+        "https://claude.example/oauth/authorize?state=abc",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        "https://claude.example/oauth/authorize?state=abc",
+      ),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Copied" }),
+    ).toBeInTheDocument();
+
+    // Signed in (in whichever browser): the link goes away.
+    finish({ configured: true });
+    await waitFor(() =>
+      expect(
+        screen.queryByText("https://claude.example/oauth/authorize?state=abc"),
+      ).not.toBeInTheDocument(),
+    );
+  });
+});
+
 describe("CustomProviderPanel", () => {
   const saved: CustomEndpointConfig = {
     base_url: "https://api.example/v1",

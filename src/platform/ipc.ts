@@ -430,8 +430,15 @@ const OAUTH_COMMANDS: Record<
 export const auth = {
   oauthStatus: (providerId: string) =>
     call<OauthStatus>(OAUTH_COMMANDS[providerId].status),
-  oauthLogin: (providerId: string) =>
-    call<OauthStatus>(OAUTH_COMMANDS[providerId].login),
+  /** Signs in through the browser. `onUrl` gets the sign-in page's URL as
+   *  the browser is asked to open it, for when it doesn't open. */
+  oauthLogin: (providerId: string, onUrl?: (url: string) => void) => {
+    const channel = new Channel<string>();
+    if (onUrl) channel.onmessage = onUrl;
+    return call<OauthStatus>(OAUTH_COMMANDS[providerId].login, {
+      onUrl: channel,
+    });
+  },
   oauthLogout: (providerId: string) =>
     call<void>(OAUTH_COMMANDS[providerId].logout),
 

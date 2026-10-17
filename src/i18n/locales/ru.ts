@@ -351,6 +351,10 @@ export default {
   signInTemplate: "Войти через {name}",
   logoutButton: "Выйти",
   loggingIn: "Ожидание входа в браузере…",
+  loginLinkHint:
+    "Браузер не открылся? Откройте эту ссылку в браузере на этом компьютере:",
+  loginLinkCopy: "Копировать ссылку",
+  loginLinkCopied: "Скопировано",
   authTabAccount: "Аккаунт",
   authTabApiKey: "API-ключ",
   providerSearchPlaceholder: "Поиск провайдеров…",
@@ -472,6 +476,11 @@ export default {
   themeImportButton: "Импортировать CSS…",
   enableMathLabel: "Математические формулы",
   enableMermaidLabel: "Диаграммы Mermaid",
+  copyTextModeLabel: "При копировании в другие приложения",
+  copyTextModeHint:
+    "Приложения, принимающие только простой текст (например, WeChat), получат это; там, где формат поддерживается, он сохранится.",
+  copyTextModeReadable: "Читаемый текст",
+  copyTextModeMarkdown: "Исходный Markdown",
   askAi: "Спросить ИИ…",
   agentProposalTitle: "Предлагаемая правка",
   chatClose: "Закрыть чат",

@@ -312,6 +312,12 @@ function OauthPanel({
 }) {
   const [configured, setConfiguredState] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
+  // The sign-in page's address, shown while signing in: some machines open
+  // no browser (no default set, a sandbox, a remote desktop), and then this
+  // is the only way in. Opened on the same computer - the sign-in comes
+  // back to it.
+  const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const setConfigured = (ok: boolean) => {
@@ -331,13 +337,16 @@ function OauthPanel({
   async function login() {
     setLoggingIn(true);
     setError(null);
+    setLoginUrl(null);
+    setCopied(false);
     try {
-      const status = await auth.oauthLogin(providerId);
+      const status = await auth.oauthLogin(providerId, setLoginUrl);
       setConfigured(status.configured);
     } catch (err) {
       setError(errorText(err));
     } finally {
       setLoggingIn(false);
+      setLoginUrl(null);
     }
   }
 
@@ -379,6 +388,24 @@ function OauthPanel({
           </button>
         )}
       </div>
+      {loggingIn && loginUrl && (
+        <div className="settings-row settings-login-link">
+          <div>
+            <div className="settings-row-hint">{t.loginLinkHint}</div>
+            <code className="settings-login-url">{loginUrl}</code>
+          </div>
+          <button
+            className="text-button settings-inline-button"
+            onClick={() => {
+              void navigator.clipboard
+                .writeText(loginUrl)
+                .then(() => setCopied(true));
+            }}
+          >
+            {copied ? t.loginLinkCopied : t.loginLinkCopy}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

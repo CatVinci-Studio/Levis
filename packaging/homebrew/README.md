@@ -20,6 +20,7 @@ published (`update-homebrew-tap` in `.github/workflows/release.yml`):
   `~/Library/Application Support/com.chengaoshen.levis` is left alone, and
   Textus offers to import it on its first start.
 
-Later releases only update `version` and `sha256` in `Casks/textus.rb`.
+Every release copies this file over `Casks/textus.rb` and fills in the
+version and the two DMGs' sha256 (Apple silicon and Intel, since 1.0.3).
 Edit this file when the cask itself changes (a new `zap` path, a macOS
 requirement) and copy the change into the tap.

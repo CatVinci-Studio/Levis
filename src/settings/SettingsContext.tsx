@@ -34,6 +34,11 @@ export type ThemeMode = "system" | "light" | "dark";
 /// the source of truth for which providers exist, fetched at runtime.
 export type AiProvider = string;
 export type NewDocumentMode = "window" | "tab";
+/** What a copy from the editor puts in the clipboard's plain text, the part
+ *  apps like WeChat read: the words as they read ("readable") or the
+ *  Markdown source ("markdown"). The formatted (HTML) flavor is the same
+ *  either way. */
+export type CopyTextMode = "readable" | "markdown";
 /** How wide the text column runs: "auto" widens with the window, "standard"
  *  keeps the classic fixed measure, "full" uses the whole pane. Applied as
  *  `data-content-width` on the root (app/editor-column.css). */
@@ -217,6 +222,7 @@ export interface Settings {
   restoreSessionOnStartup: boolean;
   /** Suggest an H1 or first content line as a draft's Save As filename. */
   autoSuggestFilename: boolean;
+  copyTextMode: CopyTextMode;
   /// Set once the first-run tutorial has been shown (or skipped) - belt and
   /// suspenders alongside `isFreshInstall` below, in case a window closes
   /// mid-tutorial before the user reaches the end.
@@ -270,6 +276,7 @@ const DEFAULT_SETTINGS: Settings = {
   newDocumentMode: "window",
   restoreSessionOnStartup: true,
   autoSuggestFilename: true,
+  copyTextMode: "readable",
   onboardingShown: false,
   enableChatHistory: true,
   enableClipboardHistory: true,

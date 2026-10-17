@@ -194,3 +194,135 @@ test("a copied non-image file still pastes as a link", async ({ page }) => {
   });
   expect(await sourceOf(page)).toBe("[/home/me/a.pdf](file:///home/me/a.pdf)");
 });
+
+/** A real Ctrl+V of `text` at the caret as it stands, through the system
+ *  clipboard (paste() dispatches the event itself, after focusing the
+ *  editor, which reads the caret afresh and puts it at the end). */
+async function pasteHere(page: Page, text: string) {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate((value) => navigator.clipboard.writeText(value), text);
+  await page.keyboard.press("ControlOrMeta+v");
+  await page.waitForTimeout(300);
+}
+
+/** Puts the caret `n` characters into the first paragraph, selecting the
+ *  next `select` characters. */
+async function caretAt(page: Page, n: number, select = 0) {
+  await page.locator(`${editor} p`).first().click();
+  await page.keyboard.press("Home");
+  for (let i = 0; i < n; i++) await page.keyboard.press("ArrowRight");
+  for (let i = 0; i < select; i++)
+    await page.keyboard.press("Shift+ArrowRight");
+}
+
+test("a URL pasted inside a link's text joins it instead of splitting it", async ({
+  page,
+}) => {
+  await pasteMarkdown(page, "Before [Textus](https://t.example) after.");
+  // "Before Tex|tus"
+  await caretAt(page, 10);
+  await pasteHere(page, "https://inner.example");
+  await expect(page.locator(`${editor} a`)).toHaveCount(1);
+  expect(await sourceOf(page)).toBe(
+    "Before [Texhttps://inner.exampletus](https://t.example) after.",
+  );
+});
+
+test("a URL pasted over selected words links them", async ({ page }) => {
+  await pasteMarkdown(page, "Read the docs today.");
+  // "Read the |docs| today."
+  await caretAt(page, 9, 4);
+  await pasteHere(page, "https://docs.example");
+  expect(await sourceOf(page)).toBe(
+    "Read the [docs](https://docs.example) today.",
+  );
+});
+
+test("a URL pasted over a link's whole text only changes where it points", async ({
+  page,
+}) => {
+  await pasteMarkdown(page, "Before [Textus](https://old.example) after.");
+  await caretAt(page, 7, 6);
+  await pasteHere(page, "https://new.example");
+  await expect(page.locator(`${editor} a`)).toHaveCount(1);
+  expect(await sourceOf(page)).toBe(
+    "Before [Textus](https://new.example) after.",
+  );
+});
+
+/** What the system clipboard holds after a copy: its plain text and HTML. */
+async function clipboardNow(page: Page) {
+  return page.evaluate(async () => {
+    const out: Record<string, string> = {};
+    for (const item of await navigator.clipboard.read())
+      for (const type of item.types)
+        out[type] = await (await item.getType(type)).text();
+    return out;
+  });
+}
+
+const LINKED = "See [Textus](https://textus.catvinci.com) and **bold** text.";
+
+test("a copy's plain text reads as words, links with their address", async ({
+  page,
+}) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await pasteMarkdown(page, LINKED);
+  await page.locator(`${editor} p`).first().click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+c");
+  const clip = await clipboardNow(page);
+  expect(clip["text/plain"]).toBe(
+    "See Textus (https://textus.catvinci.com) and bold text.",
+  );
+  // The formatting still travels in the HTML, for apps that take it.
+  expect(clip["text/html"]).toContain('href="https://textus.catvinci.com');
+});
+
+test("set to Markdown, a copy's plain text is the source", async ({ page }) => {
+  await openApp(page, {
+    settings: { language: "en", copyTextMode: "markdown" },
+  });
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await pasteMarkdown(page, LINKED);
+  await page.locator(`${editor} p`).first().click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.press("ControlOrMeta+c");
+  expect((await clipboardNow(page))["text/plain"].trimEnd()).toBe(LINKED);
+});
+
+test("the context menu's Copy and Paste keep the formatting", async ({
+  page,
+}) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await pasteMarkdown(page, LINKED + "\n\nEnd.");
+  const first = page.locator(`${editor} p`).first();
+  await first.click();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await first.click({ button: "right" });
+  await page
+    .locator(".context-menu-item")
+    .getByText("Copy", { exact: true })
+    .click();
+  // The menu's copy writes the clipboard asynchronously.
+  await expect
+    .poll(() =>
+      clipboardNow(page)
+        .then((c) => c["text/plain"])
+        .catch(() => ""),
+    )
+    .toBe("See Textus (https://textus.catvinci.com) and bold text.");
+  const last = page.locator(`${editor} p`).last();
+  await last.click();
+  await page.keyboard.press("End");
+  await last.click({ button: "right" });
+  await page
+    .locator(".context-menu-item")
+    .getByText("Paste", { exact: true })
+    .click();
+  await expect(page.locator(`${editor} a`)).toHaveCount(2);
+  await expect(
+    page.locator(`${editor} strong, ${editor} .md-strong`),
+  ).toHaveCount(2);
+});

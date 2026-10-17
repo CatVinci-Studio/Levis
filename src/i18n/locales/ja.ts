@@ -345,6 +345,10 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   signInTemplate: "{name}でサインイン",
   logoutButton: "サインアウト",
   loggingIn: "ブラウザでのログインを待っています…",
+  loginLinkHint:
+    "ブラウザが開きませんか？このパソコンのブラウザでこのリンクを開いてください：",
+  loginLinkCopy: "リンクをコピー",
+  loginLinkCopied: "コピーしました",
   authTabAccount: "アカウント",
   authTabApiKey: "APIキー",
   providerSearchPlaceholder: "プロバイダーを検索…",
@@ -460,6 +464,11 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   themeImportButton: "CSSをインポート…",
   enableMathLabel: "数式を有効にする",
   enableMermaidLabel: "Mermaid 図表",
+  copyTextModeLabel: "他のアプリにコピーするとき",
+  copyTextModeHint:
+    "WeChat などプレーンテキストだけを受け取るアプリにはこちらが渡ります。書式に対応したアプリでは書式が保たれます。",
+  copyTextModeReadable: "読みやすいテキスト",
+  copyTextModeMarkdown: "Markdown のソース",
   askAi: "AIに聞く…",
   agentProposalTitle: "編集の提案",
   chatClose: "チャットを閉じる",

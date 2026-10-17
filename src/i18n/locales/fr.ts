@@ -363,6 +363,10 @@ utiliser une.
   signInTemplate: "Se connecter avec {name}",
   logoutButton: "Se déconnecter",
   loggingIn: "En attente de la connexion dans le navigateur…",
+  loginLinkHint:
+    "Aucun navigateur ne s'est ouvert ? Ouvrez ce lien dans un navigateur de cet ordinateur :",
+  loginLinkCopy: "Copier le lien",
+  loginLinkCopied: "Copié",
   authTabAccount: "Compte",
   authTabApiKey: "Clé API",
   providerSearchPlaceholder: "Rechercher un fournisseur…",
@@ -485,6 +489,11 @@ utiliser une.
   themeImportButton: "Importer du CSS…",
   enableMathLabel: "Activer les formules mathématiques",
   enableMermaidLabel: "Diagrammes Mermaid",
+  copyTextModeLabel: "Copie vers d'autres apps",
+  copyTextModeHint:
+    "Les apps qui n'acceptent que du texte brut, comme WeChat, reçoivent ceci ; la mise en forme est conservée là où une app l'accepte.",
+  copyTextModeReadable: "Texte lisible",
+  copyTextModeMarkdown: "Source Markdown",
   askAi: "Demander à l'IA…",
   agentProposalTitle: "Modification proposée",
   chatClose: "Fermer la discussion",

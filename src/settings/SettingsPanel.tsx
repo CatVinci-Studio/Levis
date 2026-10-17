@@ -7,6 +7,7 @@ import {
   type AgentMode,
   type GrammarStrictness,
   type NewDocumentMode,
+  type CopyTextMode,
   type ContentWidth,
   type ProxyType,
   REVISION_DISPLAYS,
@@ -267,6 +268,21 @@ export function SettingsPanel({
               checked={settings.enableMermaid}
               onChange={(v) => setSettings({ enableMermaid: v })}
             />
+            <SettingRow label={t.copyTextModeLabel} hint={t.copyTextModeHint}>
+              <Select
+                className="settings-select"
+                aria-label={t.copyTextModeLabel}
+                value={settings.copyTextMode}
+                onChange={(e) =>
+                  setSettings({
+                    copyTextMode: e.target.value as CopyTextMode,
+                  })
+                }
+              >
+                <option value="readable">{t.copyTextModeReadable}</option>
+                <option value="markdown">{t.copyTextModeMarkdown}</option>
+              </Select>
+            </SettingRow>
           </SettingsGroup>
           <SettingsGroup title={t.imageStorageGroupLabel}>
             <ImageStorageSection t={t} />

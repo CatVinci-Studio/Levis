@@ -53,6 +53,7 @@ MIT 라이선스로 공개된 무료 오픈 소스입니다.
 | 플랫폼               | 다운로드                                                                                         |
 | ----------------- | -------------------------------------------------------------------------------------------- |
 | macOS · Apple 실리콘 | [.dmg 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
+| macOS · Intel     | [.dmg 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
 | Windows · x64     | [.exe 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest)                       |
 | Linux · x64       | [.AppImage 다운로드](https://github.com/CatVinci-Studio/Textus/releases/latest) · 또는 .deb · .rpm |
 
@@ -146,7 +147,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 <details>
 <summary><strong>어떤 운영체제에서 쓸 수 있나요?</strong></summary>
 
-Apple 실리콘 Mac의 macOS, Windows, Linux에서 쓸 수 있습니다. iPhone·iPad 버전도 준비 중입니다.
+macOS(Apple 실리콘·Intel), Windows, Linux에서 쓸 수 있습니다. iPhone·iPad 버전도 준비 중입니다.
 
 </details>
 
