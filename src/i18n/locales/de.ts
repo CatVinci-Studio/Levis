@@ -340,6 +340,9 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   chatAttachmentTruncated: "(gekürzt)",
   chatAttachmentNoVision: `Dieser Anbieter kann keine Bilder lesen. Wechsle den Anbieter unter Einstellungen > ${AI_NAME} oder hänge stattdessen ein Dokument an.`,
   aiGrammarLabel: "Grammatikprüfung aktivieren",
+  aiDiaryLabel: "Magisches Tagebuch",
+  aiDiaryHint:
+    "Ein Easter Egg. Eingeschaltet treten die übrigen KI-Funktionen zurück: Am Ende eines Absatzes die Eingabetaste drücken, und die Seite nimmt sich die Zeile und antwortet mit einer anderen Hand. Die Zeile wird nie gelöscht – sie kehrt zurück, wenn die Antwort verblasst. Escape bricht ab.",
   aiAskLabel: `Chat mit ${AI_NAME}`,
   aiAskToggleLabel: `Chat mit ${AI_NAME} aktivieren`,
   accountLabelTemplate: "{name}-Konto",

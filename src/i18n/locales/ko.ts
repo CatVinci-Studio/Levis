@@ -332,6 +332,9 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   chatAttachmentTruncated: "(일부 생략)",
   chatAttachmentNoVision: `이 제공업체는 이미지를 읽을 수 없습니다. 설정 > ${AI_NAME}에서 제공업체를 바꾸거나 문서를 첨부하세요.`,
   aiGrammarLabel: "문법 검사 사용",
+  aiDiaryLabel: "마법 일기",
+  aiDiaryHint:
+    "이스트 에그입니다. 켜면 다른 AI 기능은 물러섭니다. 문단 끝에서 Enter를 누르면 그 한 줄이 종이에 스며들고, 다른 손으로 답이 돌아옵니다. 원문은 지워지지 않아요 — 답이 사라지면 다시 나타납니다. Esc로 취소할 수 있습니다.",
   aiAskLabel: `${AI_NAME} 채팅`,
   aiAskToggleLabel: `${AI_NAME} 채팅 사용`,
   accountLabelTemplate: "{name} 계정",

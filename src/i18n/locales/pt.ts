@@ -340,6 +340,9 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   chatAttachmentTruncated: "(parcial)",
   chatAttachmentNoVision: `Este provedor não lê imagens. Troque de provedor em Ajustes > ${AI_NAME} ou anexe um documento.`,
   aiGrammarLabel: "Ativar verificação gramatical",
+  aiDiaryLabel: "Diário mágico",
+  aiDiaryHint:
+    "Um ovo de Páscoa. Ao ligá-lo, as outras funções de IA saem de cena: prima Enter no fim de um parágrafo e a página fica com a linha, depois responde noutra letra. A linha nunca é apagada — volta quando a resposta se desfaz. Esc cancela.",
   aiAskLabel: `Chat da ${AI_NAME}`,
   aiAskToggleLabel: `Ativar chat da ${AI_NAME}`,
   accountLabelTemplate: "Conta {name}",

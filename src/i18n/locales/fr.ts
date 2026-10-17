@@ -355,6 +355,9 @@ utiliser une.
   chatAttachmentTruncated: "(tronqué)",
   chatAttachmentNoVision: `Ce fournisseur ne peut pas lire les images. Changez de fournisseur dans Réglages > ${AI_NAME}, ou joignez plutôt un document.`,
   aiGrammarLabel: "Activer la vérification grammaticale",
+  aiDiaryLabel: "Diary magique",
+  aiDiaryHint:
+    "Une surprise. Une fois activée, les autres fonctions d'IA s'effacent : appuyez sur Entrée en fin de paragraphe et la page prend la ligne, puis y répond d'une autre main. La ligne n'est jamais supprimée — elle revient quand la réponse s'efface. Échap annule.",
   aiAskLabel: `Discussion avec ${AI_NAME}`,
   aiAskToggleLabel: `Activer la discussion avec ${AI_NAME}`,
   accountLabelTemplate: "Compte {name}",

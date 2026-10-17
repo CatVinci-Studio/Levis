@@ -319,6 +319,9 @@ export default {
   chatAttachmentTruncated: "（已截斷）",
   chatAttachmentNoVision: `這個服務供應商無法讀取圖片。在「設定 > ${AI_NAME}」中更換服務供應商，或改為附加文件。`,
   aiGrammarLabel: "啟用文法檢查",
+  aiDiaryLabel: "魔法日記",
+  aiDiaryHint:
+    "一個彩蛋。開啟後其他 AI 功能會讓位：在段落末尾按 Enter，這一行會被紙頁收走，隨後由另一種筆跡回應。原句不會被刪除——回覆消散時它就回來了。按 Esc 可取消。",
   aiAskLabel: `${AI_NAME} 對話`,
   aiAskToggleLabel: `啟用 ${AI_NAME} 對話`,
   accountLabelTemplate: "{name} 帳號",

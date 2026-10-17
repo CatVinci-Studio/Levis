@@ -353,6 +353,9 @@ para usar una.
   chatAttachmentTruncated: "(recortado)",
   chatAttachmentNoVision: `Este proveedor no puede leer imágenes. Cambia de proveedor en Ajustes > ${AI_NAME} o adjunta un documento.`,
   aiGrammarLabel: "Activar revisión gramatical",
+  aiDiaryLabel: "Diario mágico",
+  aiDiaryHint:
+    "Un huevo de pascua. Al activarlo, el resto de funciones de IA se retiran: pulsa Intro al final de un párrafo y la página se queda con la línea, y luego responde con otra letra. La línea nunca se borra: vuelve cuando la respuesta se desvanece. Escape cancela.",
   aiAskLabel: `Chat de ${AI_NAME}`,
   aiAskToggleLabel: `Activar el chat de ${AI_NAME}`,
   accountLabelTemplate: "Cuenta de {name}",

@@ -12,6 +12,7 @@ import {
   createReviewNotesPlugin,
   type ReviewNote,
 } from "./margin/review-notes-plugin";
+import { createMagicDiaryPlugin } from "./magic-diary/magic-diary-plugin";
 import { resolveStrings } from "../i18n/strings";
 import type { RevisionDisplay, Settings } from "../settings/SettingsContext";
 
@@ -112,5 +113,14 @@ export function withAiPlugins(
     )
     .use(chatSelectionPlugin)
     .use(createQuickAskWidgetPlugin(quickAskWidget))
-    .use(createReviewNotesPlugin(reviewNotes));
+    .use(createReviewNotesPlugin(reviewNotes))
+    .use(
+      createMagicDiaryPlugin({
+        enabled: () => settings.current.enableMagicDiary && !aiMuted.current,
+        provider: () => settings.current.aiProvider,
+        model: () =>
+          settings.current.writingModels[settings.current.aiProvider] || null,
+        uiLanguage: () => settings.current.language,
+      }),
+    );
 }
