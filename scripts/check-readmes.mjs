@@ -70,7 +70,9 @@ for (const file of [reference, ...translations]) {
     problems.push(
       `${file}: ${doc.tableRows} table rows - ${reference} has ${ref.tableRows}`,
     );
-  if (!same(doc.links, ref.links))
+  // The same links, in any order: a translation may list them in the order
+  // its readers want (the Chinese ones put the QQ and WeChat groups first).
+  if (!same([...doc.links].sort(), [...ref.links].sort()))
     problems.push(
       `${file}: links differ from ${reference}:\n  ${doc.links.join("\n  ")}`,
     );
