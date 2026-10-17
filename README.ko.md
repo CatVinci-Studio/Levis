@@ -30,7 +30,7 @@
 <p align="center">
   <a href="https://github.com/CatVinci-Studio/Textus/releases/latest"><img alt="version" src="https://img.shields.io/github/v/release/CatVinci-Studio/Textus"></a>
   <a href="https://github.com/CatVinci-Studio/Textus/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/CatVinci-Studio/Textus/total"></a>
-  <a href="https://github.com/CatVinci-Studio/Textus/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/CatVinci-Studio/Textus"></a>
+  <a href="https://github.com/CatVinci-Studio/Textus/stargazers"><img alt="stars" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2FCatVinci-Studio%2FTextus&query=%24.stargazers_count&label=stars&logo=github&cacheSeconds=3600"></a>
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey">
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
   <a href="https://github.com/CatVinci-Studio/Textus/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/CatVinci-Studio/Textus/ci.yml?branch=main&label=CI"></a>
@@ -209,6 +209,15 @@ npm run build         # frontend only: type-check (tsc) + vite build
 ## 기여하기
 
 CI가 실행하는 검사, 커밋 규칙, 릴리스 절차는 [CONTRIBUTING.md](CONTRIBUTING.md)를, 테스트가 무엇을 다루고 무엇을 일부러 다루지 않는지는 [docs/TESTING.md](docs/TESTING.md)를 보세요. 논의는 영어나 중국어로 해 주세요.
+
+## 스타 추이
+
+<a href="https://star-history.com/#CatVinci-Studio/Textus&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=CatVinci-Studio/Textus&type=Date&theme=dark">
+    <img alt="Star history" src="https://api.star-history.com/svg?repos=CatVinci-Studio/Textus&type=Date">
+  </picture>
+</a>
 
 ## 라이선스
 
