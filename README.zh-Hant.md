@@ -35,6 +35,8 @@
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-yellow"></a>
   <a href="https://github.com/CatVinci-Studio/Textus/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/CatVinci-Studio/Textus/ci.yml?branch=main&label=CI"></a>
   <a href="https://textus.catvinci.com/discord"><img alt="Discord" src="https://img.shields.io/discord/1560734722219311294?label=Discord&logo=discord&logoColor=white&color=5865F2"></a>
+  <a href="https://textus.catvinci.com/qq"><img alt="QQ" src="https://img.shields.io/badge/QQ%20%E7%BE%A4-1128285004-12B7F5?logo=qq&logoColor=white"></a>
+  <a href="https://textus.catvinci.com/wechat"><img alt="WeChat" src="https://img.shields.io/badge/%E5%BE%AE%E4%BF%A1%E7%BE%A4-%E6%8E%83%E7%A2%BC%E5%8A%A0%E5%85%A5-07C160?logo=wechat&logoColor=white"></a>
   <img alt="languages" src="https://img.shields.io/badge/languages-10-blue">
   <a href="https://textus.catvinci.com"><img alt="website" src="https://img.shields.io/badge/website-textus.catvinci.com-8a6d3b"></a>
 </p>
@@ -205,6 +207,14 @@ npm run build         # frontend only: type-check (tsc) + vite build
 ```
 
 需要 [Node.js](https://nodejs.org) 22 以上、[Rust](https://rustup.rs)（stable）以及各平台的建置工具（macOS 上是 Xcode CLT；Linux 上是 `libwebkit2gtk-4.1-dev`/`libappindicator3-dev`/`librsvg2-dev`/`patchelf`；Windows 上是 MSVC Build Tools）。
+
+## 社群
+
+- [QQ 群](https://textus.catvinci.com/qq)：1128285004
+- [微信群](https://textus.catvinci.com/wechat)：掃碼加入（QR 碼每週更新）
+- [Discord](https://textus.catvinci.com/discord)：英文交流
+
+錯誤回報與功能建議也歡迎提到 [GitHub Issues](https://github.com/CatVinci-Studio/Textus/issues)。
 
 ## 參與貢獻
 

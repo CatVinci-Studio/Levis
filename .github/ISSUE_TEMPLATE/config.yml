@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Questions and chat / 提问与交流
+  - name: Questions and chat
     url: https://textus.catvinci.com/discord
-    about: Ask how to do something, or talk with other people who use Textus, on our Discord. / 使用问题和交流，请到我们的 Discord。
+    about: Ask how to do something, or talk with other people who use Textus, on our Discord (in English).
+  - name: 中文交流（QQ 群 / 微信群）
+    url: https://textus.catvinci.com/zh/community/
+    about: 使用问题和交流，欢迎加入 QQ 群 1128285004 或微信群。
   - name: Website / 官网
     url: https://textus.catvinci.com
     about: Downloads and an overview of what the app does. / 下载与功能介绍。
