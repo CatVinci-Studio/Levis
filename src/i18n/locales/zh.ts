@@ -444,6 +444,11 @@ export default {
   themeImportButton: "导入 CSS…",
   enableMathLabel: "开启数学公式",
   enableMermaidLabel: "Mermaid 图表",
+  copyTextModeLabel: "复制到其他 App 时",
+  copyTextModeHint:
+    "微信等只接收纯文本的 App 会收到这一种；支持格式的 App 仍会保留格式。",
+  copyTextModeReadable: "可读文字",
+  copyTextModeMarkdown: "Markdown 原文",
   askAi: "询问 AI…",
   agentProposalTitle: "修改提议",
   chatClose: "关闭对话",

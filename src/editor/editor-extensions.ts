@@ -54,6 +54,7 @@ import { codeBlockIndentPlugin } from "./code/code-block-indent-plugin";
 import { pasteMarkdownSourcePlugin } from "./markdown/paste-markdown-plugin";
 import { pasteUrlPlugin } from "./markdown/paste-url";
 import { clipboardHistoryPlugin } from "../clipboard/history-plugin";
+import { createPlainTextCopyPlugin } from "./markdown/plain-text-copy-plugin";
 import { createImagePlugin } from "./images/image-plugin";
 import { createTypewriterPlugin } from "./modes/typewriter-plugin";
 import { zenFocusPlugin } from "./modes/zen-focus-plugin";
@@ -186,6 +187,7 @@ export function withEditorCore(
       )
       .use(pasteUrlPlugin)
       .use(pasteMarkdownSourcePlugin)
+      .use(createPlainTextCopyPlugin(() => settings.current.copyTextMode))
       .use(clipboard)
       .use(clipboardHistoryPlugin)
       .use(listener)

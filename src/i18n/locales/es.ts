@@ -485,6 +485,11 @@ para usar una.
   themeImportButton: "Importar CSS…",
   enableMathLabel: "Activar fórmulas matemáticas",
   enableMermaidLabel: "Diagramas Mermaid",
+  copyTextModeLabel: "Al copiar a otras apps",
+  copyTextModeHint:
+    "Las apps que solo aceptan texto sin formato, como WeChat, reciben esto; donde una app acepta formato, se conserva.",
+  copyTextModeReadable: "Texto legible",
+  copyTextModeMarkdown: "Código Markdown",
   askAi: "Preguntar a la IA…",
   agentProposalTitle: "Cambio propuesto",
   chatClose: "Cerrar el chat",

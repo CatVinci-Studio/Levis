@@ -471,6 +471,11 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   themeImportButton: "Importar CSS…",
   enableMathLabel: "Ativar fórmulas matemáticas",
   enableMermaidLabel: "Diagramas Mermaid",
+  copyTextModeLabel: "Ao copiar para outros apps",
+  copyTextModeHint:
+    "Apps que só aceitam texto simples, como o WeChat, recebem isto; onde o app aceita formatação, ela é mantida.",
+  copyTextModeReadable: "Texto legível",
+  copyTextModeMarkdown: "Código Markdown",
   askAi: "Perguntar à IA…",
   agentProposalTitle: "Edição proposta",
   chatClose: "Fechar chat",

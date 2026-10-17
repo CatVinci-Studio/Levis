@@ -460,6 +460,11 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   themeImportButton: "CSS 가져오기…",
   enableMathLabel: "수식 사용",
   enableMermaidLabel: "Mermaid 다이어그램",
+  copyTextModeLabel: "다른 앱으로 복사할 때",
+  copyTextModeHint:
+    "WeChat처럼 일반 텍스트만 받는 앱에는 이 형식이 전달됩니다. 서식을 지원하는 앱에서는 서식이 유지됩니다.",
+  copyTextModeReadable: "읽기 쉬운 텍스트",
+  copyTextModeMarkdown: "Markdown 원문",
   askAi: "AI에게 묻기…",
   agentProposalTitle: "수정 제안",
   chatClose: "채팅 닫기",

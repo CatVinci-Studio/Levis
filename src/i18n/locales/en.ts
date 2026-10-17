@@ -464,6 +464,11 @@ type /name in a conversation to use one.
   themeImportButton: "Import CSS…",
   enableMathLabel: "Enable math formulas",
   enableMermaidLabel: "Mermaid diagrams",
+  copyTextModeLabel: "When copied to other apps",
+  copyTextModeHint:
+    "Apps that only take plain text, like WeChat, get this; formatting still comes along where an app accepts it.",
+  copyTextModeReadable: "Readable text",
+  copyTextModeMarkdown: "Markdown source",
   askAi: "Ask AI…",
   agentProposalTitle: "Proposed edit",
   chatClose: "Close chat",
