@@ -135,6 +135,247 @@
   }
 }
 
+/* The Magic Diary (ai/magic-diary/magic-diary-plugin.ts): a finished line
+   fades off the page and something answers in its place, in another hand.
+
+   Two decorations, neither of them part of the document. `.magic-diary-
+   absorbed` is an INLINE decoration over the reader's own characters - the
+   text is still there, still theirs, still in the file; it is only drawn as
+   gone, and taking the class off brings the exact words back. That is why
+   the caret goes transparent with it: it sits inside text that is no longer
+   drawn, and a blinking bar on an empty-looking line reads as a bug.
+
+   Inline, never on the block: the reply is a widget inside that same
+   paragraph, and opacity composites down the tree, so fading the <p> would
+   take the answer with it no matter what the answer set on itself.
+   `.magic-diary-reply` is the widget the reply is written into. */
+
+.milkdown .ProseMirror .magic-diary-absorbed {
+  opacity: 0;
+  filter: blur(3px);
+  /* The letters drift apart as they go, the way ink spreads into damp
+     paper rather than vanishing cleanly. */
+  letter-spacing: 0.05em;
+  caret-color: transparent;
+  transition:
+    opacity 900ms var(--ease-standard),
+    filter 900ms var(--ease-standard),
+    letter-spacing 900ms var(--ease-standard);
+}
+
+/* The line coming off the page. A copy of what was just written, lifting
+   and thinning while the real characters finish dissolving under it - the
+   "the paper took it" beat, which a plain fade alone never quite says.
+   One keyframe, so it is over in exactly as long as the fade and can
+   never be caught still hanging on the page. */
+.milkdown .ProseMirror .magic-diary-ghost {
+  position: relative;
+  display: inline-block;
+  color: var(--editor-text);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: magic-diary-lift 900ms cubic-bezier(0.33, 0, 0.2, 1) both;
+}
+
+@keyframes magic-diary-lift {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scale(1);
+    filter: blur(0);
+  }
+  22% {
+    opacity: 0.85;
+    transform: translateY(-2px) scale(1);
+    filter: blur(0.4px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.985);
+    filter: blur(6px);
+  }
+}
+
+/* The reply: a strip of older paper laid over the line. Its warmth is its
+   own, not the content theme's accent - a reply written in the page's ink
+   should still read as parchment under a cool theme and as night under a
+   dark one, and the two falls out of mixing one warm tone into whatever the
+   theme's own surface is. Ink is the document's own text colour warmed, so
+   the two stay in one book. */
+/* The reply: ink on the page. Deliberately no box - no card, no background,
+   no border, no padding. A frame around every line the page says turns the
+   conversation into a chat log and gives the trick away; what makes it read
+   as the same book is only the other hand it is written in and the warm
+   brown of the ink. */
+.milkdown .ProseMirror .magic-diary-reply {
+  display: block;
+  position: relative;
+  margin: 0.35em 0 1.5em;
+  padding: 0;
+  /* Not the document: it must not be selectable or copied into the text. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The warm breath around the words as a reply arrives - a wash of gold on
+   the paper behind the ink, not a card. On the ink rather than the reply so
+   it sits under the characters instead of boxing them. */
+.milkdown .ProseMirror .magic-diary-reply .magic-diary-ink {
+  position: relative;
+}
+
+.milkdown .ProseMirror .magic-diary-reply .magic-diary-ink::before {
+  content: "";
+  position: absolute;
+  inset: -0.4em -0.7em;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: var(--radius-block);
+  background: radial-gradient(
+    ellipse 75% 130% at 16% 50%,
+    color-mix(in srgb, #c79a52 22%, transparent),
+    transparent 70%
+  );
+  animation: magic-diary-glow 1600ms var(--ease-out) both;
+}
+
+@keyframes magic-diary-glow {
+  from {
+    opacity: 0;
+  }
+  45% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* The other hand. An old-book face for Latin and a kai for CJK - both are
+   faces a reader already has, which is the point: the page must not need a
+   download to sound like it is from somewhere. Italic carries the Latin;
+   where it synthesises over CJK it reads as the slanted hand, which is a
+   real style rather than a broken one. */
+.milkdown .ProseMirror .magic-diary-ink {
+  margin: 0;
+  font-style: italic;
+  font-family:
+    "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia,
+    "Kaiti SC", "Kaiti TC", STKaiti, KaiTi, "楷体", serif;
+  font-size: 1.02em;
+  line-height: 1.72;
+  color: color-mix(in srgb, var(--editor-text) 88%, #6d4318);
+  white-space: pre-wrap;
+}
+
+/* Each character as it is written: it arrives soft and slightly too dark,
+   then settles into the paper. Without this the reveal reads as a text
+   cursor advancing, not as a nib. */
+.magic-diary-char {
+  animation: magic-diary-ink-in 260ms var(--ease-out) both;
+}
+
+@keyframes magic-diary-ink-in {
+  from {
+    opacity: 0;
+    filter: blur(2.5px);
+    transform: translateY(-0.08em);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+/* The nib: a wet point riding the end of what has been written. A ::after
+   on the ink, so it sits at the growing end without the reveal loop having
+   to know where that is - and it is gone with the writing class, the
+   moment the last character lands. */
+.milkdown .ProseMirror .magic-diary-reply-writing .magic-diary-ink::after {
+  content: "";
+  display: inline-block;
+  width: 0.1em;
+  height: 1.05em;
+  margin-left: 0.06em;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  background: #8a5a2b;
+  box-shadow: 0 0 6px 1px color-mix(in srgb, #c79a52 70%, transparent);
+  animation: magic-diary-nib 1.05s ease-in-out infinite;
+}
+
+@keyframes magic-diary-nib {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* A page under a candle does not sit still. The strip breathes very
+   slightly while it is being written and stops dead once it has settled -
+   a still reply reads as finished, and finished is what it is. */
+.milkdown .ProseMirror .magic-diary-reply-writing {
+  animation:
+    magic-diary-settle 900ms var(--ease-out) both,
+    magic-diary-candle 2.6s ease-in-out 900ms infinite;
+}
+
+@keyframes magic-diary-candle {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  42% {
+    filter: brightness(1.035);
+  }
+  61% {
+    filter: brightness(0.985);
+  }
+}
+
+/* While it is still being written the strip has nowhere settled to rest
+   yet; once the last character lands it does. The ink's own reveal is a JS
+   loop appending one span per character, so this only moves the paper
+   around it. (The animation itself is declared above, alongside the nib it
+   shares the writing class with.) */
+.milkdown .ProseMirror .magic-diary-reply-settled {
+  animation: none;
+}
+
+@keyframes magic-diary-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Abandoned: the reply dissolves before the line comes back, so the two are
+   never on the page at once (see the plugin's endTurn). */
+.milkdown .ProseMirror .magic-diary-reply-leaving {
+  animation: magic-diary-unwrite 520ms var(--ease-standard) both;
+}
+
+@keyframes magic-diary-unwrite {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(2px);
+  }
+}
+
 /* Pending agent edits (pending-edit-plugin.ts): the anchor text an action
    removes is struck through with a red tint; new text is shown ghost-style
    (like .ghost-text above) but green-tinted so it reads as "about to be
@@ -382,6 +623,29 @@
   .pending-sentence-new,
   .pending-pick {
     animation: none !important;
+  }
+
+  /* The diary keeps its meaning without any of this: the line still goes
+     and the reply still arrives, both without travel. The blur is a
+     transition, not an animation, so it is transitioned off here too. */
+  .milkdown .ProseMirror .magic-diary-absorbed {
+    transition: opacity 120ms linear;
+    filter: none;
+    letter-spacing: normal;
+  }
+  .milkdown .ProseMirror .magic-diary-ghost,
+  .milkdown .ProseMirror .magic-diary-char,
+  .milkdown .ProseMirror .magic-diary-reply .magic-diary-ink::before,
+  .milkdown .ProseMirror .magic-diary-reply-writing,
+  .milkdown .ProseMirror .magic-diary-reply-leaving,
+  .milkdown .ProseMirror .magic-diary-reply-writing .magic-diary-ink::after {
+    animation: none !important;
+  }
+  /* The lift and the ink-bleed are the same effect on two elements; with
+     both off, the ghost would sit on the page for its whole animation
+     instead of dissolving with it. */
+  .milkdown .ProseMirror .magic-diary-ghost {
+    display: none;
   }
 }
 

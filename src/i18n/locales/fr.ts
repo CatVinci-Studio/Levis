@@ -355,6 +355,9 @@ utiliser une.
   chatAttachmentTruncated: "(tronqué)",
   chatAttachmentNoVision: `Ce fournisseur ne peut pas lire les images. Changez de fournisseur dans Réglages > ${AI_NAME}, ou joignez plutôt un document.`,
   aiGrammarLabel: "Activer la vérification grammaticale",
+  aiDiaryLabel: "Diary magique",
+  aiDiaryHint:
+    "Une surprise qui remplace les autres fonctions d’IA. Entrée en fin de paragraphe envoie le texte ; la réponse terminée reste 10 secondes, puis s’efface pour vous laisser écrire. Haut/Bas rappelle les réponses précédentes ; Échap annule. Le texte original reste dans le document.",
   aiAskLabel: `Discussion avec ${AI_NAME}`,
   aiAskToggleLabel: `Activer la discussion avec ${AI_NAME}`,
   accountLabelTemplate: "Compte {name}",
