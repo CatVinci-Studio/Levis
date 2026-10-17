@@ -345,6 +345,10 @@ ${AI_NAME}への執筆の指示です。すべての文書に適用されます�
   signInTemplate: "{name}でサインイン",
   logoutButton: "サインアウト",
   loggingIn: "ブラウザでのログインを待っています…",
+  loginLinkHint:
+    "ブラウザが開きませんか？このパソコンのブラウザでこのリンクを開いてください：",
+  loginLinkCopy: "リンクをコピー",
+  loginLinkCopied: "コピーしました",
   authTabAccount: "アカウント",
   authTabApiKey: "APIキー",
   providerSearchPlaceholder: "プロバイダーを検索…",

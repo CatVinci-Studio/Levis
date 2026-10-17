@@ -348,6 +348,10 @@ Habilidades ficam na pasta skills/ ao lado deste arquivo, um arquivo
   signInTemplate: "Entrar com {name}",
   logoutButton: "Sair",
   loggingIn: "Aguardando o login no navegador…",
+  loginLinkHint:
+    "O navegador não abriu? Abra este link em um navegador neste computador:",
+  loginLinkCopy: "Copiar link",
+  loginLinkCopied: "Copiado",
   authTabAccount: "Conta",
   authTabApiKey: "Chave de API",
   providerSearchPlaceholder: "Buscar provedores…",

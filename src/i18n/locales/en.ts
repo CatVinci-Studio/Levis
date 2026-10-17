@@ -345,6 +345,10 @@ type /name in a conversation to use one.
   signInTemplate: "Sign in with {name}",
   logoutButton: "Sign out",
   loggingIn: "Waiting for browser login…",
+  loginLinkHint:
+    "No browser window? Open this link in a browser on this computer:",
+  loginLinkCopy: "Copy link",
+  loginLinkCopied: "Copied",
   authTabAccount: "Account",
   authTabApiKey: "API Key",
   providerSearchPlaceholder: "Search providers…",

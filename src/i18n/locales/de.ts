@@ -348,6 +348,10 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   signInTemplate: "Mit {name} anmelden",
   logoutButton: "Abmelden",
   loggingIn: "Warte auf die Anmeldung im Browser…",
+  loginLinkHint:
+    "Kein Browser geöffnet? Öffnen Sie diesen Link in einem Browser auf diesem Computer:",
+  loginLinkCopy: "Link kopieren",
+  loginLinkCopied: "Kopiert",
   authTabAccount: "Konto",
   authTabApiKey: "API-Schlüssel",
   providerSearchPlaceholder: "Anbieter suchen…",

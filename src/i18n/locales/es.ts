@@ -361,6 +361,10 @@ para usar una.
   signInTemplate: "Iniciar sesión con {name}",
   logoutButton: "Cerrar sesión",
   loggingIn: "Esperando el inicio de sesión en el navegador…",
+  loginLinkHint:
+    "¿No se abrió el navegador? Abre este enlace en un navegador de este ordenador:",
+  loginLinkCopy: "Copiar enlace",
+  loginLinkCopied: "Copiado",
   authTabAccount: "Cuenta",
   authTabApiKey: "Clave de API",
   providerSearchPlaceholder: "Buscar proveedores…",

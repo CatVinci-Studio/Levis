@@ -54,7 +54,10 @@ fn load_credential(app: &AppHandle) -> Result<Option<CodexCredential>, String> {
 /// several other open-source coding agents use) rather than a standard API
 /// key, per the "sign in with ChatGPT" requirement.
 #[tauri::command]
-pub async fn codex_login(app: AppHandle) -> Result<AuthStatus, String> {
+pub async fn codex_login(
+    app: AppHandle,
+    on_url: tauri::ipc::Channel<String>,
+) -> Result<AuthStatus, String> {
     let (authorize_url, verifier, state) =
         openai_codex::build_authorize_request(crate::app_identity::ORIGINATOR)?;
 
@@ -66,6 +69,9 @@ pub async fn codex_login(app: AppHandle) -> Result<AuthStatus, String> {
             response_html: aicompat::success_page_html("ChatGPT", crate::app_identity::APP_NAME),
             expected_state: state,
             timeout_secs: LOGIN_TIMEOUT_SECS,
+            on_authorize_url: Some(Box::new(move |url| {
+                let _ = on_url.send(url.to_string());
+            })),
         },
     )
     .await?;

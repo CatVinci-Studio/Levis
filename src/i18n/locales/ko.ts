@@ -340,6 +340,10 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   signInTemplate: "{name} 계정으로 로그인",
   logoutButton: "로그아웃",
   loggingIn: "브라우저 로그인을 기다리는 중…",
+  loginLinkHint:
+    "브라우저가 열리지 않나요? 이 컴퓨터의 브라우저에서 이 링크를 여세요:",
+  loginLinkCopy: "링크 복사",
+  loginLinkCopied: "복사됨",
   authTabAccount: "계정",
   authTabApiKey: "API 키",
   providerSearchPlaceholder: "제공업체 검색…",

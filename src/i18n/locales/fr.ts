@@ -363,6 +363,10 @@ utiliser une.
   signInTemplate: "Se connecter avec {name}",
   logoutButton: "Se déconnecter",
   loggingIn: "En attente de la connexion dans le navigateur…",
+  loginLinkHint:
+    "Aucun navigateur ne s'est ouvert ? Ouvrez ce lien dans un navigateur de cet ordinateur :",
+  loginLinkCopy: "Copier le lien",
+  loginLinkCopied: "Copié",
   authTabAccount: "Compte",
   authTabApiKey: "Clé API",
   providerSearchPlaceholder: "Rechercher un fournisseur…",

@@ -49,7 +49,10 @@ fn load_credential(app: &AppHandle) -> Result<Option<ClaudeCredential>, String> 
 /// login but against Anthropic's own OAuth client - see aicompat's
 /// providers::anthropic module for the reference this was verified against.
 #[tauri::command]
-pub async fn claude_login(app: AppHandle) -> Result<ClaudeAuthStatus, String> {
+pub async fn claude_login(
+    app: AppHandle,
+    on_url: tauri::ipc::Channel<String>,
+) -> Result<ClaudeAuthStatus, String> {
     let (authorize_url, verifier, state) = anthropic::build_authorize_request()?;
 
     let code = run_pkce_login(
@@ -60,6 +63,9 @@ pub async fn claude_login(app: AppHandle) -> Result<ClaudeAuthStatus, String> {
             response_html: aicompat::success_page_html("Claude", crate::app_identity::APP_NAME),
             expected_state: state.clone(),
             timeout_secs: LOGIN_TIMEOUT_SECS,
+            on_authorize_url: Some(Box::new(move |url| {
+                let _ = on_url.send(url.to_string());
+            })),
         },
     )
     .await?;

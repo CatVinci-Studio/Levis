@@ -351,6 +351,10 @@ export default {
   signInTemplate: "Войти через {name}",
   logoutButton: "Выйти",
   loggingIn: "Ожидание входа в браузере…",
+  loginLinkHint:
+    "Браузер не открылся? Откройте эту ссылку в браузере на этом компьютере:",
+  loginLinkCopy: "Копировать ссылку",
+  loginLinkCopied: "Скопировано",
   authTabAccount: "Аккаунт",
   authTabApiKey: "API-ключ",
   providerSearchPlaceholder: "Поиск провайдеров…",
