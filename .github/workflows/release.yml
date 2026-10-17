@@ -83,7 +83,14 @@ jobs:
           # macos-26 is what macos-latest points at today (same arm64
           # pool); pinned so the next image switch is a deliberate change.
           - platform: macos-26
+            target: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
+          # Intel Macs: cross-compiled on the same Apple silicon runner (the
+          # Intel runner pool is being retired). Its DMG and updater tarball
+          # are named _x64, beside the _aarch64 ones.
+          - platform: macos-26
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
           - platform: ubuntu-22.04
             args: ""
           # Windows ships the NSIS .exe and nothing else; the target list
@@ -115,12 +122,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-26' && 'aarch64-apple-darwin' || '' }}
+          targets: ${{ matrix.target || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          # The two macOS builds share a runner image; one cache each.
+          key: ${{ matrix.target || 'host' }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -136,10 +145,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # The Intel build is the same source as the Apple silicon one, which
+      # has just run these on this runner image.
       - name: Validate frontend before publishing
+        if: matrix.target != 'x86_64-apple-darwin'
         run: npm run check
 
       - name: Test native app before publishing
+        if: matrix.target != 'x86_64-apple-darwin'
         run: cargo test --workspace --manifest-path src-tauri/Cargo.toml
 
       - name: Build and release
@@ -170,7 +183,7 @@ jobs:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: "${{ env.PRODUCT_NAME }} ${{ env.RELEASE_TAG }}"
           # Keep partial matrix builds away from the updater. The publish
-          # job exposes the release only after all three platforms succeed.
+          # job exposes the release only after every build succeeds.
           releaseDraft: true
           # A semver pre-release suffix (v0.9.0-rc.1, -beta.2, -alpha) marks
           # the GitHub release as a pre-release. That is what keeps it away
@@ -381,9 +394,13 @@ jobs:
           fi
           VERSION="${RELEASE_TAG#v}"
           # The release was published seconds ago; let the CDN catch up.
-          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o textus.dmg \
-            "https://github.com/CatVinci-Studio/Textus/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
-          SHA=$(sha256sum textus.dmg | cut -d' ' -f1)
+          sha_of() {
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o "$1.dmg" \
+              "https://github.com/CatVinci-Studio/Textus/releases/download/${RELEASE_TAG}/${PRODUCT_NAME}_${VERSION}_$1.dmg"
+            sha256sum "$1.dmg" | cut -d' ' -f1
+          }
+          SHA_ARM=$(sha_of aarch64)
+          SHA_INTEL=$(sha_of x64)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           printf '%s\n' "$TAP_DEPLOY_KEY" > ~/.ssh/tap_key
@@ -404,8 +421,14 @@ jobs:
             mv cask_renames.json.new cask_renames.json
             git add Casks/textus.rb cask_renames.json
           fi
+          # The cask's shape comes from packaging/homebrew/textus.rb each
+          # time (the Intel DMG made it per-architecture in 1.0.3); only
+          # the version and the two checksums are this release's.
+          cp ../app/packaging/homebrew/textus.rb Casks/textus.rb
           sed -i "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/textus.rb
-          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/textus.rb
+          sed -i "s|^  sha256 arm: .*|  sha256 arm:   \"${SHA_ARM}\",|" Casks/textus.rb
+          sed -i "s|^         intel: .*|         intel: \"${SHA_INTEL}\"|" Casks/textus.rb
+          grep -q "${SHA_ARM}" Casks/textus.rb && grep -q "${SHA_INTEL}" Casks/textus.rb
           # A rerun after a successful push has nothing to commit.
           if git diff HEAD --quiet; then
             echo "The cask already serves ${VERSION}"

@@ -1,8 +1,11 @@
 cask "textus" do
-  version "1.0.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  arch arm: "aarch64", intel: "x64"
 
-  url "https://github.com/CatVinci-Studio/Textus/releases/download/v#{version}/Textus_#{version}_aarch64.dmg"
+  version "1.0.0"
+  sha256 arm:   "0000000000000000000000000000000000000000000000000000000000000000",
+         intel: "0000000000000000000000000000000000000000000000000000000000000000"
+
+  url "https://github.com/CatVinci-Studio/Textus/releases/download/v#{version}/Textus_#{version}_#{arch}.dmg"
   name "Textus"
   desc "WYSIWYG Markdown editor"
   homepage "https://textus.catvinci.com"
@@ -11,8 +14,6 @@ cask "textus" do
     url :url
     strategy :github_latest
   end
-
-  depends_on arch: :arm64
 
   app "Textus.app"
 

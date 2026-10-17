@@ -53,6 +53,7 @@ Kostenlos und quelloffen, unter MIT-Lizenz.
 | Plattform             | Download                                                                                            |
 | --------------------- | --------------------------------------------------------------------------------------------------- |
 | macOS · Apple Silicon | [.dmg laden](https://github.com/CatVinci-Studio/Textus/releases/latest)                             |
+| macOS · Intel         | [.dmg laden](https://github.com/CatVinci-Studio/Textus/releases/latest)                             |
 | Windows · x64         | [.exe laden](https://github.com/CatVinci-Studio/Textus/releases/latest)                             |
 | Linux · x64           | [.AppImage laden](https://github.com/CatVinci-Studio/Textus/releases/latest) · Auch als .deb · .rpm |
 
@@ -146,7 +147,7 @@ Ja. Textus ist kostenlos und quelloffen unter der MIT-Lizenz, ohne Konto und ohn
 <details>
 <summary><strong>Auf welchen Systemen läuft Textus?</strong></summary>
 
-Auf macOS mit Apple Silicon, Windows und Linux. Versionen für iPhone und iPad sind unterwegs.
+Auf macOS (Apple Silicon und Intel), Windows und Linux. Versionen für iPhone und iPad sind unterwegs.
 
 </details>
 

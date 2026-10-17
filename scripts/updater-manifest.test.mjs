@@ -94,6 +94,7 @@ describe("updater manifest", () => {
         "https://github.com/CatVinci-Studio/Textus/releases/download/v1.0.0/",
       artifacts: [
         { name: "Textus_aarch64.app.tar.gz", signature: "mac\n" },
+        { name: "Textus_x64.app.tar.gz", signature: "intel" },
         { name: "Textus_1.0.0_amd64.AppImage", signature: "appimage" },
         { name: "Textus_1.0.0_amd64.deb", signature: "deb" },
         { name: "Textus_1.0.0_x64-setup.exe", signature: "nsis" },
@@ -104,10 +105,11 @@ describe("updater manifest", () => {
       signature: "mac",
       url: "https://github.com/CatVinci-Studio/Textus/releases/download/v1.0.0/Textus_aarch64.app.tar.gz",
     });
+    expect(manifest.platforms["darwin-x86_64"].signature).toBe("intel");
     expect(manifest.platforms["linux-x86_64"].signature).toBe("appimage");
     expect(manifest.platforms["linux-x86_64-deb"].signature).toBe("deb");
     expect(manifest.platforms["windows-x86_64-nsis"].signature).toBe("nsis");
-    expect(Object.keys(manifest.platforms)).toHaveLength(7);
+    expect(Object.keys(manifest.platforms)).toHaveLength(9);
     expect(manifestProblems(manifest, "1.0.0")).toEqual([]);
   });
 
@@ -122,6 +124,7 @@ describe("updater manifest", () => {
     expect(manifestProblems(manifest, "1.0.1")).toEqual([
       "manifest says 1.0.0, expected 1.0.1",
       "no signed darwin-aarch64 entry",
+      "no signed darwin-x86_64 entry",
       "no signed linux-x86_64 entry",
     ]);
   });

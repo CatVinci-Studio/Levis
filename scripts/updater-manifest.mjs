@@ -110,6 +110,7 @@ export function buildManifest({ version, notes, pubDate, baseUrl, artifacts }) {
 /** Platforms every release must serve. */
 export const REQUIRED_PLATFORMS = [
   "darwin-aarch64",
+  "darwin-x86_64",
   "linux-x86_64",
   "windows-x86_64",
 ];

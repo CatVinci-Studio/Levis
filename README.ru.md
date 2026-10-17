@@ -53,6 +53,7 @@ https://github.com/user-attachments/assets/f366f282-e3f9-43d9-9a29-edb6d1ace3f5
 | Платформа             | Скачать                                                                                              |
 | --------------------- | ---------------------------------------------------------------------------------------------------- |
 | macOS · Apple Silicon | [Скачать .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
+| macOS · Intel         | [Скачать .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
 | Windows · x64         | [Скачать .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                            |
 | Linux · x64           | [Скачать .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · А также .deb · .rpm |
 
@@ -146,7 +147,7 @@ OpenAI · Anthropic · Google Gemini · DeepSeek · xAI · Mistral · Groq · Op
 <details>
 <summary><strong>На каких платформах работает Textus?</strong></summary>
 
-На macOS (Apple Silicon), Windows и Linux. Версии для iPhone и iPad в разработке.
+На macOS (Apple Silicon и Intel), Windows и Linux. Версии для iPhone и iPad в разработке.
 
 </details>
 

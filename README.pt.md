@@ -53,6 +53,7 @@ Gratuito e de código aberto, sob a licença MIT.
 | Plataforma            | Baixar                                                                                                |
 | --------------------- | ----------------------------------------------------------------------------------------------------- |
 | macOS · Apple Silicon | [Baixar .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                              |
+| macOS · Intel         | [Baixar .dmg](https://github.com/CatVinci-Studio/Textus/releases/latest)                              |
 | Windows · x64         | [Baixar .exe](https://github.com/CatVinci-Studio/Textus/releases/latest)                              |
 | Linux · x64           | [Baixar .AppImage](https://github.com/CatVinci-Studio/Textus/releases/latest) · Também em .deb · .rpm |
 
@@ -146,7 +147,7 @@ Sim. É gratuito e de código aberto, sob a licença MIT, sem conta e sem assina
 <details>
 <summary><strong>Em quais plataformas ele funciona?</strong></summary>
 
-macOS com Apple Silicon, Windows e Linux. As versões para iPhone e iPad estão a caminho.
+macOS (Apple Silicon e Intel), Windows e Linux. As versões para iPhone e iPad estão a caminho.
 
 </details>
 
