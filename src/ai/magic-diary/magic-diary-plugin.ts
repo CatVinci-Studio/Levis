@@ -153,11 +153,11 @@ export function createMagicDiaryPlugin(options: MagicDiaryOptions) {
     dispatch({ type: "leave", id });
     later(finish, FADE_MS);
   }
-  function cancel() {
+  function cancel(announceDeparture = true) {
     const current = state();
     const turn = current?.turns.find((t) => t.id === current.active);
     if (!turn || !view) return;
-    announce("leaving");
+    if (announceDeparture) announce("leaving");
     if (turn.stage === "done" || turn.stage === "leaving") {
       finish();
       return;
@@ -182,7 +182,14 @@ export function createMagicDiaryPlugin(options: MagicDiaryOptions) {
     );
     view.dispatch(tr);
     widgets.clear();
-    view.focus();
+    if (!view.dom.closest('[data-active-tab="false"]')) view.focus();
+  }
+  // The map has one walker across all mounted editors. A newly submitted
+  // turn takes ownership; release the displaced turn without redirecting
+  // the walker or stealing focus from its new tab.
+  function onDiaryEvent(event: Event) {
+    const { phase, turnId } = (event as CustomEvent<MagicDiaryEvent>).detail;
+    if (phase === "absorbed" && live && turnId !== live.id) cancel(false);
   }
   async function ask(id: number, line: string) {
     if (!isCurrent(id) || !live) return;
@@ -367,6 +374,7 @@ export function createMagicDiaryPlugin(options: MagicDiaryOptions) {
             const node = tr.doc.nodeAt(from);
             return to > from &&
               node?.isTextblock &&
+              to === from + node.nodeSize &&
               node.textContent.trim() === turn.line
               ? [{ ...turn, from, to }]
               : [];
@@ -582,6 +590,7 @@ export function createMagicDiaryPlugin(options: MagicDiaryOptions) {
     view(editorView) {
       view = editorView;
       window.addEventListener(WALKER_ARRIVED_EVENT, onArrived);
+      window.addEventListener(MAGIC_DIARY_EVENT, onDiaryEvent);
       const pane = editorView.dom.closest<HTMLElement>(".editor-scroll");
       const column = editorView.dom.closest<HTMLElement>(".editor-content");
       const paper = editorView.dom.closest<HTMLElement>(".milkdown");
@@ -723,6 +732,7 @@ export function createMagicDiaryPlugin(options: MagicDiaryOptions) {
           view?.dom.classList.remove("magic-diary-has-caret");
           paper?.style.removeProperty("--diary-fit");
           window.removeEventListener(WALKER_ARRIVED_EVENT, onArrived);
+          window.removeEventListener(MAGIC_DIARY_EVENT, onDiaryEvent);
           if (live) announce("leaving");
           stopRequest();
           widgets.clear();

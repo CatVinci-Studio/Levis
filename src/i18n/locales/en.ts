@@ -339,7 +339,7 @@ type /name in a conversation to use one.
   aiGrammarLabel: "Enable grammar check",
   aiDiaryLabel: "Magic Diary",
   aiDiaryHint:
-    "An easter egg. Turn it on and the other AI features stand down: press Enter at the end of a paragraph and the page takes the line, then answers it in another hand. The line is never deleted - it comes back when the answer fades. Escape cancels.",
+    "An easter egg that stands the other AI features down. Enter at the end of a paragraph sends it; the finished answer stays for 10 seconds, then fades so you can write again. Up/Down recalls earlier answers; Escape cancels. Your original text stays in the document.",
   aiAskLabel: `${AI_NAME} Chat`,
   aiAskToggleLabel: `Enable ${AI_NAME} chat`,
   accountLabelTemplate: "{name} Account",

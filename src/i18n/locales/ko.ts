@@ -334,7 +334,7 @@ ${AI_NAME}에게 주는 글쓰기 지침으로, 모든 문서에 적용됩니다
   aiGrammarLabel: "문법 검사 사용",
   aiDiaryLabel: "마법 일기",
   aiDiaryHint:
-    "이스트 에그입니다. 켜면 다른 AI 기능은 물러섭니다. 문단 끝에서 Enter를 누르면 그 한 줄이 종이에 스며들고, 다른 손으로 답이 돌아옵니다. 원문은 지워지지 않아요 — 답이 사라지면 다시 나타납니다. Esc로 취소할 수 있습니다.",
+    "다른 AI 기능 대신 사용하는 이스터 에그입니다. 문단 끝에서 Enter로 보내면 답이 다 쓰인 뒤 10초 동안 머물다가 사라지고 다시 입력할 수 있습니다. 위아래 키로 이전 답을 보고 Esc로 취소합니다. 원문은 문서에 남습니다.",
   aiAskLabel: `${AI_NAME} 채팅`,
   aiAskToggleLabel: `${AI_NAME} 채팅 사용`,
   accountLabelTemplate: "{name} 계정",

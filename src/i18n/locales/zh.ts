@@ -321,7 +321,7 @@ export default {
   aiGrammarLabel: "开启语法检查",
   aiDiaryLabel: "魔法日记",
   aiDiaryHint:
-    "一个彩蛋。开启后其他 AI 功能会让位：在段落末尾按回车，这一行会被纸页收走，随后由另一种笔迹回应。原句不会被删除——回复消散时它就回来了。按 Esc 可取消。",
+    "一个彩蛋，开启后其他 AI 功能会让位。段落末尾按回车发送，回答写完停留 10 秒后消散，随后继续输入。上下键回看先前回答，Esc 取消。原文始终保留在文档中。",
   aiAskLabel: `${AI_NAME} 对话`,
   aiAskToggleLabel: `开启 ${AI_NAME} 对话`,
   accountLabelTemplate: "{name} 账户",

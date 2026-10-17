@@ -355,7 +355,7 @@ para usar una.
   aiGrammarLabel: "Activar revisión gramatical",
   aiDiaryLabel: "Diario mágico",
   aiDiaryHint:
-    "Un huevo de pascua. Al activarlo, el resto de funciones de IA se retiran: pulsa Intro al final de un párrafo y la página se queda con la línea, y luego responde con otra letra. La línea nunca se borra: vuelve cuando la respuesta se desvanece. Escape cancela.",
+    "Un huevo de pascua que da paso a este diario en lugar de las otras funciones de IA. Intro al final del párrafo lo envía; la respuesta terminada permanece 10 segundos y se desvanece para volver a escribir. Arriba/Abajo muestra respuestas anteriores; Escape cancela. El texto original permanece en el documento.",
   aiAskLabel: `Chat de ${AI_NAME}`,
   aiAskToggleLabel: `Activar el chat de ${AI_NAME}`,
   accountLabelTemplate: "Cuenta de {name}",

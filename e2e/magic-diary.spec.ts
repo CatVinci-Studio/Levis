@@ -246,6 +246,54 @@ test("undo during absorption never leaves the input locked", async ({
   await send(page, "重新开始");
 });
 
+test("undoing only submission restores a separately typed prompt", async ({
+  page,
+}) => {
+  await setup(page);
+  await pasteMarkdown(page, "保留这句话");
+  await page.clock.runFor(750);
+  await editor(page).press("End");
+  await editor(page).press("Enter");
+  await editor(page).press("ControlOrMeta+z");
+  await expect(editor(page)).toHaveAttribute("aria-busy", "false");
+  await expect(editor(page)).toContainText("保留这句话");
+  await editor(page).press("Enter");
+  await reachInk(page);
+  await expect(page.locator(".magic-diary-reply-settled")).toBeVisible();
+});
+
+test("a new tab's submission releases the displaced pending turn", async ({
+  page,
+}) => {
+  await setup(page);
+  await pasteMarkdown(page, "第一页的问题");
+  await editor(page).press("End");
+  await editor(page).press("Enter");
+  await page.clock.resume();
+  await page.evaluate(() => {
+    (
+      window as unknown as { __devEmitTauriEvent: (name: string) => void }
+    ).__devEmitTauriEvent("menu-new-file");
+  });
+  await expect(page.locator(".tab-pill")).toHaveCount(2);
+  await pasteMarkdown(page, "第二页的问题");
+  await editor(page).press("End");
+  await editor(page).press("Enter");
+  await reachInk(page);
+  await expect(
+    editor(page).locator(".magic-diary-reply-settled"),
+  ).toBeVisible();
+  await page.clock.resume();
+  await page.locator(".tab-bar > [data-flip-id]").first().click();
+  await expect(editor(page)).toHaveAttribute("aria-busy", "false");
+  await expect(editor(page)).toContainText("第一页的问题");
+  await editor(page).press("Enter");
+  await reachInk(page);
+  await expect(
+    editor(page).locator(".magic-diary-reply-settled"),
+  ).toBeVisible();
+});
+
 test("a ready model answer waits for the slower walker to arrive", async ({
   page,
 }) => {

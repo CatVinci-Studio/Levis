@@ -321,7 +321,7 @@ export default {
   aiGrammarLabel: "啟用文法檢查",
   aiDiaryLabel: "魔法日記",
   aiDiaryHint:
-    "一個彩蛋。開啟後其他 AI 功能會讓位：在段落末尾按 Enter，這一行會被紙頁收走，隨後由另一種筆跡回應。原句不會被刪除——回覆消散時它就回來了。按 Esc 可取消。",
+    "一個彩蛋，開啟後其他 AI 功能會讓位。段落末尾按 Enter 傳送，回答寫完停留 10 秒後消散，隨後繼續輸入。上下鍵回看先前回答，Esc 取消。原文始終保留在文件中。",
   aiAskLabel: `${AI_NAME} 對話`,
   aiAskToggleLabel: `啟用 ${AI_NAME} 對話`,
   accountLabelTemplate: "{name} 帳號",

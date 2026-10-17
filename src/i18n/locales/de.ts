@@ -342,7 +342,7 @@ Skills liegen im Ordner skills/ neben dieser Datei, je Skill eine
   aiGrammarLabel: "Grammatikprüfung aktivieren",
   aiDiaryLabel: "Magisches Tagebuch",
   aiDiaryHint:
-    "Ein Easter Egg. Eingeschaltet treten die übrigen KI-Funktionen zurück: Am Ende eines Absatzes die Eingabetaste drücken, und die Seite nimmt sich die Zeile und antwortet mit einer anderen Hand. Die Zeile wird nie gelöscht – sie kehrt zurück, wenn die Antwort verblasst. Escape bricht ab.",
+    "Ein Easter Egg, bei dem die anderen KI-Funktionen pausieren. Eingabe am Absatzende sendet den Text; die fertige Antwort bleibt 10 Sekunden, verblasst dann und gibt die Eingabe frei. Hoch/Runter zeigt frühere Antworten, Escape bricht ab. Der Originaltext bleibt im Dokument.",
   aiAskLabel: `Chat mit ${AI_NAME}`,
   aiAskToggleLabel: `Chat mit ${AI_NAME} aktivieren`,
   accountLabelTemplate: "{name}-Konto",

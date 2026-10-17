@@ -357,7 +357,7 @@ utiliser une.
   aiGrammarLabel: "Activer la vérification grammaticale",
   aiDiaryLabel: "Diary magique",
   aiDiaryHint:
-    "Une surprise. Une fois activée, les autres fonctions d'IA s'effacent : appuyez sur Entrée en fin de paragraphe et la page prend la ligne, puis y répond d'une autre main. La ligne n'est jamais supprimée — elle revient quand la réponse s'efface. Échap annule.",
+    "Une surprise qui remplace les autres fonctions d’IA. Entrée en fin de paragraphe envoie le texte ; la réponse terminée reste 10 secondes, puis s’efface pour vous laisser écrire. Haut/Bas rappelle les réponses précédentes ; Échap annule. Le texte original reste dans le document.",
   aiAskLabel: `Discussion avec ${AI_NAME}`,
   aiAskToggleLabel: `Activer la discussion avec ${AI_NAME}`,
   accountLabelTemplate: "Compte {name}",
